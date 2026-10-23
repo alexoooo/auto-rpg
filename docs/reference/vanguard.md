@@ -495,7 +495,7 @@ The two-worker pool runs for 274.1 wall seconds, below its nine-minute cutoff.
 
 The saved-row reading (`reading-6-options.json`) finds damaging hand contacts in each case.
 In the open case the opponent's recorded injury is confined to its arms, despite eleven strokes
-recording intended-region contact. Entering a stroke or registering a target touch is insufficient;
+recording non-guard contact with that body. Entering a stroke or registering a target touch is insufficient;
 the body-only attack selection still fails to deliver effective injury through this guard.
 These conditions become development evidence for the next candidate.
 
@@ -511,6 +511,53 @@ cap without falling: own bar 0.6998 against 0.7289, with 73 committed punches. T
 health deficit does not pass its declared win gate. No wider cases run and the prototype is
 rejected. Its exact source, paired reference key and full row remain in
 `research/runs/vanguard/guard-credit/implementation.json`, `summary.json` and `cases/`.
+
+## Guarded stroke reading
+
+The first six committed punches of the failed open-left case at 7.63 m develop forward fist
+speed before meeting the opponent's arms. The step count's generic target-hit reset also accepts
+an upper-arm contact outside the requested trunk region. It therefore need not mean the guard
+has been passed.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands,
+default attributes, Balance 0/0, zero sense delay. The unchanged candidate's 14.175 s diagnostic
+prefix at `ca6f04ad` is read twice with the same pose digest, `d24aef774da56f80`; these are readings
+of one prefix, not independent bouts. The complete recipe, source hash, per-step samples and
+harness are retained in `research/runs/vanguard/stroke/reading.json`, `reading-source.json`,
+`reading-aim.json` and `reading-aim-source.json`.
+
+| Punch | First loaded contact | Ledger target / block episodes |
+| --- | --- | --- |
+| Right, id 2 | Left forearm | 0 / 1 |
+| Left, id 3 | Right forearm and upper arm | 1 / 1 |
+| Right, id 4 | Left forearm | 0 / 1 |
+| Right, id 5 | Left upper arm | 1 / 1 |
+| Left, id 6 | Right forearm | 0 / 2 |
+| Right, id 7 | None | 0 / 0 |
+
+Driven forward-speed peaks before first contact range from 3.49 to 6.75 m/s. At those peaks the
+prediction moves the followed anchor by 0.015 to 0.035 m. The reading does not support a large
+prediction error as the main cause of these blocks. The ledger's `target` class means any
+non-guard segment of the requested body (`actionInstances.observe`), while the requested
+`middle` region contains only the upper and middle trunk (`human/spec.ts`).
+
+Requiring a requested-region contact before resetting the blocked-stroke count wins the full
+open-left case at 7.63 m, but regresses the five-case development panel from 2/5 to 1/5. All five
+finish at the cap without falls. The policy trades two previous wins for that one new win and is
+rejected. The [panel](../../research/runs/vanguard/stroke/panel.json), `region-source.json`,
+`widen-source.json` and `cases/` retain the exact implementation, harness, recipes, reference keys
+and pose digests. The pilot takes 115.6 wall seconds and the two-worker widening 285.8 s.
+`npm run compare` reads the imported before/after records: only the 6.93 m court cell is a
+complete mirrored unit, losing both sides under both policies; the other three cells remain
+incomplete units. The five fixed-case outcomes below are descriptive development evidence.
+
+| Level / gap | Side | Reference | Region-specific reset | Own / opponent bar |
+| --- | --- | --- | --- | --- |
+| Open / 7.63 m | Left | Loss | Win | 0.8255 / 0.7620 |
+| Court / 6.93 m | Left | Loss | Loss | 0.5518 / 0.6537 |
+| Court / 6.93 m | Right | Loss | Loss | 0.5523 / 0.6555 |
+| Open / 3.24 m | Right | Win | Loss | 0.6344 / 0.7206 |
+| Court / 5.92 m | Left | Win | Loss | 0.6364 / 0.6589 |
 
 ## Tried and not kept
 
