@@ -2,15 +2,11 @@
 
 Vanguard remains unqualified against the requested field. Its explicit calibrated presets combine
 committed point prediction, contact-driven attack/evasion choice and editable motor settings.
-The Skeleton refreshes its opening through preparation and pins it at commitment;
-this improves its four-case Options development panel from 0/4 to 2/4. The presets retain
-the selected development configurations for the Warrior, Rogue and Skeleton. The preparation-aim
-preset at `d68ad7e7` fails its fresh Options campaign with one win and three losses in four
-completed cases. The four earlier qualification campaigns also fail. Equipment is unqualified.
-On the locomotion at `3319b5ae`, the four retained Skeleton development cases yield one win
-and three losses, without falls. Closing after misses, body-aware evasion and two broader
-attack selectors do not produce a replacement that passes their development decision rules
-([resume panel](#resume-panel)).
+The Skeleton also learns each hand's contact score per attempted second. This improves the
+four-case Options development panel on the current locomotion from 1/4 to 2/4, without falls;
+both wins are health leads at the cap ([contact exchanges](#contact-exchanges)). The presets retain
+the selected development configurations for the Warrior, Rogue and Skeleton. All five fresh
+qualification campaigns preceding contact selection fail. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -442,6 +438,33 @@ hypothesis is rejected. These are two readings of the same deterministic prefix,
 | A centred one-drive combination with Vanguard's retained motor settings and point tracking | Loses that right open case at the cap, without falling. Rejected. |
 | The stock straight-punch motor settings with Vanguard's point tracking | Loses that right open case by fatal injury at 69.5167 s despite a bar lead, 0.4973 against 0.4476. Its head-targeting variant loses by fatal injury at 63.5667 s. Neither falls; both are rejected. |
 | Independently replacing reach, penetration, lean or hip turn with its stock value | All four lose that right open case: reach by fatal injury at 62 s, penetration at 117.3083 s, hip turn at 94.4083 s, and lean at the cap. None falls. The four-worker screen completes in 135.3 wall seconds and has no winner to widen. |
+
+## Contact exchanges
+
+The Skeleton selects its own `vanguard-exchange` planner under the existing planner layers.
+It ranks action, hand and target choices by observed contact score per attempted second,
+samples untried choices and revisits the least sampled choice every four completed attempts.
+The score is contact impulse times preceding relative normal speed, including guarded contacts;
+it is a sensed-contact heuristic, not wound damage or measured work. Cancelled attempts consume
+time too. Each policy credits only actions it admitted, and reads each completed physics step
+once. Its plain decision state forks and its shared inspection details show the per-hand rates.
+
+The [development summary](../../research/runs/vanguard/exchange/summary.json) retains the paired
+reference, complete recipes, source hashes, case keys and pose digests. Full rows, prototype and
+selected sources and the harness remain beside it. Harness: Node Arena Duel, vendored
+`rapier-coordinate`, 120 Hz, matched Skeletons, empty hands, Balance 0/0, zero sense delay,
+falls continuing to injury or the ordinary 120 s cap. The reference is the
+[resume panel](#resume-panel), with the stance at `3319b5ae`.
+
+| Level / gap | Side | Reference | Contact selection | Candidate falls |
+| --- | --- | --- | --- | ---: |
+| Open / 3.24 m | Left | Fatal-injury loss | Time-limit loss | 0 |
+| Open / 3.24 m | Right | Fatal-injury loss | Time-limit win | 0 |
+| Court / 5.92 m | Left | Time-limit loss | Time-limit win | 0 |
+| Court / 5.92 m | Right | Time-limit win | Time-limit loss | 0 |
+
+The net gain selects the planner for the Skeleton. It still loses two of four, with no injury
+wins, and these reused development geometries do not qualify it. Fresh confirmation is pending.
 
 ## Tried and not kept
 

@@ -456,7 +456,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, committed predicting punch and configurable conservative stance walk; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
+| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch and configurable conservative stance walk; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
@@ -659,7 +659,8 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
 5. A part of its own, of any role (any slot's, an action's aim, the quadruped's motor,
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
-   `vanguard-punch`, planner, `vanguard-plan`, and walk, `vanguard-walk`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
+   `vanguard-punch`, layered planner, `vanguard-plan`, contact selector, `vanguard-exchange`, and walk,
+   `vanguard-walk`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter, an
    options fighter and a quadruped) and holds a stub of each role to it: chosen by config, run,

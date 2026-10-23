@@ -46,9 +46,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** Vanguard's unarmed fighter; its retained Skeleton development panel on the current
-   locomotion wins one of four Options cases, without falls. Facing, counter timing, centring and
-   stock motor calibrations do not improve it ([record](reference/vanguard.md#commitment-facing)). Its explicit presets
+1. **Now:** Vanguard's unarmed fighter; per-hand contact selection improves its retained Skeleton
+   development panel from one to two of four Options wins, without falls; fresh confirmation is
+   pending ([record](reference/vanguard.md#contact-exchanges)). Its explicit presets
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
    visible in Arena and Lab. The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
@@ -218,9 +218,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
-  empty-handed first, then equipped, on held-out cases. Its Skeleton preparation-aim calibration fails
-  the fifth fresh unarmed campaign; its resume panel on the current locomotion still fails
-  ([record](reference/vanguard.md#resume-panel), [plan](plans/2026-10-21-vanguard.md)).
+  empty-handed first, then equipped, on held-out cases. Five fresh unarmed campaigns fail; the
+  Skeleton's selected contact planner improves development results to 2/4 and awaits fresh confirmation
+  ([record](reference/vanguard.md#contact-exchanges), [plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read
