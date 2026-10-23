@@ -3,6 +3,8 @@ import { actionConfigFaults, armedActions } from "./action-config.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, SCRAPPER, type FighterConfig } from "./config.ts";
 import { controller } from "./controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
+import { GAME_MOTOR } from "./kit.ts";
+import { GAME_NAVIGATION } from "./navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "./parts.ts";
 
 /**
@@ -11,10 +13,10 @@ import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "./parts.ts
  * control under its skills.
  */
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
+  slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
   slotList("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
-  slotList("subs", "When down", "sub-mind"), slotOne("motor", "Motor control", "motor", true, "Whole-body solve"),
+  slotList("subs", "When down", "sub-mind"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
 ]);
 
 /** **The fighter** (`createFighter`): tactics over skills of each role, built from its slots. */

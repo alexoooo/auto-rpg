@@ -4,6 +4,8 @@ import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
 import { number } from "../../mind/fields.ts";
+import { GAME_MOTOR } from "../../mind/kit.ts";
+import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type Slot } from "../../mind/parts.ts";
@@ -76,10 +78,10 @@ function tempoFaults(config: TempoConfig, parts: PartLookup): readonly string[] 
 
 /** Its slots: a skill of each role, as the options fighter's, its reflexes and its sub-minds. */
 const SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
+  slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"), slotList("subs", "When down", "sub-mind"),
-  slotOne("motor", "Motor control", "motor", true, "Whole-body solve"),
+  slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
 ]);
 
 /** **A tempo fighter**: its body and sub-minds (`fighterBody`), driven by its rhythm (`tempoTactics`) over its skills, its blows those its body throws as armed (`armedActions`). */

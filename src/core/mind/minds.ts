@@ -9,7 +9,7 @@ import type { MindConfig } from "./config.ts";
 import type { Engagement, Tactics } from "./tactics.ts";
 import type { NavigationReport } from "./navigator.ts";
 import type { GaitLimits } from "./travel.ts";
-import { partLookup, treeFaults } from "./catalog.ts";
+import { partLookup, treeFaults, treeLookup } from "./catalog.ts";
 import { controllerOf } from "./controllers.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
 import type { Orders } from "./orders.ts";
@@ -81,14 +81,15 @@ export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, 
 
 /**
  * `built` under the mind `config` names, wired to its fight, made by its controller
- * (`CONTROLLERS`) through a host of the body (`bodyHost`); a config with a fault anywhere in its
+ * (`CONTROLLERS`) through a host of the body (`bodyHost`) that finds only the parts its tree names
+ * (`treeLookup`); a config with a fault anywhere in its
  * tree (`treeFaults`, with the script if the wiring gives one) is refused. Given a `log`, its order
  * sheets are written in it (`SheetLog`).
  */
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
-  const { host, made } = bodyHost(built, world, wiring, partLookup, log);
+  const { host, made } = bodyHost(built, world, wiring, treeLookup(config), log);
   const mind = controllerOf(config).create(host, config, wiring), report = mind.report ?? (mind.skills ? skillsReport(mind.skills) : undefined);
   return { ...mind, ...(report ? { report } : {}), kind: config.kind, body: made() };
 }

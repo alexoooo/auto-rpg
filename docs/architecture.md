@@ -412,7 +412,8 @@ fight reads. A fight passes the config through and reads nothing in it.
 
 - The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
   body's description, the clock (`Clock`), the parts its config may name (`PartLookup`, `lookup.ts`,
-  the registry's `partLookup`), which it hands every assembly that builds a part,
+  `treeLookup`: the registry's `partLookup`, refusing a part the config's tree does not name), which
+  it hands every assembly that builds a part,
   and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
   actions). The command layers are the humanoid's: their view's fists, head and stance
@@ -845,7 +846,8 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   build's identity and the mind data store (`CUTS`); then the kind of world the case plays adds its
   builder's own code (its module's closure beyond the environment), each kind of mind it plays its
   own (likewise, and `assets/entrants/<kind>/`), each part a role's list holds that its minds'
-  trees name (`treeKinds`) or its world kind names beside them (`WorldKind.parts`: Commanders, end rules) its module's, and each mind data key its minds read (`treeData`) its
+  trees name (`treeKinds`: the parts their slots hold, an empty slot's `Slot.fallback` and what a
+  part runs beside its slots, `Part.uses`) or its world kind names beside them (`WorldKind.parts`: Commanders, end rules) its module's, and each mind data key its minds read (`treeData`) its
   module's. So
   a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
   kinds list of more than its imports and its list, and a module in a closure that imports by no
