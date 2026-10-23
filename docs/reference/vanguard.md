@@ -499,6 +499,13 @@ recording intended-region contact. Entering a stroke or registering a target tou
 the body-only attack selection still fails to deliver effective injury through this guard.
 These conditions become development evidence for the next candidate.
 
+Adding a separately named head-punch choice to the contact selector still loses the full open-left
+case at 7.63 m at the cap, without falling: own bar 0.5962 against 0.7677, with 80 committed
+punches. The new action is sampled but produces no recorded head injury. The declared loss gate
+rejects it without wider cases. The full recipe, source and paired reference key remain in
+`research/runs/vanguard/targets/summary.json`, `head-choice-source.json` and `cases/`. This uses
+the same Node harness, physics and rules as the campaign; it is development evidence.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
