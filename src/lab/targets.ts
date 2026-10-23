@@ -10,14 +10,14 @@ import { recipeFor, REPERTOIRE, type Band } from "../core/skills/strikes.ts";
 import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
-import { SEGMENT_DENSITY, type DensitySegment } from "../core/human/tables/densities.ts";
 import type { Side, BodySpec, ShapeSpec } from "../core/spec/body.ts";
-import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
-import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
+import type { Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
 import { mulberry32 } from "../rng.ts";
 import type { Actor } from "./actor.ts";
+import { dummySpec } from "./dummy-spec.ts";
+export { dummySpec } from "./dummy-spec.ts";
 
 /**
  * **The lab's targets**: bodies hung in the air and struck under the rule a fight wounds by
@@ -69,48 +69,6 @@ export function drawTargets(seed: number, count: number, frame: { readonly place
     targets.push({ at: [place[0] + along * fx + across * fz, up, place[2] + along * fz - across * fx], stratum });
   }
   return targets;
-}
-
-/** The part a dummy is made of unless another is named. */
-const DUMMY_PART = "head";
-
-/**
- * **A target's body**: one ball, the mass and the surface of the attacker's `part`, made of what
- * the attacker is, named for the part, with the attacker's hit points in it and never coming off.
- * A ball of a part that is itself a ball or a capsule has its radius; of any other part, the
- * radius of a ball that holds its mass at its density (`SEGMENT_DENSITY`, by the part's name
- * before its side). Every number is the attacker's own, by a rule that names it. Its frame's
- * origin is the ball's centre, so its node is where it is.
- */
-export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySpec {
-  const made = attacker.segments.find((segment) => segment.name === part);
-  if (!made) throw new Error(`${attacker.model} has no ${part} a ball is made of`);
-  const mass = derive("kg", `the attacker's ${part}'s mass`, [made.mass], (m) => m);
-  const radius = ((): Quantity<number> => {
-    if (made.shape.kind === "capsule" || made.shape.kind === "sphere") return derive("m", `the attacker's ${part}'s ${made.shape.kind}'s radius`, [made.shape.radius], (r) => r);
-    const kind = part.split(".")[0]!, density = Object.hasOwn(SEGMENT_DENSITY, kind) ? SEGMENT_DENSITY[kind as DensitySegment] : null;
-    if (!density) throw new Error(`${attacker.model}'s ${part} has no radius and no density a ball is made by`);
-    return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
-  })();
-  const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
-  if (attacker.down.kind === "low") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
-  return {
-    model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
-    stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
-    segments: [{
-      name: part, proximal: centre, mass, centreOfMass: centre,
-      distal: derive("m", "the ball's top, its radius over its centre", [radius], (r): Vec3 => [0, r, 0]),
-      inertia: derive("kg m2", "a solid ball's moment about each axis", [mass, radius], (m, r): Vec3 => [ballMoment(m, r), ballMoment(m, r), ballMoment(m, r)]),
-      shape: { kind: "sphere", centre, radius },
-      surface: { stiffness: derive("N/m", `the attacker's ${part}'s surface`, [made.surface.stiffness], (k) => k) },
-    }],
-    joints: [],
-    wounds: { hp: derive("HP", "the attacker's hit points", [attacker.wounds.hp], (hp) => hp), vital: [], whole: [part] },
-    attributes: { balance: derive("%", "the attacker's balance", [attacker.attributes.balance], (percent) => percent),
-      haste: derive("%", "the attacker's haste", [attacker.attributes.haste], (percent) => percent) },
-    down: { kind: "asked", fallen: derive("m", "the attacker's fall bar", [attacker.down.fallen], (fallen) => fallen) },
-    marks: { high: part, middle: [], base: part, legs: [], guards: [] },
-  };
 }
 
 /** A dummy's one segment's name and its ball, from its spec. */

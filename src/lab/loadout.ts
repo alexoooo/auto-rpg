@@ -3,7 +3,7 @@ import { resolveCharacter } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { withLoadout, HELD, heldItem, type Held } from "../core/items/held.ts";
 import { FIST, heldIn } from "../core/skills/strikes.ts";
-import type { BodySpec } from "../core/spec/body.ts";
+import type { BodySpec, Side } from "../core/spec/body.ts";
 import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
 
 /**
@@ -49,3 +49,7 @@ export function allowing(barred: readonly Held[]): (held: string) => boolean {
   const names = barred.map(heldName);
   return (held) => !names.includes(held);
 }
+
+/** A permitted hand, or an effector outside the Lab's hand-strike switches. */
+export const strikeAllowed = (effector: string, strikes: Readonly<Record<Side, boolean>>): boolean =>
+  effector === "hand.left" ? strikes.left : effector === "hand.right" ? strikes.right : true;

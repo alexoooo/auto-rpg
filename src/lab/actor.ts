@@ -13,6 +13,7 @@ import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
 import { LAB_PRESETS } from "./scenarios.ts";
+import { strikeAllowed } from "./loadout.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
 type Watch = (sight: Sight, dt: number) => void;
@@ -85,7 +86,7 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
   return deciding(tactics, (sight, dt) => {
     const intent = tactics.decide(sight, dt), { guard, actions } = intent;
     return { ...intent, guard: { "hand.left": strikes.left ? guard["hand.left"] ?? null : null, "hand.right": strikes.right ? guard["hand.right"] ?? null : null },
-      actions: actions.filter(action => action.effector !== "hand.left" || strikes.left).filter(action => action.effector !== "hand.right" || strikes.right) };
+      actions: actions.filter(action => strikeAllowed(action.effector, strikes)) };
   });
 }
 

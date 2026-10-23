@@ -9,6 +9,7 @@ import { isBody } from "../core/read-body.ts";
 import type { Actor } from "./actor.ts";
 import { dummySpec, hangDummy, type Dummy } from "./targets.ts";
 import { startWind, type WindSettings } from "./wind.ts";
+import { dummyPart } from "./dummy-spec.ts";
 
 /** Seconds an impacted target stays physical and visible before replacement. */
 const FADE_SECONDS = 0.6;
@@ -26,6 +27,7 @@ interface TargetState {
 interface AttackOptions {
   readonly seed: number;
   readonly count: number;
+  readonly targetPart?: string;
   readonly speed?: number;
   readonly wind?: WindSettings;
   readonly hears?: (built: BuiltBody) => { dispose(): void };
@@ -38,7 +40,7 @@ interface AttackOptions {
  */
 export function startAttack(actor: Actor, options: AttackOptions) {
   const { world, body } = actor, { built } = body;
-  const random = randomStream(options.seed), spec = dummySpec(built.spec), rules = rulebook("arena");
+  const random = randomStream(options.seed), spec = dummySpec(built.spec, dummyPart(built.spec, options.targetPart)), rules = rulebook("arena");
   const state = { random: random.state, targets: [] as TargetState[], selected: null as string | null, next: 0, hits: 0,
     speed: options.speed ?? 0, sequence: 0, totals: { committed: 0, landed: 0, blocked: 0, missed: 0, refused: 0, stalled: 0, interrupted: 0 } };
   const targets = new Map<string, { dummy: Dummy; sound?: { dispose(): void } }>();

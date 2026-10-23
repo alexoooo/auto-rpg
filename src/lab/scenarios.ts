@@ -2,7 +2,7 @@ import { VIEW_MODES, CAMERA_MODES, PROJECTIONS, type ViewSettings } from "../ren
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
+import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
@@ -22,6 +22,7 @@ import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribu
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { loadoutAttributes } from "./loadout.ts";
 import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
+import { dummyPart } from "./dummy-spec.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -164,10 +165,12 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly hz: LabRate;
   /** Targets maintained in the Attack field, 0 to `LAB_TARGETS.most`. */
   readonly targets: number;
+  /** The anatomical part the Attack field's physical targets represent. */
+  readonly targetPart: string;
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -221,6 +224,7 @@ export function labAddress(search: string): LabAddress {
     camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
     projection: PROJECTIONS.find((p) => p === query.get("projection")) ?? PROJECTIONS[0],
     targets: whole(query.get("targets"), 0, LAB_TARGETS.most, LAB_TARGETS.count),
+    targetPart: dummyPart(modelSpec(model), query.get("targetPart")),
     // A seed is taken modulo 2^32 (`mulberry32`), so any whole number under it names one stream.
     seed: whole(query.get("seed"), 0, 4294967295, LAB_TARGETS.seed),
   };
@@ -262,6 +266,8 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("camera", address.camera);
   query.set("projection", address.projection);
   if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
+  const spec = modelSpec(address.model), part = dummyPart(spec, address.targetPart);
+  if (part !== spec.marks.high) query.set("targetPart", part);
   if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
 }

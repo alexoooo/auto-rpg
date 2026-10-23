@@ -1017,7 +1017,12 @@ may route through a door first (`door-approach.ts`). Sight is the map's (`canSee
 
 **The Lab.** Stance, Stand-up, Attack and Locomotion scenarios at 120 or 480 Hz.
 An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and strikes. Attack
-(`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`); Locomotion runs tracks
+(`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`). Its explicit target
+part travels in `targetPart` in the address; the default is the body's head. `dummy-spec.ts`
+constructs that part's ball and preserves its middle and leg membership. The setup's anatomical
+compatibility feedback (`attack-target.ts`) reads armed actions, their declared regions and barred
+effectors using the same region and permission rules as execution. It changes no mind settings
+and predicts no physical outcome. Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
 `ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);
 the falls (`src/evaluation/fall.ts`) play the same mode, through `npm run evaluate` and

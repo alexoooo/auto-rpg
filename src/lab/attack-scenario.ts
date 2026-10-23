@@ -45,7 +45,7 @@ export function attackScenario(scene: Scene): LabScenario {
     timelineLabel: `The last ${HISTORY_SECONDS} seconds; dragging pauses. Click a target to attack it.`,
     start({ actor, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
-      const attack = startAttack(actor, { seed: address.seed, count: address.targets, speed, wind, hears });
+      const attack = startAttack(actor, { seed: address.seed, count: address.targets, targetPart: address.targetPart, speed, wind, hears });
       current = attack;
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
       const hands = fighterHands({ minded: { body: actor.body } });
