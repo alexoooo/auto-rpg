@@ -31,7 +31,7 @@ const { MINDS } = await import("../src/core/mind/controllers.ts");
 const { createBody } = await import("../src/core/body.ts");
 const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/core/mind/controllers.ts");
-const { RECIPE_FIGHTER } = await import("../src/core/mind/config.ts");
+const { RECIPE_FIGHTER, FIGHTING } = await import("../src/core/mind/config.ts");
 const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
@@ -236,7 +236,7 @@ test("nested planner structure faults reach links without invoking unsafe ancest
 });
 
 test("structurally valid nested planners retain ancestor and child semantic faults in order", () => {
-  const base = MINDS["vanguard-skeleton"].config, plan = base.tactics.plan;
+  const base = MINDS["vanguard-skeleton"].config, plan = FIGHTING;
   const wrap = plan => ({ kind: "vanguard-plan", revisitEvade: true, plan });
   const tactics = wrap(wrap({ ...plan, choose: { ...plan.choose, rethink: -1 } }));
   assert.deepEqual(treeFaults({ ...base, tactics }), [
