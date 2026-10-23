@@ -36,6 +36,14 @@ export const ROUND_FALLS = 16;
  * feet, the next does; and how long after a shove a body not taken over is counted as not felled.
  */
 const ROUND_FIRST = 1, ROUND_REST = 1, ROUND_UNFELLED = 3;
+/**
+ * A shoved start's shove, given at 1 s, is given again the same way `again` s after the last while
+ * the body holds it, at most `most` shoves in all: the target's falls are falls, and a body whose
+ * stance holds one shove has no stand-up to read.
+ */
+const SHOVED = { first: 1, again: 1.5, most: 3 } as const;
+/** When a shoved start's body not taken over is counted as not felled, s: `ROUND_UNFELLED` after its last shove. */
+export const SHOVED_UNFELLED = SHOVED.first + SHOVED.again * (SHOVED.most - 1) + ROUND_UNFELLED;
 /** How long a round waits after a verdict for a body still down to get up, s, before it ends there. */
 const ROUND_DOWN = STAND_CHECK.cap;
 
@@ -128,11 +136,13 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
   const round = address.ground.start === "round";
   const state = { status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
-    falls: [] as RoundFall[], next: round ? ROUND_FIRST : null as number | null, shovedAt: null as number | null, verdictAt: 0 };
+    falls: [] as RoundFall[], next: round ? ROUND_FIRST : null as number | null, shovedAt: null as number | null, verdictAt: 0, shoves: 0 };
   const roundImpulse = targetImpulse(body.built);
   const disturbance = world.afterStep(() => {
-    if (address.ground.start === "shoved" && !state.shoved && world.time >= 1) {
-      shoving.shove(shove.impulse, shove.degrees); state.shoved = true;
+    if (address.ground.start !== "shoved") return;
+    const held = state.shoved && check.state.takeover === null && !body.view.down && state.shoves < SHOVED.most && world.time - state.shovedAt! >= SHOVED.again;
+    if (!state.shoved && world.time >= SHOVED.first || held) {
+      shoving.shove(shove.impulse, shove.degrees); state.shoved = true; state.shovedAt = world.time; state.shoves++;
     }
   });
   const reading = world.afterStep(() => {

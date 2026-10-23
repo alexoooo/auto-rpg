@@ -26,7 +26,7 @@ import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { labActor, type Actor } from "../lab/actor.ts";
 import { groundPlacement } from "../lab/ground-starts.ts";
-import { groundShove, startGround, targetImpulse } from "../lab/ground-mode.ts";
+import { groundShove, SHOVED_UNFELLED, startGround, targetImpulse } from "../lab/ground-mode.ts";
 import type { GroundLevel } from "../lab/ground-environment.ts";
 import { loadoutSpec } from "../lab/loadout.ts";
 import { labAddress, type LabAddress } from "../lab/scenarios.ts";
@@ -155,11 +155,11 @@ export async function buildFall(fall: FallCase, engine: EngineName, given: {
     afterStep() {
       if (verifying) {
         if (run.check.done()) { stood = check.stage === "stood"; ended = true; }
-        else if (check.takeover === null && world.time >= 4) ended = true;
+        else if (check.takeover === null && world.time >= SHOVED_UNFELLED) ended = true;
       } else if (run.meter.state.handback !== null) { stood = true; ended = true; }
       else if (run.state.status !== "running"
         || run.meter.state.from !== null && world.time - run.meter.state.from >= cap
-        || run.meter.state.from === null && world.time >= 4) ended = true;
+        || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) ended = true;
       if (world.time >= cap + FALL_AFTER) ended = true;
     },
     reading() {

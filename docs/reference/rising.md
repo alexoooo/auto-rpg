@@ -39,7 +39,9 @@ npm run evaluate -- rising-target [riser ...]
 ```
 
 - **The falls**: the Warrior and the Rogue, empty-handed and with the club, each shoved sixteen
-  ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`); Node stand,
+  ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`), a shove the
+  body holds given again the same way 1.5 s later, at most three (`SHOVED`): the Warrior's braced
+  stance holds 6 of its 16 club shoves and 1 empty-handed, and a fall not made is no stand-up; Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
   one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
@@ -686,22 +688,22 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`node research/rising-bed.mjs --target --techniques step-up`):
+`npm run evaluate -- rising-target`, at `7f893332` with the held shove given again):
 
-| Body | Loadout | Stood, of 16 | Median, s | At `627ecc3a`, the legs before the run's |
-|---|---|---:|---:|---:|
-| Warrior | empty | 11 | 13.3 | 16 |
-| Warrior | club | 14 | 14.9 | 14 |
-| Rogue | empty | 9 | 26.3 | 10 |
-| Rogue | club | 6 | the cap | 5 |
+| Body | Loadout | Stood, of 16 | Median, s |
+|---|---|---:|---:|
+| Warrior | empty | 14 | 15.6 |
+| Warrior | club | 15 | 14.9 |
+| Rogue | empty | 12 | 16.6 |
+| Rogue | club | 4 | the cap |
 
-40 of 64, against 45 on the earlier legs; none within 6 s, and the 4 s median is not met.
+45 of 64; none within 6 s, and the 4 s median is not met (16.2 s).
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
-  and the run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of
-  its 300 trials.
-- **The time is the route's, not the muscles'**: brace about 0.7 s, settle 0.7, roll 2.7, rise 9,
-  steady 1.4, then verification. Searched at twice the Warrior's strength, or 1.5 times the
+  and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the
+  gait battery falls in 249 of its 300 trials.
+- **The time is the route's, not the muscles'**: the median of the stood falls' phases is brace
+  0.7 s, settle 0.3, roll 4.0, rise 7.6, steady 0.9, then verification 1.8. Searched at twice the Warrior's strength, or 1.5 times the
   Rogue's, the route stood as often and no faster, so a joint-torque surge (Grit) cannot shorten
   it: its stages wait on balance.
 - On 52 shoves that felled the skeleton (of 96), step-up stands 9; its roll from back to front is
