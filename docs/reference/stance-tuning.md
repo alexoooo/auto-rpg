@@ -2,9 +2,10 @@
 
 The sweeps behind the stance controller's constants in `src/core/control/stance-tuning.ts`
 (`STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SPARE`, `STANCE_RECOVERY`, `STANCE_GAIT`,
-`STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, `ANKLE_HOLD`, `StanceTuning.heelOff`), the bearing
-solve's bounded free limb (`boundFree`, `src/core/control/bearing.ts`) and the ground wrench's
-lever (`leverOf`, `src/core/control/stance.ts`). Each constant's comment links its section.
+`STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, `StanceTuning.heelOff`), the ankle's hold
+(`ankleStrength`, `src/core/control/support.ts`), the bearing solve's bounded free limb
+(`boundFree`, `src/core/control/bearing.ts`) and the ground wrench's lever (`leverOf`,
+`src/core/control/stance.ts`). Each constant's comment links its section.
 
 ## Measurement
 
@@ -517,25 +518,47 @@ edges toward its ankle, bounded further by what the ankle holds ([Ankle hold](#a
 
 ## Ankle hold
 
-`ANKLE_HOLD`: the share of an ankle's isometric strength each way the stance counts on to hold the
-centre of pressure off the ankle. A bearing sole loads its ankle no more than that share that way
-(`BearingSole.hold`, `shareGroundWrench`), and the regions the stance plans in (`FootState.hold`,
-`heldBy`) reach from under the ankle as far as the share holds at the foot's load, within the sole
-drawn in by `SUPPORT_INSET`. Toward the toes the plantar flexors hold the whole sole, toward the heel
-the dorsiflexors a few centimetres (the Rogue's hold reads 208.8 N m toward the toes, 21.5 toward
-the heel, 17.1 to a side), so a body falling toward its heels steps rather than brakes standing.
+`ankleStrength` (`src/core/control/support.ts`): an ankle's hold each way is its muscles'
+isometric peak that way times their lengthening ceiling (`eccentricCeiling`, 1.4, Thelen 2003).
+A load that pushes the ankle off its place lengthens the muscles holding it, and they resist up to
+that. A bearing sole loads its ankle no more than the hold (`BearingSole.hold`,
+`shareGroundWrench`). The regions the stance plans in (`FootState.hold`, `heldBy`) reach from
+under the ankle as far as the hold carries at the foot's load, within the sole drawn in by
+`SUPPORT_INSET`. The Rogue's hold reads 365 N m toward the toes, 37.6 toward the heel and 29.9 to
+a side; the Warrior's 585, 60.2 and 47.9. At the whole weight both reach the drawn sole to a side,
+3.5 cm, where 0.8 of the isometric peak held the Rogue 3 cm.
 
-On the stop battery (96 trials, whole-body solve, `--batteries stop --speeds 0.7,1,1.2 --ways
-0,90,180,270 --solve --gusts 1:5:5`), regions as the ankles hold them against the bare soles drawn
-in by the inset:
+Shoved under orders (`--batteries orders --orders 0.5:1-200 --shoves 20`: the braced walk with the
+club, a shove of 20 N s at a third of its orders; Node stand, rapier-coordinate, 120 Hz, at
+`62c7a814`), falls of 200, the hold as a share of the isometric peak:
 
-                                  Rogue held   Warrior held
-        the ankles' hold, 0.8     34           42
-        the drawn soles           26           40
+| Hold | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
+|---|---:|---:|---:|---:|
+| 0.6 | 28 | | | |
+| 0.8 (a set share, before) | 19 | 10 | 0 | 1 |
+| 1.0 | 11 | | | |
+| 1.2 | 8 | | | |
+| the lengthening ceiling, 1.4 (kept) | 6 | 5 | 1 | 1 |
+| 1.5 | 5 | | | |
+| 2.0 | 7 | | | |
+| 0.8, to a side 1.2 | 7 | | | |
+| 0.8, to a side 1.4 | 5 | | | |
 
-Chosen: 0.8, leaving the rest for what the quasi-static reckoning leaves out; not swept. Read with
-the regions written for each row on a controller never committed, so the table reads again from no
-commit.
+Unshoved, seeds 1 to 300: the Rogue 0 against 0, the Warrior 0 against 2.
+
+What found it: the Rogue fell 19 where the Warrior, shoved to the same change of speed (27.4 N s:
+the Rogue is 57.6 kg, the Warrior 79), fell 4. With every torque 1.3 times its own (a physique's
+`strength`) the Rogue fell 9, with its mass 1.3 times 19, and with only one group's torque raised
+1.3 times: the hips 24, the knees 22, the ankle's flexion 19, its inversion and eversion 14. The
+stance counted on less of the side the ankle had than the ankle gives.
+
+Tried against the same falls and not kept (Rogue, seeds 1 to 200, 19 before): a walk's step moved
+out to its own side counted as out of the leg's reach, 19; a catch on both feet never lifting the
+only foot the ground presses, 93 (pushed toward one foot, the other goes light and must still
+bear the step out); no crossover catch, 20 (a crossover lands half its catches on a fall, but at
+the speed it is taken no other catch holds either); a catch's swing planned at 0.8 or 1 of the
+hip's torque, 21 and 18; the heading turned at the rate for the body's measured speed, 20; a
+swing's turn carried from where its foot leaves the ground, 21.
 
 ## Wrench lever
 

@@ -249,7 +249,7 @@ a stance goal) into muscle commands.
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
   give, plans each leg (`aimLimb`), publishes what the soles missed (`StanceReading.shortfall`),
-  limits each ankle's load (`ANKLE_HOLD`), places steps from the capture point (`catchStep`,
+  limits each ankle's load to what it holds lengthening (`ankleStrength`), places steps from the capture point (`catchStep`,
   `landingHeading`) and flies a step on request (`SwingGoal.flight`).
 - **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `strideEnvelope`, `simbiconEnvelope`,
   `simbiconRunEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held

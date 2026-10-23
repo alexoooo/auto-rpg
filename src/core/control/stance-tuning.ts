@@ -189,16 +189,6 @@ export const LEG_DAMPING = 0.02;
  */
 export const SUPPORT_INSET = 0.5;
 
-/**
- * The share of an ankle's isometric strength a stance counts on to hold the centre of pressure off
- * the ankle (`FootState.hold`): the region of a sole its ankle holds reaches from under the ankle
- * as far as that share of the strength toward each side over the body's weight, no further than
- * the sole. The rest is left for what the quasi-static reckoning leaves out: the ground's friction
- * at the ankle's height, the strength lost as the ankle moves, the foot's own inertia. Set, and
- * read against the drawn soles: `docs/reference/stance-tuning.md#ankle-hold`.
- */
-export const ANKLE_HOLD = 0.8;
-
 /** The stance's settings as it reads them: each one `StanceTuning`'s, or the constant it stands in for. */
 export interface ResolvedStance {
   readonly seconds: NonNullable<StanceTuning["seconds"]>;

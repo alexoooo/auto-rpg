@@ -9,11 +9,11 @@ import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
 import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { ANKLE_HOLD, SUPPORT_INSET } from "./stance-tuning.ts";
+import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import type { Side } from "../spec/body.ts";
+import type { MuscleSpec, Side } from "../spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
 
 /** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
@@ -92,10 +92,10 @@ export interface FootState {
   /** The sole's corners, in the segment's own frame. */
   readonly sole: readonly Vector3[];
   /**
-   * The most moment the ankle holds about itself each way, N m: `ANKLE_HOLD` of its isometric
-   * strength that way, the plantar flexors' toward the toes, the dorsiflexors' toward the heel, the
-   * lesser of the invertors' and the evertors' to a side; a way the ankle has no freedom named for
-   * is unbounded. What a bearing sole's wrench may load the ankle with (`BearingSole.hold`).
+   * The most moment the ankle holds about itself each way, N m: its strength that way as it
+   * lengthens (`ankleStrength`), the plantar flexors' toward the toes, the dorsiflexors' toward the
+   * heel, the lesser of the invertors' and the evertors' to a side; a way the ankle has no freedom
+   * named for is unbounded. What a bearing sole's wrench may load the ankle with (`BearingSole.hold`).
    */
   readonly ankleHold: AnkleHold;
   /**
@@ -198,6 +198,18 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
 }
 
 /**
+ * What an ankle's muscles toward `sense` hold against the load that pushes it the other way, N m:
+ * their isometric peak times their lengthening ceiling (`MuscleSpec`'s speed, `eccentricCeiling`).
+ * An ankle a load pushes off its place lengthens, and its muscles resist up to that ceiling of
+ * their peak (Thelen 2003); the hold a sole is planned on is what they give so. Measured:
+ * `docs/reference/stance-tuning.md#ankle-hold`.
+ */
+function ankleStrength(muscle: MuscleSpec, sense: "peakPositive" | "peakNegative"): number {
+  const curve = sense === "peakPositive" ? muscle.speedPositive : muscle.speedNegative;
+  return muscle[sense].value * curve.eccentricCeiling.value;
+}
+
+/**
  * What a sole's ankle holds (`FootState.ankleHold`), how far (`FootState.holdReach`) and the regions
  * of the sole the stance plans in (`FootState.hold`): the sole's `corners` (body frame, reference
  * pose), in order `ahead` of the `ankle`'s centre, its edges drawn toward the ankle by `inset`,
@@ -207,8 +219,8 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
  * share counts it): the dorsiflexors hold it toward the heel, the plantar flexors toward the
  * toes, the invertors and evertors across. An ankle without a freedom named for the way holds the
  * drawn edge there. A centre of pressure at an edge only holds the capture point where it is,
- * the sole about to roll; drawn in, the ankle has the rest to bring it back. The hold is a
- * share of the ankle's strength (`ANKLE_HOLD`), the rest of it its own margin.
+ * the sole about to roll; drawn in, the ankle has the rest to bring it back. The hold is the
+ * ankle's strength as it lengthens (`ankleStrength`).
  */
 function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3, joint: ReadJoint, weight: number, inset: number): { points: Vec3[]; reach: FootState["holdReach"]; hold: AnkleHold } {
   const mid = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
@@ -219,7 +231,7 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
   const halfWidth = hypot(corners[ahead[0]!]![0] - corners[ahead[1]!]![0], corners[ahead[0]!]![2] - corners[ahead[1]!]![2]) / 2;
   const strength = (name: string, sense: "peakPositive" | "peakNegative"): number => {
     const dof = joint.dofs.find((d) => d.spec.positive === name);
-    return dof ? ANKLE_HOLD * dof.spec.muscle[sense].value : Infinity;
+    return dof ? ankleStrength(dof.spec.muscle, sense) : Infinity;
   };
   // Dorsiflexion (toes up) presses the heel into the ground, plantar flexion the toes; inversion and eversion each press a side.
   const hold: AnkleHold = { toe: strength("dorsiflexion", "peakNegative"), heel: strength("dorsiflexion", "peakPositive"),

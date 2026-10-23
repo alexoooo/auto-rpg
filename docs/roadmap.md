@@ -43,7 +43,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar: the Warrior meets it (0 of 200), the Rogue falls 19 in 200 (under 10) at the 0.5 m/s its orders ask; the walk is faster: 0.7 m/s every way and 1.4 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
+| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 6 and 5 of 200, the Warrior 1 and 1, with the ankle holding what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.4 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** the braced walk; Vanguard on hold, its
