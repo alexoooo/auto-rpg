@@ -41,9 +41,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
-| [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
-| [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
+| [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
+| [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
+| [Movement and command](plans/2026-10-21-movement-and-command.md) | Crowd motion: the stance walk's sideways run-away (B3) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** Movement B3's remainder (the stance walk's sideways run-away); Vanguard on hold, its
@@ -221,8 +221,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read
   by the paired report:
   - targets after a guard: when to change surface, action or approach;
-  - spacing and commitment: approach, clinch breaking, circling, follow-up timing; after
-    Movement's A2, spacing is a goal, not a velocity;
+  - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is a
+    goal, not a velocity;
   - an option's worth: attack value, incoming cost, travel time, falls and recovery, calibrated
     to the components run, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
