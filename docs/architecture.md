@@ -912,7 +912,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
   of its skills (`SkillKit`: locomotion, navigation, guard, support, motor, the executors and
   actions, or one of these by name, `actions.<name>=null` removing it) replaced, read against the
-  mind as it is: by the panel report in fights, by a battery's comparison at its task.
+  mind as it is: by the panel report in fights, by a battery's comparison at its task. An ablation
+  inherits its source's entrants: the same bodies and loadouts, restricted by the changed config's
+  fit, before scheduling. A whole config evaluated independently keeps its ordinary expansion.
 - **Ratings** (`rating.ts`): Bradley-Terry strengths on the Elo scale over a pool's distinct keys,
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried

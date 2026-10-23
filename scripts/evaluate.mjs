@@ -35,56 +35,22 @@ import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
-import { replacedAt } from "../src/core/mind/catalog.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
-import { sha256Text } from "../src/evaluation/sha256.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { caseNames, partNames } from "../src/evaluation/code.ts";
 import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
+import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 const defaultLanes = () => Math.max(1, availableParallelism() - 2);
-
-/** The subject `text` names: a JSON file or JSON as given whole, else a name for the catalogue. */
-function subjectOf(text) {
-  if (existsSync(text)) return { id: basename(text).replace(/\.json$/, ""), label: text, value: JSON.parse(readFileSync(text, "utf8")) };
-  if (text.trim().startsWith("{")) {
-    const value = JSON.parse(text);
-    return { id: `json:${sha256Text(recordingKey(value)).slice(0, 8)}`, label: "given as JSON", value };
-  }
-  return text;
-}
-
-/**
- * The mind `previous` names with each of `ablations` (`<path>=<JSON>`) replaced (`replacedAt`: any
- * slot or setting of its parts, a list's entry by index, name or kind, null removing it): a subject
- * given whole, its id the previous one's and the paths.
- */
-function ablated(previous, ablations) {
-  const named = subjectOf(previous);
-  const [id, label, config] = typeof named !== "string" ? [named.id, named.label, named.value]
-    : Object.hasOwn(MINDS, named) ? [named, MINDS[named].label, MINDS[named].config]
-    : Object.hasOwn(CONTROLLERS, named) ? [named, CONTROLLERS[named].label, CONTROLLERS[named].defaults]
-    : (() => { throw new Error(`--ablate needs --previous to name a mind, a kind or a config: ${previous} is none`); })();
-  let value = JSON.parse(JSON.stringify(config));
-  const slots = [];
-  for (const ablation of ablations) {
-    const at = ablation.indexOf("=");
-    if (at <= 0) throw new Error(`--ablate is <path>=<JSON>, the path a slot or setting of the mind's parts (subs.0, tactics.list.attack, actions.thrust): ${ablation}`);
-    const slot = ablation.slice(0, at);
-    value = replacedAt(value, slot, JSON.parse(ablation.slice(at + 1)));
-    slots.push(slot);
-  }
-  return { id: `${id}~${slots.join("~")}`, label: `${label} with ${ablations.join(", ")}`, value };
-}
 
 /** Every `.jsonl` file in `directory`, by name, with its text. */
 const filesIn = (directory) => existsSync(directory)
@@ -161,9 +127,6 @@ const estimateText = (estimate) => estimate === null ? "none" : `${estimate.valu
 
 /** Bouts a minute the 10-hour tournament played on the desktop (11,726 in about 10 hours): what a run is priced at before it starts. */
 const REFERENCE_RATE = 19;
-
-/** Whether subject `id` is mind `prefix`'s: the mind itself, or one of its entrants (`prefix/...`). */
-const belongsTo = (id, prefix) => id === prefix || id.startsWith(`${prefix}/`);
 
 /**
  * The baseline `previous` names for the subjects of `first` (the first subject asked for), each
@@ -264,9 +227,8 @@ async function main() {
   const [shardAt, shards] = values.shard ? values.shard.split("/").map(Number) : [1, 1];
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
-  if (values.ablate && !values.previous) throw new Error("--ablate builds its subject from --previous");
-  const choice = [...(values.ablate ? [ablated(values.previous, values.ablate)] : []), ...[...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])].map(subjectOf)];
-  const chosen = evaluation.subjects(choice);
+  const { choice, subjects: chosen } = resolveSubjects(evaluation,
+    [...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])], values.previous, values.ablate);
   let schedule = { kind: "all" }, panel = [];
   if (values.against) {
     const members = values.against === "default" ? evaluation.analysis.panel : values.against.split(",");

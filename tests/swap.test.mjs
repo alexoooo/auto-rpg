@@ -53,6 +53,9 @@ const { endingText } = await import("../src/arena/end-rule.ts");
 const { engagementLines } = await import("../src/ui/action-readout.ts");
 const { labActor } = await import("../src/lab/actor.ts");
 const { standIntent } = await import("../src/core/mind/intent.ts");
+const { resolveSubjects } = await import("../scripts/evaluation-subjects.mjs");
+const { casesOf } = await import("../src/evaluation/run.ts");
+const { slotsOf } = await import("../src/evaluation/compare.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -97,6 +100,56 @@ test("an external preset's model calibration governs Arena, Lab and evaluation c
   const custom = labHref({ ...address, model: "workshop-rogue" });
   assert.notEqual(new URLSearchParams(custom).get("mind"), "swap-stub", "a named calibration is not offered for another model");
   assert.deepEqual(labAddress(custom).mind, SWAP_DEFAULTS, "a whole custom tree still travels unchanged");
+});
+
+test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
+  const evaluation = EVALUATIONS.tournament, panel = "options/workshop-fighter/empty,empty";
+  for (const [id, changes] of [["swap-stub", ["tactics.choose.patience=0.5"]],
+    ["vanguard-skeleton", [`executors=${JSON.stringify(RECIPE_FIGHTER.executors)}`, `actions=${JSON.stringify(RECIPE_FIGHTER.actions)}`]]]) {
+    const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
+    const { choice, subjects } = resolveSubjects(evaluation, [], id, changes), candidate = choice[0];
+    const kits = (subjects) => subjects.map(({ value: { model, loadout } }) => ({ model, loadout }));
+    assert.ok(baseline.length > 0, "the source has entrants to compare");
+    assert.ok(evaluation.subjects([candidate]).some(one => !kits(baseline).some(kit =>
+      JSON.stringify(kit) === JSON.stringify(kits([one])[0]))), "the unrestricted candidate would widen the comparison");
+    assert.deepEqual(kits(subjects), kits(baseline), "the CLI retains the source's complete kit scope and order");
+    assert.deepEqual(subjects.map(one => one.value.mind), subjects.map(() => candidate.value));
+    assert.equal(JSON.stringify(MINDS[id].config), original, "replacement owns its config");
+    const counterpart = new Map(subjects.map((one, k) => [one.id, baseline[k].id]));
+    assert.deepEqual(subjects.map(one => one.id.slice(candidate.id.length)), baseline.map(one => one.id.slice(id.length)));
+    const { units, dropped } = casesOf(evaluation, evaluation.defaultProtocol, [...subjects, ...baseline, ...evaluation.subjects([panel])],
+      { engine: BOUT_ENGINE, code: () => "scope-fixture", schedule: { kind: "versus", panel: [panel] } });
+    assert.deepEqual(dropped, []);
+    const slots = slotsOf(units, counterpart, [panel]);
+    assert.deepEqual(new Set(slots.map(slot => slot.subject)), new Set(subjects.map(one => one.id)), "every candidate has a paired baseline");
+    assert.deepEqual(new Set(slots.flatMap(slot => [...slot.mine, ...slot.theirs].map(one => one.key))),
+      new Set(units.flatMap(unit => unit.map(one => one.key))), "no unpaired work reaches the schedule");
+    const withOther = resolveSubjects(evaluation, [panel], id, changes);
+    assert.deepEqual(withOther.subjects, [...subjects, ...evaluation.subjects([panel])], "other requested subjects retain their scope");
+    if (id === "vanguard-skeleton") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "crypt-skeleton"
+      && !baseline.some(before => JSON.stringify(before.value.loadout) === JSON.stringify(one.value.loadout))),
+    "the fixture also exposes loadout widening on the calibrated body");
+  }
+});
+
+test("CLI resolution preserves whole-config expansion, batteries and two-subject matches", () => {
+  const id = "vanguard-skeleton", raw = JSON.stringify(MINDS[id].config), evaluation = EVALUATIONS.tournament;
+  assert.deepEqual(resolveSubjects(evaluation, [id]).subjects, evaluation.subjects([id]));
+  const custom = resolveSubjects(evaluation, [raw]);
+  assert.deepEqual(custom.subjects, evaluation.subjects(custom.choice));
+  assert.ok(custom.subjects.some(one => one.value.model !== "crypt-skeleton"), "an unscoped custom config still expands beyond its named calibration");
+  const narrowed = resolveSubjects(evaluation, [], id,
+    ['actions.strike.effectors=["hand.right"]', 'actions.low-punch.effectors=["hand.right"]']);
+  const baseline = evaluation.subjects([id]);
+  assert.ok(baseline.some(one => one.value.loadout.right !== "empty"), "the source can strike with its other hand while holding an item");
+  assert.deepEqual(narrowed.subjects.map(one => ({ model: one.value.model, loadout: one.value.loadout })),
+    baseline.filter(one => one.value.loadout.right === "empty").map(one => ({ model: one.value.model, loadout: one.value.loadout })),
+    "an ablation still drops source loadouts the changed config cannot play");
+  for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.match, ["counter"]]]) {
+    const resolved = resolveSubjects(evaluation, names, id, ["tactics.flank=false"]);
+    assert.deepEqual(resolved.subjects, evaluation.subjects(resolved.choice));
+    assert.equal(resolved.subjects[0].value.tactics.flank, false);
+  }
 });
 
 for (const { part, at, mind, place } of STUBS) {
