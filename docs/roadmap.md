@@ -47,8 +47,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** Vanguard's unarmed fighter; its retained Skeleton development panel on the current
-   locomotion wins one of four Options cases, without falls. The executor's facing at commitment
-   is the next question ([resume panel](reference/vanguard.md#resume-panel)). Its explicit presets
+   locomotion wins one of four Options cases, without falls. Facing, counter timing, centring and
+   stock motor calibrations do not improve it ([record](reference/vanguard.md#commitment-facing)). Its explicit presets
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
    visible in Arena and Lab. The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**

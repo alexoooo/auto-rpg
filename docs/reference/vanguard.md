@@ -410,9 +410,38 @@ does not describe this locomotion. The three remaining losses still reject quali
 
 A 20 s diagnostic samples five standing preparations once per second. The held target bearing
 differs from the updated bearing by at most 0.173 rad in those samples, while the body's actual
-facing differs from the updated bearing by as much as 0.542 rad. These are preparation readings,
-not evidence that a drive commits at that error or that waiting for alignment improves a fight.
+facing differs from the updated bearing by as much as 0.542 rad. These are preparation readings;
+the [commitment reading](#commitment-facing) checks the drive itself.
 The diagnostic remains in `research/runs/vanguard/resume/baseline-open-3.24-right-20.json`.
+
+## Commitment facing
+
+Measured-facing admission does not improve the retained four-case Skeleton panel: it wins one
+of four, trading the preset's right-court win for the right-open win. A physical turning step,
+counter timing, a centred stroke and stock motor calibrations also fail their development gates.
+None is selected. Full recipes, source hashes, keys, pose digests and decisions are in the
+[study summary](../../research/runs/vanguard/facing/summary.json); its thirteen full bouts are
+retained in `research/runs/vanguard/facing/rows.jsonl` and `cases/`, with the rejected sources and
+harness beside them. These are development cases, not fresh qualification evidence.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands,
+Balance 0/0, zero sense delay, falls continuing to injury or the ordinary 120 s cap. The reference
+is the [resume panel](#resume-panel), with the stance at `3319b5ae`.
+
+Two of the first six standing-punch commitments show more than 0.4 rad between actual facing
+and the followed target bearing: 0.565 and 0.576 rad. The requested heading already matches the
+target at each commitment. All six have the requested fist shape applied. The hand-closure
+hypothesis is rejected. These are two readings of the same deterministic prefix, retained in
+`research/runs/vanguard/facing/commit-read.json` and `hand-read.json`, not independent trials.
+
+| Candidate | Full-bout result and decision |
+| --- | --- |
+| Admission against measured facing rather than requested heading | At open / 3.24 m, wins on the right and loses on the left, both at the cap. At court / 5.92 m, loses both at the cap. The panel remains 1/4; no falls. Rejected. |
+| A bounded backward step to turn the feet before a misaligned attack | Loses the right open / 3.24 m case at the cap, without falling. Rejected. |
+| Holding new attacks while a head or trunk impact is predicted | Loses that right open case at the cap, without falling. Rejected. |
+| A centred one-drive combination with Vanguard's retained motor settings and point tracking | Loses that right open case at the cap, without falling. Rejected. |
+| The stock straight-punch motor settings with Vanguard's point tracking | Loses that right open case by fatal injury at 69.5167 s despite a bar lead, 0.4973 against 0.4476. Its head-targeting variant loses by fatal injury at 63.5667 s. Neither falls; both are rejected. |
+| Independently replacing reach, penetration, lean or hip turn with its stock value | All four lose that right open case: reach by fatal injury at 62 s, penetration at 117.3083 s, hip turn at 94.4083 s, and lean at the cap. None falls. The four-worker screen completes in 135.3 wall seconds and has no winner to widen. |
 
 ## Tried and not kept
 
