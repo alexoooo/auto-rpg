@@ -12,6 +12,7 @@ import { holdsNothing } from "../../skills/strikes.ts";
 import { handsOf } from "../../skills/guard.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
+import { limitPace } from "./pace.ts";
 
 /** The support fold's crouch depth, asked before a low opponent reaches the hands. */
 const LOWER = .5;
@@ -55,9 +56,9 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
   return {
     ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
-      const intent = base.decide(sight, dt), foe = lowFocus(sight.view, base.decision);
+      const intent = base.decide(sight, dt), foe = lowFocus(sight.view, base.decision), ordered = orders(sight);
       state.time = sight.view.time;
-      if (!foe || orders(sight)?.move !== undefined || sight.view.down) {
+      if (!foe || ordered?.move !== undefined || sight.view.down) {
         state.decision = !foe ? "no low target" : sight.view.down ? "body down" : "movement ordered";
         state.unready = null; state.rising = false;
         return intent;
@@ -74,11 +75,11 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       if (distance > FAR || !begun && distance > NEAR) {
         state.decision = "approaching low target";
         state.unready = null;
-        return { ...intent, face, actions: [], movement: { kind: "range", focus: foe.id, near: .5, far: NEAR }, pace: .8 };
+        return limitPace({ ...intent, face, actions: [], movement: { kind: "range", focus: foe.id, near: .5, far: NEAR } }, ordered, .8);
       }
       if (!begun && cos(face - sight.view.stance.facing) < FACING) {
         state.decision = "turning before support";
-        return { ...intent, face, move: [-TURN_PACE, 0], movement: undefined, actions: [] };
+        return limitPace({ ...intent, face, move: [-TURN_PACE, 0], movement: undefined, actions: [] }, ordered, TURN_PACE);
       }
       const threat: Vec3 = [head.x, head.y, head.z], guarded: Vec3 = [centre.x, head.y, centre.z];
       const guard = { ...intent.guard };

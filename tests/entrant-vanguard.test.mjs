@@ -284,6 +284,59 @@ test("low-cover decisions and skill commands do not read diagnostic reports", ()
   assert.deepEqual(next(), expected);
 });
 
+test("Vanguard movement layers preserve stricter intent and ordered ceilings, including direct steps and zero", () => {
+  const fixture = (kind, pace, ordered = null) => {
+    const intent = Object.freeze({ move: kind === "evade-step" ? Object.freeze([.6, .8]) : null, face: 0,
+      guard: Object.freeze({}), actions: Object.freeze([{ id: 1 }]), ...(pace === undefined ? {} : { pace }),
+      ...(kind === "evade-route" ? { movement: Object.freeze({ kind: "direct", direction: Object.freeze({ x: 1, z: 0 }) }) } : {}) });
+    const base = { name: "fixture", state: {}, decision: { focus: "foe", evading: true }, decide: () => intent };
+    const orders = () => ordered;
+    if (kind.startsWith("evade-")) {
+      const making = { orders, parts: { of: (role, config) => config.kind === "fixture" ? { make: () => base } : partLookup.of(role, config) } };
+      return { intent, tactics: tacticsOf(making, { kind: "vanguard-plan", slowEvade: true, plan: { kind: "fixture" } }), sight: {} };
+    }
+    if (kind === "flank") {
+      const foe = { id: "foe", out: false, centre: { x: 0, y: 1, z: 1 }, spec: { marks: { high: "head" } },
+        segments: new Map([["head", { centre: { x: 0, y: 1.5, z: 1 } }], ["guard", { centre: { x: .2, y: 1, z: 1 } }]]) };
+      const sight = { view: { time: 1, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 } },
+        senses: { others: [foe], solids: [] } }, report: { heading: 0, actions: [], ledger: [1, 2].map(sequence => ({
+          sequence, target: { kind: "body", body: "foe" }, committed: true,
+          contacts: { counts: { commit: { target: 0, block: 1 } }, blockedSegments: ["guard"] },
+        })) } };
+      return { intent, sight, tactics: flank(base, { segments: [] }, orders) };
+    }
+    const low = lowFixture(orders);
+    low.base.decide = () => intent;
+    if (kind === "low-approach") low.sight.view.senses.others[0].segments.get("head").centre.x = .9;
+    else low.sight.view.stance.facing = 0;
+    return { intent, sight: low.sight, tactics: low.layer.tactics };
+  };
+  for (const kind of ["evade-step", "evade-route", "low-approach", "low-turn", "flank"]) {
+    const reference = fixture(kind), ordinary = reference.tactics.decide(reference.sight, 1 / 120);
+    assert.ok(ordinary.pace > 0, `${kind} reaches its movement layer`);
+    if (kind === "low-approach") assert.equal(ordinary.movement?.kind, "range");
+    else if (kind === "evade-route") assert.equal(ordinary.movement?.kind, "direct");
+    else assert.ok(ordinary.move?.some(value => value !== 0), `${kind} requests a direct step`);
+    for (const pace of [undefined, 0, .05, 2]) for (const orderedPace of [undefined, 0, .05, 2]) {
+      const ordered = Object.freeze({ face: null, ...(orderedPace === undefined ? {} : { pace: orderedPace }) });
+      const { intent, tactics, sight } = fixture(kind, pace, ordered), before = JSON.stringify({ intent, ordered });
+      const ceiling = Math.min(ordinary.pace, pace ?? Infinity, orderedPace ?? Infinity);
+      let move = ordinary.move;
+      if (move && !ordinary.movement) {
+        const speed = Math.sqrt(move[0] * move[0] + move[1] * move[1]);
+        if (speed > ceiling) move = ceiling === 0 ? null : move.map(value => value * (ceiling / speed));
+      }
+      assert.deepEqual(tactics.decide(sight, 1 / 120), { ...ordinary, move, pace: ceiling },
+        `${kind} preserves the least ceiling: intent ${pace}, order ${orderedPace}`);
+      assert.equal(JSON.stringify({ intent, ordered }), before, "the layer owns its changed intent");
+    }
+    for (const move of [null, { kind: "direct", direction: { x: 1, z: 0 } }]) {
+      const { intent, tactics, sight } = fixture(kind, .05, { face: null, move, pace: 0 });
+      assert.equal(tactics.decide(sight, 1 / 120), intent, "explicit movement orders retain precedence");
+    }
+  }
+});
+
 test("a quiet policy trial is revisited when the contact conditions change", () => {
   const change = CAP_SECONDS / 3;
   const { policy, clock, step } = learningFixture((mode, time) => mode === 1 ? .1 : time > change ? 1 : 0);
@@ -332,7 +385,7 @@ test("independent body-relative punches fork through preparation, commitment and
 });
 
 /** A low opponent in reach, a facing body and support that never becomes ready. */
-function lowFixture() {
+function lowFixture(orders = () => null) {
   // Two empty hands that can cover (`handsOf`): knuckles at the end of each arm.
   const hand = (name) => ({ name, points: { knuckles: { value: [0, 0, 0] } } });
   const state = { calls: 0 }, spec = { held: [], effectors: [{ segment: "hand.left" }, { segment: "hand.right" }], segments: [hand("hand.left"), hand("hand.right")] };
@@ -343,7 +396,7 @@ function lowFixture() {
   const view = { time: 0, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, facing: Math.PI / 2 },
     senses: { others: [{ id: "foe", out: false, spec: { marks: { high: "head" } }, segments: new Map([["head", { centre: { x: .4, y: .3, z: 0 } }]]) }] } };
   const sight = { view, report: { support: { stage: "stand", ready: false } } };
-  const tactics = lowGuard(base, spec, () => null);
+  const tactics = lowGuard(base, spec, orders);
   return { layer: { tactics, skills: skills => lowGuardSkills(skills, spec, () => tactics.decision) }, sight, base };
 }
 

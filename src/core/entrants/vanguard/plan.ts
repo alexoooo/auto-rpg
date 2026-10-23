@@ -18,6 +18,7 @@ import { adaptiveGuard } from "./adaptive-guard.ts";
 import { flank } from "./flank.ts";
 import { lowGuard, lowGuardSkills } from "./low-guard.ts";
 import { routeAround } from "./route-around.ts";
+import { limitPace } from "./pace.ts";
 
 /** Its config: the plan it layers, and each layer on or off. */
 export interface VanguardPlanConfig extends PartConfig {
@@ -47,10 +48,10 @@ function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null):
     value: state.limited ? `${EVADE_PACE} m/s cap` : state.ordered ? "movement ordered" : "no evasive step" }]);
   return { ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
-      const intent = base.decide(sight, dt);
-      state.limited = base.decision?.evading === true;
-      state.ordered = orders(sight)?.move !== undefined;
-      return state.limited ? { ...intent, pace: EVADE_PACE } : intent;
+      const intent = base.decide(sight, dt), ordered = orders(sight);
+      state.ordered = ordered?.move !== undefined;
+      state.limited = !state.ordered && base.decision?.evading === true;
+      return state.limited ? limitPace(intent, ordered, EVADE_PACE) : intent;
     },
   };
 }

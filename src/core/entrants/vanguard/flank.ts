@@ -4,6 +4,7 @@ import { bodyClearance, lowOpponent } from "../../mind/sensed-bounds.ts";
 import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { cos, sin } from "../../math/real.ts";
+import { limitPace } from "./pace.ts";
 
 /** Two blocked strokes ask for a one-second lateral step at 0.3 m/s, with a half-second clearance sweep. */
 const BLOCKS = 2, SECONDS = 1, PACE = .3, AHEAD = .5;
@@ -20,7 +21,7 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
   ]);
   return { ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
-      const intent = base.decide(sight, dt), view = sight.view;
+      const intent = base.decide(sight, dt), view = sight.view, ordered = orders(sight);
       state.time = view.time;
       const foe = view.senses.others.find(foe => foe.id === base.decision?.focus && !foe.out);
       if (state.focus !== (foe?.id ?? null)) {
@@ -36,7 +37,7 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
         if (record.contacts.counts.commit.target > 0) state.blocked = 0;
         else if (record.contacts.counts.commit.block > 0) { state.blocked++; state.covers = [...record.contacts.blockedSegments]; }
       }
-      if (!foe || lowOpponent(view, foe) || view.down || view.senses.out || orders(sight)?.move !== undefined) {
+      if (!foe || lowOpponent(view, foe) || view.down || view.senses.out || ordered?.move !== undefined) {
         state.decision = !foe ? "no sensed target" : view.down || view.senses.out ? "body unavailable"
           : lowOpponent(view, foe) ? "low target" : "movement ordered";
         state.blocked = 0; state.until = 0; return intent;
@@ -56,7 +57,7 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
       if (view.time >= state.until) { state.decision = view.resumed ? "resumed without a step" : "waiting for blocks"; return intent; }
       state.decision = "stepping";
       const move = clearMove(view.stance.centre, view.senses.solids, sight.report.heading, [0, state.side * PACE], radius, AHEAD);
-      return { ...intent, move, movement: undefined, pace: PACE, actions: [] };
+      return limitPace({ ...intent, move, movement: undefined, actions: [] }, ordered, PACE);
     },
   };
 }
