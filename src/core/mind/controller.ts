@@ -18,7 +18,7 @@ export interface MindPreset<C extends MindConfig = MindConfig> {
 }
 
 /** Whether a named calibration is offered for this model; a custom configuration has its own fit. */
-export const presetFitsModel = (preset: MindPreset, model: BodySpec["model"]): boolean =>
+export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodySpec["model"]): boolean =>
   preset.models === undefined || preset.models.includes(model);
 
 /**

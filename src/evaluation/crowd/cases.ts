@@ -21,6 +21,7 @@ import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
+import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, modelInfo, type BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateLevel } from "../../dungeon/level.ts";
@@ -29,7 +30,7 @@ import { LEVELS } from "../../dungeon/run.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
-import type { Cases, Json, Reader } from "../evaluation.ts";
+import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
 
 /** The situations, in their order. */
 const SITUATIONS = ["reversal", "lone", "following", "crossing", "passage", "fallen"] as const;
@@ -164,9 +165,11 @@ export function crowdCase(situation: Situation, seed: number, mind: MindConfig):
 }
 
 /** Why `value` is no mind, or what keeps it from the member's body holding what its model holds (`mindFaults`). */
-function faultsOf(value: Json): readonly string[] {
+function faultsOf(value: Json, subject?: Subject): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+  if (!presetFitsModel(subject ?? {}, CROWD.model))
+    return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${CROWD.model} is unavailable`];
   const held = modelInfo(CROWD.model).held;
   return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
 }
@@ -181,7 +184,7 @@ function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading,
     play: protocol as unknown as Json,
     conditions: SITUATIONS.flatMap((situation) => protocol.seeds[situation].map((seed) => ({ situation, seed }))),
     seconds: CRYPT_CAP,
-    faults: (value) => faultsOf(value),
+    faults: (value, _condition, subject) => faultsOf(value, subject),
     world: ([mind], { situation, seed }, engine) => ({ kind: "crypt", engine, crypt: crowdCase(situation, seed, mind as unknown as MindConfig) }),
     read: (built) => readCrypt(built),
   };

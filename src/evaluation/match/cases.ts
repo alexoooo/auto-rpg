@@ -6,6 +6,7 @@ import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
+import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
@@ -44,8 +45,8 @@ function faultsOf(value: Json, condition: MatchCondition, subject?: Subject): re
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   const { loadout } = condition;
-  return [...new Set([condition.left, condition.right])].flatMap((body) => subject?.models !== undefined && !subject.models.includes(body)
-    ? [`named calibration allows ${subject.models.join(", ") || "no bodies"}; ${body} is unavailable`]
+  return [...new Set([condition.left, condition.right])].flatMap((body) => !presetFitsModel(subject ?? {}, body)
+    ? [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${body} is unavailable`]
     : mindFaults(value as unknown as MindConfig, modelHolding(body, loadout), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
 }
 
