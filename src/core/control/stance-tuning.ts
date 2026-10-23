@@ -101,6 +101,8 @@ export interface RecoveryTuning {
   readonly fast?: number;
   /** How far past the capture point the foot lands, as a fraction of its distance from the bearing sole's middle. */
   readonly reach: number;
+  /** The longest catch, from the bearing sole's middle, as a fraction of the leg; none, a walk's longest step (`GaitTuning.longest`). */
+  readonly longest?: number;
   /**
    * How much of what the body's assist holds is counted before it steps, 0 to 1: its capture point
    * may be that share of the assist's reach (`assistReach`) outside what the soles hold, and the
@@ -132,11 +134,12 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * outside the region its soles hold (`SUPPORT_INSET`), and `assisted` of what its assist holds
  * past that (`assistReach`), swinging the foot over `seconds` lifted `lift` m, and landing it
  * `reach` past where the capture point will be; a landing the leg cannot reach by then, over `fast`
- * s. The margin keeps a place held at the edge of that region from setting steps off as the
- * capture point wanders over it.
- * Sweep: `docs/reference/stance-tuning.md#recovery-step`, `#assisted` for `assisted` and `#fast-catch` for `fast`.
+ * s; no catch longer than `longest` of the leg, a lunge past a walk's longest step. The margin
+ * keeps a place held at the edge of that region from setting steps off as the capture point
+ * wanders over it.
+ * Sweep: `docs/reference/stance-tuning.md#recovery-step`, `#assisted` for `assisted`, `#fast-catch` for `fast` and `#which-foot-catches` for `longest`.
  */
-const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2, assisted: 1, fast: 0.2 };
+const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2, assisted: 1, fast: 0.2, longest: 1.2 };
 
 /**
  * A walk's steps: each swings over `seconds`, or longer if its hip needs it within `effort` of its

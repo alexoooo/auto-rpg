@@ -53,12 +53,11 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * it across.
  *
  * Pushed sideways past the nearer foot, the far foot can only step in beside it, and stepping in
- * again and again the body falls off that foot's outer edge. So once the far foot has stepped in
- * (its step would move it less than a sole's width) and the capture point is past the nearer
- * sole's middle, away from the far foot, the nearer foot steps out instead, no further
- * from the far sole than `longest` of the leg: the sideways catch people make (Maki and McIlroy
- * 1997). Not before, since a step out whenever within reach would replace the far foot's short
- * steps, which hold more.
+ * again and again the body falls off that foot's outer edge. So on both feet, the nearer foot
+ * steps out from the far one instead where its landing ends nearer where the capture point will
+ * be as it lands, each run about its own bearer: the sideways catch people make (Maki and McIlroy
+ * 1997). With one foot holding, the other steps. No catch is longer than `tuning.longest` of the
+ * leg, if it is set, in place of the walk's `longest`.
  *
  * `under` re-aims the step under way, as a walk's is (`walkStep`): its foot steps on, and lands
  * where the body's measured capture point, run about the pivot the plan holds for the swing's time
@@ -77,6 +76,7 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  */
 function recoveryStep(feet: readonly FootState[], holding: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, gait: GaitTuning,
   facing: number, hip: number, held: number, under?: Underway): SwingGoal | null {
+  if (tuning.longest !== undefined) gait = { ...gait, longest: tuning.longest };
   const { clearance, effort } = gait, rx = cos(facing), rz = -sin(facing);
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   // The height's floor, 1 mm, is a numeric setting: a centre at its feet has no pendulum.
@@ -86,11 +86,10 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   // off the bearer's sole (`clearOfBearer`). A landing kept off as a crossover is stepped where
   // the leg reaches the whole of it as the foot lands (`reachableStep`); else the foot steps to
   // its own side of the bearer, within its reach and kept off again, and the next step goes on
-  // from there: a crossover the hip cannot reach lands on the bearing leg. The third is whether
-  // the landing was kept off the sole.
+  // from there: a crossover the hip cannot reach lands on the bearing leg.
   // Whether the last landing found was cut to what the leg reaches (`reachableStep`).
   let short = false;
-  const landing = (bearer: FootState, foot: FootState, fx: number, fz: number, px: number, pz: number, seconds: number, reserve: number): [number, number, boolean] => {
+  const landing = (bearer: FootState, foot: FootState, fx: number, fz: number, px: number, pz: number, seconds: number, reserve: number): [number, number] => {
     const b = bearer.middle, grow = exp(w * seconds), ex = px + (xi - px) * grow, ez = pz + (zi - pz) * grow, ax = ex + (ex - b.x) * tuning.reach, az = ez + (ez - b.z) * tuning.reach;
     const [cx, cz] = centreAtLanding(b, centre, velocity, w, px, pz, 0, px, pz, seconds), side = foot.side === "right" ? 1 : -1;
     const reach = (x: number, z: number) => reachableStep(foot, x - b.x, z - b.z, cx, cz, rx, rz, side, gait, hip, null, reserve, true);
@@ -98,11 +97,11 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     const kept = lx !== ax || lz !== az;
     if (kept) {
       const [kx, kz] = clearOfBearer(bearer, foot, fx, fz, ax, az, clearance, true);
-      if ((kx !== lx || kz !== lz) && reach(kx, kz)[2]) return [kx, kz, true];
+      if ((kx !== lx || kz !== lz) && reach(kx, kz)[2]) return [kx, kz];
     }
     const [sx, sz, whole] = reach(lx, lz);
     if (!whole) { short = true; [lx, lz] = clearOfBearer(bearer, foot, fx, fz, b.x + sx, b.z + sz, clearance, false); }
-    return [lx, lz, kept];
+    return [lx, lz];
   };
   if (under) {
     const foot = feet.find((f) => f.side === under.foot)!, bearer = feet.find((f) => f !== foot)!, p = under.pivot;
@@ -115,7 +114,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   // point: over the recovery's time, or longer if the swing hip needs it for the way
   // (`swingWaySeconds`), the landing then where the capture point will be by then. It ends as the
   // sole meets the ground: a foot that steps from the air comes down to it.
-  const planned = (bearer: FootState, foot: FootState, seconds: number): [number, number, boolean] => {
+  const planned = (bearer: FootState, foot: FootState, seconds: number): [number, number] => {
     const [px, pz] = withinSupport([bearingOf(bearer)], xi, zi, 0);
     return landing(bearer, foot, foot.middle.x, foot.middle.z, px, pz, seconds, gait.reserve);
   };
@@ -128,18 +127,21 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     if (need > seconds) { seconds = need; [tx, tz] = planned(bearer, foot, seconds); }
     return { foot: foot.side, to: [tx, tz], seconds, lift: tuning.lift, shift: false, lands: true };
   };
+  // How far a step's landing is from where the capture point will be as it lands, run about the
+  // point of its bearer's sole nearest it, m.
+  const missed = (bearer: FootState, goal: SwingGoal): number => {
+    const [px, pz] = withinSupport([bearingOf(bearer)], xi, zi, 0), grow = exp(w * goal.seconds);
+    return hypot(px + (xi - px) * grow - goal.to[0], pz + (zi - pz) * grow - goal.to[1]);
+  };
   // The holding foot nearer the capture point bears the body; the other steps.
   const off = (foot: FootState) => { const [qx, qz] = withinSupport([bearingOf(foot)], xi, zi, 0); return hypot(xi - qx, zi - qz); };
   const near = holding.length < 2 || off(holding[0]!) <= off(holding[1]!) ? holding[0]! : holding[1]!, far = feet.find((other) => other !== near)!;
-  const [tx, tz, kept] = planned(near, far, tuning.seconds);
-  // A landing on the nearer foot's sole, kept off it to within a sole's width of where the far
-  // one stands, with the capture point past the nearer sole's middle away from the far one: the
-  // far foot can bear the body there, and the nearer steps out instead. A capture point beside
-  // the nearer sole, ahead or behind, is the far foot's to catch.
-  const ux = near.middle.x - far.middle.x, uz = near.middle.z - far.middle.z;
-  const beyond = (xi - near.middle.x) * ux + (zi - near.middle.z) * uz > 0;
-  if (kept && beyond && hypot(tx - far.middle.x, tz - far.middle.z) < far.width) return stepOf(far, near);
-  return stepOf(near, far);
+  const step = stepOf(near, far);
+  if (holding.length < feet.length) return step;
+  // On both feet either may bear: the nearer stepping out from the far one is taken where its
+  // landing ends nearer where the capture point will be.
+  const out = stepOf(far, near);
+  return missed(far, out) < missed(near, step) ? out : step;
 }
 
 /**

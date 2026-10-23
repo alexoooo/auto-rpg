@@ -54,9 +54,12 @@ random way, at a third of its orders (`--shoves`; Warrior, seeds 1 to 100, 0.5 m
 |---|---:|---:|---:|---:|
 | Trials that fell | 3 of 100 | 6 | 24 | 56 |
 
-20 N s moves the Warrior 0.24 m/s. A fall comes 1 to 2.5 s after its shove, most from the side,
-after 5 to 10 catch steps: the capture point runs past the bearing foot's outside, the other foot
-steps in beside it again and again, and a step out by the bearing foot lands short of it.
+20 N s moves the Warrior 0.24 m/s. A fall came 1 to 2.5 s after its shove, most from the side,
+after 5 to 10 catch steps: the capture point ran past the bearing foot's outside, the other foot
+stepped in beside it again and again, and a step out by the bearing foot landed short of it. A
+catch taken by whichever foot lands nearer the capture point, and as long as 1.2 of the leg,
+halves the Rogue's falls at 20 N s and cuts the Warrior's by two thirds
+([which foot catches](stance-tuning.md#which-foot-catches)).
 
 Not kept, read on 600 unshoved Warrior trials (the walk as it was 14 falls, a placebo 16) or on the
 shoved battery at 20 N s (24): the swing's bow round the bearing sole (`swingBowToRef`), which

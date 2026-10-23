@@ -184,6 +184,35 @@ against 127, Warrior 175 against 175.
 
 Chosen: `fast` 0.2.
 
+### Which foot catches
+
+On both feet a catch (`recoveryStep`, `src/core/control/gait.ts`) is planned both ways, the far
+foot stepping from the near one and the near one stepping out from the far, and the one whose
+landing ends nearer where the capture point will be as it lands is taken; with one foot holding,
+the other steps. `STANCE_RECOVERY.longest` holds a catch to 1.2 of the leg in place of a walk's 0.8
+(`STANCE_GAIT.longest`). Trials that fell, the braced walk given random orders and shoved at 20 N s
+at a third of them (`research/core-stance-sweep.mjs --batteries orders --shoves 20`, 0.5 m/s; Node
+stand, rapier-coordinate, 120 Hz, at `5eff11aa`), of 200:
+
+| Catch | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
+|---|---:|---:|---:|---:|
+| The far foot; the near steps out once the far has stepped in | 99 | 100 | 35 | 33 |
+| The landing nearer the capture point | 63 | 80 | 11 | 13 |
+| That, the longest catch 1.2 of the leg (kept) | 42 | 48 | 15 | 10 |
+
+The longest catch over the second row, Rogue: 1 of the leg 51 and 53, 1.2 41 and 47 (a placebo,
+the goal's height 1e-9 m higher, 40), 1.5 48 on seeds 201 to 400, none 52 and 48. Past about 1.2
+the leg's reach (`reachableStep`) holds the step instead. Unshoved, the Warrior falls in 15 of
+seeds 1 to 600 (a placebo 13) against 12. Standing shoves held (`--batteries shove`, Rapier):
+Rogue 158 of 176 against 130, Warrior 176 against 173.
+
+Not kept: no crossover (94 of 200 against 99, and 38 and 41 against 35 and 38 with the rest); a
+catch's swing planned on 0.8 of the hip's torque in place of `effort`'s 0.5 (44 against 47 on
+seeds 201 to 400, the Warrior 13 against 10); the near foot stepping out once the capture point is
+past its sole across by a set distance (0.05 m 83, 0.02 m 76, 0 63, -0.03 m 76).
+
+Chosen: the landing nearer, `longest` 1.2.
+
 ### Assisted
 
 `STANCE_RECOVERY.assisted`: how much of what the body's assist holds is counted before it steps
