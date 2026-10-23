@@ -37,7 +37,8 @@ export interface StanceEnvelope {
   /**
    * At each speed of the gait battery up to its fastest walk forward (`ways.forward`), slowest
    * first: the fastest the heading turned while the body walked forward at that speed, and held,
-   * rad/s (the asset's, by `fastestHeld`).
+   * rad/s (the asset's, by `fastestHeld`), and no faster than it turned at every slower speed: a
+   * turn held at a speed a slower one did not hold does not count.
    */
   readonly turns: readonly { readonly speed: Quantity<number>; readonly turn: Quantity<number> }[];
   /**
@@ -206,7 +207,7 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
   if (!model) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
   const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
   const entry = own ?? model, at = own ? `/models/${spec.model}/holds/${held}` : `/models/${spec.model}`;
-  const { wayTrials, wayHeld } = entry;
+  const { wayTrials, wayHeld } = entry, turnsRead = entry.turns.map((turn, i) => sourced(turn, "rad/s", source, `${at}/turns/${i}`));
   const speeds = table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`));
   const trials = wayTrials === undefined ? null : sourced(wayTrials, "1", source, `${at}/wayTrials`);
   const heldWay = (degrees: number): readonly Quantity<number>[] => {
@@ -230,9 +231,9 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
       speeds, trials,
       held: { forward: heldWay(CARDINAL.forward), right: heldWay(CARDINAL.right), back: heldWay(CARDINAL.back), left: heldWay(CARDINAL.left) },
     },
-    turns: entry.turns.map((turn, i) => ({
+    turns: turnsRead.map((_, i) => ({
       speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
-      turn: sourced(turn, "rad/s", source, `${at}/turns/${i}`),
+      turn: derive("rad/s", "the least turn held at this speed or any slower one (fastestHeld)", turnsRead.slice(0, i + 1), (...held) => Math.min(...held)),
     })),
   };
 }

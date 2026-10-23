@@ -159,7 +159,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
-  envelope, so the speed rule asks it nothing and it stands under orders.
+  envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
+  falls 6.5 s into its run.
 - **Recovery.** The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive

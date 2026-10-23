@@ -37,6 +37,10 @@ steers by, each found where a member at this envelope stood, walked away or fell
   never turns, as the envelope holds none past 0.7;
 - **a heading still to turn where the envelope holds no turn at the pace asked walks at the fastest
   pace that turns** (`fastestTurning`), or it would never turn;
+- **a turn counts at a speed only if every slower speed held it** (`StanceEnvelope.turns`): the
+  Warrior empty-handed held 0.25 rad/s at 1.2 m/s and none at 1, so its walk up to the run, at
+  0.86 m/s, never turned, and of 26 place goals off its facing 18 were never reached; read so,
+  all 26 are, and the learned run's lab circle, never run before, runs 6.5 s and falls;
 - **a body that faces its travel walks the way its route goes** and turns to it (`travelFacing`,
   `src/core/skills/arbiter.ts`); walked forward along the heading as it turns, a body facing away
   walks away from its waypoint, at 0.7 m/s on an arc 1.4 m across;
