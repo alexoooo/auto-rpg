@@ -51,10 +51,9 @@ export interface Navigator extends Clearance {
   readonly report: NavigationReport;
   /**
    * The walk toward `request` this step at the speed rule's speed (`travelSpeed`) for `gait`
-   * under `ceiling`, or none where it is not `available`; with `travelFacing`, forward where the
-   * body turns to face its way.
+   * under `ceiling`, and the way it goes, or none where it is not `available`.
    */
-  step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available?: boolean, travelFacing?: boolean): NavigationStep;
+  step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available?: boolean): NavigationStep;
   /** `move`, in the heading's frame, kept clear of the solids sensed: a walk asked with no request. */
   steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null): readonly [number, number] | null;
   /** Forget the route and progress: its body was taken over, put down or handed back. */

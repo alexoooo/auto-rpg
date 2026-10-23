@@ -7,36 +7,49 @@ built is in the [architecture](../architecture.md#skills); what is open is in th
 
 ## The stance's walk
 
-The walk a fight uses. The fastest walk held every way is 0.5 m/s for the Warrior and 0.4 for the
-Rogue and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is
-near 1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Asked 1.2 m/s forward it goes 0.80. A dash,
-a roll, a crouch and turning on the spot are not built.
+The walk a fight uses. Its envelope (`assets/core/stance-envelope.json`, measured by
+`research/core-stance-envelope.mjs` at `8a363623`, every body and thing held, 642 s on 8 workers)
+walks the Warrior 1.7 m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.4, 1 and 0.7; the
+skeleton 1.5, 1.2 and 0.7, where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
+`src/core/human/gait.ts`). Its turns hold 1 rad/s at 0.2 to 0.5 m/s (the Rogue to 0.4, then 0.5),
+0.25 to 0.5 at 0.7, and none at 1 m/s or faster. A turn holds at a speed only if all 28 of its
+trials do, a walk if all 4 of its do: at 1 m/s a 0.25 rad/s turn stands in each of 8 trials read
+alone. A dash, a roll, a crouch and turning on the spot are not built.
 
-**Measured again at `bbd0c842`** (`research/core-stance-envelope.mjs`, every body and thing held,
-585 s on 8 workers), the walk holds far more than the asset says, and turns less: the Warrior 1.7
-m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.4, 1 and 0.7; the skeleton 1.5, 1.2 and
-0.7. Its turns hold 1 rad/s at 0.2 to 0.5 m/s, 0.25 to 0.5 at 0.7, and none at 1 m/s or faster,
-where the asset (measured before a turn had to end within 0.5 rad of its heading, `TURNED`) holds
-4 rad/s. A turn holds at a speed only if all 28 of its trials do, a walk if all 4 of its do: at
-1 m/s a 0.25 rad/s turn stands in each of 8 trials read alone. The asset is not rewritten. With
-it, the crowd battery is done in 18 of its 23 cases reached against 23, two members fall
-against one, and members push each other apart 355 steps a case against 20: the walkers come
-faster than the 0.5 m/s² the walk is asked to stop at (`STANCE_STOPPING`) and the 1 rad/s they
-turn at let them take a reversal or a passage. A heading still to turn where the envelope holds no turn at the
-pace asked once stood still for good; it now walks at the fastest pace that turns
-(`fastestTurning`, `src/core/skills/locomotion.ts`). Shoved under orders at 20 N s (seeds 1 to
-200, at `827b28a6`), the envelope measured in place of the asset cuts the Warrior's falls from 9
-to 0 and leaves the Rogue's at 19 against 17: asked turns the legs cannot take, the walk falls.
-Its turns with the asset's walks (0.5 m/s for the Warrior, 0.4 for the others) fell the Warrior
-0 times and the Rogue 15; that crowd is done in 21 of 23, members pushed apart 100 steps a case
-against 20, and a lone hero falls: running at 1.8 m/s when its order reverses, it hands over to the
-walk at 0.8 m/s with a half turn to go at 1 rad/s, and catches 12 times in 4 s before it falls.
-Turned at the rate the envelope holds at the pace the stance plans its steps at (`StanceReading.pace`),
-where that is faster than the pace asked, it does not fall: shoved, the Rogue falls 11 times and the
-Warrior once; the crowd's 24 cases fall none and are done in 21 of 23, the 69 of seeds 1 to 12
-fall once against twice and leave 5 not done against 2, members stalled at a doorway or held
-face to face at a crossing. On the asset as it is the same rule moves no shoved trial and the
-crowd's 24 fall once, done in 22.
+**Steering by it** (the crowd battery's 24 cases, then the 69 of seeds 1 to 12; shoved under orders
+at 20 N s, seeds 1 to 200; at `8a363623`):
+
+| Envelope | Falls, 24 | Done of reached | Done, s, median | Pushed apart, steps a case | Falls / not done, 69 | Shoved falls of 200, Rogue / Warrior |
+|---|---:|---:|---:|---:|---:|---:|
+| the one before it (0.5 m/s every way for the Warrior, 0.4 the others, turns to 4 rad/s) | 0 | 23/23 | 37.7 | 20 | 2 / 2 | 17 / 9 |
+| this one | 0 | 22/23 | 25.7 | 29 | 1 / 3 | 19 / 0 |
+
+The Rogue walks the 0.5 m/s its orders ask, where the envelope before held it to 0.4. What the walk
+steers by, each found where a member at this envelope stood, walked away or fell:
+
+- **the heading turns at the rate for the pace under way** (`LocomotionState.going`,
+  `src/core/skills/locomotion.ts`): the pace asked, or one asked before it, slowing no faster than
+  the walk is asked to stop (`STANCE_STOPPING`). Turned at the rate for the pace asked, a lone hero
+  running at 1.8 m/s when its order reverses hands over to the walk at 0.8 with a half turn to go
+  at 1 rad/s, catches 12 times in 4 s and falls. Turned at the rate for the pace the stance plans its
+  steps at (`StanceReading.pace`), which reads 0.702 walking at 0.7, a member whose way is behind it
+  never turns, as the envelope holds none past 0.7;
+- **a heading still to turn where the envelope holds no turn at the pace asked walks at the fastest
+  pace that turns** (`fastestTurning`), or it would never turn;
+- **a body that faces its travel walks the way its route goes** and turns to it (`travelFacing`,
+  `src/core/skills/arbiter.ts`); walked forward along the heading as it turns, a body facing away
+  walks away from its waypoint, at 0.7 m/s on an arc 1.4 m across;
+- **a walk the solids stop turns from its own way** (`SLIDES`, `clearMove`,
+  `src/core/mind/clear-step.ts`): mirrored across the heading or sent to its sides, as it was, it
+  went anywhere once the heading no longer pointed the way it went;
+- **a route is found again** where the body takes more room than it was found for (less, by more
+  than `NAV.margin`), and once it has stalled (`NAV.stalled`), from where it stands: a route kept
+  from where it was led through a jamb, and a member stood in a doorway for good;
+- **the crowd holds a walk back only for another body** (`CrowdWalk.held`), not for its gait's own
+  cap: a member held so was never stalled, and waited forever.
+
+Not done: in a reversal (seed 2) a member's post lies behind two arrived members 1.3 m apart, too
+close to pass between; the crowd holds it, and the route search does not see members standing.
 
 **What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
 envelope's 14 moments of setting off, at `827b28a6`):
@@ -55,21 +68,8 @@ envelope's 14 moments of setting off, at `827b28a6`):
 - at 1 m/s the path does not bend: through a half turn at 1 rad/s the way the body goes falls
   0.4 to 2 rad behind the heading while the pelvis keeps up.
 
-Quicker steps do little: at 2 rad/s the median lag is 1.07 rad with `STANCE_GAIT`'s 0.3 s swing, 1.01 at 0.25 s and 0.77 at 0.2 s (18 trials each), short of the 0.5 a turn must keep to. Tried with the envelope above
-written (the crowd battery's 24 cases, then the 69 of seeds 1 to 12, at `4813e84b`):
-
-| Change | Falls, 24 | Done of reached | Pushed apart, steps a case | Falls / not done, 69 |
-|---|---:|---:|---:|---:|
-| none (the asset as it is) | 0 | 23/23 | 20 | 2 / 2 |
-| the envelope written | 2 | 18/23 | 355 | |
-| its walks, every turn 2 rad/s | 23 | 17/23 | 429 | |
-| a walk that faces its way going it from the first step, not along the heading as it turns (`travelFacing`, the arbiter) | 1 | 22/23 | 6 | 3 / 7 |
-| that, on the asset as it is | 0 | 22/23 | 215 | 9 / 4 |
-
-Going the way asked while the pelvis turns ends the wide arcs, but a member at a doorway's edge
-then stands: the solids' check (`clearMove`) looks ahead half a second, a farther sweep at the
-faster walk, and its fallback moves are the heading's, which no longer points the way it goes.
-Slower ways tried in the crowd's choice and in that check did not free them.
+Quicker steps do little: at 2 rad/s the median lag is 1.07 rad with `STANCE_GAIT`'s 0.3 s swing,
+1.01 at 0.25 s and 0.77 at 0.2 s (18 trials each), short of the 0.5 a turn must keep to.
 
 **What caps it is where the body bears.** Through each swing the realised centre of pressure stays
 about 3 cm ahead of the bearing sole's middle whatever the stance asks, a braking that costs about
@@ -251,8 +251,7 @@ off 10 s and resting 10 s after.
 | skeleton | 3.5 (4.0 without the club) | 0.5 (0.7) | 1.2 |
 
 To a side the run turns to face the way and runs it: the Warrior held 16 of 20 to each side at every
-speed from 1 to 4.5 m/s. A goal that faces the way it goes (`travelFacing`) is asked the forward
-pace whichever way that is.
+speed from 1 to 4.5 m/s.
 
 **Stopping.** The run slows at about 0.47 m/s² but begins late, going 0.3 to 0.5 m/s past the pace
 asked, so the walk and run states 0.15 m/s² while it may run (`RUN_STOPPING`) and the speed rule
@@ -351,6 +350,12 @@ On the stance's walk and the stride:
 
 On the stance's walk's turn (the Warrior with the club, 28 trials a cell, at `827b28a6`):
 
+- every turn at 2 rad/s with this envelope's walks (at `4813e84b`): the crowd's 24 fall 23 times,
+  done in 17 of 23;
+- this envelope's turns with the walks of the one before it (0.5 m/s for the Warrior, 0.4 the
+  others; at `827b28a6`, and members' routes held at the most room they took over 2 s): shoved, the
+  Rogue falls 11 times and the Warrior once; the crowd's 24 fall none, done in 23 of 23 and pushed
+  apart 65 steps a case; the 69 fall none, one not done. Its walks are not this envelope's;
 - the pelvis following the heading at its rate as well, read from the heading's change a step
   and fed to the turn's spin (no faster than a radian in the turn's constant). Its half turns:
 

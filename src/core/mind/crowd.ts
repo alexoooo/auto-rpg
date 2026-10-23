@@ -40,7 +40,7 @@ export interface CrowdWalk {
   /** The ground velocity, m/s. */
   readonly x: number;
   readonly z: number;
-  /** Whether another body of its side kept it from the walk asked: slower, turned, or with none clear. */
+  /** Whether another body of its side kept it from the walk asked, as its gait takes it: slower, turned, or with none clear. */
   readonly held: boolean;
 }
 
@@ -144,10 +144,12 @@ export function crowdWalk(view: CrowdView, radius: number, heading: number, want
     }
     return Infinity;
   };
-  /** How fast a walk the unit way (`ux`, `uz`) may go: `want`'s speed, what its gait holds that way, and what it stops from before each body ahead. */
+  /** How fast a walk the unit way (`ux`, `uz`) may go with no body near: `want`'s speed, and what its gait holds that way. */
+  const free = (ux: number, uz: number): number =>
+    gait.envelope ? Math.min(speed, paceToward(gait.envelope, ux * sin(heading) + uz * cos(heading), ux * cos(heading) - uz * sin(heading))) : speed;
+  /** How fast a walk the unit way (`ux`, `uz`) may go: as `free`, and no faster than it stops from before each body ahead. */
   const fastest = (ux: number, uz: number): number => {
-    let most = speed;
-    if (gait.envelope) most = Math.min(most, paceToward(gait.envelope, ux * sin(heading) + uz * cos(heading), ux * cos(heading) - uz * sin(heading)));
+    let most = free(ux, uz);
     for (const n of near!) {
       const dx = n.x - centre.x, dz = n.z - centre.z, along = dx * ux + dz * uz, across = Math.abs(dx * uz - dz * ux);
       if (along <= 0 || across >= n.room) continue;
@@ -171,6 +173,7 @@ export function crowdWalk(view: CrowdView, radius: number, heading: number, want
     if (most > 0) consider(ux * most, uz * most, turned);
   }
   consider(0, 0, 0);
-  const held = best.x !== want.x || best.z !== want.z;
+  // Held where the walk chosen is not the one its gait takes the way asked with no body near.
+  const straight = speed > 0 ? free(wx, wz) : 0, held = best.x !== wx * straight || best.z !== wz * straight;
   return { x: best.x, z: best.z, held };
 }

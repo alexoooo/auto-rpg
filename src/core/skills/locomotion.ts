@@ -166,9 +166,11 @@ export interface Locomotion extends Skill {
  *   speed capped at the envelope's fastest walk that way (`paceToward`). None stands.
  * - **The heading** turns toward the intent's facing only while the body walks, as the stance
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
- *   planted feet falls), no faster than the envelope turns at the pace the body was last asked to
- *   walk (`turnAt`): the envelope's turns were measured from the walk's setting off as well as
- *   under way. A heading still to turn at a pace the envelope turns none at is walked no faster
+ *   planted feet falls), no faster than the envelope turns at the pace under way (`turnAt`): the
+ *   pace last asked, or one asked before it, slowing no faster than the walk is asked to stop
+ *   (`STANCE_STOPPING`), so a body braking from a faster walk turns as that walk does. The
+ *   envelope's turns were measured from the walk's setting off as well as under way, at the pace
+ *   asked. A heading still to turn at a pace the envelope turns none at is walked no faster
  *   than the fastest pace it turns at (`fastestTurning`), or it would never turn.
  *
  * An optional `turnLimit` also bounds heading speed below the envelope's limit. Without an
@@ -212,6 +214,8 @@ export type LegsDrive =
 interface LocomotionState extends LegsMemory {
   heading: number;
   pace: number;
+  /** The pace under way, m/s: the pace last asked, or one asked before, slowing no faster than `STANCE_STOPPING`. */
+  going: number;
   /** Completed time in the current requested walk, capped at the optional startup interval. */
   walkTime?: number;
   placing: Placing | null;
@@ -245,13 +249,14 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
 export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
-  const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, placing: null, placed: false,
+  const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, going: 0, placing: null, placed: false,
     ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   const place = (view: BodyView, footing: Footing, lower?: number): StanceGoal | null => {
     state.pace = 0;
+    state.going = 0;
     if (turnStartup) state.walkTime = 0;
     const base = legs.goal(view, state.heading, null, lower);
     if (!base) return null;
@@ -301,6 +306,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       const across = acrossScratch.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, acrossScratch);
       state.heading = atan2(-across.z, across.x);
       state.pace = 0;
+      state.going = 0;
       if (turnStartup) state.walkTime = 0;
       state.placing = null;
       state.placed = false;
@@ -317,12 +323,12 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       }
       state.placing = null;
       state.placed = false;
-      if (!walk) { state.pace = 0; if (turnStartup) state.walkTime = 0; }
+      if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }
       else if (view.time > view.born) {
         const turn = wrap(face - state.heading);
         const startupLimit = turnStartup && state.walkTime! < turnStartup.seconds ? turnStartup.limit : Infinity;
         if (envelope || turnLimit !== undefined || turnStartup) {
-          const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
+          const rate = Math.min(envelope ? turnAt(envelope, Math.max(state.pace, state.going)) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
           state.heading += Math.max(-rate, Math.min(rate, turn));
         } else state.heading += turn;
         const speed = hypot(walk[0], walk[1]);
@@ -331,6 +337,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
         if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         state.pace = Math.min(speed, most);
+        state.going = Math.max(state.pace, state.going - STANCE_STOPPING * dt);
         if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;
       } else state.pace = hypot(walk[0], walk[1]);
       return legs.goal(view, state.heading, walk, lower);
