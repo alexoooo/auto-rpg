@@ -44,8 +44,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 
-1. **Now:** Vanguard on hold, its
+1. **Now:** Recovery step 1; Vanguard on hold, its
    explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
    alone by `--ablate`, with their decisions visible in Arena and Lab.
 2. **When each one's condition holds:**
@@ -80,6 +81,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
   no club blow lands and nothing dies (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to
   0.05). Options: another mind for the Crypt's humanoids; the strike stepping back to its stand-off;
   a fall ending a Crypt fight (`fallEndsFight`, `src/dungeon/actors.ts`); smaller pools.
+- The stand-up target's falls: a shove the body holds is given again the same way, up to three
+  ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
+  held to it ([Recovery](plans/2026-10-23-recovery.md)).
 - The look's and the sound's values: torch density, which floor and wall textures ship,
   `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
   costume, after seeing the bones in play.
@@ -159,7 +163,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
   falls 6.5 s into its run.
-- **Recovery.** The owner's 64-fall target (`npm run evaluate -- rising-target`,
+- **Recovery** ([plan](plans/2026-10-23-recovery.md)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 45 of 64 and none within 6 s
