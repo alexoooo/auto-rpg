@@ -47,8 +47,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** Vanguard's unarmed fighter; per-hand contact selection improves its retained Skeleton
-   development panel from one to two of four Options wins, without falls; fresh confirmation is
-   pending ([record](reference/vanguard.md#contact-exchanges)). Its explicit presets
+   development panel from one to two of four Options wins, but its sixth fresh campaign loses
+   all three completed cases without falls ([record](reference/vanguard.md#contact-selection-campaign)). Its explicit presets
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
    visible in Arena and Lab. The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
@@ -218,9 +218,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
-  empty-handed first, then equipped, on held-out cases. Five fresh unarmed campaigns fail; the
-  Skeleton's selected contact planner improves development results to 2/4 and awaits fresh confirmation
-  ([record](reference/vanguard.md#contact-exchanges), [plan](plans/2026-10-21-vanguard.md)).
+  empty-handed first, then equipped, on held-out cases. Six fresh unarmed campaigns fail; the
+  Skeleton's selected contact planner has a development gain but loses all three fresh cases played
+  ([record](reference/vanguard.md#contact-selection-campaign), [plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read

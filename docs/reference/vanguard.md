@@ -5,8 +5,9 @@ committed point prediction, contact-driven attack/evasion choice and editable mo
 The Skeleton also learns each hand's contact score per attempted second. This improves the
 four-case Options development panel on the current locomotion from 1/4 to 2/4, without falls;
 both wins are health leads at the cap ([contact exchanges](#contact-exchanges)). The presets retain
-the selected development configurations for the Warrior, Rogue and Skeleton. All five fresh
-qualification campaigns preceding contact selection fail. Equipment is unqualified.
+the selected development configurations for the Warrior, Rogue and Skeleton. Contact selection
+fails its sixth fresh campaign with three losses in three completed cases. All five preceding
+qualification campaigns fail too. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -463,8 +464,40 @@ falls continuing to injury or the ordinary 120 s cap. The reference is the
 | Court / 5.92 m | Left | Time-limit loss | Time-limit win | 0 |
 | Court / 5.92 m | Right | Time-limit win | Time-limit loss | 0 |
 
-The net gain selects the planner for the Skeleton. It still loses two of four, with no injury
-wins, and these reused development geometries do not qualify it. Fresh confirmation is pending.
+The net gain selects the planner for the Skeleton. `npm run compare` reads the saved before/after
+records as two complete mirrored units: win share rises from 0.25 to 0.50 and mean bar margin
+improves by 0.058. The imported records retain their original recipes and source hashes; the
+comparison is descriptive because their complete source provenance is outside Git. It still
+loses two of four, with no injury wins, and these reused geometries do not qualify it.
+
+## Contact-selection campaign
+
+The frozen presets at `df761155` fail the sixth fresh Options matrix with zero wins and three
+losses in three completed Skeleton cases. All reach the ordinary 120 s cap without falls.
+The third non-win makes ten wins in twelve impossible; the other nine cases remain unplayed,
+not losses. There are no invalid cases. The three completed cases' Wilson 95% interval is
+0 to 0.561; this sequentially stopped subset does not estimate the unplayed field's win rate.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched bodies, empty hands,
+default attributes, Balance 0/0, zero sense delay, falls continuing to injury or the cap.
+The conditions, full preset configurations and harness freeze before any bout; their source
+hash is `sha256:a4f7664de866ef7ce15fff93549fab86be54a3ed322d41034c57652d6bc4e3d6`.
+The [campaign record](../../research/runs/vanguard/qualification/campaign-6-options.json)
+names completed rows and all unfinished cases. `conditions-6.json`, `fighter-6.json`,
+`harness-6.json` and `cases-6/` beside it retain the selection rule, recipes and physical rows.
+The two-worker pool runs for 274.1 wall seconds, below its nine-minute cutoff.
+
+| Level / gap | Side | Result | Own / opponent bar | Committed punches | Candidate falls |
+| --- | --- | --- | --- | ---: | ---: |
+| Court / 6.93 m | Left | Time-limit loss | 0.4854 / 0.5527 | 89 | 0 |
+| Court / 6.93 m | Right | Time-limit loss | 0.6167 / 0.6354 | 73 | 0 |
+| Open / 7.63 m | Left | Time-limit loss | 0.5712 / 0.8930 | 89 | 0 |
+
+The saved-row reading (`reading-6-options.json`) finds damaging hand contacts in each case.
+In the open case the opponent's recorded injury is confined to its arms, despite eleven strokes
+recording intended-region contact. Entering a stroke or registering a target touch is insufficient;
+the body-only attack selection still fails to deliver effective injury through this guard.
+These conditions become development evidence for the next candidate.
 
 ## Tried and not kept
 
