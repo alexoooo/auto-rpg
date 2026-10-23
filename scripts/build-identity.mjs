@@ -10,6 +10,17 @@ const OUTPUTS = Object.freeze(["assets/minds/notes.json", "assets/evaluations/",
 const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
 const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch"]);
 
+/** Whether a path contributes to the build, including a removed input in a historical Git diff. */
+export function isBuildInput(file) {
+  return !isOutput(file) && !file.split("/").includes("__pycache__") && !/\.py[co]$/.test(file) && (
+    ["package.json", "package-lock.json", "vite.config.ts", "tsconfig.json"].includes(file)
+    || !file.includes("/") && file.endsWith(".html")
+    || /^(src|assets|public|scripts)\//.test(file)
+    || file.startsWith("vendor/rapier/") && file.slice("vendor/rapier/".length).includes("/") === false && !file.endsWith(".md")
+    || (file.startsWith("research/") && !file.startsWith("research/runs/") || file.startsWith("tests/harness/")) && [".ts", ".mjs", ".js"].includes(extname(file))
+    || file.startsWith("node_modules/@dimforge/rapier3d-simd-compat/"));
+}
+
 /** A file's content as identities read it: a text file's line endings normalised. */
 function contentOf(root, file) {
   const bytes = readFileSync(resolve(root, file));
@@ -45,7 +56,7 @@ function buildInputs() {
   for (const file of ["package.json", "dist/rapier.mjs", "dist/rapier_wasm3d.js", "dist/rapier_wasm3d_bg.wasm"]) files.push(`${solver}/${file}`);
   walk("research", true);
   walk("tests/harness", true);
-  return files.map(file => relative(ROOT, resolve(ROOT, file)).replaceAll("\\", "/"));
+  return files.map(file => relative(ROOT, resolve(ROOT, file)).replaceAll("\\", "/")).filter(isBuildInput);
 }
 
 /** Runtime code, input assets, dependency lock and the actual installed solver identify a build. */

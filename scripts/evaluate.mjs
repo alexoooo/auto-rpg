@@ -20,6 +20,8 @@
  * read against it, condition by condition. `--ablate` makes the first subject the `--previous` mind
  * with one slot of its skills (`SkillKit`) replaced by the JSON given: `support=null`, `guard={...}`,
  * or one named executor or action, `actions.<name>=null` to remove it.
+ * Baseline configurations run on current code. Historical implementations are compared from
+ * their saved records with `npm run compare`, without rebuilding them here.
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
  * files of every case's code unchanged (`caseCoder`).
@@ -241,6 +243,7 @@ async function main() {
   const { baseline, counterpart, revived } = values.previous && values.against ? baselineOf(evaluation, choice[0], values.previous, chosen, records)
     // A battery plays its baseline beside its subject.
     : { baseline: values.previous && cases.arity === 1 ? evaluation.subjects([subjectOf(values.previous)]) : [], counterpart: new Map(), revived: new Map() };
+  if (revived.size > 0) console.log("Baseline configurations run on current code; npm run compare reads historical implementation results from saved records.");
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
   const coder = caseCoder(fileTable(), `src/evaluation/${id}/cases.ts`, Object.keys(CONTROLLERS)), environment = coder.environment;

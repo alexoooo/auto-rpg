@@ -15,6 +15,7 @@ npm test                  # the gate: step cost, the core's boundary, the Mind a
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
+npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence, no execution
 npm run evaluate -- tournament --mind new.json --previous <mind> --against default --until settled  # the panel report
 npm run evaluate -- court --previous duellist --ablate 'actions.thrust=null'  # a skill slot's worth at a battery; with --against, in fights
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
@@ -45,9 +46,10 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
   about 10 minutes it is cut or the owner asked. Nothing runs over an hour without the owner's
   go-ahead for that run. What is played is kept as rows and reused.
 - **An iteration is one question**: the question and the evaluation that answers it; one
-  implementation changed or added beside the others; a paired reading against the version before
-  (the panel report, `--previous`; `npm run match` for two minds); kept, or the reason it was not
-  recorded.
+  implementation changed or added for the experiment; a paired reading against the version before
+  (`npm run compare` for historical records; `--previous` for live configurations; `npm run match`
+  for two minds); kept, or the reason it was not recorded. Git retains old implementations and
+  records retain their evidence; a live alternative stays only while an open question uses it.
 - **A new test answers a specific need** ([Tests](#tests)), and is fast (under about 10 s).
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
 - **Work on main.** A new branch only when the owner asks for one.
