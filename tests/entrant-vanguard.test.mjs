@@ -23,6 +23,7 @@ import { labActor } from "../src/lab/actor.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 import { engagementLines } from "../src/ui/action-readout.ts";
+import { VANGUARD_EXCHANGE } from "../src/core/entrants/vanguard/exchange.ts";
 
 /** A detached public report, read through the same formatter as inspection. */
 function reportOf(tactics) {
@@ -31,6 +32,53 @@ function reportOf(tactics) {
   assert.deepEqual(saveState(tactics.state), before, "reading a report changes no decision memory");
   return report;
 }
+
+test("contact selection credits guarded impacts once, ignores unowned work and replays its decisions", () => {
+  const foe = { id: "foe", side: "other", out: false, down: false, centre: { x: 0, y: 1, z: 1 },
+    spec: { segments: [{ name: "trunk" }, { name: "guard" }], marks: { middle: ["trunk"] } },
+    segments: new Map([["guard", { centre: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, spin: { x: 0, y: 0, z: 0 } }]]) };
+  const feedback = (speed) => ({ completedStep: 0, velocity: [speed, 0, 0], pairs: [] });
+  const view = { time: 0, resumed: false, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, phase: "stand" },
+    senses: { side: "self", out: false, others: [foe] }, effectors: { "hand.right": { feedback: feedback(1) }, "hand.left": { feedback: feedback(2) } } };
+  const report = { heading: 0, actions: [], ledger: [] }, clock = { id: 0, step: 0 };
+  const sight = { view, report, instance: () => ++clock.id,
+    readiness: () => report.actions.length ? { kind: "waiting", reason: "resources held" } : { kind: "ready" } };
+  const action = { name: "strike", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }] };
+  const tactics = VANGUARD_EXCHANGE.make({ spec: { effectors: action.effectors.map(segment => ({ segment })) },
+    actions: [action], estimates: {}, aims: new Map(), orders: () => null, parts: partLookup },
+    { ...VANGUARD_EXCHANGE.defaults, list: [{ kind: "attack" }], revisit: 8 });
+  const dt = 1 / 120, read = () => tactics.decide(sight, dt);
+  const advance = () => { view.time = ++clock.step * dt; for (const e of Object.values(view.effectors)) e.feedback.completedStep = clock.step; };
+  const impact = impulse => ({ target: { kind: "body", body: "foe", segment: "guard", guard: true }, point: [0, 0, 0], normal: [1, 0, 0], impulse, loaded: true, onset: true });
+  const emptyCounts = () => Object.fromEntries(["prepare", "commit", "release"].map(phase => [phase, { target: 0, block: 0, incidental: 0, world: 0 }]));
+  const end = request => { const counts = emptyCounts(); counts.commit.block = 1; return { ...request, sequence: report.ledger.length + 1, began: view.time - 2 * dt, ended: view.time,
+    committed: true, ending: { kind: "completed" }, contacts: { counts, loadedInCommit: true, blockedSegments: ["guard"], lastTarget: null },
+    observations: [{ phase: "commit", kind: "block", by: request.effector, struck: { body: "foe", segment: "guard" }, step: clock.step - 1, time: view.time - dt }], observed: 1 }; };
+  const first = read().actions[0];
+  assert.equal(first.effector, "hand.right");
+  report.actions = [{ ...first, phase: "commit" }]; advance(); view.effectors[first.effector].feedback.pairs = [impact(3)]; read();
+  read();
+  advance(); report.actions = []; view.effectors[first.effector].feedback.pairs = []; report.ledger.push(end(first));
+  const second = read().actions[0];
+  assert.equal(second.effector, "hand.left", "an untried available hand gets a trial");
+  report.actions = [{ ...second, phase: "commit" }]; advance(); view.effectors[second.effector].feedback.pairs = [impact(2)]; read();
+  advance(); report.actions = []; view.effectors[second.effector].feedback.pairs = []; report.ledger.push(end(second));
+  const chosen = read().actions[0];
+  assert.equal(chosen.effector, "hand.left", "guard impacts count once per completed interval, so the stronger hand wins");
+  report.actions = [{ ...chosen, phase: "commit" }]; advance(); view.effectors[chosen.effector].feedback.pairs = [impact(2)]; read();
+  report.ledger.push(end({ ...chosen, id: 999 })); read();
+  advance(); report.actions = []; view.effectors[chosen.effector].feedback.pairs = []; report.ledger.push(end(chosen));
+  const next = read().actions[0];
+  assert.equal(next.effector, "hand.left", "another policy's completed work is not a zero-score trial");
+  report.actions = [{ ...next, phase: "commit" }]; advance(); read();
+  const state = saveState(tactics.state), checkpoint = structuredClone({ view, report, clock });
+  const tail = () => { const result = []; for (let i = 0; i < 4; i++) { advance();
+      view.effectors[next.effector].feedback.pairs = i % 2 === 0 ? [impact(1)] : [];
+      result.push({ intent: read(), report: reportOf(tactics) }); }
+    return { result, state: saveState(tactics.state) }; };
+  const expected = tail(); loadState(tactics.state, state); Object.assign(view, checkpoint.view); Object.assign(report, checkpoint.report); Object.assign(clock, checkpoint.clock);
+  assert.deepEqual(tail(), expected);
+});
 
 test("each humanoid is offered only its own named Vanguard calibration", () => {
   for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {

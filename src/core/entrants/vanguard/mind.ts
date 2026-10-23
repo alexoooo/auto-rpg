@@ -11,6 +11,7 @@ import { deepFreeze } from "../../state.ts";
 import { VANGUARD_PUNCH, type VanguardPunchConfig } from "./punch-part.ts";
 import { VANGUARD_PLAN, type VanguardPlanConfig } from "./plan.ts";
 import { VANGUARD_WALK } from "./walk-part.ts";
+import { VANGUARD_EXCHANGE } from "./exchange.ts";
 
 /** A fighter's slots, including its own planners, punches and calibrated walk. */
 interface VanguardConfig extends Omit<FighterConfig, "kind" | "tactics" | "locomotion"> {
@@ -26,14 +27,17 @@ const PUNCHES = (["punch", "low-punch"] as const).map((name): VanguardPunchConfi
   lean: name === "low-punch" ? .89 : .1, hips: .3, turn: .55, lead: .1, chamber: .22,
   low: true, lowOnly: name === "low-punch", predict: true }));
 
+/** Movement and cover keep their priority while each calibration chooses its attack selection. */
+const PLAN = deepFreeze({ ...FIGHTING, list: [
+  { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "evade" },
+  { kind: "break-clinch", metres: .7 }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "ward" },
+] });
+
 /** A body punch behind an anticipatory guard, with a planted low punch and closed low cover. */
 const WARRIOR: VanguardConfig = deepFreeze({
   kind: "vanguard",
   locomotion: { ...MOVE, otherwise: "braced" }, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
-  tactics: { kind: "vanguard-plan", lowGuard: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: false, plan: { ...FIGHTING, list: [
-    { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "evade" },
-    { kind: "break-clinch", metres: .7 }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "ward" },
-  ] } },
+  tactics: { kind: "vanguard-plan", lowGuard: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: false, plan: PLAN },
   executors: PUNCHES,
   actions: (["punch", "low-punch"] as const).map(executor => ({ name: executor === "punch" ? "strike" : executor, executor,
     effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } })),
@@ -45,9 +49,9 @@ const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "
 /** The Rogue calibration uses a conservative stance walk. */
 const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, locomotion: VANGUARD_WALK.defaults });
 
-/** The Skeleton calibration adds a blocked step and pins its standing punch's aim at commitment. */
+/** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
 const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE,
-  tactics: { ...WARRIOR.tactics, flank: true },
+  tactics: { ...WARRIOR.tactics, flank: true, plan: { ...VANGUARD_EXCHANGE.defaults, list: PLAN.list } },
   executors: PUNCHES.map(executor => executor.lowOnly ? executor : { ...executor, lead: .025, anchorAtDrive: true }),
 });
 
@@ -60,7 +64,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
-  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK],
+  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK, VANGUARD_EXCHANGE],
   fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),

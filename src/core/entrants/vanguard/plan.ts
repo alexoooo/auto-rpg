@@ -19,6 +19,7 @@ import { flank } from "./flank.ts";
 import { lowGuard, lowGuardSkills } from "./low-guard.ts";
 import { routeAround } from "./route-around.ts";
 import { limitPace } from "./pace.ts";
+import { exchangeList } from "./exchange.ts";
 
 /** Its config: the plan it layers, and each layer on or off. */
 export interface VanguardPlanConfig extends PartConfig {
@@ -39,7 +40,7 @@ const LAYERS = ["slowEvade", "adaptiveEvade", "revisitEvade", "routeAround", "fl
 
 /** The plan as a behaviour list, or null for a planner of another kind. */
 const behaviourList = (plan: PartConfig): readonly PartConfig[] | null =>
-  plan.kind === "behaviours" && Array.isArray((plan as { list?: unknown }).list) ? (plan as unknown as { list: readonly PartConfig[] }).list : null;
+  exchangeList(plan) ?? (plan.kind === "behaviours" && Array.isArray((plan as { list?: unknown }).list) ? (plan as unknown as { list: readonly PartConfig[] }).list : null);
 
 /** Cap only the chosen evasive step, retaining the policy and its report. */
 function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null): Tactics {
