@@ -146,13 +146,18 @@ const unprovided = (needs: Provision | undefined, provides: readonly Provision[]
  * sentence. A part's own faults come first, then each slot's, each prefixed with where it is
  * (`subs.0: `). A part the screen cannot run (`Part.needs`), a slot that holds what is no part, a
  * part of another role, another mind's own part (`Controller.parts`), or nothing where it must
- * hold one is a fault; a part's own faults (`Part.faults`) are read only once every slot holds
- * parts of its role. `mind` is the kind of the mind the tree is of: the root's, where it is a mind.
+ * hold one is a fault; a part's own faults (`Part.faults`) are read only once every descendant slot
+ * holds parts of its role and owner. `mind` is the kind of the mind the tree is of: the root's, where it is a mind.
  */
 export function treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = "", mind: string | null = null): readonly string[] {
+  return treeValidation(config, provides, at, mind).faults;
+}
+
+/** Structural validity travels with a subtree's faults, so ancestor hooks may safely traverse its slots. */
+function treeValidation(config: PartConfig, provides: readonly Provision[], at: string, mind: string | null): { readonly formed: boolean; readonly faults: readonly string[] } {
   const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
   const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
-  if (!isPart(config)) return [where(kind(config))];
+  if (!isPart(config)) return { formed: false, faults: [where(kind(config))] };
   const of = mind ?? (partOf(config).role === "mind" ? config.kind : null);
   const slots: string[] = [];
   let formed = true;
@@ -165,13 +170,18 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
       if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
       else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
       else if (ownerOf(child.kind) !== null && ownerOf(child.kind) !== of) { formed = false; slots.push(where(`${partOf(child).label} is ${ownerOf(child.kind)}'s own part`, here)); }
-      else slots.push(...treeFaults(child, provides, here, of));
+      else {
+        const checked = treeValidation(child, provides, here, of);
+        formed = formed && checked.formed;
+        slots.push(...checked.faults);
+      }
     });
   }
   for (const { path, aim } of aimsOf(config, at))
     if (isPart(aim) && ownerOf(aim.kind) !== null && ownerOf(aim.kind) !== of) { formed = false; slots.push(where(`${partOf(aim).label} is ${ownerOf(aim.kind)}'s own part`, path)); }
   const screen = unprovided(partOf(config).needs, provides);
-  return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots];
+  return { formed, faults: [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)),
+    ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
 }
 
 /** **Every kind of part in the tree `config` roots**, the root's included, each once: what a case's code holds the parts' own code of (`caseCoder`). */

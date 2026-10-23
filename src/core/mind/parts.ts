@@ -71,7 +71,7 @@ export interface Part<C extends PartConfig = PartConfig> {
   strikes?(spec: BodySpec, config: C, parts: PartLookup): readonly string[] | undefined;
   /**
    * What is wrong with `config` itself, each a sentence, a fault found at a slot prefixed with its
-   * key (`blow: `). Its slots' parts answer for their own; it is asked only once each slot holds parts of its role.
+   * key (`blow: `). Its slots' parts answer for their own; it is asked only once every descendant slot holds parts of its role and owner.
    */
   faults(config: C, parts: PartLookup): readonly string[];
   /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */

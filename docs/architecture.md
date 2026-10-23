@@ -474,6 +474,8 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault, an aim its actions name (`ActionConfig.aim`) as a slot's part.
+  `Part.faults` runs only when every descendant slot holds parts of its role and owner;
+  malformed nested slots return their faults without invoking ancestor hooks that traverse them.
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
   sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors

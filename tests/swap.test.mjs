@@ -152,6 +152,39 @@ test("CLI resolution preserves whole-config expansion, batteries and two-subject
   }
 });
 
+test("nested planner structure faults reach links without invoking unsafe ancestor validators", () => {
+  const base = MINDS["vanguard-skeleton"].config, plan = base.tactics.plan;
+  const foreign = STUBS.find(stub => stub.part.defaults.kind === "stub-tactics").part;
+  const cases = [
+    [{ kind: "missing-plan" }, "", 'no part of kind "missing-plan"'],
+    [{ kind: "vanguard-plan" }, ".plan", "a tactics part is needed"],
+    [{ kind: "shield-guard" }, "", "a guard part cannot go where a tactics part goes"],
+    [{ ...plan, list: {} }, ".list", "a list of behaviour parts"],
+    [{ ...plan, list: [{ kind: "missing-behaviour" }] }, ".list.0", 'no part of kind "missing-behaviour"'],
+    [foreign.defaults, "", `${foreign.label} is swap-stub's own part`],
+  ];
+  for (const [leaf, suffix, fault] of cases) for (const depth of [1, 2, 3]) {
+    let tactics = leaf;
+    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard-plan", plan: tactics };
+    const config = { ...base, tactics }, faults = [`tactics${".plan".repeat(depth)}${suffix}: ${fault}`];
+    assert.deepEqual(treeFaults(config), faults);
+    assert.deepEqual(parseMind(JSON.stringify(config), modelSpec("crypt-skeleton"), FIGHT_ENTRY), { config, faults },
+      "the screen's link parser returns the faulty configuration and its diagnostic");
+  }
+});
+
+test("structurally valid nested planners retain ancestor and child semantic faults in order", () => {
+  const base = MINDS["vanguard-skeleton"].config, plan = base.tactics.plan;
+  const wrap = plan => ({ kind: "vanguard-plan", revisitEvade: true, plan });
+  const tactics = wrap(wrap({ ...plan, choose: { ...plan.choose, rethink: -1 } }));
+  assert.deepEqual(treeFaults({ ...base, tactics }), [
+    "tactics: revisitEvade needs adaptive evasion",
+    "tactics.plan: revisitEvade needs adaptive evasion",
+    "tactics.plan.plan: selection needs finite nonnegative rethink and positive patience",
+  ]);
+  assert.deepEqual(treeFaults({ ...base, tactics: { kind: "vanguard-plan", plan: { kind: "vanguard-plan", plan } } }), []);
+});
+
 for (const { part, at, mind, place } of STUBS) {
   const kind = part.defaults.kind, game = GAME_CONFIGS[mind];
   test(`${kind}: offered in its own mind's ${part.role} slot only, and a fault in another mind's tree`, () => {
