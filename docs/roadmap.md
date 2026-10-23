@@ -43,11 +43,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [Movement and command](plans/2026-10-21-movement-and-command.md) | Crowd motion: B3 waits on the braced walk's falls |
 | [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar: the Warrior meets it, the Rogue falls 18 in 200 (under 10); a faster walk, faster braking |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** the braced walk, from Movement B3's remainder (its falls in a crowd); Vanguard on hold, its
+1. **Now:** the braced walk; Vanguard on hold, its
    flags now its planner part (`vanguard-plan`), each of its parts replaced alone by `--ablate`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
@@ -244,13 +243,13 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   stands still.
 - Retiring what the new skills replace, each with its records: the strike repertoire, the staged
   rise, the Scrapper preset.
-- Team bouts in the Arena, N against N, come after Movement and command.
+- Team bouts in the Arena, N against N.
 
 ### The game
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - the stance walk runs away sideways after a half turn (Movement B3);
+  - the stance walk runs away sideways after a half turn ([the braced walk](plans/2026-10-22-braced-walk.md));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
     a frontier point too close to a wall for a body with a club stalls the person's party;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
