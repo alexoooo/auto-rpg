@@ -317,6 +317,25 @@ On the SIMBICON run (its battery above):
   walk does not take a quicker slowing;
 - guard arms in the walk after a run.
 
+On the walk and run's stopping (Node stand, Rapier, 120 Hz, empty and the club, at `6c2142ec`):
+the run holds about its own speed between 1.2 m/s and it (1.7 to 2.2 for the Warrior) whatever it
+is asked, so the speed rule's slowing is not followed and the body goes 0.3 to 0.5 m/s over it.
+
+- a run asked under its pace by once or twice what the body goes over it: slows 0.1 to 0.2 m/s
+  sooner, stops no shorter;
+- the run's `brake` at 1 and 2 m/s²: from its top speed the Warrior and the Rogue fall, the
+  skeleton at 2;
+- the run slowing from the body's speed, not from its pace up to `ahead` over it: halted from
+  runs of 2, 4 and 6 s, each body empty and with the club, it stops in 4.75 m against 6.22 (the
+  16 both stood), and the Rogue with the club falls after its 4 s run, which stood; at the stated
+  0.15 m/s² a place goal 8, 15 and 30 m off plays the same;
+- stated at 0.2 m/s² with that slowing: a place goal is reached 5 to 10 % sooner, and the skeleton
+  sent 8 m falls as the run gives way, its pelvis turning at about 3 rad/s; at 0.3, 20 to 25 %
+  sooner, the Warrior runs up to 1.7 m past with the club and the skeleton falls once;
+- the catch's foot chosen by how far the capture point lands from the support it leaves (the
+  bearing sole to the landing) in place of from the landing: shoved, the Rogue 16 and the Warrior 7
+  falls of 200 against 18 and 7; no stop changed.
+
 On the walk and run's speeds:
 
 - a fixed share of the forward pace for a goal to the side (`STRAFE`,
