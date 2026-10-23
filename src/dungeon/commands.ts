@@ -1,6 +1,7 @@
 import { distance, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Command, DrawnRoute } from "../core/command/commands.ts";
+import { hypot } from "../core/math/real.ts";
 
 interface ControlMode { keyboard: boolean; facing: boolean }
 export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;
@@ -8,7 +9,7 @@ export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard
 /** Keys on the screen's axes as a step on the ground, for a camera standing `toward` of the hero: screen up is
  * `-toward`, away from the camera, and screen right is `(-toward.z, toward.x)`. At `CAMERA_AZIMUTH` they are +z and +x. */
 export function screenMovement(right: number, up: number, toward: Point = cameraToward(CAMERA_AZIMUTH)): Point {
-  const norm = Math.max(1, Math.hypot(right, up));
+  const norm = Math.max(1, hypot(right, up));
   return { x: (-right * toward.z - up * toward.x) / norm, z: (right * toward.x - up * toward.z) / norm };
 }
 

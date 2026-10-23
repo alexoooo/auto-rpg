@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import type { Point } from "./map.ts";
+import { cos, sin, tan } from "../core/math/real.ts";
 
 /** The camera's elevation above the ground plane, rad: 30 degrees, where the concept art looks down at about 40 to
  * 45 and the reference chamber's own camera at 42 (`REFERENCE_CAMERA`). Which the crypt takes is the owner's to
@@ -19,15 +20,15 @@ const CAMERA = Object.freeze({ ground: Math.sqrt(800), height: 1 });
 export const CAMERA_AZIMUTH = Math.PI;
 
 /** The unit step on the ground from the hero toward a camera at `azimuth`. */
-export const cameraToward = (azimuth: number): Point => ({ x: Math.sin(azimuth), z: Math.cos(azimuth) });
+export const cameraToward = (azimuth: number): Point => ({ x: sin(azimuth), z: cos(azimuth) });
 
 /** How far the camera stands from the point it looks at: `CAMERA.ground` across the ground. */
-export const cameraDistance = (pitch: number): number => CAMERA.ground / Math.cos(pitch);
+export const cameraDistance = (pitch: number): number => CAMERA.ground / cos(pitch);
 
 export function frameDungeon(camera: FreeCamera, hero: Point, zoom: number, aspect: number, pitch = CAMERA_PITCH,
   azimuth = CAMERA_AZIMUTH): void {
   const toward = cameraToward(azimuth), ground = CAMERA.ground;
-  camera.position.set(hero.x + toward.x * ground, CAMERA.height + ground * Math.tan(pitch), hero.z + toward.z * ground);
+  camera.position.set(hero.x + toward.x * ground, CAMERA.height + ground * tan(pitch), hero.z + toward.z * ground);
   camera.setTarget(new Vector3(hero.x, CAMERA.height, hero.z));
   camera.orthoLeft = -zoom * aspect; camera.orthoRight = zoom * aspect;
   camera.orthoTop = zoom; camera.orthoBottom = -zoom;

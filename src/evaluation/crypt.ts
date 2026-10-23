@@ -3,9 +3,9 @@
  * member under one mind or each under its model's own, and a script of the person's orders
  * (`CryptLeg`), each leg given once the last is done, or none. It is the game's run (`DungeonRun`,
  * `src/dungeon/run.ts`), on its own scene with no canvas, each side under the Commander the case
- * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is not yet bit-equal between JavaScript
- * engines, as a bout is: the run's placement and the person's commands (`src/dungeon/`) use
- * arithmetic each engine rounds its own way.
+ * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is bit-equal between JavaScript
+ * engines, as a bout is: what lays it out, places it and steps it computes as the core does, and
+ * its look (decals, dressing, the fog's shader) decides nothing a body meets.
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";

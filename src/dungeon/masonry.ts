@@ -1,5 +1,6 @@
 import { WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import type { DungeonMap, Point } from "./map.ts";
+import { hypot } from "../core/math/real.ts";
 
 /**
  * The walls' masonry: courses of bevelled blocks on every side of the wall colliders, a coping course on top, and
@@ -137,7 +138,7 @@ export interface Quad { cell: Point; corners: Corner[]; normal: Corner; uvs?: [n
 function facing(corners: readonly Corner[], outward: Corner): Corner {
   const [a, b, c, d] = corners, p = [c[0] - a[0], c[1] - a[1], c[2] - a[2]], q = [d[0] - b[0], d[1] - b[1], d[2] - b[2]];
   let n = [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
-  const length = Math.hypot(n[0], n[1], n[2]); n = n.map(v => v / length);
+  const length = hypot(n[0], n[1], n[2]); n = n.map(v => v / length);
   if (n[0] * outward[0] + n[1] * outward[1] + n[2] * outward[2] < 0) n = n.map(v => -v);
   return [n[0], n[1], n[2]];
 }

@@ -15,7 +15,7 @@ import { masonryQuads, type Quad } from "./masonry.ts";
 import { DRESSING, FLOOR_TOP, HUNG_TOP, decalCorners, decalHeight, hungCentre, muralHeight, type Dressing, type TorchPlacement } from "./dressing.ts";
 import { ATLAS, atlasRect, decalAtlas, muralRect } from "./decals.ts";
 import { solidSenses } from "../core/mind/object-senses.ts";
-import { hypot } from "../core/math/real.ts";
+import { atan2, hypot } from "../core/math/real.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. A numeric setting: it changes the
@@ -211,7 +211,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
         cup.position.set(0, S.cupY, (S.proud + 0.01) / 2);
         // Built facing +z from a face at z = 0, and turned to face the floor the torch lights.
         const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup], torch.cell.x + torch.facing.x * 0.5,
-          torch.cell.z + torch.facing.z * 0.5, Math.atan2(torch.facing.x, torch.facing.z));
+          torch.cell.z + torch.facing.z * 0.5, atan2(torch.facing.x, torch.facing.z));
         mesh.material = iron; mesh.isVisible = false; surfaces.push(mesh);
         fittings.push({ mesh, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) });
         return mesh;

@@ -3,8 +3,7 @@
  * companions each under its model's own mind, through each of a fixed set of generated levels
  * against each enemy Commander, in repeated trials (`trialLayout`), until a standing member reaches
  * the exit, the whole party has fallen, or the protocol's seconds. Each is a Crypt run with no
- * script (`CryptCase`), deterministic in Node but not bit-equal between JavaScript engines
- * (`crypt.ts`).
+ * script (`CryptCase`), bit-equal between JavaScript engines (`crypt.ts`).
  */
 import { commanderFaults, commanderOf, type CommanderConfig } from "../../core/command/commander.ts";
 import type { BodyModel } from "../../core/models.ts";

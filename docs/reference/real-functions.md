@@ -40,8 +40,9 @@ fixes, so each function returns the same double in every engine.
   cube root can be had. 34 of the three models' 48 parts moved, by at most 4 units in the last place.
 - **Turns.** Babylon's `Quaternion.RotationAxis` and `Slerp` take the engine's sine and cosine; the
   core's `turnAboutToRef` and `turnBetweenToRef` are the same arithmetic on its own functions.
-- `tests/core-boundary.test.mjs` holds the line: under `src/core/` and in `src/arena/duel.ts` and
-  `room.ts`, `Math` is read only for what is exact (`EXACT_MATH`), `**` is not written, and only
+- `tests/core-boundary.test.mjs` holds the line: under `src/core/` and in what the bout's and the
+  Crypt run's builders and each evaluation's cases reach beside it (`worldBuilders`), `Math` is
+  read only for what is exact (`EXACT_MATH`) and `**` is not written; under `src/core/` only
   Babylon math read and found to be arithmetic and a square root is called (`EXACT_BABYLON`).
 
 ## Against Node's `Math`
@@ -103,6 +104,22 @@ segment's position and turn on both sides, read every 60 steps and at the verdic
 | Warrior v Rogue | the development server's | 2547 | the Warrior, the Rogue fallen, 21.225 s | 0.9942642965393281, 0.848672812168439 | 44 of 44 |
 | Warrior v Rogue, balance 25 % a side | built | 2112 | the Warrior, the Rogue's head off, 17.6 s | 0.9732457233222181, 0.5696885055513037 | 37 of 37 |
 
+Crypt runs on the page (Chrome 154, the development server's, `crypt-clear`'s cases built and
+stepped by `WORLD_BUILDERS.crypt` in a served page) beside Node's (Node 24.19, the same module): a
+running digest of every fighting body's segments, read every 120 steps.
+
+| Case | Seconds | Readings the same as Node's |
+|---|---:|---:|
+| seed 10, trial 0, against the mob | 180 | 180 of 180 |
+| seed 25, trial 0, against independent enemies | 180 | 180 of 180 |
+
+The run asks the engine's `Math` only while Babylon builds the level's meshes (a torus's and a
+mesh's turn, a colour's conversion), read by counting each function's callers over 30 s; with every
+inexact member's result scaled by 1 - 1e-9 in Node, both cases' digests are unchanged over 5 s;
+while companions were placed with the engine's sine (`companionSpawn`), they parted at 2 s. Chrome's `Math.sin`
+differs from Node's at one of the twelve bearings a companion is tried on (pi + pi/3); neither
+case places one there.
+
 No test runs in a browser; to read it again, import `tests/fixtures/real-sweep.mjs` into a served
 page and set its digests beside `RECORD` (`tests/core-math.test.mjs@2a1b29ac`).
 
@@ -111,7 +128,9 @@ step, quiet machine): 1.270 ms on the engine's `Math`, 1.296 and 1.334 ms on the
 
 ## What is not covered
 
-The lab and the crypt take the engine's sine, cosine, arctangent and length where they place a body
-or aim an order (`src/lab/`, `src/dungeon/`), so a lab scenario or crypt run is not held to be the
-same in every engine. A person's keys are read with the engine's `Math`
+The lab and the falls take the engine's sine, cosine, arctangent and length where they place a body
+or aim a shove (`src/lab/`, `src/evaluation/fall.ts`), so a lab scenario or a fall is not held to be
+the same in every engine. The Crypt's look (`CRYPT_LOOK`: its decals, dressing and fog shader)
+takes the engine's arithmetic and decides nothing a body meets; Babylon's math is checked only
+under `src/core/`. A person's keys are read with the engine's `Math`
 (`src/arena/orders-input.ts`) but go on the tape as the number they came to.

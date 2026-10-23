@@ -903,7 +903,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   model's own, each side's Commander (the party's and a mob unless named), and a script of the
   person's orders, a leg at a time, or none (`CryptCase`), a leg that brings the case about ending it
   unreached where it is not done in time (`CryptLeg.fixture`); the game's run (`DungeonRun`) on a
-  scene with no canvas. Not bit-equal between JavaScript engines, as a bout is; the Ratings screen
+  scene with no canvas. Bit-equal between JavaScript engines, as a bout is; the Ratings screen
   does not open one.
 - **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case
   once by its key, and each subject's versions numbered by first appearance (`versionsOf`). The

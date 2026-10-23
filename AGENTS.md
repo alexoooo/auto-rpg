@@ -91,8 +91,8 @@ it never imports them.
   `path@<commit>`; a spec never spreads another family's. It is bookkeeping, not a bar: a number
   the game wants is set to what gets the result, sourced as the owner's decision.
 - **The same arithmetic in every JavaScript engine.** The core, and whatever builds a case's world
-  (what `src/evaluation/bout.ts` reaches beside the core, each evaluation's `cases.ts`, the Crypt's
-  builders), computes with `+ - * /`, `Math.sqrt` and its own functions
+  (what the bout's and the Crypt run's builders and each evaluation's `cases.ts` reach beside the
+  core, less the Crypt's look and short of the falls'), computes with `+ - * /`, `Math.sqrt` and its own functions
   (`src/core/math/real.ts`, `turn.ts`); never `Math.sin` and kin, `Math.hypot`, `Math.pow` or
   `**`, which engines round their own way. The boundary test enforces it (`EXACT_MATH`) and lists
   the Babylon math read and found exact (`EXACT_BABYLON`): read a member's source before adding it.
@@ -227,8 +227,8 @@ stray files (`tests/workspace.test.mjs`).
 
 When the question is a measurement:
 
-- **Name the harness** of every figure (Node stand or page, engine, rate). An arena bout is the
-  same in both to the bit; a lab scenario or a crypt run is not yet.
+- **Name the harness** of every figure (Node stand or page, engine, rate). An arena bout and a
+  crypt run are the same in both to the bit; a lab scenario or a fall is not yet.
 - **Say whether a peak was driven or struck**; exclude startup and the time after a contact.
 - **Read the faster physics rate at the slower one's spacing** before calling a difference physical.
 - **Believe the stand over the fight**: a flung weapon improves every bout column.

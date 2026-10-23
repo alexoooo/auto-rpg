@@ -165,15 +165,16 @@ function layRooms(random: () => number): Layout {
   const axis: Heading = random() < 0.5 ? 0 : 2;
   attach(0, axis); attach(0, (axis + 1) as Heading);
   // The branches, depth first: each side of each room may grow a room, less often the deeper it is.
-  const stack = rooms.map((_, room) => ({ room, depth: 0 }));
+  // `decay` is `LEVEL.branchDecay` to the room's depth, as a running product.
+  const stack = rooms.map((_, room) => ({ room, decay: 1 }));
   while (stack.length > 0 && rooms.length < LEVEL.maxRooms) {
-    const { room, depth } = stack.pop()!;
-    const chance = LEVEL.branchChance * LEVEL.branchDecay ** depth;
+    const { room, decay } = stack.pop()!;
+    const chance = LEVEL.branchChance * decay;
     for (const heading of shuffled<Heading>([0, 1, 2, 3], random)) {
       if (rooms.length >= LEVEL.maxRooms) break;
       if (random() >= chance) continue;
       const child = attach(room, heading);
-      if (child !== null) stack.push({ room: child, depth: depth + 1 });
+      if (child !== null) stack.push({ room: child, decay: decay * LEVEL.branchDecay });
     }
   }
   return { rooms, links, open };

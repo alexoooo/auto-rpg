@@ -1,5 +1,6 @@
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import { cos, hypot, sin } from "../core/math/real.ts";
 
 /** What the fog mask holds for a cell: never seen, seen before, in sight now. A numeric setting: the bytes are an
  * encoding, which the shader reads as none, half and all. */
@@ -120,8 +121,8 @@ export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pi
   toward: Point = cameraToward(CAMERA_AZIMUTH)): number {
   const dx = at.x - hero.x, dz = at.z - hero.z;
   const along = dx * toward.x + dz * toward.z, across = dx * toward.z - dz * toward.x;
-  const up = (at.y - CUT_AWAY.centre) * Math.cos(pitch) - along * Math.sin(pitch);
-  const r = Math.hypot(across / CUT_AWAY.across, up / CUT_AWAY.up);
+  const up = (at.y - CUT_AWAY.centre) * cos(pitch) - along * sin(pitch);
+  const r = hypot(across / CUT_AWAY.across, up / CUT_AWAY.up);
   return CUT_AWAY.most * (1 - smoothstep(CUT_AWAY.soft, 1, r)) * smoothstep(0, CUT_AWAY.ahead, along)
     * smoothstep(CUT_AWAY.foot[0], CUT_AWAY.foot[1], at.y);
 }

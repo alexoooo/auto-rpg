@@ -30,8 +30,8 @@ export interface Subject {
 
 /**
  * What a case plays, as plain data: one kind of world each (`WorldKind`, listed in `WORLD_BUILDERS`,
- * `worlds.ts`). A bout and a lone body are bit-equal between JavaScript engines; a fall and a
- * Crypt run are not (`fall.ts`, `crypt.ts`).
+ * `worlds.ts`). A bout, a lone body and a Crypt run are bit-equal between JavaScript engines; a
+ * fall is not (`fall.ts`).
  */
 export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
   | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }

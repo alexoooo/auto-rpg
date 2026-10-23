@@ -1,4 +1,5 @@
 import { distance, walkable, clearSegment, type DungeonMap, type Point } from "./map.ts";
+import { cos, sin } from "../core/math/real.ts";
 
 /**
  * A companion's place at the start, m (`docs/reference/play.md#companions`): the rings about the start it is
@@ -16,7 +17,7 @@ export function companionSpawn(map: DungeonMap, taken: readonly (Point & { reado
   const { rings, clearance, apart } = COMPANION_SPAWN, footprint = Math.max(clearance, radius);
   for (const ring of rings) for (let i = 0; i < 12; i++) {
     const angle = Math.PI + i * Math.PI / 6;
-    const at = { x: map.start.x + Math.sin(angle) * ring, z: map.start.z + Math.cos(angle) * ring };
+    const at = { x: map.start.x + sin(angle) * ring, z: map.start.z + cos(angle) * ring };
     if (walkable(map, at, footprint, true) && clearSegment(map, map.start, at, footprint, true)
       && taken.every(other => distance(other, at) >= Math.max(apart, radius + (other.radius ?? clearance)))) return at;
   }
