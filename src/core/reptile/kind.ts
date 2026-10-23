@@ -1,5 +1,6 @@
 import { QUADRUPED, type QuadrupedConfig } from "../mind/config.ts";
 import { controller, NO_POSTURE } from "../mind/controller.ts";
+import { GAME_NAVIGATION } from "../mind/navigator.ts";
 import { slotOne } from "../mind/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { QUADRUPED_PARTS, quadrupedMind } from "./mind.ts";
@@ -9,9 +10,9 @@ import { REPTILE_BITE } from "./tuning.ts";
 /** **The quadruped** (`quadrupedMind`): crawling, biting and righting itself on four paws. */
 export const QUADRUPED_MIND = controller<QuadrupedConfig>({
   role: "mind", label: "Quadruped", stage: "game", fields: [], defaults: QUADRUPED, tuning: ["bite"],
-  slots: [slotOne("motor", "Motor", "support-motor", true, "Paw support"), slotOne("travel", "Travel", "gait", true, "Trot"),
-    slotOne("crawl", "Crawl", "gait", true, "Crawl"), slotOne("bite", "Bite", "bite", true, "Jaw snap"),
-    slotOne("tactics", "Tactics", "quadruped-tactics", true, "Stalk and bite"), slotOne("navigation", "Navigation", "navigation", true, "Visibility routes")],
+  slots: [slotOne("motor", "Motor", "support-motor", true, QUADRUPED_PARTS.motor), slotOne("travel", "Travel", "gait", true, QUADRUPED_PARTS.travel),
+    slotOne("crawl", "Crawl", "gait", true, QUADRUPED_PARTS.crawl), slotOne("bite", "Bite", "bite", true, QUADRUPED_PARTS.bite),
+    slotOne("tactics", "Tactics", "quadruped-tactics", true, QUADRUPED_PARTS.tactics), slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION)],
   keys: { kind: true, motor: true, travel: true, crawl: true, bite: true, tactics: true, navigation: true, tuning: true },
   fits: fitsQuadruped,
   // It strikes with what its bite does (`Part.strikes`): its own where the slot holds none.

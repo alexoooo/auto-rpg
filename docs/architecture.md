@@ -412,7 +412,8 @@ fight reads. A fight passes the config through and reads nothing in it.
 
 - The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
   body's description, the clock (`Clock`), the parts its config may name (`PartLookup`, `lookup.ts`,
-  the registry's `partLookup`), which it hands every assembly that builds a part,
+  `treeLookup`: the registry's `partLookup`, refusing a part the config's tree does not name), which
+  it hands every assembly that builds a part,
   and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
   actions). The command layers are the humanoid's: their view's fists, head and stance
@@ -611,7 +612,8 @@ inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
 (`stockClearance`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
-fallen bodies come to lie across it, its clearance changes by `NAV.margin`, or a goal that moves is
+fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
+or a goal that moves is
 neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
 route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
 else to the spot it chose last, carried with the body it ranges about while that spot is open and
@@ -628,7 +630,10 @@ envelope holds it from its heading and as it stops from before a body ahead. It 
 moment and no other body's choice: a body behind it on the way it is asked gives way to it, and
 turning right costs less than left, so two bodies that meet decide alike in either order and pass
 on their right. It faces the way it goes. A body held back that
-way, or going against the way it is sent, is not stalled. A place whose point does not fit its
+way by another body (not by its gait's own cap), or going against the way it is sent, is not
+stalled; one stalled `NAV.stalled` s searches afresh from where it is. A walk whose sweep meets a
+solid turns from its own way, right then left, to a quarter turn (`clearMove`). A body that faces
+its travel (`Intent.travelFacing`) walks the way its route goes while it turns to face it. A place whose point does not fit its
 clearance is aimed at the nearest point about it that does, within its `near`.
 **The speed rule** (`travelSpeed`, `src/core/mind/travel.ts`) sets how fast the navigator goes: the
 least of the gait's top speed the way it goes (`paceToward` on its envelope), the speed it stops
@@ -848,7 +853,8 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   build's identity and the mind data store (`CUTS`); then the kind of world the case plays adds its
   builder's own code (its module's closure beyond the environment), each kind of mind it plays its
   own (likewise, and `assets/entrants/<kind>/`), each part a role's list holds that its minds'
-  trees name (`treeKinds`) or its world kind names beside them (`WorldKind.parts`: Commanders, end rules) its module's, and each mind data key its minds read (`treeData`) its
+  trees name (`treeKinds`: the parts their slots hold, an empty slot's `Slot.fallback` and what a
+  part runs beside its slots, `Part.uses`) or its world kind names beside them (`WorldKind.parts`: Commanders, end rules) its module's, and each mind data key its minds read (`treeData`) its
   module's. So
   a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
   kinds list of more than its imports and its list, and a module in a closure that imports by no

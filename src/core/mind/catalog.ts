@@ -109,6 +109,20 @@ export const partLookup: PartLookup = Object.freeze({
   },
 });
 
+/**
+ * **The lookup a mind of `config` runs on**: the registry's (`partLookup`), refusing a part its
+ * tree does not name (`treeKinds`), whose code a case of that mind would not hold.
+ */
+export function treeLookup(config: PartConfig): PartLookup {
+  const named = new Set(treeKinds(config));
+  return Object.freeze({
+    of<R extends Role>(role: R, part: PartConfig): RoleParts[R] {
+      if (!named.has(part.kind)) throw new Error(`${partOf(config).label} looks up ${part.kind}, a part its tree does not name`);
+      return partLookup.of(role, part);
+    },
+  });
+}
+
 /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
 function held(config: PartConfig): { readonly slot: Part["slots"][number]; readonly parts: readonly unknown[] }[] {
   return slotsOf(partOf(config), config).map((slot) => {
@@ -184,12 +198,16 @@ function treeValidation(config: PartConfig, provides: readonly Provision[], at: 
     ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
 }
 
-/** **Every kind of part in the tree `config` roots**, the root's included, each once: what a case's code holds the parts' own code of (`caseCoder`). */
+/** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a part runs besides its slots (`Part.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
 export function treeKinds(config: PartConfig): readonly string[] {
   const kinds = new Set<string>();
   const visit = (one: PartConfig): void => {
     kinds.add(one.kind);
-    for (const { parts } of held(one)) for (const child of parts) if (isPart(child)) visit(child);
+    for (const used of partOf(one).uses?.(one) ?? []) visit(used);
+    for (const { slot, parts } of held(one)) {
+      if (parts.length === 0 && slot.fallback) visit(slot.fallback);
+      for (const child of parts) if (isPart(child)) visit(child);
+    }
     for (const { aim } of aimsOf(one, "")) if (isPart(aim)) kinds.add(aim.kind);
   };
   visit(config);

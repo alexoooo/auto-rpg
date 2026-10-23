@@ -21,7 +21,8 @@ export interface PartConfig { readonly kind: string }
 
 /**
  * **A slot**: a key of a part's config that holds another part of `role` (`many`: a ranked list of
- * them), plain data under the key. A slot that is `optional` may hold null.
+ * them), plain data under the key. A slot that is `optional` may hold null, and then runs its
+ * `fallback` where it names one.
  */
 export interface Slot {
   readonly key: string;
@@ -29,8 +30,8 @@ export interface Slot {
   readonly role: Role;
   readonly many: boolean;
   readonly optional: boolean;
-  /** What a person is shown where an optional slot holds none: "None" unless it says. */
-  readonly absent?: string;
+  /** The part an optional slot runs where it holds none: what a case's code holds of it (`treeKinds`) and a person is shown; none, it runs nothing. */
+  readonly fallback?: PartConfig;
 }
 
 /**
@@ -47,6 +48,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly slots: readonly Slot[];
   /** The slots a config of it has where they depend on what it holds: a subset of `slots`, or all of them where absent (`slotsOf`). */
   slotsFor?(config: C): readonly Slot[];
+  /** The parts a config of it runs beside those its slots hold: what a case's code holds of it (`treeKinds`). */
+  uses?(config: C): readonly PartConfig[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
   /** The keys a config of it may hold (`KeysOf`): a key outside them is a fault (`treeFaults`). */
@@ -112,9 +115,9 @@ export function partsByKind<P extends { readonly defaults: PartConfig }>(parts: 
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
 
-/** A slot of one part of `role`, or of none where it is `optional`. */
-export const slotOne = (key: string, label: string, role: Role, optional = false, absent?: string): Slot =>
-  Object.freeze({ key, label, role, many: false, optional, ...(absent === undefined ? {} : { absent }) });
+/** A slot of one part of `role`, or of none where it is `optional`, which runs `fallback` where it names one. */
+export const slotOne = (key: string, label: string, role: Role, optional = false, fallback?: PartConfig): Slot =>
+  Object.freeze({ key, label, role, many: false, optional, ...(fallback === undefined ? {} : { fallback }) });
 
 /** The slots `config` of `part` has: those it says it has by what it holds (`Part.slotsFor`), or all of its slots. */
 export const slotsOf = <C extends PartConfig>(part: Part<C>, config: C): readonly Slot[] => part.slotsFor?.(config) ?? part.slots;

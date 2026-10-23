@@ -34,7 +34,7 @@ const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...con
 export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
   role: "locomotion", label: "Move", stage: "game", defaults: MOVE, keys: { kind: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
-  slots: [slotList("rules", "When", "move-rule")], fits: fitsSoles,
+  slots: [slotList("rules", "When", "move-rule")], fits: fitsSoles, uses: (config) => gaitsOf(config).filter(isGait).map((name) => GAITS[name].legs),
   faults: (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`],
   make(body, config, legs) {
     const names = gaitsOf(config), built = new Map<string, Locomotion>();

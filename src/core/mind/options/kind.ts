@@ -4,6 +4,8 @@ import { OPTIONS, type OptionsConfig } from "../config.ts";
 import { controller } from "../controller.ts";
 import type { PartField } from "../fields.ts";
 import { kitFaults } from "../fighter.ts";
+import { GAME_MOTOR } from "../kit.ts";
+import { GAME_NAVIGATION } from "../navigator.ts";
 import { slotList, slotOne, type Slot } from "../parts.ts";
 import { createOptionsFighter, optionsFit } from "./mind.ts";
 import { OBEDIENCE, TERMS, WEIGHTS } from "./value.ts";
@@ -27,10 +29,10 @@ const OBEDIENCE_FIELD: PartField<OptionsConfig> = {
 
 /** The options fighter's slots: a skill of each role, as a fighter's, its reflexes in rank order, and the motor control under its skills. */
 const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
+  slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"),
-  slotOne("motor", "Motor control", "motor", true, "Whole-body solve"), slotList("subs", "Down", "sub-mind"),
+  slotOne("motor", "Motor control", "motor", true, GAME_MOTOR), slotList("subs", "Down", "sub-mind"),
 ]);
 
 /** **The options fighter** (`createOptionsFighter`): a meta-controller over options, chosen among by their worth. */

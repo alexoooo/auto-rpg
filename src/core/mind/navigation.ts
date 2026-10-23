@@ -15,9 +15,13 @@ import { travelSpeed, type Corner, type GaitLimits } from "./travel.ts";
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
  * route turns onto its next leg `waypoint` m before a corner, the room its gait has to turn in there
  * (`Corner.room`), or sooner where that leg is clear from where the body stands: a body carried or
- * crowded off its route goes on from where it is, never back to a corner it has passed.
+ * crowded off its route goes on from where it is, never back to a corner it has passed. What it
+ * carries is given the most room it took over the last `hold` s: an arm drawn in for a moment
+ * would find a route past a jamb that the guard, back out, does not fit through. A body that has
+ * come no nearer for `stalled` s, its route kept from where it was, stands that step and searches
+ * afresh from where it is at the next.
  */
-const NAV = Object.freeze({ margin: .08, waypoint: .18,
+const NAV = Object.freeze({ margin: .08, waypoint: .18, hold: 2,
   stalled: 3, progress: .06, moved: .3, quiet: .25, rangeSamples: 16, rangeResponse: 1, sideCost: .1 });
 const apart = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z - b.z);
 const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z];
@@ -66,7 +70,11 @@ export type PlaceSearch = (here: GroundPoint, aim: GroundPoint, solids: readonly
  */
 export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);
-  const radiusOf = (view: NavigationSight["view"]) => Math.max(baseRadius, carriedRadius(view) + NAV.margin);
+  const radiusOf = (view: NavigationSight["view"]) => {
+    const now = carriedRadius(view), held = state.reach;
+    if (held === null || now >= held.radius || view.time - held.at > NAV.hold) state.reach = { radius: now, at: view.time };
+    return Math.max(baseRadius, state.reach!.radius + NAV.margin);
+  };
   const printsOf = footprinter(), router = createRouter();
   /**
    * `solids` and `fallen` are the geometry its route was found in: the solids sensed and its own
@@ -78,6 +86,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     offset: null as GroundPoint | null,
     failure: null as { from: GroundPoint; solids: readonly SolidSense[]; fallen: readonly SolidSense[]; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
+    /** The most room what it carries took over the last `NAV.hold` s, m from its centre, and when it last took it. */
+    reach: null as { radius: number; at: number } | null,
     /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
     held: false, lying: new Map() as FallenMemory,
     report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null } };
@@ -93,11 +103,10 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     resume() { state.route = []; state.failure = null; state.progress = null; state.bestRemaining = null; state.lastTime = null; state.held = false; update("unavailable", null, null); },
     /**
      * The walk toward `request` this step, forward and to the right in the heading's frame, m/s, at
-     * the speed rule's speed (`travelSpeed`) for `gait` under `ceiling`: the way the walk goes
-     * relative to the heading, or forward where the body turns to face its way (`travelFacing`).
-     * A gait that states no limit, under no ceiling, gives no speed: the body does not go.
+     * the speed rule's speed (`travelSpeed`) for `gait` under `ceiling`, the way the walk goes
+     * relative to the heading; and the way it goes, which a body that faces its travel turns to. A gait that states no limit, under no ceiling, gives no speed: the body does not go.
      */
-    step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available = true, travelFacing = false): NavigationStep {
+    step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available = true): NavigationStep {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
       const sensed = view.senses.solids ?? NO_SOLIDS;
       let solids = printsOf(sensed, centre.y, view.stance.support?.y);
@@ -136,7 +145,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       };
       /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead. */
       const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
-        const h = report.heading, speed = travelSpeed(gait, travelFacing ? [1, 0] : [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, ceiling);
+        const h = report.heading, speed = travelSpeed(gait, [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, ceiling);
         return Number.isFinite(speed) ? speed : 0;
       };
       if (request.kind === "direct") {
@@ -171,8 +180,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         }
         if (!crossed) state.fallen = fallen;
       }
-      // Whether the route no longer fits: the geometry changed across it, or the body's clearance is not the one it was found for.
-      const refit = reshaped || crossed || Math.abs(radius - state.clearance) > NAV.margin;
+      // Whether the route no longer fits: the geometry changed across it, the body takes more room than it was found for, or much less.
+      const refit = reshaped || crossed || radius > state.clearance || state.clearance - radius > NAV.margin;
       /**
        * Whether a route reaches `aim`: the route kept, its end moved there where `aim` moved, while it
        * still fits; straight from here, as a search would find it; or by the kept route's last leg
@@ -285,7 +294,10 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       if (state.held || ahead > 0 && (velocity.x * (next.x - here.x) + velocity.z * (next.z - here.z)) / ahead < -NAV.quiet) {
         state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
       }
-      if (view.time - state.lastProgress > NAV.stalled) { state.held = false; update("stalled", remaining, goal); return { move: null, face: null }; }
+      if (view.time - state.lastProgress > NAV.stalled) {
+        state.held = false; state.route = []; state.solids = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time;
+        update("stalled", remaining, goal); return { move: null, face: null };
+      }
       // Each corner of the route ahead: how far along it, and the tangent of half its turn.
       const corners: Corner[] = [];
       let to = apart(here, state.route[0]!);

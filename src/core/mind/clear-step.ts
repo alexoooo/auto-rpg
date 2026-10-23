@@ -124,19 +124,26 @@ export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly
   return clearSweep(new Float64Array(SWEEP), from[0], from[1], from[2], to[0], to[1], to[2], radius, solids);
 }
 
+/** The turns a walk that does not keep clear is tried at, (cos, sin) of each, right then left of it a sixteenth of a turn further each time, to a quarter. */
+const SLIDES: readonly (readonly [number, number])[] = Object.freeze([1, 2, 3, 4].flatMap((k) =>
+  [Object.freeze([cos(k * Math.PI / 8), sin(k * Math.PI / 8)] as const), Object.freeze([cos(k * Math.PI / 8), -sin(k * Math.PI / 8)] as const)]));
+
 /**
  * **A walk that keeps clear of the solids**: `move` (forward, right, m/s, in the frame of `heading`)
  * where a body at `centre` of clearance `radius` sweeps `ahead` m along it clear (`clearStep`); else
- * the walk mirrored across the heading, then straight to the right, then to the left, at its speed;
- * or null where none is clear. With nothing sensed it is `move`.
+ * the walk turned from it, at its speed, right then left a sixteenth of a turn further each time to
+ * a quarter (`SLIDES`), so that a body at a solid's edge slides along it the way it goes, whichever
+ * way it faces; or null where none is clear. With nothing sensed it is `move`.
  */
 export function clearMove(centre: { readonly x: number; readonly y: number; readonly z: number }, solids: readonly SolidSense[] | undefined,
   heading: number, move: readonly [number, number] | null, radius: number, ahead: number): readonly [number, number] | null {
   if (!move || !solids) return move;
   if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
-  const w = new Float64Array(SWEEP), sh = sin(heading), ch = cos(heading), speed = Math.abs(move[0]) + Math.abs(move[1]);
-  for (let candidate = 0; candidate < 4; candidate++) {
-    const forward = candidate < 2 ? move[0] : 0, right = candidate === 0 ? move[1] : candidate === 1 ? -move[1] : candidate === 2 ? speed : -Math.abs(move[0]) - Math.abs(move[1]);
+  const w = new Float64Array(SWEEP), sh = sin(heading), ch = cos(heading);
+  for (let candidate = 0; candidate <= SLIDES.length; candidate++) {
+    const slide = candidate === 0 ? null : SLIDES[candidate - 1]!, c = slide ? slide[0] : 1, s = slide ? slide[1] : 0;
+    // Turned right by the slide's angle: (forward, right) goes to (forward cos - right sin, forward sin + right cos).
+    const forward = move[0] * c - move[1] * s, right = move[0] * s + move[1] * c;
     const dx = forward * sh + right * ch, dz = forward * ch - right * sh;
     if (clearSweep(w, centre.x, centre.y, centre.z, centre.x + dx * ahead, centre.y, centre.z + dz * ahead, radius, solids))
       return candidate === 0 ? move : [forward, right];

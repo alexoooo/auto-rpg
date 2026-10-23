@@ -2,6 +2,8 @@ import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
 import { FIGHTING, MOVE, STAND_UP, type FighterConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "../../mind/fighter.ts";
+import { GAME_MOTOR } from "../../mind/kit.ts";
+import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../mind/parts.ts";
 import type { PartConfig } from "../../mind/parts.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
@@ -52,10 +54,10 @@ const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE,
 /** Vanguard is an independent entrant, with every skill exposed through the shared mind editor. */
 export const VANGUARD_MIND = controller<VanguardConfig>({
   role: "mind", label: "Vanguard", stage: "experimental", defaults: WARRIOR, fields: [],
-  slots: [slotOne("navigation", "Navigation", "navigation", true), slotOne("tactics", "Tactics", "tactics"),
+  slots: [slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION), slotOne("tactics", "Tactics", "tactics"),
     slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
-    slotOne("motor", "Motor control", "motor", true)],
+    slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
   parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK],

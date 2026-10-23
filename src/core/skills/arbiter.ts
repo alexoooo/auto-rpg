@@ -97,9 +97,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         requested.walk && body.envelope ? body.envelope.ways.forward.value : Infinity);
       const supportAllowsWalk = !support || support.walks();
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
-      const result = navigation?.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk, requested.travelFacing === true) ?? null;
+      const result = navigation?.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk) ?? null;
       let intent = requested;
-      if (requested.movement && result) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
+      if (requested.movement && result) intent = { ...requested, move: result.move,
         face: requested.travelFacing ? result.face ?? requested.face : requested.face,
         ...(result.destination === undefined ? {} : { destination: result.destination }) };
       else if (navigation && view.senses.solids?.length && velocity) intent = { ...requested, move: navigation.steer(view, h, velocity) };

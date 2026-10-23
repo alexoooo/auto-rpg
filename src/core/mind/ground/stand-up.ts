@@ -27,7 +27,7 @@ interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueConfig[] }
 
 /** The techniques a stand-up repositions the body by where no route stands it up: onto its back from its front, else onto its front. */
-const REPOSITION = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
+export const REPOSITION = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
 
 /** The techniques `config` routes through and those it repositions by, by kind, as `parts` finds them. */
 export const techniquesOf = (parts: PartLookup, config: StandUpConfig): Readonly<Record<string, TechniquePart>> =>
