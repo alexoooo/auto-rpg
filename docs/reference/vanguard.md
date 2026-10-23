@@ -564,6 +564,11 @@ full open-left case at 7.63 m at the cap without falling: own bar 0.7729 against
 68 committed punches. Its declared loss gate rejects it without wider cases. The source,
 complete recipe, reference key and physical row remain in `research/runs/vanguard/feint/`.
 
+Restricting the standing punch to `middleTrunk` loses the same full open-left case by fatal
+injury at 50.9 s without falling: own bar 0.4833 against 0.7610, with 33 committed punches.
+It is rejected without wider cases. The configuration, reference key, harness and physical row
+remain in `research/runs/vanguard/mid-trunk/`.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
