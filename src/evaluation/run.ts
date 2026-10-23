@@ -67,7 +67,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
     return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds, code,
       key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds, code }) };
   };
-  const faults = (subject: Subject, condition: Json) => cases.faults?.(subject.value, condition) ?? [];
+  const faults = (subject: Subject, condition: Json) => cases.faults?.(subject.value, condition, subject) ?? [];
   for (const subject of subjects) if (cases.arity > 0 && cases.conditions.every((condition) => faults(subject, condition).length > 0))
     throw new Error(`${subject.label} fits no condition of ${evaluation.id} ${protocol}: ${[...new Set(cases.conditions.flatMap((condition) => faults(subject, condition)))].join("; ")}`);
   const dropped: Dropped[] = [];

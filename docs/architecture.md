@@ -669,6 +669,9 @@ replays it from its order sheets. How well it fights is a measurement:
   `--protocol sword-and-buckler` plays that loadout on both stages. It is an evaluation
   ([Evaluations](#evaluations)), `match`. A condition a subject cannot play is dropped, and the
   result says which and why (`Dropped`, `casesOf`).
+  A named preset keeps its body calibration in each complete pair: both minds must be allowed on
+  both bodies. The standard protocol contains the Warrior and Rogue; a Skeleton calibration has
+  no eligible condition. An independent configuration uses its physical fit.
 - The tournament (`tournament`) rates every game mind (`Part.stage`; an experimental one when named) on every character and representative loadout
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --

@@ -24,6 +24,8 @@ export type Json = null | boolean | number | string | readonly Json[] | { readon
 export interface Subject {
   readonly id: string;
   readonly label: string;
+  /** Named body calibration, where the case's admission reads it; absent for an independent configuration. */
+  readonly models?: readonly string[];
   readonly parts: readonly { readonly id: string; readonly value: Json }[];
   readonly value: Json;
 }
@@ -75,8 +77,8 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   readonly engine?: EngineName;
   readonly conditions: readonly C[];
   readonly seconds: number;
-  /** Why a subject's value cannot play `condition`; none unless given. */
-  faults?(value: Json, condition: C): readonly string[];
+  /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */
+  faults?(value: Json, condition: C, subject?: Subject): readonly string[];
   world(values: readonly Json[], condition: C, engine: EngineName): CaseWorld;
   read(built: B, condition: C): Reader<R>;
 }

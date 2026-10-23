@@ -147,9 +147,31 @@ test("CLI resolution preserves whole-config expansion, batteries and two-subject
     "an ablation still drops source loadouts the changed config cannot play");
   for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.match, ["counter"]]]) {
     const resolved = resolveSubjects(evaluation, names, id, ["tactics.flank=false"]);
-    assert.deepEqual(resolved.subjects, evaluation.subjects(resolved.choice));
+    const expected = evaluation.subjects(resolved.choice);
+    if (evaluation === EVALUATIONS.match) expected[0] = { ...expected[0], models: MINDS[id].models };
+    assert.deepEqual(resolved.subjects, expected);
     assert.equal(resolved.subjects[0].value.tactics.flank, false);
   }
+});
+
+test("a match admits complete pairs within named calibrations and preserves the scope of ablations", () => {
+  const evaluation = EVALUATIONS.match;
+  const cases = subjects => casesOf(evaluation, "standard", subjects,
+    { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
+  for (const [id, model] of [["vanguard-warrior", "workshop-fighter"], ["vanguard-rogue", "workshop-rogue"], ["swap-stub", "workshop-fighter"]]) {
+    const named = evaluation.subjects([id, "counter"]), before = JSON.stringify(named);
+    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "counter"]));
+    assert.ok(scoped.units.length > 0, "the calibration has complete cases");
+    assert.deepEqual(scoped.units, raw.units.filter(unit => unit.every(one => one.world.recipe.left === model && one.world.recipe.right === model)),
+      "scope filters complete units without changing their recipes or keys");
+    assert.ok(raw.units.some(unit => unit.some(one => one.world.recipe.left !== model)), "the independent configuration exercises wider physical fit");
+    assert.equal(JSON.stringify(named), before, "admission preserves its subjects");
+  }
+  const original = cases(evaluation.subjects(["vanguard-warrior", "counter"]));
+  const changed = cases(resolveSubjects(evaluation, ["counter"], "vanguard-warrior", ["tactics.routeAround=false"]).subjects);
+  assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
+  assert.throws(() => cases(evaluation.subjects(["vanguard-skeleton", "counter"])), /fits no condition.*named calibration allows crypt-skeleton/);
+  assert.throws(() => cases(resolveSubjects(evaluation, ["counter"], "vanguard-skeleton", ["tactics.flank=false"]).subjects), /fits no condition/);
 });
 
 test("nested planner structure faults reach links without invoking unsafe ancestor validators", () => {
