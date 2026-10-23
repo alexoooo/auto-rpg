@@ -506,6 +506,12 @@ rejects it without wider cases. The full recipe, source and paired reference key
 `research/runs/vanguard/targets/summary.json`, `head-choice-source.json` and `cases/`. This uses
 the same Node harness, physics and rules as the campaign; it is development evidence.
 
+Excluding guarded contacts from the per-hand score also loses that full open-left case at the
+cap without falling: own bar 0.6998 against 0.7289, with 73 committed punches. The narrower
+health deficit does not pass its declared win gate. No wider cases run and the prototype is
+rejected. Its exact source, paired reference key and full row remain in
+`research/runs/vanguard/guard-credit/implementation.json`, `summary.json` and `cases/`.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
