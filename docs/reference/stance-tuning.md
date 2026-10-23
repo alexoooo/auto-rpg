@@ -164,6 +164,26 @@ to either side and the Rogue 40 and 35, where the far foot alone holds little mo
 
 Chosen: margin 0.01 (the lesser that stands), reach 0.2, seconds 0.3, lift 0.05.
 
+### Fast catch
+
+`STANCE_RECOVERY.fast`: a catch whose landing the leg cannot reach in 0.3 s swings over 0.2 s
+instead (`recoveryStep`). Trials that fell, the braced walk given random orders and shoved at a
+third of them (`research/core-stance-sweep.mjs --batteries orders --shoves`; seeds 1 to 200 shoved,
+1 to 600 not; Node stand, rapier-coordinate, 120 Hz, at `b59188ad`):
+
+| Catch's swing | Warrior, 30 N s | Rogue, 20 N s | Warrior, unshoved |
+|---|---:|---:|---:|
+| 0.3 s (a placebo: Warrior unshoved 16) | 118 | 125 | 14 |
+| 0.2 s, every catch | 90 | 93 | 26 |
+| 0.3 s, 0.2 out of reach | 104 | 99 | 12 |
+
+Every catch at 0.15 to 0.25 s falls about alike shoved (78 to 103 of 200). A quicker step every
+time falls more where nothing shoves it; one only where the slower falls short keeps the most of
+the gain without that. Standing shoves held (`--batteries shove`) are unchanged: Rogue 133 of 176
+against 127, Warrior 175 against 175.
+
+Chosen: `fast` 0.2.
+
 ### Assisted
 
 `STANCE_RECOVERY.assisted`: how much of what the body's assist holds is counted before it steps

@@ -69,6 +69,8 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * and within the leg's reach from its hip where the body carries it as the foot lands
  * (`reachableStep`, the body facing `facing`, its hips `hip` over the soles): the leg lands as far
  * as it can, and the step after goes on.
+ * A landing the leg cannot reach over the recovery's time is planned over its `fast` time instead:
+ * a quicker step lands nearer where the capture point will be.
  * `holding` are the feet that hold the body (`holding`): the one nearer the capture point bears
  * the step; with one, that one, and the other steps, wherever it is: the body has tipped off that
  * foot, and the leg left hanging would land as a strut that throws the body on.
@@ -86,6 +88,8 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   // its own side of the bearer, within its reach and kept off again, and the next step goes on
   // from there: a crossover the hip cannot reach lands on the bearing leg. The third is whether
   // the landing was kept off the sole.
+  // Whether the last landing found was cut to what the leg reaches (`reachableStep`).
+  let short = false;
   const landing = (bearer: FootState, foot: FootState, fx: number, fz: number, px: number, pz: number, seconds: number, reserve: number): [number, number, boolean] => {
     const b = bearer.middle, grow = exp(w * seconds), ex = px + (xi - px) * grow, ez = pz + (zi - pz) * grow, ax = ex + (ex - b.x) * tuning.reach, az = ez + (ez - b.z) * tuning.reach;
     const [cx, cz] = centreAtLanding(b, centre, velocity, w, px, pz, 0, px, pz, seconds), side = foot.side === "right" ? 1 : -1;
@@ -97,7 +101,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
       if ((kx !== lx || kz !== lz) && reach(kx, kz)[2]) return [kx, kz, true];
     }
     const [sx, sz, whole] = reach(lx, lz);
-    if (!whole) [lx, lz] = clearOfBearer(bearer, foot, fx, fz, b.x + sx, b.z + sz, clearance, false);
+    if (!whole) { short = true; [lx, lz] = clearOfBearer(bearer, foot, fx, fz, b.x + sx, b.z + sz, clearance, false); }
     return [lx, lz, kept];
   };
   if (under) {
@@ -116,7 +120,10 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
     return landing(bearer, foot, foot.middle.x, foot.middle.z, px, pz, seconds, gait.reserve);
   };
   const stepOf = (bearer: FootState, foot: FootState): SwingGoal => {
+    short = false;
     let seconds = tuning.seconds, [tx, tz] = planned(bearer, foot, seconds);
+    // A landing the leg cannot reach by then lands nearer, sooner.
+    if (short && tuning.fast !== undefined) { seconds = tuning.fast; [tx, tz] = planned(bearer, foot, seconds); }
     const need = swingWaySeconds(foot.leg, hypot(tx - foot.middle.x, tz - foot.middle.z), effort);
     if (need > seconds) { seconds = need; [tx, tz] = planned(bearer, foot, seconds); }
     return { foot: foot.side, to: [tx, tz], seconds, lift: tuning.lift, shift: false, lands: true };

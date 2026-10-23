@@ -97,6 +97,8 @@ export interface RecoveryTuning {
   /** The swing's time, s, and its lift, m. */
   readonly seconds: number;
   readonly lift: number;
+  /** The swing's time, s, of a catch whose landing the leg cannot reach in `seconds`; none, every catch swings over `seconds`. */
+  readonly fast?: number;
   /** How far past the capture point the foot lands, as a fraction of its distance from the bearing sole's middle. */
   readonly reach: number;
   /**
@@ -129,11 +131,12 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * A stance on both feet steps to catch a push (`recoveryStep`) once its capture point is `margin` m
  * outside the region its soles hold (`SUPPORT_INSET`), and `assisted` of what its assist holds
  * past that (`assistReach`), swinging the foot over `seconds` lifted `lift` m, and landing it
- * `reach` past where the capture point will be. The margin keeps a place held at the edge of that
- * region from setting steps off as the capture point wanders over it.
- * Sweep: `docs/reference/stance-tuning.md#recovery-step`, and `#assisted` for `assisted`.
+ * `reach` past where the capture point will be; a landing the leg cannot reach by then, over `fast`
+ * s. The margin keeps a place held at the edge of that region from setting steps off as the
+ * capture point wanders over it.
+ * Sweep: `docs/reference/stance-tuning.md#recovery-step`, `#assisted` for `assisted` and `#fast-catch` for `fast`.
  */
-const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2, assisted: 1 };
+const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2, assisted: 1, fast: 0.2 };
 
 /**
  * A walk's steps: each swings over `seconds`, or longer if its hip needs it within `effort` of its
