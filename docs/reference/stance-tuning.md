@@ -213,6 +213,19 @@ past its sole across by a set distance (0.05 m 83, 0.02 m 76, 0 63, -0.03 m 76).
 
 Chosen: the landing nearer, `longest` 1.2.
 
+A landing kept off the bearing sole is put on the foot's own side of it, a left foot's left as the
+sole faces (`clearOfBearer`), where it was put on the side the foot swung from: a foot crossed
+over stayed crossed, and of the catches within 1.5 s before a fall a step from crossed feet fell
+in 46 % and a crossover in 36 %, against 7 % for a step out and 5 % for one in beside. At
+`40e8a9c0`, the same battery:
+
+| Kept off to | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
+|---|---:|---:|---:|---:|
+| The side it swings from (a placebo: Rogue 40) | 42 | 48 | 15 | 10 |
+| Its own side (kept) | 32 | 33 | 9 | 6 |
+
+Unshoved, the Warrior falls in 12 of 600; standing shoves held: Rogue 159 of 176, Warrior 176.
+
 ### Assisted
 
 `STANCE_RECOVERY.assisted`: how much of what the body's assist holds is counted before it steps
