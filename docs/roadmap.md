@@ -46,7 +46,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 
-1. **Now:** Recovery step 1; Vanguard on hold, its
+1. **Now:** Recovery step 2; Vanguard on hold, its
    explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
    alone by `--ablate`, with their decisions visible in Arena and Lab.
 2. **When each one's condition holds:**

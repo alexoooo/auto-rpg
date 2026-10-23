@@ -617,6 +617,25 @@ skeleton.
 
 ### Where the rise stops
 
+**On the owner's target** (`step-up`, the 64 falls, at `0792d310`; each stage's start read from
+the rise's state as it plays): of the 45 stood falls, the median seconds from takeover through
+each part of the route, each part summed over its stages:
+
+| Part | Stages | Median, s | 90th percentile |
+|---|---|---:|---:|
+| brace and settle | | 1.1 | 2.4 |
+| the roll | wind, swing, over, flat | 4.0 | 4.8 |
+| down onto hands and knees | fold, tuck, prop, fours | 1.6 | 2.4 |
+| the kneel-up | sit, kneel 0 to 2, arms, hold, tall 0 to 2, tall | 3.2 | 3.2 |
+| the step through | shift, lift, swing, reach | 0.9 | 0.9 |
+| the lunge | half kneel, onto the toes, lunge 0 to 3, even | 2.2 | 2.3 |
+| steadied and verified | | 2.7 | 2.9 |
+| in all | | 15.6 | 17.1 |
+
+`sit` alone takes 1.5 s, `onto the toes` 0.7 and `lunge 3` 0.6. Of the 19 falls not stood, 16
+are the Rogue's (12 with the club); 6 reach the steadying and fall from it, and the rest end
+their attempts anywhere from the roll to `onto the toes`.
+
 The Warrior stands up with either loadout: of its 127 empty-handed falls 112 rise and 110 are up
 at the end; with the club 94 of 121 rise and 97 are up ([Staged](#staged)). The falls left down end
 their last attempt at no one stage.
