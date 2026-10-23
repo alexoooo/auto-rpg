@@ -269,9 +269,8 @@ the 12; at the ankle's hold of [stance tuning](stance-tuning.md#ankle-hold)):
 | 0.3 | 0 | 1.24 / 0.71 / 0.08 | 15.7 |
 | 0.5 | 0 | 5.9 / 4.7 / 2.2 | 16.6 |
 
-The Rogue with the club and the skeleton never run there: the Rogue's run envelope holds 0.7 m/s
-forward with the club, and the skeleton's pelvis turns about 0.3 rad either way as it walks, so it
-never faces the way within `RUN_SWITCH.facing` for `settled`. Over the crowd's 69 cases (seeds 1 to
+The Rogue with the club never runs there: its run envelope holds 0.7 m/s forward with the club.
+Over the crowd's 69 cases (seeds 1 to
 12) at 0.2 against 0.15, the allies' braced rule sized to it ([Move](#move)): 3 cases with falls
 against 4, 3 falls against 5, 4 not done against 5, done in a median 25.3 s against 25.4.
 
@@ -304,6 +303,29 @@ to 12 of every situation and the lone walker's 13 to 44, at `3eace0e6`):
 | facing it 0.6 s | 2 (1 lone) | 1 in 32 |
 
 A cap on the facing's turn rate at the switch (0.5 and 1 rad/s) kept 4 and 5 of the 5 lone falls.
+
+**The facing over the walk's sway.** A walk swings the pelvis round at every stride: walking up to
+the run, the skeleton's pelvis is a median 0.13 rad off the way, 0.36 at the 90th percentile and
+0.59 at most, the Warrior's and the Rogue's 0.34 and 0.30 at most, so the skeleton never faced the
+way within 0.15 rad for 0.6 s, and the others only after 7.8 s on a 15 m goal. The facing judged
+is the pelvis's followed with a time constant of 0.5 s (`RUN_SWITCH.sway`), and the pelvis itself
+faces the way within 0.2 rad as the foot lands (`RUN_SWITCH.swayed`): of 52 runs begun on the
+followed facing alone toward goals all round, the two begun 0.35 and 0.44 rad off fell within
+0.7 s, and none begun within 0.30 fell so. Place goals 8 and 16 m off, at 13 bearings from
+-3 to 3 rad (Node stand, Rapier, 120 Hz, balance 0, 26 trials a row):
+
+| Body | Runs, instant facing | Falls | Runs, followed facing | Falls | Median start, s |
+|---|---:|---:|---:|---:|---|
+| Warrior, club | 26 | 0 | 26 | 0 | 9.57 → 8.44 |
+| Rogue | 26 | 0 | 26 | 0 | 7.75 → 5.59 |
+| skeleton | 8 | 0 | 26 | 1 | 8.43 → 5.06 |
+| skeleton, club | 5 | 1 | 26 | 2 | 5.45 → 6.47 |
+
+Every body that runs, sent 8, 15 and 30 m straight ahead, starts its run at 2.8 to 2.9 s and
+stops within 0.43 m past the place. The falls left are at the stop, about 10 s after the start: a
+run drifted about 1 m/s across its heading hands the walk a body still going sideways, since it
+gives way on its speed along the heading, and its pelvis spins off. The crowd's 69 cases and the
+lone walker's seeds 13 to 44 are as before but the lone walker's one fall, now none.
 
 ## Move
 

@@ -144,9 +144,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)); it walks 1.5 to
   1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
   ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: a crowd member whose post
-  lies behind members standing waits for good, the route search not seeing them; the skeleton never
-  starts its run, its pelvis turning about 0.3 rad either way as it walks, past the run's
-  `RUN_SWITCH.facing`; the Rogue with the club never runs, its run envelope holding 0.7 m/s
+  lies behind members standing waits for good, the route search not seeing them; the Rogue with
+  the club never runs, its run envelope holding 0.7 m/s; a run that drifts sideways hands the
+  walk a body still going across its heading, and the skeleton falls so stopping in 3 of 52 runs
   ([the walk and run](reference/locomotion.md#the-walk-and-run)).
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
