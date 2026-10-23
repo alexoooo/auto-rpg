@@ -1,7 +1,7 @@
 import type { BodyView } from "../body.ts";
 import type { TargetRef } from "../skills/action.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { ActionConfig } from "./config.ts";
+import type { ActionConfig, SkillKit } from "./config.ts";
 import type { Aim } from "./aim-part.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Orders } from "./orders.ts";
@@ -37,6 +37,8 @@ export interface TacticsPart<C extends PartConfig = PartConfig> extends Part<C> 
   readonly keys: KeysOf<C>;
   /** What is wrong with how `config` names the mind's actions (`actions`, their names), each a sentence; a planner that holds another asks it (`parts`). */
   actionFaults?(config: C, actions: readonly string[], parts: PartLookup): readonly string[];
+  /** Dependencies on the configured skills; a planner holding another delegates to its child's hook. */
+  kitFaults?(config: C, kit: SkillKit, parts: PartLookup): readonly string[];
   make(making: TacticsMaking, config: C): Tactics;
 }
 

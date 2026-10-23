@@ -15,7 +15,8 @@ import { driveBy, type Tactics } from "./tactics.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
 export function fighterFaults(config: FighterConfig, parts: PartLookup): readonly string[] {
-  const faults = [...kitFaults(config, parts)];
+  const faults = [...kitFaults(config, parts),
+    ...(parts.of("tactics", config.tactics).kitFaults?.(config.tactics, config, parts) ?? []).map(fault => `tactics: ${fault}`)];
   if (!Array.isArray(config.actions)) return faults;
   const names = config.actions.map((action) => action?.name);
   return [...faults, ...parts.of("tactics", config.tactics).actionFaults?.(config.tactics, names, parts) ?? []];
@@ -42,7 +43,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const tactics = tacticsOf({ spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
+  const tactics = wiring.script ?? tacticsOf({ spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
     aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts }, config.tactics);
   let skills: Skills;

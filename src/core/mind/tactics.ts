@@ -21,6 +21,8 @@ export interface Tactics<S = Sight, I = Intent> {
   readonly state?: object;
   /** What they report doing (`Engagement`), read by status displays and inspection, never by the rules. */
   readonly engagement?: Engagement;
+  /** Adapt the constructed skills once, before driving; composed planners prepare from the innermost out. */
+  prepareSkills?(skills: Skills): Skills;
 }
 
 /** A planner's own fact, which a readout shows as it is: a label and its value, in words. */
@@ -44,6 +46,19 @@ export interface Engagement {
   readonly offers?: readonly Offer[];
   readonly candidates?: ActionEngagement["candidates"];
   readonly pending?: ActionEngagement["pending"];
+}
+
+/** A live report with a layer's lazy details appended; reading it changes no decision state. */
+export function engagementWithDetails(base: () => Engagement | undefined, details: () => readonly EngagementDetail[]): Engagement {
+  return {
+    get phase() { return base()?.phase ?? "unreported"; },
+    get focus() { return base()?.focus; },
+    get lost() { return base()?.lost; },
+    get candidates() { return base()?.candidates; },
+    get pending() { return base()?.pending; },
+    get offers() { return base()?.offers; },
+    get details() { return [...base()?.details ?? [], ...details()]; },
+  };
 }
 
 /**
@@ -70,7 +85,7 @@ export interface Sight {
  * is of the body as it is.
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
-  const skills = make(body, tactics);
+  const made = make(body, tactics), skills = tactics.prepareSkills ? tactics.prepareSkills(made) : made;
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);

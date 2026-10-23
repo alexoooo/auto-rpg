@@ -569,7 +569,14 @@ behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
 `behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `mind/behaviours/`) fills what an
 earlier one left unset and keeps its own memory, held in the tactics' state. The helpers they share
 (`walking`, `SPACE`, `footRadius`) are `behaviour-part.ts`'s. A planner names what it needs of the
-mind's actions (`TacticsPart.actionFaults`), read by the fighter's faults.
+mind's actions (`TacticsPart.actionFaults`) and dependencies on its skills
+(`TacticsPart.kitFaults`), read by the fighter's faults. A planner holding another delegates both
+checks, preserving the child's path. Its optional `Tactics.prepareSkills` adapts the constructed
+skills once in `driveBy`; nested planners compose preparation from the innermost out. The shared
+fighter driver uses a supplied scenario script in place of its configured planner.
+
+A layer appends inspection details with `engagementWithDetails`: the inner report stays live,
+and labels and values are formatted only when read. Reports never change decision state.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
 region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera
