@@ -110,7 +110,9 @@ are outside these paired records.
 
 Vanguard's planner (`VANGUARD_PLAN`, `src/core/entrants/vanguard/plan.ts`) layers its settings
 over a plan of any kind in its own slot. Its optional `adaptiveEvade` compares two ordinary behaviour policies, with and without the
-configured evasion behaviour. `slowEvade` caps an evasive step at 0.2 m/s. Only onset, loaded,
+configured evasion behaviour. Adaptive evasion requires an `evade` behaviour in that plan;
+removing it requires disabling adaptation and revisiting. `slowEvade` caps an evasive step at
+0.2 m/s. Only onset, loaded,
 non-guard contacts on the committed stroke's intended target region contribute: normal impulse
 times preceding relative normal speed ranks those impacts. This is a contact heuristic, not
 the foe's health or the rulebook's damage. Both policies keep independent memories over one

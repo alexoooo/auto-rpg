@@ -255,6 +255,20 @@ test("enabled Vanguard layers reject a planner that lacks their operational cont
   }
 });
 
+test("adaptive evasion rejects identical policy lists after every evade behaviour is removed", () => {
+  for (const id of ["vanguard-warrior", "vanguard-rogue", "vanguard-skeleton"]) {
+    const base = MINDS[id].config;
+    for (const list of [[], base.tactics.plan.list.filter(behaviour => behaviour.kind !== "evade")]) {
+      const tactics = { ...base.tactics, plan: { ...base.tactics.plan, list } }, config = { ...base, tactics };
+      const faults = treeFaults(config);
+      assert.ok(faults.includes("tactics: adaptiveEvade needs an evade behaviour in its plan"));
+      assert.deepEqual(parseMind(writeMind(config), modelSpec("workshop-fighter"), FIGHT_ENTRY).faults, faults);
+      assert.deepEqual(treeFaults({ ...base, tactics: { ...tactics, adaptiveEvade: false, revisitEvade: false } }), []);
+    }
+    assert.deepEqual(treeFaults(base), [], "the selected adaptive policy still has a distinct evasion alternative");
+  }
+});
+
 test("low-cover decisions and skill commands do not read diagnostic reports", () => {
   const { layer, sight, base } = lowFixture();
   const saved = saveState(layer.tactics.state), original = { posture: {}, pushes: [], stance: null, handPoses: {} };
