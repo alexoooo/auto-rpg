@@ -184,8 +184,8 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
  * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
  * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
  * Arena fighters opened 4 m apart run into each other and one falls. Near a standing body of its own
- * side it walks in the fighting step within 11 m: the run states it stops at 0.15 m/s²
- * (`Locomotion.stopping`), so from the pace it runs from it stops in 5.6 m, and closing on one that
+ * side it walks in the fighting step within 8.5 m: the run states it stops at 0.2 m/s²
+ * (`Locomotion.stopping`), so from the pace it runs from it stops in 4.2 m, and closing on one that
  * closes too, in twice that; at 5 m four crossing paths ran into each other and fell. The fighting
  * step keeps clear of it (`crowdWalk`, `src/core/mind/crowd.ts`). The last 5 m to its
  * destination is walked in the fighting step too, which stops where it is sent where the run carries
@@ -193,7 +193,7 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
-    { kind: "when-distance", of: "ally", than: "under", metres: 11, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
+    { kind: "when-distance", of: "ally", than: "under", metres: 8.5, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
   otherwise: "run" });
 
 const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];

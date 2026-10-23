@@ -27,6 +27,8 @@ commit before it on a fast battery beside a placebo.
    (`research/core-stance-envelope.mjs --write`).
 4. **Faster braking**: the walk and run brakes harder than 0.15 m/s² with no fall more, and the
    braced rule's 11 m is sized to it. Check: the gait battery's stops and the crowd battery.
+   Landed: planned at 0.2 m/s², the rule at 8.5 m
+   ([the walk and run](../reference/locomotion.md#the-walk-and-run)); the run still brakes late.
 
 Each step lands under the normal gate with the fingerprint cases it moves named.
 

@@ -64,11 +64,10 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 /**
  * How fast the walk and run states it stops while it may run, m/s² (`Locomotion.stopping`): under
  * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set by
- * its overshoot at a place goal 8 m off: at 0.3 and 0.2 the Warrior and the skeleton run past it by
- * up to 2.7 m and fall; at 0.15 each stops within 0.2 m of it, short of it
- * (`docs/reference/locomotion.md#the-walk-and-run`).
+ * its overshoot at a place goal 8, 15 and 30 m off: at 0.2 each body stops within 0.45 m past it,
+ * at 0.25 the Warrior runs 0.75 m past and at 0.3 1.24 (`docs/reference/locomotion.md#the-walk-and-run`).
  */
-const RUN_STOPPING = 0.15;
+const RUN_STOPPING = 0.2;
 
 /** What steers a walk and run's run, before each of its steps: told the heading, the pace asked, m/s, the run's memory, whose steer it sets (`RunSteer`), and the heading's turn, rad/s. */
 type RunSteerer = (view: BodyView, heading: number, asked: number, run: RunCycleMemory, turning: number) => void;

@@ -43,7 +43,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
+| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; the run's stops planned at 0.2 m/s² and the allies' braced rule at 8.5 m ([measured](reference/locomotion.md#the-walk-and-run)); the skeleton never runs, its pelvis turning past the run's start |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** the braced walk; Vanguard on hold, its
@@ -96,7 +96,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
 - The skeleton's look in play.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, a right click faces or follows;
-  in the Arena a click on the floor goes there. The party walking braced within 11 m of a companion.
+  in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
 
 ## Open, by layer
@@ -148,7 +148,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   a body past what its legs hold (the club throws the Rogue's run), braking faster, a pace past
   about 3.7 m/s, the skeleton's sides and back, the walk's motion-capture ways. The game's run
   turns at no rate in every trial at 1 m/s or faster, and brakes late, so the speed rule plans
-  its stops at 0.15 m/s² and every place goal comes in slow; the Rogue falls turning into the run
+  its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders.
