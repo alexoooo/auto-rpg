@@ -330,10 +330,15 @@ followed facing alone toward goals all round, the two begun 0.35 and 0.44 rad of
 | skeleton, club | 5 | 1 | 26 | 2 | 5.45 → 6.47 |
 
 Every body that runs, sent 8, 15 and 30 m straight ahead, starts its run at 2.8 to 2.9 s and
-stops within 0.43 m past the place. The falls left are at the stop, about 10 s after the start: a
-run drifted about 1 m/s across its heading hands the walk a body still going sideways, since it
-gives way on its speed along the heading, and its pelvis spins off. The crowd's 69 cases and the
-lone walker's seeds 13 to 44 are as before but the lone walker's one fall, now none.
+stops within 0.43 m past the place. The crowd's 69 cases and the lone walker's seeds 13 to 44 are
+as before but the lone walker's one fall, now none.
+
+**Giving way at the stop.** The run gives the walk the body once its ground speed, across the
+heading as well as along it, is down to the run's pace: given way on its speed along the heading,
+a run drifted about 1 m/s across it handed the walk a body still going sideways, and its pelvis
+spun off. On the same goals, once the walk turns at the pace it walks up to the run at
+([the stance's walk](#the-stances-walk)), the skeleton fell so in 3 of 52 runs, empty-handed and
+with the club; on the whole speed it falls in none, nor does any other body, in 156 goals.
 
 ## Move
 

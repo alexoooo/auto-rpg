@@ -140,13 +140,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 All targets are read on the Node stand, Rapier, 120 Hz, Balance and Haste declared; a candidate is
 screened small (one body, one loadout, one group of falls) before its full target.
 
-- **The braced walk.** Shoved at 20 N s at a third of its orders, the Rogue falls in 5 and 2 of
-  200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)); it walks 1.5 to
-  1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
-  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: a run that drifts
-  sideways hands the walk a body still going across its heading, and the skeleton falls so
-  stopping in 3 of 52 runs; the crowd's reversal wakes the enemy at 7 of seeds 1 to 60
-  ([the walk and run](reference/locomotion.md#the-walk-and-run)).
+- **The braced walk.** Shoved at 20 N s at a third of its orders with the club, the Rogue falls in
+  5 and 2 of 200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)), and
+  empty-handed the Rogue in 8 of 200 ([heel-off](reference/stance-tuning.md#heel-off)); it walks
+  1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
+  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
+  wakes the enemy at 7 of seeds 1 to 60.
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
   trials, the forward club envelope at or above SIMBICON's; stops and turns exercised; sideways

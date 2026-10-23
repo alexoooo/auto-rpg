@@ -89,8 +89,9 @@ interface WalkRunOptions {
  * there `top` s with the body facing that way (a walk whose legs cap it under its envelope's pace;
  * a body still turning round has not been capped, and a run begun from it standing falls); and, once it
  * has landed `landings` times, gives way to the walk once the pace asked has come down `below`
- * under it, or it is told it may not run, and the body has slowed to the run's pace, its landings
- * braking it until then: a walk handed a body going faster than it walks cannot catch it. A run
+ * under it, or it is told it may not run, and the body's ground speed, across its heading as well
+ * as along it, has slowed to the run's pace, its landings braking it until then: a walk handed a
+ * body going faster than it walks cannot catch it, nor one still going sideways off a run that drifted. A run
  * that gives way at its first landing hands the walk a body just come down from the run's first
  * flight.
  */
@@ -272,12 +273,12 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       memory.pace = on ? Math.min(speed * held, memory.may ? Infinity : settings.run - RUN_SWITCH.below) : 0;
       if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
-      const h = memory.heading, along = v.x * sin(h) + v.z * cos(h);
+      const h = memory.heading;
       options.steer?.(view, h, memory.pace, cycle.state, memory.spin);
       const driven = cycle.drive(view, dt, h, memory.pace);
       const landing = driven.landed !== null && driven.landed !== memory.landed;
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
-      if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && along <= settings.run) {
+      if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && Math.sqrt(v.x * v.x + v.z * v.z) <= settings.run) {
         walkOn(view);
         return { kind: "stance", goal: legs.goal(view, asked, face, dt, lower, destination) };
       }
