@@ -666,14 +666,17 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and
-`tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and
-replays it from its order sheets. How well it fights is a measurement:
+`tests/mind-contract.test.mjs` runs it against itself on the first body its calibration allows and
+it fits, forks it and replays it from its order sheets. How well it fights is a measurement:
 
 - `npm run match -- <a> <b>` plays two minds over fixed bodies, levels, gaps and loadouts, each on
   each side, and names the result by a digest that is the same on every machine;
   `--protocol sword-and-buckler` plays that loadout on both stages. It is an evaluation
   ([Evaluations](#evaluations)), `match`. A condition a subject cannot play is dropped, and the
   result says which and why (`Dropped`, `casesOf`).
+  A named preset keeps its body calibration in each complete pair: both minds must be allowed on
+  both bodies. The standard protocol contains the Warrior and Rogue; a Skeleton calibration has
+  no eligible condition. An independent configuration uses its physical fit.
 - The tournament (`tournament`) rates every game mind (`Part.stage`; an experimental one when named) on every character and representative loadout
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
@@ -897,10 +900,24 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   a subject with no `mind:` part and in records written before it), kept apart so a change from its
   parent is named by kind; `--previous` names the parent. A pool is a protocol and an environment. Working rows are kept in
   `research/runs/evaluations/<id>/`. A record holds the run's complete units.
+- **Historical comparisons** (`record-comparison.ts`): `npm run compare -- before.jsonl after.jsonl
+  --subject <id>` pairs saved evidence for that subject or its body/loadout entrants;
+  `--previous <id>` selects a differently named baseline and `--json` prints a structured report.
+  Entrant suffixes, fixed parts, opponent configurations and code, conditions and sides must match.
+  Contests contribute complete mirrored pairs, batteries individual cases; faults and incomplete
+  or unmatched units are named. Cases between two selected entrants are counted separately:
+  both change, so neither is a fixed opponent. The current evaluation's figure readers give paired differences
+  and intervals, overall and by opponent; their build identity is printed. Changed protocols,
+  engines, environments or physical recipes qualify the differences as descriptive. Git changes
+  outside the selected entrants' source and data, or missing provenance, also qualify them.
+  Records and source trees are never written or executed. Missing results are obtained only when
+  a concrete decision needs them, using a temporary checkout of their source. Git holds obsolete
+  implementations; saved records hold their evidence.
 - **The panel report** (`compare.ts`, `settle.ts`): `--against default --previous <mind>` pairs
   each of the subject's entrants with its baseline's on the same kit, each against the same panel
   member at the same condition (a slot), and plays the two directly. The baseline is another mind,
   a mind given whole, or, named by the subject's own id, its newest recorded value that differs.
+  These configurations run on current code; implementation changes are read from historical records.
   The verdict reads the slots in a fixed order up to the first with a row missing: two one-sided
   sequential tests on the mean paired difference (`settle`), better or worse by the rule's
   `delta`, or within it; `--until settled` stops giving out cases once it is reached, or every slot is read. Beside it,

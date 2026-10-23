@@ -6,13 +6,14 @@ import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
+import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { readBout, type BoutReading } from "../contest.ts";
-import type { Cases, Json } from "../evaluation.ts";
+import type { Cases, Json, Subject } from "../evaluation.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and
@@ -39,11 +40,14 @@ type Protocol = typeof MATCH;
 /** One bout's conditions: the left's body, the right's, both sides' loadout, the level and the gap, m. */
 export type MatchCondition = { readonly left: BodyModel; readonly right: BodyModel; readonly loadout: Loadout; readonly level: ArenaLevel; readonly gap: number };
 
-/** Why `value` is no mind, or what keeps it from `loadout` on any of the protocol's bodies (`mindFaults`). */
-function faultsOf(protocol: Protocol, value: Json, loadout: Loadout): readonly string[] {
+/** Both minds occupy both bodies in a complete pair; each body must fit and allow its named calibration. */
+function faultsOf(value: Json, condition: MatchCondition, subject?: Subject): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  return protocol.bodies.flatMap((body) => mindFaults(value as unknown as MindConfig, modelHolding(body, loadout), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
+  const { loadout } = condition;
+  return [...new Set([condition.left, condition.right])].flatMap((body) => !presetFitsModel(subject ?? {}, body)
+    ? [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${body} is unavailable`]
+    : mindFaults(value as unknown as MindConfig, modelHolding(body, loadout), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
 }
 
 /** The match on `protocol`: its conditions in the order each left body, right body, loadout, level, gap. */
@@ -56,7 +60,7 @@ function matchCases(protocol: Protocol): Cases<MatchCondition, BoutReading> {
     play: protocol as unknown as Json,
     conditions,
     seconds: protocol.capSeconds,
-    faults: (value, condition) => faultsOf(protocol, value, condition.loadout),
+    faults: faultsOf,
     world: (values, { left, right, loadout, level, gap }, engine) => ({
       kind: "bout", engine, tape: [],
       recipe: { level, left, right, gap, loadouts: { left: loadout, right: loadout },

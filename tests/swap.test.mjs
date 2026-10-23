@@ -145,11 +145,73 @@ test("CLI resolution preserves whole-config expansion, batteries and two-subject
   assert.deepEqual(narrowed.subjects.map(one => ({ model: one.value.model, loadout: one.value.loadout })),
     baseline.filter(one => one.value.loadout.right === "empty").map(one => ({ model: one.value.model, loadout: one.value.loadout })),
     "an ablation still drops source loadouts the changed config cannot play");
-  for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.match, ["counter"]]]) {
+  for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.crowd, []], [EVALUATIONS.match, ["counter"]]]) {
     const resolved = resolveSubjects(evaluation, names, id, ["tactics.flank=false"]);
-    assert.deepEqual(resolved.subjects, evaluation.subjects(resolved.choice));
+    const expected = evaluation.subjects(resolved.choice);
+    expected[0] = { ...expected[0], models: MINDS[id].models };
+    assert.deepEqual(resolved.subjects, expected);
     assert.equal(resolved.subjects[0].value.tactics.flank, false);
   }
+});
+
+test("mind batteries admit only a named calibration's bodies and preserve that scope through CLI ablations", () => {
+  for (const evaluation of [EVALUATIONS.court, EVALUATIONS.crowd]) {
+    const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
+      { engine: BOUT_ENGINE, code: () => "battery-scope", schedule: { kind: "all" } });
+    const named = evaluation.subjects(["swap-stub"]), original = JSON.stringify(named);
+    const custom = evaluation.subjects([{ id: named[0].id, label: named[0].label, value: named[0].value }]);
+    assert.deepEqual(named, [{ ...custom[0], models: ["workshop-fighter"] }]);
+    const raw = cases(custom), modelOf = one => one.world.kind === "crypt" ? one.world.crypt.party[0].model : one.condition.model;
+    assert.ok(raw.units.length > 0, "the fixture fits the battery's equipment and bodies");
+    const allowed = raw.units.filter(unit => modelOf(unit[0]) === "workshop-fighter");
+    assert.ok(allowed.length > 0, "the named calibration reaches eligible cases");
+    assert.deepEqual(cases(named), {
+      units: allowed,
+      dropped: raw.units.filter(unit => modelOf(unit[0]) !== "workshop-fighter").map(([one]) => ({
+        subjects: one.subjects, condition: one.condition,
+        reasons: [`swap-stub: named calibration allows workshop-fighter; ${modelOf(one)} is unavailable`],
+      })),
+    }, "admission filters cases without changing an eligible recipe or key");
+    if (evaluation === EVALUATIONS.court) assert.ok(raw.units.some(unit => modelOf(unit[0]) === "workshop-rogue"),
+      "the equipped fixture exposes calibration leakage independently of physical fit");
+    const resolved = resolveSubjects(evaluation, [], "swap-stub", ["tactics.choose.patience=0.5"]);
+    assert.deepEqual(resolved.subjects[0].models, named[0].models);
+    const independent = cases(evaluation.subjects(resolved.choice));
+    assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "workshop-fighter"),
+      "the changed configuration keeps its source's scope before scheduling");
+    assert.equal(JSON.stringify(named), original, "admission never changes the subject or its configuration");
+    assert.throws(() => cases([{ ...named[0], models: [] }]), /fits no condition.*named calibration allows no bodies/);
+  }
+  const evaluation = EVALUATIONS.crowd;
+  const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
+    { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
+  for (const id of ["vanguard-rogue", "vanguard-skeleton"]) {
+    assert.throws(() => cases(evaluation.subjects([id])), /fits no condition.*named calibration allows/);
+    assert.throws(() => cases(resolveSubjects(evaluation, [], id, ["tactics.lowGuard=false"]).subjects),
+      /fits no condition.*named calibration allows/);
+    assert.ok(cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }])).units.length > 0,
+      "an independent configuration still runs on physically compatible bodies");
+  }
+});
+
+test("a match admits complete pairs within named calibrations and preserves the scope of ablations", () => {
+  const evaluation = EVALUATIONS.match;
+  const cases = subjects => casesOf(evaluation, "standard", subjects,
+    { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
+  for (const [id, model] of [["vanguard-warrior", "workshop-fighter"], ["vanguard-rogue", "workshop-rogue"], ["swap-stub", "workshop-fighter"]]) {
+    const named = evaluation.subjects([id, "counter"]), before = JSON.stringify(named);
+    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "counter"]));
+    assert.ok(scoped.units.length > 0, "the calibration has complete cases");
+    assert.deepEqual(scoped.units, raw.units.filter(unit => unit.every(one => one.world.recipe.left === model && one.world.recipe.right === model)),
+      "scope filters complete units without changing their recipes or keys");
+    assert.ok(raw.units.some(unit => unit.some(one => one.world.recipe.left !== model)), "the independent configuration exercises wider physical fit");
+    assert.equal(JSON.stringify(named), before, "admission preserves its subjects");
+  }
+  const original = cases(evaluation.subjects(["vanguard-warrior", "counter"]));
+  const changed = cases(resolveSubjects(evaluation, ["counter"], "vanguard-warrior", ["tactics.routeAround=false"]).subjects);
+  assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
+  assert.throws(() => cases(evaluation.subjects(["vanguard-skeleton", "counter"])), /fits no condition.*named calibration allows crypt-skeleton/);
+  assert.throws(() => cases(resolveSubjects(evaluation, ["counter"], "vanguard-skeleton", ["tactics.flank=false"]).subjects), /fits no condition/);
 });
 
 test("nested planner structure faults reach links without invoking unsafe ancestor validators", () => {

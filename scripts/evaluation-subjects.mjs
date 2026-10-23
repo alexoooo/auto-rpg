@@ -45,8 +45,12 @@ export function resolveSubjects(evaluation, names, previous, ablations) {
   if (!ablations) return { choice: given, subjects: evaluation.subjects(given) };
   const { source, subject } = ablated(previous, ablations), choice = [subject, ...given];
   const prefix = typeof source === "string" ? source : source.id;
-  const inherited = new Set(evaluation.subjects([source, ...given]).filter(one => belongsTo(one.id, prefix))
-    .map(one => one.id.slice(prefix.length)));
-  const subjects = evaluation.subjects(choice).filter(one => !belongsTo(one.id, subject.id) || inherited.has(one.id.slice(subject.id.length)));
+  const inherited = new Map(evaluation.subjects([source, ...given]).filter(one => belongsTo(one.id, prefix))
+    .map(one => [one.id.slice(prefix.length), one]));
+  const subjects = evaluation.subjects(choice).flatMap(one => {
+    if (!belongsTo(one.id, subject.id)) return [one];
+    const before = inherited.get(one.id.slice(subject.id.length));
+    return !before ? [] : [{ ...one, ...(before.models === undefined ? {} : { models: before.models }) }];
+  });
   return { choice, subjects };
 }

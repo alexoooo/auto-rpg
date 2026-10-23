@@ -11,6 +11,7 @@ import type { OrdersEntry } from "../../arena/duel.ts";
 import { loadoutKey } from "../../core/items/held.ts";
 import { BEHAVIOURS, type MindConfig } from "../../core/mind/config.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
+import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -18,7 +19,7 @@ import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { STANDS } from "../blade/cases.ts";
-import type { Cases, Json } from "../evaluation.ts";
+import type { Cases, Json, Subject } from "../evaluation.ts";
 
 /** The moving target: Behaviours' body of parts, doing only as it is ordered. */
 const WALKS: MindConfig = deepFreeze({ ...BEHAVIOURS, tactics: { ...BEHAVIOURS.tactics, list: [{ kind: "follow-orders" }] }, executors: [], actions: [] });
@@ -48,9 +49,11 @@ export type CourtReading = { readonly arrived: number | null; readonly contactSt
 const other = (side: Side): Side => side === "left" ? "right" : "left";
 
 /** Why `value` is no mind, or what keeps it from sword and buckler on `model` (`mindFaults`). */
-function faultsOf(value: Json, model: BodyModel): readonly string[] {
+function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
+  if (!presetFitsModel(subject ?? {}, model))
+    return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
   return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
 }
 
@@ -65,7 +68,7 @@ function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading>
     play: protocol as unknown as Json,
     conditions,
     seconds: protocol.seconds,
-    faults: (value, { model }) => faultsOf(value, model),
+    faults: (value, { model }, subject) => faultsOf(value, model, subject),
     world: ([mind], { model, gap, side, target }, engine) => {
       const foe = other(side);
       return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],

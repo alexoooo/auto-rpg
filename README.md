@@ -124,6 +124,11 @@ A subject opens its history across versions and pools and its cases, worst match
 bout case recorded with its world opens in the Arena to watch. The
 address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
 
+Compare saved versions with `npm run compare -- before.jsonl after.jsonl --subject <id>`;
+`--previous <id>` selects a differently named baseline. It reads matched evidence, reports gaps
+and changed context, and keeps obsolete implementations in Git history. The
+[evaluation architecture](docs/architecture.md#evaluations) defines what a comparison holds fixed.
+
 ## Tools
 
 **Tools** (`?play=tools`) opens a separate directory of development viewers. Each page returns

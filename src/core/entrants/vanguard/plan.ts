@@ -18,6 +18,7 @@ import { adaptiveGuard } from "./adaptive-guard.ts";
 import { flank } from "./flank.ts";
 import { lowGuard, lowGuardSkills } from "./low-guard.ts";
 import { routeAround } from "./route-around.ts";
+import { limitPace } from "./pace.ts";
 
 /** Its config: the plan it layers, and each layer on or off. */
 export interface VanguardPlanConfig extends PartConfig {
@@ -47,10 +48,10 @@ function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null):
     value: state.limited ? `${EVADE_PACE} m/s cap` : state.ordered ? "movement ordered" : "no evasive step" }]);
   return { ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
-      const intent = base.decide(sight, dt);
-      state.limited = base.decision?.evading === true;
-      state.ordered = orders(sight)?.move !== undefined;
-      return state.limited ? { ...intent, pace: EVADE_PACE } : intent;
+      const intent = base.decide(sight, dt), ordered = orders(sight);
+      state.ordered = ordered?.move !== undefined;
+      state.limited = !state.ordered && base.decision?.evading === true;
+      return state.limited ? limitPace(intent, ordered, EVADE_PACE) : intent;
     },
   };
 }
@@ -66,13 +67,16 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
   fits: anyBody,
   faults: (config, parts) => {
     const capabilities = parts.of("tactics", config.plan).decisionCapabilities?.(config.plan, parts) ?? [];
+    const list = behaviourList(config.plan);
     const requirements: readonly [boolean | undefined, DecisionCapability, string][] = [
       [config.lowGuard, "focus", "lowGuard"], [config.flank, "focus", "flank"],
       [config.slowEvade, "evading", "slowEvade"], [config.routeAround, "focus", "routeAround"], [config.routeAround, "approach", "routeAround"],
     ];
     return [
       ...LAYERS.flatMap((key) => config[key] !== undefined && typeof config[key] !== "boolean" ? [`${key}: a boolean`] : []),
-      ...config.adaptiveEvade && (!config.slowEvade || behaviourList(config.plan) === null) ? ["adaptiveEvade needs a behaviour plan and limited evasive steps"] : [],
+      ...config.adaptiveEvade && (!config.slowEvade || list === null) ? ["adaptiveEvade needs a behaviour plan and limited evasive steps"] : [],
+      ...config.adaptiveEvade && list !== null && !list.some(behaviour => behaviour.kind === "evade")
+        ? ["adaptiveEvade needs an evade behaviour in its plan"] : [],
       ...config.revisitEvade && !config.adaptiveEvade ? ["revisitEvade needs adaptive evasion"] : [],
       ...requirements.flatMap(([enabled, capability, layer]) => enabled && !capabilities.includes(capability)
         ? [`${layer} needs a plan providing ${capability} decision context`] : []),
