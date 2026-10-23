@@ -53,8 +53,10 @@ steers by, each found where a member at this envelope stood, walked away or fell
 - **the crowd holds a walk back only for another body** (`CrowdWalk.held`), not for its gait's own
   cap: a member held so was never stalled, and waited forever.
 
-Not done: in a reversal (seed 2) a member's post lies behind two arrived members 1.3 m apart, too
-close to pass between; the crowd holds it, and the route search does not see members standing.
+In the crowd's reversals at seeds 1 to 60 (Node stand, Rapier, 120 Hz, at `17bc6f7e`), every
+member arrives wherever the party is ordered back, seed 2's included, whose post lies behind two
+arrived members 1.3 m apart. Seeds 9, 33, 38, 43, 47 and 58 end at the first order and 48 at the
+second, the enemy woken as the party passes.
 
 **What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
 envelope's 14 moments of setting off, at `827b28a6`):
