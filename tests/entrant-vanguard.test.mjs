@@ -17,7 +17,8 @@ import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { bodyHost } from "../src/core/mind/host.ts";
 import { tacticsOf } from "../src/core/mind/tactics-part.ts";
-import { labMind } from "../src/lab/scenarios.ts";
+import { labMind, labPresets } from "../src/lab/scenarios.ts";
+import { controlsFor } from "../src/arena/matchup.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
@@ -30,6 +31,13 @@ function reportOf(tactics) {
   assert.deepEqual(saveState(tactics.state), before, "reading a report changes no decision memory");
   return report;
 }
+
+test("each humanoid is offered only its own named Vanguard calibration", () => {
+  for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
+    assert.deepEqual(controlsFor(model).filter(choice => choice.startsWith("vanguard-")), [id]);
+    assert.deepEqual(labPresets(modelSpec(model), "attack").filter(preset => preset.config.kind === "vanguard").map(preset => preset.id), [id]);
+  }
+});
 
 test("a Vanguard preset's edited slots reach construction unchanged and its full configuration links", async () => {
   const spec = modelSpec("crypt-skeleton"), presets = Object.entries(CONTROLLERS.vanguard.presets);

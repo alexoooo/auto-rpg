@@ -64,9 +64,9 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: (config, parts) => fighterFaults(fighter(config), parts),
   presets: deepFreeze({
-    "vanguard-warrior": { label: "Vanguard — Warrior", config: WARRIOR },
-    "vanguard-rogue": { label: "Vanguard — Rogue", config: ROGUE },
-    "vanguard-skeleton": { label: "Vanguard — Skeleton", config: SKELETON },
+    "vanguard-warrior": { label: "Vanguard — Warrior", config: WARRIOR, models: ["workshop-fighter"] },
+    "vanguard-rogue": { label: "Vanguard — Rogue", config: ROGUE, models: ["workshop-rogue"] },
+    "vanguard-skeleton": { label: "Vanguard — Skeleton", config: SKELETON, models: ["crypt-skeleton"] },
   }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   scripted: { body: fighterBody, drive: driveFighter },
