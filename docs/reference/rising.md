@@ -535,14 +535,10 @@ holds it 0.03 m lower (`STANCE_LOWER`).
 
 After `even` the rise is over; if the body is up, its host's stance has it, and the locomotion
 skill is resumed (`Skill.resume`) facing the way the pelvis faces (read from its left-to-right
-axis, whatever its pitch). Two numbers carry the body into the stance:
-
-- **The asked height** rises from where the centre of mass is to the stance's by a smoothstep over
-  1.3 s (`RISING_SECONDS`). Asked its full height at once, the stance drives the knees straight
-  under a centre of mass not yet over the feet.
-- **Squaring**: the foot nearer the centre of mass stays; the other steps to its own side, across
-  the heading at the built standing width, as far ahead as it is, unless it is within 0.1 m of that
-  place (`SQUARE_NEAR`).
+axis, whatever its pitch), its feet where the rise left them. **The asked height** rises from
+where the centre of mass is to the stance's by a smoothstep over 1.3 s (`RISING_SECONDS`). Asked
+its full height at once, the stance drives the knees straight under a centre of mass not yet over
+the feet.
 
 | | empty, of 127 | club, of 121 |
 |---|---|---|
@@ -550,13 +546,19 @@ axis, whatever its pitch). Two numbers carry the body into the stance:
 | `RISING_SECONDS` 0.65 | 96, 97 (+0 -0) | 8, 9 (+1 -0) |
 | **`RISING_SECONDS` 1.3** | 96, 97 | 8, 8 |
 | `RISING_SECONDS` 2.6 | 96, 97 (+0 -0) | 8, 9 (+1 -0) |
-| no squaring | 96, 94 (+1 -4) | 8, 8 (+1 -1) |
-| `SQUARE_NEAR` 0.05 | 96, 94 (+0 -3) | 8, 8 (+0 -0) |
-| **`SQUARE_NEAR` 0.1** | 96, 97 | 8, 8 |
-| `SQUARE_NEAR` 0.2 | 96, 94 (+1 -4) | 8, 7 (+0 -1) |
 
-Neither changes whether a body rises, only whether it stays up: a rising height is worth ten falls
-of 127, its length from 0.65 to 2.6 s none these falls tell; squaring is worth three or four.
+It does not change whether a body rises, only whether it stays up: a rising height is worth ten
+falls of 127, its length from 0.65 to 2.6 s none these falls tell.
+
+**The feet are not squared.** A resumed stance whose feet stood apart from its built width
+stepped the farther foot beside the other first; on the target, that step after the hand-back,
+and the head swaying after it, kept the verification waiting a median 2.0 s for every segment
+under 0.1 m/s, against 0.2 s without (the Warrior empty-handed shoved forward). Without it the
+target stands the same 45 falls, each group's median 0.8 to 1.3 s sooner (15.5 s overall,
+against 16.2), and none falls in the verification's standing and walk (at `4f15009e`). On the
+staged rise's earlier battery the step kept 3 or 4 more of 127 up over a 40 s watch
+(`SQUARE_NEAR` 0.1, at `1f354189`); the braced walk shoved under orders falls as before (the
+Rogue 5 of 200, the Warrior 1).
 
 ### The roll
 
