@@ -8,9 +8,10 @@ built is in the [architecture](../architecture.md#skills); what is open is in th
 ## The stance's walk
 
 The walk a fight uses. Its envelope (`assets/core/stance-envelope.json`, measured by
-`research/core-stance-envelope.mjs` at `8a363623`, every body and thing held, 642 s on 8 workers)
-walks the Warrior 1.7 m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.4, 1 and 0.7; the
-skeleton 1.5, 1.2 and 0.7, where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
+`research/core-stance-envelope.mjs` with the ankle's hold of
+[stance tuning](stance-tuning.md#ankle-hold), every body and thing held, 675 s on 8 workers) walks
+the Warrior 1.7 m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.5, 1 and 0.7; the
+skeleton 1.5, 1 and 0.7, where a person's preferred walk is near 1.4 m/s (`PERSON_PACE`,
 `src/core/human/gait.ts`). Its turns hold 1 rad/s at 0.2 to 0.5 m/s (the Rogue to 0.4, then 0.5),
 0.25 to 0.5 at 0.7, and none at 1 m/s or faster. A turn holds at a speed only if all 28 of its
 trials do, a walk if all 4 of its do: at 1 m/s a 0.25 rad/s turn stands in each of 8 trials read
@@ -48,10 +49,8 @@ steers by, each found where a member at this envelope stood, walked away or fell
 - **the crowd holds a walk back only for another body** (`CrowdWalk.held`), not for its gait's own
   cap: a member held so was never stalled, and waited forever.
 
-Not done at `8a363623`: in a reversal (seed 2) a member's post lies behind two arrived members
-1.3 m apart, too close to pass between; the crowd holds it, and the route search does not see
-members standing. With the ankle's hold ([stance tuning](stance-tuning.md#ankle-hold)) it is done,
-in 93 s; the route search still does not see them.
+Not done: in a reversal (seed 2) a member's post lies behind two arrived members 1.3 m apart, too
+close to pass between; the crowd holds it, and the route search does not see members standing.
 
 **What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
 envelope's 14 moments of setting off, at `827b28a6`):

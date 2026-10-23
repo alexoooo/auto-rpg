@@ -92,10 +92,10 @@ export interface FootState {
   /** The sole's corners, in the segment's own frame. */
   readonly sole: readonly Vector3[];
   /**
-   * The most moment the ankle holds about itself each way, N m: its strength that way as it
-   * lengthens (`ankleStrength`), the plantar flexors' toward the toes, the dorsiflexors' toward the
-   * heel, the lesser of the invertors' and the evertors' to a side; a way the ankle has no freedom
-   * named for is unbounded. What a bearing sole's wrench may load the ankle with (`BearingSole.hold`).
+   * The most moment the ankle holds about itself each way, N m (`ankleStrength`): the plantar
+   * flexors' toward the toes, the dorsiflexors' toward the heel, the lesser of the invertors' and the
+   * evertors' lengthening to a side; a way the ankle has no freedom named for is unbounded. What a
+   * bearing sole's wrench may load the ankle with (`BearingSole.hold`).
    */
   readonly ankleHold: AnkleHold;
   /**
@@ -198,15 +198,16 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
 }
 
 /**
- * What an ankle's muscles toward `sense` hold against the load that pushes it the other way, N m:
- * their isometric peak times their lengthening ceiling (`MuscleSpec`'s speed, `eccentricCeiling`).
- * An ankle a load pushes off its place lengthens, and its muscles resist up to that ceiling of
- * their peak (Thelen 2003); the hold a sole is planned on is what they give so. Measured:
- * `docs/reference/stance-tuning.md#ankle-hold`.
+ * What an ankle's muscles toward `sense` hold against a load that pushes the other way, N m: their
+ * isometric peak, and across the sole (`across`) that times their lengthening ceiling
+ * (`MuscleSpec`'s speed, `eccentricCeiling`). Across, a load that pushes the sole onto its edge
+ * lengthens the invertors or evertors holding it, and they resist up to that ceiling of their peak
+ * (Thelen 2003). Along it, a sole held past its peak tips onto its toes or its heel, which the
+ * stance reads and plans on (`bearingEnd`). Measured: `docs/reference/stance-tuning.md#ankle-hold`.
  */
-function ankleStrength(muscle: MuscleSpec, sense: "peakPositive" | "peakNegative"): number {
+function ankleStrength(muscle: MuscleSpec, sense: "peakPositive" | "peakNegative", across: boolean): number {
   const curve = sense === "peakPositive" ? muscle.speedPositive : muscle.speedNegative;
-  return muscle[sense].value * curve.eccentricCeiling.value;
+  return muscle[sense].value * (across ? curve.eccentricCeiling.value : 1);
 }
 
 /**
@@ -220,7 +221,7 @@ function ankleStrength(muscle: MuscleSpec, sense: "peakPositive" | "peakNegative
  * toes, the invertors and evertors across. An ankle without a freedom named for the way holds the
  * drawn edge there. A centre of pressure at an edge only holds the capture point where it is,
  * the sole about to roll; drawn in, the ankle has the rest to bring it back. The hold is the
- * ankle's strength as it lengthens (`ankleStrength`).
+ * ankle's strength each way (`ankleStrength`).
  */
 function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3, joint: ReadJoint, weight: number, inset: number): { points: Vec3[]; reach: FootState["holdReach"]; hold: AnkleHold } {
   const mid = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
@@ -231,7 +232,7 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
   const halfWidth = hypot(corners[ahead[0]!]![0] - corners[ahead[1]!]![0], corners[ahead[0]!]![2] - corners[ahead[1]!]![2]) / 2;
   const strength = (name: string, sense: "peakPositive" | "peakNegative"): number => {
     const dof = joint.dofs.find((d) => d.spec.positive === name);
-    return dof ? ankleStrength(dof.spec.muscle, sense) : Infinity;
+    return dof ? ankleStrength(dof.spec.muscle, sense, name === "inversion") : Infinity;
   };
   // Dorsiflexion (toes up) presses the heel into the ground, plantar flexion the toes; inversion and eversion each press a side.
   const hold: AnkleHold = { toe: strength("dorsiflexion", "peakNegative"), heel: strength("dorsiflexion", "peakPositive"),

@@ -518,39 +518,54 @@ edges toward its ankle, bounded further by what the ankle holds ([Ankle hold](#a
 
 ## Ankle hold
 
-`ankleStrength` (`src/core/control/support.ts`): an ankle's hold each way is its muscles'
-isometric peak that way times their lengthening ceiling (`eccentricCeiling`, 1.4, Thelen 2003).
-A load that pushes the ankle off its place lengthens the muscles holding it, and they resist up to
-that. A bearing sole loads its ankle no more than the hold (`BearingSole.hold`,
-`shareGroundWrench`). The regions the stance plans in (`FootState.hold`, `heldBy`) reach from
-under the ankle as far as the hold carries at the foot's load, within the sole drawn in by
-`SUPPORT_INSET`. The Rogue's hold reads 365 N m toward the toes, 37.6 toward the heel and 29.9 to
-a side; the Warrior's 585, 60.2 and 47.9. At the whole weight both reach the drawn sole to a side,
-3.5 cm, where 0.8 of the isometric peak held the Rogue 3 cm.
+`ankleStrength` (`src/core/control/support.ts`): an ankle's hold toward the toes and the heel is
+its muscles' isometric peak that way, and to a side the invertors' and evertors' peak times their
+lengthening ceiling (`eccentricCeiling`, 1.4, Thelen 2003). A load that pushes a sole onto its edge
+lengthens the muscles holding it, and they resist up to that; a sole held past its peak along it
+tips onto its toes or heel, which the stance plans on (`bearingEnd`). A bearing sole loads its
+ankle no more than the hold (`BearingSole.hold`, `shareGroundWrench`). The regions the stance plans
+in (`FootState.hold`, `heldBy`) reach from under the ankle as far as the hold carries at the foot's
+load, within the sole drawn in by `SUPPORT_INSET`. The Rogue's hold reads 261 N m toward the toes,
+26.9 toward the heel and 29.9 to a side; the Warrior's 418, 43.0 and 47.9. At the whole weight both
+reach the drawn sole to a side, 3.5 cm, where 0.8 of the isometric peak held the Rogue 3 cm.
 
 Shoved under orders (`--batteries orders --orders 0.5:1-200 --shoves 20`: the braced walk with the
 club, a shove of 20 N s at a third of its orders; Node stand, rapier-coordinate, 120 Hz, at
-`62c7a814`), falls of 200, the hold as a share of the isometric peak:
+`62c7a814`), falls of 200, the hold as a share of the isometric peak, along the sole and across it:
 
-| Hold | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
+| Hold, along / across | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
 |---|---:|---:|---:|---:|
-| 0.6 | 28 | | | |
-| 0.8 (a set share, before) | 19 | 10 | 0 | 1 |
-| 1.0 | 11 | | | |
-| 1.2 | 8 | | | |
-| the lengthening ceiling, 1.4 (kept) | 6 | 5 | 1 | 1 |
-| 1.5 | 5 | | | |
-| 2.0 | 7 | | | |
-| 0.8, to a side 1.2 | 7 | | | |
-| 0.8, to a side 1.4 | 5 | | | |
+| 0.6 / 0.6 | 28 | | | |
+| 0.8 / 0.8 (a set share, before) | 19 | 10 | 0 | 1 |
+| 1.0 / 1.0 | 11 | | | |
+| 1.2 / 1.2 | 8 | | | |
+| 1.4 / 1.4 | 6 | 5 | 1 | 1 |
+| 1.5 / 1.5 | 5 | | | |
+| 2.0 / 2.0 | 7 | | | |
+| 0.8 / 1.2 | 7 | | | |
+| 0.8 / 1.4 | 5 | | | |
+| 1.0 / 1.4 (kept) | 5 | 2 | 1 | 2 |
 
-Unshoved, seeds 1 to 300: the Rogue 0 against 0, the Warrior 0 against 2.
+The stance envelope's walks (`research/core-stance-envelope.mjs --walks`; every body and thing held,
+forward and back, m/s; a speed falls a step where one of its 4 trials does not hold, so a step either
+way is within its noise):
+
+| Hold, along / across | Warrior, forward / back | Rogue | skeleton |
+|---|---|---|---|
+| 0.8 / 0.8 | 1.7 / 1.2 to 1.5 | 1.4 to 1.5 / 1 | 1.5 / 1.2 |
+| 1.4 / 1.4 | 1.5 to 1.7 / 1.2 to 1.4 | 1 to 1.5 / 1.2 | 1.5 to 1.7 / 1 to 1.2 |
+| 1.2 / 1.4 | 1.5 to 1.7 / 1.2 | 1.2 to 1.5 / 1 | 1.5 / 1.2 |
+| 1.0 / 1.4 (kept) | 1.7 / 1.2 to 1.4 | 1.5 / 1 to 1.2 | 1.5 to 1.7 / 1 |
+
+The Rogue with the club walks forward 1 m/s at 1.4 along the sole, 1.4 at 0.8 and 1.5 at 1.
+
+Unshoved, seeds 1 to 300, at 1.4 / 1.4: the Rogue 0 against 0, the Warrior 0 against 2.
 
 What found it: the Rogue fell 19 where the Warrior, shoved to the same change of speed (27.4 N s:
 the Rogue is 57.6 kg, the Warrior 79), fell 4. With every torque 1.3 times its own (a physique's
 `strength`) the Rogue fell 9, with its mass 1.3 times 19, and with only one group's torque raised
 1.3 times: the hips 24, the knees 22, the ankle's flexion 19, its inversion and eversion 14. The
-stance counted on less of the side the ankle had than the ankle gives.
+stance counted on less of the side than the ankle gives.
 
 Tried against the same falls and not kept (Rogue, seeds 1 to 200, 19 before): a walk's step moved
 out to its own side counted as out of the leg's reach, 19; a catch on both feet never lifting the

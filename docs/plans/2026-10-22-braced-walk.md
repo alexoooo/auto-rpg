@@ -15,8 +15,8 @@ commit before it on a fast battery beside a placebo.
    [locomotion](../reference/locomotion.md#the-stances-walk)). The bar: shoved at 20 N s at a
    third of its orders, the Warrior and the Rogue each fall in under 10 of seeds 1 to 200 (35 and
    99 at `7c791131`), and the unshoved Warrior in about its 12 of 600 (a placebo reads 13 to 16).
-   Check: the battery reads the commit it lands at. Met: the Rogue 6 and 5 of seeds 1 to 200 and
-   201 to 400, the Warrior 1 and 1, unshoved 0 of 300 each
+   Check: the battery reads the commit it lands at. Met: the Rogue 5 and 2 of seeds 1 to 200 and
+   201 to 400, the Warrior 1 and 2, unshoved 0 of 300 each
    ([ankle hold](../reference/stance-tuning.md#ankle-hold)).
 2. **Catches that converge**: each kind of catch chain that grows (a step back short of the
    capture point, the pelvis carried past its held facing, a catch that does not crouch for its
