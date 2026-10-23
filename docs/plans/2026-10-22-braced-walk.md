@@ -10,8 +10,6 @@ commit before it on a fast battery beside a placebo.
 
 ## Steps
 
-0. **Movement B3** ([its plan](2026-10-21-movement-and-command.md)): the crowd battery passes.
-   Check: `npm run evaluate -- crowd`, kept with `--write`.
 1. **The walk's target**: what the braced walk holds under orders, a shove while it walks
    included, written as a battery and its bar. The battery is built (`--shoves`,
    [locomotion](../reference/locomotion.md#the-stances-walk)). The bar: shoved at 20 N s at a

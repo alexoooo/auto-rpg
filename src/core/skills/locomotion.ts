@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { BodyView } from "../body.ts";
-import { paceToward, turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
+import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
@@ -168,7 +168,8 @@ export interface Locomotion extends Skill {
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
  *   planted feet falls), no faster than the envelope turns at the pace the body was last asked to
  *   walk (`turnAt`): the envelope's turns were measured from the walk's setting off as well as
- *   under way.
+ *   under way. A heading still to turn at a pace the envelope turns none at is walked no faster
+ *   than the fastest pace it turns at (`fastestTurning`), or it would never turn.
  *
  * An optional `turnLimit` also bounds heading speed below the envelope's limit. Without an
  * envelope, the walk is uncapped and the heading follows the intent within that optional limit.
@@ -324,7 +325,10 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
           const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
           state.heading += Math.max(-rate, Math.min(rate, turn));
         } else state.heading += turn;
-        const speed = hypot(walk[0], walk[1]), most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
+        const speed = hypot(walk[0], walk[1]);
+        let most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
+        // A heading still to turn at a pace the envelope turns none at is walked at the fastest pace it turns at.
+        if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         state.pace = Math.min(speed, most);
         if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;

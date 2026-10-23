@@ -12,6 +12,20 @@ Rogue and the skeleton (`assets/core/stance-envelope.json`), where a person's pr
 near 1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Asked 1.2 m/s forward it goes 0.80. A dash,
 a roll, a crouch and turning on the spot are not built.
 
+**Measured again at `bbd0c842`** (`research/core-stance-envelope.mjs`, every body and thing held,
+585 s on 8 workers), the walk holds far more than the asset says, and turns less: the Warrior 1.7
+m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.4, 1 and 0.7; the skeleton 1.5, 1.2 and
+0.7. Its turns hold 1 rad/s at 0.2 to 0.5 m/s, 0.25 to 0.5 at 0.7, and none at 1 m/s or faster,
+where the asset (measured before a turn had to end within 0.5 rad of its heading, `TURNED`) holds
+4 rad/s. A turn holds at a speed only if all 28 of its trials do, a walk if all 4 of its do: at
+1 m/s a 0.25 rad/s turn stands in each of 8 trials read alone. The asset is not rewritten. With
+it, the crowd battery is done in 18 of its 23 cases reached against 23, two members fall
+against one, and members push each other apart 355 steps a case against 20: the walkers come
+faster than the 0.5 m/s² the walk is asked to stop at (`STANCE_STOPPING`) and the 1 rad/s they
+turn at let them take a reversal or a passage. A heading still to turn where the envelope holds no turn at the
+pace asked once stood still for good; it now walks at the fastest pace that turns
+(`fastestTurning`, `src/core/skills/locomotion.ts`).
+
 **What caps it is where the body bears.** Through each swing the realised centre of pressure stays
 about 3 cm ahead of the bearing sole's middle whatever the stance asks, a braking that costs about
 the fifth of the pace the walk falls short of; asking the pivot further back moves the place asked,
@@ -214,6 +228,19 @@ rate and speed (each sense, from 14 moments of setting off): at 1 m/s and faster
 0.25 rad/s held all 28 (27 at 0.25 rad/s to 3.5 m/s, 21 at 4.5 m/s); slower, 0.7 to 1.4 rad/s
 held. Most that fail fall, turning left, from 0.5 s after setting off.
 
+**Setting off turning.** The run begins only once the body has faced the way asked for 0.6 s
+(`RUN_SWITCH.settled`): a run begun as the walk's turn comes onto the way, the pelvis still
+turning, twists off its heading and falls within a second. The crowd's lone walker, which turns
+round between its runs (Node stand, Rapier, 120 Hz, `.tmp` sweep of the crowd's cases at seeds 1
+to 12 of every situation and the lone walker's 13 to 44, at `3eace0e6`):
+
+| Run begins | Falls, 69 cases | Lone walker, seeds 13–44 |
+|---|---:|---:|
+| facing the way | 6 (5 lone) | 7 in 32 |
+| facing it 0.6 s | 2 (1 lone) | 1 in 32 |
+
+A cap on the facing's turn rate at the switch (0.5 and 1 rad/s) kept 4 and 5 of the 5 lone falls.
+
 ## Move
 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while
@@ -289,6 +316,25 @@ On the SIMBICON run (its battery above):
   walk's 0.47; a `slowdown` of 0.7 stops in 5.5 s and fells 14 of 96, the skeleton 10, whose guard
   walk does not take a quicker slowing;
 - guard arms in the walk after a run.
+
+On the walk and run's stopping (Node stand, Rapier, 120 Hz, empty and the club, at `6c2142ec`):
+the run holds about its own speed between 1.2 m/s and it (1.7 to 2.2 for the Warrior) whatever it
+is asked, so the speed rule's slowing is not followed and the body goes 0.3 to 0.5 m/s over it.
+
+- a run asked under its pace by once or twice what the body goes over it: slows 0.1 to 0.2 m/s
+  sooner, stops no shorter;
+- the run's `brake` at 1 and 2 m/s²: from its top speed the Warrior and the Rogue fall, the
+  skeleton at 2;
+- the run slowing from the body's speed, not from its pace up to `ahead` over it: halted from
+  runs of 2, 4 and 6 s, each body empty and with the club, it stops in 4.75 m against 6.22 (the
+  16 both stood), and the Rogue with the club falls after its 4 s run, which stood; at the stated
+  0.15 m/s² a place goal 8, 15 and 30 m off plays the same;
+- stated at 0.2 m/s² with that slowing: a place goal is reached 5 to 10 % sooner, and the skeleton
+  sent 8 m falls as the run gives way, its pelvis turning at about 3 rad/s; at 0.3, 20 to 25 %
+  sooner, the Warrior runs up to 1.7 m past with the club and the skeleton falls once;
+- the catch's foot chosen by how far the capture point lands from the support it leaves (the
+  bearing sole to the landing) in place of from the landing: shoved, the Rogue 16 and the Warrior 7
+  falls of 200 against 18 and 7; no stop changed.
 
 On the walk and run's speeds:
 

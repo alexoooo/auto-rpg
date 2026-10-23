@@ -151,6 +151,13 @@ export function turnAt(envelope: StanceEnvelope, speed: number): number {
   return (turns.find((t) => t.speed.value >= speed) ?? turns[turns.length - 1]!).turn.value;
 }
 
+/** The fastest speed of `envelope`'s table at which it held a turn, m/s; 0 if it held none. */
+export function fastestTurning(envelope: StanceEnvelope): number {
+  let fastest = 0;
+  for (const t of envelope.turns) if (t.turn.value > 0) fastest = Math.max(fastest, t.speed.value);
+  return fastest;
+}
+
 /**
  * The fastest pace at which `envelope`'s turns carry the body round a bend of `radius` m, m/s: over
  * its table, the most of each speed or what its turn carries round the bend, whichever is less
