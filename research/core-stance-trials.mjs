@@ -156,10 +156,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
       stand.step(stand.seconds(3));
     }
     const apart = Math.abs(feet[0].node.position.x - feet[1].node.position.x);
-    const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
-    const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin, way = degrees * Math.PI / 180;
-    const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
-    trunk.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), at);
+    shoveTrunk(stand, impulse, degrees * Math.PI / 180);
     let low = -Infinity;
     for (let i = 0; i < stand.seconds(watch); i++) {
       stand.step(1);
@@ -169,6 +166,14 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
     const s = b.view.stance;
     return { steps: s.recoveries, fell: low > 0.25 || !Number.isFinite(low), low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length(), apart };
   } finally { b.dispose(); stand.dispose(); }
+}
+
+/** A level shove of `impulse` N s at the middle trunk's centre of mass, `way` rad from +z toward +x. */
+function shoveTrunk(stand, impulse, way) {
+  const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
+  const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin;
+  const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
+  trunk.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), at);
 }
 
 /** The learned run's policies read from their files, by path: each read once a thread. */
@@ -335,17 +340,20 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
  * (`skillOf`): whether it fell, when, and the catch steps it took. With `envelope`, the body reads
  * its stance's measured envelope as a game's does (`body`).
  */
-export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false }) {
+export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false, shoves = 0 }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance, envelope });
   const skill = skillOf(legs, b);
   if (!skill) throw new Error("orders are given to a locomotion skill");
   let state = (seed * 2654435761) % 4294967296;
   const random = () => { state = (state * 1664525 + 1013904223) % 4294967296; return state / 4294967296; };
+  // The shoves' own stream, so that the orders are the seed's with or without them.
+  let pushes = (seed * 2246822519 + 1) % 4294967296;
+  const push = () => { pushes = (pushes * 1664525 + 1013904223) % 4294967296; return pushes / 4294967296; };
   let goal = null, walk = null, heading = 0;
   b.drive((view, dt) => skillCommand(skill, view, walk, heading, dt, held === null ? {} : guard, (next) => { goal = next ?? goal; return goal; }));
   try {
     stand.step(stand.seconds(1));
-    let low = -Infinity, next = 0;
+    let low = -Infinity, next = 0, shoved = 0, last = null;
     for (let i = 0; i < stand.seconds(seconds); i++) {
       if (i >= next) {
         next = i + stand.seconds(ORDERS.least + (ORDERS.most - ORDERS.least) * random());
@@ -353,17 +361,25 @@ export async function orders({ model, speed, seed, seconds = 30, stance, hz = 12
         if (kind < 1 / 6) walk = null;
         else if (kind < 2 / 3) { walk = [speed, 0]; heading = way; }
         else { heading = skill.heading; walk = [speed * Math.cos(way), speed * Math.sin(way)]; }
+        if (shoves && push() < ORDERS.shoved) {
+          const way = 2 * Math.PI * push(), facing = b.view.stance.facing;
+          shoveTrunk(stand, shoves, way); shoved++;
+          last = { at: b.view.time, way: Math.atan2(Math.sin(way - facing), Math.cos(way - facing)), phase: b.view.stance.phase };
+        }
       }
       stand.step(1);
       const s = b.view.stance;
       if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
-      if (low > 0.25 || !Number.isFinite(low)) return { fell: true, at: b.view.time, catches: b.view.stance.recoveries };
+      if (low > 0.25 || !Number.isFinite(low)) return { fell: true, at: b.view.time, catches: b.view.stance.recoveries, shoved, last };
     }
-    return { fell: false, at: null, catches: b.view.stance.recoveries };
+    return { fell: false, at: null, catches: b.view.stance.recoveries, shoved };
   } finally { b.dispose(); stand.dispose(); }
 }
 
-/** How long each of `orders`' orders is held, s: from about a step to a few strides. */
-const ORDERS = { least: 0.3, most: 2 };
+/**
+ * How long each of `orders`' orders is held, s: from about a step to a few strides; and the share
+ * of its orders that come with a shove, where it is shoved.
+ */
+const ORDERS = { least: 0.3, most: 2, shoved: 1 / 3 };
 
 export const TRIALS = { stand, edge, step, shove, walk, turn, orders };

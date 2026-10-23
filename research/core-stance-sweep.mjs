@@ -24,8 +24,9 @@
  *   (the largest below the first that fell): mean and least. With `--walked 0.3` each shove comes 3 s
  *   after a 3 s walk forward at that pace stops; `apart` is the soles' mean distance across, mm.
  * - orders: the braced walk (the walk and run that may not run) given random orders (`orders`), the
- *   club in hand and the body's own envelope, 30 s at each pace and seed of `--orders paces:first-last`;
- *   the trials that fell by pace, and the catch steps a trial.
+ *   club in hand and the body's own envelope, 30 s at each pace and seed of `--orders paces:first-last`,
+ *   and with `--shoves 10,20` shoved at a third of its orders by each impulse, N s, level, a random
+ *   way at the middle trunk; the trials that fell by pace and impulse, and the catch steps a trial.
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -38,7 +39,7 @@ const { values } = parseArgs({ options: {
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
   speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
-  balance: { type: "string" }, gusts: { type: "string" }, orders: { type: "string", default: "0.5,1:1-50" },
+  balance: { type: "string" }, gusts: { type: "string" }, orders: { type: "string", default: "0.5,1:1-50" }, shoves: { type: "string", default: "0" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
 /** The winds the stop battery's walks are walked in: calm, and the gusts on each seed of `--gusts rate:strength:seeds`. */
@@ -59,7 +60,7 @@ variants.forEach((stance, v) => { for (const model of models) {
     for (const held of [null, "club"]) for (const wind of winds) add("walk", { degrees, speed, held, wind, stop: true });
   if (batteries.includes("orders")) {
     const [paces, range] = values.orders.split(":"), [first, last] = range.split("-").map(Number);
-    for (const speed of paces.split(",").map(Number)) for (let seed = first; seed <= last; seed++) add("orders", { speed, seed, held: "club", legs: "braced", envelope: true });
+    for (const speed of paces.split(",").map(Number)) for (let seed = first; seed <= last; seed++) for (const shoves of values.shoves.split(",").map(Number)) add("orders", { speed, seed, held: "club", legs: "braced", envelope: true, shoves });
   }
   if (batteries.includes("shove")) for (let w = 0; w < 16; w++) for (let impulse = 10; impulse <= top; impulse += 5) add("shove", { degrees: 22.5 * w, impulse, walked: Number(values.walked) });
 } });
@@ -137,8 +138,9 @@ variants.forEach((stance, v) => { for (const model of models) {
   }
   const ordered = of("orders");
   if (ordered.length) {
-    const paces = [...new Set(ordered.map((r) => r.speed_))];
-    parts.push(`orders fell ${paces.map((pace) => { const at = ordered.filter((r) => r.speed_ === pace); return `${at.filter((r) => r.fell).length}/${at.length} at ${pace}`; }).join(", ")}`
+    const cells = [...new Set(ordered.map((r) => `${r.speed_}:${r.shoves}`))];
+    parts.push(`orders fell ${cells.map((cell) => { const [pace, shoves] = cell.split(":").map(Number), at = ordered.filter((r) => r.speed_ === pace && r.shoves === shoves);
+      return `${at.filter((r) => r.fell).length}/${at.length} at ${pace}${shoves ? ` shoved ${shoves} N s` : ""}`; }).join(", ")}`
       + ` catches ${(ordered.reduce((a, r) => a + r.catches, 0) / ordered.length).toFixed(2)} a trial`);
   }
   console.log(`${JSON.stringify(stance)} ${model}: ${parts.join(" | ")}`);

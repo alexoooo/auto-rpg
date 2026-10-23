@@ -47,6 +47,24 @@ the ground. Not kept, each within the placebo with the envelope off: the catch's
 stripped; the pace the legs can take judged at the pelvis's facing, not the heading; the pelvis
 aimed on one foot no further round than the step lands (`landingHeading`).
 
+**Shoved while it walks it falls.** The same battery with a level shove at the middle trunk, a
+random way, at a third of its orders (`--shoves`; Warrior, seeds 1 to 100, 0.5 m/s, at `ed479bd0`):
+
+| Shove | None | 10 N s | 20 N s | 30 N s |
+|---|---:|---:|---:|---:|
+| Trials that fell | 3 of 100 | 6 | 24 | 56 |
+
+20 N s moves the Warrior 0.24 m/s. A fall comes 1 to 2.5 s after its shove, most from the side,
+after 5 to 10 catch steps: the capture point runs past the bearing foot's outside, the other foot
+steps in beside it again and again, and a step out by the bearing foot lands short of it.
+
+Not kept, read on 600 unshoved Warrior trials (the walk as it was 14 falls, a placebo 16) or on the
+shoved battery at 20 N s (24): the swing's bow round the bearing sole (`swingBowToRef`), which
+reaches metres before 9 of 10 falls, capped at the box's diagonal (20) or bent only to take the
+way's deepest point out of the box (21); 10 cm between the thighs (`STRIDE_ROOM`) in place of 3
+(13 of 300 against 6); a catch that would land no nearer the capture point than the bearing foot
+stands put down at once, and the bearing foot stepping out (27).
+
 ## The stride
 
 Experimental. It plans its own steps on the capture point and holds 0.7 m/s every way for the
