@@ -27,6 +27,10 @@ pace asked once stood still for good; it now walks at the fastest pace that turn
 (`fastestTurning`, `src/core/skills/locomotion.ts`). Shoved under orders at 20 N s (seeds 1 to
 200, at `827b28a6`), the envelope measured in place of the asset cuts the Warrior's falls from 9
 to 0 and leaves the Rogue's at 19 against 17: asked turns the legs cannot take, the walk falls.
+Its turns with the asset's walks (0.5 m/s for the Warrior, 0.4 for the others) fell the Warrior
+0 times and the Rogue 15; that crowd is done in 21 of 23, members pushed apart 100 steps a case
+against 20, and a lone hero falls: running at 1.8 m/s when its order reverses, it hands over to the
+walk at 0.8 m/s with a half turn to go at 1 rad/s, and catches 12 times in 4 s before it falls.
 
 **What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
 envelope's 14 moments of setting off, at `827b28a6`):
