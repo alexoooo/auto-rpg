@@ -69,12 +69,14 @@ a step that claims no change of behaviour shows the fingerprint unmoved.
 
 #### B3. Crowd motion: what is left
 
-The `crowd` battery passes: no member falls and every case reached is done. What fails is in the
-stance walk: braced at the 0.5 m/s it states, after a half turn it runs away sideways to
-1.4-1.7 m/s with no contact (lone 3 alone, following 1-3, the old fixture's seeds 2 and 4;
-[locomotion](../reference/locomotion.md)). With it fixed, passage 1 and fallen 4 are read again,
-and the 11 m braced rule (sized by the run's 0.15 m/s² stopping) is read against a run that
-brakes faster.
+The `crowd` battery passes: no member falls and every case reached is done. Members sent
+together finish (the corner passed once the next leg is clear, `CROWDED`); over seeds 1 to 12 the
+two cases left undone are outside the protocol (crossing 11, guard arms hooked passing shoulder to
+shoulder; reversal 9, a fight in a corridor). What fails is the braced walk's falls: about 7 in 69
+cases, which come and go with any change (passage 1 in the protocol). That is the
+[braced walk](2026-10-22-braced-walk.md)'s; with its falls fewer, passage 1 and fallen 4 are read
+again, and the 11 m braced rule (sized by the run's 0.15 m/s² stopping) against a run that brakes
+faster.
 
 Check: `npm run evaluate -- crowd` passes, kept with `--write`.
 

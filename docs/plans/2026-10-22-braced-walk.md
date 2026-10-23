@@ -13,7 +13,9 @@ commit before it on a fast battery beside a placebo.
 0. **Movement B3** ([its plan](2026-10-21-movement-and-command.md)): the crowd battery passes.
    Check: `npm run evaluate -- crowd`, kept with `--write`.
 1. **The walk's target**: what the braced walk holds under orders, a shove while it walks
-   included, written as a battery and its bar. Check: the battery reads the commit it lands at.
+   included, written as a battery and its bar. The battery is built (`--shoves`,
+   [locomotion](../reference/locomotion.md#the-stances-walk)); its bar waits on the owner. Check:
+   the battery reads the commit it lands at.
 2. **Catches that converge**: each kind of catch chain that grows (a step back short of the
    capture point, the pelvis carried past its held facing, a catch that does not crouch for its
    reach) fixed at its root or recorded as tried. Check: the orders battery
