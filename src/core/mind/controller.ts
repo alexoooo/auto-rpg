@@ -10,6 +10,17 @@ import type { KeysOf, Part } from "./parts.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Tactics } from "./tactics.ts";
 
+/** A named configuration, optionally calibrated for particular body models. */
+export interface MindPreset<C extends MindConfig = MindConfig> {
+  readonly label: string;
+  readonly config: C;
+  readonly models?: readonly BodySpec["model"][];
+}
+
+/** Whether a named calibration is offered for this model; a custom configuration has its own fit. */
+export const presetFitsModel = (preset: MindPreset, model: BodySpec["model"]): boolean =>
+  preset.models === undefined || preset.models.includes(model);
+
 /**
  * How a scene drives a mind by a script of its own in its tactics' place (the Lab's modes, a fall
  * on the stand bed): the options its body is made with, and the drive that hands the body its
@@ -28,7 +39,7 @@ export interface Scripted {
 export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly keys: KeysOf<C>;
   /** Its named configs, by the id the Arena's picker and a link's `control=` use; ids are unique across controllers. */
-  readonly presets: Readonly<Record<string, { readonly label: string; readonly config: C }>>;
+  readonly presets: Readonly<Record<string, MindPreset<C>>>;
   /**
    * The posture a body of `spec` under a mind of `config` is built in (`poseAngles`): the one
    * its mind holds from its first step, so that no joint is flung into it: a fighting mind's is its

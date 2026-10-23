@@ -3,7 +3,7 @@
  * Commander (`COMMANDERS`) leads the left side of an Arena bout as a team of one, as a person's side
  * is led (`teamOfOne`), until it has sent its member at the foe and the member stands within its
  * reach of it; the bout forks there and goes on to
- * the bit with the Commander's memory copied (`state`), and plays again to the bit from the orders it
+ * the bit with the team's memory and standing orders copied (`TeamOfOne.state`), and plays again to the bit from the orders it
  * gave alone (`Duel.play`), with no Commander. How well a Commander leads is measured apart.
  */
 import test from "node:test";
@@ -29,7 +29,7 @@ async function led(kind) {
   const at = (side) => { const c = duel.duelists[side].body.physical.centre; return { x: c.x, z: c.z }; };
   const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
   const gap = () => { const l = at("left"), r = at("right"); return Math.sqrt((r.x - l.x) ** 2 + (r.z - l.z) ** 2); };
-  return { ...bout, commander: team.commander, trace, gap, reach: cryptModel(RECIPE.left).attackMetres, dispose() { team.dispose(); bout.dispose(); } };
+  return { ...bout, teamState: team.state, trace, gap, reach: cryptModel(RECIPE.left).attackMetres, dispose() { team.dispose(); bout.dispose(); } };
 }
 
 for (const kind of Object.keys(COMMANDERS)) {
@@ -42,14 +42,14 @@ for (const kind of Object.keys(COMMANDERS)) {
       assert.ok(closed(), `the ${kind} Commander did not bring its member within reach of the foe in ${REACH_SECONDS} s: the fixture did not reach its case`);
       // On past the next look, so that the fork decides on the memory it was given until then.
       const steps = a.world.hz;
-      fork = { duel: a.duel.save(), commander: saveState(a.commander.state) };
+      fork = { duel: a.duel.save(), team: saveState(a.teamState) };
       const after = traceOf(SIDES.map((side) => a.duel.duelists[side].built));
       for (let i = 0; i < steps; i++) { a.world.step(); a.trace.take(); after.take(); }
 
       const b = await led(kind);
       try {
         b.duel.load(fork.duel);
-        loadState(b.commander.state, fork.commander);
+        loadState(b.teamState, fork.team);
         for (let i = 0; i < steps; i++) { b.world.step(); b.trace.take(); }
         assert.deepEqual({ pose: b.trace.digest(), tape: b.duel.tape }, { pose: after.digest(), tape: a.duel.tape }, "the fork goes on as the bout did");
       } finally { b.dispose(); }

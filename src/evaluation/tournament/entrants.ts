@@ -4,6 +4,7 @@
  */
 import { heldItem, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { MINDS } from "../../core/mind/controllers.ts";
+import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { BODY_MODELS, modelRefusal, modelSpec, type BodyModel } from "../../core/models.ts";
 import { FIGHT_ENTRY, partOf } from "../../core/mind/catalog.ts";
@@ -31,8 +32,8 @@ function entrant(id: string, label: string, config: Json, model: BodyModel, load
 }
 
 /** Mind `id`'s entrants: one for each character and representative loadout it fits. */
-export const entrantsOf = (id: string, label: string, config: Json): Subject[] =>
-  BODY_MODELS.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout)).map((loadout) => entrant(id, label, config, model, loadout)));
+export const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS): Subject[] =>
+  models.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout)).map((loadout) => entrant(id, label, config, model, loadout)));
 
 /**
  * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
@@ -44,10 +45,13 @@ export function entrantSubjects(choice: SubjectChoice): Subject[] {
   const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game");
   return named.flatMap((one) => {
     if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value);
-    if (!one.includes("/")) return entrantsOf(one, mind(one).label, mind(one).config as unknown as Json);
+    if (!one.includes("/")) {
+      const preset = mind(one);
+      return entrantsOf(one, preset.label, preset.config as unknown as Json, BODY_MODELS.filter(model => presetFitsModel(preset, model)));
+    }
     const [id, model, held] = one.split("/"), loadout = TOURNAMENT.loadouts.find((each) => loadoutKey(each) === held);
     const { label, config } = mind(id);
-    if (!BODY_MODELS.includes(model as BodyModel) || !loadout || !fits(model as BodyModel, config as unknown as Json, loadout)) throw new Error(`${one} is no entrant`);
+    if (!BODY_MODELS.includes(model as BodyModel) || !presetFitsModel(mind(id), model!) || !loadout || !fits(model as BodyModel, config as unknown as Json, loadout)) throw new Error(`${one} is no entrant`);
     return [entrant(id, label, config as unknown as Json, model as BodyModel, loadout)];
   });
 }

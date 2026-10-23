@@ -1,5 +1,5 @@
 import type { MindConfig } from "./config.ts";
-import type { Controller } from "./controller.ts";
+import type { Controller, MindPreset } from "./controller.ts";
 import { MIND_KINDS } from "./kinds.ts";
 
 /**
@@ -21,7 +21,7 @@ function registry(controllers: readonly Controller[]): Readonly<Record<string, C
 }
 
 /** Every controller's presets by id (`Controller.presets`), in the controllers' order. */
-export const PRESETS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> =
+export const PRESETS: Readonly<Record<string, MindPreset>> =
   Object.freeze(Object.assign({}, ...Object.values(CONTROLLERS).map((entry) => entry.presets)));
 
 /**
@@ -29,8 +29,8 @@ export const PRESETS: Readonly<Record<string, { readonly label: string; readonly
  * none, under its kind with its defaults, so that a Mind registered without a preset is still
  * played. An id a preset and a kind share is refused.
  */
-export const MINDS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> = (() => {
-  const minds: Record<string, { readonly label: string; readonly config: MindConfig }> = { ...PRESETS };
+export const MINDS: Readonly<Record<string, MindPreset>> = (() => {
+  const minds: Record<string, MindPreset> = { ...PRESETS };
   for (const [kind, entry] of Object.entries(CONTROLLERS)) {
     if (Object.keys(entry.presets).length > 0) continue;
     if (Object.hasOwn(minds, kind)) throw new Error(`a preset is called ${JSON.stringify(kind)}, a kind with no preset`);

@@ -28,6 +28,7 @@ import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";
 import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
+import { releaseCombatApproach } from "../core/command/delivery.ts";
 
 /** Each side's Commander where a run names none: the person's party, and a mob. */
 export const RUN_COMMANDERS: Readonly<Record<"party" | "enemies", CommanderConfig>> = Object.freeze({ party: Object.freeze({ kind: "party" }), enemies: Object.freeze({ kind: "mob" }) });
@@ -453,10 +454,9 @@ export class DungeonRun {
    * within the band of the foe it attacks, where its mind's own footwork takes over.
    */
   private delivered(actor: DungeonActor): Orders {
-    const orders = this.given.get(actor.id) ?? STAND_ORDERS, move = orders.move;
+    const orders = this.given.get(actor.id) ?? STAND_ORDERS;
     const foe = orders.foe === undefined ? undefined : this.actors.find((other) => other.id === orders.foe);
-    if (!foe || move?.kind !== "range" || move.focus !== foe.id || distance(actor.feet(), foe.feet()) > move.far) return orders;
-    return Object.fromEntries(Object.entries(orders).filter(([key]) => key !== "move")) as unknown as Orders;
+    return releaseCombatApproach(orders, actor.feet(), foe ? { id: foe.id, at: foe.feet() } : null);
   }
 
   /** The map's sight index, made again once another door has opened. */

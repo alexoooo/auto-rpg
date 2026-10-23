@@ -1,7 +1,7 @@
 import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { loadoutAttributes, strikesOf } from "../loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
-import { LAB_HANDS, LAB_PRESETS, LAB_WORN, MODELS, labStaging } from "../scenarios.ts";
+import { LAB_HANDS, LAB_WORN, MODELS, labStaging, labPresets } from "../scenarios.ts";
 import { HELD as HOLDS, heldItem, type Held } from "../../core/items/held.ts";
 import { choice, entries, fold, following, group, menu, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
@@ -14,12 +14,6 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
   boots: { name: "Boots", title: "Appearance only" },
   armour: { name: "Armour", title: "Appearance only" },
 };
-
-/** The Lab's presets, in their order. */
-const PRESET_IDS = Object.keys(LAB_PRESETS) as (keyof typeof LAB_PRESETS)[];
-
-/** The preset whose tree `page` shows, or none once a person has changed a part of it. */
-const presetOf = (page: LabPage): string => PRESET_IDS.find((id) => writeMind(LAB_PRESETS[id].config) === writeMind(page.shown.mind)) ?? "";
 
 /**
  * The character, in the order each part depends on the last: its body, what the body holds and
@@ -50,8 +44,12 @@ export function characterSection(page: LabPage): readonly Control[] {
         switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] }))),
     ]),
     group("Mind", [
-      choice("Preset", PRESET_IDS.filter(id => page.shown.scenario === "attack" ? id !== "script" : id === "script" || id === "guard").map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
-        (id) => page.load({ ...page.shown, mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
+      following(() => page.spec, spec => {
+        const presets = labPresets(spec, page.shown.scenario);
+        return choice("Preset", presets.map(preset => ({ value: preset.id, name: preset.label })),
+          () => presets.find(preset => writeMind(preset.config) === writeMind(page.shown.mind))?.id ?? "",
+          id => { const preset = presets.find(preset => preset.id === id); if (preset) page.load({ ...page.shown, mind: preset.config }); });
+      }),
       // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind asks.
       following(() => page.spec, (spec) => switches("Strikes",
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),

@@ -8,6 +8,8 @@ import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import { HELD, type Held, type Loadout } from "../core/items/held.ts";
 import { takesScript } from "../core/mind/catalog.ts";
+import { MINDS } from "../core/mind/controllers.ts";
+import { presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
 import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -93,6 +95,13 @@ export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "punc
   guard: { label: "Guard", config: { ...RECIPE_FIGHTER, tactics: { kind: "stand" } } },
 });
 
+/** Named minds come from their registry; the Lab adds its scenario defaults. */
+const LAB_MINDS: Readonly<Record<string, MindPreset>> = Object.freeze({ ...MINDS, ...LAB_PRESETS });
+
+/** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */
+const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, MindPreset>> =>
+  Object.fromEntries(Object.entries(LAB_MINDS).filter(([, preset]) => presetFitsModel(preset, model)));
+
 /** What the Lab gives a mind beyond the body and the world: its scenario's script. */
 const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
 
@@ -103,6 +112,11 @@ const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
  */
 export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
   ? { provides: [], entry: ["attacks"] } : { provides: LAB_PROVIDES, entry: [] };
+
+/** Named calibrations the selected body and scenario can run, including externally registered minds. */
+export const labPresets = (spec: BodySpec, scenario: ScenarioId | null) => Object.entries(labMindsForModel(spec.model))
+  .filter(([, preset]) => takesScript(preset.config) && mindFaults(preset.config, spec, labStaging(scenario)).length === 0)
+  .map(([id, preset]) => ({ id, ...preset }));
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
@@ -199,7 +213,7 @@ export function labAddress(search: string): LabAddress {
     sole: flag(query.get("sole"), false),
     balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
     haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
-    mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER
+    mind: readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? PUNCHER
       : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
@@ -241,7 +255,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("armour", address.armour ? "1" : "0");
   if (address.sole) query.set("sole", "1");
   writeAttributes(query, "body", loadoutAttributes(address));
-  query.set("mind", mindText(address.mind, LAB_PRESETS));
+  query.set("mind", mindText(address.mind, labMindsForModel(address.model)));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);

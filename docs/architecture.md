@@ -443,7 +443,10 @@ line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and noth
 code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
 config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`), its own
 parts (`parts`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
-by its defaults; pickers offer only minds that fit the side's body and loadout.
+by its defaults. A preset may name the body models it is calibrated for (`MindPreset.models`,
+`presetFitsModel`). Arena, Lab and named evaluation entries use that availability as well as
+physical fit; a custom configuration still fits by its parts. The Lab discovers script-compatible
+presets from this registry, with its Script and Guard scenario defaults added.
 
 | Kind | Maker | What it composes |
 |---|---|---|
@@ -452,7 +455,7 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | a fighter's slots with parts of its own: its planner (`VANGUARD_PLAN`: contact-driven choice, capped evasion, rerouted entry, a step round blocks and low cover over a plan of any kind) and its committed, predicting punch; own-body profiles of walk, blocked step, punch timing and preparation aim as data |
+| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, committed predicting punch and configurable conservative stance walk; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
@@ -639,7 +642,7 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
 5. A part of its own, of any role (any slot's, an action's aim, the quadruped's motor,
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
-   `vanguard-punch`, and planner, `vanguard-plan`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
+   `vanguard-punch`, planner, `vanguard-plan`, and walk, `vanguard-walk`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter, an
    options fighter and a quadruped) and holds a stub of each role to it: chosen by config, run,
@@ -689,7 +692,12 @@ side's Commander its options' config (`party`, `enemies`: the person's party and
 Options or the address, `&party=`, `&enemies=`, name another, and a kind no Commander of that side has is said); an
 Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
 Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
-(`Duel.order`). The kinds:
+(`Duel.order`). Both hosts release a range approach to the ordered foe once it reaches the far
+boundary (`releaseCombatApproach`, `src/core/command/delivery.ts`), leaving combat footwork to
+the Mind. Explicit stops, direct movement and routes retain authority. The raw order remains
+available to resume the approach if the foe moves away, even when the Commander emits no new
+order. Arena's team keeps this order with its Commander's memory in `TeamOfOne.state`, saved
+together when forked; its tape records delivered orders and replays without a Commander. The kinds:
 
 | Kind | File | Leads |
 |---|---|---|

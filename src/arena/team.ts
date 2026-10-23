@@ -1,4 +1,6 @@
 import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
+import { releaseCombatApproach } from "../core/command/delivery.ts";
+import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import type { Command } from "../core/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../core/command/team.ts";
 import { hypot } from "../core/math/real.ts";
@@ -20,6 +22,8 @@ const OPEN_GROUND: TeamLevel = Object.freeze<TeamLevel>({
 /** **One side of a bout led as a team of one** (`teamOfOne`): its Commander, and what the person leading it gives. */
 interface TeamOfOne {
   readonly commander: Commander;
+  /** The Commander's memory and its last raw orders, saved together when a team forks. */
+  readonly state: { readonly commander: object; orders: Orders | null };
   /** The person's live input (`TeamView.lead`), which the page sets as the keys and the pointer change; null for nobody. */
   lead: TeamView["lead"];
   /** The person's command, heard at once. */
@@ -31,15 +35,17 @@ interface TeamOfOne {
  * `side` of `duel` as a team of one under a Commander of `config`: asked each step in the sensing
  * phase, after the senses and before every Mind, until the verdict, its orders given to the side
  * (`Duel.order`), so the bout's tape holds them and plays it again with no Commander. The team
- * looks every step; its member's home is where it stood when the team was made.
+ * looks every step; its member's home is where it stood when the team was made. Its state retains
+ * raw orders so a reached combat approach can resume without a fresh Commander decision.
  */
 export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): TeamOfOne {
   const commander = createCommander({ level: OPEN_GROUND }, config), other: Side = side === "left" ? "right" : "left";
   const duelist = duel.duelists[side], { radius, attackMetres } = cryptModel(duelist.model);
   const at = (of: Side) => { const c = duel.duelists[of].body.physical.centre; return { x: c.x, z: c.z }; };
   const home = at(side);
+  const state = { commander: commander.state, orders: null as Orders | null };
   const team: TeamOfOne = {
-    commander, lead: null,
+    commander, state, lead: null,
     hear(command) { commander.hear(command, view()); },
     dispose() { leading.dispose(); },
   };
@@ -51,8 +57,11 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): Team
   };
   const leading: Hook = duel.world.sense(() => {
     if (duel.verdict) return;
-    const orders = commander.decide(view()).orders.get(side);
-    if (orders) duel.order(side, orders);
+    const current = view(), orders = commander.decide(current).orders.get(side);
+    if (orders && !sameOrders(state.orders, orders)) state.orders = JSON.parse(JSON.stringify(orders)) as Orders;
+    const given = state.orders;
+    if (given) duel.order(side, releaseCombatApproach(given, current.members[0]!.at,
+      current.others.find(target => target.id === given.foe) ?? null));
   });
   return team;
 }

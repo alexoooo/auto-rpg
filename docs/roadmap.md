@@ -48,7 +48,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** the braced walk, from Movement B3's remainder (its falls in a crowd); Vanguard on hold, its
-   flags now its planner part (`vanguard-plan`), each of its parts replaced alone by `--ablate`.
+   explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
+   alone by `--ablate`, with their decisions visible in Arena and Lab.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -216,7 +217,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
-  empty-handed first, then equipped, on held-out cases. Its Skeleton preparation-aim profile fails
+  empty-handed first, then equipped, on held-out cases. Its Skeleton preparation-aim calibration fails
   the fifth fresh unarmed campaign ([record](reference/vanguard.md#preparation-aim-campaign), [plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.

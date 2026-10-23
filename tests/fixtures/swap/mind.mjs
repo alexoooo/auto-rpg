@@ -84,7 +84,8 @@ export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", QUADRUPED, {}
 const own = (kind) => Object.freeze(STUBS.filter((stub) => stub.mind === kind).map((stub) => stub.part));
 
 export const SWAP_MIND = Object.freeze({
-  ...FIGHTER_MIND, label: "Swap stubs", stage: "experimental", defaults: SWAP_DEFAULTS, presets: Object.freeze({}), parts: own("swap-stub"),
+  ...FIGHTER_MIND, label: "Swap stubs", stage: "experimental", defaults: SWAP_DEFAULTS,
+  presets: Object.freeze({ "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }) }), parts: own("swap-stub"),
 });
 
 export const SWAP_OPTIONS_MIND = Object.freeze({

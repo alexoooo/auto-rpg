@@ -3,6 +3,7 @@ import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
+import { presetFitsModel } from "../core/mind/controller.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
@@ -174,7 +175,8 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
  * out (`modelRefusal`, a fight's entry rules), so a mind that works with one loadout is offered with no other.
  */
 export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): readonly Control[] {
-  return Object.keys(MINDS).filter((control) => modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, attributes) === null);
+  return Object.keys(MINDS).filter((control) => presetFitsModel(MINDS[control]!, model)
+    && modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, attributes) === null);
 }
 
 /** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */

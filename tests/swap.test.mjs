@@ -44,7 +44,8 @@ const { saveState } = await import("../src/core/state.ts");
 const { COMMANDERS } = await import("../src/core/command/commanders.ts");
 const { teamOfOne } = await import("../src/arena/team.ts");
 const { CRYPT_CLEAR } = await import("../src/evaluation/crypt-clear/index.ts");
-const { labMind } = await import("../src/lab/scenarios.ts");
+const { labMind, labPresets, labAddress, labHref } = await import("../src/lab/scenarios.ts");
+const { controlsFor } = await import("../src/arena/matchup.ts");
 const { EVALUATIONS } = await import("../src/evaluation/evaluations.ts");
 const { playRow } = await import("../src/evaluation/play.ts");
 const { caseNames } = await import("../src/evaluation/code.ts");
@@ -65,6 +66,25 @@ test("the fixture entrants are registered from outside src/", () => {
 test("the Lab plays the fixture fighter, which takes its script under a kind of its own, and refuses the options fixture, which takes none", () => {
   assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
   assert.deepEqual(labMind(SWAP_OPTIONS_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
+});
+
+test("an external preset's model calibration governs Arena, Lab and evaluation choices, and named Lab links round-trip", () => {
+  const rogue = modelSpec("workshop-rogue");
+  assert.ok(controlsFor("workshop-fighter").includes("swap-stub"));
+  assert.ok(!controlsFor("workshop-rogue").includes("swap-stub"));
+  assert.ok(labPresets(spec, "attack").some(preset => preset.id === "swap-stub"));
+  assert.ok(!labPresets(rogue, "attack").some(preset => preset.id === "swap-stub"));
+  assert.deepEqual(treeRefusal(rogue, SWAP_DEFAULTS), null, "calibration availability does not change a custom tree's physical fit");
+  const entrants = entrantSubjects(["swap-stub"]);
+  assert.deepEqual([...new Set(entrants.map(entrant => entrant.value.model))], ["workshop-fighter"]);
+  assert.throws(() => entrantSubjects(["swap-stub/workshop-rogue/empty,empty"]), /is no entrant/);
+  const address = labAddress("?scenario=attack&mind=swap-stub");
+  assert.deepEqual(address.mind, SWAP_DEFAULTS);
+  assert.equal(new URLSearchParams(labHref(address)).get("mind"), "swap-stub");
+  assert.notDeepEqual(labAddress("?scenario=attack&model=workshop-rogue&mind=swap-stub").mind, SWAP_DEFAULTS);
+  const custom = labHref({ ...address, model: "workshop-rogue" });
+  assert.notEqual(new URLSearchParams(custom).get("mind"), "swap-stub", "a named calibration is not offered for another model");
+  assert.deepEqual(labAddress(custom).mind, SWAP_DEFAULTS, "a whole custom tree still travels unchanged");
 });
 
 for (const { part, at, mind, place } of STUBS) {

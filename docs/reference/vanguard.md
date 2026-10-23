@@ -1,10 +1,10 @@
 # Vanguard development panel
 
-Vanguard remains unqualified against the requested field. Its calibrated preset combines
-committed point prediction, contact-driven attack/evasion choice and editable motor profiles
-for its own body. The Skeleton refreshes its opening through preparation and pins it at commitment;
-this improves its current four-case Options development panel from 0/4 to 2/4. The profiles select
-the stronger development configurations for the Warrior, Rogue and Skeleton. The preparation-aim
+Vanguard remains unqualified against the requested field. Its explicit calibrated presets combine
+committed point prediction, contact-driven attack/evasion choice and editable motor settings.
+The Skeleton refreshes its opening through preparation and pins it at commitment;
+this improves its four-case Options development panel from 0/4 to 2/4. The presets retain
+the selected development configurations for the Warrior, Rogue and Skeleton. The preparation-aim
 preset at `d68ad7e7` fails its fresh Options campaign with one win and three losses in four
 completed cases. The four earlier qualification campaigns also fail. Equipment is unqualified.
 
@@ -243,8 +243,8 @@ low-support revisions are not part of the retained implementation.
 
 ### Distant native travel
 
-The calibrated preset uses braced walking as its native Move fallback outside the close-combat
-rules. Conservative own-body profiles retain their stance walk. This avoids the Warrior's distant
+The Warrior calibration uses braced walking as its native Move fallback outside the close-combat
+rules. The Rogue and Skeleton calibrations use their conservative stance walk. This avoids the Warrior's distant
 run, without changing muscle strength or the common locomotion implementations.
 
 On the failed 6.21 m Warrior open-stage start, the preceding configuration falls at 4.6333 s,
@@ -262,13 +262,18 @@ These failed-campaign conditions are development evidence, not fresh qualificati
 
 ## Body motor profiles
 
-The calibrated preset at `9b3fecd0` uses the
-[own-body profiles](../../assets/entrants/vanguard/body-profiles.json). The complete table is an
-editable `bodyProfiles` field carried by a mind link. A matching own model selects conservative
-stance walking and whether its planner steps around repeated blocks; without a matching entry, the
-configured walk and the planner's `flank` setting apply. An optional `lead` sets the delay in seconds
-between the trunk and arm drive for standing straight-punch executors. Low-only executors retain
-their configured delay.
+The explicit calibrations in [Vanguard's controller](../../src/core/entrants/vanguard/mind.ts)
+are `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton`, each offered for its named body.
+Their source profile table is `assets/entrants/vanguard/body-profiles.json@a9cddb72`; the measured
+calibrated preset at `9b3fecd0` names its source below. A selected configuration runs its own walk,
+planner flags and punch settings, without body-based overrides. Its complete settings travel in
+an edited mind link.
+
+The conservative `VANGUARD_WALK` uses `turnLimit: 0.3` rad/s, `turnStartupSeconds: 2` s and
+`turnStartupLimit: 0.2` rad/s. Its ordinary fields preserve the calibration through editing and
+links. The planner's `flank` selects its blocked step. A punch's `lead` is the delay in seconds
+between trunk and arm drive; the Skeleton standing punch uses 0.025 s. Low-only punches keep
+their own settings.
 
 | Own body | Walk | Step after repeated blocks | Selected development result |
 | --- | --- | --- | --- |
@@ -310,11 +315,11 @@ shorter delay; this development gain does not establish qualification.
 
 ## Preparation aim
 
-The Skeleton profile's `anchorAtDrive: true` refreshes the chosen opening while the standing punch
+The Skeleton calibration's `anchorAtDrive: true` refreshes the chosen opening while the standing punch
 prepares. The first committed step pins that surface point; its sensed rigid motion continues to
 refresh the prediction during the drive. Low-only punches retain their planted aim behavior.
-The field is also available in the mind editor and the complete body-profile JSON travels with a
-linked mind. The Warrior and Rogue profiles keep their existing preparation.
+The field is available in the mind editor and travels with a linked mind. The Warrior and Rogue
+calibrations retain their fixed preparation aim.
 
 The paired prototype at source
 `sha256:133f36aeef1ccd86f02fda6b604dbd30aa9080e9954dbbeb6aab14ea1ac6805c`
