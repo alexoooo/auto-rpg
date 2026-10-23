@@ -62,6 +62,20 @@ crossed foot landing back on its own side, and a catch landing where the capture
 and not past it, cut the Rogue's falls at 20 N s from 199 of 400 to 37 and the Warrior's from 68
 to 15 ([which foot catches](stance-tuning.md#which-foot-catches)).
 
+What the Rogue still falls by at 20 N s (18 of seeds 1 to 200, at `e0adc9dc`; 3 of 400 unshoved):
+in 8 the trunk folds over the bearing hip, past 0.8 rad, 0.4 s or more before the hips are low
+enough to count. The swing's bow round the bearing sole (`swingBowToRef`) jumps from one control
+step to the next as the landing is re-aimed, between a few centimetres and 2.9 m, and its turn
+from bending out across to bending toward the sole's end; the foot is asked for up to 1,800 m/s²,
+the solve misses thousands of newtons, and the plan the landing is aimed from jumps with it. The
+others are chains of crossovers and steps out that the capture point outruns.
+
+Not kept, against 18 (a placebo moves it 3 or 4): the bow capped at twice the box's half-diagonal
+(17); the bow turned toward the sole's end only for a landing past its far side (27); the bow kept
+from the lift (25, and 24 capped as well); no crossover (15, and 19 against 19 on seeds 201 to
+400); a catch's swing over 0.25 s or 0.35 s (20, 19), `fast` 0.25 (19), a lift of 0.03 m (26),
+the longest catch 1 of the leg (28), a reach of -0.05 or -0.1 (19, 33).
+
 Not kept, read on 600 unshoved Warrior trials (the walk as it was 14 falls, a placebo 16) or on the
 shoved battery at 20 N s (24): the swing's bow round the bearing sole (`swingBowToRef`), which
 reaches metres before 9 of 10 falls, capped at the box's diagonal (20) or bent only to take the

@@ -44,7 +44,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | Crowd motion: B3 waits on the braced walk's falls |
-| [The braced walk](plans/2026-10-22-braced-walk.md) | Catches that converge, a faster walk, faster braking |
+| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar: the Warrior meets it, the Rogue falls 18 in 200 (under 10); a faster walk, faster braking |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** the braced walk, from Movement B3's remainder (its falls in a crowd); Vanguard on hold, its
