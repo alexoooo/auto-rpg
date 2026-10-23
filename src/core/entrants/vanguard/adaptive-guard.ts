@@ -1,5 +1,5 @@
 import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
-import type { Tactics } from "../../mind/tactics.ts";
+import { engagementWithDetails, type Tactics } from "../../mind/tactics.ts";
 
 /** Each policy gets six seconds of combat before its observed contact score is compared. */
 const PERIOD = 6;
@@ -13,11 +13,21 @@ export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = 
   const policies = [attacking, defensive];
   const state = { attacking: attacking.state ?? null, defensive: defensive.state ?? null, mode: 0,
     since: null as number | null, score: 0, rates: [0, 0], samples: [0, 0], streak: 0,
+    time: 0, between: true, reason: "initial policy",
     motion: { left: [0, 0, 0], right: [0, 0, 0] }, sampled: { left: -1, right: -1 } };
   const chosen = () => policies[state.mode]!;
-  return { name: attacking.name, state, get engagement() { return chosen().engagement; },
+  const engagement = engagementWithDetails(() => chosen().engagement, () => [
+    { label: "Evasion policy", value: state.mode === 0 ? "attack only" : "evasion allowed" },
+    { label: "Policy selection", value: state.reason },
+    ...["Attack-only contacts", "Evasion-allowed contacts"].map((label, mode) => ({ label,
+      value: state.samples[mode] === 0 ? "untried" : `${state.rates[mode]!.toFixed(3)} score/s · ${state.samples[mode]} periods` })),
+    { label: "Policy trial", value: state.since === null ? "waiting for a committed stroke"
+      : `${(state.time - state.since).toFixed(2)} s · ${state.score.toFixed(3)} contact score${!state.between ? " · waiting for stroke release" : ""}` },
+  ]);
+  return { name: attacking.name, state, engagement,
     decide(sight, dt) {
       const view = sight.view;
+      state.time = view.time;
       for (const hand of ["left", "right"] as const) {
         const effector = `hand.${hand}`, feedback = view.effectors[effector]?.feedback, before = state.motion[hand];
         const action = sight.report.actions.find(action => action.effector === effector && action.phase === "commit");
@@ -44,14 +54,18 @@ export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = 
       }
       const between = !sight.report.actions.length
         || sight.report.actions.every(action => action.phase === "release" && action.holds.length === 0);
+      state.between = between;
       if (state.since !== null && view.time - state.since >= PERIOD && between) {
         const mode = state.mode, other = 1 - mode, rate = state.score / (view.time - state.since);
         state.rates[mode] = state.samples[mode] === 0 ? rate : state.rates[mode]! * RECENCY + rate * (1 - RECENCY);
         state.samples[mode]!++;
         const preferred = state.samples[other] === 0 ? other : state.rates[0]! >= state.rates[1]! ? 0 : 1;
+        state.reason = state.samples[other] === 0 ? "sample the other policy"
+          : state.rates[0] === state.rates[1] ? "equal scores prefer attack only" : "higher observed contact score";
         if (revisit) {
           state.streak = preferred === mode ? state.streak + 1 : 0;
           state.mode = state.streak >= REVISIT ? other : preferred;
+          if (state.streak >= REVISIT) state.reason = "scheduled revisit";
           if (state.mode !== mode) state.streak = 0;
         } else state.mode = preferred;
         state.score = 0; state.since = view.time;

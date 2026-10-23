@@ -1,7 +1,7 @@
 import type { Orders } from "../../mind/orders.ts";
 import { clearMove } from "../../mind/clear-step.ts";
 import { bodyClearance, lowOpponent } from "../../mind/sensed-bounds.ts";
-import type { Sight, Tactics } from "../../mind/tactics.ts";
+import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { cos, sin } from "../../math/real.ts";
 
@@ -11,11 +11,17 @@ const BLOCKS = 2, SECONDS = 1, PACE = .3, AHEAD = .5;
 /** Change the standing attack's angle after consecutive blocks, without interrupting a live stroke. */
 export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null): Tactics {
   const state = { base: base.state ?? null, sequence: 0, blocked: 0, until: 0, side: -1,
-    focus: null as string | null, covers: [] as string[] };
+    focus: null as string | null, covers: [] as string[], time: 0, decision: "waiting for blocks" };
   const radius = bodyClearance(spec) + .05;
-  return { ...base, state, get engagement() { return base.engagement; },
+  const engagement = engagementWithDetails(() => base.engagement, () => [
+    { label: "Blocked step", value: state.decision },
+    { label: "Consecutive blocks", value: String(state.blocked) },
+    ...state.decision === "stepping" ? [{ label: "Lateral step", value: `${state.side < 0 ? "left" : "right"} · ${Math.max(0, state.until - state.time).toFixed(2)} s remaining` }] : [],
+  ]);
+  return { ...base, state, engagement,
     decide(sight, dt) {
       const intent = base.decide(sight, dt), view = sight.view;
+      state.time = view.time;
       const foe = view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out);
       if (state.focus !== (foe?.id ?? null)) {
         state.focus = foe?.id ?? null; state.blocked = 0; state.until = 0; state.covers = [];
@@ -31,9 +37,11 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
         else if (record.contacts.counts.commit.block > 0) { state.blocked++; state.covers = [...record.contacts.blockedSegments]; }
       }
       if (!foe || lowOpponent(view, foe) || view.down || view.senses.out || orders(sight)?.move !== undefined) {
+        state.decision = !foe ? "no sensed target" : view.down || view.senses.out ? "body unavailable"
+          : lowOpponent(view, foe) ? "low target" : "movement ordered";
         state.blocked = 0; state.until = 0; return intent;
       }
-      if (sight.report.actions.length) return intent;
+      if (sight.report.actions.length) { state.decision = "waiting for stroke release"; return intent; }
       if (state.blocked >= BLOCKS && view.time >= state.until) {
         state.blocked = 0; state.until = view.time + SECONDS;
         let widest = 0;
@@ -45,7 +53,8 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
         }
         if (widest !== 0) state.side = widest > 0 ? -1 : 1;
       }
-      if (view.time >= state.until) return intent;
+      if (view.time >= state.until) { state.decision = view.resumed ? "resumed without a step" : "waiting for blocks"; return intent; }
+      state.decision = "stepping";
       const move = clearMove(view.stance.centre, view.senses.solids, sight.report.heading, [0, state.side * PACE], radius, AHEAD);
       return { ...intent, move, movement: undefined, pace: PACE, actions: [] };
     },

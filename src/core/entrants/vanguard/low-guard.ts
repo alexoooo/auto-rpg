@@ -4,7 +4,7 @@ import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
 import { highestSurface } from "../../mind/openings.ts";
 import { lowOpponent } from "../../mind/sensed-bounds.ts";
 import { atan2, cos } from "../../math/real.ts";
-import type { Sight, Tactics } from "../../mind/tactics.ts";
+import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { TargetRef } from "../../skills/action.ts";
@@ -40,14 +40,20 @@ export function lowAim(view: BodyView, target: TargetRef): Vec3 | null {
 
 /** Prepare low support early and cover a low opponent's head with the free closed hands. */
 export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null) {
-  const state = { base: base.state ?? null, unready: null as number | null, rising: false };
+  const state = { base: base.state ?? null, unready: null as number | null, rising: false, time: 0, decision: "no low target" };
   const hands = handsOf(spec).filter(hand => holdsNothing(spec, hand));
   const focus = (view: BodyView) => view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out && lowOpponent(view, foe));
+  const engagement = engagementWithDetails(() => base.engagement, () => [
+    { label: "Low guard", value: state.decision },
+    ...state.unready !== null ? [{ label: "Support wait", value: `${(state.time - state.unready).toFixed(2)} s` }] : [],
+  ]);
   const tactics: Tactics = {
-    ...base, state, get engagement() { return base.engagement; },
+    ...base, state, engagement,
     decide(sight, dt) {
       const intent = base.decide(sight, dt), foe = focus(sight.view);
+      state.time = sight.view.time;
       if (!foe || orders(sight)?.move !== undefined || sight.view.down) {
+        state.decision = !foe ? "no low target" : sight.view.down ? "body down" : "movement ordered";
         state.unready = null; state.rising = false;
         return intent;
       }
@@ -56,23 +62,29 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       const face = atan2(dx, dz);
       const stage = sight.report.support?.stage, begun = stage === "lower" || stage === "low" || stage === "rise";
       if (state.rising) {
+        state.decision = "rising after support timeout";
         if (stage === "stand") state.rising = false;
         return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
       }
       if (distance > FAR || !begun && distance > NEAR) {
+        state.decision = "approaching low target";
         state.unready = null;
         return { ...intent, face, actions: [], movement: { kind: "range", focus: foe.id, near: .5, far: NEAR }, pace: .8 };
       }
-      if (!begun && cos(face - sight.view.stance.facing) < FACING)
+      if (!begun && cos(face - sight.view.stance.facing) < FACING) {
+        state.decision = "turning before support";
         return { ...intent, face, move: [-TURN_PACE, 0], movement: undefined, actions: [] };
+      }
       const threat: Vec3 = [head.x, head.y, head.z], guarded: Vec3 = [centre.x, head.y, centre.z];
       const guard = { ...intent.guard };
       for (const hand of hands) guard[hand] = { threat, guarded };
       state.unready = sight.report.support?.ready ? null : state.unready ?? sight.view.time;
       if (state.unready !== null && sight.view.time - state.unready >= PREPARE_LIMIT) {
+        state.decision = "rising after support timeout";
         state.unready = null; state.rising = true;
         return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
       }
+      state.decision = sight.report.support?.ready ? "covering from ready support" : "preparing support";
       return { ...intent, face, lower: LOWER, guard,
         ...!sight.report.support?.ready ? { move: null, movement: undefined, actions: [] } : {} };
     },

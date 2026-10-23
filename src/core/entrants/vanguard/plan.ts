@@ -4,15 +4,15 @@
  * and without its evasion (`adaptiveEvade`, `revisitEvade`), a capped evasive step
  * (`slowEvade`), another entry where the exact one is unreachable (`routeAround`), a step round
  * repeated blocks (`flank`) and low cover (`lowGuard`), which also closes the covering hands
- * (`VanguardPlan.kit`).
+ * (`Tactics.prepareSkills`).
  */
 import { FIGHTING } from "../../mind/config.ts";
 import type { PartConfig } from "../../mind/parts.ts";
 import { slotOne, anyBody } from "../../mind/parts.ts";
 import { toggle } from "../../mind/fields.ts";
+import type { Orders } from "../../mind/orders.ts";
 import { tacticsOf, type TacticsPart } from "../../mind/tactics-part.ts";
-import type { Sight, Tactics } from "../../mind/tactics.ts";
-import type { Skills } from "../../skills/skills.ts";
+import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
 import { deepFreeze } from "../../state.ts";
 import { adaptiveGuard } from "./adaptive-guard.ts";
 import { flank } from "./flank.ts";
@@ -31,11 +31,6 @@ export interface VanguardPlanConfig extends PartConfig {
   readonly lowGuard?: boolean;
 }
 
-/** The planner it makes: its tactics, and with low cover, how the skills it drives close the covering hands. */
-export interface VanguardPlan extends Tactics {
-  readonly kit?: (skills: Skills) => Skills;
-}
-
 /** A short defensive retreat is capped at 0.2 m/s instead of the navigator's ordinary travel pace. */
 const EVADE_PACE = .2;
 
@@ -44,6 +39,21 @@ const LAYERS = ["slowEvade", "adaptiveEvade", "revisitEvade", "routeAround", "fl
 /** The plan as a behaviour list, or null for a planner of another kind. */
 const behaviourList = (plan: PartConfig): readonly PartConfig[] | null =>
   plan.kind === "behaviours" && Array.isArray((plan as { list?: unknown }).list) ? (plan as unknown as { list: readonly PartConfig[] }).list : null;
+
+/** Cap only the chosen evasive step, retaining the policy and its report. */
+function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null): Tactics {
+  const state = { base: base.state ?? null, limited: false, ordered: false };
+  const engagement = engagementWithDetails(() => base.engagement, () => [{ label: "Evasion pace",
+    value: state.limited ? `${EVADE_PACE} m/s cap` : state.ordered ? "movement ordered" : "no evasive step" }]);
+  return { ...base, state, engagement,
+    decide(sight, dt) {
+      const intent = base.decide(sight, dt);
+      state.limited = base.engagement?.phase === "evade";
+      state.ordered = orders(sight)?.move !== undefined;
+      return state.limited ? { ...intent, pace: EVADE_PACE } : intent;
+    },
+  };
+}
 
 export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
   role: "tactics", label: "Vanguard layers", stage: "experimental",
@@ -60,20 +70,20 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
     ...config.revisitEvade && !config.adaptiveEvade ? ["revisitEvade needs adaptive evasion"] : [],
   ],
   actionFaults: (config, actions, parts) => parts.of("tactics", config.plan).actionFaults?.(config.plan, actions, parts) ?? [],
-  make(making, config): VanguardPlan {
+  kitFaults: (config, kit, parts) => [
+    ...config.lowGuard && kit.support?.kind !== "support-fold" ? ["lowGuard needs the support fold"] : [],
+    ...(parts.of("tactics", config.plan).kitFaults?.(config.plan, kit, parts) ?? []).map(fault => `plan: ${fault}`),
+  ],
+  make(making, config): Tactics {
     const orders = (sight: Sight) => making.orders(sight);
     const ordinary = tacticsOf(making, config.plan), list = behaviourList(config.plan);
     const attacking = config.adaptiveEvade && list ? tacticsOf(making, { ...config.plan, list: list.filter((behaviour) => behaviour.kind !== "evade") }) : null;
     const policy = attacking ? adaptiveGuard(attacking, ordinary, config.revisitEvade) : ordinary;
-    const tactics: Tactics = config.slowEvade ? { ...policy, get engagement() { return policy.engagement; },
-      decide(sight, dt) {
-        const intent = policy.decide(sight, dt);
-        return policy.engagement?.phase === "evade" ? { ...intent, pace: EVADE_PACE } : intent;
-      },
-    } : policy;
+    const tactics = config.slowEvade ? limitedEvasion(policy, orders) : policy;
     const routed = config.routeAround ? routeAround(tactics, orders) : tactics;
     const angled = config.flank ? flank(routed, making.spec, orders) : routed;
     const low = config.lowGuard ? lowGuard(angled, making.spec, orders) : null;
-    return low ? { ...low.tactics, get engagement() { return low.tactics.engagement; }, kit: low.skills } : angled;
+    return low ? { ...low.tactics, get engagement() { return low.tactics.engagement; },
+      prepareSkills: skills => low.skills(angled.prepareSkills ? angled.prepareSkills(skills) : skills) } : angled;
   },
 });

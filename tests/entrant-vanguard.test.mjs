@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
-import { CONTROLLERS } from "../src/core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
 import { loadState, saveState } from "../src/core/state.ts";
 import { lowGuard } from "../src/core/entrants/vanguard/low-guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
@@ -10,9 +10,92 @@ import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
 import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup, treeFaults, replacedAt, FIGHT_ENTRY } from "../src/core/mind/catalog.ts";
 import { navigatorOf } from "../src/core/mind/navigator.ts";
 import { flank } from "../src/core/entrants/vanguard/flank.ts";
+import { modelSpec } from "../src/core/models.ts";
+import { coreStand } from "./harness/core-stand.mjs";
+import { bodyHost } from "../src/core/mind/host.ts";
+import { tacticsOf } from "../src/core/mind/tactics-part.ts";
+import { labMind } from "../src/lab/scenarios.ts";
+import { labActor } from "../src/lab/actor.ts";
+import { standIntent } from "../src/core/mind/intent.ts";
+import { parseMind, writeMind } from "../src/ui/mind-link.ts";
+import { engagementLines } from "../src/ui/action-readout.ts";
+
+/** A detached public report, read through the same formatter as inspection. */
+function reportOf(tactics) {
+  const before = saveState(tactics.state), report = JSON.parse(JSON.stringify(tactics.engagement));
+  assert.deepEqual(engagementLines(tactics.engagement), engagementLines(report));
+  assert.deepEqual(saveState(tactics.state), before, "reading a report changes no decision memory");
+  return report;
+}
+
+test("a Vanguard preset's edited slots reach construction unchanged and its full configuration links", async () => {
+  const spec = modelSpec("crypt-skeleton"), presets = Object.entries(CONTROLLERS.vanguard.presets);
+  for (const [, { config }] of presets) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] });
+  const base = MINDS["vanguard-skeleton"].config;
+  const edited = replacedAt(replacedAt(replacedAt(replacedAt(base, "tactics.flank", false), "executors.punch.lead", .2),
+    "executors.punch.anchorAtDrive", false), "locomotion", { kind: "stance-walk" });
+  const stand = await coreStand(spec), seen = [];
+  const parts = { of(role, config) {
+    const part = partLookup.of(role, config);
+    return ["tactics", "locomotion", "executor"].includes(role) ? { ...part, make(...args) { seen.push({ role, config: args[1] }); return part.make(...args); } } : part;
+  } };
+  const host = bodyHost(stand.built, stand.world, {}, parts);
+  try {
+    CONTROLLERS.vanguard.create(host.host, edited, { name: "fixture", orders: () => null });
+    assert.deepEqual(seen.find(one => one.role === "tactics").config, edited.tactics);
+    assert.deepEqual(seen.find(one => one.role === "locomotion").config, edited.locomotion);
+    assert.deepEqual(seen.filter(one => one.role === "executor").map(one => one.config), edited.executors);
+  } finally { host.made().dispose(); stand.dispose(); }
+});
+
+test("low-guard dependencies are checked through every nested planner before a bout runs", async () => {
+  const base = MINDS["vanguard-warrior"].config;
+  for (const tactics of [base.tactics, { kind: "vanguard-plan", plan: { kind: "vanguard-plan", plan: base.tactics } }]) {
+    for (const support of [null, { kind: "absent-support" }]) {
+      const config = { ...base, tactics, support }, faults = treeFaults(config);
+      assert.ok(faults.length > 0, "missing or incompatible support cannot enter the runtime");
+      if (support === null) assert.ok(faults.some(fault => fault.includes("lowGuard needs the support fold")));
+      await assert.rejects(buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: config, right: base } }, { engine: BOUT_ENGINE }));
+    }
+    assert.deepEqual(treeFaults({ ...base, tactics }), []);
+  }
+});
+
+test("nested Vanguard planners prepare the inner skills once and preserve them through their low covers", () => {
+  const state = { prepared: 0 }, inner = { name: "fixture", state, decide: () => standIntent(0),
+    prepareSkills(skills) { state.prepared++; return { ...skills, inner: true }; } };
+  const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
+    parts: { of: (role, config) => config.kind === "fixture" ? { make: () => inner } : partLookup.of(role, config) } };
+  const tactics = tacticsOf(making, { kind: "vanguard-plan", lowGuard: true, plan: { kind: "vanguard-plan", lowGuard: true, plan: { kind: "fixture" } } });
+  const skills = { report: {}, envelope: null, state: {} }, prepared = tactics.prepareSkills(skills);
+  assert.equal(state.prepared, 1);
+  assert.equal(prepared.inner, true);
+  assert.equal(prepared.state, skills.state);
+  assert.equal(prepared.report, skills.report);
+});
+
+test("the Lab drives Vanguard's chosen kit, with its planner or a supplied script", async () => {
+  const config = MINDS["vanguard-rogue"].config, spec = modelSpec("workshop-rogue");
+  assert.deepEqual(labMind(config, spec, "attack"), { plays: config, faults: [] });
+  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: config });
+  try {
+    const skills = actor.drive();
+    stand.step();
+    assert.ok(engagementLines(skills.report.engagement).some(line => line.startsWith("Evasion policy:")));
+    const state = { calls: 0 }, observed = [], script = { name: "fixture", state, decide() { state.calls++; return { ...standIntent(0), move: [.1, 0] }; } };
+    const scripted = actor.drive(script, { watch: sight => observed.push(sight.report) });
+    stand.step();
+    assert.equal(state.calls, 1);
+    assert.deepEqual(observed, [scripted.report]);
+    assert.equal(scripted.state.tactics, state);
+    assert.ok(skills.gait.envelope.turns.length > 0, "the fixture exposes measured turn limits");
+    assert.ok(scripted.state.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
+    assert.deepEqual(scripted.gait.envelope, skills.gait.envelope, "the same calibrated legs drive both paths");
+  } finally { actor.dispose(); stand.dispose(); }
+});
 
 test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
   const state = { calls: 0 }, intent = { move: null, face: 0, guard: {}, actions: [] };
@@ -34,11 +117,13 @@ test("a contact-triggered step preserves live strokes and orders, and forks its 
   const active = policy.decide(sight, .1);
   assert.ok(active.move?.[1] < 0, "a free step moves away from the sensed blocking limb");
   const saved = saveState(policy.state), time = view.time;
-  const next = () => { view.time += .1; return { decision: policy.decide(sight, .1), state: saveState(policy.state) }; };
+  assert.equal(reportOf(policy).details.find(detail => detail.label === "Blocked step").value, "stepping");
+  const next = () => { view.time += .1; return { decision: policy.decide(sight, .1), state: saveState(policy.state), report: reportOf(policy) }; };
   const first = next(); loadState(policy.state, saved); view.time = time;
   assert.deepEqual(next(), first, "the active step and nested policy memory replay together");
   orders = { move: [1, 0] };
   assert.equal(policy.decide(sight, .1), intent, "user movement takes precedence");
+  assert.equal(reportOf(policy).details.find(detail => detail.label === "Blocked step").value, "movement ordered");
   orders = null; loadState(policy.state, saved); view.resumed = true;
   assert.equal(policy.decide(sight, .1), intent, "a sub-mind return abandons the interrupted step");
   view.resumed = false;
@@ -49,7 +134,7 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
   const spec = { segments: [] }, foe = { id: "foe", side: "right", out: false, spec, centre: { x: 2, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } };
   const window = { at: [2, 1, 0], along: [.8, 1.2], across: [-.1, .1], facing: .3, speed: .1 };
   const engagement = { phase: "approach", focus: "foe", pending: { key: "strike" },
-    candidates: [{ key: "strike", readiness: { kind: "position", window } }] };
+    candidates: [{ key: "strike", action: "strike", effector: "hand.right", target: { body: "foe", region: { kind: "mark", mark: "middle" } }, readiness: { kind: "position", window } }] };
   const intent = { move: null, face: 3.141592653589793 / 2, actions: [], movement: { kind: "place", points: [{ x: 1, z: 0 }], near: .04 } };
   const base = { name: "fixture", state: { calls: 0 }, engagement, decide() { this.state.calls++; return intent; } };
   const routed = routeAround(base, () => null), navigator = navigatorOf(partLookup, spec, null);
@@ -60,9 +145,10 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
   assert.equal(navigator.report.status, "unreachable", "the fixture's ordinary entry is inside a pillar");
   const saved = saveState({ tactics: routed.state, navigation: navigator.state });
   const next = () => { const decision = routed.decide(sight, 1 / 120), movement = navigator.step(sight, decision.movement, gait, 1, 1 / 120);
-    return { decision, movement, status: navigator.report.status, goal: { ...navigator.report.goal }, state: saveState({ tactics: routed.state, navigation: navigator.state }) }; };
+    return { decision, movement, status: navigator.report.status, goal: { ...navigator.report.goal }, state: saveState({ tactics: routed.state, navigation: navigator.state }), report: reportOf(routed) }; };
   const first = next();
   assert.equal(first.decision.movement.kind, "range");
+  assert.match(first.report.details.find(detail => detail.label === "Entry routing").value, /exact entry unreachable/);
   assert.equal(first.status, "moving", "the actual navigator finds another reachable entry");
   assert.ok(first.movement.move, "the feasible route asks for physical travel");
   loadState({ tactics: routed.state, navigation: navigator.state }, saved);
@@ -101,21 +187,23 @@ test("policy learning credits observed target impacts and forks both policies an
   assert.ok(attacking.state.calls > 0 && defensive.state.calls > 0, "the fixture probes both policies");
   assert.equal(clock.previous, 2, "observed target impacts favour the productive policy");
   const saved = saveState(policy.state), checkpoint = { ...clock };
-  const tail = () => { const decisions = []; for (let i = 0; i < 20; i++) decisions.push(step()); return { decisions, state: saveState(policy.state) }; };
+  const tail = () => { const decisions = []; for (let i = 0; i < 20; i++) decisions.push({ decision: step(), report: reportOf(policy) }); return { decisions, state: saveState(policy.state) }; };
   const first = tail(); loadState(policy.state, saved); Object.assign(clock, checkpoint);
   assert.deepEqual(tail(), first, "policy scores, motion samples and both decision memories replay exactly");
 });
 
 test("a quiet policy trial is revisited when the contact conditions change", () => {
   const change = CAP_SECONDS / 3;
-  const { clock, step } = learningFixture((mode, time) => mode === 1 ? .1 : time > change ? 1 : 0);
-  let quietTrial = false, revisited = false;
+  const { policy, clock, step } = learningFixture((mode, time) => mode === 1 ? .1 : time > change ? 1 : 0);
+  let quietTrial = false, revisited = false, explained = false;
   while (clock.time < CAP_SECONDS) {
     const decision = step();
+    explained ||= reportOf(policy).details.some(detail => detail.label === "Policy selection" && detail.value === "scheduled revisit");
     if (decision.pace === 2) { if (clock.time <= change) quietTrial = true; else revisited = true; }
   }
   assert.ok(quietTrial, "the fixture first samples the policy while its target contacts are absent");
   assert.ok(revisited, "an earlier zero score does not prevent trying the policy after conditions change");
+  assert.ok(explained, "the report identifies a scheduled revisit rather than claiming a score improvement");
 });
 
 test("independent body-relative punches fork through preparation, commitment and released recovery", async () => {
@@ -176,7 +264,7 @@ test("unready low support returns toward standing without first becoming ready, 
   const tail = () => {
     const commands = [];
     for (view.time = 3; view.time < CAP_SECONDS; view.time++) commands.push(layer.tactics.decide(sight, 1));
-    return { commands, state: saveState(layer.tactics.state) };
+    return { commands, state: saveState(layer.tactics.state), report: reportOf(layer.tactics) };
   };
   const once = tail();
   assert.ok(once.commands.some(command => command.lower <= STANCE_LOWER), "preparation is abandoned within the bout while support remains unready");
