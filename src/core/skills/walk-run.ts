@@ -118,7 +118,7 @@ const REACH = 0.2;
 
 /** **What the walk and run remembers**, besides the stance's legs' own (`locomotion`) and the run's (`runCycle`). */
 interface WalkRunMemory {
-  /** Whether it may run (`Locomotion.runs`), and whether it runs. */
+  /** Whether it may run (`Locomotion.runs`, and a run that goes faster forward than the walk), and whether it runs. */
   may: boolean;
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
@@ -170,7 +170,9 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
-  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
+  // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
+  const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
+  const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -226,7 +228,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     state,
     get envelope() { return envelopeNow(); },
     get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
-    runs(may) { memory.may = may; },
+    runs(may) { memory.may = may && pays; },
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },

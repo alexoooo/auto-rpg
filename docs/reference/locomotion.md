@@ -273,8 +273,10 @@ the 12; at the ankle's hold of [stance tuning](stance-tuning.md#ankle-hold)):
 | 0.3 | 0 | 1.24 / 0.71 / 0.08 | 15.7 |
 | 0.5 | 0 | 5.9 / 4.7 / 2.2 | 16.6 |
 
-The Rogue with the club never runs there: its run envelope holds 0.7 m/s forward with the club.
-Over the crowd's 69 cases (seeds 1 to
+A run whose envelope holds it no faster forward than the walk's holds the walk is not run
+(`walkRun`): the Rogue with the club, whose run envelope holds 0.7 m/s forward and its walk 1.5,
+walked toward a place at 0.8 m/s, 15 m in 25 s; it walks at 1.3, 15 m in 18 s, and of 26 goals
+all round 8 and 16 m off none falls. Over the crowd's 69 cases (seeds 1 to
 12) at 0.2 against 0.15, the allies' braced rule sized to it ([Move](#move)): 3 cases with falls
 against 4, 3 falls against 5, 4 not done against 5, done in a median 25.3 s against 25.4.
 
