@@ -425,8 +425,11 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
  * roll: landed on an end, as a step back lands on its toes, with the centre past that end and
  * coming, its ankle brings the other end down; read as rolled, the plan falls about the edge it
  * landed on, further from the body than the ankle holds, and runs the body on past it. The foot
- * rolls back once its lifted end is down with the centre back over the sole, and is flat again
- * whenever it leaves the ground. Through a walk's double support the trailing foot rolls for its
+ * rolls back once its lifted end is down with the centre back over the sole, or with the centre
+ * back over the sole as a weight shift with no double support goes onto it (`shiftWeight`): that
+ * shift takes the body over the sole's middle and ends once the capture point is over what the
+ * sole bears, which a foot kept rolled bears only on its edge. It is flat again whenever it
+ * leaves the ground. Through a walk's double support the trailing foot rolls for its
  * pre-swing onto the end the body goes toward: off its toes going forward, off its heel going
  * backward.
  */
@@ -438,7 +441,7 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
     if (!stance.includes(foot)) continue;
     const past = endPast(foot, r.x, r.z), going = u.x * (r.x - foot.middle.x) + u.z * (r.z - foot.middle.z) > 0;
     if (heelOff && going && (s.state.striding || swing?.flight !== undefined || swing?.transfer !== undefined && swing !== reading.own) && past === end && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = end;
-    else if (foot.memory.rolled && past !== foot.memory.rolled && (foot.memory.rolled === "front" ? foot.heel <= foot.flat : -foot.heel <= -foot.flat)) foot.memory.rolled = null;
+    else if (foot.memory.rolled && past !== foot.memory.rolled && (reading.phase === "shift" && !swing?.transfer || (foot.memory.rolled === "front" ? foot.heel <= foot.flat : -foot.heel <= -foot.flat))) foot.memory.rolled = null;
   }
   if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
     const trailing = feet.find((f) => f.side === swing.foot)!, front = trailing.ends.front.middle;
