@@ -13,7 +13,7 @@ export const EVADE: BehaviourPart<EvadeConfig> = deepFreeze({
     const threat = threatReader();
     return { decide(turn) {
       if (turn.legs || !threat.threatOf(turn.sight.view, THREAT, PREDICTION)) return;
-      turn.legs = walking(-turn.dx, -turn.dz, turn.face, turn.pace); turn.requested ??= []; turn.phase = "evade";
+      turn.legs = walking(-turn.dx, -turn.dz, turn.face, turn.pace); turn.requested ??= []; turn.evading = true; turn.phase = "evade";
     } };
   },
 });

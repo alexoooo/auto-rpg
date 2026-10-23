@@ -4,7 +4,7 @@ import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
 import { loadState, saveState } from "../src/core/state.ts";
-import { lowGuard } from "../src/core/entrants/vanguard/low-guard.ts";
+import { lowGuard, lowGuardSkills } from "../src/core/entrants/vanguard/low-guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
@@ -16,7 +16,7 @@ import { flank } from "../src/core/entrants/vanguard/flank.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { bodyHost } from "../src/core/mind/host.ts";
-import { tacticsOf } from "../src/core/mind/tactics-part.ts";
+import { prepareTacticsSkills, tacticsOf } from "../src/core/mind/tactics-part.ts";
 import { labMind, labPresets } from "../src/lab/scenarios.ts";
 import { controlsFor } from "../src/arena/matchup.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -73,12 +73,14 @@ test("low-guard dependencies are checked through every nested planner before a b
 });
 
 test("nested Vanguard planners prepare the inner skills once and preserve them through their low covers", () => {
-  const state = { prepared: 0 }, inner = { name: "fixture", state, decide: () => standIntent(0),
-    prepareSkills(skills) { state.prepared++; return { ...skills, inner: true }; } };
+  const state = { prepared: 0 }, inner = { name: "fixture", state, decision: { focus: null }, decide: () => standIntent(0) };
+  const part = { make: () => inner, decisionCapabilities: () => ["focus"],
+    prepareSkills(_making, _config, skills, decision) { state.prepared++; assert.equal(decision(), inner.decision); return { ...skills, inner: true }; } };
   const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
-    parts: { of: (role, config) => config.kind === "fixture" ? { make: () => inner } : partLookup.of(role, config) } };
-  const tactics = tacticsOf(making, { kind: "vanguard-plan", lowGuard: true, plan: { kind: "vanguard-plan", lowGuard: true, plan: { kind: "fixture" } } });
-  const skills = { report: {}, envelope: null, state: {} }, prepared = tactics.prepareSkills(skills);
+    parts: { of: (role, config) => config.kind === "fixture" ? part : partLookup.of(role, config) } };
+  const config = { kind: "vanguard-plan", lowGuard: true, plan: { kind: "vanguard-plan", lowGuard: true, plan: { kind: "fixture" } } };
+  const tactics = tacticsOf(making, config);
+  const skills = { report: {}, envelope: null, state: {} }, prepared = prepareTacticsSkills(making, config, skills, () => tactics.decision);
   assert.equal(state.prepared, 1);
   assert.equal(prepared.inner, true);
   assert.equal(prepared.state, skills.state);
@@ -107,7 +109,7 @@ test("the Lab drives Vanguard's chosen kit, with its planner or a supplied scrip
 
 test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
   const state = { calls: 0 }, intent = { move: null, face: 0, guard: {}, actions: [] };
-  const base = { name: "fixture", state, engagement: { phase: "attack", focus: "foe" }, decide() { state.calls++; return intent; } };
+  const base = { name: "fixture", state, decision: { focus: "foe" }, engagement: { phase: "attack", focus: "foe" }, decide() { state.calls++; return intent; } };
   let orders = null;
   const policy = flank(base, { segments: [] }, () => orders);
   const foe = { id: "foe", out: false, centre: { x: 0, y: 1, z: 1 }, spec: { marks: { high: "head" } },
@@ -129,6 +131,11 @@ test("a contact-triggered step preserves live strokes and orders, and forks its 
   const next = () => { view.time += .1; return { decision: policy.decide(sight, .1), state: saveState(policy.state), report: reportOf(policy) }; };
   const first = next(); loadState(policy.state, saved); view.time = time;
   assert.deepEqual(next(), first, "the active step and nested policy memory replay together");
+  base.engagement = { phase: "out", focus: "wrong-target" };
+  loadState(policy.state, saved); view.time = time;
+  const withoutReport = next();
+  assert.deepEqual(withoutReport.decision, first.decision, "report labels and focus do not control the step");
+  assert.deepEqual(withoutReport.state, first.state);
   orders = { move: [1, 0] };
   assert.equal(policy.decide(sight, .1), intent, "user movement takes precedence");
   assert.equal(reportOf(policy).details.find(detail => detail.label === "Blocked step").value, "movement ordered");
@@ -144,7 +151,7 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
   const engagement = { phase: "approach", focus: "foe", pending: { key: "strike" },
     candidates: [{ key: "strike", action: "strike", effector: "hand.right", target: { body: "foe", region: { kind: "mark", mark: "middle" } }, readiness: { kind: "position", window } }] };
   const intent = { move: null, face: 3.141592653589793 / 2, actions: [], movement: { kind: "place", points: [{ x: 1, z: 0 }], near: .04 } };
-  const base = { name: "fixture", state: { calls: 0 }, engagement, decide() { this.state.calls++; return intent; } };
+  const base = { name: "fixture", state: { calls: 0 }, decision: { focus: "foe", approach: window }, engagement, decide() { this.state.calls++; return intent; } };
   const routed = routeAround(base, () => null), navigator = navigatorOf(partLookup, spec, null);
   const view = { time: 0, stance: { centre: { x: -2, y: 1, z: 0 }, velocity: { x: 0, z: 0 } },
     senses: { side: "left", others: [foe], solids: [{ name: "pillar", kind: "box", centre: [1, 1, 0], size: [.8, 2, 1] }] } };
@@ -161,16 +168,22 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
   assert.ok(first.movement.move, "the feasible route asks for physical travel");
   loadState({ tactics: routed.state, navigation: navigator.state }, saved);
   assert.deepEqual(next(), first, "the fallback and route replay together");
+  base.engagement = undefined;
+  loadState({ tactics: routed.state, navigation: navigator.state }, saved);
+  const withoutReport = next();
+  assert.deepEqual(withoutReport.decision, first.decision, "routing works with no inspection report");
+  assert.deepEqual(withoutReport.movement, first.movement);
+  assert.deepEqual(withoutReport.state, first.state);
   intent.actions = [{ id: 1 }];
   assert.equal(routed.decide(sight, 1 / 120), intent, "an admitted action returns control to ordinary tactics");
   assert.equal(routed.state.active, false);
 });
 
 /** Ordinary policies with distinguishable decisions and an external contact signal. */
-function learningFixture(signal) {
-  const make = pace => { const state = { calls: 0 }; return { name: "fixture", state, engagement: { phase: "attack", focus: "foe" },
+function learningFixture(signal, wrap = (attacking, defensive) => adaptiveGuard(attacking, defensive, true)) {
+  const make = pace => { const state = { calls: 0 }; return { name: "fixture", state, decision: { focus: "foe", evading: pace === 2, approach: null }, engagement: { phase: "attack", focus: "foe" },
     decide() { state.calls++; return { move: null, face: 0, guard: {}, actions: [], pace }; } }; };
-  const attacking = make(1), defensive = make(2), policy = adaptiveGuard(attacking, defensive, true);
+  const attacking = make(1), defensive = make(2), policy = wrap(attacking, defensive);
   const zero = { x: 0, y: 0, z: 0 }, foe = { id: "foe", out: false, spec: { marks: { middle: ["trunk"] }, segments: [{ name: "trunk" }] },
     segments: new Map([["trunk", { centre: zero, velocity: zero, spin: zero }]]) };
   const feedback = () => ({ completedStep: 0, velocity: [3, 0, 0], pairs: [] });
@@ -198,6 +211,63 @@ test("policy learning credits observed target impacts and forks both policies an
   const tail = () => { const decisions = []; for (let i = 0; i < 20; i++) decisions.push({ decision: step(), report: reportOf(policy) }); return { decisions, state: saveState(policy.state) }; };
   const first = tail(); loadState(policy.state, saved); Object.assign(clock, checkpoint);
   assert.deepEqual(tail(), first, "policy scores, motion samples and both decision memories replay exactly");
+});
+
+test("adaptive and nested planners prepare one shared kit and forward the active decision across switches and forks", () => {
+  let preparations = 0, prepared, active;
+  const fixture = learningFixture(() => 0, (attacking, defensive) => {
+    const behaviourPart = { make: (_making, config) => config.list.some(item => item.kind === "evade") ? defensive : attacking,
+      prepareSkills(_making, _config, skills, decision) {
+        preparations++;
+        return { ...skills, command() { active = decision(); return active; } };
+      } };
+    const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
+      parts: { of: (role, config) => config.kind === "behaviours" ? behaviourPart : partLookup.of(role, config) } };
+    const config = { kind: "vanguard-plan", plan: { ...MINDS["vanguard-warrior"].config.tactics, lowGuard: false, routeAround: false } };
+    const tactics = tacticsOf(making, config);
+    prepared = prepareTacticsSkills(making, config, { state: {}, report: {} }, () => tactics.decision);
+    for (const policy of [attacking, defensive]) Object.defineProperty(policy, "engagement", {
+      get() { throw new Error("diagnostic report read by adaptive decisions"); },
+    });
+    return tactics;
+  });
+  const seen = new Set();
+  for (let i = 0; i < 25; i++) {
+    const intent = fixture.step(); prepared.command(); seen.add(active);
+    assert.equal(active, fixture.policy.decision);
+    assert.equal(intent.pace, active.evading ? .2 : 1, "the pace layer reads the selected operational context");
+  }
+  assert.deepEqual(seen, new Set([fixture.attacking.decision, fixture.defensive.decision]));
+  assert.equal(preparations, 1);
+  const saved = saveState(fixture.policy.state), clock = { ...fixture.clock };
+  const tail = () => Array.from({ length: 20 }, () => { const intent = fixture.step(); prepared.command(); return { intent, context: { ...active } }; });
+  const first = tail(); loadState(fixture.policy.state, saved); Object.assign(fixture.clock, clock);
+  assert.deepEqual(tail(), first);
+  assert.equal(preparations, 1, "policy changes and restored state do not rebuild the shared kit");
+});
+
+test("enabled Vanguard layers reject a planner that lacks their operational context", () => {
+  const base = MINDS["vanguard-warrior"].config;
+  for (const [layer, capability] of [["lowGuard", "focus"], ["flank", "focus"], ["slowEvade", "evading"], ["routeAround", "approach"]]) {
+    const tactics = { kind: "vanguard-plan", [layer]: true, plan: { kind: "stand" } };
+    assert.ok(treeFaults({ ...base, tactics }).some(fault => fault.includes(`${layer} needs a plan providing ${capability}`)));
+    assert.deepEqual(treeFaults({ ...base, tactics: { ...tactics, [layer]: false } }), []);
+  }
+});
+
+test("low-cover decisions and skill commands do not read diagnostic reports", () => {
+  const { layer, sight, base } = lowFixture();
+  const saved = saveState(layer.tactics.state), original = { posture: {}, pushes: [], stance: null, handPoses: {} };
+  const skills = layer.skills({ state: {}, envelope: null, report: { reservations: {} }, command: () => original });
+  const next = () => { const intent = layer.tactics.decide(sight, 1); return { intent, command: skills.command(sight.view, intent, 1), state: saveState(layer.tactics.state) }; };
+  const expected = next();
+  for (const report of [undefined, { phase: "out", focus: "another-foe", candidates: [], pending: null }]) {
+    loadState(layer.tactics.state, saved); base.engagement = report;
+    assert.deepEqual(next(), expected);
+  }
+  loadState(layer.tactics.state, saved);
+  Object.defineProperty(base, "engagement", { get() { throw new Error("diagnostic report read by a decision"); } });
+  assert.deepEqual(next(), expected);
 });
 
 test("a quiet policy trial is revisited when the contact conditions change", () => {
@@ -252,14 +322,15 @@ function lowFixture() {
   // Two empty hands that can cover (`handsOf`): knuckles at the end of each arm.
   const hand = (name) => ({ name, points: { knuckles: { value: [0, 0, 0] } } });
   const state = { calls: 0 }, spec = { held: [], effectors: [{ segment: "hand.left" }, { segment: "hand.right" }], segments: [hand("hand.left"), hand("hand.right")] };
-  const base = { name: "fixture", state, engagement: { phase: "guard", focus: "foe" }, decide() {
+  const base = { name: "fixture", state, decision: { focus: "foe" }, engagement: { phase: "guard", focus: "foe" }, decide() {
     state.calls++;
     return { move: null, face: Math.PI / 2, guard: {}, actions: [] };
   } };
   const view = { time: 0, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, facing: Math.PI / 2 },
     senses: { others: [{ id: "foe", out: false, spec: { marks: { high: "head" } }, segments: new Map([["head", { centre: { x: .4, y: .3, z: 0 } }]]) }] } };
   const sight = { view, report: { support: { stage: "stand", ready: false } } };
-  return { layer: lowGuard(base, spec, () => null), sight };
+  const tactics = lowGuard(base, spec, () => null);
+  return { layer: { tactics, skills: skills => lowGuardSkills(skills, spec, () => tactics.decision) }, sight, base };
 }
 
 test("unready low support returns toward standing without first becoming ready, and its wait forks", () => {

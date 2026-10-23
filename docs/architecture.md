@@ -574,12 +574,22 @@ earlier one left unset and keeps its own memory, held in the tactics' state. The
 (`walking`, `SPACE`, `footRadius`) are `behaviour-part.ts`'s. A planner names what it needs of the
 mind's actions (`TacticsPart.actionFaults`) and dependencies on its skills
 (`TacticsPart.kitFaults`), read by the fighter's faults. A planner holding another delegates both
-checks, preserving the child's path. Its optional `Tactics.prepareSkills` adapts the constructed
-skills once in `driveBy`; nested planners compose preparation from the innermost out. The shared
-fighter driver uses a supplied scenario script in place of its configured planner.
+checks, preserving the child's path. Its optional `TacticsPart.prepareSkills` adapts the shared
+kit once during fighter construction; nested parts compose preparation from the innermost out.
+Preparation receives a live getter for the composed planner's operational context. Adaptive
+policies retain separate decision memories over that one prepared kit. A supplied scenario
+script replaces the configured planner and its preparation.
+
+Planner layers read operational facts through `Tactics.decision`: selected focus, evasive
+footwork and the action-entry window being approached (`TacticalDecision`). A part declares
+the fields it supplies (`TacticsPart.decisionCapabilities`); composite parts forward them and
+reject enabled layers whose inputs are unavailable. Behaviour tactics publish those facts
+from their selection and footwork, independently of display phases, with changing values in
+their saved state. A layer forwards changing decision contexts live, including policy switches.
 
 A layer appends inspection details with `engagementWithDetails`: the inner report stays live,
-and labels and values are formatted only when read. Reports never change decision state.
+and labels and values are formatted only when read. Reports never carry decision authority;
+removing one or changing its labels does not change what a planner decides.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
 region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera

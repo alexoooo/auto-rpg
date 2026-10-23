@@ -1,4 +1,4 @@
-import type { ActionRequest, Readiness, TargetRef } from "../skills/action.ts";
+import type { ActionRequest, Readiness, TargetRef, Window } from "../skills/action.ts";
 import type { SkillReport } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { ActionConfig } from "./config.ts";
@@ -66,6 +66,10 @@ export interface Turn {
   requested: readonly ActionRequest[] | undefined;
   left: Cover | null | undefined;
   right: Cover | null | undefined;
+  /** Whether evasive footwork owns the legs, independently of the display phase. */
+  evading: boolean;
+  /** The pending action's entry window when approach owns the legs. */
+  approach: Window | null;
   /** What the tactics report doing (`Tactics.engagement`). */
   phase: string;
   /** The candidates in the selection's order. */

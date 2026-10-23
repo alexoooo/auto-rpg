@@ -26,6 +26,7 @@ export const APPROACH: BehaviourPart<ApproachConfig> = deepFreeze({
         if (turn.legs || turn.pending?.readiness.kind !== "position") return;
         const window = turn.pending.readiness.window, spacing = state.spacing;
         turn.legs = approachActionWindow(turn.sight.view, { ...window, along: [window.along[0] + spacing, window.along[1] + spacing] }, turn.sight.report.heading, turn.pace ?? Infinity, config.travel);
+        turn.approach = window;
         turn.phase = "approach";
       } };
   },

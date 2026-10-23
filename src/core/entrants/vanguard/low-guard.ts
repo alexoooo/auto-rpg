@@ -4,7 +4,7 @@ import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
 import { highestSurface } from "../../mind/openings.ts";
 import { lowOpponent } from "../../mind/sensed-bounds.ts";
 import { atan2, cos } from "../../math/real.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
+import { engagementWithDetails, type Sight, type TacticalDecision, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { TargetRef } from "../../skills/action.ts";
@@ -38,19 +38,24 @@ export function lowAim(view: BodyView, target: TargetRef): Vec3 | null {
   return chosen;
 }
 
+/** The selected low opponent, resolved through the body's current senses. */
+const lowFocus = (view: BodyView, decision: TacticalDecision | undefined) =>
+  view.senses.others.find(foe => foe.id === decision?.focus && !foe.out && lowOpponent(view, foe));
+
+const freeHands = (spec: BodySpec) => handsOf(spec).filter(hand => holdsNothing(spec, hand));
+
 /** Prepare low support early and cover a low opponent's head with the free closed hands. */
-export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null) {
+export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null): Tactics {
   const state = { base: base.state ?? null, unready: null as number | null, rising: false, time: 0, decision: "no low target" };
-  const hands = handsOf(spec).filter(hand => holdsNothing(spec, hand));
-  const focus = (view: BodyView) => view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out && lowOpponent(view, foe));
+  const hands = freeHands(spec);
   const engagement = engagementWithDetails(() => base.engagement, () => [
     { label: "Low guard", value: state.decision },
     ...state.unready !== null ? [{ label: "Support wait", value: `${(state.time - state.unready).toFixed(2)} s` }] : [],
   ]);
-  const tactics: Tactics = {
-    ...base, state, engagement,
+  return {
+    ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
-      const intent = base.decide(sight, dt), foe = focus(sight.view);
+      const intent = base.decide(sight, dt), foe = lowFocus(sight.view, base.decision);
       state.time = sight.view.time;
       if (!foe || orders(sight)?.move !== undefined || sight.view.down) {
         state.decision = !foe ? "no low target" : sight.view.down ? "body down" : "movement ordered";
@@ -89,16 +94,18 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
         ...!sight.report.support?.ready ? { move: null, movement: undefined, actions: [] } : {} };
     },
   };
-  return { tactics,
-    skills(base: Skills): Skills {
-    return { ...base, get envelope() { return base.envelope; }, get report() { return base.report; },
-      command(view, intent, dt) {
-        const command = base.command(view, intent, dt);
-        if (!focus(view) || intent.lower !== LOWER) return command;
-        const handPoses = { ...command.handPoses };
-        for (const hand of hands) if (base.report.reservations[`pose:${hand}`] === undefined && intent.guard[hand]) handPoses[hand] = "fist";
-        return { ...command, handPoses };
-      },
-    };
-  } };
+}
+
+/** Close free covering hands in low support, using the active planner's live operational context. */
+export function lowGuardSkills(base: Skills, spec: BodySpec, decision: () => TacticalDecision | undefined): Skills {
+  const hands = freeHands(spec);
+  return { ...base, get envelope() { return base.envelope; }, get report() { return base.report; },
+    command(view, intent, dt) {
+      const command = base.command(view, intent, dt);
+      if (!lowFocus(view, decision()) || intent.lower !== LOWER) return command;
+      const handPoses = { ...command.handPoses };
+      for (const hand of hands) if (base.report.reservations[`pose:${hand}`] === undefined && intent.guard[hand]) handPoses[hand] = "fist";
+      return { ...command, handPoses };
+    },
+  };
 }

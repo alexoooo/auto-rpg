@@ -113,7 +113,10 @@ over a plan of any kind in its own slot. Its optional `adaptiveEvade` compares t
 configured evasion behaviour. `slowEvade` caps an evasive step at 0.2 m/s. Only onset, loaded,
 non-guard contacts on the committed stroke's intended target region contribute: normal impulse
 times preceding relative normal speed ranks those impacts. This is a contact heuristic, not
-the foe's health or the rulebook's damage. Both policies keep independent memories.
+the foe's health or the rulebook's damage. Both policies keep independent memories over one
+prepared kit. Layers consume the active policy's operational context, independently of the
+inspection report; incompatible planner combinations are refused before construction
+([tactics contract](../architecture.md#minds)).
 
 The fighter compares six-second periods between strokes, weighting the latest period and its
 earlier mean equally. `revisitEvade` retries the other policy after four consecutive periods

@@ -51,6 +51,8 @@ const { playRow } = await import("../src/evaluation/play.ts");
 const { caseNames } = await import("../src/evaluation/code.ts");
 const { endingText } = await import("../src/arena/end-rule.ts");
 const { engagementLines } = await import("../src/ui/action-readout.ts");
+const { labActor } = await import("../src/lab/actor.ts");
+const { standIntent } = await import("../src/core/mind/intent.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -63,9 +65,19 @@ test("the fixture entrants are registered from outside src/", () => {
   }
 });
 
-test("the Lab plays the fixture fighter, which takes its script under a kind of its own, and refuses the options fixture, which takes none", () => {
+test("the Lab plays the fixture fighter, prepares its planner once, and replaces it completely with a supplied script", async () => {
   assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
   assert.deepEqual(labMind(SWAP_OPTIONS_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
+  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_DEFAULTS });
+  try {
+    const skills = actor.drive(); stand.step();
+    assert.equal(skills.state.preparation.built, 1);
+    assert.equal(skills.state.preparation.steps, 1);
+    const state = { steps: 0 }, script = { name: "fixture", state, decide() { state.steps++; return standIntent(); } };
+    const scripted = actor.drive(script); stand.step();
+    assert.equal(state.steps, 1);
+    assert.equal(scripted.state.preparation, undefined, "replacing the planner also replaces its preparation");
+  } finally { actor.dispose(); stand.dispose(); }
 });
 
 test("an external preset's model calibration governs Arena, Lab and evaluation choices, and named Lab links round-trip", () => {
@@ -199,6 +211,9 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     assert.ok(own.steps > 0, `the ${kind} stub was asked`);
   }
   for (const state of first.states.filter((state) => state.kind === SWAP_DEFAULTS.kind)) {
+    assert.equal(state.mind.preparation.built, 1, "the configured planner prepared the shared kit once");
+    assert.ok(state.mind.preparation.steps > 0, "its prepared command path runs in the actual bout");
+    assert.equal(state.mind.preparation.focus, state.mind.tactics.inner.decision.focus, "preparation reads the live operational context");
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
     const standUp = state.body.mind.subs[0];
     assert.equal(standUp.motor.stub, "stub-motor", "the stand-up is made with the configured motor");

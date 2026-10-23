@@ -18,11 +18,11 @@ export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => O
     { label: "Consecutive blocks", value: String(state.blocked) },
     ...state.decision === "stepping" ? [{ label: "Lateral step", value: `${state.side < 0 ? "left" : "right"} · ${Math.max(0, state.until - state.time).toFixed(2)} s remaining` }] : [],
   ]);
-  return { ...base, state, engagement,
+  return { ...base, state, engagement, get decision() { return base.decision; },
     decide(sight, dt) {
       const intent = base.decide(sight, dt), view = sight.view;
       state.time = view.time;
-      const foe = view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out);
+      const foe = view.senses.others.find(foe => foe.id === base.decision?.focus && !foe.out);
       if (state.focus !== (foe?.id ?? null)) {
         state.focus = foe?.id ?? null; state.blocked = 0; state.until = 0; state.covers = [];
       }

@@ -6,7 +6,8 @@ import type { Aim } from "./aim-part.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Orders } from "./orders.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
-import type { Sight, Tactics } from "./tactics.ts";
+import type { DecisionCapability, Sight, TacticalDecision, Tactics } from "./tactics.ts";
+import type { Skills } from "../skills/skills.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 export interface ActionEstimate {
@@ -39,8 +40,16 @@ export interface TacticsPart<C extends PartConfig = PartConfig> extends Part<C> 
   actionFaults?(config: C, actions: readonly string[], parts: PartLookup): readonly string[];
   /** Dependencies on the configured skills; a planner holding another delegates to its child's hook. */
   kitFaults?(config: C, kit: SkillKit, parts: PartLookup): readonly string[];
+  /** The operational fields every decision supplies; a composite delegates to its child. */
+  decisionCapabilities?(config: C, parts: PartLookup): readonly DecisionCapability[];
+  /** Prepare the shared kit once, from the innermost part out, reading the active composed decision live. */
+  prepareSkills?(making: TacticsMaking, config: C, skills: Skills, decision: () => TacticalDecision | undefined): Skills;
   make(making: TacticsMaking, config: C): Tactics;
 }
 
 /** The tactics `config` names, made as `making.parts` finds them. */
 export const tacticsOf = <C extends PartConfig>(making: TacticsMaking, config: C): Tactics => making.parts.of("tactics", config).make(making, config);
+
+/** Apply a configured planner's construction adapter, independently of its decision policies. */
+export const prepareTacticsSkills = (making: TacticsMaking, config: PartConfig, skills: Skills, decision: () => TacticalDecision | undefined): Skills =>
+  making.parts.of("tactics", config).prepareSkills?.(making, config, skills, decision) ?? skills;

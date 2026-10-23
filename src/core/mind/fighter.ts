@@ -10,7 +10,7 @@ import type { MindWiring } from "./minds.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "./kit.ts";
-import { tacticsOf } from "./tactics-part.ts";
+import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "./tactics-part.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
@@ -43,11 +43,15 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const tactics = wiring.script ?? tacticsOf({ spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
+  const making: TacticsMaking = { spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
     aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
-    orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts }, config.tactics);
+    orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts };
+  const tactics = wiring.script ?? tacticsOf(making, config.tactics);
   let skills: Skills;
-  skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, around(tactics), (made, driving) => {
+    const kit = fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []);
+    return wiring.script ? kit : prepareTacticsSkills(making, config.tactics, kit, () => driving.decision);
+  });
   return skills;
 }
 

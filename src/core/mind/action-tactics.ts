@@ -1,5 +1,5 @@
 import { atan2, hypot } from "../math/real.ts";
-import type { ActionAround, Readiness, Region } from "../skills/action.ts";
+import type { ActionAround, Readiness, Region, Window } from "../skills/action.ts";
 import { landed } from "../skills/action-instances.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
@@ -64,6 +64,7 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     awaiting: null as { id: number; key: string } | null, lastStarted: null as string | null,
     sequence: 0, missed: 0, counts: Object.fromEntries(actions.map(action => [action.name, { committed: 0, landed: 0 }])),
     behaviours: made.map(behaviour => behaviour.state ?? null),
+    decision: { focus: null as string | null, evading: false, approach: null as Window | null },
   };
   const selectFocus = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { view } = sight, valid = (id: string) => view.senses.others.find(foe => foe.id === id && !foe.out && foe.side !== view.senses.side) ?? null;
@@ -137,7 +138,7 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
   };
   const turn: Filling = {
     sight: null as unknown as Sight, dt: 0, orders: null, focus: null, dx: 0, dz: 0, face: 0, pace: undefined, pending: undefined,
-    legs: undefined, requested: undefined, left: undefined, right: undefined, phase: "guard",
+    legs: undefined, requested: undefined, left: undefined, right: undefined, evading: false, approach: null, phase: "guard",
     ranked: () => ranked(turn.sight, turn.focus, turn.orders),
     recheck: (candidate) => recheck(turn.sight, candidate),
     choose(candidate) {
@@ -151,10 +152,12 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     },
     interrupt() { for (const behaviour of made) behaviour.interrupted?.(); },
   };
-  return { name: "Actions", state, engagement: state, decide(sight, dt) {
+  return { name: "Actions", state, engagement: state, get decision() { return state.decision; }, decide(sight, dt) {
+    state.decision.evading = false; state.decision.approach = null;
     if (sight.view.senses.out) { turn.interrupt(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: NO_COVER, actions: [] }; }
     const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.orderedRegion !== (orders?.region ?? null);
     state.focus = focus?.id ?? null;
+    state.decision.focus = state.focus;
     state.orderedRegion = orders?.region ?? null;
     if (state.awaiting) {
       const admitted = sight.report.actions.some(action => action.id === state.awaiting!.id)
@@ -191,7 +194,9 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     turn.sight = sight; turn.dt = dt; turn.orders = orders; turn.focus = focus; turn.dx = dx; turn.dz = dz;
     turn.face = focus ? atan2(dx, dz) : sight.report.heading; turn.pace = orders?.pace; turn.pending = pending;
     turn.legs = undefined; turn.requested = undefined; turn.left = undefined; turn.right = undefined; turn.phase = state.lost ? "lost" : "guard";
+    turn.evading = false; turn.approach = null;
     for (const behaviour of made) behaviour.decide(turn);
+    state.decision.evading = turn.evading; state.decision.approach = turn.approach;
     state.phase = turn.phase;
     const filled: Turn = turn, { legs, requested, left, right } = filled, facing = orders?.move === undefined && orders ? orderedFacing(orders.face) : null;
     return { move: legs?.move ?? null, face: facing ?? legs?.face ?? turn.face, guard: { "hand.left": left ?? null, "hand.right": right ?? null }, actions: requested ?? [],
@@ -217,6 +222,7 @@ function selectionFaults(config: BehavioursConfig): readonly string[] {
 export const BEHAVIOUR_TACTICS: TacticsPart<BehavioursConfig> = deepFreeze({
   role: "tactics", label: "Behaviours", stage: "game", phases: { guard: "Guarding", lost: "Finding opponent", out: null }, fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING,
   keys: { kind: true, target: true, choose: true, list: true }, fits: anyBody, faults: selectionFaults,
+  decisionCapabilities: () => ["focus", "evading", "approach"],
   actionFaults(config, actions) {
     if (config.choose.kind !== "rules") return [];
     const choose = config.choose;

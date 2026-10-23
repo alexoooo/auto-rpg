@@ -24,7 +24,7 @@ export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = 
     { label: "Policy trial", value: state.since === null ? "waiting for a committed stroke"
       : `${(state.time - state.since).toFixed(2)} s · ${state.score.toFixed(3)} contact score${!state.between ? " · waiting for stroke release" : ""}` },
   ]);
-  return { name: attacking.name, state, engagement,
+  return { name: attacking.name, state, engagement, get decision() { return chosen().decision; },
     decide(sight, dt) {
       const view = sight.view;
       state.time = view.time;

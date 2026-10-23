@@ -9,6 +9,9 @@ import { modelSpec } from "../src/core/models.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { COUNTER_PUNCHER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
+import { prepareTacticsSkills } from "../src/core/mind/tactics-part.ts";
+import { actionTactics } from "../src/core/mind/action-tactics.ts";
+import { FIGHTING } from "../src/core/mind/config.ts";
 
 test("report layers preserve a changing inner report, compose details and read without side effects", () => {
   const state = { choice: 0 }, reports = [
@@ -33,9 +36,13 @@ test("the driver prepares skills once, and uses the prepared report, resume, com
   const prepared = { report: { prepared: true }, envelope: null, clearance: {}, instance() {}, readiness() {},
     resume(value) { calls.push(["resume", value]); }, command(value, intent, dt) { calls.push(["command", value, intent, dt]); return "command"; },
     release() {} };
-  const tactics = { name: "fixture", prepareSkills(skills) { assert.equal(skills, original); calls.push("prepare"); return prepared; },
+  const tactics = { name: "fixture",
     decide(sight, dt) { assert.equal(sight.report, prepared.report); calls.push(["decide", dt]); return "intent"; } };
-  assert.equal(driveBy(body, tactics, () => original), prepared);
+  const part = { prepareSkills(_making, _config, skills, decision) {
+    assert.equal(skills, original); assert.equal(decision(), tactics.decision); calls.push("prepare"); return prepared;
+  } };
+  const making = { parts: { of: () => part } };
+  assert.equal(driveBy(body, tactics, () => prepareTacticsSkills(making, { kind: "fixture" }, original, () => tactics.decision)), prepared);
   for (let i = 0; i < 2; i++) assert.equal(body.command(view, .1), "command");
   assert.equal(body.release, prepared.release);
   assert.deepEqual(calls, ["prepare", ["resume", view], ["decide", .1], ["command", view, "intent", .1],
@@ -49,6 +56,28 @@ test("a planner validates its kit dependencies through another planner's delegat
   const config = { ...COUNTER_PUNCHER, actions: [], executors: [], support: null, tactics: { kind: "wrapper", plan: { kind: "wrapper", plan: { kind: "child" } } } };
   assert.deepEqual(fighterFaults(config, parts), ["tactics: plan: plan: needs support"]);
   assert.deepEqual(fighterFaults({ ...config, support: { kind: "support-fold" } }, parts), []);
+});
+
+test("behaviour decision context resets each step and does not derive authority from phase labels", () => {
+  let mode = "evade";
+  const window = { at: [0, 1, 1], along: [.5, 1], across: [-.1, .1], facing: .3, speed: .1 };
+  const part = { make: () => ({ decide(turn) {
+    turn.phase = "arbitrary display label";
+    if (mode === "evade") turn.evading = true;
+    if (mode === "approach") turn.approach = window;
+  } }) };
+  const tactics = actionTactics({ spec: {}, actions: [], estimates: {}, aims: new Map(), orders: () => null, parts: { of: () => part } },
+    { ...FIGHTING, list: [{ kind: "fixture" }] });
+  const sight = { view: { time: 0, senses: { others: [], side: "left" }, stance: { centre: { x: 0, z: 0 } } },
+    report: { actions: [], ledger: [], heading: 0 } };
+  for (const [choice, expected] of [["evade", { focus: null, evading: true, approach: null }],
+    ["approach", { focus: null, evading: false, approach: window }], ["idle", { focus: null, evading: false, approach: null }]]) {
+    mode = choice; tactics.decide(sight, .1);
+    assert.deepEqual(tactics.decision, expected);
+    assert.equal(tactics.engagement.phase, "arbitrary display label");
+  }
+  mode = "evade"; tactics.decide(sight, .1); sight.view.senses.out = true; tactics.decide(sight, .1);
+  assert.deepEqual(tactics.decision, { focus: null, evading: false, approach: null });
 });
 
 test("the Lab's supplied script replaces configured tactics and passes through its instrument", async () => {

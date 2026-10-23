@@ -5,6 +5,17 @@ import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
 import type { ActionEngagement } from "./action-tactics.ts";
+import type { Window } from "../skills/action.ts";
+
+/** Operational facts a planner shares with its layers, independently of inspection reports. */
+export interface TacticalDecision {
+  readonly focus?: string | null;
+  readonly evading?: boolean;
+  readonly approach?: Window | null;
+}
+
+/** A declared operational field; a null or false value still supplies the capability. */
+export type DecisionCapability = keyof TacticalDecision;
 
 /**
  * **Tactics**: each control step, what a body sees becomes an `Intent`. The top layer of a mind
@@ -21,8 +32,8 @@ export interface Tactics<S = Sight, I = Intent> {
   readonly state?: object;
   /** What they report doing (`Engagement`), read by status displays and inspection, never by the rules. */
   readonly engagement?: Engagement;
-  /** Adapt the constructed skills once, before driving; composed planners prepare from the innermost out. */
-  prepareSkills?(skills: Skills): Skills;
+  /** This step's operational context, published by planners whose parts declare its capabilities. */
+  readonly decision?: TacticalDecision;
 }
 
 /** A planner's own fact, which a readout shows as it is: a label and its value, in words. */
@@ -85,7 +96,7 @@ export interface Sight {
  * is of the body as it is.
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
-  const made = make(body, tactics), skills = tactics.prepareSkills ? tactics.prepareSkills(made) : made;
+  const skills = make(body, tactics);
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
