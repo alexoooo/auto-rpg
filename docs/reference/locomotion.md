@@ -30,7 +30,7 @@ pace asked once stood still for good; it now walks at the fastest pace that turn
 0.3 to 1 m/s, each sense, three moments of setting off) falls twice in 36 and lags 0.7 to 2.5 rad:
 the pelvis turns at most about 1.4 rad/s whatever is asked, since each step lands no further round
 than the hip's rotation lets the pelvis serve both feet (`landingHeading`, some 0.75 rad a step).
-A faster turn wants a pivot on the bearing sole or quicker steps. Tried with the envelope above
+Quicker steps do little: a 0.2 or 0.25 s swing (against `STANCE_GAIT`'s 0.3) lags 0.6 to 1.1 rad at 2 rad/s against 0.7 to 1.8. A faster turn wants a pivot on the bearing sole. Tried with the envelope above
 written (the crowd battery's 24 cases, then the 69 of seeds 1 to 12, at `4813e84b`):
 
 | Change | Falls, 24 | Done of reached | Pushed apart, steps a case | Falls / not done, 69 |
