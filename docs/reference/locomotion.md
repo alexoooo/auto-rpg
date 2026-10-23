@@ -228,6 +228,19 @@ rate and speed (each sense, from 14 moments of setting off): at 1 m/s and faster
 0.25 rad/s held all 28 (27 at 0.25 rad/s to 3.5 m/s, 21 at 4.5 m/s); slower, 0.7 to 1.4 rad/s
 held. Most that fail fall, turning left, from 0.5 s after setting off.
 
+**Setting off turning.** The run begins only once the body has faced the way asked for 0.6 s
+(`RUN_SWITCH.settled`): a run begun as the walk's turn comes onto the way, the pelvis still
+turning, twists off its heading and falls within a second. The crowd's lone walker, which turns
+round between its runs (Node stand, Rapier, 120 Hz, `.tmp` sweep of the crowd's cases at seeds 1
+to 12 of every situation and the lone walker's 13 to 44, at `3eace0e6`):
+
+| Run begins | Falls, 69 cases | Lone walker, seeds 13–44 |
+|---|---:|---:|
+| facing the way | 6 (5 lone) | 7 in 32 |
+| facing it 0.6 s | 2 (1 lone) | 1 in 32 |
+
+A cap on the facing's turn rate at the switch (0.5 and 1 rad/s) kept 4 and 5 of the 5 lone falls.
+
 ## Move
 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while

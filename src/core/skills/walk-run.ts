@@ -81,8 +81,9 @@ interface WalkRunOptions {
 
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked
- * is `past` over the run's pace, the body faces the way asked within `facing` rad (a run goes where
- * its pelvis faces) and goes that way no slower than `short` under the run's pace, or
+ * is `past` over the run's pace, the body has faced the way asked within `facing` rad for `settled`
+ * s (a run goes where its pelvis faces, and one begun with the body still turning onto it falls)
+ * and goes that way no slower than `short` under the run's pace, or
  * under the walk's own pace where the walk's envelope holds it slower, or the walk asked has stood
  * there `top` s with the body facing that way (a walk whose legs cap it under its envelope's pace;
  * a body still turning round has not been capped, and a run begun from it standing falls); and, once it
@@ -92,7 +93,7 @@ interface WalkRunOptions {
  * that gives way at its first landing hands the walk a body just come down from the run's first
  * flight.
  */
-const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 2, landings: 2, facing: 0.15 } as const;
+const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 2, landings: 2, facing: 0.15, settled: 0.6 } as const;
 
 /**
  * The farthest the way asked may be from the face asked for the walk and run to run it, rad: the
@@ -121,7 +122,7 @@ interface WalkRunMemory {
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
   swinging: Side | null;
-  /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s; and how long of it the body has faced that way (`RUN_SWITCH.top`). */
+  /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s; and how long of it the body has faced that way (`RUN_SWITCH.settled`, `RUN_SWITCH.top`). */
   capped: number;
   faced: number;
   /** How many times the run has landed since it began (`RUN_SWITCH.landings`), and the sole that landed last: a sole that
@@ -253,7 +254,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         // Heading for the run, the walk turns to face the way asked and walks it forward, as the run will.
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
-        if (landed && memory.capped > 0 && facing && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
+        if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
         else return { kind: "stance", goal: legs.goal(view, walkable(memory.capped > 0 ? [speed, 0] : asked), way, dt, lower, destination) };
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
