@@ -569,6 +569,13 @@ injury at 50.9 s without falling: own bar 0.4833 against 0.7610, with 33 committ
 It is rejected without wider cases. The configuration, reference key, harness and physical row
 remain in `research/runs/vanguard/mid-trunk/`.
 
+Driving the free covering hand with a critically damped point-acceleration request, through
+the unchanged muscle-limited motor, loses the full open-left case at 7.63 m at the cap without
+falling: own bar 0.6894 against 0.7917, with 63 committed punches. The prototype preserves action
+reservations, leaves folded support alone and uses Balance 0/0. It passes the type check but
+fails its full-bout win gate, so no wider cases run and the implementation is removed. The
+exact source, configuration, reference key and row remain in `research/runs/vanguard/point-guard/`.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
