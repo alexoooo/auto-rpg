@@ -26,6 +26,26 @@ turn at let them take a reversal or a passage. A heading still to turn where the
 pace asked once stood still for good; it now walks at the fastest pace that turns
 (`fastestTurning`, `src/core/skills/locomotion.ts`).
 
+**The turn is capped by the hip.** A half turn asked at 2 or 4 rad/s (the Warrior with the club,
+0.3 to 1 m/s, each sense, three moments of setting off) falls twice in 36 and lags 0.7 to 2.5 rad:
+the pelvis turns at most about 1.4 rad/s whatever is asked, since each step lands no further round
+than the hip's rotation lets the pelvis serve both feet (`landingHeading`, some 0.75 rad a step).
+A faster turn wants a pivot on the bearing sole or quicker steps. Tried with the envelope above
+written (the crowd battery's 24 cases, then the 69 of seeds 1 to 12, at `4813e84b`):
+
+| Change | Falls, 24 | Done of reached | Pushed apart, steps a case | Falls / not done, 69 |
+|---|---:|---:|---:|---:|
+| none (the asset as it is) | 0 | 23/23 | 20 | 2 / 2 |
+| the envelope written | 2 | 18/23 | 355 | |
+| its walks, every turn 2 rad/s | 23 | 17/23 | 429 | |
+| a walk that faces its way going it from the first step, not along the heading as it turns (`travelFacing`, the arbiter) | 1 | 22/23 | 6 | 3 / 7 |
+| that, on the asset as it is | 0 | 22/23 | 215 | 9 / 4 |
+
+Going the way asked while the pelvis turns ends the wide arcs, but a member at a doorway's edge
+then stands: the solids' check (`clearMove`) looks ahead half a second, a farther sweep at the
+faster walk, and its fallback moves are the heading's, which no longer points the way it goes.
+Slower ways tried in the crowd's choice and in that check did not free them.
+
 **What caps it is where the body bears.** Through each swing the realised centre of pressure stays
 about 3 cm ahead of the bearing sole's middle whatever the stance asks, a braking that costs about
 the fifth of the pace the walk falls short of; asking the pivot further back moves the place asked,
