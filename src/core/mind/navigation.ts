@@ -14,7 +14,8 @@ import { travelSpeed, type Corner, type GaitLimits } from "./travel.ts";
 /**
  * Route clearance includes gait sway; progress windows are navigation preferences, not anatomy. A
  * route turns onto its next leg `waypoint` m before a corner, the room its gait has to turn in there
- * (`Corner.room`).
+ * (`Corner.room`), or sooner where that leg is clear from where the body stands: a body carried or
+ * crowded off its route goes on from where it is, never back to a corner it has passed.
  */
 const NAV = Object.freeze({ margin: .08, waypoint: .18,
   stalled: 3, progress: .06, moved: .3, quiet: .25, rangeSamples: 16, rangeResponse: 1, sideCost: .1 });
@@ -270,7 +271,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       }
       const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
       if (distance <= near) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }
-      while (state.route.length > 1 && apart(here, state.route[0]!) <= NAV.waypoint) state.route.shift();
+      // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
+      while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
+        || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();
       if (!state.route.length) return unreachable(goal);
       let remaining = 0, from = here;
       for (const point of state.route) { remaining += apart(from, point); from = point; }

@@ -215,6 +215,9 @@ braking, arrival and progress against the world's solid geometry.
 - `SLOTS`: several members sent to one floor point, or along one drawn route, take slots about
   its end, no two within 1.3 m: the point, then eight bearings on a ring of 1.4 m, then of 2.8 m.
   They go no faster than the slowest of them still on the way, at its gait's top speed (`travelSpeed`).
+- `CROWDED`: one of them that has come no 0.1 m nearer its slot for 3 s, within 2.5 m of it and
+  of a companion already standing, stands where it is: two slots 1.3 m apart are narrower than the
+  room a walker keeps from another body, so a slot behind one stood in is reached only round it.
 - A blocked destination across an openable door first asks for a point 2 m from the door on its
   near side, inside the world's 2.5 m reach for opening; opening refreshes the granted collision
   snapshot and resumes the original objective.

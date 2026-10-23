@@ -29,6 +29,12 @@ const AIM_COSINE = 0.3;
  * two slots nearer than `apart`, on eight bearings of each of these rings about the point.
  */
 const SLOTS = Object.freeze({ apart: 1.3, rings: [1.4, 2.8] });
+/**
+ * When a member sent with others to one point stands where it is short of its slot
+ * (`docs/reference/play.md#following`): within `metres` of the slot, with a companion already
+ * standing within `metres` of it, having come no `headway` m nearer the slot for `seconds` s.
+ */
+const CROWDED = Object.freeze({ metres: 2.5, headway: 0.1, seconds: 3 });
 
 const IDLE: TeamOrder = Object.freeze({ kind: "idle" });
 
@@ -54,6 +60,8 @@ interface Memory {
   facing: GroundPoint | null;
   /** Where it stands at the end of the drawn route it walks, once the route is drawn: its slot about the route's last point. */
   end: GroundPoint | null;
+  /** Near its slot, the nearest it has come and when it came so near, s; null farther off. */
+  headway: { nearest: number; since: number } | null;
 }
 
 /** **The party's config**: whether a member takes on a foe it sees untold (`picks`, the default), or fights only the foe it is told to. */
@@ -81,7 +89,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
   // Whom the person's commands go to (`selected`), by id: null, everybody, until the person selects.
   const state = { members: {} as Record<string, Memory>, leader: null as string | null, notice: "", selected: null as string[] | null };
   const memory = (id: string): Memory => state.members[id] ??=
-    { target: null, lastSeen: null, goal: null, order: IDLE, routeStart: 0, opening: null, post: null, replan: false, facing: null, end: null };
+    { target: null, lastSeen: null, goal: null, order: IDLE, routeStart: 0, opening: null, post: null, replan: false, facing: null, end: null, headway: null };
 
   /** The members the person's commands go to, in the team's order. */
   const chosen = (view: TeamView): MemberView[] => view.members.filter(member => state.selected === null || state.selected.includes(member.id));
@@ -137,6 +145,19 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     const given = new Map<string, GroundPoint>();
     byNear.forEach((member, k) => given.set(members[member]!.id, places[byDepth[k]!]!));
     return given;
+  };
+
+  /**
+   * Whether `member`, sent with others to one point, is to stand where it is (`CROWDED`): near its
+   * slot, a companion already standing near it, and no nearer the slot for a while.
+   */
+  const crowded = (view: TeamView, member: MemberView, mind: Memory, order: TeamOrder & { kind: "attack-move" }): boolean => {
+    const off = distance(member.at, order.destination), sent = order.together;
+    if (!sent || off > CROWDED.metres) { mind.headway = null; return false; }
+    if (!mind.headway || off < mind.headway.nearest - CROWDED.headway) { mind.headway = { nearest: off, since: view.time }; return false; }
+    if (view.time - mind.headway.since < CROWDED.seconds) return false;
+    return view.members.some(other => other.id !== member.id && other.fighting && sent.includes(other.id)
+      && memory(other.id).order.kind !== "attack-move" && distance(other.at, member.at) <= CROWDED.metres);
   };
 
   /** Whether the pointer points the member it steers at `foe`: always, unless the pointer steers its facing. */
@@ -212,6 +233,10 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
         mind.order = IDLE; if (!leads) mind.post = { ...order.destination };
         return null;
       }
+      if (crowded(view, member, mind, order)) {
+        mind.order = IDLE; if (!leads) mind.post = { x: member.at.x, z: member.at.z };
+        return null;
+      }
       return placeMovement(order.destination, ARRIVAL.point);
     }
     if (!leads) {
@@ -243,7 +268,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
   /** `member` given `order`, and `post`, in place of what it was doing: it plans afresh. */
   const ordered = (member: MemberView, order: TeamOrder, post: GroundPoint | null = null): Memory => {
     const mind = memory(member.id);
-    mind.order = order; mind.post = post; mind.end = null; mind.replan = true;
+    mind.order = order; mind.post = post; mind.end = null; mind.headway = null; mind.replan = true;
     state.notice = "";
     return mind;
   };
