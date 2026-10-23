@@ -21,9 +21,31 @@ stronger ankles, 240 Hz and more friction hold no more. What lifted the pace is 
 the step: a longer swing and a shorter double support. The ankle gives 4 to 7 % of the stride's
 positive work, where a person's gives about half (`research/gait-audit.mjs`).
 
-**A half turn at the next rate past the envelope's** still runs away sideways and falls now and
-then, one to three of 56 in four cells: after the turn the plan outruns the pace asked
-([human and strikes](human-and-strikes.md#turning)).
+**A catch holds the facing it began at** (`step.facing`, `src/core/control/stance.ts`). A catch's
+landing is aimed facing the way the pelvis faces as it begins. A pelvis that turns on toward the
+heading through the swing (a radian in a quarter second after an order a half turn round) turns
+that landing out from under the body: the feet land crossed, the next step drops the hips, and the
+walk runs off. With the envelope off, where falls are five times as many, 35 % of catch landings
+crossed against 0.7 % of a walk's, and 53 of 66 falls came within 1.5 s of crossed feet.
+
+The braced walk given random orders (`research/core-stance-sweep.mjs --batteries orders`: the club
+in the guard, the body's own envelope, 30 s at 0.5 and 1 m/s; Node stand, rapier-coordinate,
+120 Hz), trials that fell:
+
+| Body, seeds | The pelvis turning on | The facing held |
+|---|---:|---:|
+| Rogue, 1 to 50 | 8 of 100 | 0 of 100 |
+| Warrior, 1 to 50 | 20 of 100 | 3 of 100 |
+| Warrior, 51 to 150 | 44 of 200 | 10 of 200 |
+
+A placebo (the goal's height 1e-9 m higher) moves the first two rows' 28 to 24. The crowd battery's
+falls over its 24 cases go from 10 to 4.
+
+**What still falls**: a pelvis carried past the held facing under a catch leaves the swing foot
+starting behind the bearing one, and the swing's path through the bearing leg throws the body off
+the ground. Not kept, each within the placebo with the envelope off: the catch's reach limit
+stripped; the pace the legs can take judged at the pelvis's facing, not the heading; the pelvis
+aimed on one foot no further round than the step lands (`landingHeading`).
 
 ## The stride
 

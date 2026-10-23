@@ -12,7 +12,7 @@ import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
 import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { stride } from "../src/core/skills/stride.ts";
-import { WALK_RUN, walkRun } from "../src/core/skills/walk-run.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/walk-run.ts";
 import "../tests/harness/preload-data.mjs";
 import { dataOf } from "../src/core/data/store.ts";
 import { learnedRun } from "../src/core/skills/learned-run.ts";
@@ -31,16 +31,18 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * in it, and its character's balance under it (`balanceCeiling`, the rulebook's per cent).
  * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
  * `src/core/human/physique.ts`). `balance` is a per cent of its weight for its assist in place of its character's, which an unarmed
- * stand has none of unless given. Its ground is `GROUND` across, so no trial walks off it.
+ * stand has none of unless given. With `envelope` it reads its stance's measured envelope
+ * (`Body.envelope`) as a game's body does, which caps its walk's pace and turn; else the stance is
+ * being measured, and it has none. Its ground is `GROUND` across, so no trial walks off it.
  */
 /** The trials' ground, m across: the fastest run of a battery, 4.5 m/s, set off, held and stopped (some 70 m), stays on it. */
 const GROUND = 200;
 
-async function body(model, stance, hz, held = null, actuation, physique, { balance = null } = {}) {
+async function body(model, stance, hz, held = null, actuation, physique, { balance = null, envelope = false } = {}) {
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null && balance === null ? undefined : balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
+  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
   return { stand, body: built, guard: guardPosture(spec), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 
@@ -188,6 +190,7 @@ function skillOf(legs, b) {
     case null: case undefined: return null;
     case "stride": return stride(b);
     case "walk-run": return walkRun(b);
+    case "braced": return walkRun(b, WALK_RUN, WALK_RUN_CYCLE, false);
     case "learned-run": return learnedRun(b, dataOf("learned-run"));
     case "simbicon": return simbicon(b, SIMBICON, simbiconWays(), runCycleSettings(), false);
     case "simbicon-run": return simbicon(b);
@@ -329,10 +332,11 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
  * each held `ORDERS.least` to `ORDERS.most` s, a stand (one in six), a walk at `speed` m/s turning
  * to a new heading (one in two), or a walk at it a new way with the heading kept (one in three). As a
  * fight plays the body with `held` (`body`), walking by the locomotion skill `legs` names
- * (`skillOf`): whether it fell, and when.
+ * (`skillOf`): whether it fell, when, and the catch steps it took. With `envelope`, the body reads
+ * its stance's measured envelope as a game's does (`body`).
  */
-export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null }) {
-  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
+export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null, balance = null, envelope = false }) {
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance, envelope });
   const skill = skillOf(legs, b);
   if (!skill) throw new Error("orders are given to a locomotion skill");
   let state = (seed * 2654435761) % 4294967296;
@@ -353,9 +357,9 @@ export async function orders({ model, speed, seed, seconds = 30, stance, hz = 12
       stand.step(1);
       const s = b.view.stance;
       if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
-      if (low > 0.25 || !Number.isFinite(low)) return { fell: true, at: b.view.time };
+      if (low > 0.25 || !Number.isFinite(low)) return { fell: true, at: b.view.time, catches: b.view.stance.recoveries };
     }
-    return { fell: false, at: null };
+    return { fell: false, at: null, catches: b.view.stance.recoveries };
   } finally { b.dispose(); stand.dispose(); }
 }
 

@@ -172,7 +172,8 @@ export type StancePhase = "stand" | "shift" | "swing" | "flight";
  * knees bent (`STANCE_KNEE_BEND`) and no lower than they reach within their ankles' range
  * (`STANCE_ANKLE_SPARE`) -- and each step asks for accelerations: the centre of mass's, the plan's
  * with its errors from the plan taken up at `STANCE_TRACK`; the pelvis's turn toward upright at the
- * goal's heading; and each bearing foot's, none, what motion it has damped out.
+ * goal's heading, or through a recovery the facing it began at (`step.facing`); and each bearing
+ * foot's, none, what motion it has damped out.
  *
  * **The legs give those by torque, through the whole body's floating-base dynamics**
  * (`BodyDynamics.root`): the whole-body solve (`solve.ts`, given the asks by `ask`), with the
@@ -935,6 +936,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       step.held = 0;
       step.off = Infinity;
       step.catching = false;
+      step.facing = null;
       reading.phase = "stand";
       reading.own = null;
       for (const foot of s.feet) foot.memory.rolled = null;
@@ -1010,11 +1012,17 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       const planned = advancePlan(s, goal, stance, swing, bearer, pendulum, dt);
       shiftWeight(s, swing, bearer, height, dt);
       const e = 1 / s.tuning.track;
-      aimRoot(s, goal.heading, planned, height, e);
+      // A recovery is aimed facing the way the pelvis faces as it begins (`recoveryStep`), and the
+      // pelvis holds that facing until a walk's step follows: a pelvis that turns on toward the
+      // heading under a catch turns the landing it chose out from under the body, and the feet cross.
+      if (state.step.recovering) state.step.facing ??= reading.facing;
+      else state.step.facing = null;
+      const heading = state.step.facing ?? goal.heading;
+      aimRoot(s, heading, planned, height, e);
       holdStance(s, stance, e);
       // A step lands facing the heading as far as the bearing foot's hip lets the pelvis turn over it
       // (`landingHeading`): a turn past that is taken step by step.
-      if (reading.phase === "swing" && swing) swingFoot(s, swing, bearer ? landingHeading(bearer, goal.heading) : goal.heading, dt);
+      if (reading.phase === "swing" && swing) swingFoot(s, swing, bearer ? landingHeading(bearer, heading) : heading, dt);
     },
   };
 }

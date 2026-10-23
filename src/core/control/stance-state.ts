@@ -53,6 +53,11 @@ interface StanceState {
     catching: boolean;
     /** Whether the stance's own step under way is a recovery step (`recoveryStep`), re-aimed as one (`aimRecovery`). */
     recovering: boolean;
+    /**
+     * The way the pelvis faced as the recovery under way began (`recovering`), rad, as a heading is
+     * counted; null with none. The pelvis holds it, and the recovery's steps land facing it.
+     */
+    facing: number | null;
     readonly from: Vector3;
     /** The sole's middle's velocity as the foot left the ground, world, m/s (`SwingGoal.momentum`). */
     readonly launch: Vector3;
@@ -166,7 +171,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   const pace: [number, number] = [0, 0];
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
-    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
+    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
