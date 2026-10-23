@@ -46,9 +46,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** the braced walk; Vanguard on hold, its
-   explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
-   alone by `--ablate`, with their decisions visible in Arena and Lab.
+1. **Now:** Vanguard's unarmed fighter; its retained Skeleton development panel on the current
+   locomotion wins one of four Options cases, without falls. The executor's facing at commitment
+   is the next question ([resume panel](reference/vanguard.md#resume-panel)). Its explicit presets
+   and planner layers are editable and replaceable alone by `--ablate`, with their decisions
+   visible in Arena and Lab. The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -217,7 +219,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
   empty-handed first, then equipped, on held-out cases. Its Skeleton preparation-aim calibration fails
-  the fifth fresh unarmed campaign ([record](reference/vanguard.md#preparation-aim-campaign), [plan](plans/2026-10-21-vanguard.md)).
+  the fifth fresh unarmed campaign; its resume panel on the current locomotion still fails
+  ([record](reference/vanguard.md#resume-panel), [plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read

@@ -7,6 +7,10 @@ this improves its four-case Options development panel from 0/4 to 2/4. The prese
 the selected development configurations for the Warrior, Rogue and Skeleton. The preparation-aim
 preset at `d68ad7e7` fails its fresh Options campaign with one win and three losses in four
 completed cases. The four earlier qualification campaigns also fail. Equipment is unqualified.
+On the locomotion at `3319b5ae`, the four retained Skeleton development cases yield one win
+and three losses, without falls. Closing after misses, body-aware evasion and two broader
+attack selectors do not produce a replacement that passes their development decision rules
+([resume panel](#resume-panel)).
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -375,6 +379,40 @@ excluding retained development and diagnostic geometries; every selected nonce i
 Both court cases commit punches, so these losses do not depend on failing to enter a stroke.
 The open-stage winner commits five punches and falls at 14.2167 s, staying down to the cap;
 that win does not establish controlled recovery. These conditions become development evidence.
+
+## Resume panel
+
+The [resume summary](../../research/runs/vanguard/resume/summary.json) names every recipe,
+source hash, case key, pose digest and completed result. The full rows are retained in
+`research/runs/vanguard/resume/rows.jsonl`; the harness and rejected implementations are archived
+beside them. These are reused development geometries, not fresh qualification cases.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands,
+Balance 0/0, zero sense delay, falls continuing to injury or the ordinary 120 s cap. The stance
+is the one at `3319b5ae`. The right-court control is paired with the disabled closing prototype;
+its complete source is retained in `research/runs/vanguard/resume/close-source.json`.
+
+| Level / gap | Left preset result | Right preset result |
+| --- | --- | --- |
+| Court / 5.92 m | Loss at 120 s | Win at 120 s |
+| Open / 3.24 m | Fatal-injury loss at 91.125 s | Fatal-injury loss at 44.0917 s |
+
+None of these four preset cases falls. The previous qualification campaign's right-court loss
+does not describe this locomotion. The three remaining losses still reject qualification.
+
+| Candidate | Full-bout result and decision |
+| --- | --- |
+| A half-second forward step at 0.2 m/s after two committed strokes without contact | Loses the right court case at the cap, where the paired preset wins. Target-hit strokes rise from 12 to 13, without falls. Rejected. |
+| Evasion of predicted head or trunk contact at the retained 0.2 m/s cap | Loses the right open case by fatal injury at 89.5083 s, without falling. Rejected. |
+| Body-aware evasion at the gait's ordinary speed, with policy adaptation disabled | Wins the right open case at the cap, then loses the mirrored left case at the cap; neither falls. Rejected after the mirrored check. |
+| Comparing head and trunk openings on both hands by their geometric estimates | Loses the right open case by fatal injury at 62.3167 s, without falling. Only two completed strokes record target contact; most selected head shots meet the guard. Rejected. |
+| Learning target-contact success separately for each hand and region | Loses the right open case at the cap by a bar margin of 0.001155, without falling. Its lead at 70 s does not survive the full bout. Rejected. |
+
+A 20 s diagnostic samples five standing preparations once per second. The held target bearing
+differs from the updated bearing by at most 0.173 rad in those samples, while the body's actual
+facing differs from the updated bearing by as much as 0.542 rad. These are preparation readings,
+not evidence that a drive commits at that error or that waiting for alignment improves a fight.
+The diagnostic remains in `research/runs/vanguard/resume/baseline-open-3.24-right-20.json`.
 
 ## Tried and not kept
 
