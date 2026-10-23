@@ -12,6 +12,20 @@ Rogue and the skeleton (`assets/core/stance-envelope.json`), where a person's pr
 near 1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Asked 1.2 m/s forward it goes 0.80. A dash,
 a roll, a crouch and turning on the spot are not built.
 
+**Measured again at `bbd0c842`** (`research/core-stance-envelope.mjs`, every body and thing held,
+585 s on 8 workers), the walk holds far more than the asset says, and turns less: the Warrior 1.7
+m/s forward, 1.2 back and 0.7 to either side; the Rogue 1.4, 1 and 0.7; the skeleton 1.5, 1.2 and
+0.7. Its turns hold 1 rad/s at 0.2 to 0.5 m/s, 0.25 to 0.5 at 0.7, and none at 1 m/s or faster,
+where the asset (measured before a turn had to end within 0.5 rad of its heading, `TURNED`) holds
+4 rad/s. A turn holds at a speed only if all 28 of its trials do, a walk if all 4 of its do: at
+1 m/s a 0.25 rad/s turn stands in each of 8 trials read alone. The asset is not rewritten. With
+it, the crowd battery is done in 18 of its 23 cases reached against 23, two members fall
+against one, and members push each other apart 355 steps a case against 20: the walkers come
+faster than the 0.5 m/s² the walk is asked to stop at (`STANCE_STOPPING`) and the 1 rad/s they
+turn at let them take a reversal or a passage. A heading still to turn where the envelope holds no turn at the
+pace asked once stood still for good; it now walks at the fastest pace that turns
+(`fastestTurning`, `src/core/skills/locomotion.ts`).
+
 **What caps it is where the body bears.** Through each swing the realised centre of pressure stays
 about 3 cm ahead of the bearing sole's middle whatever the stance asks, a braking that costs about
 the fifth of the pace the walk falls short of; asking the pivot further back moves the place asked,
