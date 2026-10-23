@@ -162,7 +162,7 @@ to either side and the Rogue 40 and 35, where the far foot alone holds little mo
 (the Warrior 55 N s); on a later battery whose commit was not recorded, Rogue 118 of 272 against
 117, Warrior 213 against 209.
 
-Chosen: margin 0.01 (the lesser that stands), reach 0.2, seconds 0.3, lift 0.05.
+Chosen: margin 0.01 (the lesser that stands), reach 0.2 (since 0: [which foot catches](#which-foot-catches)), seconds 0.3, lift 0.05.
 
 ### Fast catch
 
@@ -225,6 +225,23 @@ in 46 % and a crossover in 36 %, against 7 % for a step out and 5 % for one in b
 | Its own side (kept) | 32 | 33 | 9 | 6 |
 
 Unshoved, the Warrior falls in 12 of 600; standing shoves held: Rogue 159 of 176, Warrior 176.
+
+`STANCE_RECOVERY.reach`, how far past where the capture point will be a catch lands, at
+`a3b46190`, the same battery (Rogue on seeds 201 to 400 and the Warrior read at 0.05 and 0 only):
+
+| Reach | Rogue, seeds 1 to 200 | Rogue, 201 to 400 | Warrior, 1 to 200 | Warrior, 201 to 400 |
+|---|---:|---:|---:|---:|
+| 0.3 | 44 | | | |
+| 0.2 | 32 | 33 | 9 | 6 |
+| 0.1 | 23 | 33 | | |
+| 0.05 | 22 | 24 | 9 | 6 |
+| 0 (kept) | 18 | 19 | 7 | 8 |
+
+A catch's swing over 0.25 s in place of 0.3 fell 30, and `fast` 0.15 in place of 0.2 37, on the
+Rogue's first 200. At reach 0 the unshoved Warrior falls in 9 of 600, and the standing shoves hold
+Rogue 157 of 176 (least 45 N s, against 35) and Warrior 176. The standing shoves alone could not
+choose it ([recovery step](#recovery-step): 0.1 to 0.3 hold alike); landing past the capture point
+throws the body back the other way, and on a walk given orders the next step has to catch that.
 
 ### Assisted
 

@@ -58,8 +58,9 @@ random way, at a third of its orders (`--shoves`; Warrior, seeds 1 to 100, 0.5 m
 after 5 to 10 catch steps: the capture point ran past the bearing foot's outside, the other foot
 stepped in beside it again and again, and a step out by the bearing foot landed short of it. A
 catch taken by whichever foot lands nearer the capture point, as long as 1.2 of the leg, and a
-crossed foot landing back on its own side cut the Rogue's falls at 20 N s from 199 of 400 to 65
-and the Warrior's from 68 to 15 ([which foot catches](stance-tuning.md#which-foot-catches)).
+crossed foot landing back on its own side, and a catch landing where the capture point will be
+and not past it, cut the Rogue's falls at 20 N s from 199 of 400 to 37 and the Warrior's from 68
+to 15 ([which foot catches](stance-tuning.md#which-foot-catches)).
 
 Not kept, read on 600 unshoved Warrior trials (the walk as it was 14 falls, a placebo 16) or on the
 shoved battery at 20 N s (24): the swing's bow round the bearing sole (`swingBowToRef`), which
