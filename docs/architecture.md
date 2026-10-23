@@ -666,8 +666,8 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and
-`tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and
-replays it from its order sheets. How well it fights is a measurement:
+`tests/mind-contract.test.mjs` runs it against itself on the first body its calibration allows and
+it fits, forks it and replays it from its order sheets. How well it fights is a measurement:
 
 - `npm run match -- <a> <b>` plays two minds over fixed bodies, levels, gaps and loadouts, each on
   each side, and names the result by a digest that is the same on every machine;
