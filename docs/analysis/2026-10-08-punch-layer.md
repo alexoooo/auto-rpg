@@ -151,6 +151,22 @@ bout). A wounding fist meets 0.9 to 1.5 kg at 2.5 to 7 m/s, the elbow 0 to 1 rad
 into the drive: it meets the chest before the arm has opened. A longer stand-off, the arm held
 behind the trunk, or an aim at the chest does not wound more.
 
+## On the Strike drill
+
+The `strike` drill's rung 0 (`still`, record `2026-10-24-43b15ceb`; Node, Rapier, 120 Hz) gives the
+Puncher's straight punch no blow at 6.8 m/s: it starts only 0.6 to 0.7 m from the target, centre to
+centre (its stand-off, `reach` 0.8 of the arm, ±0.05 m), and its 8 touches on the mark close at
+1.4 to 4.4 m/s. Traced at 0.7 m, right hand:
+
+- **The guards touch first.** The striker's guard hand meets the target's 0.06 s into the drive,
+  and the punching forearm strikes the target's guard hand before the fist reaches the chest.
+- **The fist starts from rest and meets the target half open.** It reaches 3.5 to 4.0 m/s 0.12 s
+  after the drive begins, then contact, the hand about 0.44 m from the upper arm of its 0.5 m;
+  nothing winds up first.
+
+The owner watched the Puncher's and the Duellist's reels: the two stand very close, and the punch
+looks awkward and does not land.
+
 ## Open choices
 
 - **A controller that looks ahead**: the whole-body solve over a horizon, solved again each step,
