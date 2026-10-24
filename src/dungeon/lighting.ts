@@ -93,13 +93,8 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   ambient.intensity = profile?.ambientIntensity ?? DUNGEON_LOOK.ambient.intensity;
   ambient.diffuse = Color3.FromHexString(profile?.ambientColor ?? DUNGEON_LOOK.ambient.diffuse);
   ambient.groundColor = Color3.FromHexString(DUNGEON_LOOK.ambient.ground);
-  // As `buildArena` does: without the file the scene still lights, only flatter.
-  try {
-    scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
-    scene.environmentIntensity = profile?.environmentIntensity ?? DUNGEON_LOOK.environmentIntensity;
-  } catch {
-    scene.environmentIntensity = 0;
-  }
+  scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
+  scene.environmentIntensity = profile?.environmentIntensity ?? DUNGEON_LOOK.environmentIntensity;
   const lantern = new PointLight("wanderer lantern", Vector3.Zero(), scene);
   lantern.diffuse = Color3.FromHexString(profile?.lanternColor ?? DUNGEON_LOOK.lantern.color);
   lantern.intensity = profile?.lanternIntensity ?? DUNGEON_LOOK.lantern.intensity;

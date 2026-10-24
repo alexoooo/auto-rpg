@@ -76,15 +76,9 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
   camera.minZ = ARENA_LIGHT.camera.near;
   camera.maxZ = ARENA_LIGHT.camera.far;
 
-  // Image-based lighting gives metal and stone their reflections. Without the HDRI the scene still
-  // lights, only flatter, so a fresh clone runs before anyone downloads it.
-  try {
-    const env = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, ARENA_LIGHT.environment.size, false, true, false, true);
-    scene.environmentTexture = env;
-    scene.environmentIntensity = ARENA_LIGHT.environment.intensity;
-  } catch {
-    scene.environmentIntensity = 0;
-  }
+  // Image-based lighting gives metal and stone their reflections.
+  scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, ARENA_LIGHT.environment.size, false, true, false, true);
+  scene.environmentIntensity = ARENA_LIGHT.environment.intensity;
 
   const sky = new HemisphericLight("sky", new Vector3(...ARENA_LIGHT.sky.direction), scene);
   sky.intensity = ARENA_LIGHT.sky.intensity;
