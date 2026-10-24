@@ -716,6 +716,56 @@ mirrored units; these two fixed-case outcomes are descriptive development eviden
 and the entrant scope check pass for both prototypes. Neither is selected, and the implementations
 are removed. The new open win does not outweigh losing a previous winner.
 
+## Sensed impact balance
+
+The contact-balance selectors do not qualify a new fighter. Starting with the standard stroke
+preserves the court winner but loses the limiting open case; starting exposed loses the court.
+The fixed profiles' complementary wins do not carry through these feedback-driven switches.
+
+The feedback estimates dissipated energy as contact impulse times preceding relative normal
+closing speed over two, splits it by the colliders' compliance and normalizes each side by its
+nominal pool capacity. It reads the body's own contacts and the nearest observed counterpart
+surface's motion and material, including guarded contacts. It reads no current injury state or
+opponent policy. The figure is a contact score, not measured work or wound damage.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay. Two 30 s prefixes of the left
+court case at 5.92 m score the known winning standard profile above the regressing exposed profile.
+The diagnostic identifies every sampled counterpart correctly against the harness's trusted
+identities, with no unmatched events. Exact inputs, queries, source and readings remain in
+`research/runs/vanguard/contact-energy/`. These prefixes are diagnostics, not independent bouts.
+
+| Fixed profile | Score given | Score taken | Net at 30 s | Loaded onset events |
+| --- | ---: | ---: | ---: | ---: |
+| Standard | 19.6056 | 18.2417 | 1.3639 | 109 |
+| Surface grid and finite-speed arm | 23.0058 | 28.4550 | -5.4492 | 104 |
+
+The selector retains a profile with nonnegative cumulative balance and samples or returns to
+another only after a negative balance, between strokes. Its state includes both executors,
+previous physical motion, contact episodes and profile scores. A detached contract probe verifies
+that active strokes do not switch, positive balance retains a profile, inactive reach is refreshed
+and a fork replays the whole decision state exactly (`attempt-feedback/probe.json` below).
+
+| Review / initial profile | Court / 5.92 m / left | Open / 7.63 m / left | Active pool wall time |
+| --- | --- | --- | ---: |
+| Six-second trials / standard | Win at 120 s, bars 0.7074 / 0.6402 | Loss at 120 s, bars 0.6316 / 0.7151 | 263.5 s |
+| Each completed attempt / standard | Win at 120 s, bars 0.7051 / 0.6286 | Loss at 120 s, bars 0.5857 / 0.6633 | 254.3 s |
+| Each completed attempt / exposed | Loss at 120 s, bars 0.7255 / 0.8792 | Unplayed | 134.5 s |
+
+All five complete bouts have no candidate falls; repeated conditions under different controllers
+are not pooled into a win rate. Each standard-first controller leaves three regressions unplayed
+after the open loss. Exposed-first leaves all four remaining cases unplayed after the court loss.
+The timed open controller switches to exposed at 13.3083 s; per-attempt review switches at
+7.3333 s. Both stay exposed for the rest of their losing open bouts. Exposed-first tries standard
+on the court at 15.7 s and returns to exposed at 16.5833 s; it still loses.
+
+Exact configurations, complete physical rows, mode histories and saved-row comparisons remain in
+`research/runs/vanguard/balanced-stroke/`, `attempt-feedback/` and `exposed-first/`. Their source and
+harness snapshots preserve the missing mode instrumentation in the timed court pilot separately
+as `balanced-stroke/harness-pilot-1.json`. Typecheck and the entrant scope check pass; the full-bout
+selection gates fail. `npm run compare` reports zero complete matched mirrored units for these
+single-side trials. All three prototypes are rejected and removed.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
