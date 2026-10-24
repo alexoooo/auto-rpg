@@ -1241,6 +1241,39 @@ in `research/runs/vanguard/blocked-step-reading/`.
 Both readings use the Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons,
 empty hands, default attributes, Balance 0/0 and zero sense delay. Source is `fe1c139b`.
 
+A displacement-governed alternative keeps the original sensed ground direction until the centre
+travels 0.15 m sideways or four seconds pass. It still loses the deciding left-court bout,
+by fatal injury at 115.0667 s, bars 0.4720 / 0.6062, without falls. It commits 58 punches against
+the selected reference's 89. The fatal impact lands on its right forearm from the opponent's
+left hand. The win gate rejects it before its three other candidate cases or the remaining
+baseline comparison play; the selected one-second rule is restored exactly. Greater requested
+lateral travel does not establish a better exchange.
+
+The candidate's typecheck passes. Source `cb033aaf`, the changed module, source diff, exact
+configuration, full row, action ledger, native records, decision and reader remain in
+`research/runs/vanguard/skeleton-displacement/`. Its one-worker pilot takes 29.2 active wall
+seconds, with a pool forecast below the nine-minute cap. There is no invalid case or complete
+mirrored comparison unit; `npm run compare` reports zero paired units.
+
+## Guard-forearm choices
+
+Adding direct forearm targets to the selected Skeleton's repertoire does not repair its left-court
+Options loss at 6.93 m. It loses at the ordinary 120 s cap, bars 0.6004 / 0.6476, without falling.
+Options falls once at 108.5 s. The candidate commits 30 body punches, 18 at the left forearm and
+22 at the right. The deciding loss rejects the configuration; its other three candidate cases
+remain unplayed. The extra actions are not installed in the preset.
+
+Only two actions are added, both using the unchanged straight-punch executor and surface aim.
+The contact learner may choose either named forearm or the existing body target. Anatomy,
+strength, physics, assists, navigation, guard and planner settings remain fixed. Source is
+`fe1c139b`, at commit `da3c2ae2`. Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz,
+matched Skeletons, empty hands, default attributes, Balance 0/0 and zero sense delay, falls
+continuing. The one-worker pilot takes 30.0 active wall seconds, priced below the nine-minute cap.
+There is no invalid case or complete mirrored comparison unit. The selected reference row is
+reused; `npm run compare` reports zero paired units. Whole configurations, exact recipes, native
+rows, full action ledger and blows, harness and decision remain in
+`research/runs/vanguard/forearm-choices/`. This is rejected development evidence, not qualification.
+
 ## Absorbed contact scores
 
 Estimating absorbed injury turns the fresh left-court Skeleton loss at 6.93 m into a win,

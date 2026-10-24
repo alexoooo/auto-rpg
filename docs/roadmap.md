@@ -54,8 +54,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    cases unfinished ([record](reference/vanguard.md#fresh-warrior-field)). The Skeleton's per-hand
    planner improves its retained Options panel from one to two of four wins, but loses all three
    completed cases of its sixth fresh campaign ([record](reference/vanguard.md#contact-selection-campaign)).
-   Extra route room does not repair its court loss; its timed blocked steps move only 1–2 cm
-   ([record](reference/vanguard.md#skeleton-route-and-blocked-steps)).
+   Extra route room, displacement-governed blocked steps and direct forearm choices do not repair
+   its court loss ([steps](reference/vanguard.md#skeleton-route-and-blocked-steps),
+   [targets](reference/vanguard.md#guard-forearm-choices)).
    A torso-cover challenger is incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger)).
    Standing misses have a physical return gate. Presets and planner layers are editable and
    replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
