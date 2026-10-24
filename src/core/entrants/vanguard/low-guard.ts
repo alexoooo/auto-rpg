@@ -97,7 +97,7 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       const threat: Vec3 = [head.x, head.y, head.z], guarded: Vec3 = [centre.x, head.y, centre.z];
       const guard = { ...intent.guard };
       for (const hand of hands) guard[hand] = { threat, guarded };
-      state.misplaced = replant && sight.report.support?.ready && base.decision?.approach && !sight.report.actions.length
+      state.misplaced = replant && sight.report.support?.ready && base.decision?.approach && !sight.report.actions.length && !intent.actions.length
         ? state.misplaced ?? sight.view.time : null;
       if (state.misplaced !== null && sight.view.time - state.misplaced >= REPOSITION_WAIT) {
         state.misplaced = null; state.rising = true; state.riseReason = "rising to reposition low attack"; state.decision = state.riseReason;
