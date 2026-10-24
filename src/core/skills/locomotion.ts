@@ -232,7 +232,15 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
+  /** The heading the body faces: the reference pose's left-to-right axis is x, and facing h about up turns it to (cos h, 0, -sin h). */
+  const facing = (view: BodyView): number => {
+    const across = acrossScratch.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, acrossScratch);
+    return atan2(-across.z, across.x);
+  };
+  /** Until its first step the stance faces as the body was built. */
+  const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
   const place = (view: BodyView, footing: Footing, lower?: number): StanceGoal | null => {
+    born(view);
     state.pace = 0;
     state.going = 0;
     if (turnStartup) state.walkTime = 0;
@@ -264,9 +272,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     get reference() { return state.reference; },
     get placed() { return state.placed; },
     resume(view) {
-      // The reference pose's left-to-right axis is x, and facing h about up turns it to (cos h, 0, -sin h).
-      const across = acrossScratch.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, acrossScratch);
-      state.heading = atan2(-across.z, across.x);
+      state.heading = facing(view);
       state.pace = 0;
       state.going = 0;
       if (turnStartup) state.walkTime = 0;
@@ -276,6 +282,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     },
     place,
     goal(view, walk, face, dt, lower) {
+      born(view);
       state.placing = null;
       state.placed = false;
       if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }
