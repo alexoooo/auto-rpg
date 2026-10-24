@@ -46,7 +46,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 
-1. **Now:** a mind that kills more in the Crypt; Recovery steps 2 and 4, step 3 left at a wider
+1. **Now:** Recovery steps 2 and 4, which the Crypt's kills wait on too, step 3 left at a wider
    ankle that opens no route; Vanguard on hold, its
    explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
    alone by `--ablate`, with their decisions visible in Arena and Lab.
@@ -246,9 +246,13 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
   - few die: the Duellist kills 8 of 128 foes over `crypt-clear`'s 8 runs and clears 2
-    ([in a fight](reference/blows.md#in-a-fight)); a fighter still spends most of an attack
-    setting its feet, a step's weight shift at a time. A Crypt fight ends by a mind that kills,
-    not by a rule (the owner, 2026-10-24);
+    ([in a fight](reference/blows.md#in-a-fight)). Over four of those runs a party member spends
+    60 to 90 % of the run walking under the level-clearer, 2 to 10 % fighting and up to 30 % down
+    (161 of 540 member-seconds on level 25); a foe that is fought dies (3 in 16
+    member-seconds of attack on level 25). More die with a faster rise (Recovery) and a
+    Commander that seeks fights. Within an attack a fighter still spends most of its time setting
+    its feet, a step's weight shift at a time. A Crypt fight ends by a mind that kills, not by a
+    rule (the owner, 2026-10-24);
   - the stance walk runs away sideways after a half turn, read before the walk steered the way its
     route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
