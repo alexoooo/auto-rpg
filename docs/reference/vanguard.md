@@ -576,6 +576,48 @@ reservations, leaves folded support alone and uses Balance 0/0. It passes the ty
 fails its full-bout win gate, so no wider cases run and the implementation is removed. The
 exact source, configuration, reference key and row remain in `research/runs/vanguard/point-guard/`.
 
+## Joint timing and cover
+
+Twelve frozen configurations jointly vary standing-punch timing and geometry, cover, contact
+selection patience and policy layers. None wins all four mirrored Skeleton development cases.
+The [panel summary](../../research/runs/vanguard/joint-panel-1/summary.json), `manifest.json`,
+`harness.json`, `runner-revision-2.json` and `cases/` retain the configurations, exact sources,
+case keys and physical rows. Each configuration stops at its first non-win or candidate fall.
+Fourteen bouts complete: two time-limit wins and twelve losses, with no candidate falls or
+invalid cases; thirty-four cases remain unplayed. This screen does not qualify a fighter.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0, zero sense delay, falls continuing to injury or
+the ordinary 120 s cap. The runtime is unchanged from the contact-selection campaign, at
+`89b510e6`. The four-worker pilot prices the remaining work below the nine-minute cutoff;
+the pilot and resumed pool use 495.1 active wall seconds in total.
+
+Candidate 7 wins both open sides at 7.63 m, then loses the left court case at 6.93 m.
+Its right court case is unplayed. Disabling only its blocked-stroke sidestep changes that left
+court loss to an injury win, but the right court bout loses by injury at 38.05 s. The ablation
+is rejected; its two open regressions are interrupted when the court loss decides the screen.
+The [ablation summary](../../research/runs/vanguard/without-step/summary.json), `implementation.json`,
+`widen-manifest.json`, `widen-source.json` and `cases/` retain both complete bouts and the
+unfinished cases. The pilot and three-worker widening use 135.6 active wall seconds.
+
+| Level / gap | Side | Candidate 7 | Without blocked-stroke stepping |
+| --- | --- | --- | --- |
+| Open / 7.63 m | Left | Win at 120 s | Interrupted |
+| Open / 7.63 m | Right | Win at 120 s | Interrupted |
+| Court / 6.93 m | Left | Loss at 120 s | Injury win at 113.0417 s |
+| Court / 6.93 m | Right | Unplayed | Injury loss at 38.05 s |
+
+Neither ablation bout has a fall. `npm run compare` reads the retained before/after records
+as zero complete matched mirrored units: the original court-right case is absent and the
+ablation's open cases are incomplete. The single-side court improvement is development evidence,
+not a paired panel gain. Neither configuration is selected.
+
+Keeping candidate 7's sidestep but changing its body cover to ward the sensed incoming weapon
+also loses the left court case, by fatal injury at 97.4333 s without falling. Own and opponent
+bars are 0.4908 and 0.5143. Its win gate rejects it without wider cases. The exact configuration,
+source, complete row and saved-row comparison remain in `research/runs/vanguard/ward-cover/`;
+the one-worker pilot takes 97.8 active wall seconds. The cover change is not selected.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
