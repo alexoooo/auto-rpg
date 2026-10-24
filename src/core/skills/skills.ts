@@ -3,7 +3,7 @@ import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import type { ActionAround, ActionStatus, Ended, Readiness, TargetRef } from "./action.ts";
+import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Readiness, type TargetRef } from "./action.ts";
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
 import { guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
@@ -58,7 +58,7 @@ function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover
   const spec = body.built.spec;
   const guard = guardSkill(spec, cover);
   return { legs: locomotion(body.envelope), navigation: null, guard,
-    executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture }) }],
+    executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture, resolve: pointTarget }) }],
     actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
 }
 

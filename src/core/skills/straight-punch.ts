@@ -10,7 +10,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetRef } from "./action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
 
@@ -325,9 +325,8 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
 }
 
 /** A straight-punch instance owns settling, its committed drive and its bounded guard return; `requireArmAim` checks the aim while the trunk leads the arm. */
-export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
-  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null,
-  requireArmAim = false): Executor {
+export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch,
+  resolve: TargetResolver, { requireArmAim = false }: { readonly requireArmAim?: boolean } = {}): Executor {
   if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
   const technique = straightTechnique(body, guard, settings), motion = technique.state;
   technique.read(body.view);

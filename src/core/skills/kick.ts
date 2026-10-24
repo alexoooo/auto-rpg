@@ -12,7 +12,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
@@ -32,8 +32,8 @@ export function validKickTuning(tuning: KickTuning): boolean {
 }
 type Rotation = readonly [number, number, number, number];
 /** One named kick executor shares its support transfer and cooldown between its actions. */
-export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning = KICK_PATH,
-  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
+export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning,
+  resolve: TargetResolver): Executor {
   if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();

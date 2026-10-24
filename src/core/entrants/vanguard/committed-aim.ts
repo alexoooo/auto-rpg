@@ -56,7 +56,7 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       }
   };
   const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; state.releasedAt = null; state.freeReturn = false; };
-  const base = straightPunchExecutor(body, guard, actions, settings, follow, true);
+  const base = straightPunchExecutor(body, guard, actions, settings, follow, { requireArmAim: true });
   state.base = base.state;
   return {
     ...base, state,

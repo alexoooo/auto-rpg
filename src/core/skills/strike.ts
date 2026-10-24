@@ -14,7 +14,7 @@ import { wrap } from "../math/turn.ts";
 import type { Skill } from "./skill.ts";
 import { aimOf, closesToStrike, holdsAt, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
-import type { ActionAround, ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import type { ActionAround, ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 
 /**
@@ -575,7 +575,7 @@ interface RecipeActionSettings {
   readonly slack?: Slack;
   /** The arms' rest, the mind's guard's (`GuardSkill.posture`). */
   readonly guard: Pose;
-  readonly resolve?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
+  readonly resolve: TargetResolver;
 }
 
 /** A named recipe executor separates elapsed motion from pure per-instance command generation. */
@@ -584,7 +584,7 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
   const guard = settings.guard, steering = settings.steer ?? STEER, stand = settings.stand ?? STAND, slack = settings.slack ?? { along: 0, across: 0 };
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   const hands = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
-  const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);
+  const resolve = settings.resolve;
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";

@@ -20,7 +20,7 @@ import { supportReadiness, bearingSupport, STRIKE_SUPPORT } from "../control/sup
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Resource, TargetRef } from "./action.ts";
+import { pointTarget, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type Resource, type TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 
 /** Experimental execution limits, independent of anatomy: `docs/reference/punch-foundation.md#execution-limits`. */
@@ -87,8 +87,8 @@ export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnS
   const guard = guardSkill(body.built.spec);
   return {
     legs: locomotion(body.envelope, turnLimit, turnStartup), navigation: null, guard,
-    executors: [{ name: "paths", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap }) },
-      ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick) }] : [])],
+    executors: [{ name: "paths", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) },
+      ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick, pointTarget) }] : [])],
     actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),
       ...(kick ? [{ name: "kick", executor: "kicks", effectors: ["foot.left", "foot.right"] }] : [])],
     support: ground ? supportFold(body) : null,
@@ -109,19 +109,19 @@ interface PathAction {
 
 /** Shared path timing belongs to the named executor; its actions own their trajectory settings. */
 interface PathExecutorSettings extends PathStrikeSettings {
-  readonly resolve?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
-  readonly direction?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
+  readonly resolve: TargetResolver;
+  readonly direction?: TargetResolver;
 }
 
 /** Path and driven actions retain separate returning instances and generate only their own writes. */
-export function pathExecutor(body: Body, guard: Pose, actions: readonly PathAction[], settings: PathExecutorSettings = {}): Executor {
+export function pathExecutor(body: Body, guard: Pose, actions: readonly PathAction[], settings: PathExecutorSettings): Executor {
   const { execution, driven, overlap = false } = settings;
   const paths = settings.paths ?? ATTACK_PATH;
   const tuning = driven ? { ...paths, windup: driven.windup, torso: driven.torso, contactSpeed: driven.contact } : paths;
   if (!validAttackTuning(tuning) || execution && !validCombatExecution(execution) || driven && !validDrivenStrike(driven))
     throw new Error("invalid path executor settings");
   const spec = body.built.spec, guarding = guard;
-  const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);
+  const resolve = settings.resolve;
   const foundation = execution?.planted ? supportReadiness(body.built) : null;
   const bare = { left: closesToStrike(spec, "left"), right: closesToStrike(spec, "right") };
   const aims = { left: aimOf(spec, "left"), right: aimOf(spec, "right") };

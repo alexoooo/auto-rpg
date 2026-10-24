@@ -1,14 +1,13 @@
 import type { Body, BodyView } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { Executor, TargetRef } from "../skills/action.ts";
+import type { Executor, TargetRef, TargetResolver } from "../skills/action.ts";
 import type { Pose } from "../control/motor.ts";
 import type { ActionConfig } from "./config.ts";
 import type { PartField } from "./fields.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
 import type { Aimed } from "./action-aim.ts";
 import type { Aim, AimedBlow } from "./aim-part.ts";
-import type { Vec3 } from "../spec/quantity.ts";
 import type { ActionEstimates } from "./tactics-part.ts";
 
 /** An executor's config: its kind and the name a fighter's actions call it by. */
@@ -30,10 +29,10 @@ export interface ExecutorMaking {
 export type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector: string) => Aimed | null;
 
 /** The point `aim` aims at, or null: what an executor that drives at a point reads of it. */
-export const aimedPoint = (aim: ActionAimer) => (view: BodyView, target: TargetRef, action: string, effector: string): Vec3 | null => aim(view, target, action, effector)?.at ?? null;
+export const aimedPoint = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.at ?? null;
 
 /** The way `aim` drives at its point, or null for the executor's own. */
-export const aimedWay = (aim: ActionAimer) => (view: BodyView, target: TargetRef, action: string, effector: string): Vec3 | null => aim(view, target, action, effector)?.direction ?? null;
+export const aimedWay = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.direction ?? null;
 
 /** The keys every action holds, whatever its executor (`ActionConfig`), `lower` aside: an executor that honours it names it in its own. */
 export const ACTION_KEYS = Object.freeze(["name", "executor", "effectors", "regions", "aim"]);
