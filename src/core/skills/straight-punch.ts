@@ -324,9 +324,10 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
   return { kind: "ready" };
 }
 
-/** A straight-punch instance owns settling, its committed drive and its bounded guard return. */
+/** A straight-punch instance owns settling, its committed drive and its bounded guard return; `requireArmAim` checks the aim while the trunk leads the arm. */
 export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
-  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
+  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null,
+  requireArmAim = false): Executor {
   if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
   const technique = straightTechnique(body, guard, settings), motion = technique.state;
   technique.read(body.view);
@@ -376,6 +377,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (!request) live.withdrawn = true;
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
+      else if (requireArmAim && live.phase === "commit" && live.time < settings.lead && !at) release({ kind: "completed" });
       if (at && !live.withdrawn && live.phase !== "release") motion.target = [...at];
       live.time += dt;
       if (live.phase === "prepare") {
