@@ -628,6 +628,55 @@ the bout. Its exact source, fixture, configuration, physical row and saved-row c
 remain in `research/runs/vanguard/body-evade/`. The one-worker pilot takes 104.0 active wall
 seconds. This geometric sensing gap does not establish that broader evasion improves the fight.
 
+## Arm drive
+
+The unchanged Skeleton punch repeatedly reverses arm drives before first loaded contact.
+In the six-stroke open-left prefix at 7.63 m, wrist push reversals range from ten to thirty-seven
+per stroke before first contact or the drive's end; the shoulder and elbow drives reverse too.
+The 14.175 s prefix repeats pose digest `d24aef774da56f80`, so it is another reading of the
+[guarded strokes](#guarded-stroke-reading), not new independent evidence. The
+[drive reading](../../research/runs/vanguard/speed-drive/summary.json), `reading.json`,
+`reading-source.json` and `summary-source.json` retain the measured angles, rates, pushes,
+contacts and harness. Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched
+Skeletons, empty hands, default attributes, Balance 0/0, zero sense delay.
+
+Returning wrist alignment to the ordinary posture servo reduces fresh loaded-contact strokes
+from five of six to one of six, and non-guard target-body contact strokes from two to zero.
+Its six committed strokes finish by 16.4833 s. Removing wrist pushes makes their push-reversal
+count zero by construction; that does not establish steadier physical motion. The lost contact
+rejects this variant before a full bout. Exact source and the diagnostic remain in
+`research/runs/vanguard/servo-wrist/`.
+
+A finite-speed wrist drive instead closes its angle errors over 0.025 s, converting angle rates
+to joint-axis speeds through the body's own measured turning map. Muscle strengths and limits
+are unchanged. It loses the full open-left case by fatal injury at 98.8417 s without falling:
+own bar 0.4945 against 0.5484, with 59 committed punches. Its full-bout win gate rejects it;
+the four regression cases remain unplayed. The exact source, configuration, full physical row,
+paired reference key and saved-row comparison remain in `research/runs/vanguard/wrist-speed/`.
+The one-worker pilot takes 96.1 active wall seconds. Both prototypes pass typecheck.
+
+Applying the same 0.025 s finite-speed control to the shoulder, elbow and wrist still loses
+the full open-left case at the cap without falling: own bar 0.6117 against 0.6676. The narrower
+deficit does not pass its win gate, and the four regression cases remain unplayed. Exact source,
+configuration, full physical row and saved-row comparison remain in
+`research/runs/vanguard/arm-speed/`. The one-worker pilot takes 119.5 active wall seconds;
+typecheck passes. The trunk drive and all muscle strengths are unchanged.
+
+Both faster whole-arm intervals fail the same full limiting case without falling. Neither
+earns the four regression cases; all eight remain unplayed. The two-worker screen takes
+129.8 active wall seconds. Exact configurations, source, full rows and separate saved-row
+comparisons remain in `research/runs/vanguard/arm-rate/`.
+
+| Closing interval | Result | Own / opponent bar |
+| --- | --- | --- |
+| 0.005 s | Fatal-injury loss at 102.9083 s | 0.4996 / 0.6050 |
+| 0.010 s | Time-limit loss | 0.6855 / 0.7210 |
+
+The saved-record comparisons contain no complete matched mirrored unit for these single-side
+pilots. Their narrower deficits are descriptive development evidence. No finite-speed variant
+is selected, and all motor prototypes are removed. Repeated arm-drive reversals do not by
+themselves establish the cause of the failed matchup.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
