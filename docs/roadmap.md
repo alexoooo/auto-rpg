@@ -50,7 +50,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    cases across both levels and sides, all at the bell without falls ([record](reference/vanguard.md#warrior-body-screen)). Per-hand contact selection improves its retained Skeleton
    development panel from one to two of four Options wins, but its sixth fresh campaign loses
    all three completed cases without falls ([record](reference/vanguard.md#contact-selection-campaign)). Standing misses have a physical return gate;
-   stability around a collapsing opponent remains unresolved ([record](reference/vanguard.md#absorbed-contact-scores)). Its explicit presets
+   a physical torso-cover prototype wins both sides of a court case without falls but loses a retained
+   winner ([record](reference/vanguard.md#collapse-clearance)). Its explicit presets
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
    visible in Arena and Lab. The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**

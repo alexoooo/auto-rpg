@@ -894,6 +894,66 @@ probes, full rows, replay and saved-row comparisons remain in `research/runs/van
 unit, a descriptive change from zero to one win in two; the single-side ablations have none.
 The rejected implementations are removed.
 
+## Collapse clearance
+
+Physical torso cover prevents the measured right-court collapse fall and preserves the opposite
+court win, but the combined candidate loses a selected court winner. It is not selected. Recent
+contact weighting does not recover that winner; the selected runtime remains
+`sha256:a4f7664de866ef7ce15fff93549fab86be54a3ed322d41034c57652d6bc4e3d6`.
+
+The warning observes a naturally upright opponent's head descending faster than 0.2 m/s below
+its nominal standing chest height, over the body's local support. On the absorbed-score right
+court at 6.93 m, it precedes the 28.6333 s fall by 1.7 s. The passive replay preserves the exact
+physical blow prefix and digest `e75d3a875cd15f0c`; this is a diagnostic, not another bout.
+
+Clearance withdraws preparation through native return and preserves committed and returning
+action identities. It holds its heading and standing height, checks the configured navigator
+before the opponent-foot sweep, and requests at most 0.5 m/s while retaining stricter upstream
+and ordered pace. Settled release requires two grounded quiet feet and a quiet or upright
+opponent. Separating it from low guard avoids inheriting the latter's 0.2 m/s turning cap.
+The velocity-shaped variant chooses a straight escape by closest predicted approach over two
+seconds. Torso cover uses the existing guard to put free hands between the sensed falling torso
+and the body's chest; the action compositor retains each live stroke's ownership. No strength,
+assistance, physics or wound rule changes.
+
+| Right court, 6.93 m / controller | Ending | Own / opponent bar | First candidate fall |
+| --- | --- | --- | --- |
+| Two-second clearance | Time-limit win | 0.8766 / 0.8764 | 29.0333 s |
+| Clearance until settled | Time-limit win | 0.8766 / 0.8764 | 29.0333 s |
+| Clearance exclusive of low-target turning | Time-limit loss | 0.8718 / 0.8733 | 29.5500 s |
+| Velocity-shaped escape | Time-limit loss | 0.8729 / 0.8740 | 29.6583 s |
+| Escape with physical torso cover | Time-limit win | 0.8877 / 0.8707 | None |
+
+Replacing the deadline leaves the first fall unchanged. Its exact saved-prefix replay has digest
+`494d367b8972df41`. Separation begins at 27.2333 s; the opponent closes from about 0.8 m to
+0.4 m while low-target turning limits the requested walk to 0.2 m/s. Removing that competing
+mode delays the fall without preventing it. Neither walking-only change passes its physical gate.
+
+The cover screen completes three cases: both court sides at 6.93 m win without falls, while the
+selected left court winner at 5.92 m loses, 0.6478 against 0.6643, also without falls. That loss
+rejects the declared preservation gate. Both open cases are interrupted, not results. All wins
+are health leads at the ordinary 120 s cap; none is an injury win. The saved-row comparison has
+one complete mirrored unit, descriptively improving from zero to two wins, and an unmatched
+single-side regression. It is development evidence, not qualification.
+
+In the losing 5.92 m case, exact same-time, hand and struck-segment joins attribute 52 impacts to
+committed strokes and exclude 287 unmatched hand impacts. The right hand deals more accepted
+injury per attempted second in the first 30 s, the left afterward; no joined hand injury reverses
+that ranking. Injury is harness-only evidence. Weighting recent completed attempts halves each
+choice's preceding estimated work and time while retaining true exploration counts. That pilot
+still loses the left court at the cap, 0.6416 against 0.6629 without falls; its other four cases
+are unplayed. The recency candidate is rejected.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay. The timed, settled, exclusive,
+velocity-shaped, cover and recency cohorts take respectively 70.1, 69.5, 66.7, 77.9, 234.5 and
+134.4 active pool wall seconds, each below its nine-minute cutoff. Recipes, exact sources,
+contract probes, physical rows and saved-row comparisons remain in
+`research/runs/vanguard/collapse-read/`, `collapse-yield/`, `settled-collapse/`,
+`exclusive-collapse/`, `trajectory-clearance/`, `collapse-cover/` and `recent-contacts/`.
+Typecheck and the detached composition, ownership and complete-state replay probes pass; the
+source changes stay within Vanguard. The rejected implementations are removed.
+
 ## Standing miss return
 
 The standing punch regains its physical guard and planted stance after an unloaded miss with
