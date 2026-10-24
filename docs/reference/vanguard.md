@@ -9,7 +9,8 @@ the selected development configurations for the Warrior, Rogue and Skeleton. Con
 fails its sixth fresh campaign with three losses in three completed cases. All five preceding
 qualification campaigns fail too. A separate [Warrior body screen](#warrior-body-screen) wins
 its four frozen fresh Options cases without falls; all four are health leads at the cap, not
-injury wins. Equipment is unqualified.
+injury wins. A seventh [torso-cover challenger](#torso-cover-challenger) campaign is incomplete
+after one fatal loss and a price cut. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1067,6 +1068,41 @@ contract probes, physical rows and saved-row comparisons remain in
 `exclusive-collapse/`, `trajectory-clearance/`, `collapse-cover/` and `recent-contacts/`.
 Typecheck and the detached composition, ownership and complete-state replay probes pass; the
 source changes stay within Vanguard. The rejected implementations are removed.
+
+## Torso-cover challenger
+
+Fresh qualification of the absorbed-contact and torso-cover challenger remains undecided.
+The three-worker pool is cut on price after one fatal-injury loss; two cases are interrupted
+and nine unplayed. This is an incomplete matrix, not a seventh failed qualification gate or
+a reason to select the challenger. Its older 5.92 m court preservation failure remains recorded.
+The selected presets are unchanged and the prototype source is removed.
+
+The three body configurations freeze before fresh starts are generated. The Warrior and Rogue
+retain their selected configurations; the Skeleton enables absorbed contact scoring and physical
+torso-cover clearance. Current equipment integration remains present. Source is
+`sha256:ed74799e002c8174d13e24cb004c4ce97a6e793f7fc0f733451fb46ef5c3d953`.
+Before fresh generation, the right court bout at 6.93 m repeats the archived prototype's full
+digest `9f724d9c02e478c0`, verdict, bars and falls exactly. That replay is not an independent win.
+
+Protocol `vanguard-unarmed-heldout-7` schedules twelve mirrored bouts against Options: the
+Warrior, Rogue and Skeleton on both levels. Ten wins and complete valid mirrored coverage are
+required; three nonwins reject. Starts use the protocol/model/level hash rule, excluding 52 prior
+geometries without consulting outcomes. All twelve recipes build valid worlds without stepping.
+
+| Completed case | Ending | Own / opponent bar | Candidate falls |
+| --- | --- | --- | ---: |
+| Skeleton / left court / 5.62 m | Fatal-injury loss, 96.8333 s | 0.4552 / 0.7287 | 0 |
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched bodies, empty hands,
+default attributes, Balance 0/0 and zero sense delay, falls continuing to injury or 120 s.
+After the first nonwin, the remaining pool projects about fourteen minutes. The declared price
+cut stops it at 116.1 active wall seconds, below its nine-minute hard limit. There are no invalid
+cases. Eleven unfinished cases are not losses, and the completed subset estimates no field rate.
+
+Typecheck, the full 116-test gate, five-file entrant scope and the composed clearance/low-guard
+probe pass. The selected runtime is restored exactly. Frozen fighters, fresh starts, full source,
+the identity replay, checks, one complete physical row and all unfinished statuses remain with
+[the campaign](../../research/runs/vanguard/challenger-7/campaign-options.json).
 
 ## Net contact selection
 

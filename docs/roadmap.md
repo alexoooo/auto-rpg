@@ -55,6 +55,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
    visible in Arena and Lab. Equipment actions use held-item recipes and blade cuts and thrusts;
    equipment win rates remain unqualified ([path](reference/vanguard.md#equipment-path)).
+   A fresh torso-cover challenger matrix stops on price after one fatal loss, with eleven cases
+   unfinished; the selected presets remain unchanged ([record](reference/vanguard.md#torso-cover-challenger)).
    The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
@@ -225,7 +227,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
   empty-handed first, then equipped, on held-out cases. Six fresh unarmed campaigns fail; the
   Skeleton's selected contact planner has a development gain but loses all three fresh cases played
-  ([record](reference/vanguard.md#contact-selection-campaign), [plan](plans/2026-10-21-vanguard.md)).
+  ([record](reference/vanguard.md#contact-selection-campaign)); a seventh challenger matrix is
+  incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger), [plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read
