@@ -3,24 +3,28 @@ import type { Body, BodyView } from "../../body.ts";
 import type { Pose } from "../../control/motor.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
-import type { ActionRequest, Executor, TargetRef } from "../../skills/action.ts";
-import { straightPunchExecutor, type StraightPunch } from "../../skills/straight-punch.ts";
+import type { ActionRequest, Executor, TargetResolver } from "../../skills/action.ts";
+import { straightPunchExecutor } from "../../skills/straight-punch.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { nearSurface } from "../../mind/openings.ts";
+import { lowAim } from "./low-guard.ts";
+import type { VanguardPunchConfig } from "./punch-part.ts";
 
-type Resolve = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 interface Anchor { body: string; segment: string; local: Vec3 }
 /** Predict the chosen surface point 0.12 s ahead, in addition to the age of its sensed frame. */
 const LEAD = .12;
 
-/** A punch follows one sensed point, checking its aim before the arm drive and optionally refreshing it while preparing. */
-export function committedAim(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false, overlapReturn = false, returnHold = 0): Executor {
+/** A punch follows one sensed point, checking its aim before the arm drive; what else it does, `config` says (`VanguardPunchConfig`). */
+export function committedAim(body: Body, guard: Pose, actions: readonly string[], config: VanguardPunchConfig, given: TargetResolver): Executor {
+  const { kind: _, name: __, low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = config;
+  // Against a low foe, the highest surface of the target region.
+  const resolve: TargetResolver = low ? (view, target, action, effector) => lowAim(view, target) ?? given(view, target, action, effector) : given;
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,
     releasedAt: null as number | null, freeReturn: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
-  const follow: Resolve = (view, target, action, effector) => {
+  const follow: TargetResolver = (view, target, action, effector) => {
     const anchor = state.anchor;
     if (!anchor || target.kind !== "body" || target.body !== anchor.body) return resolve(view, target, action, effector);
     const foe = sensedActionTarget(view, target), segment = foe?.segments.get(anchor.segment);
@@ -58,8 +62,11 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
   const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; state.releasedAt = null; state.freeReturn = false; };
   const base = straightPunchExecutor(body, guard, actions, settings, follow, { requireArmAim: true });
   state.base = base.state;
+  // Only at a low foe, when it says so: any other target is blocked.
+  const readiness: Executor["readiness"] = !lowOnly ? base.readiness : (view, action, effector, target, around) =>
+    lowAim(view, target) ? base.readiness(view, action, effector, target, around) : { kind: "blocked", reason: "action needs a low opponent" };
   return {
-    ...base, state,
+    ...base, state, readiness,
     resume(view) { base.resume(view); clear(); },
     interrupt(view, id) { base.interrupt?.(view, id); if (state.id === id) clear(); },
     start(view, request, around) {
@@ -92,7 +99,7 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       if (state.freeReturn) return {};
       const ordinary = base.command(view, id, around);
       // A low punch keeps the planted fold while it owns the trunk and legs.
-      const claim = lowSupport && ordinary.lower !== undefined && ordinary.lower > STANCE_LOWER
+      const claim = low && ordinary.lower !== undefined && ordinary.lower > STANCE_LOWER
         ? { ...ordinary, support: ordinary.lower, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
       // The continuous guard brings the fist back and can cover with it during recovery.
       return state.returning ? { ...claim, posture: Object.fromEntries(Object.entries(claim.posture ?? {}).filter(([name]) => !arms.has(name))), handPoses: {} } : claim;

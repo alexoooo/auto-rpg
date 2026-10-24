@@ -4,7 +4,6 @@ import { fitsAll, fitsWhen, strikesWithOneOf } from "../../mind/parts.ts";
 import { STRAIGHT_PUNCH, straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
 import { holdsNothing } from "../../skills/strikes.ts";
 import { committedAim } from "./committed-aim.ts";
-import { lowAim } from "./low-guard.ts";
 
 /**
  * **Vanguard's punch** (`committedAim`): the straight punch, its settings these, thrown at one
@@ -54,14 +53,5 @@ export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   faults, effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing, as the straight punch's.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make({ body, guard, aim }, config, actions) {
-    const resolve = aimedPoint(aim);
-    const { kind: _, name: __, low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = config;
-    const executor = committedAim(body, guard, actions.map(action => action.name), settings,
-      low ? (view, target, action, effector) => lowAim(view, target) ?? resolve(view, target, action, effector) : resolve,
-      low, predict, anchorAtDrive, overlapReturn, returnHold);
-    return lowOnly ? { ...executor, readiness(view, action, effector, target, around) {
-      return lowAim(view, target) ? executor.readiness(view, action, effector, target, around) : { kind: "blocked" as const, reason: "action needs a low opponent" };
-    } } : executor;
-  },
+  make: ({ body, guard, aim }, config, actions) => committedAim(body, guard, actions.map(action => action.name), config, aimedPoint(aim)),
 };
