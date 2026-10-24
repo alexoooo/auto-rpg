@@ -647,6 +647,52 @@ motion readings, physical rows and saved-row comparisons remain with the
 [combined record](../../research/runs/vanguard/withdraw-arms/summary.json).
 The selected runtime is restored exactly.
 
+## Counter-window reading
+
+The sensed returning-hand window does not earn a counter-gate trial. In the retained Skeleton
+left-court winner at 5.92 m, it contains one accepted torso-hit attempt in fourteen admissions,
+against two in thirty outside it. These small fractions provide no clear timing separation,
+and the declared minimum of two torso-hit attempts in the window is unmet. No controller
+change follows this diagnostic.
+
+The window requires either opponent hand to extend more than 0.35 m toward the body from its
+upper trunk while retracting faster than 0.25 m/s relative to the trunk's rigid-point motion.
+Features are copied from granted senses at admission and commitment. Accepted injury is joined
+from the harness afterward; it never enters the fighter. The screen stops at 32 ended committed
+strokes, with at least eight admissions in each class: 56.1833 simulated seconds and 61.9 active
+wall seconds. Its blow and action prefix exactly matches the retained bout, with pose digest
+`e1d11339f9650da6`. It is a passive reading, not another independent result.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay. Source is
+`sha256:002cac7c7fe30ccf8eec941ce515e4e022f5b01b9674042c3158f0e6d30220fd`.
+The [reading](../../research/runs/vanguard/counter-window/reading.json), exact recipe, fixed decision
+rule and observer source remain in `research/runs/vanguard/counter-window/`.
+
+## Two-hand ward
+
+Separately warding both opponent hands loses the limiting Skeleton open-left bout at 7.63 m
+by fatal injury at 60.3 s, without falling. Own and opponent bars are 0.4969 and 0.7393. The
+selected baseline loses at the ordinary 120 s cap, 0.5712 against 0.8930. The prototype fails
+its win gate; its other four geometries are unplayed and the implementation is removed.
+
+With both bare hands free, two unchanged threat readers each see one opponent hand through
+detached filtered views. Lateral position assigns the two covers to the body's left and right
+hand. A live or newly starting stroke keeps the ordinary ward; equipment and low support keep
+their guards. The shared guard skill produces distinct point goals through the normal muscle
+controller. The separate-cover path runs in 50.5% of the pilot's solver intervals. This verifies
+that it executes, not that either hand reaches every moving cover.
+
+Harness: the same Node Arena Duel conditions above, on the open stage at 7.63 m. Prototype source
+is `sha256:9e4b54b69c5b1212b2f738be149fc4d0d71aa25fc9995d91f23c8c19f00ee9e7`;
+the selected baseline row is reused at the preceding source. The one-worker pilot takes 59.5
+active wall seconds, below its nine-minute cutoff. Typecheck, entrant-only scope, detached
+physical-goal, ownership, immutable-senses, low-support, equipment and complete-state fork probes
+pass. The [record](../../research/runs/vanguard/dual-ward/summary.json), exact sources, configuration,
+physical row and saved-row comparison remain in `research/runs/vanguard/dual-ward/`.
+There is no complete mirrored comparison unit and no qualification claim. The selected runtime
+is restored exactly.
+
 ## Joint timing and cover
 
 Twelve frozen configurations jointly vary standing-punch timing and geometry, cover, contact
