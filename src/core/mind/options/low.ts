@@ -25,7 +25,7 @@ const FOLD_FALLS = .05;
 export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): StandingOption {
   // Its walks are kept clear by the body's navigator (`Sight.clearance`), read at each step.
   let clearance: Clearance | null = null;
-  const ground = groundPosition(spec, (view, heading, move) => clearance!.keepClear(view, heading, move), {}, true);
+  const ground = groundPosition(spec, (view, heading, move) => clearance!.keepClear(view, heading, move));
   const state = { ground: ground.state, hand: "right" as Side, id: null as number | null };
   const placing = (): boolean => ground.state.near.active || ground.state.wide.active;
   const low = (now: Situation): boolean => !now.down && !!now.focus && (lowOpponent(now.sight.view, now.focus) || placing());
