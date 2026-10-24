@@ -14,7 +14,6 @@ import type { Clock } from "../clock.ts";
 import { ATTACK_PATH } from "./attack-path.ts";
 import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
-import type { BlowAttack } from "../mind/intent.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 import type { ReadSegment } from "../read-body.ts";
@@ -277,7 +276,7 @@ function wholeBodyTechnique(body: Body, clock: Clock, guard: Pose, drive: WholeB
       if (state.phase !== null) state.interrupted++;
       state.phase = null; state.hand = null; state.touched = null; state.still = 0;
   };
-  const begin = (view: BodyView, attack: BlowAttack, preparing = false) => {
+  const begin = (view: BodyView, attack: { readonly hand: Side; readonly target: Vec3 }, preparing = false) => {
       const t = view.time;
         const hand = attack.hand, p = fist(hand), home: Vec3 = [p.x, p.y, p.z];
         // The way the body faces, level: its root's forward.
@@ -359,7 +358,7 @@ export function wholeBodyExecutor(body: Body, clock: Clock, guard: Pose, actions
       const hand = sideOf(request.effector), target = resolve(view, request.target, request.action, request.effector);
       if (!target) throw new Error("whole-body target has no aim");
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", elapsed: 0, withdrawn: false, ending: { kind: "completed" } };
-      technique.begin(view, { kind: "blow", hand, target }, true);
+      technique.begin(view, { hand, target }, true);
       state.pushes = technique.command(view.time, hand);
     },
     update(view, continued, _around, dt) {

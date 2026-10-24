@@ -3,7 +3,7 @@ import type { Ended, TargetRef } from "../skills/action.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Aimed } from "./action-aim.ts";
-import type { BlowFamily } from "./intent.ts";
+import type { BlowFamily } from "../skills/attack-path.ts";
 import type { Part, PartConfig } from "./parts.ts";
 
 /** **An action's aim, made**: where `effector` aims at `target` this step, or null; `ledger` is the body's ended actions. */

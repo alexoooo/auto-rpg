@@ -2,7 +2,7 @@ import { strikesWithOneOf } from "../mind/parts.ts";
 import type { ActionConfig } from "../mind/config.ts";
 import { choice, number, optionalNumber, text, toggle, type PartField } from "../mind/fields.ts";
 import { aimedWay, aimedPoint, type ExecutorPart } from "../mind/executor-part.ts";
-import { validArmExtension, type BlowFamily } from "../mind/intent.ts";
+import { validArmExtension, type BlowFamily } from "./attack-path.ts";
 import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { DRIVEN_STRIKE, pathExecutor, validCombatExecution, validDrivenStrike, type CombatExecution, type DrivenStrike } from "./combat.ts";
 import { strikesWithBlunt } from "./strikes.ts";

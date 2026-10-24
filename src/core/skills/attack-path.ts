@@ -1,7 +1,14 @@
 import { hypot } from "../math/real.ts";
-import { validArmExtension, type BlowFamily } from "../mind/intent.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Side } from "../spec/body.ts";
+
+/** A blow's path by its shape: each is an action of the path strike (`pathExecutor`, `combat.ts`). */
+export type BlowFamily = "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
+
+/** An arm-extension preference is finite and in [0, 1]; omitted inherits the executor's (`docs/reference/combat-arm-style.md`). */
+export function validArmExtension(extension = 0): boolean {
+  return Number.isFinite(extension) && extension >= 0 && extension <= 1;
+}
 
 /** Experimental trajectory search cells and physical gates: `docs/reference/combat-strikes.md#trajectory-settings`. */
 export const ATTACK_PATH = Object.freeze({ chamberSeconds: .22, swingSeconds: .12, returnSeconds: .32,

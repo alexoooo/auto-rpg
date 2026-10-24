@@ -53,6 +53,9 @@ const ROUTINE_TRACK: readonly Piece[] = [
  */
 const POST_BEYOND = 0.45;
 
+/** How far beyond its first blow's reach the walk hands the body to the attack's approach, m: about a second at the entry's pace (`APPROACH`). */
+const CLOSING = 0.3;
+
 /**
  * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
  * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Locomotion scenario takes the same half-turns
@@ -94,7 +97,7 @@ interface RoutineTactics extends Tactics {
  * **The Routine's tactics**: round `track` as the Locomotion scenario goes (`trackTactics`), and at its targets,
  * the hands of `hands` that have a blow attack them in turn, a target each. They hand their walk
  * to the attack once the first target is within the hand's reach (`rangeOf`) and the
- * distance the strike skill closes at its own fastest (`APPROACH`'s pace over its seconds); they
+ * approach's own distance (`CLOSING`); they
  * stand in guard from the end of a strike's pushes until the instrument closes its target's
  * reading (`done`), and take the walk back after the last; with no blow in either hand, or no
  * target, they walk out and back.
@@ -105,7 +108,6 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[], 
   const producer = actionProducer();
   const state = { producer: producer.state, finished: false };
   let targets: readonly Target[] | null = null;
-  const closing = APPROACH.pace * APPROACH.seconds;
   const handOf = (index: number): Side | null => hands.length > 0 ? hands[index % hands.length]! : null;
   return {
     name: "routine", state,
@@ -129,7 +131,7 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[], 
       if (leg === "out") {
         // It walks out to where its first blow reaches its first target; with none to throw, to the targets' place.
         const reach = hand ? rangeOf(spec, hand, 0, options?.repertoire, options?.placed).reach : 0;
-        if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + closing) { leg = "post"; state.finished = false; }
+        if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + CLOSING) { leg = "post"; state.finished = false; }
       }
       if (leg === "post" && (!hand || next >= targets.length)) leg = "back";
       // Out, it faces its first target: the straight's own line, and not the turn beyond it the walk would face.

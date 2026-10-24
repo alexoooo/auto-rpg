@@ -389,7 +389,7 @@ the body ordered at its head or upper trunk from 2, 2.5 and 3 m; 72 bouts, nobod
   Warrior's at a Rogue's head).
 - **A height at a window's edge reads either side of it**: a standing head sways 7 mm from stand
   to stand. The skill chooses a blow by the head as it stands once for a point attacked
-  (`strikeSkill`); choosing at every stand, it threw neither.
+  (`strikeSkill`, `src/core/skills/strike.ts@aa0f76d7`); choosing at every stand, it threw neither.
 - **Two windows that overlap in height keep the blow chosen**: the skill keeps a recipe at a
   stand while its window holds the target's height (`holdsAt`). Choosing again, the Warrior at a
   skeleton's head walked between its two club blows' places and never chambered; holding, it

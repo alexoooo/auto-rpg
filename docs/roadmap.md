@@ -54,9 +54,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
 
-1. **Now:** Options step 1, the strikes in the shape; then Drills steps 1 to 4: the Drills
-   scenario, the moving target, the first question (does any punch hit something that moves) and
-   Footwork's first rungs, with Options step 2 before Footwork.
+1. **Now:** Drills steps 1 to 4: the Drills scenario, the moving target, the first question (does
+   any punch hit something that moves) and Footwork's first rungs, with Options step 2 (the legs'
+   skills and the intent) before Footwork.
 2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
    the back, on the side, hands and knees, kneeling, standing); its edges are skills, slow ones
    that hand over at rest and fast ones that carry momentum (a sit-up tucking onto the feet,

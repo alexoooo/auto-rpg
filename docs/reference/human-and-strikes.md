@@ -40,11 +40,16 @@ searched from.
 
 ## Approach
 
-`APPROACH` is `{ pace: 0.3, seconds: 1, reach: 0.25 }`. `pace` (m/s) is the Routine's pace
-through its turns, which each human held. `seconds` and `reach` are set: the walk asked is the
-distance left over one second, and the feet are set (`Locomotion.place`) once the centre of mass
-is within 0.25 m of the place. The tactics hold an attack's point until the point ordered moves
-by the same reach (`recipeTactics`, `src/core/mind/recipe-tactics.ts@cee7aae2`).
+`APPROACH` is `{ pace: 0.3, reach: 0.25 }`. `pace` (m/s) is the Routine's pace through its
+turns, which each human held: a recipe is admitted with the body moving no faster
+(`recipeExecutor`'s entry window), the tactics having brought it there, and its preparation then
+sets the feet at the blow's place (`Locomotion.place`). `reach` is set: a placed blow is thrown
+from within 0.25 m of its place each way.
+
+The figures below were read with the walking strike skill, which closed the distance itself at the
+error left over one second and set the feet within 0.25 m of the place (`strikeSkill`,
+`src/core/skills/strike.ts@aa0f76d7`); the tactics held an attack's point until the point ordered
+moved by the same reach (`recipeTactics`, `src/core/mind/recipe-tactics.ts@cee7aae2`).
 
 The feet are set because a walk alone does not stand a body where it stops: stopped, the stance
 steps a foot out from the gait's 20 cm to the 39 cm it was built at, moving the body some 10 cm
@@ -141,7 +146,8 @@ Not kept (Node core stand, 120 and 480 Hz):
 `ATTACK_METRES` is 1.8 m between the two centres of mass across the ground: nearer, a fighter
 attacks; further, it walks at its foe. Set. The Warrior's club blows are thrown with their target
 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe.place`), and the strike skill
-closes the rest itself (`APPROACH`), so 1.8 m is a blow's distance and about a step.
+of then closed the rest itself (`strikeSkill`, `src/core/skills/strike.ts@aa0f76d7`), so 1.8 m is
+a blow's distance and about a step.
 
 ## The edge
 

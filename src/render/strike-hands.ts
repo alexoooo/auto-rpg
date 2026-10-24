@@ -7,12 +7,12 @@ import { handPose, type HandAction } from "./hand-pose.ts";
 
 type Strike = Pick<StrikeReport, "hand" | "phase">;
 
-/** A skill's phase as finger presentation; approach and guard leave empty hands relaxed. */
+/** A skill's phase as finger presentation; settling, returning and the guard leave empty hands relaxed. */
 function actionOf(phase: Strike["phase"]): HandAction {
   switch (phase) {
     case "chamber": return "close";
     case "swing": return "fist";
-    case "approach": case "place": case "return": case "settle": case null: return "relax";
+    case "return": case "settle": case null: return "relax";
     default: { const never: never = phase; throw new Error(`unknown strike phase ${never}`); }
   }
 }

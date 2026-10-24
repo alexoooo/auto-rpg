@@ -15,12 +15,11 @@ import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
 
 /**
- * **A straight punch's settings.** The body walks at `pace` m/s at most (and `LEAST_PACE` at
- * least) to stand, facing the
- * target, with it `reach` of the arm's straight length (shoulder to knuckles) from the punching
- * shoulder, no more than `band` m further across the ground and no nearer than `CROWDED` (a foe
- * come nearer it backs out from at its full pace), for `settle` s with both feet bearing (no
- * foot swinging in a step), its fist set on the
+ * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
+ * m/s, facing the target, with it `reach` of the arm's straight length (shoulder to knuckles)
+ * from the punching shoulder, no more than `band` m further across the ground and no nearer than
+ * `CROWDED` (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
+ * both feet bearing (no foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
  * chest by `turn` rad and the trunk leans `lean` rad, and `lead` s later the arm is driven at its
@@ -113,8 +112,8 @@ interface Limb {
   readonly angles: number[][];
 }
 
-/** Where a straight punch is: walking to its stand-off, standing there, driven, or coming back. */
-type Phase = "approach" | "settle" | "swing" | "return";
+/** Where a straight punch is: standing at its stand-off, driven, or coming back. */
+type Phase = "settle" | "swing" | "return";
 
 /** How far nearer than its stand-off a foe may come before the punch backs out from it, m. */
 const CROWDED = 0.05;
@@ -129,10 +128,8 @@ const SHIFTING_PACE = 0.25;
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
 /**
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
- * that meets its target with the arm's mass behind it rather than an elbow giving way. Given an
- * attack, it walks the body to where the target stands `reach` from the head, facing it, closing
- * the error over `APPROACH.seconds` but no slower than `LEAST_PACE` (backing out at its full pace
- * from a foe come too near), and
+ * that meets its target with the arm's mass behind it rather than an elbow giving way. Admitted
+ * with the target `reach` from the head, facing it (`punchReadiness`), it
  * stands there `settle` s with both feet bearing, its fist on the line (its chamber): a stance
  * shifting its weight for a step still bears on both, and so counts while the body moves no
  * faster than `SHIFTING_PACE`, since waiting for the step to land would cost it a quarter of its
@@ -144,7 +141,7 @@ const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
  * on the line where the reach leaves them free. Each channel is pushed flat out toward its goal
  * and held once near it (`StraightPunch.brake`). After the drive it brings the arm back to the
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
- * end. It has the legs from its approach to its return, and the hand is closed throughout.
+ * end. It has the legs from its stand to its return, and the hand is closed throughout.
  */
 export function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
   const built = body.built, spec = built.spec, sense = { left: turnSense("left"), right: turnSense("right") };

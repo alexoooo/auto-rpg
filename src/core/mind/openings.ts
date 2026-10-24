@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
 import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { BlowFamily } from "./intent.ts";
+import type { BlowFamily } from "../skills/attack-path.ts";
 import { aimOf } from "../skills/strikes.ts";
 import { placedReach } from "../skills/strike.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";

@@ -1,5 +1,4 @@
 import type { ActionRequest } from "../skills/action.ts";
-import type { Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
 
@@ -56,47 +55,5 @@ export interface Cover {
 /** No hand covers anything: each holds the guard's pose. */
 export const NO_COVER: Intent["guard"] = Object.freeze({});
 
-/**
- * **An attack**, by what it is made with: a blow of a hand or a kick of a foot, at a point (world,
- * m). `targetId` names what is attacked, by the identity its contact reports
- * (`contactResponse`): only its touch may admit the blow's bounded follow-through. The skills carry
- * it out, and refuse a kind they do not: a blow with no `path` is the recipe skill's, which chooses
- * the blow for what the hand holds and brings the body to its range (`src/core/skills/strike.ts`);
- * one with a path is the path strike's (`pathStrike`), and a kick is the kick skill's.
- */
-export type Attack = BlowAttack | KickAttack;
-
-export interface BlowAttack {
-  readonly kind: "blow";
-  readonly hand: Side;
-  readonly target: Vec3;
-  readonly targetId?: string;
-  readonly path?: BlowPath;
-}
-
-/** The path a blow takes: its family, and optionally its world direction at contact and its arm's style. */
-interface BlowPath {
-  readonly family: BlowFamily;
-  /** World direction at contact; the path skill applies its measured speed. */
-  readonly direction?: Vec3;
-  /** Arm-extension style in [0,1]; the path skill bounds it to the body: `docs/reference/combat-arm-style.md`. */
-  readonly armExtension?: number;
-}
-
-export type BlowFamily = "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
-
-/** A named foot and an observed world point; no joint or engine prescription. */
-interface KickAttack {
-  readonly kind: "kick";
-  readonly foot: Side;
-  readonly target: Vec3;
-  readonly targetId?: string;
-}
-
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
-
-/** The optional arm style is finite and bounded; omitted inherits the executor preference. */
-export function validArmExtension(extension = 0): boolean {
-  return Number.isFinite(extension) && extension >= 0 && extension <= 1;
-}
