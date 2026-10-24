@@ -773,17 +773,18 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`npm run evaluate -- rising-target`, at `14ccd6d1` with the Rogue's roll over its left side,
-[the roll](#the-roll)):
+`npm run evaluate -- rising-target`, at `0d5300fe` with the Rogue's roll over its left side,
+[the roll](#the-roll), and a retry after a failed attempt rolling over the other side):
 
 | Body | Loadout | Stood, of 16 | Median, s |
 |---|---|---:|---:|
-| Warrior | empty | 14 | 12.7 |
+| Warrior | empty | 15 | 12.7 |
 | Warrior | club | 16 | 12.5 |
 | Rogue | empty | 13 | 15.5 |
 | Rogue | club | 9 | 20.7 |
 
-52 of 64; none within 6 s, and the 4 s median is not met (15.1 s).
+53 of 64; none within 6 s, and the 4 s median is not met (15.1 s). Without the other side's retry
+it stood 52.
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
   and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the
