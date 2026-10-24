@@ -47,7 +47,7 @@ const STILL = deepFreeze({
   across: [0, .2],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: .5, patience: 1, seconds: 5, settle: .5,
+  settled: .5, patience: 2, seconds: 5, settle: .5,
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
