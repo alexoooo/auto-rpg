@@ -144,7 +144,7 @@ const norm = (a) => Math.sqrt(dot(a, a));
 
 /** One run: `config` on `kase`. Its readings over the hold, and the summary. */
 function run(kase, config) {
-  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", true, false);
+  const physics = createRapierPhysics(R, { hz: config.hz, gravity: true }, "man-toe-solver", { coordinateAngularLimits: true });
   const raw = physics.raw;
   raw.numSolverIterations *= config.iterations;
   addArenaSolids(physics);

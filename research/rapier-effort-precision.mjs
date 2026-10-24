@@ -20,8 +20,8 @@ const entry = resolve(directory, manifest.module), R = (await import(pathToFileU
 await R.init();
 Logger.LogLevels = Logger.ErrorLogLevel;
 const reference = { name: "rapier-coordinate-coulomb", revision: manifest.version,
-  createPhysics: (options) => createRapierPhysics(R, options, manifest.version, true, true) };
-const installed = await loadRapier(true, true);
+  createPhysics: (options) => createRapierPhysics(R, options, manifest.version, { coordinateAngularLimits: true, pointContactFriction: true }) };
+const installed = await loadRapier({ coordinateAngularLimits: true, pointContactFriction: true });
 console.log(JSON.stringify({ harness: "Node core World, 120 Hz, corrected limits, per-point friction, Warrior, empty hands, no assists",
   reference: manifest.version, referenceEntrySha256: createHash("sha256").update(await readFile(entry)).digest("hex"),
   installed: installed.revision, servoSeconds: .01, speed: 10, activation: 1,

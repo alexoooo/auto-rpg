@@ -161,7 +161,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   let skills;
   const actor = { body, world, drive(script) { return skills = driveFighter(body.driver, world, config, { ...wiring, script }); }, dispose() { body.dispose(); } };
   const stance = startStance(actor);
-  const observe = observeBody(built, body.muscles, world, clockSenses(world), undefined, () => body.view.down, true);
+  const observe = observeBody(built, body.muscles, world, clockSenses(world), { down: () => body.view.down, contactPatches: true });
   const root = built.segments.get('lowerTrunk');
   const states = { body: body.state, skills: skills.state, orders: stance.orders, experiment };
   const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, ...(comparison ? { comparison: true } : {}), recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,

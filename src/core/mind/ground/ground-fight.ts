@@ -21,7 +21,7 @@ export interface GroundFightConfig { readonly kind: "ground-fight"; readonly rea
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
 export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit, afterPhysics: Body["afterPhysics"]): SubMind {
-  const tracker = effectorTracker(own.built, rootSegment(own.built)), posture: Record<string, number> = {};
+  const tracker = effectorTracker(own.built, rootSegment(own.built), { fromActual: true, seedActual: true }), posture: Record<string, number> = {};
   const legs: Locomotion = { state: {}, heading: 0, stopping: 0,
     resume() {}, goal() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
@@ -58,7 +58,7 @@ export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config:
         const goal = command.effectors?.[effector.segment];
         if (goal) tracker.reach(effector.segment, goal); else tracker.release(effector.segment);
       }
-      const owned = tracker.step(own.muscles, command.posture, dt, true, true);
+      const owned = tracker.step(own.muscles, command.posture, dt);
       for (let i = 0; i < own.muscles.channels.length; i++) {
         const name = own.muscles.channels[i]!.name; posture[name] = (owned(i)?.[0] ?? command.posture[name] ?? 0) + own.muscles.channels[i]!.dof.spec.bind.value;
       }

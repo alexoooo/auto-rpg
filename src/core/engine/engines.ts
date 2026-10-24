@@ -9,10 +9,10 @@ import type { PhysicsEngine } from "./engine.ts";
 const ENGINES = {
   rapier: () => import("./rapier.ts").then((m) => m.loadRapier()),
   // Measured-angle limit rows; profile measurements are in docs/reference/joint-limits.md.
-  "rapier-coordinate": () => import("./rapier.ts").then((m) => m.loadRapier(true)),
+  "rapier-coordinate": () => import("./rapier.ts").then((m) => m.loadRapier({ coordinateAngularLimits: true })),
   // Per-point friction profiles are measured in docs/reference/contact-friction.md.
-  "rapier-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier(false, true)),
-  "rapier-coordinate-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier(true, true)),
+  "rapier-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier({ pointContactFriction: true })),
+  "rapier-coordinate-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier({ coordinateAngularLimits: true, pointContactFriction: true })),
 } as const satisfies Readonly<Record<string, () => Promise<PhysicsEngine>>>;
 
 export type EngineName = keyof typeof ENGINES;

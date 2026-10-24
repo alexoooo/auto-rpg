@@ -86,9 +86,20 @@ export function centreReading(built: ReadBody, name: string): { centre: Vector3;
 
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
 
+/**
+ * What an observation reads beside the body: the equipment granted to its controller
+ * (`equipment`), whether the body is down by its host's rule (`down`, else by its own
+ * uprightness), and each ground contact's patch (`contactPatches`).
+ */
+export interface ObserveOptions {
+  readonly equipment?: () => readonly EquipmentObservation[];
+  readonly down?: () => boolean;
+  readonly contactPatches?: boolean;
+}
+
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
 export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock, senses: () => Senses,
-  equipment?: () => readonly EquipmentObservation[], down?: () => boolean, contactPatches = false): () => BodyObservation {
+  { equipment, down, contactPatches = false }: ObserveOptions = {}): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));

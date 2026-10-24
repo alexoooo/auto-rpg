@@ -36,7 +36,7 @@ export function researchRise(own: OwnBody, view: BodyView, clock: Clock): SubMin
   const args = { channels, reference: entry.reference, parameters: entry.parameters };
   const policy = entry.kind === "library" ? libraryPolicy(args) : pathPolicy(args);
   const initial = saveState(policy.state);
-  const observe = observeBody(own.built, own.muscles, clock, () => view.senses, undefined, () => view.down, true);
+  const observe = observeBody(own.built, own.muscles, clock, () => view.senses, { down: () => view.down, contactPatches: true });
   const measure = recoveryMeasurement(own.built, observe), zero = new Vector3();
   const state = { policy: policy.state, active: false, started: 0, quiet: 0, attempts: 0, completed: 0,
     exhaustedAt: null as number | null,
