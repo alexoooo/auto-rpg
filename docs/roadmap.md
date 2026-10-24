@@ -65,8 +65,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    its court loss ([steps](reference/vanguard.md#skeleton-route-and-blocked-steps),
    [targets](reference/vanguard.md#guard-forearm-choices)).
    A torso-cover challenger is incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger)).
-   Standing misses have a physical return gate; a stable-reference low miss fails on the Warrior,
-   and the first repair candidates are rejected ([low return](reference/vanguard.md#low-target-loss-miss)).
+   Standing misses and early aim-loss returns pass their physical gate on all three bodies.
+   A low punch already driving still fails the Warrior's return gate
+   ([low return](reference/vanguard.md#low-target-loss-miss)).
    Presets and planner layers are editable and
    replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
    recipes and blade cuts and thrusts; its win rates remain unqualified

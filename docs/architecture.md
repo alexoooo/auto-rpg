@@ -456,7 +456,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
+| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:

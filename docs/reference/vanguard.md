@@ -24,8 +24,8 @@ that loss and clears nine development cases. A [fresh wait screen](#fresh-standi
 wins all four Behaviours cases, then stops on a Reptile pilot loss with seven cases unplayed.
 The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
-remain unqualified. Standing misses pass their physical return gate; a stable-reference
-[low target-loss miss](#low-target-loss-miss) fails it on the Warrior.
+remain unqualified. Standing misses and early aim-loss returns pass their physical return gate;
+an already driven [low target-loss miss](#low-target-loss-miss) still fails it on the Warrior.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1762,13 +1762,35 @@ misses, equipment or collision-laden combat recovery, and it does not erase the 
 
 ## Low target-loss miss
 
-The Warrior's selected low punch fails physical recovery after a clean target-loss miss.
-The right hand remains 0.0651 m from its settled low guard at the 1.2 s return deadline,
+Vanguard checks that its aim is still sensed while the trunk leads the arm. Losing it before
+the arm drive enters the stroke's normal guard return, rather than driving at the last point.
+All six early-loss low punches, both hands on Warrior, Rogue and Skeleton, regain their physical
+guard and planted base without falls. Each holds the return gate for 0.05 s after lifecycle
+completion, inside the unchanged 1.2 s deadline. No pose, velocity, strength or assist is added.
+
+| Body | Right / left guard error | Right / left speed |
+| --- | --- | --- |
+| Warrior | 0.0325 / 0.0071 m | 0.0495 / 0.0069 m/s |
+| Rogue | 0.0220 / 0.0198 m | 0.0650 / 0.0475 m/s |
+| Skeleton | 0.0093 / 0.0047 m | 0.0147 / 0.0167 m/s |
+
+The selected rule leaves a hand already driving on its ordinary cycle. A stronger fixture keeps
+the target until the hand leaves its guard by more than 0.05 m, exceeds 0.6 m/s and passes its
+configured arm lead. The Warrior's right hand still fails that clean driven-loss miss:
+it remains 0.0651 m from its settled low guard at the 1.2 s return deadline,
 against the unchanged 0.05 m limit. Its speed is 0.2944 m/s, below the 0.6 m/s limit, but its
 centre of mass lies outside its feet: it does not regain the required planted base. It stays
-upright. The first failure stops the screen; the other hand, Rogue and Skeleton remain unplayed.
+upright. The first driven-loss failure stops that screen; the other driven-loss hand and bodies
+remain unplayed. Its full pose trace, `c30374b1f946ea3b`, physics snapshot and whole saved state
+stay exact against the dormant API at `86bedcc4`.
 
-The fixture waits for ready low support and a guard that stays within 0.05 m over a full 1.2 s
+Braking every lost committed aim passes the early cases but worsens the driven-loss guard error
+to 0.2943 m, so that broader prototype is rejected. The selected check applies only during the
+trunk lead. Complete early and late observations, source snapshots and this rejected prototype
+remain under `research/runs/vanguard/` in `arm-aim-check/`, `lost-drive-return/`,
+`lost-drive-late-return/` and `lost-drive-late-before/`. They are recovery evidence, not bout wins.
+
+The early-loss fixture waits for ready low support and a guard that stays within 0.05 m over a full 1.2 s
 window before admission. A fixed Reptile mannequin provides sensed low-body geometry. Its
 initial placement uses the punch's public entry window; it is removed at the first committed
 step, making the stroke miss. Every attacker segment is checked for apparatus contact, and
@@ -1778,16 +1800,16 @@ contacts. The attacker receives ordinary intent and muscle control throughout.
 
 | Candidate / stable-reference fixture | Right-hand result at the deadline | Base |
 | --- | --- | --- |
-| Selected low punch | 0.0651 m error, 0.2944 m/s | Outside feet; no fall |
+| Reference low punch, source `c1130f3d` | 0.0651 m error, 0.2944 m/s | Outside feet; no fall |
 | Low punch without trunk turn | 0.2331 m error, 0.0755 m/s | Planted |
 | Dedicated point-following guard | 0.1724 m error, 0.1219 m/s | Planted |
 | Body return at the stroke's recovery response | Falls at 7.9417 s, before the deadline | Failed |
 
-None of these candidates is selected. The point-following guard gives an uncovered empty hand
+The three alternatives are rejected. The point-following guard gives an uncovered empty hand
 its ordinary arm response while carrying its guard on the actual trunk; explicit cover retains
 priority. The body-response overlay keeps the same fold and uses the configured stroke recovery
 time during release. These requests change no anatomy, muscle strength, assists or physics.
-Their source snapshots remain beside their rows, and all runtime changes are removed.
+Their source snapshots remain beside their rows; these three prototype controllers are removed.
 
 An earlier fixture samples its guard at 3 s while that guard is still settling: a no-punch
 control drifts 0.1963 m over its reading window. Its apparent recovery failure and four
@@ -1802,7 +1824,19 @@ Limits are the [standing miss return's](#standing-miss-return); setup controls a
 remain in `research/runs/vanguard/low-miss-control-settled/`, `low-miss-return-settled/`,
 `low-miss-without-turn/`, `low-miss-guard-part/` and `low-miss-body-return/`. The invalid setup
 and its control remain in `low-miss-return/` and `low-miss-control/` under the same run root.
-This establishes a reproducible unmet recovery requirement; moving and loaded misses remain open.
+These reference rows establish the original failure. The selected aim check at `5f0f22e4`, source
+`0c8590c0`, fixes early target loss; driven, moving and loaded miss recovery remain open.
+
+The toolkit API lands separately at `86bedcc4`, disabled by default. All ten scoped fingerprint
+records for Puncher, Counter, Tempo and the three Vanguard presets preserve pose, physics and
+saved state against `eef26399`; no case moves. These are the fingerprint script's Arena cases,
+using the vendored `rapier-coordinate` bout engine. The entrant enables the check in its own
+executor. Typecheck, all 119 tests, build, two-file entrant scope and line endings pass. The new
+physical regression fails on the original missing brake and passes all six early-loss returns
+in 3.7 s. A production Arena smoke check has visible advancing frames and no console errors;
+it also shows the Warrior recovering from a combat fall at 32.4 s. That unfinished smoke case
+is not qualification or a new win. Its screenshot and observations remain with the record,
+and the temporary preview is stopped by PID.
 
 ## Equipment path
 
