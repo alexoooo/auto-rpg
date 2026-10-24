@@ -55,12 +55,12 @@ const WARRIOR: VanguardConfig = deepFreeze({
 /** The shared fighter runs the entrant's own immutable kit and tactics: its planner, of any kind, is checked as its part (`TacticsPart`). */
 const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "fighter" }) as FighterConfig;
 
-/** The Rogue calibration uses a conservative stance walk. */
-const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: GAME_NAVIGATION, locomotion: VANGUARD_WALK.defaults,
+/** The Rogue calibration uses a conservative stance walk and room beside obstacles. */
+const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: VANGUARD_NAVIGATION.defaults, locomotion: VANGUARD_WALK.defaults,
   tactics: { ...WARRIOR.tactics, replantLow: false } });
 
 /** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
-const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE,
+const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE, navigation: GAME_NAVIGATION,
   tactics: { ...WARRIOR.tactics, replantLow: false, flank: true, plan: { ...VANGUARD_EXCHANGE.defaults, list: PLAN.list } },
   executors: [...PUNCHES.map(executor => executor.lowOnly ? executor : { ...executor, lead: .025, anchorAtDrive: true }), ...WEAPONS],
 });
