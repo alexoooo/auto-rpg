@@ -579,6 +579,35 @@ reservations, leaves folded support alone and uses Balance 0/0. It passes the ty
 fails its full-bout win gate, so no wider cases run and the implementation is removed. The
 exact source, configuration, reference key and row remain in `research/runs/vanguard/point-guard/`.
 
+## Upper-arm choices
+
+Deliberate upper-arm targets do not solve the limiting Skeleton open-left bout at 7.63 m.
+The candidate loses by fatal injury at 81.1083 s without falling; its four other development
+geometries are unplayed. The selected configuration is unchanged.
+
+The candidate adds two surface-aimed actions, one for each upper arm, alongside the body punch.
+It retains the same executors, planner, locomotion, attributes and rules. The contact selector
+admits 24 punches at the left upper arm and three at the right; the body action commits 22.
+Exact time, hand and struck-segment joins attribute 0.1842 HP of accepted opponent injury to
+the arm-directed actions and 0.2669 HP to body-directed actions. These are harness readings,
+not inputs to the policy. More delivered injury does not prevent the candidate's fatal loss.
+
+| Configuration / open left, 7.63 m | Ending | Own / opponent bar | Candidate falls |
+| --- | --- | --- | ---: |
+| Current selected baseline | Time-limit loss, 120 s | 0.5712 / 0.8930 | 0 |
+| With upper-arm choices | Fatal-injury loss, 81.1083 s | 0.5050 / 0.8157 | 0 |
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay, falls continuing. Both versions
+run at source `sha256:002cac7c7fe30ccf8eec941ce515e4e022f5b01b9674042c3158f0e6d30220fd`.
+The baseline exactly repeats the earlier full pose digest, `628b197c866f37a9`, after equipment
+support is added. The two-worker pilot takes 125.0 active wall seconds, below its nine-minute
+cutoff. The failed pilot stops widening. `npm run compare` finds no complete mirrored unit;
+these single-side readings establish neither a panel gain nor qualification. The exact recipes,
+validated configuration, source, contact joins and full rows remain in
+[the paired record](../../research/runs/vanguard/arm-targets/summary.json) and its directory.
+The rejected arm actions are not installed in a preset.
+
 ## Joint timing and cover
 
 Twelve frozen configurations jointly vary standing-punch timing and geometry, cover, contact
