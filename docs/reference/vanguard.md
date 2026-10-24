@@ -608,6 +608,45 @@ validated configuration, source, contact joins and full rows remain in
 [the paired record](../../research/runs/vanguard/arm-targets/summary.json) and its directory.
 The rejected arm actions are not installed in a preset.
 
+## Post-stroke withdrawal
+
+A bounded withdrawal after a completed standing punch narrows the limiting open-left deficit
+at 7.63 m, but still loses. Adding the upper-arm choices to that prototype also loses and
+weakens its final margin. Neither configuration is selected; the withdrawal implementation
+is removed.
+
+The layer waits for every native action to leave the live report, then uses the straight punch's
+support-entry predicate. It requests 0.25 m along the direction away from the opponent at the
+start, at most 0.3 m/s, and ends within two seconds. A one-second bound limits the support wait.
+The existing navigator checks the retreat, the existing guard covers, and stricter intent or
+ordered pace is retained. Explicit movement, low opponents and unavailable bodies cancel it.
+No physical assistance, strength or wound rule changes.
+
+The withdrawal-only body starts 24 retreats. Of the 23 completed before the bell, nine reach
+the requested stance-centre displacement and fourteen reach the two-second bound. The remaining
+retreat is underway when the ordinary bout ends. This measures the body's movement along the
+initial direction; it does not establish that the pursuing opponent stays outside reach.
+
+| Configuration / open left, 7.63 m | Ending | Own / opponent bar | Candidate falls |
+| --- | --- | --- | ---: |
+| Selected baseline | Time-limit loss, 120 s | 0.5712 / 0.8930 | 0 |
+| Withdrawal after completion | Time-limit loss, 120 s | 0.6802 / 0.8633 | 0 |
+| Withdrawal and upper-arm choices | Time-limit loss, 120 s | 0.5550 / 0.8389 | 0 |
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay, falls continuing. The prototype
+source is `sha256:778b187e1e095148c741ded18d027a830a1e4183068491c650782d02043f30cd`.
+With the layer disabled, the baseline repeats the full pose digest `628b197c866f37a9`. The
+two-worker withdrawal pilot takes 129.4 active wall seconds. The combined candidate reuses the
+exact withdrawal-only parent row and takes 120.5 s; each cohort is below its nine-minute cutoff.
+Each failed pilot leaves its other four geometries unplayed. Neither has a complete mirrored
+comparison unit or establishes a qualified win rate. Typecheck, entrant scope and detached
+ownership, navigation, pace, resume and complete-state fork probes pass. Exact sources, recipes,
+motion readings, physical rows and saved-row comparisons remain with the
+[withdrawal record](../../research/runs/vanguard/withdraw/summary.json) and
+[combined record](../../research/runs/vanguard/withdraw-arms/summary.json).
+The selected runtime is restored exactly.
+
 ## Joint timing and cover
 
 Twelve frozen configurations jointly vary standing-punch timing and geometry, cover, contact
