@@ -34,7 +34,9 @@ import { closesToStrike } from "./strikes.ts";
  * at the speed `accel` m/s^2 gives it over what is left of the way, and no less than it gives over
  * `arrive` m, so the fist meets the target moving and the arm's range stops it; the velocity that
  * asks closed at `steer` per second and the ask no more than `accel`. The arm is drawn toward its
- * contact pose beneath it, and the whole-body solve gives what the muscles can.
+ * contact pose beneath it, and the whole-body solve gives what the muscles can. With `timed`, no
+ * channel is pushed toward its goal: each of the punching hand's pushes (`TimedPush`) drives its
+ * channel flat out over its own window of the drive, and the posture beneath is the one above.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -54,7 +56,18 @@ export interface StraightPunch {
   readonly recover: number;
   readonly landed?: boolean;
   readonly driven?: { readonly accel: number; readonly steer: number; readonly arrive: number };
+  readonly timed?: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
 }
+
+/**
+ * **A push on a schedule**: `channel` driven flat out from `from` s into the drive for `length` s,
+ * at `level` of its muscles' strength, its sign the push's sense.
+ */
+export interface TimedPush { readonly channel: string; readonly level: number; readonly from: number; readonly length: number }
+
+/** Whether `push` is a timed push: a level from -1 to 1, its window finite and not negative. */
+const validPush = (push: TimedPush) => typeof push.channel === "string" && [push.level, push.from, push.length].every(Number.isFinite)
+  && Math.abs(push.level) <= 1 && push.from >= 0 && push.length >= 0;
 
 /**
  * A straight punch's drive settings: a bare-handed search of Arena
@@ -79,7 +92,14 @@ export function validStraightPunch(settings: StraightPunch): boolean {
     settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
-    && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0);
+    && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
+    && (settings.timed === undefined || settings.driven === undefined && HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
+}
+
+/** The channels `settings` push on a schedule that a body of `spec` lacks. */
+export function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
+  const channels = new Set(spec.joints.flatMap((joint) => joint.dofs.map((dof) => `${joint.name} ${dof.positive}`)));
+  return settings.timed ? HANDS.flatMap((hand) => settings.timed![hand].map((push) => push.channel)).filter((channel) => !channels.has(channel)) : [];
 }
 
 /** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
@@ -248,9 +268,12 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     solve(view, limb, true, (apart) => apart + settings.through, null);
     const push = (channel: string, goal: number) => {
       const error = goal - (view.angles[channel] ?? 0);
-      if (Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1, level: 1 });
+      if (!settings.timed && Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1, level: 1 });
       posture[channel] = goal;
     };
+    if (settings.timed) for (const p of settings.timed[hand]) {
+      if (since >= p.from && since < p.from + p.length && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) });
+    }
     for (const g of limb.goals) push(g.channel, g.angle);
     if (since >= settings.lead && settings.driven) {
       for (const f of limb.free) posture[f.name] = limb.angles[f.joint]![f.k]!;

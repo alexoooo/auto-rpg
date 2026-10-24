@@ -324,6 +324,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`)
   and each foot of the kick (`kick.ts`, which adds support transfer). A bare
   hand closes for its blow and strikes with the fist's point (`closesToStrike`, `aimOf`).
+- **Straight punch** (`straight-punch.ts`, `punch-part.ts`; the combination throws two): from a
+  stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
+  contact pose its IK solves each step. With `timed`, the drive pushes each channel on a schedule
+  of its own (`TimedPush`: a level, a start and a length into the drive), the stance and that
+  contact pose beneath.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
