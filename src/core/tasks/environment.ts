@@ -75,17 +75,15 @@ export function createEnvironment<C extends object, A, O>(configuration: C,
     const { task, state } = current();
     let metrics: Readonly<Record<string, number>> = {}, observation: O | null = null;
     if (state.invalid === null) {
-      try {
-        const evaluation = task.evaluate();
-        metrics = { ...evaluation.metrics };
-        state.invalid = evaluation.invalid;
-        if (!finite(metrics)) state.invalid = "non-finite task metrics";
-        if (state.invalid === null) {
-          observation = task.observe();
-          if (!finite(observation)) state.invalid = "non-finite observation";
-          else state.terminated ??= evaluation.terminated;
-        }
-      } catch (error) { state.invalid = error instanceof Error ? error.message : String(error); }
+      const evaluation = task.evaluate();
+      metrics = { ...evaluation.metrics };
+      state.invalid = evaluation.invalid;
+      if (!finite(metrics)) state.invalid = "non-finite task metrics";
+      if (state.invalid === null) {
+        observation = task.observe();
+        if (!finite(observation)) state.invalid = "non-finite observation";
+        else state.terminated ??= evaluation.terminated;
+      }
     }
     return deepFreeze({ observation: state.invalid === null ? observation : null, metrics, steps: state.elapsed,
       decisionDue: !ended(state) && state.elapsed % policyPeriodSteps === 0,
@@ -114,12 +112,10 @@ export function createEnvironment<C extends object, A, O>(configuration: C,
       if (!Number.isSafeInteger(count) || count < 1) throw new Error("step count must be a positive integer");
       if (ended(state)) throw new Error("the episode has ended");
       for (let i = 0; i < count && !ended(state); i++) {
-        try {
-          if (state.held !== null) task.act(state.held);
-          task.world.step(); state.elapsed++;
-          result();
-          if (!ended(state) && state.elapsed >= maxSteps) state.truncated = true;
-        } catch (error) { state.invalid = error instanceof Error ? error.message : String(error); }
+        if (state.held !== null) task.act(state.held);
+        task.world.step(); state.elapsed++;
+        result();
+        if (!ended(state) && state.elapsed >= maxSteps) state.truncated = true;
       }
       return result();
     },
