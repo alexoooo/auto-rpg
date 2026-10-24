@@ -688,6 +688,34 @@ selected surfaces, anchored segments, recipe and harness remain in
 Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands, default
 attributes, Balance 0/0 and zero sense delay.
 
+An entrant-local surface-grid aim samples a three-by-three grid at 90% of each target's local
+half-extents. It ranks the striking point's lanes by the number of intervening natural body
+colliders, then distance, querying hulls, capsules and the sensed hand envelopes. A geometric
+fixture verifies a lane beside a central hull guard and a changed choice when the hand envelope
+changes. The full limiting open-left bout still loses at the cap without falling: own bar
+0.5136 against 0.5532. Its win gate rejects it without the four regression cases. Exact source,
+fixture, configuration, full physical row and saved-row comparison remain in
+`research/runs/vanguard/surface-grid/`. The one-worker pilot takes 126.1 active wall seconds.
+
+Combining that aim with the 0.010 s [finite-speed arm drive](#arm-drive) wins the same open-left
+case at the cap, without falling, but loses a retained left-court winner by fatal injury at
+88.8833 s. The preservation gate rejects the combination and interrupts its three other
+regressions. The [combined summary](../../research/runs/vanguard/surface-speed/summary.json),
+`manifest.json`, `implementation.json`, `harness.json` and `cases/` retain the exact configuration,
+source, complete rows and unfinished cases. The one-worker pilot and four-worker widening use
+232.8 active wall seconds in total; the widening's first intervals price it below the
+nine-minute cutoff.
+
+| Level / gap | Side | Selected reference | Grid aim and finite-speed arm | Own / opponent bar |
+| --- | --- | --- | --- | --- |
+| Open / 7.63 m | Left | Time-limit loss | Time-limit win | 0.5020 / 0.4979 |
+| Court / 5.92 m | Left | Time-limit win | Fatal-injury loss | 0.4213 / 0.8147 |
+
+Neither completed combined bout has a fall. `npm run compare` reports zero complete matched
+mirrored units; these two fixed-case outcomes are descriptive development evidence. Typecheck
+and the entrant scope check pass for both prototypes. Neither is selected, and the implementations
+are removed. The new open win does not outweigh losing a previous winner.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
