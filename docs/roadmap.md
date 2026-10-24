@@ -63,13 +63,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 **Choices**, each landed at its default:
 
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
-- What the bodies hold now that a hit point is 100 J of blunt blow
-  ([wounds](reference/wounds.md#unit)); whether a blunt blow takes a part off; what two bodies
-  that walk into each other cost ([bouts](reference/bouts.md#searched-blows)); the stiffness of
-  the parts no paper was read for ([wounds](reference/wounds.md#sensitivity)).
-- The skeleton's placeholder numbers (`skeleton-placeholders` in `SOURCES`); whether its sides
-  and back are worth a search or a change to the body; whether the bodies take the ankle's tendon
-  ([locomotion](reference/locomotion.md)).
+- Whether the skeleton's sides and back are worth a search or a change to the body; whether the
+  bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
