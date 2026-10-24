@@ -27,6 +27,16 @@ export interface PoseStage {
    * faster than `speed`, rad/s; absent, the player's own pose drive.
    */
   readonly drive?: { readonly speed: number; readonly within: number };
+  /**
+   * In a roll, the side it turns the body over: the side that goes under. A body rolled from its
+   * back that comes onto its other side goes on over that one, by that side's roll.
+   */
+  readonly over?: Exclude<Lie, "front" | "back">;
+  /**
+   * Held past `seconds` until the body lies turned onto its `over` side by `turned` (how far the
+   * pelvis's axis toward its other side points up, of 1), and at most `most` times `seconds`.
+   */
+  readonly hold?: { readonly turned: number; readonly most: number };
 }
 
 /**
@@ -213,10 +223,11 @@ const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -
 
 /** The stages that turn a body on its back onto its front, over its `over` side. */
 const rollOver = (over: Side): PoseStage[] => [
-  { kind: "pose", name: "wind", posture: rollingOver(over, WIND), seconds: 0.5 },
-  { kind: "pose", name: "swing", posture: rollingOver(over, SWING), seconds: 1 },
-  { kind: "pose", name: "over", posture: rollingOver(over, OVER), seconds: 0.5 },
-  { kind: "pose", name: "flat", posture: rollingOver(over, FLAT), seconds: 1 },
+  { kind: "pose", name: "wind", posture: rollingOver(over, WIND), seconds: 0.5, over },
+  // Held until the body is on its near side (`docs/reference/rising.md#the-roll`).
+  { kind: "pose", name: "swing", posture: rollingOver(over, SWING), seconds: 1, over, hold: { turned: 0.6, most: 3 } },
+  { kind: "pose", name: "over", posture: rollingOver(over, OVER), seconds: 0.5, over },
+  { kind: "pose", name: "flat", posture: rollingOver(over, FLAT), seconds: 1, over },
 ];
 
 /**
@@ -547,6 +558,11 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
   const faults = limbFaults(recipe, spec);
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
+  }
+  for (const stage of stagesOf(recipe)) if (stage.kind === "pose" && stage.hold) {
+    if (!stage.over) faults.push(`${stage.name} is held until a turn over no side`);
+    if (!(stage.hold.turned > 0 && stage.hold.turned < 1)) faults.push(`${stage.name}'s held turn must be between 0 and 1`);
+    if (!(stage.hold.most >= 1) || !Number.isFinite(stage.hold.most)) faults.push(`${stage.name}'s hold must be finite and at least its time`);
   }
   for (const stage of stagesOf(recipe)) if (stage.kind === "bear") for (const [name, value] of Object.entries(stage.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`${stage.name}'s progress ${name} must be finite and positive`);

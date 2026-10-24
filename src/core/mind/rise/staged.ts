@@ -248,6 +248,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       muscles.activation[i] = 1;
     }
   };
+  /** Whether pose `stage` is held past its time: its body not yet turned onto its side by the hold's turn, within the hold's time. */
+  const held = (stage: PoseStage, dt: number): boolean => {
+    if (!stage.hold || !stage.over || state.time + dt / 2 >= stage.seconds * stage.hold.most) return false;
+    const away = lying.way.set(stage.over === "right" ? -1 : 1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, lying.turn), lying.way);
+    return away.y < stage.hold.turned;
+  };
   /** A step of `stage`; whether its limbs are down, those it leaves let go, the centre of mass at its aim and slow, and the pelvis turned to its. */
   const bear = (stage: BearStage, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
@@ -387,6 +393,11 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         }
         case "roll":
         case "rise": {
+          // A body rolled from its back onto the side its roll does not go over goes on over that side.
+          if (state.phase === "roll" && state.lie === "back") {
+            const over = recipe.roll.back[state.stage]!.over, now = lieOf(root, lying);
+            if (over && (now === "left" || now === "right") && now !== over && recipe.roll[now].length > 0) { state.lie = now; enter("roll", 0); }
+          }
           const stage = playing(state.phase)[state.stage]!;
           if (state.phase === "rise") {
             const gap = upright.clearance(notTrunk);
@@ -402,7 +413,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
             case "pose":
               pose(stage);
               state.time += dt * exp(state.steer.clock);
-              if (state.time + dt / 2 >= stage.seconds) enter(state.phase, state.stage + 1);
+              if (state.time + dt / 2 >= stage.seconds && !held(stage, dt)) enter(state.phase, state.stage + 1);
               return;
             case "bear": {
               const there = bear(stage, dt);

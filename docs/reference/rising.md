@@ -592,10 +592,29 @@ the anatomical zero, rad:
 | `flat` | `FLAT`: near shoulder flexion 2.8, far shoulder internal rotation -0.8, far elbow flexion 2.1 | 1 |
 
 `wind` raises the far leg out and lays the near arm overhead; `swing` throws the far leg and arm
-across with the pelvis curled, turning the body onto its near side; `over` lays the trunk straight
+across with the pelvis curled, turning the body onto its near side, and is held past its time
+until the pelvis's axis toward the far side points 0.6 up, at most three times its time
+(`PoseStage.hold`); `over` lays the trunk straight
 with the far leg ahead and the body goes on over; `flat` lays the legs straight and sets the far
 hand beside the chest, so the rise finds the body square on its front. On a side the body plays
-`over` and `flat` over the side under it (`RISE.roll.left`, `RISE.roll.right`).
+`over` and `flat` over the side under it (`RISE.roll.left`, `RISE.roll.right`); a body rolled from
+its back that comes onto its other side goes on over that one, by that side's stages
+(`PoseStage.over`).
+
+**The hold and the other side**, on the owner's target (`step-up`, at `0b718b02`): the Warrior's
+first roll from its back left it on its back in 10 of its 32 falls, and the same roll played again
+turned it. Its searched `swing` (0.87 s) left the pelvis turned 0.29 or less toward the near side
+in those falls, against 0.42 to 0.57 in the rolls that turned; `over` then carried it to about 45
+degrees and it fell back. A `wind` of 0.3 or 1.5 s, or the body still before it rolls, leaves as
+many falls rolled twice; with the longer `wind` most first swings throw the body onto its far side.
+
+| `swing` | rolled twice, Warrior, of 32 | target: Warrior stood, median s (club; empty) | offset 11.25 degrees: the same |
+|---|---|---|---|
+| its time | 10 | 15, 13.6; 14, 14.5 | 16, 14.2; 15, 12.7 |
+| held to 0.45, at most 3 times | 4 | | |
+| **held to 0.6, at most 3 times, and the other side gone on over** | 2 | 16, 12.5; 14, 12.7 | 16, 12.4; 16, 12.7 |
+
+The Rogue's figures are the same with and without it.
 
 **Where it came from**: a seeded random search (script not kept) of 2,400 sequences of two to four
 poses over 23 freedoms, played on the Warrior toppled backward: 13 ended on the front. Of the best
@@ -727,17 +746,17 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`npm run evaluate -- rising-target`, at `b1c34096` with the Rogue's rest,
-[at rest short of its aims](#what-a-bearing-stage-is-done-by)):
+`npm run evaluate -- rising-target`, at `0b718b02` with the roll's hold,
+[the roll](#the-roll)):
 
 | Body | Loadout | Stood, of 16 | Median, s |
 |---|---|---:|---:|
-| Warrior | empty | 14 | 14.5 |
-| Warrior | club | 15 | 13.6 |
+| Warrior | empty | 14 | 12.7 |
+| Warrior | club | 16 | 12.5 |
 | Rogue | empty | 13 | 15.5 |
-| Rogue | club | 4 | the cap |
+| Rogue | club | 5 | the cap |
 
-46 of 64; none within 6 s, and the 4 s median is not met (14.9 s).
+48 of 64; none within 6 s, and the 4 s median is not met (14.6 s).
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
   and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the
