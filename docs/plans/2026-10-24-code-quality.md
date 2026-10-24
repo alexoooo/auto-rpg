@@ -51,9 +51,9 @@ and joins silently at the last stage.
 - Whether a recipe can be entered supported is fixed when the rise is built: a recipe whose first
   stage is not a bearing stage is refused at construction, through `stageFaults`'s path.
 - `from` refuses a join stage the recipe does not name.
-- `beginSupported`'s `posture` and `hold` parameters, and the state they set
-  (`supportedPosture`, `holdSupported`), have no caller outside frozen research snapshots: delete
-  them with their checks, unless the [Recovery plan](2026-10-23-recovery.md) names its reader.
+- Delete `beginSupported`'s `posture` and `hold` parameters, their checks and the state they set
+  (`supportedPosture`, `holdSupported`). Their callers were recovery controllers removed in
+  `415480c6`; nothing else, the [Recovery plan](2026-10-23-recovery.md) included, reads them.
 
 **Checks:** One fast regression through `join`: a fixture that reaches it on bearing supports
 starts supported; one that reaches it with a support lifted selects the whole route and leaves no
@@ -196,9 +196,10 @@ collider's world points, several times a decision.
   state machine, with all changing memory in the existing `state` objects.
 - Type `phase` as a union and handle `stage` exhaustively with a `never` default.
 - One table for the shared approach cells, each mode keeping its own geometry; one named heading
-  rotation. Delete `lower`, and correct
-  [the reference's policy settings](../reference/ground-combat.md#policy-settings) to name where
-  the lowering depth comes from.
+  rotation. Delete `lower` (its reader, the ground intent's `lower`, was removed in `ef94828a`),
+  and correct [the reference's policy settings](../reference/ground-combat.md#policy-settings):
+  the depth is the action's own `lower` and the fold's `COMBAT_FOLD`
+  ([support-fold.ts](../../src/core/skills/support-fold.ts)).
 - Preserve selection ties, missing-segment behavior, deadlines, transition timing and the order
   in which targets and physical readings are evaluated.
 - Separately, as a speed rewrite: build the foe's world shapes once per decision and pass them to
