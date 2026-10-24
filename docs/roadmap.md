@@ -48,8 +48,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 1. **Now:** Vanguard's unarmed fighter. The Warrior rises from a low entry left unmet for six
    seconds and wins four fresh Reptile cases. The Rogue waits standing for a fallen low target;
-   it clears nine development cases after its route-room field stops on a chase-and-trip loss,
-   with fresh confirmation of the wait still open ([wait](reference/vanguard.md#standing-wait-after-a-fall)).
+   it clears nine development cases after its route-room field stops on a chase-and-trip loss.
+   Its fresh wait screen wins all four Behaviours cases, then loses the Reptile pilot at the cap
+   with seven cases unplayed ([wait](reference/vanguard.md#fresh-standing-wait-screen)).
    Its preceding 0.15 m setting clears four fresh cases each against Counter-puncher and Options,
    but leaves twenty-five wider-field cases unfinished ([Rogue field](reference/vanguard.md#fresh-rogue-field)).
    The Warrior's preceding

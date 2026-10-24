@@ -20,7 +20,9 @@ cases by injury without Warrior falls. Source `fe1c139b` wins four [fresh Reptil
 on the Warrior and four fresh Options cases on the Rogue. The Rogue's [route buffer](#rogue-route-room)
 clears four fresh cases each against Counter-puncher and Options, but its [wider field](#fresh-rogue-field)
 stops on a chase-and-trip loss. Its selected [standing wait](#standing-wait-after-a-fall) converts
-that loss and clears nine development cases. The Skeleton's additional route room
+that loss and clears nine development cases. A [fresh wait screen](#fresh-standing-wait-screen)
+wins all four Behaviours cases, then stops on a Reptile pilot loss with seven cases unplayed.
+The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
 remain unqualified.
 
@@ -1404,7 +1406,8 @@ they are not replayed or counted as newly played cases. The nine candidate cases
 active pool wall seconds, below their nine-minute cap, with no invalid or unfinished cases.
 The before records are incomplete mirrored panels; native saved comparisons report zero complete
 paired units. The deciding case, the exact Reptile case and the Options collapse case are
-single-side before/after readings. This selection is a development gain and needs fresh confirmation.
+single-side before/after readings. This selection is development evidence; the fresh screen below
+does not qualify the full field.
 
 Harness and ordinary bout rules are those of the fresh Rogue field above. Prototype source is
 `f38a1f78`; the selected config at `c82542a7`, source `c1130f3d`, matches it exactly. Both other
@@ -1417,6 +1420,40 @@ preview is stopped by PID. Complete configurations, implementation snapshots, ro
 comparisons, selection probe, browser record and harnesses remain in
 `research/runs/vanguard/rogue-wait-fallen/`. The full field, other bodies, equipment and broader
 miss recovery remain unqualified.
+
+### Fresh standing-wait screen
+
+The frozen standing-wait Rogue wins all four fresh Behaviours cases, with no Rogue falls:
+two injury wins and two health leads at the cap. Both injury endings match committed right-hand
+punches on the upper trunk. The next opponent's court-left Reptile pilot loses at the cap,
+also without a Rogue fall. The stop rule leaves three Reptile cases and all four Options cases
+unplayed; there are no invalid or interrupted cases.
+
+| Opponent / level / gap | Left assignment | Right assignment |
+| --- | --- | --- |
+| Behaviours / court / 5.60 m | Cap win, 0.9808 / 0.9499 | Fatal win at 55.7833 s |
+| Behaviours / open / 4.72 m | Cap win, 0.9629 / 0.7479 | Fatal win at 106.5250 s |
+| Reptile / court / 4.31 m | Cap loss, 0.8128 / 0.9329 | Unplayed |
+| Reptile / open / 2.70 m | Unplayed | Unplayed |
+| Options / court / 5.47 m | Unplayed | Unplayed |
+| Options / open / 6.91 m | Unplayed | Unplayed |
+
+Cap rows give Vanguard's bar first. The standing wait activates in both left-side Behaviours
+cases and the Reptile loss. That loss completes fifteen low punches, but repeated samples show
+ready low support, an unmet attack-entry window and unavailable navigation. The Rogue's feet
+remain at 23 strides from 10 s through the cap. Avoiding a fall does not make this low attack
+effective.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, empty hands, default attributes,
+Balance 0/0 and zero sense delay, falls continuing to injury or 120 s. Behaviours uses the matched
+Rogue; the Reptile uses its own body. Source `c1130f3d`, at commit `7f0ebd6d`, freezes all fighter
+configurations before hashing fresh gaps, excluding recorded Rogue geometry. Four wins earn
+the next opponent; a first non-win stops the pool. Its five completed bouts take 85.8 active
+pool wall seconds, below the nine-minute cap. The Behaviours 4/4 descriptive Wilson 95% interval
+is 0.5101–1.000; this screen does not establish a true win rate above 80%, and the stopped Reptile
+pilot does not estimate its unplayed cases. Full configurations, exclusions, recipes, native
+rows, ledgers, blows, snapshots and harnesses remain in `research/runs/vanguard/rogue-wait-fresh/`.
+Other opponents, bodies, equipment and broader miss recovery remain open.
 
 ## Skeleton route and blocked steps
 
