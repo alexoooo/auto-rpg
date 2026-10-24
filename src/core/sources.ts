@@ -182,7 +182,7 @@ export const SOURCES = Object.freeze({
   "skeleton-placeholders": {
     kind: "decision", date: "2026-09-30",
     decided: "Proposed under the owner's ask of 2026-09-30 (the skeleton 'doesn't need to work properly, it "
-      + "just needs to fit the new core'), for the owner to confirm: until the crypt skeleton has numbers of "
+      + "just needs to fit the new core'), and accepted by the owner on 2026-10-24: until the crypt skeleton has numbers of "
       + "its own, it is a typical man in the skeleton's shape (men's tables, the typical man's 79 kg, the "
       + "Warrior's 6 HP), its fists held thumb up as its art's guard shows them.",
     record: "docs/plans/2026-09-30-old-path-removal.md@2e99105f",
@@ -216,7 +216,8 @@ export const SOURCES = Object.freeze({
       + "It is a per cent of the body's own weight, the most force its assist gives (the owner: 'why can we "
       + "not have it as a percentage?'). Proposed, for the owner to confirm: with each per cent go 0.0026 "
       + "weight-metres of moment, the force at a lever of 0.26 m, so that 25 % is the ceiling measured at a "
-      + "quarter of a weight and 50 N m for the Warrior; and every character starts at 0.",
+      + "quarter of a weight and 50 N m for the Warrior. Every character has 0 (the owner, 2026-10-24: "
+      + "'default balance 0').",
     record: "docs/reference/assist.md#balance",
   },
   "owner-haste": {
@@ -442,8 +443,8 @@ export const SOURCES = Object.freeze({
       + "planned with it be built. One hit point is 100 J of blunt blow; every weapon keeps its ratio to blunt "
       + "(owner-weapon-ratios). It replaces the unit of owner-club, the strongest club hit, which stays a "
       + "measurement (core-club-unit). The bodies' hit points are as they were "
-      + "(owner-hp-pool), so each holds fewer joules: of the record's three options the first, the owner's to "
-      + "change.",
+      + "(owner-hp-pool), so each holds fewer joules: of the record's three options the first, which the owner "
+      + "accepted on 2026-10-24.",
     record: "docs/reference/wounds.md#unit",
   },
   "core-club-unit": {
@@ -569,7 +570,7 @@ export const SOURCES = Object.freeze({
   },
   "contact-stiffness-gaps": {
     kind: "decision", date: "2026-10-02",
-    decided: "Proposed, for the owner to confirm: where no study read gives a part's stiffness under a blunt load, it "
+    decided: "Accepted by the owner on 2026-10-24: where no study read gives a part's stiffness under a blunt load, it "
       + "takes a neighbour's: the middle trunk the upper trunk's and the lower trunk the middle's, the upper arm, "
       + "forearm and shank the femur's, the foot the hand's; and the hand's is a porcine metacarpal's in bending, no "
       + "human fist's having been found. The head's is its face's until the head is two surfaces.",

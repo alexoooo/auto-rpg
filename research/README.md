@@ -19,7 +19,7 @@ reads by.
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
 | `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
 | `core-routine-battery.mjs` | the Lab's Routine from seeded pushed starts, a tuning each: loops held, falls, each strike's peak | |
-| `reptile-bite.mjs`, `reptile-motion.mjs` | the reptile's closing-jaw strikes against a fixed body; its travel and mirror matches (`--sweep` for speed and height overrides) | [reptile](../docs/reference/reptile.md) |
+| `reptile-bite.mjs` | the reptile's closing-jaw strikes against a fixed body | [reptile](../docs/reference/reptile.md) |
 | `core-blow.mjs`, `core-strike.mjs`, `core-club-strike.mjs` | modules with no entry point: one strike thrown and scored by the rule a fight wounds by; a candidate's numbers decoded and encoded | |
 | `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for the blow that pays most for a body, a thing held (`--held`) and a band (`--band`); `--from` goes on from a recipe; `--guard` for a straight from guard | |
 | `core-strike-window.mjs` | where each recipe still lands about its place, at every rate; a recipe narrower than the feet is replaced by its cell's next search (`--spare`) | the windows, into `assets/core/strikes.json` |

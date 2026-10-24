@@ -45,9 +45,6 @@ export function spread(attackers: readonly Attacker[]): Map<string, SensedBody> 
 export const bearingOf = (from: GroundPoint, to: GroundPoint): number => atan2(to.x - from.x, to.z - from.z);
 
 /** The point `metres` from `at` on `bearing`, radians from +z toward +x. */
-export const onBearing = (at: GroundPoint, bearing: number, metres: number): GroundPoint =>
-  ({ x: at.x + sin(bearing) * metres, z: at.z + cos(bearing) * metres });
-
 /**
  * **The bearings round a foe at `at`** given to the attackers about it, radians from +z toward +x:
  * evenly spaced, in the order the attackers stand round it, and turned as a whole as little as it

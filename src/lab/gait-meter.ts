@@ -2,6 +2,7 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import { groundContact } from "../core/control/support.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { World } from "../core/world.ts";
+import { hypot } from "../core/math/real.ts";
 
 /**
  * **The lab's gait meter**: what a walk or a run does with its feet, read from the ground's contacts
@@ -49,7 +50,7 @@ export function startGaitMeter(built: BuiltBody, world: World): GaitMeter {
       down++;
       if (off[side] >= AIRBORNE) {
         const p = segment.node.position;
-        if (last) stepped += Math.hypot(p.x - last[0], p.z - last[1]);
+        if (last) stepped += hypot(p.x - last[0], p.z - last[1]);
         last = [p.x, p.z];
         touchdowns++;
       }

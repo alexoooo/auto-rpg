@@ -9,6 +9,7 @@ import { shoveSound } from "./sound-log.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { actions, choice, keyHints, legend, readings, slider, type Entry } from "../ui/controls.ts";
+import { cos, hypot, sin } from "../core/math/real.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
@@ -119,7 +120,7 @@ export function stanceScenario(scene: Scene): LabScenario {
           forward = Math.sign(forward);
           right = Math.sign(right);
           // A diagonal walks at the chosen speed, not faster.
-          const scale = forward || right ? walkSpeed / Math.hypot(forward, right) : 0;
+          const scale = forward || right ? walkSpeed / hypot(forward, right) : 0;
           stance.orders.forward = forward * scale;
           stance.orders.right = right * scale;
           stance.orders.turn = Math.sign(turn) as -1 | 0 | 1;
@@ -140,7 +141,7 @@ export function stanceScenario(scene: Scene): LabScenario {
           centreMark.position.x = moment.centre[0]; centreMark.position.z = moment.centre[1];
           captureMark.position.x = moment.capture[0]; captureMark.position.z = moment.capture[1];
           headingMark.rotation.y = f.heading;
-          headingMark.position.set(moment.centre[0] + 0.175 * Math.sin(f.heading), 0.008, moment.centre[1] + 0.175 * Math.cos(f.heading));
+          headingMark.position.set(moment.centre[0] + 0.175 * sin(f.heading), 0.008, moment.centre[1] + 0.175 * cos(f.heading));
           return f.time;
         },
         // On the stance, the hands stay open.

@@ -16,6 +16,7 @@ import { TRACK_IDS, TRACKS, trackOf, type Track } from "./track.ts";
 import { gustText, type WindSettings } from "./wind.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { following, legend, menu, readings, slider, type Control, type Entry } from "../ui/controls.ts";
+import { atan2, cos, hypot, sin } from "../core/math/real.ts";
 
 /**
  * **The Locomotion scenario**: the human round a course (`locomotion-mode.ts`) at the pace the lab
@@ -78,7 +79,7 @@ function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mes
   const pieces = Math.ceil(track.length / 0.05);
   for (let i = 0; i <= pieces; i++) {
     // The right of a heading h is (cos h, -sin h).
-    const p = track.at(i * track.length / pieces), rx = Math.cos(p.heading) * LANE / 2, rz = -Math.sin(p.heading) * LANE / 2;
+    const p = track.at(i * track.length / pieces), rx = cos(p.heading) * LANE / 2, rz = -sin(p.heading) * LANE / 2;
     left.push(new Vector3(p.x - rx, 0.004, p.z - rz));
     right.push(new Vector3(p.x + rx, 0.004, p.z + rz));
   }
@@ -182,7 +183,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
         readout(frame: number | null): number | null {
           const moment = history.at(frame ?? history.live());
           if (!moment) return null;
-          const f = moment.frame, g = f.gait, force = Math.hypot(f.wind[0], f.wind[1]);
+          const f = moment.frame, g = f.gait, force = hypot(f.wind[0], f.wind[1]);
           shown.write({
             state: f.fallen ? "Fallen: restart" : "On its feet",
             speed: `${f.speed.toFixed(2)} of ${f.pace.toFixed(2)}`, mean: f.mean.toFixed(2),
@@ -193,7 +194,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
             // The walk under way: a straight from where it set off to its destination.
             leg?.mesh.dispose();
             const [x0, z0] = f.leg.from, [x1, z1] = f.leg.to;
-            const way = trackOf([{ kind: "corner", metres: 0, turn: Math.atan2(x1 - x0, z1 - z0) }, { kind: "straight", metres: Math.max(0.01, Math.hypot(x1 - x0, z1 - z0)) }]);
+            const way = trackOf([{ kind: "corner", metres: 0, turn: atan2(x1 - x0, z1 - z0) }, { kind: "straight", metres: Math.max(0.01, hypot(x1 - x0, z1 - z0)) }]);
             const mesh = paintTrack(scene, way, trackMaterial);
             mesh.position.x = x0; mesh.position.z = z0;
             leg = { index: f.leg.index, mesh };
@@ -204,7 +205,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
           if (force > 0) {
             // From the chest along the force, whose heading about up is atan2(x, z).
             arrow.position.set(moment.centre[0], ARROW_HEIGHT, moment.centre[1]);
-            Quaternion.RotationYawPitchRollToRef(Math.atan2(f.wind[0], f.wind[1]), 0, 0, arrow.rotationQuaternion!);
+            Quaternion.RotationYawPitchRollToRef(atan2(f.wind[0], f.wind[1]), 0, 0, arrow.rotationQuaternion!);
             arrow.scaling.set(1, 1, force * ARROW_PER_NEWTON);
           }
           return f.time;

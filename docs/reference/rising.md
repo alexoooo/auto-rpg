@@ -39,7 +39,9 @@ npm run evaluate -- rising-target [riser ...]
 ```
 
 - **The falls**: the Warrior and the Rogue, empty-handed and with the club, each shoved sixteen
-  ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`); Node stand,
+  ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`), a shove the
+  body holds given again the same way 1.5 s later, at most three (`SHOVED`): the Warrior's braced
+  stance holds 6 of its 16 club shoves and 1 empty-handed, and a fall not made is no stand-up; Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
   one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
@@ -130,6 +132,15 @@ second, a foot at 6.1 in the next, 0.26 in the third and under 0.01 after. The s
 nothing shoved forward turns its left hand at 0.15 to 0.21 m/s (3 to 5 rad/s) every second from
 the seventh to the fifteenth while its centre of mass stays within a millimetre: a light segment
 at the end of a slack joint, kept going by the solver. What in the solver does it is not read.
+
+**The Warrior with the club shoved 270 degrees slides; it is not driven** (`felled` and `lie`,
+`research/core-rise-trials.mjs`, at `febe37a5`): it lies on its left side with the club hand
+against its head and the ground, nearly still from the sixth second (every segment under
+0.03 m/s), and from the thirteenth its club arm moves again at up to 0.18 m/s. Its potential
+energy falls throughout, 166.60 J at 6 s to 166.27 at 15, and its kinetic energy read each second
+stays under 0.04 J: the slack arm slides down its head onto the ground. The one rise in it,
+0.03 J at the seventh second with every segment under 0.03 m/s, is the contacts' correction
+pushing overlapping shapes apart.
 
 ## Stages
 
@@ -355,6 +366,24 @@ on the coordinate-limit profile. Release needs the weight actually inside the re
 ([Recovery transfer](recovery-transfer.md)). A stage that leaves nothing is done at its place
 alone: `fours` at 1.4 rad, shins 0.38 each, hands 0.12, is done on the skeleton after 17 steps.
 
+**At rest short of its aims** (`Recipe.progress`'s `restSeconds` and `restWiden`, set from
+`StepUpTuning.rest`): a stage whose limbs are down and let go, whose body is as slow as the stage
+asks, and whose centre of mass and pelvis are within twice the stage's tolerances for 0.3 s is done
+too. The Rogue's weaker arms and legs leave its lunge and `fours` still a few centimetres or a
+few tenths of a radian short, where the stage waited out its limit and the attempt began again;
+at rest it hands on in 25 of its 32 target falls, in `onto the toes` and each lunge rung. The
+Rogue's alone, on 128 falls (the target's sixteen directions and three offsets of 5.625 degrees,
+`research/rising-step-search.mjs --score`, 30 s cap, at `b1c34096`):
+
+| Rest | empty, of 64 | club, of 64 | stood either way, median s |
+|---|---|---|---|
+| none | 44 | 30 | 15.71 |
+| **0.3 s within twice** | 47 | 33 | 15.41 |
+
+Paired, 10 falls stood only with it and 4 only without. Within four times its tolerances the
+Rogue stands 9 of the target's 32; for the Warrior, twice its tolerances stood 9 of its 32 target
+falls against 29, so the Warrior has no rest.
+
 ### The abort
 
 A rise whose trunk has been off the ground and comes back down has gone down. Once every segment of
@@ -533,14 +562,10 @@ holds it 0.03 m lower (`STANCE_LOWER`).
 
 After `even` the rise is over; if the body is up, its host's stance has it, and the locomotion
 skill is resumed (`Skill.resume`) facing the way the pelvis faces (read from its left-to-right
-axis, whatever its pitch). Two numbers carry the body into the stance:
-
-- **The asked height** rises from where the centre of mass is to the stance's by a smoothstep over
-  1.3 s (`RISING_SECONDS`). Asked its full height at once, the stance drives the knees straight
-  under a centre of mass not yet over the feet.
-- **Squaring**: the foot nearer the centre of mass stays; the other steps to its own side, across
-  the heading at the built standing width, as far ahead as it is, unless it is within 0.1 m of that
-  place (`SQUARE_NEAR`).
+axis, whatever its pitch), its feet where the rise left them. **The asked height** rises from
+where the centre of mass is to the stance's by a smoothstep over 1.3 s (`RISING_SECONDS`). Asked
+its full height at once, the stance drives the knees straight under a centre of mass not yet over
+the feet.
 
 | | empty, of 127 | club, of 121 |
 |---|---|---|
@@ -548,13 +573,19 @@ axis, whatever its pitch). Two numbers carry the body into the stance:
 | `RISING_SECONDS` 0.65 | 96, 97 (+0 -0) | 8, 9 (+1 -0) |
 | **`RISING_SECONDS` 1.3** | 96, 97 | 8, 8 |
 | `RISING_SECONDS` 2.6 | 96, 97 (+0 -0) | 8, 9 (+1 -0) |
-| no squaring | 96, 94 (+1 -4) | 8, 8 (+1 -1) |
-| `SQUARE_NEAR` 0.05 | 96, 94 (+0 -3) | 8, 8 (+0 -0) |
-| **`SQUARE_NEAR` 0.1** | 96, 97 | 8, 8 |
-| `SQUARE_NEAR` 0.2 | 96, 94 (+1 -4) | 8, 7 (+0 -1) |
 
-Neither changes whether a body rises, only whether it stays up: a rising height is worth ten falls
-of 127, its length from 0.65 to 2.6 s none these falls tell; squaring is worth three or four.
+It does not change whether a body rises, only whether it stays up: a rising height is worth ten
+falls of 127, its length from 0.65 to 2.6 s none these falls tell.
+
+**The feet are not squared.** A resumed stance whose feet stood apart from its built width
+stepped the farther foot beside the other first; on the target, that step after the hand-back,
+and the head swaying after it, kept the verification waiting a median 2.0 s for every segment
+under 0.1 m/s, against 0.2 s without (the Warrior empty-handed shoved forward). Without it the
+target stands the same 45 falls, each group's median 0.8 to 1.3 s sooner (15.5 s overall,
+against 16.2), and none falls in the verification's standing and walk (at `4f15009e`). On the
+staged rise's earlier battery the step kept 3 or 4 more of 127 up over a 40 s watch
+(`SQUARE_NEAR` 0.1, at `1f354189`); the braced walk shoved under orders falls as before (the
+Rogue 5 of 200, the Warrior 1).
 
 ### The roll
 
@@ -570,10 +601,47 @@ the anatomical zero, rad:
 | `flat` | `FLAT`: near shoulder flexion 2.8, far shoulder internal rotation -0.8, far elbow flexion 2.1 | 1 |
 
 `wind` raises the far leg out and lays the near arm overhead; `swing` throws the far leg and arm
-across with the pelvis curled, turning the body onto its near side; `over` lays the trunk straight
+across with the pelvis curled, turning the body onto its near side, and is held past its time
+until the pelvis's axis toward the far side points 0.6 up, at most three times its time
+(`PoseStage.hold`); `over` lays the trunk straight
 with the far leg ahead and the body goes on over; `flat` lays the legs straight and sets the far
 hand beside the chest, so the rise finds the body square on its front. On a side the body plays
-`over` and `flat` over the side under it (`RISE.roll.left`, `RISE.roll.right`).
+`over` and `flat` over the side under it (`RISE.roll.left`, `RISE.roll.right`); a body rolled from
+its back that comes onto its other side goes on over that one, by that side's stages
+(`PoseStage.over`).
+
+**The hold and the other side**, on the owner's target (`step-up`, at `0b718b02`): the Warrior's
+first roll from its back left it on its back in 10 of its 32 falls, and the same roll played again
+turned it. Its searched `swing` (0.87 s) left the pelvis turned 0.29 or less toward the near side
+in those falls, against 0.42 to 0.57 in the rolls that turned; `over` then carried it to about 45
+degrees and it fell back. A `wind` of 0.3 or 1.5 s, or the body still before it rolls, leaves as
+many falls rolled twice; with the longer `wind` most first swings throw the body onto its far side.
+
+| `swing` | rolled twice, Warrior, of 32 | target: Warrior stood, median s (club; empty) | offset 11.25 degrees: the same |
+|---|---|---|---|
+| its time | 10 | 15, 13.6; 14, 14.5 | 16, 14.2; 15, 12.7 |
+| held to 0.45, at most 3 times | 4 | | |
+| **held to 0.6, at most 3 times, and the other side gone on over** | 2 | 16, 12.5; 14, 12.7 | 16, 12.4; 16, 12.7 |
+
+The Rogue's figures are the same with and without it.
+
+**The side, by body** (`StepUpTuning.over`): the Rogue rolls from its back over its left side, so
+its right hand, which holds the club, is the far one and comes over rather than going under; the
+Warrior rolls over its right. Rolled over the left, the Warrior stands 12 of its 16 target falls
+with the club against 16, and 15 empty-handed against 14. Paired on 256 Rogue falls (sixteen directions at each of eight offsets,
+0 to 19.6875 degrees by 2.8125, `research/rising-step-search.mjs --score`, 30 s cap, at
+`14ccd6d1`):
+
+| Rogue's roll | club, of 128 | median s | empty, of 128 | median s |
+|---|---|---:|---|---:|
+| over the right | 71 | 26.2 | 96 | 15.7 |
+| **over the left** | 87 | 17.2 | 94 | 15.8 |
+
+With the club 30 falls stand only over the left and 14 only over the right; empty-handed, 11 and
+13. Read at the start of the rise, a Rogue that begins it leaning (the pelvis's or the chest's
+forward above -0.85) reaches `fours` square in 3 of 36 rises with the club, against 74 of 82 that
+begin square, and the club then props it: at the end of a roll its hand is held 0.4 m up on the
+club's end planted beyond the head.
 
 **Where it came from**: a seeded random search (script not kept) of 2,400 sequences of two to four
 poses over 23 freedoms, played on the Warrior toppled backward: 13 ended on the front. Of the best
@@ -614,6 +682,25 @@ Warrior (empty, club), 11 of 14 and 8 of 11 for the Rogue, and 0 of 11 and 1 of 
 skeleton.
 
 ### Where the rise stops
+
+**On the owner's target** (`step-up`, the 64 falls, at `0792d310`; each stage's start read from
+the rise's state as it plays): of the 45 stood falls, the median seconds from takeover through
+each part of the route, each part summed over its stages:
+
+| Part | Stages | Median, s | 90th percentile |
+|---|---|---:|---:|
+| brace and settle | | 1.1 | 2.4 |
+| the roll | wind, swing, over, flat | 4.0 | 4.8 |
+| down onto hands and knees | fold, tuck, prop, fours | 1.6 | 2.4 |
+| the kneel-up | sit, kneel 0 to 2, arms, hold, tall 0 to 2, tall | 3.2 | 3.2 |
+| the step through | shift, lift, swing, reach | 0.9 | 0.9 |
+| the lunge | half kneel, onto the toes, lunge 0 to 3, even | 2.2 | 2.3 |
+| steadied and verified | | 2.7 | 2.9 |
+| in all | | 15.6 | 17.1 |
+
+`sit` alone takes 1.5 s, `onto the toes` 0.7 and `lunge 3` 0.6. Of the 19 falls not stood, 16
+are the Rogue's (12 with the club); 6 reach the steadying and fall from it, and the rest end
+their attempts anywhere from the roll to `onto the toes`.
 
 The Warrior stands up with either loadout: of its 127 empty-handed falls 112 rise and 110 are up
 at the end; with the club 94 of 121 rise and 97 are up ([Staged](#staged)). The falls left down end
@@ -686,22 +773,24 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`node research/rising-bed.mjs --target --techniques step-up`):
+`npm run evaluate -- rising-target`, at `0d5300fe` with the Rogue's roll over its left side,
+[the roll](#the-roll), and a retry after a failed attempt rolling over the other side):
 
-| Body | Loadout | Stood, of 16 | Median, s | At `627ecc3a`, the legs before the run's |
-|---|---|---:|---:|---:|
-| Warrior | empty | 11 | 13.3 | 16 |
-| Warrior | club | 14 | 14.9 | 14 |
-| Rogue | empty | 9 | 26.3 | 10 |
-| Rogue | club | 6 | the cap | 5 |
+| Body | Loadout | Stood, of 16 | Median, s |
+|---|---|---:|---:|
+| Warrior | empty | 15 | 12.7 |
+| Warrior | club | 16 | 12.5 |
+| Rogue | empty | 13 | 15.5 |
+| Rogue | club | 9 | 20.7 |
 
-40 of 64, against 45 on the earlier legs; none within 6 s, and the 4 s median is not met.
+53 of 64; none within 6 s, and the 4 s median is not met (15.1 s). Without the other side's retry
+it stood 52.
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
-  and the run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of
-  its 300 trials.
-- **The time is the route's, not the muscles'**: brace about 0.7 s, settle 0.7, roll 2.7, rise 9,
-  steady 1.4, then verification. Searched at twice the Warrior's strength, or 1.5 times the
+  and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the
+  gait battery falls in 249 of its 300 trials.
+- **The time is the route's, not the muscles'**: the median of the stood falls' phases is brace
+  0.7 s, settle 0.3, roll 4.0, rise 7.6, steady 0.9, then verification 1.8. Searched at twice the Warrior's strength, or 1.5 times the
   Rogue's, the route stood as often and no faster, so a joint-torque surge (Grit) cannot shorten
   it: its stages wait on balance.
 - On 52 shoves that felled the skeleton (of 96), step-up stands 9; its roll from back to front is
@@ -713,6 +802,12 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
 
 ## Tried and not kept
 
+- **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
+  the skeleton's 32 target falls, 30 s cap, its step-up settings as searched on the box trunk): each
+  trunk segment the hull of the art's ribcage, lumbar and pelvis vertices, rounded at the back where
+  the bind's boxes are flat. Step-up stands 1 of 32 against 7 with the boxes. On its back the box
+  trunk lies flat through the whole roll; the rounded one tips about 38 degrees onto the far side
+  before the roll and holds there through `swing`, its poses reached.
 - **`dynamic-rise`**, a recovery sub-mind in the editor's `When down` slot (removed; at
   `54f3fba1`, `node research/dynamic-rise.mjs --workers 2`, `rapier-coordinate`, adapter 10):
   the Warrior and the Rogue, empty and with the club, 16 falls each, 0 verified handovers within
@@ -726,6 +821,55 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
   trained side falls (two within 6 s) and three of the screen's sixteen, none within 6 s; settling
   search reaches Warrior/club in 6.0333 s, and four nearby perturbations fail
   ([stand-up planning](../analysis/2026-10-11-stand-up-planning.md#settling-aware-physical-search)).
+- **A faster route on the same stages** (`step-up`, the owner's target, at `b1c34096` and
+  `cb523f2f`): pose stages ended once every freedom is within 0.1 rad of its posture and the body
+  slower than 0.15 m/s change nothing from `fold` to `tall` (each clock is about the time its
+  posture takes) and break the step through (the Warrior empty-handed 0 of 16); the whole rise
+  played 1.3 times faster (`RiseSteer.clock`) stands 18 of 64, 1.6 times none; the pose drive at
+  4.5 rad/s in 0.15 s (`POSE_SPEED`, `POSE_SECONDS`) stands 39, at 6 rad/s in 0.1 s none. The
+  stages wait on balance.
+- **Shorter stages, searched by hand**: the Rogue's `swing` at 0.9 or 1.2 of its time (against
+  1.605) stands 82 and 77 of its 128 falls against 83; the Warrior's `sit`, `kneel 1` and
+  `tall 1` at 1, 0.8 and 0.5 stand 60 of its 64 against 62, 0.9 s sooner. The Warrior settled to
+  0.1 or 0.05 m/s before it reads its lie stands 26 and 24 of its 32 target falls against 29.
+- **The contact sequence** (`CONTACT_RISE`) as the target's riser: none of 64 stands.
+- **The bear route** from hands and knees: onto hands and toes, hands and feet, a squat with the
+  hands down, then the hands let go. As built (`research/core-posture.mjs --variants built`,
+  at `cb523f2f`) hands and toes, hands and feet and the squat at 0.70 m are held (margins 0.50,
+  0.54 and 0.13 m), and the stance stands the body from the squat in 0.12 s; the squat with the
+  hands let go is held at no height of 0.5 to 0.8 m (the centre of mass 3 to 17 cm ahead of the
+  soles). Played after `fours` (the shins lowered onto the toes, then a bearing stage on hands and
+  feet), the knees do not leave the ground: the centre of mass stays 0.30 m up against the 0.43
+  to 0.52 m asked until the stage's limit, since the shank would tip forward past the ankle's
+  dorsiflexion stop (0.39 rad) over a foot that is one box, with no toes to bend.
+- **The ankle at its weight-bearing range** (43.25 degrees, the goniometer's mean of the
+  weight-bearing lunge in Konor et al. 2012, Int J Sports Phys Ther 7(3):279-287, Table 2, against
+  Moromizato's passive 22.3; at `c8201ab9`): step-up on the target stands 51 of 64 against 52, none
+  within 6 s. After `fours`, on the Warrior toppled forward (the harness of
+  `research/core-rise-poses.mjs`), each shorter route's first bearing stage: on the hands and feet,
+  a quarter each, the legs straighten into a plank, the feet sliding back to 0.96 m from the hands
+  and the centre of mass held 0.32 m up against 0.46 asked; on the feet 0.4 each and the hands
+  0.1, the knees stay down and the centre of mass goes toward the hands (0.49 to 0.66 m from the
+  ankles); on the shins held over the toes (`overProp`) and the hands, the knees fold to their stop
+  (2.57 rad) with the centre of mass 0.44 m from the ankles. As Stand up's route, none of the 64
+  falls passes its first stage after `fours`. A shin's task holds its knee on the ground, so
+  rocking back onto the feet is a movement the bearing stages do not make, whatever the ankle
+  allows.
+- **For the Rogue's lean** (`step-up`, the Rogue with the club over its left side, 64 falls:
+  the target's sixteen directions at four offsets of 5.625 degrees, against 40 stood, at
+  `14ccd6d1`): a body read on its front but leaning (the pelvis's forward above -0.9 or -0.8)
+  first rolled on over that side stands 9 of the target's 16 either way, since `flat` lays it back
+  onto the side it rolled from; `flat` with the far leg kept ahead, as `over` has it, 1 of 16;
+  `flat` with the club arm straight, 30, and straight and out to its side, 28 (more rises begin
+  square, more end at `fours`); the club hand's wrist turned -1.6 to 1.4 rad through the roll and
+  down onto hands and knees, 36 to 43; `fours` given up 0.3 or 1 s in once the body is off its
+  front, 41 and 40; the rise without `prop` and `fours`, none of the target's 16 (it goes down in
+  the half kneel).
+- **The Rogue's settings searched for the club alone** (`research/rising-step-search.mjs --models
+  workshop-rogue --held club --directions 8 --offset 11.25 --cap 14 --sigma .08`, 14 generations
+  of 24 candidates, at `1a4cfa67`; scored with `--score`, 30 s cap): the best stands 10 of the
+  target's 16 against 9, and 11 of the sixteen 5.625 degrees round against 11, medians 26.9 and
+  22.7 s against 19.9 and 16.6. Settings by loadout buy nothing the falls tell.
 - **A twisted front read as a side** (`LIE_UP` -0.9 for the front): over 30 s the Warrior reaches
   knees and hands in 16 of 16 empty and 10 of 15 club falls, against 15 and 12; no difference.
 - **`swing`'s near hip flexed 1 rad**, as the roll's search left it: the same falls turn and rise,

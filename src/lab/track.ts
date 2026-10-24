@@ -7,6 +7,7 @@
  * Free of the page.
  */
 import { LAB_TURN_RATE } from "./stance-mode.ts";
+import { cos, sin } from "../core/math/real.ts";
 
 /**
  * A piece of a track: a straight, an arc turning at `curvature` (1/m, positive to the right), or a
@@ -51,11 +52,11 @@ export function trackOf(pieces: readonly Piece[]): Track {
   let s = 0, x = 0, z = 0, heading = 0;
   const along = (piece: Piece, t: number, x0: number, z0: number, h0: number): TrackPoint => {
     switch (piece.kind) {
-      case "straight": return { x: x0 + t * Math.sin(h0), z: z0 + t * Math.cos(h0), heading: h0, curvature: 0 };
+      case "straight": return { x: x0 + t * sin(h0), z: z0 + t * cos(h0), heading: h0, curvature: 0 };
       case "arc": {
         // The integral of (sin h, cos h) as h turns at k: ((cos h0 - cos h) / k, (sin h - sin h0) / k).
         const k = piece.curvature, h = h0 + k * t;
-        return { x: x0 + (Math.cos(h0) - Math.cos(h)) / k, z: z0 + (Math.sin(h) - Math.sin(h0)) / k, heading: h, curvature: k };
+        return { x: x0 + (cos(h0) - cos(h)) / k, z: z0 + (sin(h) - sin(h0)) / k, heading: h, curvature: k };
       }
       // A corner has no length: at it, the way is already the next piece's.
       case "corner": return { x: x0, z: z0, heading: h0 + piece.turn, curvature: 0 };
@@ -81,7 +82,8 @@ export function trackOf(pieces: readonly Piece[]): Track {
   };
   const gap = (arc: number, px: number, pz: number): number => {
     const p = at(arc);
-    return (p.x - px) ** 2 + (p.z - pz) ** 2;
+    const dx = p.x - px, dz = p.z - pz;
+    return dx * dx + dz * dz;
   };
   return {
     length, at, piece, lengths: pieces.map((p) => p.metres),

@@ -43,10 +43,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 
-1. **Now:** Vanguard's unarmed fighter. The Warrior rises from a low entry left unmet for six
+1. **Now:** Recovery steps 2 and 4, which the Crypt's kills wait on too; step 3 is left at a wider
+   ankle that opens no route. Vanguard is on hold. Its Warrior rises from a low entry left unmet for six
    seconds and wins four fresh Reptile cases. The Rogue waits standing for a fallen low target;
    it clears nine development cases after its route-room field stops on a chase-and-trip loss.
    Its fresh wait screen wins all four Behaviours cases, then loses the Reptile pilot at the cap
@@ -72,7 +73,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
    replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
    recipes and blade cuts and thrusts; its win rates remain unqualified
    ([path](reference/vanguard.md#equipment-path)).
-   The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -86,42 +86,30 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **Choices**, each landed at its default:
 
-- Each character's balance, a per cent of its weight; every character has 0 %. At 25 % for both
-  sides, 19 of 99 bouts end by a fall where 80 do at none ([assist](reference/assist.md)).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
-- Where a fighter aims: the head, or the part a blow pays most on
-  ([blows](reference/blows.md#aim)); and whether a bare fist strikes at a head at all
-  ([wounds](reference/wounds.md#shares)).
-- What the bodies hold now that a hit point is 100 J of blunt blow
-  ([wounds](reference/wounds.md#unit)); whether a blunt blow takes a part off; what two bodies
-  that walk into each other cost ([bouts](reference/bouts.md#searched-blows)); the stiffness of
-  the parts no paper was read for ([wounds](reference/wounds.md#sensitivity)).
-- The skeleton's placeholder numbers (`skeleton-placeholders` in `SOURCES`); whether its sides
-  and back are worth a search or a change to the body; whether the bodies take the ankle's tendon
-  ([locomotion](reference/locomotion.md)).
+- Whether the skeleton's sides and back are worth a search or a change to the body; whether the
+  bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
-- How a Crypt fight ends. The duellist's club strike stalls in its preparation chest to chest, so
-  no club blow lands and nothing dies (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to
-  0.05). Options: another mind for the Crypt's humanoids; the strike stepping back to its stand-off;
-  a fall ending a Crypt fight (`fallEndsFight`, `src/dungeon/actors.ts`); smaller pools.
-- The look's and the sound's values: torch density, which floor and wall textures ship,
-  `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
-  costume, after seeing the bones in play.
+- The stand-up target's falls: a shove the body holds is given again the same way, up to three
+  ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
+  held to it ([Recovery](plans/2026-10-23-recovery.md)).
+- An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**
 
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
-- A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
-  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`).
+- A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
+- The faster walk, 1.5 to 1.7 m/s forward, in Arena bouts and the Crypt.
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
 - The skeleton's look in play.
-- The person's commands: in the Crypt H holds, X stops, Q/E turn, a right click faces or follows;
-  in the Arena a click on the floor goes there. The party walking braced within 11 m of a companion.
+- The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
+  faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
+- Bodies walking round the fallen, foe or friend, and a team passing over a foe lain down 30 s.
 
 ## Open, by layer
 
@@ -139,9 +127,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`docs/plans/2026-10-02-step-00-design.md@6220a997`): a pure function of a question asked at one
   step and answered at a step the asker names; a late answer makes the world wait. It comes with
   its first client.
-- The same run in every engine holds for an Arena bout and a Crypt run
-  ([real functions](reference/real-functions.md)); the Lab and the falls still place bodies and aim
-  orders with the engine's `Math`.
 - A new body family or item brings its own tasks; a shared name does not show an algorithm works
   on another family.
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
@@ -164,6 +149,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 All targets are read on the Node stand, Rapier, 120 Hz, Balance and Haste declared; a candidate is
 screened small (one body, one loadout, one group of falls) before its full target.
 
+- **The braced walk.** Shoved at 20 N s at a third of its orders with the club, the Rogue falls in
+  5 and 2 of 200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)), and
+  empty-handed the Rogue in 8 of 200 ([heel-off](reference/stance-tuning.md#heel-off)); it walks
+  1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
+  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
+  wakes the enemy at 7 of seeds 1 to 60.
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
   trials, the forward club envelope at or above SIMBICON's; stops and turns exercised; sideways
@@ -172,14 +163,15 @@ screened small (one body, one loadout, one group of falls) before its full targe
   a body past what its legs hold (the club throws the Rogue's run), braking faster, a pace past
   about 3.7 m/s, the skeleton's sides and back, the walk's motion-capture ways. The game's run
   turns at no rate in every trial at 1 m/s or faster, and brakes late, so the speed rule plans
-  its stops at 0.15 m/s² and every place goal comes in slow; the Rogue falls turning into the run
+  its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
-  envelope, so the speed rule asks it nothing and it stands under orders.
-- **Recovery.** The owner's 64-fall target (`npm run evaluate -- rising-target`,
+  envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
+  falls 6.5 s into its run.
+- **Recovery** ([plan](plans/2026-10-23-recovery.md)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
-  median at most 4 s, unassisted. Step-up, the baseline, stands 40 of 64 and none within 6 s
+  median at most 4 s, unassisted. Step-up, the baseline, stands 53 of 64 and none within 6 s
   ([step-up on the target](reference/rising.md#step-up-on-the-owners-target)); where it stops is
   in [rising](reference/rising.md#where-the-rise-stops). A policy acting on observations also runs
   the sixteen-fall screen (`research/stand-up-acceptance.mjs`), which does not establish the
@@ -258,8 +250,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - selection and reflexes: valued, ranked and behaviour-list selection, interruption, reflex
     ownership;
   - orders: obedience against self-preservation, read with orders given; follow orders values
-    an order without its walk (`Orders.walk`); the options fighter given a held direction slows
-    from 1.3 to about 0.4 m/s within 2 s, where the Duellist holds 1.1.
+    an order without its walk (`Orders.walk`).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
@@ -276,9 +267,17 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - the stance walk runs away sideways after a half turn ([the braced walk](plans/2026-10-22-braced-walk.md));
+  - few die: the Duellist kills 6 of 128 foes over `crypt-clear`'s 8 runs and clears 2, at
+    `93ea707d` ([in a fight](reference/blows.md#in-a-fight)). Fighting longer does not kill more,
+    and a wider strike slack kills more in the Crypt but loses in the Arena
+    ([tried and not kept](reference/blows.md#tried-and-not-kept)): attacking, a fighter starts a
+    strike every 5 to 7 s, and half of them end at the preparation deadline as it sets its feet, a
+    step's weight shift at a time, after a target that has moved. More die with a strike that
+    needs fewer steps, a faster rise (Recovery), and blows on a body that is down, decided to apply
+    once the rise meets its bar ([Blows and wounds](#blows-and-wounds)). A Crypt fight ends by a mind that kills, not by a rule (the owner, 2026-10-24);
+  - the stance walk runs away sideways after a half turn, read before the walk steered the way its
+    route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
-    a frontier point too close to a wall for a body with a club stalls the person's party;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;
@@ -288,8 +287,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** the Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion
-  courses drive by velocities, not goals.
+- **Input:** the Lab's locomotion courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
@@ -308,15 +306,11 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   palm's hull where the rise, the bar, the posture hold and the support entry were tuned on the
   capsule; the run's legs cost the rise; `docs/reference/native-posture-control.json` names an
   anatomy the body no longer has.
-- **Defects found, cause unknown:** a held body's fixed segment turns by about 7.5e-9 a step (the
-  Crypt); a felled Warrior's club arm under `lie` never comes to rest; a club at 10 m/s under the
-  lab dummy's ball ends a step inside it unread.
-- **Found and not yet looked into:** `gapTo` (`src/core/engine/rapier.ts`) counts disabled
-  colliders; `research/ground-combat.mjs` reads a foe as rising only by the support recovery's
-  name.
-- **Research code no game path reads** retires with its experiment: the stand-up
-  qualification, detached-dynamics, tracking-policy, contact-model, foot-design and beam scripts,
-  `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts` has no game reader.
+- **Defects found, cause unknown:** a club at 10 m/s under the lab dummy's ball ends a step
+  inside it unread. A limp body's slack hand can be kept turning by the solver
+  ([lying](reference/rising.md#lying)).
+- **Research code no game path reads** retires with its experiment: `predictPointContacts` has
+  no game reader, and goes with the local impulse predictor's question.
 - **Records no script reads again**, measured afresh when their subject changes:
   [servo and muscle](reference/servo-and-muscle.md), [body and engine](reference/body-and-engine.md),
   [stance tuning](reference/stance-tuning.md#wrench-lever).

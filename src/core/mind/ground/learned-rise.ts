@@ -103,7 +103,7 @@ export function learnedRise(own: OwnBody, view: BodyView, clock: Clock, kit: Min
     begin(side) { state.steps = 0; up.begin(side); },
     end() { up.end(); },
     step(g, senses, dt) {
-      if (act !== null && state.steps % RISE_DECIDE === 0) riseSteerFrom(act(readRise(own, view, up.rise, up.rise === up.rises[0], up.steadying, features)), state.asked);
+      if (act !== null && state.steps % RISE_DECIDE === 0) riseSteerFrom(act(readRise(own, view, up.rise, up.rise === up.rises[0] || up.rise === up.rises[3], up.steadying, features)), state.asked);
       state.steps++;
       const ease = Math.min(1, dt / RISE_EASE);
       for (const key of RISE_STEER_KEYS) state.steer[key] += (state.asked[key] - state.steer[key]) * ease;

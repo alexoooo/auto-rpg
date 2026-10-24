@@ -36,7 +36,7 @@ export async function groundFight(options = {}) {
   }
   const velocities={};for(const hand of ['left','right']){motionAtToRef(a.built.segments.get(`hand.${hand}`),a.body.view.fists[hand].position,linear,angular);linear.subtractInPlace(a.body.view.stance.velocity);velocities[hand]=linear.asArray();}
   const active=skills.report.actions.find(action=>action.effector.startsWith('hand.'));
-  witness={phase:active?.stage??null,hand:active?.effector.slice(5)??null,down:a.body.down,foeLow:b.body.down,foeRecovering:b.body.has==='recovery: rise',relativeVelocity:velocities};
+  witness={phase:active?.stage??null,hand:active?.effector.slice(5)??null,down:a.body.down,foeLow:b.body.down,foeRecovering:b.body.has.startsWith('stand up:'),relativeVelocity:velocities};
  });
  try{
   for(let step=0;step<seconds*120&&!bout.duel.verdict;step++){

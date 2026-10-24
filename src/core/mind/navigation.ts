@@ -77,9 +77,9 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   };
   const printsOf = footprinter(), router = createRouter();
   /**
-   * `solids` and `fallen` are the geometry its route was found in: the solids sensed and its own
-   * side's fallen bodies (`fallenSolids`); `failure` keeps the same of a search that found none.
-   * `lying` is where it keeps its side's fallen bodies (`FallenMemory`). `goal` is the goal progress
+   * `solids` and `fallen` are the geometry its route was found in: the solids sensed and the
+   * fallen bodies (`fallenSolids`); `failure` keeps the same of a search that found none.
+   * `lying` is where it keeps the fallen bodies (`FallenMemory`). `goal` is the goal progress
    * is reckoned toward; `offset` is a range's spot kept, from the foe.
    */
   const state = { request: null as MovementRequest | null, solids: null as readonly SolidSense[] | null, fallen: NO_SOLIDS, route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
@@ -110,7 +110,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
       const sensed = view.senses.solids ?? NO_SOLIDS;
       let solids = printsOf(sensed, centre.y, view.stance.support?.y);
-      // Its own side's fallen bodies are fixed solids to route round, but the body it ranges about.
+      // The fallen bodies, foe or friend, are fixed solids to route round, but the body it ranges about.
       const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null, state.lying);
       const lying = fallen.length ? footprints(fallen, centre.y, view.stance.support?.y) : NO_SOLIDS;
       if (lying.length) solids = [...solids, ...lying];
@@ -170,7 +170,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       // Whether the solids sensed are not those its route was found among.
       const reshaped = !state.solids || !sameSolids(state.solids, sensed);
       if (!reshaped) state.solids = sensed;
-      // Whether its route crosses where its own side's fallen bodies lie now, where they have changed: a route clear of them stands, found among them.
+      // Whether its route crosses where the fallen bodies lie now, where they have changed: a route clear of them stands, found among them.
       let crossed = false;
       if (!reshaped && !sameSolids(state.fallen, fallen)) {
         let from = here;

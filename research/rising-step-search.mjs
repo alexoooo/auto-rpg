@@ -61,7 +61,7 @@ export function stepUnit(tuning) {
 const RECIPES = { rise: RISE, contact: CONTACT_RISE };
 
 /** Where in the whole rise a part-way entry begins. */
-const JOINED = { whole: 0, fours: RISE.rise.findIndex(s => s.name === "fours"), "half-kneel": RISE.rise.findIndex(s => s.name === "half kneel") };
+const JOINED = { whole: 0, other: 0, fours: RISE.rise.findIndex(s => s.name === "fours"), "half-kneel": RISE.rise.findIndex(s => s.name === "half kneel") };
 
 /** One target fall under Step up with `tuning`; scored as the header says. */
 export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise", ...job }) {

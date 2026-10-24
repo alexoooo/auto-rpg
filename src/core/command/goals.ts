@@ -1,8 +1,8 @@
-import { hypot } from "../math/real.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 import { placeMovement, sameMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import type { NavigationReport } from "../mind/navigator.ts";
 import type { TeamOrder } from "./commands.ts";
-import type { MemberView, TeamLevel, TeamView } from "./team.ts";
+import type { MemberView, SensedBody, TeamLevel, TeamView } from "./team.ts";
 
 /**
  * Arrival tolerances, m (`docs/reference/play.md#arrival`): an ordered destination, a companion's
@@ -11,6 +11,45 @@ import type { MemberView, TeamLevel, TeamView } from "./team.ts";
 export const ARRIVAL = Object.freeze({ point: 0.4, post: 0.6, explored: 0.5, lastSeen: 0.5 });
 
 export const distance = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z - b.z);
+
+/** The point `metres` from `at` on `bearing`, radians from +z toward +x. */
+export const onBearing = (at: GroundPoint, bearing: number, metres: number): GroundPoint =>
+  ({ x: at.x + sin(bearing) * metres, z: at.z + cos(bearing) * metres });
+
+/**
+ * How long a foe may lie down before a team passes it over, s: the cap the owner's target gives a
+ * stand-up (`docs/reference/rising.md#the-owners-target`), past which its rise has failed.
+ */
+export const PASS_OVER_DOWN = 30;
+
+/** Keeps in `since`, by id, when each body of `view` lying down went down; a body up again is dropped. */
+export function lyingSince(since: Record<string, number>, view: TeamView): void {
+  for (const other of view.others) {
+    if (other.down) since[other.id] ??= view.time;
+    else delete since[other.id];
+  }
+}
+
+/** Whether `foe` is one to fight at `time`: in the fight, and not lying down `PASS_OVER_DOWN` s or longer (`lyingSince`). */
+export const worthFighting = (foe: SensedBody, since: Readonly<Record<string, number>>, time: number): boolean =>
+  foe.fighting && !(foe.down && time - (since[foe.id] ?? time) >= PASS_OVER_DOWN);
+
+/** The room a goal is given beyond a body's footprint, m: about what a club held at its side reaches out. */
+const ROOM = 0.4;
+
+/**
+ * `goal`, or where it stands close by a wall, the nearest point within a metre of it with `ROOM`
+ * more than `radius` about it that a body of `radius` passes to straight from it: room for what
+ * the body carries, which its navigator keeps clear of the walls.
+ */
+export function roomy(level: TeamLevel, goal: GroundPoint | null, radius: number): GroundPoint | null {
+  if (!goal || level.fits(goal, radius + ROOM)) return goal;
+  for (const ring of [0.5, 1]) for (let i = 0; i < 8; i++) {
+    const at = onBearing(goal, i * Math.PI / 4, ring);
+    if (level.fits(at, radius + ROOM) && level.passes(goal, at, radius)) return at;
+  }
+  return goal;
+}
 
 /** The unit step on the ground from `from` toward `to`. */
 export const direction = (from: GroundPoint, to: GroundPoint): GroundPoint => {

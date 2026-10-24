@@ -133,7 +133,7 @@ then, 138.26 J. The club's best blow stays a measurement (`CLUB_BEST`,
 ([blows.md](blows.md#the-clubs-best-blow)).
 
 The owner's words name the number and not what becomes of the bodies' hit points. Of the three
-options, the rulebook has the first:
+options, the rulebook has the first, and the owner accepted it (2026-10-24):
 
 | Option | In the game |
 |---|---|

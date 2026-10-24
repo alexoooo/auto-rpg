@@ -6,10 +6,11 @@ import { turnOfToRef } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { deepFreeze } from "../../state.ts";
 import type { HumanoidModel } from "../../human/spec.ts";
+import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import { RISE, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
+import { RISE, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 
@@ -18,11 +19,17 @@ interface StageTiming { readonly scale: number; readonly progress?: NonNullable<
 /**
  * **Step up's settings**, searched (`research/rising-step-search.mjs`): how still a body lies
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
- * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`.
+ * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
+ * a body's bearing stages come to rest short of their aims, how long at rest and within how many
+ * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`);
+ * and the side a body's roll from its back goes over where it is not the recipe's (`rollOver`,
+ * `docs/reference/rising.md#the-roll`).
  */
 interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
+  readonly rest?: { readonly seconds: number; readonly widen: number };
+  readonly over?: Side;
   readonly stages: Readonly<Record<string, StageTiming>>;
 }
 
@@ -67,7 +74,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
     },
   },
   "workshop-rogue": {
-    settle: { speed: .06004, seconds: .05 }, climb: 1.159,
+    settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 }, over: "left",
     stages: {
       "roll wind": { scale: .923 },
       "roll swing": { scale: 1.605 },
@@ -144,8 +151,9 @@ export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe 
     return stage.kind === "bear" ? { ...stage, seconds: stage.seconds * timing.scale, ...(timing.progress ? { progress: timing.progress } : {}) }
       : { ...stage, seconds: stage.seconds * timing.scale };
   };
-  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds },
-    roll: { back: base.roll.back.map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
+  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
+    ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
+    roll: { back: (tuning.over ? rollOver(tuning.over) : base.roll.back).map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
     rise: base.rise.map(timed("")) });
 }
 
@@ -159,7 +167,7 @@ const LOW = .5;
 const JOIN_WAIT = .25;
 /** How long the steadying stance may be read off its two feet, s (a foot unloaded as the body sways), before the attempt has failed. */
 const STEADY_OFF = .3;
-type Entry = "whole" | keyof typeof JOINS;
+type Entry = "whole" | "other" | keyof typeof JOINS;
 type Phase = "rise" | "steady";
 
 /** A rise step up plays, as its steer and progress are read from outside (`learnedRise`). */
@@ -170,19 +178,24 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * lie, rolls onto its front, comes up onto hands and knees, kneels up, steps the left foot through
  * and lunges up onto both feet; then the stance climbs to standing height and steadies. A body read
  * on its hands and knees, or half kneeling, joins the route there when its supports bear. An
- * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor.
+ * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor; the
+ * attempt after one that failed rolls over the other side (`other`), so a body held from turning
+ * one way, by a wall or a body lying beside it, turns the other.
  */
 export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
   base: Recipe = RISE): TechniqueRun & {
-  /** Its rises, whole and joined part-way; the one it plays; and whether the rise is over and the stance steadies the body. */
+  /** Its rises, whole, joined part-way and whole over the other side; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
 } {
   const whole = stepUpRecipe(tuning, base), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
-  const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
+  const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
+  const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: otherSide }, base)),
+    fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the step-up");
-  const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null,
+  // `flip`: this attempt rolls over the other side, the last having failed.
+  const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null, flip: false,
     elapsed: 0, steady: 0, off: 0, reached: 0, height: 0, heading: 0,
-    rises: { whole: rises.whole.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };
+    rises: { whole: rises.whole.state, other: rises.other.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };
   const work = { turn: new Quaternion(), across: new Vector3() };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   const reached = (g: GroundReading, to: Position) => to === "standing" && standReady({ down: view.down, ground: g });
@@ -191,15 +204,18 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
     if (position === "fours" || position === "half-kneel") {
       try { rises[position].beginSupported(); state.entry = position; return; } catch { /* its supports do not all bear: the whole route */ }
     }
-    rises.whole.begin(); state.entry = "whole";
+    state.entry = state.flip ? "other" : "whole"; rises[state.entry].begin();
   };
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : `${rises[state.entry].state.phase}`; },
-    rises: [rises.whole, rises.fours, rises["half-kneel"]], get rise() { return rises[state.entry]; }, get steadying() { return state.phase === "steady"; },
+    rises: [rises.whole, rises.fours, rises["half-kneel"], rises.other], get rise() { return rises[state.entry]; }, get steadying() { return state.phase === "steady"; },
     get yields() { return state.ended !== null || state.phase === "steady" || rises[state.entry].state.phase === "settle"; },
     admits(g, side) { return side === "left" && g.spin < 8 && g.velocity.lengthSquared() < 9 && g.position !== "standing" && g.position !== "crouch"; },
     reached,
-    begin() { state.phase = "rise"; state.entry = "whole"; state.begun = false; state.rose = false; state.ended = null; state.elapsed = 0; state.steady = 0; state.reached = 0; motor.reset(); },
+    begin() {
+      state.flip = state.ended === "failed" || state.ended === "timed-out" ? !state.flip : false;
+      state.phase = "rise"; state.entry = "whole"; state.begun = false; state.rose = false; state.ended = null; state.elapsed = 0; state.steady = 0; state.reached = 0; motor.reset();
+    },
     end() { if (state.ended === null) { rises[state.entry].end(); finish("interrupted"); } },
     step(g, senses, dt) {
       if (state.ended !== null) return state.ended;

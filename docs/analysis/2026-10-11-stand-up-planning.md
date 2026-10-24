@@ -72,7 +72,7 @@ conflict in this one request, not global infeasibility; IK stays a planning tool
 - **Smooth target trajectories** (1,200 candidates a body, four knots, Front): no recovery on the
   original body or the compliant-sole one. The best failure is blocked by the left wrist's
   pronation, 1.84 rad from its target at its 6.33 N m bound; posture error hid it.
-- **Receding windows** (`research/stand-up-beam.mjs`): a 5 s failed prefix still near the floor.
+- **Receding windows** (`research/stand-up-beam.mjs@60c3ecc3`): a 5 s failed prefix still near the floor.
 - **A one-step tracker** (`research/stand-up-native.mjs`) compressing the 25.3 s baseline to 20 s:
   no handover.
 - **Recipe search** over `supportRecovery` (`research/stand-up-feedback.mjs`): 19.17, then
@@ -82,7 +82,7 @@ conflict in this one request, not global infeasibility; IK stays a planning tool
 - **Body design** (`research/stand-up-design.mjs`, `research/stand-up-design-screen.mjs`):
   strength x1.5 and x3, speed x2, weight x0.6 and compliant soles under the unchanged controller.
   None stands both Front and 90°; no body change was adopted. Six foot proportions
-  (`research/stand-up-foot-design.mjs`) stand none of four falls; weight x0.8 stands one.
+  (`research/stand-up-foot-design.mjs@60c3ecc3`) stand none of four falls; weight x0.8 stands one.
 
 ## Physical rollout search
 

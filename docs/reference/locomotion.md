@@ -37,6 +37,10 @@ steers by, each found where a member at this envelope stood, walked away or fell
   never turns, as the envelope holds none past 0.7;
 - **a heading still to turn where the envelope holds no turn at the pace asked walks at the fastest
   pace that turns** (`fastestTurning`), or it would never turn;
+- **a turn counts at a speed only if every slower speed held it** (`StanceEnvelope.turns`): the
+  Warrior empty-handed held 0.25 rad/s at 1.2 m/s and none at 1, so its walk up to the run, at
+  0.86 m/s, never turned, and of 26 place goals off its facing 18 were never reached; read so,
+  all 26 are, and the learned run's lab circle, never run before, runs 6.5 s and falls;
 - **a body that faces its travel walks the way its route goes** and turns to it (`travelFacing`,
   `src/core/skills/arbiter.ts`); walked forward along the heading as it turns, a body facing away
   walks away from its waypoint, at 0.7 m/s on an arc 1.4 m across;
@@ -49,8 +53,10 @@ steers by, each found where a member at this envelope stood, walked away or fell
 - **the crowd holds a walk back only for another body** (`CrowdWalk.held`), not for its gait's own
   cap: a member held so was never stalled, and waited forever.
 
-Not done: in a reversal (seed 2) a member's post lies behind two arrived members 1.3 m apart, too
-close to pass between; the crowd holds it, and the route search does not see members standing.
+In the crowd's reversals at seeds 1 to 60 (Node stand, Rapier, 120 Hz, at `17bc6f7e`), every
+member arrives wherever the party is ordered back, seed 2's included, whose post lies behind two
+arrived members 1.3 m apart. Seeds 9, 33, 38, 43, 47 and 58 end at the first order and 48 at the
+second, the enemy woken as the party passes.
 
 **What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
 envelope's 14 moments of setting off, at `827b28a6`):
@@ -255,8 +261,28 @@ To a side the run turns to face the way and runs it: the Warrior held 16 of 20 t
 speed from 1 to 4.5 m/s.
 
 **Stopping.** The run slows at about 0.47 m/s² but begins late, going 0.3 to 0.5 m/s past the pace
-asked, so the walk and run states 0.15 m/s² while it may run (`RUN_STOPPING`) and the speed rule
-brakes for it. A place goal 8 m off (Node stand, Rapier, 120 Hz, open stage, ordered 3 s after the
+asked, so the walk and run states 0.2 m/s² while it may run (`RUN_STOPPING`) and the speed rule
+brakes for it. Sent to a place straight ahead under the speed rule, the stated rate the rule plans
+by (Node stand, Rapier, 120 Hz, the body's envelope and character's balance; the Warrior and the
+Rogue each empty-handed and with the club, 8, 15 and 30 m; the most any went past the place, m, of
+the 12; at the ankle's hold of [stance tuning](stance-tuning.md#ankle-hold)):
+
+| Stated | Falls | Most past, Warrior club / Warrior empty / Rogue | Warrior club, 30 m, s to stand |
+|---|---:|---|---:|
+| 0.15 | 0 | 0.25 / 0.04 / 0.04 | 18.7 |
+| 0.2 (kept) | 0 | 0.43 / 0.02 / 0.06 | 16.5 |
+| 0.25 | 0 | 0.75 / 0.44 / 0.06 | 16.1 |
+| 0.3 | 0 | 1.24 / 0.71 / 0.08 | 15.7 |
+| 0.5 | 0 | 5.9 / 4.7 / 2.2 | 16.6 |
+
+A run whose envelope holds it no faster forward than the walk's holds the walk is not run
+(`walkRun`): the Rogue with the club, whose run envelope holds 0.7 m/s forward and its walk 1.5,
+walked toward a place at 0.8 m/s, 15 m in 25 s; it walks at 1.3, 15 m in 18 s, and of 26 goals
+all round 8 and 16 m off none falls. Over the crowd's 69 cases (seeds 1 to
+12) at 0.2 against 0.15, the allies' braced rule sized to it ([Move](#move)): 3 cases with falls
+against 4, 3 falls against 5, 4 not done against 5, done in a median 25.3 s against 25.4.
+
+A place goal 8 m off (Node stand, Rapier, 120 Hz, open stage, ordered 3 s after the
 bout opens, balance 0):
 
 | Body | Held direct goal, last 2 s of 5 | Place goal 8 m off |
@@ -266,7 +292,7 @@ bout opens, balance 0):
 | skeleton | 1.33 m/s; 1.26 with the club | ends within its `near` |
 | Rogue | falls turning into the run (goal to its side); 0.38 with the club | with the club, short of it in 20 s |
 
-At 0.3 and 0.2 m/s² the Warrior and the skeleton run up to 2.7 m past the place and fall.
+Read at `6c2142ec`, 0.3 and 0.2 m/s² ran the Warrior and the skeleton up to 2.7 m past the place, and they fell.
 
 **Turns** stay the SIMBICON run's. On the walk-run, the Warrior empty-handed and calm, 28 turns a
 rate and speed (each sense, from 14 moments of setting off): at 1 m/s and faster no rate from
@@ -286,6 +312,34 @@ to 12 of every situation and the lone walker's 13 to 44, at `3eace0e6`):
 
 A cap on the facing's turn rate at the switch (0.5 and 1 rad/s) kept 4 and 5 of the 5 lone falls.
 
+**The facing over the walk's sway.** A walk swings the pelvis round at every stride: walking up to
+the run, the skeleton's pelvis is a median 0.13 rad off the way, 0.36 at the 90th percentile and
+0.59 at most, the Warrior's and the Rogue's 0.34 and 0.30 at most, so the skeleton never faced the
+way within 0.15 rad for 0.6 s, and the others only after 7.8 s on a 15 m goal. The facing judged
+is the pelvis's followed with a time constant of 0.5 s (`RUN_SWITCH.sway`), and the pelvis itself
+faces the way within 0.2 rad as the foot lands (`RUN_SWITCH.swayed`): of 52 runs begun on the
+followed facing alone toward goals all round, the two begun 0.35 and 0.44 rad off fell within
+0.7 s, and none begun within 0.30 fell so. Place goals 8 and 16 m off, at 13 bearings from
+-3 to 3 rad (Node stand, Rapier, 120 Hz, balance 0, 26 trials a row):
+
+| Body | Runs, instant facing | Falls | Runs, followed facing | Falls | Median start, s |
+|---|---:|---:|---:|---:|---|
+| Warrior, club | 26 | 0 | 26 | 0 | 9.57 → 8.44 |
+| Rogue | 26 | 0 | 26 | 0 | 7.75 → 5.59 |
+| skeleton | 8 | 0 | 26 | 1 | 8.43 → 5.06 |
+| skeleton, club | 5 | 1 | 26 | 2 | 5.45 → 6.47 |
+
+Every body that runs, sent 8, 15 and 30 m straight ahead, starts its run at 2.8 to 2.9 s and
+stops within 0.43 m past the place. The crowd's 69 cases and the lone walker's seeds 13 to 44 are
+as before but the lone walker's one fall, now none.
+
+**Giving way at the stop.** The run gives the walk the body once its ground speed, across the
+heading as well as along it, is down to the run's pace: given way on its speed along the heading,
+a run drifted about 1 m/s across it handed the walk a body still going sideways, and its pelvis
+spun off. On the same goals, once the walk turns at the pace it walks up to the run at
+([the stance's walk](#the-stances-walk)), the skeleton fell so in 3 of 52 runs, empty-handed and
+with the club; on the whole speed it falls in none, nor does any other body, in 156 goals.
+
 ## Move
 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while
@@ -299,7 +353,9 @@ run are one machine and change at once; a gait that drives the legs is asked to 
 changes to another.
 
 The braced rule holds at 5 m: at 2 m two Arena fighters opened 4 m apart run into each other and one
-falls.
+falls. Near a standing body of its own side it walks braced within 8.5 m: twice the 4.2 m the run
+states it stops in from the 1.3 m/s it runs from (`RUN_STOPPING`); at 5 m four crossing paths ran
+into each other and fell.
 
 ## Motion capture
 
@@ -416,7 +472,10 @@ On the walk and run's speeds:
 
 - a fixed share of the forward pace for a goal to the side (`STRAFE`,
   `docs/reference/orders.md@aaae9b48`): the speed rule asks what each way held instead;
-- `RUN_STOPPING` 0.3 and 0.2 m/s²: the body runs past a place goal and falls ([above](#the-walk-and-run)).
+- `RUN_STOPPING` 0.25 and 0.3 m/s²: the Warrior runs 0.75 and 1.24 m past a place goal ([above](#the-walk-and-run));
+- the run giving way to the walk at the walk's fastest forward pace, not the run's own: the
+  Warrior runs less past a place, but falls twice in 36 as the walk takes up a body going 1.5 to
+  1.7 m/s; begun there too, the run never begins, the walk going short of that pace.
 
 On the SIMBICON walk (the Lab's three tracks, three bodies, seeds 1 to 6, on the wider gait):
 

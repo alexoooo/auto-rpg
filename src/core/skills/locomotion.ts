@@ -48,19 +48,15 @@ interface LegsMemory {
   reference: number | null;
   /** Rising: the height over the soles it was resumed at, m, and when, s of the world's clock; null at its height. */
   rising: { from: number; at: number } | null;
-  /** How far apart the soles' middles stood as the body was built, m: read with `reference`; null before. */
-  width: number | null;
 }
 
 function stanceLegs(state: LegsMemory): StanceLegs {
   return {
     goal(view, heading, walk, lower = STANCE_LOWER) {
-      const s = view.stance;
-      // The reference height is the body's (`BodyView.standing`), taken with the stance's width at the first view after a step.
+      // The reference height is the body's (`BodyView.standing`), taken at the first view after a step.
       if (state.reference === null) {
         if (view.time <= view.born) return null;
         state.reference = view.standing;
-        state.width = hypot(s.soles.left.x - s.soles.right.x, s.soles.left.z - s.soles.right.z);
       }
       let height = state.reference - lower;
       const rising = state.rising;
@@ -88,19 +84,6 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
  * (`docs/reference/human-and-strikes.md#placing`).
  */
 export const PLACING = { near: 0.02 } as const;
-
-/**
- * How far, m, a resumed body's stepping foot may be from its place beside the other, across the
- * way the pelvis faces at the built stance's width, and stay where it is
- * (`docs/reference/rising.md#the-handover`).
- */
-const SQUARE_NEAR = 0.1;
-
-/**
- * The speed, m/s, of the centre of mass across the ground past which a resumed body is not squared:
- * a body taken up moving, as from a run, sets its feet by the walk's own steps.
- */
-const SQUARE_STILL = 0.3;
 
 /**
  * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
@@ -179,11 +162,8 @@ export interface Locomotion extends Skill {
  *
  * Resumed (`Skill.resume`), it stands facing the way the pelvis faces (read from its left-to-right
  * axis, which says it however far forward the pelvis is pitched), with no footing asked, and
- * asks the height the centre of mass is at, rising to the stance's over `RISING_SECONDS`; and
- * the foot farther from the centre of mass steps to the other's side, across the way it faces at
- * the width the body was built standing at, unless it is within `SQUARE_NEAR` of there, before
- * it walks or stands (`squaring`), unless it moves faster than `SQUARE_STILL`. The reference
- * height stays: it is the body's.
+ * asks the height the centre of mass is at, rising to the stance's over `RISING_SECONDS`, its
+ * feet where they are. The reference height stays: it is the body's.
  */
 export interface StanceWalk extends Locomotion {
   readonly pace: number;
@@ -220,8 +200,6 @@ interface LocomotionState extends LegsMemory {
   walkTime?: number;
   placing: Placing | null;
   placed: boolean;
-  /** Resumed with its feet not at its own stance: the footing it steps them to before it walks or stands; null once there. */
-  squaring: Footing | null;
 }
 
 /** The footing being placed, the feet that have stepped to it, and the step under way. */
@@ -249,7 +227,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
 export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
-  const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, going: 0, placing: null, placed: false,
+  const state: LocomotionState = { reference: null, rising: null, heading: 0, pace: 0, going: 0, placing: null, placed: false,
     ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
@@ -279,22 +257,6 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     placing.lifted = false;
     return { ...base, swing: placing.step };
   };
-  // The foot nearer the centre of mass stays; the other steps to its own side of it, across the
-  // heading by the built stance's width, as far ahead along the heading as it is.
-  const squareOf = (view: BodyView): Footing | null => {
-    const width = state.width, s = view.stance, c = s.centre;
-    if (width === null || hypot(s.velocity.x, s.velocity.z) > SQUARE_STILL) return null;
-    const near = (foot: Side): number => hypot(s.soles[foot].x - c.x, s.soles[foot].z - c.z);
-    const stays: Side = near("left") <= near("right") ? "left" : "right", steps: Side = stays === "left" ? "right" : "left";
-    const at = s.soles[stays], q = s.soles[steps];
-    // The pelvis's right across the ground is (cos h, -sin h); forward, (sin h, cos h).
-    const rx = cos(state.heading), rz = -sin(state.heading), fx = sin(state.heading), fz = cos(state.heading);
-    const side = steps === "right" ? 1 : -1, ahead = (q.x - at.x) * fx + (q.z - at.z) * fz;
-    const to: readonly [number, number] = [at.x + side * width * rx + ahead * fx, at.z + side * width * rz + ahead * fz];
-    if (hypot(to[0] - q.x, to[1] - q.z) <= SQUARE_NEAR) return null;
-    const kept: readonly [number, number] = [at.x, at.z];
-    return stays === "left" ? { left: kept, right: to } : { left: to, right: kept };
-  };
   return {
     state, envelope, stopping: STANCE_STOPPING,
     get heading() { return state.heading; },
@@ -311,16 +273,9 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.placing = null;
       state.placed = false;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
-      state.squaring = squareOf(view);
-      // The foot that stays has its place: only the other steps.
-      if (state.squaring) state.placing = { footing: state.squaring, stepped: { left: state.squaring.left[0] === view.stance.soles.left.x, right: state.squaring.right[0] === view.stance.soles.right.x }, step: null, lifted: false };
     },
     place,
     goal(view, walk, face, dt, lower) {
-      if (state.squaring) {
-        if (state.placed) state.squaring = null;
-        else return place(view, state.squaring, lower);
-      }
       state.placing = null;
       state.placed = false;
       if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }

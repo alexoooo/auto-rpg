@@ -167,7 +167,7 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
     let rotation: readonly [number, number, number, number];
     if (options.start === "dropped") {
       const u = random(), a = random() * 2 * Math.PI, b = random() * 2 * Math.PI;
-      rotation = [Math.sqrt(1 - u) * Math.sin(a), Math.sqrt(1 - u) * Math.cos(a), Math.sqrt(u) * Math.sin(b), Math.sqrt(u) * Math.cos(b)];
+      rotation = [Math.sqrt(1 - u) * sin(a), Math.sqrt(1 - u) * cos(a), Math.sqrt(u) * sin(b), Math.sqrt(u) * cos(b)];
     } else if (waypoint) rotation = waypoint.rotation ?? [0, 0, 0, 1];
     else if (installed) rotation = installed.placement.rotation as [number, number, number, number];
     else {

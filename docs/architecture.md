@@ -618,8 +618,8 @@ neither straight ahead nor seen from the route's last corner and has gone `NAV.m
 route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
 else to the spot it chose last, carried with the body it ranges about while that spot is open and
 its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body.
-**Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
-routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
+**The bodies about it** (`src/core/mind/crowd.ts`): a fallen body, of either side but the one it
+ranges about, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
 changes no route; and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
@@ -693,13 +693,14 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
 
 A **Commander** (`src/core/command/team.ts`) stands to a team as a Mind stands to a body: it knows
 what its members sense, pooled, and its own memory, and acts only by giving them orders (`Orders`),
-which their Minds carry out while they defend themselves.
+which their Minds carry out while they defend themselves. Every kind passes over a foe that has lain
+down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals.ts`).
 
 | Aspect | Contract |
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `commander.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense, where it is, whether it is in the fight and whether it lies down; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
 | It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
 | It hears | a leader's command (`Command`, `commands.ts`) at once |

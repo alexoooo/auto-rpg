@@ -103,14 +103,16 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
         if (state.time >= BACKOFF) { clear(); state.braceUsed = false; mode("brace"); }
         return;
       }
+      // A body steadying on its feet is the stance's to catch: bracing it would fold the legs under it.
+      const onFeet = g.position === "standing" || g.position === "crouch";
       const tumbling = g.velocity.lengthSquared() > .25 || g.spin > 1;
-      if (tumbling && !state.braceUsed) {
+      if (tumbling && !state.braceUsed && !(onFeet && state.mode === "steady")) {
         if (state.mode !== "brace") mode("brace");
         drive(BRACE, .3, 2, .4); remember(); state.time += dt;
         if (state.time >= BRACE_LIMIT) state.braceUsed = true;
         return;
       }
-      if ((g.position === "standing" || g.position === "crouch") && !state.steadyTried.includes(g.position)) {
+      if (onFeet && !state.steadyTried.includes(g.position)) {
         if (state.mode !== "steady") {
           mode("steady"); motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading });
         }

@@ -184,8 +184,8 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
  * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
  * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
  * Arena fighters opened 4 m apart run into each other and one falls. Near a standing body of its own
- * side it walks in the fighting step within 11 m: the run states it stops at 0.15 m/s²
- * (`Locomotion.stopping`), so from the pace it runs from it stops in 5.6 m, and closing on one that
+ * side it walks in the fighting step within 8.5 m: the run states it stops at 0.2 m/s²
+ * (`Locomotion.stopping`), so from the pace it runs from it stops in 4.2 m, and closing on one that
  * closes too, in twice that; at 5 m four crossing paths ran into each other and fell. The fighting
  * step keeps clear of it (`crowdWalk`, `src/core/mind/crowd.ts`). The last 5 m to its
  * destination is walked in the fighting step too, which stops where it is sent where the run carries
@@ -193,7 +193,7 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
-    { kind: "when-distance", of: "ally", than: "under", metres: 11, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
+    { kind: "when-distance", of: "ally", than: "under", metres: 8.5, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
   otherwise: "run" });
 
 const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];
@@ -286,8 +286,15 @@ export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...
 const EITHER_HAND = ["hand.right", "hand.left"] as const;
 
 /**
+ * **How the duellist throws its recipes in a fight**: after a quarter second stood still, at a target
+ * up to 12 cm along and 20 cm across outside a recipe's window, from where it stands
+ * (`docs/reference/blows.md#in-a-fight`).
+ */
+const DUELLIST_STRIKE = deepFreeze({ stand: .25, slack: { along: .12, across: .2 } });
+
+/**
  * **The duellist**: Behaviours' parts for a fighter that swings what one hand holds and covers with
- * what the other holds. It takes in turn the recipe strike at the head and at the trunk and the
+ * what the other holds. It takes in turn the recipe strike (`DUELLIST_STRIKE`) at the head and at the trunk and the
  * blade's thrust at the trunk's opening; approaches its window facing its way there, at its run's
  * pace, while the window is over 1.5 m off; covers by prediction; and stands up once down. It is the
  * mind every humanoid has unless its fight says otherwise (`modelInfo`).
@@ -295,7 +302,7 @@ const EITHER_HAND = ["hand.right", "hand.left"] as const;
 export const DUELLIST: FighterConfig = deepFreeze({ ...BEHAVIOURS,
   tactics: { ...BEHAVIOURS.tactics, list: [
     { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach", travel: 1.5 }, { kind: "cover", guard: "ward" }] },
-  executors: [{ name: "recipe", kind: "recipe-strike" }, { name: "blade-thrust", kind: "blade-thrust" }],
+  executors: [{ name: "recipe", kind: "recipe-strike", tuning: DUELLIST_STRIKE }, { name: "blade-thrust", kind: "blade-thrust" }],
   actions: [
     ...(["high", "middle"] as const).map((mark) => ({ name: `swing ${mark}`, executor: "recipe", effectors: EITHER_HAND, regions: [{ kind: "mark" as const, mark }], aim: { kind: "centre" as const, lead: 0 } })),
     { name: "thrust", executor: "blade-thrust", effectors: EITHER_HAND, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }] });

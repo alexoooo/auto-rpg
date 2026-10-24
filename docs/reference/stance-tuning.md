@@ -469,6 +469,15 @@ need it and seldom in the run. With it the Rogue walks 0.5 m/s every way; stand,
 0.3 m/s walks and the shoves at rest read the same (to 60 N s: Rogue 118 of 176, Warrior 174).
 Chosen: on, keyed on the centre of mass.
 
+A foot kept rolled once the body has stopped over it bears only on its edge: a weight shift with
+no double support (a step of the walk's own taking up a still body, `place`) takes the body over
+the sole's middle and waits for the capture point to be over the edge, and never lifts. The
+Rogue, its run braked to 0.14 m/s and handed to the walk 0.6 m short of a place, stood in that
+shift for good with its left foot on its toes. The foot rolls back as that shift goes onto it
+(`rollFeet`, `src/core/control/stance.ts`); it moves no fingerprint case, and the Rogue's shoved
+braced walk empty-handed falls in the same 8 of seeds 1 to 200 either way (Node stand,
+rapier-coordinate, 120 Hz, at `aaf7f462`).
+
 ## Track
 
 `STANCE_TRACK`, at `abfe6153` (`{"track": 0.1}` is the first row, read again).

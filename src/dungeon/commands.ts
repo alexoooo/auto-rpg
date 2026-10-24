@@ -23,6 +23,8 @@ export class DungeonCommands {
   cursor: Point | null = null;
   right = 0;
   up = 0;
+  /** Whether the member the keys steer walks, not runs: Caps Lock is on. */
+  walk = false;
   private press: { screen: Point; ground: Point; target: string | null; dragging: boolean } | null = null;
   /** The route the pointer is drawing; null once it is drawn. */
   private route: DrawnRoute | null = null;

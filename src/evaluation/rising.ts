@@ -32,6 +32,7 @@ import { GROUND_LEVELS, type GroundLevel } from "../lab/ground-environment.ts";
 import { groundPlacement, groundPostures } from "../lab/ground-starts.ts";
 import type { LabAddress } from "../lab/scenarios.ts";
 import { buildFall, checkFall, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
+import { cos, sin } from "../core/math/real.ts";
 
 /** The riser a fall is hosted by: the bed's host with its recovery. */
 export type RisingSub = "support-recovery" | "stand-up";
@@ -201,7 +202,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
       if (start === "shoved" && !control.shoved && world.time >= 1) {
         const radians = (job.degrees ?? 0) * Math.PI / 180, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
         const trunk = built.segments.get("middleTrunk")!;
-        trunk.body.applyImpulse(new Vector3(1.5 * mass * Math.sin(radians), 0, 1.5 * mass * Math.cos(radians)), trunk.node.position);
+        trunk.body.applyImpulse(new Vector3(1.5 * mass * sin(radians), 0, 1.5 * mass * cos(radians)), trunk.node.position);
         control.shoved = true;
       }
       world.step();

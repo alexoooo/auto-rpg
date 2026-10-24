@@ -5,7 +5,7 @@ import { directMovement, placeMovement, type GroundPoint, type MovementRequest }
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import { travelSpeed } from "../mind/travel.ts";
 import type { Command, DrawnRoute, TeamOrder } from "./commands.ts";
-import { ARRIVAL, approach, arrived, direction, distance, reportOf, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /** How far behind the leader an unposted member trails before it walks after it, m: clear of the leader's reach (`docs/reference/play.md#following`). */
@@ -87,7 +87,9 @@ export interface PartyConfig {
 export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "party" }): Commander {
   const { level } = host, picks = config.picks ?? true;
   // Whom the person's commands go to (`selected`), by id: null, everybody, until the person selects.
-  const state = { members: {} as Record<string, Memory>, leader: null as string | null, notice: "", selected: null as string[] | null };
+  // When each foe lying down went down, by id (`lyingSince`).
+  const state = { members: {} as Record<string, Memory>, leader: null as string | null, notice: "", selected: null as string[] | null,
+    down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=
     { target: null, lastSeen: null, goal: null, order: IDLE, routeStart: 0, opening: null, post: null, replan: false, facing: null, end: null, headway: null };
 
@@ -177,7 +179,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     return (upon ? 0 : 2) + (aimedAt(view, foe) ? 0 : 1);
   };
 
-  /** Which foe `member` fights: the one its order locks, or, where it picks, the nearest it can see. */
+  /** Which foe `member` fights: the one its order locks, or, where it picks, the nearest it can see that is worth fighting (`worthFighting`). */
   const choose = (view: TeamView, member: MemberView): void => {
     const mind = memory(member.id), order = mind.order, at = member.at;
     if (order.kind === "lock") {
@@ -193,7 +195,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     if (!picks) { mind.target = null; return; }
     const aimed = member.id === steered(view).id, current = mind.target;
     const rank = (foe: SensedBody) => aimed ? aimRank(view, foe) : 0;
-    const candidates = view.others.filter(foe => foe.fighting && level.sees(at, foe.at, PARTY_SIGHT.pick))
+    const candidates = view.others.filter(foe => worthFighting(foe, state.down, view.time) && level.sees(at, foe.at, PARTY_SIGHT.pick))
       .filter(foe => !aimed || aimedAt(view, foe) || distance(at, foe.at) < (foe.id === current ? SET_UPON.keepMetres : SET_UPON.metres))
       .sort((a, b) => rank(a) - rank(b) || distance(a.at, at) - distance(b.at, at));
     const kept = current === null ? undefined : candidates.find(foe => foe.id === current);
@@ -246,7 +248,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     if (lead?.explore) {
       const status = mind.goal ? reportOf(member, placeMovement(mind.goal, ARRIVAL.explored))?.status : undefined;
       if (!mind.goal || arrived(member, mind.goal, ARRIVAL.explored) || status === "unreachable" || status === "stalled")
-        mind.goal = level.frontier(member.at, member.radius);
+        mind.goal = roomy(level, level.frontier(member.at, member.radius), member.radius);
       return mind.goal ? placeMovement(mind.goal, ARRIVAL.explored) : null;
     }
     return null;
@@ -328,6 +330,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     },
     decide(view: TeamView): TeamDecision {
       state.leader ??= view.members[0]?.id ?? null;
+      lyingSince(state.down, view);
       let replanned = false;
       for (const member of view.members) {
         const mind = memory(member.id);

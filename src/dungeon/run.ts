@@ -430,7 +430,7 @@ export class DungeonRun {
   private partyView(look: boolean): TeamView {
     const { mode, cursor } = this.commands;
     return this.view(this.party, this.enemies, look, {
-      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: false,
+      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: this.commands.walk,
       aim: mode.facing ? cursor : null, strike: null, explore: mode.facing,
     });
   }
@@ -445,7 +445,7 @@ export class DungeonRun {
         reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
         gait: actor.fighter?.minded.report?.gait ?? null, heading: actor.fighter?.minded.report?.heading ?? null,
       })),
-      others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive })),
+      others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive, down: actor.fighter!.body.down })),
     };
   }
 

@@ -26,11 +26,12 @@ import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { labActor, type Actor } from "../lab/actor.ts";
 import { groundPlacement } from "../lab/ground-starts.ts";
-import { groundShove, startGround, targetImpulse } from "../lab/ground-mode.ts";
+import { groundShove, SHOVED_UNFELLED, startGround, targetImpulse } from "../lab/ground-mode.ts";
 import type { GroundLevel } from "../lab/ground-environment.ts";
 import { loadoutSpec } from "../lab/loadout.ts";
 import { labAddress, type LabAddress } from "../lab/scenarios.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
+import { cos, sin } from "../core/math/real.ts";
 
 /**
  * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`,
@@ -155,11 +156,11 @@ export async function buildFall(fall: FallCase, engine: EngineName, given: {
     afterStep() {
       if (verifying) {
         if (run.check.done()) { stood = check.stage === "stood"; ended = true; }
-        else if (check.takeover === null && world.time >= 4) ended = true;
+        else if (check.takeover === null && world.time >= SHOVED_UNFELLED) ended = true;
       } else if (run.meter.state.handback !== null) { stood = true; ended = true; }
       else if (run.state.status !== "running"
         || run.meter.state.from !== null && world.time - run.meter.state.from >= cap
-        || run.meter.state.from === null && world.time >= 4) ended = true;
+        || run.meter.state.from === null && world.time >= SHOVED_UNFELLED) ended = true;
       if (world.time >= cap + FALL_AFTER) ended = true;
     },
     reading() {
@@ -217,7 +218,7 @@ export async function buildLoneFall(fall: FallCase, engine: EngineName): Promise
     const a = degrees * Math.PI / 180, centre = root.rigid.centre, origin = root.frame.origin;
     root.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(root.rest), turn);
     at.set(centre[0] - origin[0], centre[1] - origin[1], centre[2] - origin[2]).applyRotationQuaternionToRef(turn, at).addInPlace(root.node.position);
-    root.body.applyImpulse(new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a)), at);
+    root.body.applyImpulse(new Vector3(impulse * sin(a), 0, impulse * cos(a)), at);
   });
   return {
     world, body: fighter.built, actor: null,
