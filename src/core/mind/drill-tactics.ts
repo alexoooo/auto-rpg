@@ -4,17 +4,19 @@ import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
 import { approachActionWindow } from "./action-window.ts";
 import { NO_COVER, type Intent } from "./intent.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody, slotOne, type PartConfig } from "./parts.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
-import type { TacticsPart } from "./tactics-part.ts";
+import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "./tactics-part.ts";
 
 /**
  * **A drill's tactics**: one action with one effector at one mark of the nearest foe, asked once.
  * The body never walks: it turns to the target, or to the middle of the action's window where its
  * readiness names one, and requests the action the first step it is ready; a request the skills
  * refuse at its start is asked again. Once an action it asked has run and ended it asks nothing
- * more. A drill reads the action's own motion from where the body stands.
+ * more. A drill reads the action's own motion from where the body stands. With `fight`, it fights
+ * by those tactics until they ask their `moment`th action, and asks its own in that one's place
+ * from that step: a moment of a fight handed to the drill.
  */
 export interface DrillTacticsConfig {
   readonly kind: "drill";
@@ -24,13 +26,28 @@ export interface DrillTacticsConfig {
   readonly mark: "high" | "middle" | "legs";
   /** How long it stands in guard from its first decision before it asks anything, s: the settle a trial starts from. */
   readonly after: number;
+  /** The tactics it fights by until they ask their `moment`th action (from 1), in place of standing; absent, it stands. */
+  readonly fight?: PartConfig;
+  readonly moment?: number;
 }
 
-/** Where the drill is: before its action (the readiness last read), with it under way, or after it. */
-export type DrillPhase = "lost" | Readiness["kind"] | "striking" | "done";
+/** Where the drill is: fighting by its `fight`, before its action (the readiness last read), with it under way, or after it. */
+export type DrillPhase = "fighting" | "lost" | Readiness["kind"] | "striking" | "done";
 
-function drillTactics(config: DrillTacticsConfig): Tactics<Sight, Intent> {
-  const state = { phase: "lost" as DrillPhase, reason: "", focus: null as string | null, request: null as ActionRequest | null, started: false, since: null as number | null };
+function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactics<Sight, Intent> {
+  const state = { phase: (fight ? "fighting" : "lost") as DrillPhase, reason: "", focus: null as string | null, request: null as ActionRequest | null, started: false, since: null as number | null,
+    /** The actions its fight asked, by id, and how many. */
+    asked: [] as number[], fight: fight?.state ?? null };
+  /** The fight's intent this step, or null from the step it asks its `moment`th action. */
+  const fighting = (sight: Sight, dt: number): Intent | null => {
+    const intent = fight!.decide(sight, dt);
+    for (const request of intent.actions) {
+      if (state.asked.includes(request.id)) continue;
+      state.asked.push(request.id);
+      if (state.asked.length >= (config.moment ?? 1)) { state.phase = "lost"; return null; }
+    }
+    return intent;
+  };
   const nearest = (sight: Sight): BodySense | null => {
     const { view } = sight;
     let best: BodySense | null = null, distance = Infinity;
@@ -46,10 +63,16 @@ function drillTactics(config: DrillTacticsConfig): Tactics<Sight, Intent> {
     state,
     engagement: {
       get phase() { return state.phase; },
-      get focus() { return state.focus; },
+      get focus() { return state.phase === "fighting" ? fight!.engagement?.focus ?? null : state.focus; },
       get details() { return state.reason ? [{ label: "readiness", value: state.reason }] : []; },
     },
-    decide(sight) {
+    get decision() { return state.phase === "fighting" ? fight!.decision : undefined; },
+    decide(sight, dt) {
+      if (state.phase === "fighting") {
+        const intent = fighting(sight, dt);
+        if (intent) return intent;
+        state.since = sight.view.time - config.after;
+      }
       const { view, report } = sight, foe = nearest(sight);
       state.focus = foe?.id ?? null;
       state.since ??= view.time;
@@ -84,16 +107,21 @@ function drillTactics(config: DrillTacticsConfig): Tactics<Sight, Intent> {
 }
 
 export const DRILL_TACTICS: TacticsPart<DrillTacticsConfig> = deepFreeze({
-  role: "tactics", label: "Drill one action", stage: "experimental", fields: [], slots: [],
+  role: "tactics", label: "Drill one action", stage: "experimental", fields: [], slots: [slotOne("fight", "Fight until the moment", "tactics", true)],
   defaults: { kind: "drill", action: "strike", effector: "hand.right", mark: "high", after: .5 },
-  keys: { kind: true, action: true, effector: true, mark: true, after: true }, fits: anyBody,
-  phases: { lost: "Finding the target", position: "Out of its window", waiting: "Waiting", blocked: "Refused", ready: "Ready", striking: null, done: "Done" },
+  keys: { kind: true, action: true, effector: true, mark: true, after: true, fight: true, moment: true }, fits: anyBody,
+  phases: { fighting: "Fighting", lost: "Finding the target", position: "Out of its window", waiting: "Waiting", blocked: "Refused", ready: "Ready", striking: null, done: "Done" },
   faults: (config: DrillTacticsConfig) => [
     ...typeof config.action === "string" && config.action ? [] : ["action: a drill names one action"],
     ...typeof config.effector === "string" && config.effector ? [] : ["effector: a drill names one effector"],
     ...["high", "middle", "legs"].includes(config.mark) ? [] : ["mark: high, middle or legs"],
     ...Number.isFinite(config.after) && config.after >= 0 ? [] : ["after: a finite time, s, not negative"],
+    ...config.moment === undefined || config.fight !== undefined && Number.isSafeInteger(config.moment) && config.moment >= 1 ? [] : ["moment: a count from 1, of a fight's actions"],
   ],
-  actionFaults: (config: DrillTacticsConfig, actions: readonly string[]) => actions.includes(config.action) ? [] : [`action: no action ${config.action}`],
-  make: (_making, config) => drillTactics(config),
+  actionFaults: (config, actions, parts) => [...actions.includes(config.action) ? [] : [`action: no action ${config.action}`],
+    ...config.fight ? (parts.of("tactics", config.fight).actionFaults?.(config.fight, actions, parts) ?? []).map((fault) => `fight: ${fault}`) : []],
+  kitFaults: (config, kit, parts) => config.fight ? (parts.of("tactics", config.fight).kitFaults?.(config.fight, kit, parts) ?? []).map((fault) => `fight: ${fault}`) : [],
+  decisionCapabilities: (config, parts) => config.fight ? parts.of("tactics", config.fight).decisionCapabilities?.(config.fight, parts) ?? [] : [],
+  prepareSkills: (making, config, skills, decision) => config.fight ? prepareTacticsSkills(making, config.fight, skills, decision) : skills,
+  make: (making, config) => drillTactics(config, config.fight ? tacticsOf(making, config.fight) : null),
 });

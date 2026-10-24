@@ -11,6 +11,9 @@ import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { STRIKE_CASES, type StrikeCondition } from "./cases.ts";
+
+/** Where a trial was thrown: the still rung's offset and gap, or a fight's foe and moment. */
+const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}` : `across ${condition.across} m, gap ${condition.gap} m`;
 import type { StrikeReading } from "./read.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
@@ -58,17 +61,17 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   /** Each subject's trials as a table, in the conditions' order. */
   summary({ subjects, cases }) {
     const f = (x: number | null | undefined, d = 2) => x === null || x === undefined ? "-" : x.toFixed(d);
-    const rows = cases.map(({ subjects: [id], condition, reading }) => ({ subject: id, ...condition, ...reading }));
+    const rows = cases.map(({ subjects: [id], condition, reading }) => ({ subject: id, ...reading, model: condition.model, mark: condition.mark, hand: condition.hand, where: whereOf(condition) }));
     return {
       lines: subjects.flatMap((subject) => [
         `${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
-        "| Model | Mark | Hand | Across, m | Gap, m | Outcome | Reason | To contact, s | Speed, m/s | Mass, kg | Straight, cos | Energy, J | Return, s |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Model | Mark | Hand | Where | Outcome | Reason | To contact, s | Speed, m/s | Mass, kg | Straight, cos | Energy, J | Return, s |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
         ...rows.filter((row) => row.subject === subject.id).map((r) =>
-          `| ${r.model} | ${r.mark} | ${r.hand} | ${r.across} | ${r.gap} | ${r.outcome} | ${r.reason || "-"} | ${f(r.hit && r.began !== null ? r.hit.time - r.began : null)} | ${f(r.hit?.speed)} | ${f(r.hit?.kg)} | ${f(r.hit?.straight)} | ${f(r.hit?.energy)} | ${f(r.released !== null && r.ended !== null ? r.ended - r.released : null)} |`),
+          `| ${r.model} | ${r.mark} | ${r.hand} | ${r.where} | ${r.outcome} | ${r.reason || "-"} | ${f(r.hit && r.began !== null ? r.hit.time - r.began : null)} | ${f(r.hit?.speed)} | ${f(r.hit?.kg)} | ${f(r.hit?.straight)} | ${f(r.hit?.energy)} | ${f(r.released !== null && r.ended !== null ? r.ended - r.released : null)} |`),
         "",
       ]),
-      json: rows.map(({ subject, model, mark, hand, across, gap, outcome }) => ({ subject, model, mark, hand, across, gap, outcome })) as unknown as Json,
+      json: rows.map(({ subject, model, mark, hand, where, outcome }) => ({ subject, model, mark, hand, where, outcome })) as unknown as Json,
     };
   },
 };

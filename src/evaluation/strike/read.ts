@@ -57,9 +57,9 @@ export type StrikeHit = StrikeContact & {
  * `elsewhere`, the hand on the target but not the mark; `missed`, committed and nothing of the
  * hand's on the target; `abandoned`, begun and ended before committing; `outside`, never in its
  * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `fell`, the
- * striker down at any time of the trial.
+ * striker down at any time of the trial; `unreached`, a fight that never came to its moment.
  */
-export type StrikeOutcome = "landed" | "weak" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell";
+export type StrikeOutcome = "landed" | "weak" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
 
 /** What a trial came to. */
 export type StrikeReading = {
@@ -67,6 +67,8 @@ export type StrikeReading = {
   /** The drill's last phase before its action, and the reason its readiness last gave. */
   readonly phase: DrillPhase;
   readonly reason: string;
+  /** When the drill had the body, s: the bout's start, or the moment its fight was handed to it; null where it never was. */
+  readonly handed: number | null;
   /** When the action began, committed, released and ended, s; null where it did not. */
   readonly began: number | null; readonly committed: number | null; readonly released: number | null; readonly ended: number | null;
   readonly ending: string | null;
@@ -78,12 +80,13 @@ export type StrikeReading = {
   readonly seconds: number;
 };
 
-/** When a trial ends: the protocol's longest, how long it runs on after the action's end, and how long the striker may wait to be admitted after `settled`. */
+/** When a trial ends: the protocol's longest, how long it runs on after the action's end, and how long the striker may wait to be admitted `settled` s after the drill has the body. */
 export interface Ending { readonly seconds: number; readonly settle: number; readonly settled: number; readonly patience: number }
 
 /**
  * The reader of a trial in which the striker, the bout's left side, asks one action with `hand` at
- * the right side's `mark`, ending as `ending` says and judged by `bar`.
+ * the right side's `mark`, ending as `ending` says and judged by `bar`. The striker's actions while
+ * its drill is fighting (`DrillPhase`) are the fight's, not the drill's.
  */
 export function readStrike({ world, duel }: { readonly world: World; readonly duel: Duel }, { mark, hand }: { readonly mark: Mark; readonly hand: Hand },
   ending: Ending, bar: Bar = BAR): Reader<StrikeReading> {
@@ -97,7 +100,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const path: number[] = [];
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180);
-  let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false;
+  let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false;
+  /** The actions the fight asked before the drill had the body. */
+  const before = new Set<number>();
   /** The strike point's travel over its last `bar.run` m before `time`: its speed and its direction, or null where it travelled less. */
   const approach = (time: number): { speed: number; direction: [number, number, number] } | null => {
     let end = path.length - 4;
@@ -117,7 +122,13 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   };
   return {
     afterStep() {
-      const action = skills.report.actions[0];
+      if (skills.report.engagement?.phase === "fighting") {
+        fought = true;
+        for (const one of skills.report.actions) before.add(one.id);
+        return;
+      }
+      handed ??= fought ? world.time : 0;
+      const action = skills.report.actions.find((one) => !before.has(one.id));
       if (action && id === null) { id = action.id; times.began = world.time; }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
@@ -137,7 +148,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
     },
     get ended() {
       return world.time >= ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
-        || id === null && world.time >= ending.settled + ending.patience;
+        || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
     },
     reading() {
       const touches = duel.blows.flatMap((blow) => {
@@ -159,9 +170,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const meets = (hit: StrikeHit) => hit.fast && hit.heavy && hit.square && hit.soon;
       const hit = hits.find(meets) ?? hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak" : byHand.length ? "elsewhere"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak" : byHand.length ? "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
-      return { outcome, phase, reason, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
+      return { outcome, phase, reason, handed, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
     },
   };
 }
