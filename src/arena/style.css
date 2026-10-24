@@ -70,6 +70,10 @@
 :where(#screen-root[data-screen="arena"]) .hud-col progress::-moz-progress-bar { background: var(--side-colour); }
 
 :where(#screen-root[data-screen="arena"]) .hud-clock { align-items: center; width: auto; flex: 0 0 auto; position: relative; }
+:where(#screen-root[data-screen="arena"]) .hud-reel { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 280px; text-align: center; color: var(--ink); }
+:where(#screen-root[data-screen="arena"]) .hud-reel[hidden] { display: none; }
+:where(#screen-root[data-screen="arena"]) .hud-reel label, :where(#screen-root[data-screen="arena"]) .hud-reel button { pointer-events: auto; }
+:where(#screen-root[data-screen="arena"]) .hud-reel button { width: auto; margin-top: 0; padding: 6px 12px; }
 :where(#screen-root[data-screen="arena"]) #arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
 :where(#screen-root[data-screen="arena"]) .hud-mind { pointer-events: auto; width: min(300px, calc(50vw - 40px)); max-height: calc(100dvh - 220px); overflow-y: auto; padding: 6px 10px; background: #0a0e16c0; border-radius: 4px; text-align: left; }
 :where(#screen-root[data-screen="arena"]) .hud-mind summary { cursor: pointer; color: var(--dim); }

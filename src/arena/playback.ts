@@ -6,8 +6,11 @@ const AFTERMATH_SECONDS = 3;
 /** Defeated bodies stay loose throughout the aftermath; survivors retain their own control. */
 const AFTERMATH_LEVELS = Object.freeze({ wake: 0, rest: 0, company: 0, clear: 0, settle: AFTERMATH_SECONDS });
 
-/** Page playback preserves the verdict and lets defeated bodies fall under gravity before stopping. */
-export function arenaPlayback(duel: Duel, catchUpSeconds: number) {
+/**
+ * Page playback preserves the verdict and lets defeated bodies fall under gravity before stopping;
+ * given `until`, s of the bout's clock, it stops there: a recorded case where its scoring stopped.
+ */
+export function arenaPlayback(duel: Duel, catchUpSeconds: number, until = Infinity) {
   const { world } = duel, state = { verdict: null as Verdict | null };
   const settle = () => {
     if (!duel.verdict) { state.verdict = null; return; }
@@ -22,12 +25,15 @@ export function arenaPlayback(duel: Duel, catchUpSeconds: number) {
     levelsOf(asks, AFTERMATH_LEVELS).forEach((level, i) => duel.duelists[SIDES[i]!].body.setLevel(level));
   };
   const hook = world.sense(settle);
+  /** The steps left to play: to `until`, or to the end of the verdict's aftermath. */
+  const left = () => Math.round(Math.min(until - duel.clock, duel.verdict ? duel.verdict.time + AFTERMATH_SECONDS - duel.clock : Infinity) * world.hz);
   return {
     advance(seconds: number): void {
-      const remaining = duel.verdict ? Math.max(0, duel.verdict.time + AFTERMATH_SECONDS - duel.clock) : Infinity;
-      const most = Math.min(Math.ceil(catchUpSeconds * world.hz), Math.round(remaining * world.hz));
-      if (most > 0) world.advance(Math.min(seconds, remaining), most);
+      const most = Math.min(Math.ceil(catchUpSeconds * world.hz), left());
+      if (most > 0) world.advance(Math.min(seconds, most / world.hz), most);
     },
+    /** Whether nothing is left to play. */
+    get done(): boolean { return left() <= 0; },
     dispose(): void { hook.dispose(); },
   };
 }

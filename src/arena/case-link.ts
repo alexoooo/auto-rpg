@@ -1,52 +1,46 @@
 /**
- * **A bout case in an Arena link**: `?play=arena#case=<the case's world>`, the world as a record
- * keeps it (`CaseWorld`: engine, recipe, tape), with the record's commit (`&commit=`) and the
- * Ratings address it was opened from (`&back=`). The page plays the recipe and the tape as this
- * build's code builds them; the address the case gives the pickers only shows its choices.
+ * **Recorded cases in an Arena link**: `?play=arena#reel=<evaluation>&cases=<key,…>&at=<index>&auto=<0|1>&back=<address>`,
+ * a reel of an evaluation's recorded bout cases by their keys, the one at `at` shown first; with
+ * auto-play each case plays after the last in the same screen. A single case is a reel of one. The
+ * Arena plays each case's recipe and tape as this build's code builds them (`reel.ts`); the
+ * address the case gives the pickers only shows its choices.
  */
-import { BODY_MODELS } from "../core/models.ts";
-import { isEngineName } from "../core/engine/engines.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { recordingKey } from "../core/recording.ts";
-import type { CaseWorld } from "../evaluation/evaluation.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
-import { isOrdersEntry, SIDES, type DuelRecipe } from "./duel.ts";
+import { SIDES, type DuelRecipe } from "./duel.ts";
 import { defaultControl, matchupSearch, mindsSearch } from "./matchup.ts";
 
-/** A bout case's world: the one kind the Arena opens, bit-equal between JavaScript engines. */
-type BoutWorld = Extract<CaseWorld, { readonly kind: "bout" }>;
-
-/** A case as a link carries it. */
-export interface LinkedCase {
-  readonly world: BoutWorld;
-  /** The commit of the record that holds it, as the record names it. */
-  readonly commit: string | null;
+/** A reel as a link carries it. */
+export interface LinkedReel {
+  /** The evaluation whose records hold the cases. */
+  readonly evaluation: string;
+  /** The cases, by their keys, in the order played. */
+  readonly cases: readonly string[];
+  /** The case shown, by its index in `cases`. */
+  readonly at: number;
+  /** Whether each case plays on from the last. */
+  readonly auto: boolean;
   /** The Ratings address to return to. */
   readonly back: string | null;
 }
 
-const CASE_KEY = "case";
+const REEL_KEY = "reel";
 
-/** The fragment that opens `world` (`readCase`). */
-export function caseHash(world: BoutWorld, { commit, back }: { commit: string; back: string }): string {
-  return `#${new URLSearchParams({ [CASE_KEY]: JSON.stringify(world), commit, back })}`;
+/** The fragment that opens `reel` (`readReel`). */
+export function reelHash({ evaluation, cases, at, auto, back }: LinkedReel): string {
+  return `#${new URLSearchParams({ [REEL_KEY]: evaluation, cases: cases.join(","), at: String(at), auto: auto ? "1" : "0", ...(back === null ? {} : { back }) })}`;
 }
 
-/** The case `hash` carries; null where it carries none, and an error where what it carries is no bout case. */
-export function readCase(hash: string): LinkedCase | null {
-  const fragment = new URLSearchParams(hash.replace(/^#/, "")), text = fragment.get(CASE_KEY);
-  if (text === null) return null;
-  let world: Partial<BoutWorld>;
-  try { world = JSON.parse(text) as Partial<BoutWorld>; }
-  catch { throw new Error("the case is not valid JSON"); }
-  if (world?.kind !== "bout") throw new Error("the Arena opens bout cases only: a fall is not yet the same in every JavaScript engine");
-  if (typeof world.engine !== "string" || !isEngineName(world.engine)) throw new Error(`the case's engine ${String(world.engine)} is not one this build has`);
-  const recipe = world.recipe;
-  if (!recipe || !BODY_MODELS.includes(recipe.left) || !BODY_MODELS.includes(recipe.right)) throw new Error("the case's recipe names no character this build has");
-  if (!Array.isArray(world.tape) || !world.tape.every((entry, k, tape) => isOrdersEntry(entry) && (k === 0 || entry.step >= tape[k - 1]!.step)))
-    throw new Error("the case's tape has invalid or unordered orders");
+/** The reel `hash` carries; null where it carries none, and an error where what it carries is no reel. */
+export function readReel(hash: string): LinkedReel | null {
+  const fragment = new URLSearchParams(hash.replace(/^#/, "")), evaluation = fragment.get(REEL_KEY);
+  if (evaluation === null) return null;
+  const cases = (fragment.get("cases") ?? "").split(",").filter((key) => key.length > 0), at = Number(fragment.get("at") ?? 0);
+  if (cases.length === 0) throw new Error("the reel names no case");
+  if (!Number.isSafeInteger(at) || at < 0 || at >= cases.length) throw new Error(`the reel has no case ${fragment.get("at")}`);
   const back = fragment.get("back");
-  return { world: world as BoutWorld, commit: fragment.get("commit"), back: back !== null && back.startsWith("?play=ratings") ? back : null };
+  return { evaluation, cases, at, auto: fragment.get("auto") !== "0", back: back !== null && back.startsWith("?play=ratings") ? back : null };
 }
 
 /** The recipe's fields the pickers show (`caseSearch`). */

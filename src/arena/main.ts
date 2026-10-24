@@ -19,7 +19,6 @@ import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, modelHolding, modelHolds, modelInfo, resolveCharacter, type BodyModel } from "../core/models.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
-import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -31,8 +30,9 @@ import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, entryRules, SIDES, type Verdict } from "./duel.ts";
 import { endingText } from "./end-rule.ts";
-import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
+import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
+import { reelTrials, type Trial } from "./reel.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
@@ -90,26 +90,31 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
   }
 };
 
-/** What the setup says of a case from the Ratings (`LinkedCase`). */
-const caseNote = ({ commit, world }: LinkedCase): string => {
+/** What the setup says of a reel's trial (`Trial`): its record, and what the pickers do not show of it. */
+const trialNote = ({ commit, world }: Trial): string => {
   const extra = unshown(world.recipe);
-  return `A recorded case${commit ? ` from commit ${commit.slice(0, 8)}` : ""}: Fight plays its recipe and orders as this build's code builds them, `
-    + `which may not be the code it was recorded at. A changed choice makes a new bout.${extra.length ? ` It also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
+  return `A recorded case from commit ${commit.slice(0, 8)}: the reel plays its recipe and orders as this build's code builds them, `
+    + `which may not be the code it was recorded at. Fight plays a new bout of the choices shown.${extra.length ? ` The case also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
 };
+/** The pause between one trial's end and the next one's start, with auto-play on, ms. */
+const TRIAL_BEAT_MS = 1000;
 
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const previewFailed = (error: Error) => { need("boot-note").textContent = `Preview unavailable: ${error.message}`; };
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
-  // A case opened from the Ratings puts its choices in the address, so the pickers show them; its
-  // recipe and tape are what Fight plays until a choice is changed.
-  const linkedCase = readCase(location.hash);
-  if (linkedCase) context.replace(caseSearch(linkedCase.world.recipe) + location.hash);
+  // A reel opened from the Ratings plays its trials in this screen, one after another; the trial
+  // shown puts its choices in the address, so the pickers show them when the reel is left.
+  const reel = readReel(location.hash), trials = reel ? await reelTrials(reel) : null;
+  context.signal.throwIfAborted();
+  let at = reel?.at ?? 0, auto = reel?.auto ?? false;
+  const reelAt = () => reel ? reelHash({ ...reel, at, auto }) : "";
+  if (trials) context.replace(caseSearch(trials[at]!.world.recipe) + reelAt());
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
-  const physicsEngine = await loadEngine(linkedCase?.world.engine);
+  const physicsEngine = await loadEngine(trials?.[at]!.world.engine);
   context.signal.throwIfAborted();
   const level = readLevel(location.search);
   let made: World | null = null;
@@ -131,10 +136,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let appearances = readAppearances(location.search, matchup);
   let view = readArenaView(location.search, you);
   const rig = arenaCameraRig(camera, view);
-  // A linked case is of the link's matchup: a bout of another matchup begun from the page plays its own recipe.
-  const linked = { matchup, hash: location.hash };
-  /** Whether the bout under way plays the linked case: it then takes no orders from a person. */
-  let replaying = false;
+  /** The reel's trial under way, if the bout plays one: it then takes no orders from a person. */
+  let trial: Trial | null = null;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
   youPicker.addEventListener("change", () => { for (const side of SIDES) renameControl[side]?.(); });
@@ -142,16 +145,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // Each side's mind as its panel shows it (`mindEditor`).
   const mindOf = {} as Record<Side, () => MindConfig>, mindFaultsOf = {} as Record<Side, () => readonly string[]>;
   const controls = readControls(location.search), loadoutChoices = readLoadouts(location.search);
-  const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
-  const linkedLoadouts = JSON.stringify(loadoutChoices ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT });
+  const linkedRecovery = readRecovery(location.search);
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>, renameControl = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
   const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
   const attributes = { ...arenaAttributes(location.search) };
-  const attributeKey = (models: Matchup, values: Readonly<Record<Side, AttributeOverrides>>) => JSON.stringify(SIDES.map(side => resolveCharacter({ model: models[side], attributes: values[side] }).config));
-  let linkedAttributes = "";
-  try { linkedAttributes = attributeKey(matchup, attributes); } catch { /* The editor reports invalid linked values. */ }
   const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
@@ -232,8 +231,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       try { return modelHolding(select.value as BodyModel, loadout(), attributes[side]); }
       catch { return modelHolding(select.value as BodyModel, loadout()); }
     };
-    // The minds are checked by the entry rule of the bout the page opens with: a linked case's own, or a fight's.
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(linkedCase?.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
+    // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
     const showSettings = (config: MindConfig) => {
       editor.set(config, editorSpec());
@@ -394,6 +393,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const row of rows) row.condition.reset();
     hud.hidden = true;
     playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
+    trial = null; trialShown = false; clearTimeout(nextTimer);
   };
 
   context.own(end);
@@ -418,6 +418,15 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
   pauseButton.setAttribute("aria-controls", "pause-menu");
   clockColumn.append(clock, pauseButton, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
+  const reelLine = document.createElement("div"), trialText = document.createElement("span");
+  const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
+  const autoLabel = document.createElement("label"), nextButton = Object.assign(document.createElement("button"), { type: "button", className: "action quiet", textContent: "Next trial" });
+  reelLine.className = "hud-reel"; reelLine.hidden = true;
+  autoLabel.append(autoBox, " Auto-play");
+  reelLine.append(trialText, autoLabel, nextButton); clockColumn.append(reelLine);
+  /** Whether the trial under way has played as long as it was scored, and when the next begins on its own. */
+  let trialShown = false, nextTimer: ReturnType<typeof setTimeout> | undefined;
 
   const setPaused = (value: boolean) => {
     paused = value && duel !== null && !duel.verdict;
@@ -427,6 +436,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   };
   let screen: "setup" | "fight" = "setup";
   const setup = () => {
+    // Leaving a reel opens the setup of the trial last shown, with its choices in the pickers.
+    if (trial) { context.navigate(arenaViewSearch(caseSearch(trial.world.recipe), view), { setup: true }); return; }
     end(); setPaused(false); show("bout-end", false); show("curtain", true); screen = "setup"; viewPanel.hidden = true;
     for (const side of SIDES) {
       pickers[side].value = matchup[side];
@@ -437,9 +448,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: attributes[side] }, appearances[side]).catch(previewFailed);
     }
   };
-  const begin = async (next: Matchup) => {
+  /** Begins a bout of `next`: the reel's trial `given`, as recorded, or the one the pickers make. */
+  const begin = async (next: Matchup, given: Trial | null = null) => {
     if (beginButton.disabled) return;
-    try {
+    if (!given) try {
       for (const side of SIDES) {
         attributes[side] = attributeEditors[side].read();
         resolveCharacter({ model: next[side], attributes: attributes[side] });
@@ -453,29 +465,21 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       await context.loading("Preparing fighters", async stage => {
         appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
         matchup = next;
-        const query = new URLSearchParams(location.search);
-        query.delete("balance"); query.delete("haste");
-        for (const side of SIDES) writeAttributes(query, side, attributes[side]);
-        query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
-        query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-        query.delete("held");
-        for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
-        query.set("recovery", recoveryPicker.value);
-        let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
-        const sameControllers = linkedControl === JSON.stringify(readMinds(search));
-        const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
-        const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
-        const asLinked = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes);
-        const played = asLinked && linkedCase ? linkedCase.world : null;
-        replaying = played !== null;
-        if (replaying) {
-          const snapshot = new URLSearchParams(search);
-          for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
-          search = `?${snapshot}`;
+        if (given) context.replace(arenaViewSearch(appearanceSearch(caseSearch(given.world.recipe), matchup, appearances), view) + reelAt());
+        else {
+          const query = new URLSearchParams(location.search);
+          query.delete("balance"); query.delete("haste");
+          for (const side of SIDES) writeAttributes(query, side, attributes[side]);
+          query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
+          query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+          query.delete("held");
+          for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
+          query.set("recovery", recoveryPicker.value);
+          const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+          context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
         }
-        context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
-        // The bout: the case's recipe as recorded, or the one the address and the pickers make.
-        const recipe = played?.recipe ?? recipeOf(location.search, attributes, level);
+        // The bout: the trial's recipe as recorded, or the one the address and the pickers make.
+        const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
         const minds = recipe.minds ?? { left: modelInfo(recipe.left).mind, right: modelInfo(recipe.right).mind };
         const [dress] = await Promise.all([
           Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
@@ -483,6 +487,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         ]);
         context.signal.throwIfAborted();
         end();
+        trial = given;
         toStart();
         audio.reset();
         controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
@@ -505,16 +510,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           // A blow is a touch, and is heard as one; this is what it took off.
           onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
         });
-        playback = arenaPlayback(bout, CATCH_UP_SECONDS);
+        playback = arenaPlayback(bout, CATCH_UP_SECONDS, given?.played ?? Infinity);
         subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
         rig.reset(); applyView();
         const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
         hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
         airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-        if (played) bout.play(played.tape);
+        if (given) bout.play(given.world.tape);
         else if (you) led = teamOfOne(bout, you, { kind: "party", picks: false });
         for (const row of rows) {
-          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
+          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !given ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;
           row.condition.bind(duelist);
           row.condition.sample(world.time); row.condition.render(world.time);
@@ -528,6 +533,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           for (const row of rows) row.condition.sample(time, !feedStopped);
           if (bout.verdict) feedStopped = true;
         });
+        if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; recorded ${given.outcome}`}`;
+        reelLine.hidden = !given; nextButton.hidden = !given || at + 1 >= trials!.length;
+        for (const id of ["random-replay", "bout-end-random"]) need(id).hidden = given !== null;
         hud.hidden = false;
         show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
         frame();
@@ -555,17 +563,27 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const type of ["pointerdown", "pointermove"]) button.addEventListener(type, event => event.stopPropagation());
     button.addEventListener("click", () => { button.blur(); setPaused(value); });
   }
-  for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", () => void begin(matchup));
+  /** Plays the reel's trial `k`. */
+  const playTrial = (k: number) => { at = k; const one = trials![k]!; void begin({ left: one.world.recipe.left, right: one.world.recipe.right }, one); };
+  /** The bout under way again: the trial, or a new bout of the pickers' choices. */
+  const replay = () => trial ? playTrial(at) : void begin(matchup);
+  for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", replay);
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
   need<HTMLButtonElement>("to-menu").addEventListener("click", () => context.navigate(MENU_HREF));
-  if (linkedCase?.back) {
-    const back = linkedCase.back, link = need<HTMLAnchorElement>("case-back"), button = need<HTMLButtonElement>("bout-end-back");
+  if (reel?.back) {
+    const back = reel.back, link = need<HTMLAnchorElement>("case-back"), button = need<HTMLButtonElement>("bout-end-back");
     link.href = back; link.hidden = false; button.hidden = false;
-    // A drill's reel returns to the Ratings, which opens its next trial (`&reel=`).
-    if (new URLSearchParams(back).has("reel")) { button.textContent = "Next trial"; link.textContent = "→ Next trial in the reel"; }
     button.addEventListener("click", () => context.navigate(back));
   }
+  for (const control of [nextButton, autoLabel]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
+  nextButton.addEventListener("click", () => { nextButton.blur(); playTrial(at + 1); });
+  autoBox.addEventListener("change", () => {
+    autoBox.blur(); auto = autoBox.checked;
+    context.replace(location.search + reelAt());
+    clearTimeout(nextTimer);
+    if (auto && trialShown && at + 1 < trials!.length) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
+  });
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
@@ -590,7 +608,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
     if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
-    else if (event.key === "r" || event.key === "R") void begin(matchup);
+    else if (event.key === "r" || event.key === "R") replay();
   }, { signal: context.signal });
   window.addEventListener("keyup", (event) => { if (event.key === "Shift") walking = false; walkKey(event, false); }, { signal: context.signal });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
@@ -676,14 +694,25 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
     // While either side is hasted, each side's haste, per cent over a person's, signed.
     const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
-    clock.textContent = `${(duel.verdict?.time ?? duel.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
-    if (duel.verdict && shown !== duel.verdict) {
+    clock.textContent = `${(duel.verdict?.time ?? duel.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
+    // A trial ends where it was scored: its verdict, if any, and its outcome as recorded.
+    if (trial && playback?.done && !trialShown) {
+      trialShown = true;
+      const last = at + 1 >= trials!.length, { verdict } = duel;
+      need("bout-end").style.setProperty("--side-colour", verdict?.winner ? ARENA_SIDES[verdict.winner].colour : "var(--hot)");
+      need("bout-verdict").textContent = `Trial ${at + 1} of ${trials!.length}${trial.outcome === null ? "" : `: ${trial.outcome}`}${last ? " · the reel is played" : ""}`;
+      const decided = verdict ? `${verdict.winner ? `${MODEL_DISPLAY[matchup[verdict.winner]].label} ` : ""}${endingText(verdict.ending)} · ` : "";
+      need("bout-ending").textContent = `${trial.condition} · ${decided}${duel.clock.toFixed(1)} s`;
+      show("bout-end", true); audio.setActive(false); pauseButton.hidden = true;
+      if (auto && !last) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
+    }
+    if (!trial && duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;
       const { winner, ending, time } = shown;
       const how = endingText(ending);
       need("bout-end").style.setProperty("--side-colour", winner ? ARENA_SIDES[winner].colour : "var(--hot)");
-      need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you && !replaying ? " (you)" : ""}` : "Draw";
+      need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you ? " (you)" : ""}` : "Draw";
       need("bout-ending").textContent = `${winner ? `${MODEL_DISPLAY[matchup[winner]].label} ` : ""}${how} · ${time.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false);
     }
@@ -718,10 +747,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   frame();
   await warmScene(scene, context.signal);
   const unread = unreadMinds(location.search);
-  need("boot-note").textContent = [...unread, ...linkedCase ? [caseNote(linkedCase)] : []].join(" ");
+  need("boot-note").textContent = [...unread, ...trials ? [trialNote(trials[at]!)] : []].join(" ");
   beginButton.disabled = false;
-  // A link that names its matchup opens the bout directly, unless a mind it names could not be read.
-  if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM) && unread.length === 0) await begin(matchup);
+  // A reel plays from its trial at once: it has no setup of its own. A link that names its matchup
+  // opens the bout directly, unless a mind it names could not be read.
+  if (trials) playTrial(at);
+  else if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM) && unread.length === 0) await begin(matchup);
   context.own(() => {
     if ((window as unknown as { __arena?: { engine: Engine } }).__arena?.engine === engine) Reflect.deleteProperty(window, "__arena");
   });

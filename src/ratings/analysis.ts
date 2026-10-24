@@ -117,6 +117,10 @@ export function fieldText(value: Json | undefined): string {
   return (Array.isArray(value) ? value : Object.values(value)).map((one) => fieldText(one as Json)).join(",");
 }
 
+/** A case's condition as text, field by field. */
+export const conditionText = (condition: Json): string => condition !== null && typeof condition === "object" && !Array.isArray(condition)
+  ? Object.entries(condition).map(([key, value]) => `${key} ${fieldText(value)}`).join(", ") : fieldText(condition);
+
 /** The fields a pool's conditions have. */
 export const conditionFields = (pool: Pool): string[] =>
   [...new Set(pool.cases.flatMap(({ line }) => line.condition !== null && typeof line.condition === "object" && !Array.isArray(line.condition) ? Object.keys(line.condition) : []))];
