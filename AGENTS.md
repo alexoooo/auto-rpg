@@ -252,6 +252,11 @@ When the question is a measurement:
 - **Name the construct, not a line number.** A comment about a code path is a hypothesis until
   the path has run.
 - **Switch on a union with a `never` default.**
+- **An expected refusal is a returned value.** A throw is a defect: no catch decides what the
+  game does from one. A catch at a reporting boundary (a fault shown as a sentence, a failed
+  asset load) keeps the error's message and catches only what it reports.
+- **A flag fixed for a caller is set when it builds.** Construction takes it, named; a call passes
+  only what changes from call to call. No bare boolean positionals.
 - **A module that owns a rule exports its predicate.** A copy that names its fields drops the ones
   added later.
 - **A published field needs a reader**, or a named one that is coming, written down. **An export
