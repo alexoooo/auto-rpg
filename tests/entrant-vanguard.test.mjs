@@ -30,9 +30,72 @@ import { effectorAim } from "../src/core/control/effectors.ts";
 import { plantedSupport, supportReadiness } from "../src/core/control/support-readiness.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { cos, hypot, sin } from "../src/core/math/real.ts";
+import { armedActions, actionConfigFaults } from "../src/core/mind/action-config.ts";
+import { LOADOUTS, REPRESENTATIVE, withLoadout } from "../src/core/items/held.ts";
+import { holdsNothing } from "../src/core/skills/strikes.ts";
 
 /** Standing guard-return limits, in m, m/s and s: `docs/reference/vanguard.md#standing-miss-return`. */
 const RETURN_LIMITS = Object.freeze({ near: .05, slow: .6, hold: .05, deadline: 1.2 });
+
+test("Vanguard routes held weapons and empty hands through their supported actions", () => {
+  for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
+    const bare = modelSpec(model), config = MINDS[id].config;
+    const punches = config.actions.filter(action => config.executors.find(executor => executor.name === action.executor).kind === "vanguard-punch");
+    assert.deepEqual(armedActions(partLookup, bare, config.executors, config.actions), punches, "equipment choices do not enter an empty-handed kit");
+    for (const loadout of LOADOUTS) {
+      const spec = withLoadout(bare, loadout), actions = armedActions(partLookup, spec, config.executors, config.actions);
+      assert.deepEqual(actionConfigFaults(partLookup, spec, config.executors, actions), []);
+      for (const action of actions) {
+        const executor = config.executors.find(executor => executor.name === action.executor);
+        for (const hand of action.effectors) assert.equal(holdsNothing(spec, hand), executor.kind === "vanguard-punch",
+          `${id}, ${JSON.stringify(loadout)}: ${executor.kind} uses the correct physical endpoint`);
+      }
+    }
+    for (const loadout of REPRESENTATIVE) assert(controlsFor(model, loadout).includes(id), `${id} supports ${JSON.stringify(loadout)}`);
+    const occupied = withLoadout(bare, { left: "buckler", right: "club" });
+    assert(armedActions(partLookup, occupied, config.executors, config.actions).some(action => action.effectors.includes("hand.right")),
+      "a shield and club leave a physical weapon action available");
+  }
+});
+
+test("Vanguard weapon actions drive a held physical endpoint with both hands occupied", async () => {
+  for (const [held, action] of [["club", "weapon"], ["sword", "cut"], ["sword", "thrust"]]) {
+    const config = MINDS["vanguard-warrior"].config, spec = withLoadout(modelSpec("workshop-fighter"), { left: "buckler", right: held });
+    const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
+    const state = { active: null, target: null, started: false, driven: false, peak: 0 };
+    const script = { state, decide(sight) {
+      const view = sight.view, heading = sight.report.heading;
+      if (!state.active && view.time >= 2) {
+        state.target ??= { kind: "point", at: [view.stance.centre.x, view.head.y - .3, view.stance.centre.z + .6] };
+        const around = { heading, placed: view.stance.phase === "stand", support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER };
+        let ready = sight.readiness(view, action, "hand.right", state.target, around);
+        if (ready.kind === "position") {
+          const along = (ready.window.along[0] + ready.window.along[1]) / 2, across = (ready.window.across[0] + ready.window.across[1]) / 2;
+          state.target.at = [view.stance.centre.x + along * sin(heading) + across * cos(heading), state.target.at[1],
+            view.stance.centre.z + along * cos(heading) - across * sin(heading)];
+          ready = sight.readiness(view, action, "hand.right", state.target, around);
+        }
+        if (ready.kind === "ready") { state.active = { id: sight.instance(), action, effector: "hand.right", target: state.target }; state.started = true; }
+      }
+      return { move: null, face: heading, guard: {}, actions: state.active ? [state.active] : [] };
+    } };
+    const minded = createMind(stand.built, stand.world, config, { name: "weapon fixture", orders: () => null, script });
+    try {
+      while (!state.driven && stand.world.time < 8 && !minded.body.down) {
+        stand.world.step();
+        if (!minded.skills.report.actions.some(one => one.phase === "commit" && one.action === action)) continue;
+        const speed = hypot(...minded.body.view.effectors["hand.right"].feedback.velocity);
+        state.peak = Math.max(state.peak, speed);
+        const command = minded.skills.state.command, goal = command.effectors?.["hand.right"], item = spec.held.find(one => one.segment === "hand.right").item;
+        const controlsItem = command.pushes.length > 0 || goal?.places.some(place => Object.hasOwn(item.points, place.point));
+        state.driven = !!controlsItem && speed > .1;
+      }
+      assert(state.started, `${held}/${action}: the physical fixture never reached admission`);
+      assert.equal(minded.body.down, false, `${held}/${action}: the fixture fell before the weapon moved`);
+      assert(state.driven, `${held}/${action}: no committed weapon motion, ${JSON.stringify(state)}`);
+    } finally { minded.body.dispose(); stand.dispose(); }
+  }
+});
 
 test("each Vanguard calibration's standing misses regain the physical guard and planted stance with both hands", async () => {
   for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
