@@ -10,7 +10,8 @@ fails its sixth fresh campaign with three losses in three completed cases. All f
 qualification campaigns fail too. A separate [Warrior body screen](#warrior-body-screen) wins
 its four frozen fresh Options cases without falls; all four are health leads at the cap, not
 injury wins. A seventh [torso-cover challenger](#torso-cover-challenger) campaign is incomplete
-after one fatal loss and a price cut. Equipment is unqualified.
+after one fatal loss and a price cut. A fresh [Warrior Counter-puncher screen](#warrior-counter-puncher-screen)
+stops with an open-stage win and a court loss. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -959,6 +960,56 @@ source and harness snapshots, full physical rows, case keys, pose digests and un
 in `research/runs/vanguard/warrior-fresh/`. The original campaign record retains its stopped
 schedule; the separate body record supplies these four completed entries. No other opponent,
 equipment, Rogue case or remaining Skeleton case is played by this screen.
+
+## Warrior Counter-puncher screen
+
+The frozen Warrior fails the fresh Counter-puncher screen: it wins the left open-stage bout by
+injury, then loses the left court bout by injury. Both bodies remain upright in both completed
+bouts. The two mirrored confirmations are interrupted when the court loss decides the screen;
+there are no invalid cases. This does not qualify the matchup or establish a field win rate.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Warriors, empty hands,
+default attributes, Balance 0/0, zero sense delay, continuing after falls to injury or the ordinary
+120 s cap. Protocol `vanguard-warrior-counter-fresh-1` freezes both configurations before selecting
+unused starting geometry. Source is `002cac7c`, based on commit `6ec0e0cb`; the complete source
+identity, configurations, native case identities and recipes are in
+`research/runs/vanguard/warrior-field/counter/manifest.json`.
+
+The declared decision requires all four fresh cases to win, mirrored across both levels; the
+first loss or draw stops it. The initial sequential price projection cuts an unfinished pilot.
+Scheduling changes to one pilot followed by three parallel confirmations, retaining the same
+frozen cases, criterion and cumulative nine-minute cap. Both executions use 112.6 active wall
+seconds in total. Interrupted trials are not outcomes.
+
+| Level / gap / side | Result | Vanguard / opponent ending bar | Falls, either side |
+| --- | --- | --- | --- |
+| Open / 4.18 m / left | Fatal-injury win at 105.2333 s | 0.7392 / 0.4944 | None |
+| Court / 4.58 m / left | Fatal-injury loss at 20.6833 s | 0.6282 / 0.9350 | None |
+| Open / 4.18 m / right | Interrupted | Unfinished | Unfinished |
+| Court / 4.58 m / right | Interrupted | Unfinished | Unfinished |
+
+The completed subset is 1/2, with a descriptive 95% Wilson interval of 0.0945–0.9055. Stopping on
+the first nonwin leaves the matrix incomplete; that interval does not estimate the unplayed cases.
+Full rows, blows, action ledgers, controller snapshots and the native evaluation record are retained
+beside the manifest.
+
+The court ledger contains three committed punches, the last ending at 9.0833 s. A passive replay
+matches the complete pose digest `7d596808e603e51d` and every recorded blow exactly. All 22 half-second
+samples from 10 to 20.5 s report wall clearance, with only 0.0545 m horizontal displacement between
+the first and last. Navigation requests the sensed +z exit while the stance stays in weight shift;
+most received injury is struck on the upper trunk. This identifies a clearance stall, without
+establishing that a particular replacement will win. The diagnostic takes 9.0 wall seconds and
+is retained as `clearance-diagnostic.json`.
+
+A Warrior-only `vanguard-clear` prototype stops to face the sensed exit within 0.2 rad before a
+forward walk capped at 0.3 m/s. It preserves live action requests and the earlier ordered movement.
+It fails the paired court case by fatal injury at 23.35 s, with bars 0.6203 / 0.9852 and no falls.
+Only one punch commits; the 10 s and 20 s snapshots remain in its turning phase. The declared
+win gate rejects it, so the three other development cases are unplayed and the selected source
+is restored exactly. Typecheck and the two-file entrant scope check pass. The trial takes 10.3
+active wall seconds. Source `f4031fa1`, configurations, full row and harness are retained under
+`research/runs/vanguard/warrior-exit/`. Its saved-record `npm run compare` reading has zero complete
+mirrored units; the single-case failure is not a paired-panel improvement claim.
 
 ## Absorbed contact scores
 

@@ -57,6 +57,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    equipment win rates remain unqualified ([path](reference/vanguard.md#equipment-path)).
    A fresh torso-cover challenger matrix stops on price after one fatal loss, with eleven cases
    unfinished; the selected presets remain unchanged ([record](reference/vanguard.md#torso-cover-challenger)).
+   The Warrior's fresh Counter-puncher screen stops after an open-stage win and a court loss;
+   a wall-clearance stall is observed, and an exit-facing prototype also loses
+   ([record](reference/vanguard.md#warrior-counter-puncher-screen)).
    The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
