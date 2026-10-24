@@ -4,7 +4,8 @@
  * and without its evasion (`adaptiveEvade`, `revisitEvade`), a capped evasive step
  * (`slowEvade`), another entry where the exact one is unreachable (`routeAround`), a step round
  * repeated blocks (`flank`) and low cover (`lowGuard`), which also closes the covering hands
- * (`TacticsPart.prepareSkills`).
+ * (`TacticsPart.prepareSkills`). A low guard may hold standing while its target is down
+ * (`waitFallen`), finishing its own stroke and rise before another approach.
  */
 import { FIGHTING } from "../../mind/config.ts";
 import type { PartConfig } from "../../mind/parts.ts";
@@ -32,12 +33,13 @@ export interface VanguardPlanConfig extends PartConfig {
   readonly flank?: boolean;
   readonly lowGuard?: boolean;
   readonly replantLow?: boolean;
+  readonly waitFallen?: boolean;
 }
 
 /** A short defensive retreat is capped at 0.2 m/s instead of the navigator's ordinary travel pace. */
 const EVADE_PACE = .2;
 
-const LAYERS = ["slowEvade", "adaptiveEvade", "revisitEvade", "routeAround", "flank", "lowGuard", "replantLow"] as const;
+const LAYERS = ["slowEvade", "adaptiveEvade", "revisitEvade", "routeAround", "flank", "lowGuard", "replantLow", "waitFallen"] as const;
 
 /** The plan as a behaviour list, or null for a planner of another kind. */
 const behaviourList = (plan: PartConfig): readonly PartConfig[] | null =>
@@ -60,12 +62,12 @@ function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null):
 
 export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
   role: "tactics", label: "Vanguard layers", stage: "experimental",
-  fields: [toggle("lowGuard", "Prepare a low guard"), toggle("replantLow", "Rise to reposition a low attack"), toggle("slowEvade", "Limit evasive steps"),
+  fields: [toggle("lowGuard", "Prepare a low guard"), toggle("replantLow", "Rise to reposition a low attack"), toggle("waitFallen", "Wait for a fallen foe"), toggle("slowEvade", "Limit evasive steps"),
     toggle("adaptiveEvade", "Learn attack or evasion from target contacts"), toggle("revisitEvade", "Revisit an earlier quiet policy"),
     toggle("routeAround", "Find another reachable entry point"), toggle("flank", "Step around repeated blocks")],
   slots: [slotOne("plan", "Plan", "tactics")],
   defaults: { kind: "vanguard-plan", plan: FIGHTING },
-  keys: { kind: true, plan: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: true, lowGuard: true, replantLow: true },
+  keys: { kind: true, plan: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: true, lowGuard: true, replantLow: true, waitFallen: true },
   fits: anyBody,
   faults: (config, parts) => {
     const capabilities = parts.of("tactics", config.plan).decisionCapabilities?.(config.plan, parts) ?? [];
@@ -82,6 +84,7 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
         ? ["adaptiveEvade needs an evade behaviour in its plan"] : [],
       ...config.revisitEvade && !config.adaptiveEvade ? ["revisitEvade needs adaptive evasion"] : [],
       ...config.replantLow && !config.lowGuard ? ["replantLow needs lowGuard"] : [],
+      ...config.waitFallen && !config.lowGuard ? ["waitFallen needs lowGuard"] : [],
       ...requirements.flatMap(([enabled, capability, layer]) => enabled && !capabilities.includes(capability)
         ? [`${layer} needs a plan providing ${capability} decision context`] : []),
     ];
@@ -104,6 +107,6 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
     const tactics = config.slowEvade ? limitedEvasion(policy, orders) : policy;
     const routed = config.routeAround ? routeAround(tactics, orders) : tactics;
     const angled = config.flank ? flank(routed, making.spec, orders) : routed;
-    return config.lowGuard ? lowGuard(angled, making.spec, orders, config.replantLow) : angled;
+    return config.lowGuard ? lowGuard(angled, making.spec, orders, config.replantLow, config.waitFallen) : angled;
   },
 });

@@ -47,8 +47,8 @@ const lowFocus = (view: BodyView, decision: TacticalDecision | undefined) =>
 
 const freeHands = (spec: BodySpec) => handsOf(spec).filter(hand => holdsNothing(spec, hand));
 
-/** Prepare low support early and cover a low opponent's head with the free closed hands. */
-export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null, replant = false): Tactics {
+/** Prepare low support and closed-hand cover, optionally holding a standing guard while the low target is down. */
+export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null, replant = false, waitFallen = false): Tactics {
   const state = { base: base.state ?? null, unready: null as number | null, misplaced: null as number | null,
     rising: false, riseReason: "rising after support timeout", time: 0, decision: "no low target" };
   const hands = freeHands(spec);
@@ -70,6 +70,16 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       const dx = head.x - centre.x, dz = head.z - centre.z, distance = Math.sqrt(dx * dx + dz * dz);
       const face = atan2(dx, dz);
       const stage = sight.report.support?.stage, begun = stage === "lower" || stage === "low" || stage === "rise";
+      if (waitFallen && foe.down) {
+        if (sight.report.actions.length) {
+          state.decision = "waiting for stroke release";
+          return { ...intent, actions: intent.actions.filter(request => sight.report.actions.some(action => action.id === request.id)) };
+        }
+        state.decision = "waiting for fallen target";
+        state.unready = null; state.misplaced = null;
+        state.rising = stage !== "stand"; state.riseReason = "rising while target is down";
+        return { ...intent, face: sight.report.heading, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
+      }
       if (state.rising) {
         state.decision = state.riseReason;
         if (stage === "stand") state.rising = false;

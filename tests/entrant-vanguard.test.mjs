@@ -658,3 +658,47 @@ test('a planted low guard yields an unmet entry, finishes rising, and preserves 
   actions = []; sight.report.actions = []; orders = { move: null };
   assert.deepEqual(step(), { move: null, face: 0, movement, guard: {}, actions: [] }, 'an explicit movement order keeps the base intent');
 });
+
+test("the configured fallen-target wait stops the chase, preserves owned actions and orders, and is neutral without a fall", () => {
+  const live = { id: 1, action: "strike", effector: "hand.right", target: { kind: "point", at: [1, 1, 0] } };
+  const intent = { move: [1, 0], movement: { kind: "direct", direction: { x: 1, z: 0 } }, face: 1, guard: {}, actions: [live, { ...live, id: 2 }] };
+  let orders = null;
+  const make = waitFallen => {
+    const base = { name: "fixture", state: { calls: 0 }, decision: { focus: "foe" }, decide() { this.state.calls++; return intent; } };
+    const parts = { of: (role, config) => config.kind === "fixture" ? { make: () => base } : partLookup.of(role, config) };
+    return tacticsOf({ spec: modelSpec("workshop-rogue"), orders: () => orders, parts },
+      { kind: "vanguard-plan", lowGuard: true, waitFallen, plan: { kind: "fixture" } });
+  };
+  const foe = { id: "foe", out: false, down: true, spec: { marks: { high: "head" } },
+    segments: new Map([["head", { centre: { x: 1.5, y: .3, z: 0 } }]]) };
+  const sight = { view: { time: 0, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, facing: 0 }, senses: { others: [foe] } },
+    report: { heading: .2, support: { stage: "stand", ready: false }, actions: [] } };
+  const policy = make(true), standing = policy.decide(sight, 1 / 120);
+  assert.deepEqual(standing, { ...intent, move: null, movement: undefined, face: .2, lower: STANCE_LOWER, actions: [] });
+  sight.report.actions = [live];
+  assert.deepEqual(policy.decide(sight, 1 / 120), { ...intent, actions: [live] }, "the owned request continues, but no new stroke starts");
+  orders = { move: [1, 0] };
+  assert.equal(policy.decide(sight, 1 / 120), intent, "explicit movement retains the entire base intent");
+  orders = null; sight.report.actions = []; sight.report.support.stage = "low";
+  policy.decide(sight, 1 / 120); assert.equal(policy.state.rising, true);
+  foe.down = false;
+  assert.equal(policy.decide(sight, 1 / 120).lower, STANCE_LOWER, "the rise continues after the target gets up");
+  const saved = saveState(policy.state), next = () => ({ intent: policy.decide(sight, 1 / 120), state: saveState(policy.state) });
+  const once = next(); loadState(policy.state, saved); assert.deepEqual(next(), once, "the complete planner memory forks");
+  sight.report.support.stage = "stand";
+  assert.equal(policy.decide(sight, 1 / 120).lower, STANCE_LOWER);
+  assert.ok(policy.decide(sight, 1 / 120).movement, "ordinary approach resumes after the rise completes");
+  const ordinary = make(false), optional = make(true);
+  for (let step = 0; step < 240; step++) {
+    sight.view.time = step / 10;
+    foe.segments.get("head").centre.y = step % 17 < 15 ? .3 : 1.2;
+    foe.segments.get("head").centre.x = step % 31 < 10 ? 1.5 : .4;
+    sight.report.support.stage = ["stand", "low", "rise"][step % 3];
+    sight.report.actions = step % 5 === 0 ? [live] : [];
+    orders = step % 11 === 0 ? { move: [1, 0] } : null;
+    assert.deepEqual(optional.decide(sight, .1), ordinary.decide(sight, .1));
+    assert.deepEqual(saveState(optional.state), saveState(ordinary.state), "all saved state stays exact while no observed opponent fall can activate the option");
+  }
+  const config = MINDS["vanguard-rogue"].config;
+  assert.deepEqual(treeFaults({ ...config, tactics: { ...config.tactics, lowGuard: false, waitFallen: true } }), ["tactics: waitFallen needs lowGuard"]);
+});
