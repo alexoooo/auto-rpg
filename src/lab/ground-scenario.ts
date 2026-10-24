@@ -74,7 +74,11 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     subsData: (next) => next.ground.drive === "learned-rise" ? ["learned-rise"] : [],
     placement(spec, next) {
       address = next; shown = null; fault = "";
-      try { return groundPlacement(spec, next, next.ground.start === "placed" && next.ground.drive === "plant-up" && next.ground.waypoint !== "none" ? plantWaypoint(spec, next.ground.waypoint) : undefined); }
+      try {
+        const start = groundPlacement(spec, next, next.ground.start === "placed" && next.ground.drive === "plant-up" && next.ground.waypoint !== "none" ? plantWaypoint(spec, next.ground.waypoint) : undefined);
+        if ("refused" in start) throw new Error(start.refused);
+        return start;
+      }
       catch (error) { fault = String(error instanceof Error ? error.message : error); throw error; }
     },
     panels: {

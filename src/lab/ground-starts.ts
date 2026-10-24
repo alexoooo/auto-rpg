@@ -13,6 +13,8 @@ import type { SolidSense } from "../core/mind/object-senses.ts";
 import { cos, sin } from "../core/math/real.ts";
 
 type Placement = Parameters<typeof buildBody>[2];
+/** A start the bed refuses: no clear draw, or one that overlaps the level's furniture; why, a sentence. */
+export interface GroundRefusal { readonly refused: string }
 type Point = readonly [number, number, number];
 interface Convex { readonly segment: string; readonly points: readonly Point[]; readonly radius: number }
 /** The placed configurations with installed joint geometry. */
@@ -136,7 +138,7 @@ export function groundPlacementFaults(spec: BodySpec, placement: Placement, soli
 }
 
 /** Drops onto low furniture start above its top; shoves begin with a small geometric gap behind. */
-function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress["ground"]): Placement {
+function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress["ground"]): Placement | GroundRefusal {
   const level = groundEnvironment(options.level);
   if (!level.solids.length) return placement;
   const solid = level.solids[0]!;
@@ -148,12 +150,11 @@ function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress
   const result: Placement = { ...placement, position: onTop ? [x, y + solid.centre[1] + solid.size[1] / 2, solid.centre[2]]
     : [x, y, z + solid.centre[2] + solid.size[2] / 2 + .08 - rear] };
   const faults = groundPlacementFaults(spec, result, level.solids);
-  if (faults.length) throw new Error(`invalid ${options.level} ground start: ${faults.join(", ")}`);
-  return result;
+  return faults.length ? { refused: `invalid ${options.level} ground start: ${faults.join(", ")}` } : result;
 }
 
-/** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height. */
-export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement {
+/** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height; or why the bed refuses the start. */
+export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement | GroundRefusal {
   const options = address.ground;
   if (options.start === "shoved" || options.start === "round") return inEnvironment(spec, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }, options);
   if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
@@ -186,5 +187,5 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
     const placement: Placement = { ...zero, position: [0, (options.start === "dropped" ? .3 : .02) - lowest, 0] };
     if (!groundPlacementFaults(spec, placement).length) return inEnvironment(spec, placement, options);
   }
-  throw new Error(`no clear ${options.start} start for seed ${address.seed} in five draws`);
+  return { refused: `no clear ${options.start} start for seed ${address.seed} in five draws` };
 }

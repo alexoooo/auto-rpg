@@ -100,7 +100,7 @@ export function checkFall(fall: Pick<FallCase, "target" | "loadout" | "grit" | "
   if (fall.target && fall.level && fall.level !== "open") throw new Error("the owner's target fixes the open floor");
 }
 
-/** Where a fall starts: its address in the Lab, its body and its placement; throws for a fall the bed does not play (`checkFall`) or a start it refuses. */
+/** Where a fall starts: its address in the Lab, its body and its placement, or why the bed refuses the start; throws for a fall the bed does not play (`checkFall`). */
 export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
   checkFall(fall);
   const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
@@ -138,7 +138,9 @@ export async function buildFall(fall: FallCase, engine: EngineName, given: {
 } = {}): Promise<BuiltFall> {
   if (!onStandBed(fall)) return buildLoneFall(fall, engine);
   const { start = fallStart(fall), subs } = given;
-  const { spec, placement } = start, balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle || fall.equipped);
+  const { spec, placement } = start;
+  if ("refused" in placement) throw new Error(placement.refused);
+  const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle || fall.equipped);
   const babylon = new NullEngine(), scene = new Scene(babylon);
   const world = createWorld(scene, await loadEngine(engine));
   addArenaSolids(world.physics);

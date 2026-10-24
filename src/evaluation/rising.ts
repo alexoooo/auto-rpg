@@ -104,9 +104,8 @@ export async function risingTrial(job: RisingJob, { subs, stop }: {
   }
   const fall: FallCase = { ...job, model: job.model!, start: job.start!, mind: job.mind ?? risingMind(job.sub ?? "support-recovery", job.techniques) };
   const balance = job.balance ?? 0;
-  let start;
-  try { start = fallStart(fall); }
-  catch (error) { return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: String((error as Error).message), trail: [], attempts: [], phases: {}, assist: null }; }
+  const start = fallStart(fall);
+  if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
   const built = await buildFall(fall, "rapier", { start, ...(subs ? { subs } : {}) });
   try {
     while (!built.ended) {
@@ -120,7 +119,7 @@ export async function risingTrial(job: RisingJob, { subs, stop }: {
 }
 
 /** The technique trials' placements, by start: geometry is independent of controls and strength, so each realm validates an identical draw once. */
-const starts = new Map<string, { placement: ReturnType<typeof groundPlacement> | null; error: string | null }>();
+const starts = new Map<string, ReturnType<typeof groundPlacement>>();
 
 /** What a technique's trial reads at each change of phase or position. */
 type TrailEntry = { at: number; phase: string; position: string; height: number; feet: number[]; hands: number };
@@ -149,18 +148,17 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     const targets: Readonly<Record<string, number>> = job.waypoint === "installed" ? Object.fromEntries(reference.joints.flatMap(joint => joint.dofs.map((dof, k) =>
       [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec, kitOf(partLookup, spec, PUNCHER).posture)[job.waypoint!];
     return { ...source.placement, joints: Object.fromEntries(spec.joints.map(joint => [joint.name,
-      joint.dofs.map(dof => (targets[`${joint.name} ${dof.positive}`] ?? 0) - dof.bind.value)])) } as unknown as ReturnType<typeof groundPlacement>;
+      joint.dofs.map(dof => (targets[`${joint.name} ${dof.positive}`] ?? 0) - dof.bind.value)])) } as unknown as NonNullable<Parameters<typeof groundPlacement>[2]>;
   })() : undefined;
   const key = JSON.stringify([model, job.held ?? "empty", start, posture, seed, job.waypoint ?? null]);
   let fixture = starts.get(key);
   if (!fixture) {
     const address = { seed, ground: { start, posture, degrees: null, impulse: null, foe: 0, gusts: false } } as unknown as Pick<LabAddress, "seed" | "ground">;
-    try { fixture = { placement: deepFreeze(groundPlacement(spec, address, waypoint)), error: null }; }
-    catch (error) { fixture = { placement: null, error: String((error as Error).message) }; }
+    fixture = deepFreeze(groundPlacement(spec, address, waypoint));
     starts.set(key, fixture);
   }
-  if (fixture.error) return { ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error: fixture.error, trail: [], saturation: {} };
-  const placement = fixture.placement!;
+  if ("refused" in fixture) return { ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error: fixture.refused, trail: [], saturation: {} };
+  const placement = fixture;
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placement), reader = groundReading(built, world.dt);
