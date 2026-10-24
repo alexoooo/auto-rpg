@@ -13,11 +13,18 @@ command of teams), and any implementation may advance a layer; which one is a de
 from its readings. Each layer depends only on those below it, and a mind uses as much of the stack
 as it needs ([architecture](architecture.md#the-layers)).
 
-- **Skills and tactics.** A body has an array of skills, and tactics choose among them as the
-  fight goes. Both come in many flavours; the more general and robust, the better: a body that is
-  resized or made stronger is measured again, not searched again.
-- **Competencies first**, proved one by one without assistance: standing, guarding, punching,
-  walking, standing up, kicking and running.
+- **Skills, proficiency and use.** A body has an array of skills, each in one shape: a name and
+  goal, an entry condition, the resources it holds and a profile
+  ([Options](plans/2026-10-24-options.md)). A skill is proved on drills, ladders of rungs the owner
+  watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
+  Tactics choose skills by their entry conditions and profiles, never motion. The more general
+  and robust, the better: a body that is resized or made stronger is measured again, not searched
+  again.
+- **The fight is a black box**: at most two minutes, each side losing 1/60 of its life a second
+  after the first; nothing else ends or judges a bout. Each skill's or mind's developer picks any
+  sub-goals inside its own layer; none enters the verdict.
+- **Competencies first**, proved one drill ladder at a time without assistance: footwork,
+  striking, guarding, standing, standing up, kicking and running.
 - **Items next**, each with its own weight and shape: weapons, shields, two-handed items, ranged
   weapons and armour. Every weapon keeps its ratio to the club; edged and pointed ones bring the
   rulebook's other mechanisms into play.
@@ -41,45 +48,27 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
+| [Options](plans/2026-10-24-options.md) | Every skill in one shape (name and goal, entry condition, resources, profile); an intent of one skill choice per resource |
+| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
+| [Ratings](plans/2026-10-21-ratings.md) | Items, characters and attributes by design; skill batteries beside their ablations; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
-| [Drills (planned)](plans/2026-10-24-drills.md) | Skills in one shape, proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
+| [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
 
-1. **Now:** Recovery steps 2 and 4, which the Crypt's kills wait on too; step 3 is left at a wider
-   ankle that opens no route. Vanguard is on hold. Its Warrior rises from a low entry left unmet for six
-   seconds and wins four fresh Reptile cases. The Rogue waits standing for a fallen low target;
-   it clears nine development cases after its route-room field stops on a chase-and-trip loss.
-   Its fresh wait screen wins all four Behaviours cases, then loses the Reptile pilot at the cap
-   with seven cases unplayed ([wait](reference/vanguard.md#fresh-standing-wait-screen)).
-   Enabling its six-second replant repairs that pilot but regresses a retained Reptile winner;
-   the option stays off ([trial](reference/vanguard.md#rogue-replant-trial)).
-   Its preceding 0.15 m setting clears four fresh cases each against Counter-puncher and Options,
-   but leaves twenty-five wider-field cases unfinished ([Rogue field](reference/vanguard.md#fresh-rogue-field)).
-   The Warrior's preceding
-   route-room configuration wins four fresh cases each against Counter-puncher and Options across
-   both levels and sides without falls; its wider field stops on the Reptile loss with seven
-   cases unfinished ([record](reference/vanguard.md#fresh-warrior-field)). The Skeleton's per-hand
-   planner improves its retained Options panel from one to two of four wins, but loses all three
-   completed cases of its sixth fresh campaign ([record](reference/vanguard.md#contact-selection-campaign)).
-   Extra route room, displacement-governed blocked steps and direct forearm choices do not repair
-   its court loss ([steps](reference/vanguard.md#skeleton-route-and-blocked-steps),
-   [targets](reference/vanguard.md#guard-forearm-choices)).
-   A torso-cover challenger is incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger)).
-   Standing misses and early aim-loss returns pass their physical gate on all three bodies.
-   A low punch already driving still fails the Warrior's return gate
-   ([low return](reference/vanguard.md#low-target-loss-miss)).
-   Presets and planner layers are editable and
-   replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
-   recipes and blade cuts and thrusts; its win rates remain unqualified
-   ([path](reference/vanguard.md#equipment-path)).
-2. **When each one's condition holds:**
-   - Ratings step 6 (the cap) once recorded reports' bar series decide it;
-   - Ratings step 10's other research batteries when next worked on; step 9 when a question
-     about an item, a character or an attribute is asked; step 11 (the sparse league) only when
-     the owner asks; step 14 (run live) once the Ratings screen is in use and a live run would
-     save a trip to the command line;
+1. **Now:** Options step 1, the strikes in the shape; then Drills steps 1 to 4: the Drills
+   scenario, the moving target, the first question (does any punch hit something that moves) and
+   Footwork's first rungs, with Options step 2 before Footwork.
+2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
+   the back, on the side, hands and knees, kneeling, standing); its edges are skills, slow ones
+   that hand over at rest and fast ones that carry momentum (a sit-up tucking onto the feet,
+   entered mid-roll). The fastest edge whose entry condition holds is taken, and a failed one
+   ends in a safe state ([handing over](plans/2026-10-24-options.md#handing-over-at-rest-or-in-motion)).
+   Read on Rise's drills and the owner's 64-fall target, it brings the rise into the skill set,
+   the one control stack. Until then the game keeps today's Stand up.
+3. **When each one's condition holds:**
+   - Ratings step 10's other research batteries, as their family's drills, when next worked on;
+     step 9 when a question about an item, a character or an attribute is asked; step 11 (the
+     sparse league) only when the owner asks; step 14 (run live) once the Ratings screen is in use
+     and a live run would save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
      carries data arrives; step 4 when the owner asks.
 
@@ -87,7 +76,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **Choices**, each landed at its default:
 
-- When Drills starts, beside Recovery and Vanguard ([Drills](plans/2026-10-24-drills.md)).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search or a change to the body; whether the
   bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
@@ -121,7 +109,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   and no scene in Node comes with a client that needs it, keeping exact arithmetic and the engine
   contract.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
-  the Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
+  the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md), step 1).
 - Participant contracts, each extended with its first client: every accepted grip request and
   external input on the tape; exact physical replay apart from live continuation for a
   nondeterministic policy; a slower policy's cadence, held actions and work allowance.
@@ -133,7 +121,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   on another family.
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
-    `isOrders`, `Command` and the Commanders;
+    `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
+    ([Options](plans/2026-10-24-options.md), step 2);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -170,7 +159,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
   falls 6.5 s into its run.
-- **Recovery** ([plan](plans/2026-10-23-recovery.md)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
+- **Recovery** (paused for its rework, [Next](#order)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 53 of 64 and none within 6 s
@@ -181,9 +170,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
   and works in a fight. The body has a straight blow over the competency's 6.8 m/s at every cell
   searched, and no controller lands one ([punch](analysis/2026-10-08-punch-layer.md),
-  [punch calibration](reference/punch-calibration.md)). Read on its task, then with only the
-  executor changed by the paired report and its ablation. Kicks: higher targets and kick
-  selection ([front kicks](reference/front-kicks.md)).
+  [punch calibration](reference/punch-calibration.md)). Read on the Strike drills
+  ([Drills](plans/2026-10-24-drills.md), steps 1 to 3), then in fights by the paired report.
+  Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)).
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
   items and bows, with projectiles in the core.
@@ -222,9 +211,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - Not built: a tolerance of a part's own (the pool's rule stands, by the owner's answer); the face
   apart from the head; armour, a layer more in `energyShares`; an edge and a point on equipment
   ([wounds](reference/wounds.md)).
-- Decided, to apply once a rise meets its bar (the owner, 2026-10-01): a body that is down may be
-  struck, and a fall takes nobody out unless a context has its own rule for it
-  (`docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`).
+- Decided (the owner, 2026-10-01; `docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`): a fall
+  takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
+  verdict ([Drills](plans/2026-10-24-drills.md), step 7); a body that is down may be struck, to
+  apply once a rise meets its bar.
 - Known and kept for now: a part with no hit points left moves as it did; the Crypt forgets
   touches when it makes its watch again; two parts meeting at once are two blows; a blow lasts
   while the solver pushes on it, and lasting until the two part would move every bout.
@@ -233,20 +223,20 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
-- **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
-  empty-handed first, then equipped, on held-out cases. Six fresh unarmed campaigns fail; the
-  Skeleton's selected contact planner has a development gain but loses all three fresh cases played
-  ([record](reference/vanguard.md#contact-selection-campaign)); a seventh challenger matrix is
-  incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger), [plan](plans/2026-10-21-vanguard.md)).
+- **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
+  qualified it against the field ([record](reference/vanguard.md)). The entrant stays; its
+  tactics move onto entry conditions and profiles ([Drills](plans/2026-10-24-drills.md), step 6).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
-- **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read
-  by the paired report:
+- **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
+  ([Drills](plans/2026-10-24-drills.md), step 6), each asked of a concrete failure, one decision at
+  a time, and read by the paired report:
   - targets after a guard: when to change surface, action or approach;
-  - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is a
-    goal, not a velocity;
-  - an option's worth: attack value, incoming cost, travel time, falls and recovery, calibrated
-    to the components run, with no hidden opponent state;
+  - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is the
+    legs' skills (`keep-range`, `step-in`, `step-out`, `circle`;
+    [Options](plans/2026-10-24-options.md), step 2);
+  - an option's worth is its profile: attack value, incoming cost, travel time, falls and
+    recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
     falls;
   - selection and reflexes: valued, ranked and behaviour-list selection, interruption, reflex
@@ -254,7 +244,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
-  are not built ([blows](reference/blows.md#covering-searched)).
+  are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
+  with its Cover drill.
 - Ground positioning's foot-clearance probes (`sensedFootClearance`, `clearFootTranslation`,
   `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
