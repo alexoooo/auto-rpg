@@ -787,6 +787,27 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
   trained side falls (two within 6 s) and three of the screen's sixteen, none within 6 s; settling
   search reaches Warrior/club in 6.0333 s, and four nearby perturbations fail
   ([stand-up planning](../analysis/2026-10-11-stand-up-planning.md#settling-aware-physical-search)).
+- **A faster route on the same stages** (`step-up`, the owner's target, at `b1c34096` and
+  `cb523f2f`): pose stages ended once every freedom is within 0.1 rad of its posture and the body
+  slower than 0.15 m/s change nothing from `fold` to `tall` (each clock is about the time its
+  posture takes) and break the step through (the Warrior empty-handed 0 of 16); the whole rise
+  played 1.3 times faster (`RiseSteer.clock`) stands 18 of 64, 1.6 times none; the pose drive at
+  4.5 rad/s in 0.15 s (`POSE_SPEED`, `POSE_SECONDS`) stands 39, at 6 rad/s in 0.1 s none. The
+  stages wait on balance.
+- **Shorter stages, searched by hand**: the Rogue's `swing` at 0.9 or 1.2 of its time (against
+  1.605) stands 82 and 77 of its 128 falls against 83; the Warrior's `sit`, `kneel 1` and
+  `tall 1` at 1, 0.8 and 0.5 stand 60 of its 64 against 62, 0.9 s sooner. The Warrior settled to
+  0.1 or 0.05 m/s before it reads its lie stands 26 and 24 of its 32 target falls against 29.
+- **The contact sequence** (`CONTACT_RISE`) as the target's riser: none of 64 stands.
+- **The bear route** from hands and knees: onto hands and toes, hands and feet, a squat with the
+  hands down, then the hands let go. As built (`research/core-posture.mjs --variants built`,
+  at `cb523f2f`) hands and toes, hands and feet and the squat at 0.70 m are held (margins 0.50,
+  0.54 and 0.13 m), and the stance stands the body from the squat in 0.12 s; the squat with the
+  hands let go is held at no height of 0.5 to 0.8 m (the centre of mass 3 to 17 cm ahead of the
+  soles). Played after `fours` (the shins lowered onto the toes, then a bearing stage on hands and
+  feet), the knees do not leave the ground: the centre of mass stays 0.30 m up against the 0.43
+  to 0.52 m asked until the stage's limit, since the shank would tip forward past the ankle's
+  dorsiflexion stop (0.39 rad) over a foot that is one box, with no toes to bend.
 - **A twisted front read as a side** (`LIE_UP` -0.9 for the front): over 30 s the Warrior reaches
   knees and hands in 16 of 16 empty and 10 of 15 club falls, against 15 and 12; no difference.
 - **`swing`'s near hip flexed 1 rad**, as the roll's search left it: the same falls turn and rise,
