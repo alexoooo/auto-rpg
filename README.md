@@ -121,8 +121,10 @@ pauses, single-steps, scrubs and slows time.
 (`assets/evaluations/`) in its task's units: a contest's ratings with their intervals, minds compared
 on the kits both have, and the matchup grid; a battery's figures by subject and by any condition.
 A subject opens its history across versions and pools and its cases, worst matchups first; a
-bout case recorded with its world opens in the Arena to watch. The
-address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
+bout case recorded with its world opens in the Arena to watch. A drill's subject (the Strike drill,
+under Skills) shows a square for each trial and a reel that plays the failed trials first, one after
+another, and says whether the owner has accepted it. The address keeps what is shown:
+`&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`, `&reel=`.
 
 Compare saved versions with `npm run compare -- before.jsonl after.jsonl --subject <id>`;
 `--previous <id>` selects a differently named baseline. It reads matched evidence, reports gaps

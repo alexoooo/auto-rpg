@@ -561,6 +561,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   if (linkedCase?.back) {
     const back = linkedCase.back, link = need<HTMLAnchorElement>("case-back"), button = need<HTMLButtonElement>("bout-end-back");
     link.href = back; link.hidden = false; button.hidden = false;
+    // A drill's reel returns to the Ratings, which opens its next trial (`&reel=`).
+    if (new URLSearchParams(back).has("reel")) { button.textContent = "Next trial"; link.textContent = "→ Next trial in the reel"; }
     button.addEventListener("click", () => context.navigate(back));
   }
   const help = (open: boolean) => show("help", open);

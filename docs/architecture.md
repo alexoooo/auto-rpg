@@ -569,7 +569,8 @@ what a body cannot play, and a riser refuses such a recipe. How far it stands ea
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
 posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
 (`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
-guard, or behaviours. Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
+guard, behaviours, or a drill (`drill-tactics.ts`: one action at one mark of the nearest foe, asked
+once from where the body stands, turning to its window and never walking). Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
 one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
 behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
 `behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `mind/behaviours/`) fills what an
@@ -933,7 +934,10 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
   apart) and `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
   Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
-  the members lost). `--previous` reads a battery's subject
+  the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
+  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, under
+  drill tactics: thrown once at a still Warrior standing in guard, by body, mark, hand, offset and
+  range; landed, on the target elsewhere, missed, out of its window, refused, or fell). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
@@ -1065,7 +1069,11 @@ version's rating with its interval, minds on common ground (each pair's rating d
 kits both have, with how many) and the matchup grid; a battery shows each figure by subject and by
 a condition field (`&by=`). A subject shows each version's parent, what changed and its standing in
 each pool, and its cases by opponent (worst first) and condition; a case shows its record line,
-and a bout case with its world opens in the Arena; an imported case has none.
+and a bout case with its world opens in the Arena; an imported case has none. A drill's subject
+also shows its trials as a strip, a square a trial coloured by its outcome, each opening it in the
+Arena, and the reel: every failed trial, then five passed ones chosen by their keys' digests, each
+opened in turn as the Arena returns (`&reel=`); and whether the owner has accepted its version on
+a rung (`assets/evaluations/<id>/accepted.json`, written only for the owner).
 An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):

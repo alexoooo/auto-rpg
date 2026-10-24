@@ -126,6 +126,11 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   readonly analysis: Json;
   subjects(choice: SubjectChoice): readonly Subject[];
   readonly figures: readonly Figure<R>[];
+  /**
+   * A drill's: what a trial came to in a word, and whether it passed, as the Ratings strip shows
+   * each trial and its reel plays the failures first.
+   */
+  outcome?(reading: R): { readonly label: string; readonly passed: boolean };
   /** What the evaluation states of a complete table beside its figures: lines to print, and JSON to keep. */
   summary(table: Table<C, R>): { readonly lines: readonly string[]; readonly json: Json };
 }

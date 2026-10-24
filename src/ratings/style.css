@@ -38,3 +38,10 @@
 :where(#screen-root[data-screen="ratings"]) .case dd { margin: 0; overflow-wrap: anywhere; }
 :where(#screen-root[data-screen="ratings"]) .case pre { margin: 0; font-size: 12px; white-space: pre-wrap; }
 :where(#screen-root[data-screen="ratings"]) code { font-size: 12px; color: #e3c690; }
+:where(#screen-root[data-screen="ratings"]) .legend { font-size: 12px; color: var(--dim); white-space: pre-wrap; }
+:where(#screen-root[data-screen="ratings"]) .swatch { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; border-radius: 2px; }
+:where(#screen-root[data-screen="ratings"]) .strip td { padding: 1px; border: 0; }
+:where(#screen-root[data-screen="ratings"]) .strip tbody th { font-weight: 400; color: var(--dim); }
+:where(#screen-root[data-screen="ratings"]) .strip .trial { display: block; width: 16px; height: 16px; border-radius: 2px; }
+:where(#screen-root[data-screen="ratings"]) .strip .trial:hover, :where(#screen-root[data-screen="ratings"]) .strip .trial:focus-visible { outline: 2px solid #ffebc9; }
+:where(#screen-root[data-screen="ratings"]) .accepted { margin: 4px 0 8px; font-size: 12px; color: #9fd08a; }

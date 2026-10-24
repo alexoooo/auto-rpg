@@ -40,3 +40,17 @@ export function recordsOf(id: string): Promise<Kept[]> {
   }
   return records;
 }
+
+/**
+ * **The owner's acceptance** of a drill's rung for a subject's version, as the owner said it after
+ * watching (`assets/evaluations/<id>/accepted.json`, a list of these): the rung (the protocol's
+ * name), the subject's id and version as its records name them (`RecordedSubject`), the date and
+ * what was said. A new version of the subject is not accepted until the owner accepts it.
+ */
+export interface Acceptance { readonly protocol: string; readonly subject: string; readonly version: string; readonly date: string; readonly note?: string }
+
+const ACCEPTED: Readonly<Record<string, readonly Acceptance[]>> = import.meta.glob<readonly Acceptance[]>(
+  "../../assets/evaluations/*/accepted.json", { import: "default", eager: true });
+
+/** What the owner has accepted of evaluation `id`. */
+export const acceptedOf = (id: string): readonly Acceptance[] => ACCEPTED[`../../assets/evaluations/${id}/accepted.json`] ?? [];

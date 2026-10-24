@@ -7,6 +7,7 @@ import type { Evaluation } from "./evaluation.ts";
 import { EQUIPPED_RISE } from "./equipped-rise/index.ts";
 import { MATCH } from "./match/index.ts";
 import { RISING_TARGET } from "./rising-target/index.ts";
+import { STRIKE } from "./strike/index.ts";
 import { TOURNAMENT } from "./tournament/index.ts";
 import { UNSEEN } from "./unseen/index.ts";
 
@@ -22,4 +23,5 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   court: COURT as unknown as Evaluation,
   crowd: CROWD as unknown as Evaluation,
   "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,
+  strike: STRIKE as unknown as Evaluation,
 });
