@@ -3,9 +3,11 @@
  * still body. The striker is the subject's mind with its tactics a drill (`DRILL_TACTICS`): it
  * never walks, turns to the target, and asks the one action at one mark with one hand, once, the
  * first step its readiness says ready. The target is a Warrior with empty hands that stands in
- * guard and throws nothing (`STANDS`), set the condition's gap ahead and offset across. Nothing
- * ends a trial but its reader: the action's end and a short settle after it, or the protocol's
- * seconds. A trial is a bout world, so the Arena plays it as it was scored.
+ * guard and throws nothing (`STANDS`), set the condition's gap ahead and offset across, the two on
+ * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
+ * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
+ * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
+ * world, so the Arena plays it as it was scored, for as long as it was played (`Row.played`).
  */
 import { regionSegments } from "../../core/mind/action-aim.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
@@ -35,9 +37,9 @@ export function striker({ mind, action }: StrikeSubject, hand: Hand, mark: Mark)
 /**
  * Rung 0, a still target: the strikers' bodies; how far ahead the target's centre stands, m, and
  * how far to the striker's right; the mark and the hand; how long the striker stands in guard
- * before it asks, the longest a trial plays and how long it runs on once the action has ended,
- * for a fall it brings about, s. A change here is a new
- * protocol.
+ * before it asks, how long after that it may wait to be admitted, the longest a trial plays, and
+ * how long it runs on once the action has ended, for a fall it brings about, s. A change here is
+ * a new protocol.
  */
 const STILL = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
@@ -45,7 +47,7 @@ const STILL = deepFreeze({
   across: [0, .2],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: .5, seconds: 5, settle: .75,
+  settled: .5, patience: 1, seconds: 5, settle: .5,
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
@@ -107,7 +109,8 @@ function strikeCases(protocol: typeof STILL): Cases<StrikeCondition, StrikeReadi
       kind: "bout", engine, tape: [],
       // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
-        start: { left: { at: [0, 0], heading: 0 }, right: { at: [across, gap], heading: Math.PI } },
+        // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
+        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, -across], heading: -Math.PI / 2 } },
         minds: { left: striker(value as unknown as StrikeSubject, hand, mark), right: STANDS } },
     }),
     read({ world, duel }, { mark, hand }) {
@@ -132,7 +135,10 @@ function strikeCases(protocol: typeof STILL): Cases<StrikeCondition, StrikeReadi
           }
           down ||= left.body.down;
         },
-        get ended() { return world.time >= protocol.seconds || times.ended !== null && world.time >= times.ended + protocol.settle; },
+        get ended() {
+          return world.time >= protocol.seconds || times.ended !== null && world.time >= times.ended + protocol.settle
+            || id === null && world.time >= protocol.settled + protocol.patience;
+        },
         reading() {
           const contacts = duel.blows.flatMap((blow) => {
             if (blow.kind !== "impact") return [];
