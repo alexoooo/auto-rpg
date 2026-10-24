@@ -13,7 +13,11 @@ injury wins. A seventh [torso-cover challenger](#torso-cover-challenger) campaig
 after one fatal loss and a price cut. A fresh [Warrior Counter-puncher screen](#warrior-counter-puncher-screen)
 stops with an open-stage win and a court loss. The selected Warrior's [additional route room](#room-for-an-exchange)
 turns that court loss into a win and clears all four Counter-puncher development cases while
-preserving four Options wins. These known cases do not qualify the new setting. Equipment is unqualified.
+preserving four Options wins. At that source, the [fresh Warrior screens](#fresh-warrior-field)
+win four cases each against Counter-puncher and Options, but the wider field stops on a Reptile
+loss. The selected [low-entry revision](#replanting-low-support) wins all four retained Reptile
+cases by injury without Warrior falls. Its fresh field, other bodies and
+equipment remain unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1071,6 +1075,119 @@ Typecheck, all 116 tests, production build, entrant-only scope and the line-endi
 The production Arena briefly shows the selected navigator approaching and exchanging punches
 beside the column, with advancing render frames and no console errors. The existing large-chunk
 build warning remains; the temporary preview is stopped by its own PID.
+
+## Fresh Warrior field
+
+The frozen Warrior with 0.1 m additional route room wins all four fresh Counter-puncher cases
+and all four fresh Options cases. Each opponent covers both Arena levels and mirrored sides.
+None of these eight bouts has a fall on either side. The observed 4/4 for each opponent has a
+descriptive 95% Wilson interval of 0.5101–1.000; it does not establish a true win rate above 80%.
+Other bodies and equipment are outside these screens.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Warriors, empty hands,
+default attributes, Balance 0/0 and zero sense delay, with falls continuing to injury or the
+ordinary 120 s cap. Source `ba63a215` is frozen at commit `c947f6bd`, with both configurations
+fixed before the starting gaps are selected. Each opponent requires four wins; a first loss or
+draw stops its screen. The fixed hash selection excludes previous recorded Warrior geometry.
+
+| Opponent / level / gap | Left assignment | Right assignment |
+| --- | --- | --- |
+| Counter-puncher / court / 4.23 m | Fatal win at 71.0583 s | Fatal win at 70.825 s |
+| Counter-puncher / open / 4.34 m | Fatal win at 71.35 s | Cap win, 0.7202 / 0.5832 |
+| Options / court / 4.70 m | Fatal win at 103.4583 s | Fatal win at 26.5167 s |
+| Options / open / 6.77 m | Cap win, 0.8849 / 0.7908 | Cap win, 0.8921 / 0.7649 |
+
+Cap rows give Vanguard's bar before its opponent's. Counter-puncher contributes three injury
+wins and one health lead at the cap; Options contributes two of each. All five fatal blows
+match the committed action's same-time hand/target observation. These are physical punch wins,
+without changing the body's strength, granting an assist or reading the opponent's injury state
+inside the controller. The screens take 71.2 and 92.9 active pool wall seconds, respectively,
+with forecasts below their nine-minute caps. There are no invalid or unfinished cases.
+
+Complete configurations, gap selection, exclusion lists, native case keys and records, full
+blows and action ledgers, final live actions, pose digests and uncertainty are retained under
+`research/runs/vanguard/warrior-room-fresh/`, in separate `counter/` and `options/` records.
+The earlier development cases are not added to these fresh results.
+
+The wider Warrior field uses the same frozen source and ordinary bout rules, with the Reptile
+opponent on its own body. It stops on the Reptile open-right cap loss at 4.48 m: Vanguard's bar
+is 0.8162 against 0.9859, without falls. No action launches in that bout. The other twenty
+completed wider-field cases win, but seven cases remain unfinished. The Reptile's 3/4 fails the
+declared per-opponent screen; other incomplete screens are not qualified by their wins so far.
+
+| Remaining opponent | Wins / completed / planned | Injury / cap wins | Vanguard bouts with a fall | Completed-only 95% Wilson |
+| --- | --- | --- | --- | --- |
+| Crawl and bite, Reptile body | 3 / 4 / 4 | 2 / 1 | 1 / 4 | 0.301–0.954 |
+| Duellist | 3 / 3 / 4 | 0 / 3 | 0 / 3 | 0.439–1.000 |
+| Tempo | 3 / 3 / 4 | 3 / 0 | 0 / 3 | 0.439–1.000 |
+| Scrapper | 3 / 3 / 4 | 3 / 0 | 0 / 3 | 0.439–1.000 |
+| Behaviours | 3 / 3 / 4 | 2 / 1 | 0 / 3 | 0.439–1.000 |
+| Puncher | 3 / 3 / 4 | 2 / 1 | 1 / 3 | 0.439–1.000 |
+| Classic | 2 / 2 / 4 | 0 / 2 | 0 / 2 | 0.342–1.000 |
+
+Humanoid opponents use matched Warriors. Joint feedback (`direct`) has no legal fight entrant:
+`FIGHT_ENTRY` refuses it with “it strikes with nothing the body has”; it has no scheduled bout.
+The unchanged screen requires all four wins against each legal opponent, with no aggregate
+substitute and no fall-ending shortcut. Of the seven unfinished cases, two are interrupted
+confirmations and five are unplayed. There are no invalid cases.
+The stopped subsets and their intervals do not estimate the unfinished cases.
+
+The whole-grid forecast price-cuts at 7.2 active wall seconds with one completed Reptile win.
+Execution stages the remaining court-left pilots before their mirrored confirmations; frozen
+cases, source, criterion and cumulative nine-minute cap stay fixed. The completed-pilot rates
+price the confirmation pool at 475.6 s cumulative. The deciding loss stops it at 306.0 s total,
+including the original price-cut execution. Complete headers, recipes, native rows, per-opponent
+summaries, exclusion reason, phase logs and unfinished coverage are in
+`research/runs/vanguard/warrior-field-fresh/`. These results belong to source `ba63a215` and are
+not qualification evidence for the revised low-entry controller.
+
+## Replanting low support
+
+The Warrior's selected `replantLow` option releases a ready planted fold when its planner still
+needs an attack entry for `REPOSITION_WAIT`, six seconds, with no live action. It requests the
+ordinary standing height, waits for the fold's rise to finish, then lets the planner position
+before folding again. It reads the planner's operational approach window and support report;
+orders and owned strokes keep priority. Rogue and Skeleton leave the option off. Its decision
+is visible as “rising to reposition low attack”.
+
+The limiting Reptile bout reaches ready low support while the low punch still needs another
+entry. Support keeps navigation unavailable; the body remains planted through the cap and
+never launches an attack. Rising after only 0.3 s of that condition wins the failed right-open
+case but loses the left-open winner and introduces a Warrior fall. The six-second setting
+clears all four retained Reptile cases by injury, with no Warrior falls. It is selected as a
+development gain, not fresh qualification. Body numbers, muscle limits, collision geometry and
+Balance remain unchanged.
+
+| Reptile case | Previous preset | Rapid 0.3 s rise | Selected six-second rise |
+| --- | --- | --- | --- |
+| Open / 4.48 m / left | Fatal win at 28.1833 s | Cap loss | Exact previous bout |
+| Open / 4.48 m / right | Cap loss; no attacks | Cap win; one Warrior fall | Fatal win at 86.35 s; seven completed punches |
+| Court / 5.43 m / left | Fatal win at 19.3833 s | Fatal win at 54.6667 s | Exact previous bout |
+| Court / 5.43 m / right | Cap win; one Warrior fall | Interrupted after rejection | Fatal win at 41.5583 s; no Warrior fall |
+
+Harness and ordinary bout rules are those of the fresh Warrior field above: Node Arena Duel,
+vendored `rapier-coordinate`, 120 Hz, Warrior against the Reptile's own body, empty hands,
+default attributes, Balance 0/0 and zero sense delay. Both earlier left-side winners preserve
+their complete pose digests. The new right-open ending bars are 0.8613 / 0.7972. The right-court
+Reptile falls once; all Warrior trials in the selected four-case panel remain upright. Its
+native saved-record comparison reads two complete, fault-free mirrored units against the
+previous preset, with no changed shared context: four wins rather than three. The rapid-rise
+comparison has only one complete mirrored unit; the remaining side stays unfinished.
+
+The rapid trial takes 63.6 active pool wall seconds and stops after two wins and one loss, with
+one interrupted case. The selected trial takes 32.4 s and completes all four cases; both are
+priced below their nine-minute caps. Sources `8ea50032` and `fe1c139b`, complete configs, native
+rows, action ledgers, comparisons, decisions and harnesses are retained under
+`research/runs/vanguard/warrior-low-replant/` and `warrior-low-replant-delayed/`. The selected
+configuration needs fresh confirmation; the preceding source's humanoid field is not pooled
+with this development panel. Its descriptive 4/4 Wilson interval is 0.5101–1.000.
+
+Typecheck, all 117 tests, production build, four-file entrant scope and the line-ending gate
+pass. The added fast regression holds the planted-entry exit, rise completion, state fork,
+orders and live action ownership; all 21 existing Vanguard tests remain intact. The production
+Arena briefly shows the rise and a subsequent committed low punch, with advancing frames and
+no console errors. The existing large-chunk build warning remains; its temporary preview is
+stopped by PID.
 
 ## Absorbed contact scores
 
