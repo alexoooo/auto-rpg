@@ -16,8 +16,10 @@ turns that court loss into a win and clears all four Counter-puncher development
 preserving four Options wins. At that source, the [fresh Warrior screens](#fresh-warrior-field)
 win four cases each against Counter-puncher and Options, but the wider field stops on a Reptile
 loss. The selected [low-entry revision](#replanting-low-support) wins all four retained Reptile
-cases by injury without Warrior falls. Its fresh field, other bodies and
-equipment remain unqualified.
+cases by injury without Warrior falls. The current source wins four [fresh Reptile cases](#fresh-body-screens)
+on the Warrior and four fresh Options cases on the Rogue. The Skeleton's additional route room
+[does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
+remain unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1179,8 +1181,8 @@ one interrupted case. The selected trial takes 32.4 s and completes all four cas
 priced below their nine-minute caps. Sources `8ea50032` and `fe1c139b`, complete configs, native
 rows, action ledgers, comparisons, decisions and harnesses are retained under
 `research/runs/vanguard/warrior-low-replant/` and `warrior-low-replant-delayed/`. The selected
-configuration needs fresh confirmation; the preceding source's humanoid field is not pooled
-with this development panel. Its descriptive 4/4 Wilson interval is 0.5101–1.000.
+configuration's fresh Reptile confirmation is below; the preceding source's humanoid field is not
+pooled with this development panel. Its descriptive 4/4 Wilson interval is 0.5101–1.000.
 
 Typecheck, all 117 tests, production build, four-file entrant scope and the line-ending gate
 pass. The added fast regression holds the planted-entry exit, rise completion, state fork,
@@ -1188,6 +1190,56 @@ orders and live action ownership; all 21 existing Vanguard tests remain intact. 
 Arena briefly shows the rise and a subsequent committed low punch, with advancing frames and
 no console errors. The existing large-chunk build warning remains; its temporary preview is
 stopped by PID.
+
+## Fresh body screens
+
+The frozen selected source `fe1c139b`, at commit `51387ee9`, wins four fresh Reptile bouts on the
+Warrior and four fresh Options bouts on matched Rogues. Each screen has three injury wins and
+one health lead at the ordinary 120 s cap. Vanguard never falls in either screen; Options never
+falls, while the Reptile falls in three bouts. All six fatal blows match the committed punch's
+same-time hand and target observation.
+
+| Body / opponent / level / gap | Left assignment | Right assignment |
+| --- | --- | --- |
+| Warrior / Reptile / court / 7.89 m | Fatal win at 27.3833 s | Fatal win at 19.8417 s |
+| Warrior / Reptile / open / 2.24 m | Fatal win at 22.1417 s | Cap win, 0.9995 / 0.9140 |
+| Rogue / Options / court / 6.24 m | Fatal win at 94.9583 s | Fatal win at 91.8167 s |
+| Rogue / Options / open / 3.12 m | Cap win, 0.8087 / 0.5674 | Fatal win at 57.8 s |
+
+Cap rows give Vanguard's bar first. Harness: Node Arena Duel, vendored `rapier-coordinate`,
+120 Hz, empty hands, default attributes, Balance 0/0 and zero sense delay, falls continuing.
+The Reptile uses its own body. Configurations freeze before a hash selects gaps, excluding
+previous recorded geometry for the named humanoid body. Both protocols require four wins;
+the first non-win stops the screen. Neither has invalid or unfinished cases. They take 33.5
+and 88.2 active pool wall seconds, below their nine-minute caps.
+
+Each descriptive 4/4 Wilson interval is 0.5101–1.000. These small body/opponent screens do not
+establish a true win rate above 80% or qualify the full field and equipment. Complete recipes,
+selection exclusions, native rows, ledgers, blows, source identities, harnesses and summaries
+remain in `research/runs/vanguard/warrior-replant-fresh/` and `rogue-options-fresh/`. Earlier
+development cases and results from other sources are not added to these results.
+
+## Skeleton route and blocked steps
+
+Selecting the Warrior's navigator with its additional 0.1 m route room does not repair the
+Skeleton's retained left-court Options loss at 6.93 m. Both versions lose at the ordinary
+120 s cap without falls: the selected preset ends at 0.4854 / 0.5527, the challenger at
+0.5531 / 0.7206, Vanguard first. The selected preset exactly repeats pose digest
+`56ce391ad7eabd4e`. The deciding loss rejects the challenger; six mirrored or preservation
+cases remain unplayed. No production setting changes. The two-worker pilot takes 32.5 active
+wall seconds, without invalid cases. Full configs, native rows and the decision remain in
+`research/runs/vanguard/skeleton-room/`; there is no complete mirrored comparison unit.
+
+An unchanged replay of that selected loss finds that the first two one-second blocked-stroke
+steps move the centre laterally by only 0.0148 and 0.0113 m. They begin at 12.1 and 27.975 s;
+both finish before a 0.05 m lateral displacement. The first stays in weight shift and the second
+ends during a foot swing. The reader stops at 28.975 s after these two steps, in 7.2 wall seconds,
+with prefix digest `559fa4b8ae1f3d1e`. It establishes the timer's short physical travel, not the
+effect of a longer step on winning. The recipe, per-step samples, criterion and reader remain
+in `research/runs/vanguard/blocked-step-reading/`.
+
+Both readings use the Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons,
+empty hands, default attributes, Balance 0/0 and zero sense delay. Source is `fe1c139b`.
 
 ## Absorbed contact scores
 

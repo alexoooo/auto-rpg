@@ -47,13 +47,15 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** Vanguard's unarmed fighter. The Warrior rises from a low entry left unmet for six
-   seconds; it wins all four retained Reptile cases by injury without Warrior falls, with fresh
-   confirmation still open ([record](reference/vanguard.md#replanting-low-support)). Its preceding
+   seconds and wins four fresh Reptile cases; the Rogue wins four fresh Options cases, each
+   screen with three injury wins and no Vanguard falls ([record](reference/vanguard.md#fresh-body-screens)). Its preceding
    route-room configuration wins four fresh cases each against Counter-puncher and Options across
    both levels and sides without falls; its wider field stops on the Reptile loss with seven
    cases unfinished ([record](reference/vanguard.md#fresh-warrior-field)). The Skeleton's per-hand
    planner improves its retained Options panel from one to two of four wins, but loses all three
    completed cases of its sixth fresh campaign ([record](reference/vanguard.md#contact-selection-campaign)).
+   Extra route room does not repair its court loss; its timed blocked steps move only 1–2 cm
+   ([record](reference/vanguard.md#skeleton-route-and-blocked-steps)).
    A torso-cover challenger is incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger)).
    Standing misses have a physical return gate. Presets and planner layers are editable and
    replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
