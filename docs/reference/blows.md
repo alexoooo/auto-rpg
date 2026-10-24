@@ -769,6 +769,36 @@ place and at the skeleton's 18 cm, and between the Rogue and the skeleton 4 cm.
 - **The offset is known at the commit and does not move under the blow**: it asks for the recipe
   aimed for it, not steered after it.
 
+## In a fight
+
+**The Duellist throws its recipes after 0.25 s stood still, at a target up to 12 cm along and
+20 cm across outside a recipe's window, from where it stands** (`DUELLIST_STRIKE`,
+`src/core/mind/config.ts`; the recipe strike's `stand` and `slack`, `recipeExecutor`,
+`src/core/skills/strike.ts`). Set for the result: the owner's Crypt ends by a mind that kills
+(2026-10-24), and with 1.5 s stood (`STAND`) and no slack nothing died. The other recipe fighters
+keep `STAND` and the windows as searched.
+
+Why nothing died: in a Crypt fight a club side spent most of its attack setting its feet and
+standing (the hero of seed 10, 60 s: 12.8 s placing and 12.0 standing over 4 swings), and a target
+stood still 1.5 s had left a window 2 to 6 cm deep and 4 cm wide, so the feet were set again until
+the 6 s preparation deadline. The slack is beyond what [Robustness](#robustness) read on the stand
+(a club keeps 0.77 to 1.08 of its blow 6 cm along, and steered 0.46 to 1.02 at 12 cm across).
+
+**In the Crypt.** `crypt-clear`'s standard protocol (levels 10 and 25, two trials each, the mob and
+independent foes, 180 s; the level-clearer leading), every humanoid on both sides under the mind
+read; Node, `rapier-coordinate`, 120 Hz, at `b1471856`:
+
+| The Duellist's recipe strike | Foes killed, of 128 | Levels cleared, of 8 | Party members lost |
+|---|---|---|---|
+| as searched: 1.5 s stood, no slack | 1 | 0 | 1 |
+| 0.25 s, slack 6 cm along and 12 across | 8 | 1 | 4 |
+| **0.25 s, slack 12 cm along and 20 across** | 9 | 2 | 1 |
+
+**In the Arena.** `npm run match -- <the change> duellist` (protocol `5bc0cd3b51527a1a`, match
+`e7b03e082ac20a1a`, at `b1471856`): the change scores 0.767 (0.692 to 0.833) over 120 bouts, 92 won,
+28 lost; 36 of its wins are fatal and 8 severed, against 2 and 1 of its losses. It loses the Rogue
+against the Warrior (13 of 30) and sword and buckler (13 of 24).
+
 ## Tried and not kept
 
 - **Aiming afresh** (the tactics' point following the head while the skill stands, so a throw
@@ -789,3 +819,7 @@ place and at the skeleton's 18 cm, and between the Rogue and the skeleton 4 cm.
   approach ends within `APPROACH.reach` of a window 4 to 26 cm wide, so it seldom applies;
   landed of committed club 0.87 where 0.90, empty 0.65 where 0.60, set-up unchanged.
 - **Wider threats** ([Threat sweep](#threat-sweep)) and **aiming at what pays** ([Aim](#aim)).
+- **In the Crypt, beside [In a fight](#in-a-fight)**, the same 8 runs each: the feet stopped as
+  soon as the target stands within the slack, 7 foes killed and 2 levels cleared; with that, no
+  stand at all, 6 and 2; with that, the head and the thrust alone, 5 and 1. None reads apart from
+  the 9 and 2 it was set at.

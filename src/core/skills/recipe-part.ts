@@ -1,7 +1,7 @@
 import { strikesWithOneOf } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
-import { recipeExecutor, type Placed } from "./strike.ts";
+import { recipeExecutor, type Placed, type Slack } from "./strike.ts";
 import { REPERTOIRE, recipeAt, recipesFor, strikesWithBlunt, type Repertoire } from "./strikes.ts";
 
 /** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
@@ -15,13 +15,17 @@ interface Config {
     readonly placed?: Placed;
     /** The most a blow turns the pelvis in place of `STEER`: a sweep's cell. */
     readonly steer?: number;
+    /** Seconds stood still before a blow in place of `STAND`. */
+    readonly stand?: number;
+    /** How far outside a recipe's window its target may stand and the blow be thrown from where the body stands. */
+    readonly slack?: Slack;
   };
 }
 
 /** Recipe construction and measured net estimates share one registration. */
 export const RECIPE_PART: ExecutorPart<Config> = {
   role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" }, keys: { kind: true, name: true, tuning: true },
-  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: strikesWithOneOf("hand.left", "hand.right"),
+  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer", "stand", "slack"], fits: strikesWithOneOf("hand.left", "hand.right"),
   faults: () => [], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)

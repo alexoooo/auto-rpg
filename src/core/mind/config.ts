@@ -286,8 +286,15 @@ export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...
 const EITHER_HAND = ["hand.right", "hand.left"] as const;
 
 /**
+ * **How the duellist throws its recipes in a fight**: after a quarter second stood still, at a target
+ * up to 12 cm along and 20 cm across outside a recipe's window, from where it stands
+ * (`docs/reference/blows.md#in-a-fight`).
+ */
+const DUELLIST_STRIKE = deepFreeze({ stand: .25, slack: { along: .12, across: .2 } });
+
+/**
  * **The duellist**: Behaviours' parts for a fighter that swings what one hand holds and covers with
- * what the other holds. It takes in turn the recipe strike at the head and at the trunk and the
+ * what the other holds. It takes in turn the recipe strike (`DUELLIST_STRIKE`) at the head and at the trunk and the
  * blade's thrust at the trunk's opening; approaches its window facing its way there, at its run's
  * pace, while the window is over 1.5 m off; covers by prediction; and stands up once down. It is the
  * mind every humanoid has unless its fight says otherwise (`modelInfo`).
@@ -295,7 +302,7 @@ const EITHER_HAND = ["hand.right", "hand.left"] as const;
 export const DUELLIST: FighterConfig = deepFreeze({ ...BEHAVIOURS,
   tactics: { ...BEHAVIOURS.tactics, list: [
     { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach", travel: 1.5 }, { kind: "cover", guard: "ward" }] },
-  executors: [{ name: "recipe", kind: "recipe-strike" }, { name: "blade-thrust", kind: "blade-thrust" }],
+  executors: [{ name: "recipe", kind: "recipe-strike", tuning: DUELLIST_STRIKE }, { name: "blade-thrust", kind: "blade-thrust" }],
   actions: [
     ...(["high", "middle"] as const).map((mark) => ({ name: `swing ${mark}`, executor: "recipe", effectors: EITHER_HAND, regions: [{ kind: "mark" as const, mark }], aim: { kind: "centre" as const, lead: 0 } })),
     { name: "thrust", executor: "blade-thrust", effectors: EITHER_HAND, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }] });

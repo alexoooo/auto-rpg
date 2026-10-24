@@ -55,6 +55,12 @@ export const APPROACH = { pace: 0.3, seconds: 1, reach: 0.25 } as const;
  */
 export const PLACED: Placed = Object.freeze({ stretch: 1, seconds: 0.4, through: 0.15 });
 
+/** How far outside its window a recipe is still thrown at its target, m along the heading and across it. */
+export interface Slack {
+  readonly along: number;
+  readonly across: number;
+}
+
 /** A placed blow's settings (`PLACED`). */
 export interface Placed {
   readonly stretch: number;
@@ -563,6 +569,10 @@ interface RecipeActionSettings {
   readonly repertoire?: Repertoire;
   readonly placed?: Placed;
   readonly steer?: number;
+  /** Seconds stood still before a blow, in place of `STAND`. */
+  readonly stand?: number;
+  /** Metres a target may stand outside a blow's window, along and across, and still be thrown at from where the body stands; none by default. */
+  readonly slack?: Slack;
   /** The arms' rest, the mind's guard's (`GuardSkill.posture`). */
   readonly guard: Pose;
   readonly resolve?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
@@ -571,7 +581,7 @@ interface RecipeActionSettings {
 /** A named recipe executor separates elapsed motion from pure per-instance command generation. */
 export function recipeExecutor(spec: BodySpec, actions: readonly string[], settings: RecipeActionSettings): Executor {
   const repertoire = settings.repertoire ?? REPERTOIRE, placing = settings.placed ?? PLACED;
-  const guard = settings.guard, steering = settings.steer ?? STEER;
+  const guard = settings.guard, steering = settings.steer ?? STEER, stand = settings.stand ?? STAND, slack = settings.slack ?? { along: 0, across: 0 };
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   const hands = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);
@@ -607,10 +617,17 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
     const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
     const ahead = dx * sin(heading) + dz * cos(heading), aside = dx * cos(heading) - dz * sin(heading);
     // Entry permits a modest facing error and approach speed; settling belongs to preparation.
-    const entry = { at, along: [reach + ahead + window.along[0], reach + ahead + window.along[1]] as const,
-      across: [aside + window.across[0], aside + window.across[1]] as const, facing: .4, speed: APPROACH.pace };
+    const entry = { at, along: [reach + ahead + window.along[0] - slack.along, reach + ahead + window.along[1] + slack.along] as const,
+      across: [aside + window.across[0] - slack.across, aside + window.across[1] + slack.across] as const, facing: .4, speed: APPROACH.pace };
     if (!withinActionWindow(view, entry, heading)) return { kind: "position", window: entry } as const;
     return { kind: "ready" } as const;
+  };
+  /** Whether `target` stands within `blow`'s window and its slack, seen from the head facing `heading`. */
+  const within = (view: BodyView, target: Vec3, blow: Blow, heading: number) => {
+    const limits = windowOf(blow), reach = standOff(blow, target[1] - view.head.y, placing), fx = sin(heading), fz = cos(heading);
+    const tx = target[0] - view.head.x, tz = target[2] - view.head.z, ahead = tx * fx + tz * fz - reach, across = tx * fz - tz * fx;
+    return limits.along[0] - slack.along <= ahead && ahead <= limits.along[1] + slack.along
+      && limits.across[0] - slack.across <= across && across <= limits.across[1] + slack.across;
   };
   const release = (ending: ActionEnding) => {
     const live = state.live!;
@@ -667,16 +684,15 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
           if (view.stance.phase === "stand") live.stage = "settle";
           live.quiet = view.stance.phase === "stand" && hypot(view.stance.velocity.x, view.stance.velocity.z) <= RECIPE_ACTION.slow
             && (!around.support || around.support.ready || around.support.stage === "stand") ? live.quiet + dt : 0;
-          if (view.stance.phase === "stand" && (entering || live.quiet >= STAND)) {
+          if (view.stance.phase === "stand" && (entering || live.quiet >= stand)) {
             const up = live.target[1] - view.head.y;
-            const next = live.quiet < STAND || live.recipe !== null && holdsAt(known[live.hand].chosen[live.recipe]!, up) ? live.recipe : chooseIn(known[live.hand], up);
+            const next = live.quiet < stand || live.recipe !== null && holdsAt(known[live.hand].chosen[live.recipe]!, up) ? live.recipe : chooseIn(known[live.hand], up);
             const same = next === live.recipe;
             live.recipe = next; blow = selected(live.hand, next);
             const limits = windowOf(blow), reach = standOff(blow, up, placing), fx = sin(around.heading), fz = cos(around.heading);
-            const ahead = tx * fx + tz * fz - reach, across = tx * fz - tz * fx;
-            const fits = limits.along[0] <= ahead && ahead <= limits.along[1] && limits.across[0] <= across && across <= limits.across[1];
+            const fits = within(view, live.target, blow, around.heading);
             if (same && fits && (blow.kind === "recipe" || live.didPlace)) {
-              if (live.quiet >= STAND) {
+              if (live.quiet >= stand) {
                 const p = view.effectors[live.request.effector]!.points[aimOf(spec, live.hand)]!;
                 live.home = [p.x, p.y, p.z];
                 live.origin = [(view.stance.soles.left.x + view.stance.soles.right.x) / 2, (view.stance.soles.left.z + view.stance.soles.right.z) / 2];
