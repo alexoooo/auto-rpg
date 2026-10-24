@@ -849,6 +849,11 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
   down onto hands and knees, 36 to 43; `fours` given up 0.3 or 1 s in once the body is off its
   front, 41 and 40; the rise without `prop` and `fours`, none of the target's 16 (it goes down in
   the half kneel).
+- **The Rogue's settings searched for the club alone** (`research/rising-step-search.mjs --models
+  workshop-rogue --held club --directions 8 --offset 11.25 --cap 14 --sigma .08`, 14 generations
+  of 24 candidates, at `1a4cfa67`; scored with `--score`, 30 s cap): the best stands 10 of the
+  target's 16 against 9, and 11 of the sixteen 5.625 degrees round against 11, medians 26.9 and
+  22.7 s against 19.9 and 16.6. Settings by loadout buy nothing the falls tell.
 - **A twisted front read as a side** (`LIE_UP` -0.9 for the front): over 30 s the Warrior reaches
   knees and hands in 16 of 16 empty and 10 of 15 club falls, against 15 and 12; no difference.
 - **`swing`'s near hip flexed 1 rad**, as the roll's search left it: the same falls turn and rise,
