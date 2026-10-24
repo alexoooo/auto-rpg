@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { armedActions } from "../src/core/mind/action-config.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
 import { withLoadout } from "../src/core/items/held.ts";
 import { regionSegments } from "../src/core/mind/action-aim.ts";
 import { dummyPart, dummyParts, dummySpec } from "../src/lab/dummy-spec.ts";
@@ -35,9 +37,11 @@ test("Lab dummy choices construct their real part, preserve anatomical regions, 
 test("Attack compatibility uses declared regions and permitted armed effectors without rewriting the kit", () => {
   const spec = modelSpec("workshop-fighter"), config = MINDS["vanguard-warrior"].config, before = JSON.stringify(config);
   const middle = spec.marks.middle[0], leg = spec.marks.legs[0];
-  assert.equal(attackTargetWarnings(spec, config, spec.marks.high, []).length, config.actions.length);
+  const usable = armedActions(partLookup, spec, config.executors, config.actions);
+  assert.ok(usable.length > 0, "the fixture has permitted bare-hand actions");
+  assert.equal(attackTargetWarnings(spec, config, spec.marks.high, []).length, usable.length);
   assert.deepEqual(attackTargetWarnings(spec, config, middle, []), []);
-  const aimed = regions => ({ ...config, actions: [{ ...config.actions[0], regions }] });
+  const aimed = regions => ({ ...config, actions: [{ ...usable[0], regions }] });
   assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "mark", mark: "legs" }]), leg, []), []);
   assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: middle }]), middle, []), []);
   assert.equal(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: "missing" }]), middle, []).length, 1);

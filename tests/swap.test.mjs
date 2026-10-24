@@ -105,7 +105,7 @@ test("an external preset's model calibration governs Arena, Lab and evaluation c
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
   const evaluation = EVALUATIONS.tournament, panel = "options/workshop-fighter/empty,empty";
   for (const [id, changes] of [["swap-stub", ["tactics.choose.patience=0.5"]],
-    ["vanguard-skeleton", [`executors=${JSON.stringify(RECIPE_FIGHTER.executors)}`, `actions=${JSON.stringify(RECIPE_FIGHTER.actions)}`]]]) {
+    ["swap-unarmed", [`executors=${JSON.stringify(RECIPE_FIGHTER.executors)}`, `actions=${JSON.stringify(RECIPE_FIGHTER.actions)}`]]]) {
     const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
     const { choice, subjects } = resolveSubjects(evaluation, [], id, changes), candidate = choice[0];
     const kits = (subjects) => subjects.map(({ value: { model, loadout } }) => ({ model, loadout }));
@@ -126,7 +126,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
       new Set(units.flatMap(unit => unit.map(one => one.key))), "no unpaired work reaches the schedule");
     const withOther = resolveSubjects(evaluation, [panel], id, changes);
     assert.deepEqual(withOther.subjects, [...subjects, ...evaluation.subjects([panel])], "other requested subjects retain their scope");
-    if (id === "vanguard-skeleton") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "crypt-skeleton"
+    if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "crypt-skeleton"
       && !baseline.some(before => JSON.stringify(before.value.loadout) === JSON.stringify(one.value.loadout))),
     "the fixture also exposes loadout widening on the calibrated body");
   }
@@ -138,8 +138,11 @@ test("CLI resolution preserves whole-config expansion, batteries and two-subject
   const custom = resolveSubjects(evaluation, [raw]);
   assert.deepEqual(custom.subjects, evaluation.subjects(custom.choice));
   assert.ok(custom.subjects.some(one => one.value.model !== "crypt-skeleton"), "an unscoped custom config still expands beyond its named calibration");
-  const narrowed = resolveSubjects(evaluation, [], id,
-    ['actions.strike.effectors=["hand.right"]', 'actions.low-punch.effectors=["hand.right"]']);
+  const punchesOnly = MINDS[id].config.actions.map(action => {
+    const executor = MINDS[id].config.executors.find(executor => executor.name === action.executor);
+    return executor.kind === "vanguard-punch" ? `actions.${action.name}.effectors=["hand.right"]` : `actions.${action.name}=null`;
+  });
+  const narrowed = resolveSubjects(evaluation, [], id, punchesOnly);
   const baseline = evaluation.subjects([id]);
   assert.ok(baseline.some(one => one.value.loadout.right !== "empty"), "the source can strike with its other hand while holding an item");
   assert.deepEqual(narrowed.subjects.map(one => ({ model: one.value.model, loadout: one.value.loadout })),

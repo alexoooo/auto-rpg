@@ -3,7 +3,7 @@
  * their own, every part chosen by its config, their stubs their own parts (`Controller.parts`).
  * They are registered from here by one list line each (`kinds.mjs`), as an entrant's folder is.
  */
-import { MOVE, OPTIONS, QUADRUPED, RECIPE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
+import { COUNTER_PUNCHER, MOVE, OPTIONS, QUADRUPED, RECIPE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
 import { QUADRUPED_MIND } from "../../../src/core/reptile/kind.ts";
 import { AIMED, STUB_AIM } from "./stub-aim.mjs";
 import { STUB_JAW, STUB_PAW_MOTOR, STUB_STALK, STUB_TROT } from "./stub-quadruped.mjs";
@@ -85,7 +85,11 @@ const own = (kind) => Object.freeze(STUBS.filter((stub) => stub.mind === kind).m
 
 export const SWAP_MIND = Object.freeze({
   ...FIGHTER_MIND, label: "Swap stubs", stage: "experimental", defaults: SWAP_DEFAULTS,
-  presets: Object.freeze({ "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }) }), parts: own("swap-stub"),
+  presets: Object.freeze({
+    "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }),
+    // A calibrated bare-hand source exposes loadout widening independently of production kits.
+    "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: Object.freeze({ ...COUNTER_PUNCHER, kind: "swap-stub" }), models: Object.freeze(["crypt-skeleton"]) }),
+  }), parts: own("swap-stub"),
 });
 
 export const SWAP_OPTIONS_MIND = Object.freeze({
