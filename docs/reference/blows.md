@@ -830,3 +830,9 @@ against the Warrior (13 of 30) and sword and buckler (13 of 24).
   and 50 cm, 8 killed, none cleared, 3 lost. In the Arena it scores 0.408 (0.333 to 0.483) against
   the Duellist over the standard match's 120 bouts (protocol `5bc0cd3b51527a1a`, match
   `1bd6771c5075dcce`).
+- **A party that never gives up a fight** (the level-clearer's `POLICY.stall` past the run; at
+  `93ea707d`, the same 8 runs): 7 killed, none cleared, 1 lost. Over those runs at `93ea707d`
+  the leader pushes on past its foes for 36 to 135 s of 180, since a fight with none falling in
+  20 s stays given up while any foe is near; more time fighting does not kill more, since each
+  member starts 9 to 13 strikes in 90 s and about half of them end at the preparation deadline,
+  setting the feet again as the target leaves the window.
