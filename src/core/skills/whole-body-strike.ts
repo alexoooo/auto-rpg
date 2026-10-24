@@ -15,7 +15,7 @@ import { ATTACK_PATH } from "./attack-path.ts";
 import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
 import type { BlowAttack } from "../mind/intent.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 import type { ReadSegment } from "../read-body.ts";
 
@@ -317,7 +317,7 @@ function wholeBodyTechnique(body: Body, clock: Clock, guard: Pose, drive: WholeB
 
 /** Whole-body action commands are the result of one solve during admission or elapsed update. */
 export function wholeBodyExecutor(body: Body, clock: Clock, guard: Pose, actions: readonly string[], drive: WholeBodyDrive,
-  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
+  resolve: TargetResolver): Executor {
   const technique = wholeBodyTechnique(body, clock, guard, drive, true), motion = technique.state;
   const footprint = Object.freeze(["hand.left", "hand.right", "trunk", "legs"]);
   const state = { motion, pushes: [] as readonly MusclePush[], cooldown: 0,

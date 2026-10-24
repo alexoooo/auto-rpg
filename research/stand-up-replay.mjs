@@ -63,7 +63,7 @@ export async function standUpReplay({ model = "workshop-fighter", held = "empty"
   const actor = labActor(stand.built, stand.world, { mind: config });
   const stance = startStance(actor), { body } = stance;
   const states = { body: body.state, skills: actor.skills.state, orders: stance.orders };
-  const observe = observeBody(stand.built, body.muscles, stand.world, clockSenses(stand.world), undefined, () => body.down, true);
+  const observe = observeBody(stand.built, body.muscles, stand.world, clockSenses(stand.world), { down: () => body.down, contactPatches: true });
   const metadata = { harness: "Node Stance Lab host", engine: stand.world.physics.engine,
     revision: stand.world.physics.revision, artifact, artifactSha256, controllerSha256, specSha256: digest(JSON.stringify(spec)), hz: 1 / stand.world.dt,
     actuation: stand.world.actuation, balance: 0, model, held, mind: config,

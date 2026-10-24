@@ -44,7 +44,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     const crawlConfig = config.crawl ?? QUADRUPED_PARTS.crawl, creep = parts.of("gait", crawlConfig).make(own, motor, paws.map(p => p.segment), crawlConfig);
     const gait = { kind: "travel" as "travel" | "crawl", reacquire: false, homeAt: 0, stable: 0 };
     const locomotion = { travel, crawl: creep };
-    const tracker = effectorTracker(built, motor.root), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
+    const tracker = effectorTracker(built, motor.root, { seedActual: true }), frame = { position: new Vector3(), rotation: new Quaternion() }, target = new Vector3();
     const inverse = new Quaternion(), desired = new Quaternion(), flat = new Quaternion(), lift = new Vector3(), descending = new Vector3();
     const turn = new Quaternion(), front = new Vector3(), forward = new Vector3(0, 0, 1), still = new Vector3(), carried = new Vector3(), spin = new Vector3();
     // What the look reads of the body's heading and whether it is down, kept with the body's state.
@@ -119,7 +119,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
           tracker.reach(paw.segment, soleGoal(paw.point, target, goal.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, goal.bearing ? still : lift));
         }
       });
-      const tracked = tracker.step(own.muscles, command.posture, dt, false, true);
+      const tracked = tracker.step(own.muscles, command.posture, dt);
       motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), gait.kind === "crawl" || active.state.standing && active.state.phase === "settle" ? support.hold : support.travel,
         i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name));
     }, release() { tactics.state.target = null; tactics.state.pending = 0; tactics.state.phase = null; tracker.reset(); for (const s of skills) s.resume(view); }, resume() {

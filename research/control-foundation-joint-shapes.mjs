@@ -13,7 +13,7 @@ const xSense = Number(process.argv[4] ?? 1), ySense = Number(process.argv[5] ?? 
 if (!["impulse", "multibody"].includes(representation) || ![2, 3].includes(freedoms)
   || ![-1, 1].includes(xSense) || ![-1, 1].includes(ySense)) throw new Error("expected representation, freedoms (2 or 3), x/y senses (+/-1)");
 const R = await rapierModule(), rendering = new NullEngine(), scene = new Scene(rendering);
-const engine = await loadRapier(true, true), world = createWorld(scene, engine, { hz: 120, gravity: false, actuation: "directional" });
+const engine = await loadRapier({ coordinateAngularLimits: true, pointContactFriction: true }), world = createWorld(scene, engine, { hz: 120, gravity: false, actuation: "directional" });
 const configuration = { representation, freedoms, xSense, ySense, engineRevision: engine.revision,
   hz: 120, gravity: false, contacts: false, assists: false, mass: 1, inertia: [.02, .02, .02],
   speed: 2, effort: 10, limits: [[-.4, .4], [-.4, .4], [-.02, .02]].slice(0, freedoms), stageSteps: 120 };

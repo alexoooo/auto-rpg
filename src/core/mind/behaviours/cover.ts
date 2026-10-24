@@ -5,7 +5,7 @@ import { coveringHand } from "../cover-hand.ts";
 import { choice } from "../fields.ts";
 import type { Cover } from "../intent.ts";
 import { anyBody } from "../parts.ts";
-import { PREDICTION, THREAT, threatReader, WARD } from "../threat.ts";
+import { READINGS, threatReader } from "../threat.ts";
 
 /** What the hands cover against: nothing beyond the pose, the threat, its predicted contact on the head or the body, or the weapon, warded off. */
 type CoverPolicy = "pose" | "cover" | "predictive" | "body" | "ward";
@@ -26,10 +26,10 @@ export const COVER: BehaviourPart<CoverConfig> = deepFreeze({
       let cover: Cover | null;
       switch (config.guard) {
         case "pose": cover = null; break;
-        case "cover": cover = threat.threatOf(view, THREAT); break;
-        case "predictive": cover = threat.threatOf(view, THREAT, PREDICTION); break;
-        case "body": cover = threat.threatOf(view, THREAT, PREDICTION, true); break;
-        case "ward": cover = threat.threatOf(view, WARD, PREDICTION, true, true); break;
+        case "cover": cover = threat.threatOf(view, READINGS.threat); break;
+        case "predictive": cover = threat.threatOf(view, READINGS.predicted); break;
+        case "body": cover = threat.threatOf(view, READINGS.body); break;
+        case "ward": cover = threat.threatOf(view, READINGS.ward); break;
         default: { const never: never = config.guard; throw new Error(`unknown cover ${never}`); }
       }
       if (cover && shield) {

@@ -38,7 +38,7 @@ export function physicalBody(built: BuiltBody, own: OwnBody, world: World, sense
     get has() { return own.muscles.level === "full" ? has() : "nobody"; },
     get level() { return own.muscles.level; },
     setLevel: (level) => own.muscles.setLevel(level),
-    observe: observeBody(built, own.muscles, world, senses, equipment ? () => equipment.observe() : undefined),
+    observe: observeBody(built, own.muscles, world, senses, { equipment: equipment ? () => equipment.observe() : undefined }),
     dispose() { hook.dispose(); dispose(); },
   };
 }

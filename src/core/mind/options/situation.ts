@@ -4,7 +4,7 @@ import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Orders } from "../orders.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
-import { PREDICTION, THREAT, threatReader } from "../threat.ts";
+import { READINGS, threatReader } from "../threat.ts";
 import type { Situation } from "./option.ts";
 import { blowEnergy, cost, record } from "./value.ts";
 
@@ -56,10 +56,10 @@ export function situationReader(spec: BodySpec, ordersOf: (sight: Sight) => Orde
     read(sight: Sight): Situation {
       const orders = ordersOf(sight), focus = focusOf(sight, orders), centre = sight.view.stance.centre;
       state.focus = focus?.id ?? null;
-      const blow = threat.blowOf(sight.view, THREAT, PREDICTION);
+      const blow = threat.blowOf(sight.view, READINGS.predicted);
       const blows: Record<Side, number> = { left: focus ? blowEnergy(spec, "left", focus.spec) : 0, right: focus ? blowEnergy(spec, "right", focus.spec) : 0 };
       return { sight, time: sight.view.time, down: sight.view.down, orders, focus,
-        apart: focus ? hypot(focus.centre.x - centre.x, focus.centre.z - centre.z) : Infinity, threat: threat.threatOf(sight.view, THREAT), incoming: blow?.cover ?? null,
+        apart: focus ? hypot(focus.centre.x - centre.x, focus.centre.z - centre.z) : Infinity, threat: threat.threatOf(sight.view, READINGS.threat), incoming: blow?.cover ?? null,
         danger: blow ? LANDS * cost(blowEnergy(blow.foe.spec, blow.hand, spec, blow.closing)) : 0,
         reach: reachOf(sight, focus), exposure: focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * cost(heavier(focus.spec, spec)) : 0, blows };
     },

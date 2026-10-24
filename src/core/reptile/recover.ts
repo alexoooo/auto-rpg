@@ -86,7 +86,7 @@ export function recover(own: OwnBody, motor: ReturnType<typeof supportedMotor>, 
           else { intoFrameToRef(frame, goal.target, point);
             tracker.reach(names[i]!, soleGoal(endpoints[i]!.point, point, T.recoveryPath, state.sequence, descending, flat)); }
         });
-        motor.control(command, dt, tracker.step(own.muscles, command.posture, dt, false, true));
+        motor.control(command, dt, tracker.step(own.muscles, command.posture, dt));
         const stable = !view.down && view.centre.y - state.ground >= reference * T.recoveryHeight && view.feet.every(foot => foot.contact && foot.flat)
           && view.velocity.lengthSquared() < T.recoveredSpeed * T.recoveredSpeed;
         state.stable = stable ? state.stable + dt : 0;

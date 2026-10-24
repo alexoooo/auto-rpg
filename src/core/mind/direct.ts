@@ -40,7 +40,7 @@ interface PolicyOptions { readonly senses?: () => Senses; readonly assist?: Assi
 export function createPolicyBody(built: BuiltBody, world: World, make: (model: ActuatorModel) => Policy, options: PolicyOptions = {}): PhysicalBody {
   const sense = options.senses ?? clockSenses(world), equipment = options.equipment;
   const embodied = embody(built, world, (own) => {
-    const observe = observeBody(built, own.muscles, world, sense, equipment ? () => equipment.observe() : undefined);
+    const observe = observeBody(built, own.muscles, world, sense, { equipment: equipment ? () => equipment.observe() : undefined });
     const model = deepFreeze({ effectors: bodyEffectors(built).map(e => e.model), handPoses: built.handPoses.model, channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value,
       max: c.dof.spec.max.value, positive: c.positive.peak, negative: c.negative.peak })),
       assist: { force: own.assist.most.force, moment: own.assist.most.moment },

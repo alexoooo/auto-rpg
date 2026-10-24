@@ -84,7 +84,7 @@ export interface PartyConfig {
  * reset. With the pointer steering a member's facing, that member takes on what it points at
  * first (`AIM_COSINE`, `SET_UPON`).
  */
-export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "party" }): Commander {
+export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
   const { level } = host, picks = config.picks ?? true;
   // Whom the person's commands go to (`selected`), by id: null, everybody, until the person selects.
   // When each foe lying down went down, by id (`lyingSince`).

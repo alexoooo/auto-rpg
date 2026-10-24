@@ -1,11 +1,11 @@
 # Grounded combat
 
-The cells of fighting a foe who is down or rising: the approaches (`GROUND_NEAR`,
-`src/core/mind/ground-near.ts`; `GROUND_COMBAT`, `ground-wide.ts`; `ROUTE_MARGIN`,
-`ground-route.ts`), their admission (`GROUND_ADMISSION`, `ground-position.ts`), the low-foe gate
-(`LOW_HEAD`, `sensed-bounds.ts`) and the Scrapper that uses them. All are development search cells
-or engineering deadlines on the ordinary Warrior, common muscle bounds and the shared supported
-low-strike executor.
+The cells of fighting a foe who is down or rising: the approaches (`GROUND_APPROACH`, shared,
+`src/core/mind/ground-approach.ts`; `GROUND_NEAR`, `ground-near.ts`; `GROUND_COMBAT`,
+`ground-wide.ts`; `ROUTE_MARGIN`, `ground-route.ts`), their admission (`GROUND_ADMISSION`,
+`ground-position.ts`), the low-foe gate (`LOW_HEAD`, `sensed-bounds.ts`) and the Scrapper that
+uses them. All are development search cells or engineering deadlines on the ordinary Warrior,
+common muscle bounds and the shared supported low-strike executor.
 
 Harness for every figure: Node Arena Duel, rapier-coordinate, 120 Hz, Warrior fists, balance 0/0,
 continuing recovery. An ordinary 90 N s upper-trunk shove at 3 s makes the knockdown (no pose
@@ -13,25 +13,34 @@ installed); attack orders are released at 4 s.
 
 ## Policy settings
 
+`GROUND_APPROACH` holds the cells both approaches share:
+
+| Cell | Value |
+|---|---|
+| walking component cap / braking (`speed`, `braking`) | 0.18 m/s / 0.5 s |
+| arrival stop / support acquisition radius (`near`, `settle`) | 0.10 / 0.12 m |
+| COM speed for acquisition, standing (`quiet`) | below 0.10 m/s |
+| geometry refresh between strokes (`refresh`) | 0.5 s |
+| target displacement that asks standing first (`targetShift`) | 0.20 m |
+| approach / acquisition / attack / retry limits (`approach`, `acquisition`, `attack`, `retry`) | 30 / 5 / 8 / 1 s |
+
 `GROUND_NEAR` approaches the highest actual vertex of the sensed upper or middle trunk:
 
 | Cell | Value |
 |---|---|
 | side / forward / outer waypoint offset (`across`, `ahead`, `outside`) | 0.35 / 0.04 / 0.35 m |
 | along threshold (`along`) | 0.12 m |
-| walking component cap / braking (`speed`, `braking`) | 0.18 m/s / 0.5 s |
-| arrival stop / support acquisition radius (`near`, `settle`) | 0.10 / 0.12 m |
-| COM speed for acquisition, standing (`quiet`) | below 0.10 m/s |
-| geometry refresh between strokes (`refresh`) | 0.5 s |
-| displacement / range that asks standing first (`targetShift`, `reach`) | 0.20 / 0.60 m |
-| lowering, the measured common fold (`lower`) | 0.50 m |
-| approach / acquisition / attack / retry limits (`approach`, `acquisition`, `attack`, `retry`) | 30 / 5 / 8 / 1 s |
+| range that asks standing first (`reach`) | 0.60 m |
+
+The lowering depth is the blow's own (`lower` on the action, 0.50 m for the Scrapper's downward
+blow), which the support fold reaches against its own full depth (`COMBAT_FOLD`,
+`src/core/skills/support-fold.ts`).
 
 Forward approaches at 0.35 m/s topple the attacker in the close fixture, hence 0.18 m/s. The
 deadlines bound failed attempts; they are not optimal combat parameters.
 
-`GROUND_COMBAT` is the wider placement: 0.10 m across, 0.65 m ahead, 0.80 m reach, with the same
-approach cells. It tests eight orientations (`orientations`), takes foot separation from its own
+`GROUND_COMBAT` is the wider placement: 0.10 m across, 0.65 m ahead, 0.80 m reach, with the shared
+cells. It tests eight orientations (`orientations`), takes foot separation from its own
 sourced spec, rejects occupied planned sole positions, and routes round observed colliders, both
 observed soles checked at a 0.12 m radius (`footRadius`, an engineering footprint) with 1 s
 lookahead (`lookahead`). A walking direction holds in world space until the stride counter

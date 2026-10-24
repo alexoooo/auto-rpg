@@ -47,7 +47,7 @@ export function createMotionBody(built: BuiltBody, world: World,
     const description = deepFreeze({ channels: own.muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value })),
       frames: [...[...built.segments.keys()].map((name) => ({ kind: "segment" as const, name })),
         ...items.map((item) => ({ kind: "item" as const, id: item.id }))], equipment: port.model });
-    const policy = make(description), observe = observeBody(built, own.muscles, world, senses, () => port.observe());
+    const policy = make(description), observe = observeBody(built, own.muscles, world, senses, { equipment: () => port.observe() });
     const state = { policy: policy.state, tracking: tracking.state };
     return { name: policy.name, state, idle: () => policy.idle?.(), step() {
       const command = checkedMotionCommand(policy.step(observe(), world.dt), description);

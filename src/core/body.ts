@@ -17,7 +17,6 @@ import type { World } from "./world.ts";
 import { clockOf } from "./clock.ts";
 import type { MotorMaker } from "./control/motor-part.ts";
 import type { SheetLog } from "./mind/sheets.ts";
-import { PHYSICS_HZ } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
@@ -237,7 +236,7 @@ interface CommandMind extends HostMind {
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
 export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, motor: makeMotor }: BodyOptions,
-  dt = 1 / PHYSICS_HZ.value): CommandMind {
+  dt: number): CommandMind {
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
   const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");

@@ -28,6 +28,26 @@ export const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
 /** A blow predicted to land (`threatOf`): a threat's striking point crossing the plane `out` m ahead of the head within `horizon` s. */
 export const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 
+/**
+ * How a threat is read (`threatOf`): what counts as one; with `prediction`, its predicted crossing;
+ * with `body`, the body's axis guarded in place of the head; with `hold`, a point with no
+ * crossing covered where it is.
+ */
+export interface ThreatReading {
+  readonly counts: Threat;
+  readonly prediction?: { readonly out: number; readonly horizon: number };
+  readonly body?: boolean;
+  readonly hold?: boolean;
+}
+
+/** The readings minds use: the threat as it stands, its predicted contact on the head or on the body, and the weapon warded off. */
+export const READINGS = Object.freeze({
+  threat: Object.freeze({ counts: THREAT }),
+  predicted: Object.freeze({ counts: THREAT, prediction: PREDICTION }),
+  body: Object.freeze({ counts: THREAT, prediction: PREDICTION, body: true }),
+  ward: Object.freeze({ counts: WARD, prediction: PREDICTION, body: true, hold: true }),
+}) satisfies Readonly<Record<string, ThreatReading>>;
+
 /** What counts as a threat (`THREAT`). */
 interface Threat {
   readonly within: number;
@@ -58,10 +78,9 @@ interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; read
 export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
-    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }, body = false, hold = false) =>
-      threatOf(view, work, counts, prediction, body, hold)?.cover ?? null,
+    threatOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading)?.cover ?? null,
     /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, and whose hand it is. */
-    blowOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction),
+    blowOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
   };
 }
@@ -79,8 +98,8 @@ export function threatReader() {
  * of mass to its head, nearest it, so a blow at the trunk or an arm is read as one at the head is.
  * With `hold`, a point the prediction finds no crossing for is covered where it is.
  */
-function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT,
-  prediction?: { readonly out: number; readonly horizon: number }, body = false, hold = false): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
+function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork,
+  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
   const { senses, head } = view;
   let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, by: { foe: BodySense; hand: Side } | null = null;
   for (const other of senses.others) {

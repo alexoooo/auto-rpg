@@ -62,23 +62,30 @@ function worldShapes(foe: BodySense) {
       }))];
     })));
   }
-  const scratch = new Vector3(), shapes: {name: string; points: Vec3[]; radius: number}[] = [];
+  const scratch = new Vector3(), shapes: { name: string; points: Vec3[]; radius: number }[] = [];
   for (const [name, localsOf] of locals) {
-    const sensed=foe.segments.get(name);if(!sensed)continue;
-    localsOf.forEach((original,index)=>{
+    const sensed = foe.segments.get(name);
+    if (!sensed) continue;
+    localsOf.forEach((original, index) => {
       const shape = index === 0 ? POSES.get(foe.spec)?.get(name)?.[sensed.handPose ?? "open"] ?? original : original;
-      shapes.push({name:`${foe.id}/${name}/${index}`,radius:shape.radius,
-        points:shape.points.map(p=>{scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation,scratch).addInPlace(sensed.position);return [scratch.x,scratch.y,scratch.z];})});
+      shapes.push({ name: `${foe.id}/${name}/${index}`, radius: shape.radius,
+        points: shape.points.map(p => {
+          scratch.set(...p).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
+          return [scratch.x, scratch.y, scratch.z];
+        }) });
     });
   }
   return shapes;
 }
 
 function boundsOf(shape: ReturnType<typeof worldShapes>[number]): SolidSense {
-  const low=[Infinity,Infinity,Infinity],high=[-Infinity,-Infinity,-Infinity];
-  for(const at of shape.points)for(let k=0;k<3;k++){low[k]=Math.min(low[k]!,at[k]!-shape.radius);high[k]=Math.max(high[k]!,at[k]!+shape.radius);}
-  return {name:shape.name,kind:"box",centre:low.map((v,k)=>(v+high[k]!)/2) as unknown as Vec3,
-    size:low.map((v,k)=>high[k]!-v) as unknown as Vec3};
+  const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+  for (const at of shape.points) for (let k = 0; k < 3; k++) {
+    low[k] = Math.min(low[k]!, at[k]! - shape.radius);
+    high[k] = Math.max(high[k]!, at[k]! + shape.radius);
+  }
+  return { name: shape.name, kind: "box", centre: low.map((v, k) => (v + high[k]!) / 2) as unknown as Vec3,
+    size: low.map((v, k) => high[k]! - v) as unknown as Vec3 };
 }
 
 /** Detached current world bounds for body and held colliders; no visual geometry or engine handles. */
@@ -88,20 +95,20 @@ export function sensedBounds(foe: BodySense): readonly SolidSense[] {
 
 /** Feet sweep against exact round colliders and conservative polyhedral bounds, admitting outward separation. */
 export function sensedFootClearance(foe: BodySense) {
-  const shapes=worldShapes(foe);
-  return (from:Vec3,to:Vec3,radius:number):boolean=>shapes.every(shape=>{
-    if(!shape.radius) {
-      const bounds=boundsOf(shape);
-      if(bounds.kind!=="box")throw new Error("collider bounds must be boxes");
-      if(from.every((v,k)=>v===to[k]))return [0,1,2].some(k=>Math.abs(from[k]!-bounds.centre[k]!)>=bounds.size[k]!/2+radius);
-      return clearStep(from,to,radius,[bounds]);
+  const shapes = worldShapes(foe);
+  return (from: Vec3, to: Vec3, radius: number): boolean => shapes.every(shape => {
+    if (!shape.radius) {
+      const bounds = boundsOf(shape);
+      if (bounds.kind !== "box") throw new Error("collider bounds must be boxes");
+      if (from.every((v, k) => v === to[k])) return [0, 1, 2].some(k => Math.abs(from[k]! - bounds.centre[k]!) >= bounds.size[k]! / 2 + radius);
+      return clearStep(from, to, radius, [bounds]);
     }
-    const a=shape.points[0]!,b=shape.points[shape.points.length-1]!,r=radius+shape.radius;
-    const near=segmentDistanceSquared(from,to,a,b);
-    if(near>r*r)return true;
-    const before=segmentDistanceSquared(from,from,a,b),after=segmentDistanceSquared(to,to,a,b);
-    const axis=sub(b,a),squared=dot(axis,axis),nearest=add(a,scale(axis,squared?Math.max(0,Math.min(1,dot(sub(from,a),axis)/squared)):0));
-    return before<=r*r&&after>before&&dot(sub(from,nearest),sub(to,from))>=0;
+    const a = shape.points[0]!, b = shape.points[shape.points.length - 1]!, r = radius + shape.radius;
+    const near = segmentDistanceSquared(from, to, a, b);
+    if (near > r * r) return true;
+    const before = segmentDistanceSquared(from, from, a, b), after = segmentDistanceSquared(to, to, a, b);
+    const axis = sub(b, a), squared = dot(axis, axis), nearest = add(a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(from, a), axis) / squared)) : 0));
+    return before <= r * r && after > before && dot(sub(from, nearest), sub(to, from)) >= 0;
   });
 }
 

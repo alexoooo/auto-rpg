@@ -44,7 +44,7 @@ async function play(left, right, gap, covers) {
     const counts = { steps: 0, seen: 0, struck: 0, met: 0 }, heads = [];
     let since = null, read = 0;
     while (!duel.verdict) {
-      const cover = view.down ? null : threatOf(view, threat);
+      const cover = view.down ? null : threatOf(view, { counts: threat });
       if (cover) { since ??= duel.clock; counts.seen++; } else since = null;
       const strike = me.minded.skills.report.actions.find(action => action.effector.startsWith("hand."));
       if (strike) counts.struck++;

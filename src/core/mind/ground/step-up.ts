@@ -143,6 +143,12 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
   },
 });
 
+/** The step-up's tuning for `model`; a model it has none for cannot play it. */
+function stepUpTuning(model: string): StepUpTuning {
+  if (!Object.hasOwn(STEP_UP, model)) throw new Error(`the step-up has no tuning for ${model}`);
+  return STEP_UP[model as HumanoidModel];
+}
+
 /** RISE, its stages played as `tuning` says. */
 export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe {
   const timed = (prefix: string) => <S extends Stage>(stage: S): S => {
@@ -182,11 +188,12 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * attempt after one that failed rolls over the other side (`other`), so a body held from turning
  * one way, by a wall or a body lying beside it, turns the other.
  */
-export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
+export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, given?: StepUpTuning,
   base: Recipe = RISE): TechniqueRun & {
   /** Its rises, whole, joined part-way and whole over the other side; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
 } {
+  const tuning = given ?? stepUpTuning(own.spec.model);
   const whole = stepUpRecipe(tuning, base);
   /** The rise from its stage `stage` on. */
   const from = (stage: string): Recipe => {

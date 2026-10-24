@@ -13,6 +13,12 @@ export type Region = { readonly kind: "mark"; readonly mark: "high" | "middle" |
 export type TargetRef = { readonly kind: "body"; readonly body: string; readonly region: Region }
   | { readonly kind: "point"; readonly at: Vec3; readonly body?: string; readonly direction?: Vec3 };
 
+/** Where an executor drives at `target` for `action` with `effector` this step, or null where it has no point. */
+export type TargetResolver = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
+
+/** A point target's own point; none for a body: the resolver of a kit that aims at points alone. */
+export const pointTarget: TargetResolver = (_view, target) => target.kind === "point" ? target.at : null;
+
 /** Named controls; the body's compiled footprints decide which names overlap. */
 export type Resource = string;
 export type Phase = "prepare" | "commit" | "release";

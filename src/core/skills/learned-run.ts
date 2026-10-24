@@ -90,6 +90,11 @@ export function steerFrom(actions: readonly number[], steer: RunSteer): RunSteer
   return steer;
 }
 
+/** The walk and run's settings, timed to the haste `policy` was trained at (`RunPolicy.hasted`). */
+function policySettings(policy: RunPolicy | null): WalkRunSettings {
+  return policy ? { ...WALK_RUN, hasted: policy.hasted } : WALK_RUN;
+}
+
 /**
  * **The walk and the learned run**: the walk and run (`walkRun`) whose run a policy steers
  * (`RunSteer`): every `DECIDE` control steps it reads the run (`runFeatures`) and sets the
@@ -98,11 +103,12 @@ export function steerFrom(actions: readonly number[], steer: RunSteer): RunSteer
  * steer (`RunCycleMemory.steer`) is left as it is set, as a policy's training sets it. Its settings
  * are by default the walk and run's, timed to its haste as its policy's training was (`RunPolicy.hasted`).
  */
-export function learnedRun(body: Body, policy: RunPolicy | null, given: WalkRunSettings = policy ? { ...WALK_RUN, hasted: policy.hasted } : WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
-  if (policy === null) return walkRun(body, given, givenRun, may, { runEnvelope: null });
+export function learnedRun(body: Body, policy: RunPolicy | null, given?: WalkRunSettings, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
+  const settings = given ?? policySettings(policy);
+  if (policy === null) return walkRun(body, settings, givenRun, may, { runEnvelope: null });
   if (policy.actions !== STEER_KEYS.length) throw new Error(`a learned run's policy gives ${STEER_KEYS.length} actions`);
   const act = recoveryNetwork(policy), features: number[] = [];
-  return walkRun(body, given, givenRun, may, {
+  return walkRun(body, settings, givenRun, may, {
     runEnvelope: null,
     steer(view, heading, asked, run, turning) {
       if (run.steps % DECIDE === 0) steerFrom(act(runFeatures(body, view, run, heading, asked, turning, features)), run.steer);

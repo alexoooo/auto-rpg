@@ -50,8 +50,8 @@ export function createNavigationTask(scene: Scene, engine: PhysicsEngine, config
   });
   const own = make("actor", config, () => control.orders);
   const target = config.target ? make("target", config.target, () => config.target!.orders) : null;
-  const clock = clockOf(world), read = observeBody(own.built, own.body.muscles, clock, own.senses, undefined, () => own.body.down);
-  const targetRead = target ? observeBody(target.built, target.body.muscles, clock, target.senses, undefined, () => target.body.down) : null;
+  const clock = clockOf(world), read = observeBody(own.built, own.body.muscles, clock, own.senses, { down: () => own.body.down });
+  const targetRead = target ? observeBody(target.built, target.body.muscles, clock, target.senses, { down: () => target.body.down }) : null;
   const state = { control, actor: { body: own.body.state, mind: own.minded.state }, target: target ? { body: target.body.state, mind: target.minded.state } : null, senses: senses.state };
   const stop = world.afterStep(() => {
     let contact = false;

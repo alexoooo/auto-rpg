@@ -103,8 +103,16 @@ interface EffectorMemory {
 /** Endpoint solves since construction: their count, passes and capped solves. */
 interface ReachMeter { solves: number; passes: number; capped: number }
 
+/**
+ * How a tracker reads the body: `fromActual`, its held freedoms at their actual angles rather
+ * than the posture's, unless a step says otherwise; `seedActual`, a goal's free freedoms begun
+ * from their actual angles.
+ */
+export interface TrackerSettings { readonly fromActual?: boolean; readonly seedActual?: boolean }
+
 /** Named physical endpoint paths and bounded IK, independent of a body's support controller. */
-export function effectorTracker(built: ReadBody, root: ReadSegment) {
+export function effectorTracker(built: ReadBody, root: ReadSegment, settings: TrackerSettings = {}) {
+  const { fromActual: actualByDefault = false, seedActual = false } = settings;
   const names = (joint: ReadJoint) => joint.dofs.map((_, k) => channelName(joint, k));
   const descriptions = bodyEffectors(built);
   const limbOf = (description: typeof descriptions[number]): Effector => {
@@ -234,7 +242,7 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
       if (!limb || !at) throw new Error(`no effector point ${segment}/${point}`);
       return pointNowToRef(limb.segment, root, at, out);
     },
-    step(driver: MuscleDriver, pose: Readonly<Record<string, number>>, dt: number, fromActual = false, seedActual = false) {
+    step(driver: MuscleDriver, pose: Readonly<Record<string, number>>, dt: number, fromActual = actualByDefault) {
     driving = driver;
     for (const limb of all) {
       const m = limb.memory;

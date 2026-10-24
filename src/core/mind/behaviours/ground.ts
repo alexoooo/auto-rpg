@@ -15,7 +15,7 @@ export const GROUND: BehaviourPart<GroundConfig> = deepFreeze({
   make({ spec, actions }) {
     // Its walks are kept clear by the body's navigator (`Sight.clearance`), read at each decision.
     let clearance: Clearance | null = null;
-    const ground = groundPosition(spec, (view, heading, move) => clearance!.keepClear(view, heading, move), {}, true);
+    const ground = groundPosition(spec, (view, heading, move) => clearance!.keepClear(view, heading, move));
     return { state: ground.state, refocus: ground.reset, interrupted: ground.reset, decide(turn) {
       const { focus, sight } = turn;
       clearance = sight.clearance;

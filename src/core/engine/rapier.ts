@@ -48,12 +48,16 @@ export function rapierModule(): Promise<Rapier> {
   return loading;
 }
 
+/** A solver profile: Rapier's coordinate angular limits and per-point contact friction, each off unless named. */
+export interface SolverProfile { readonly coordinateAngularLimits?: boolean; readonly pointContactFriction?: boolean }
+
 /** Rapier with immutable limit/friction selection, its WASM loaded once. The measured profiles are in docs/reference/contact-friction.md. */
-export async function loadRapier(coordinateAngularLimits = false, pointContactFriction = false): Promise<PhysicsEngine> {
+export async function loadRapier(profile: SolverProfile = {}): Promise<PhysicsEngine> {
+  const { coordinateAngularLimits = false, pointContactFriction = false } = profile;
   const R = await rapierModule();
   const name = profileName(coordinateAngularLimits, pointContactFriction);
   const revision = REVISION + (coordinateAngularLimits ? "/coordinate-limits" : "") + (pointContactFriction ? "/point-friction" : "");
-  return { name, revision, createPhysics: (options) => createRapierPhysics(R, options, revision, coordinateAngularLimits, pointContactFriction) };
+  return { name, revision, createPhysics: (options) => createRapierPhysics(R, options, revision, { coordinateAngularLimits, pointContactFriction }) };
 }
 
 const profileName = (coordinate: boolean, point: boolean): string => `rapier${coordinate ? "-coordinate" : ""}${point ? "-coulomb" : ""}`;
@@ -127,7 +131,8 @@ interface RapierPhysics extends PhysicsWorld {
 }
 
 /** A Rapier world with the core's gravity and solver settings. */
-export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier", coordinateAngularLimits = false, pointContactFriction = false): RapierPhysics {
+export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, revision = "unidentified-rapier",
+  { coordinateAngularLimits = false, pointContactFriction = false }: SolverProfile = {}): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
   let raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.integrationParameters.coordinateAngularLimits = coordinateAngularLimits;

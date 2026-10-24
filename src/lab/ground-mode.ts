@@ -71,7 +71,7 @@ type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fel
  */
 function standCheck(actor: Actor, cap: number) {
   const { body, world } = actor, built = body.built;
-  const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), undefined, undefined, true));
+  const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const fresh = () => ({ takeover: null as number | null, verifiedAt: null as number | null, verified: null as number | null, quiet: 0,
     walkFrom: null as readonly number[] | null, walked: null as number | null, stage: "standing" as CheckStage });
   const state = fresh();

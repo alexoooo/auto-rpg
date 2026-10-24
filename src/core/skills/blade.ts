@@ -8,7 +8,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { placedHeightFits, placedReach } from "./strike.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 
 /** Freely tuned trajectory and lifecycle limits for physical blade actions, in metres and seconds. */
@@ -44,11 +44,10 @@ function endpoint(spec: BodySpec, effector: string, mechanism: "edge" | "point")
 /** Whether a held item supplies the directed region and named point this blade action requires. */
 export const strikesWithBlade = (spec: BodySpec, effector: string, mechanism: "edge" | "point"): boolean => endpoint(spec, effector, mechanism) !== null;
 
-type Resolve = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 
 /** Cuts and thrusts share the bounded strike lifecycle, with an independent turn that aims the actual region. */
-export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[], mechanism: "edge" | "point", settings: BladeSettings = BLADE_STRIKE,
-  resolve: Resolve = (_view, target) => target.kind === "point" ? target.at : null, contactDirection?: Resolve): Executor {
+export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[], mechanism: "edge" | "point", settings: BladeSettings,
+  resolve: TargetResolver, contactDirection?: TargetResolver): Executor {
   if (!validBladeSettings(settings)) throw new Error("invalid blade strike settings");
   const spec = body.built.spec, hands = ["left", "right"] as const;
   const ends = { left: endpoint(spec, "hand.left", mechanism), right: endpoint(spec, "hand.right", mechanism) };
