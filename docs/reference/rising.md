@@ -801,6 +801,12 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
 
 ## Tried and not kept
 
+- **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
+  the skeleton's 32 target falls, 30 s cap, its step-up settings as searched on the box trunk): each
+  trunk segment the hull of the art's ribcage, lumbar and pelvis vertices, rounded at the back where
+  the bind's boxes are flat. Step-up stands 1 of 32 against 7 with the boxes. On its back the box
+  trunk lies flat through the whole roll; the rounded one tips about 38 degrees onto the far side
+  before the roll and holds there through `swing`, its poses reached.
 - **`dynamic-rise`**, a recovery sub-mind in the editor's `When down` slot (removed; at
   `54f3fba1`, `node research/dynamic-rise.mjs --workers 2`, `rapier-coordinate`, adapter 10):
   the Warrior and the Rogue, empty and with the club, 16 falls each, 0 verified handovers within
