@@ -826,6 +826,19 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
   feet), the knees do not leave the ground: the centre of mass stays 0.30 m up against the 0.43
   to 0.52 m asked until the stage's limit, since the shank would tip forward past the ankle's
   dorsiflexion stop (0.39 rad) over a foot that is one box, with no toes to bend.
+- **The ankle at its weight-bearing range** (43.25 degrees, the goniometer's mean of the
+  weight-bearing lunge in Konor et al. 2012, Int J Sports Phys Ther 7(3):279-287, Table 2, against
+  Moromizato's passive 22.3; at `c8201ab9`): step-up on the target stands 51 of 64 against 52, none
+  within 6 s. After `fours`, on the Warrior toppled forward (the harness of
+  `research/core-rise-poses.mjs`), each shorter route's first bearing stage: on the hands and feet,
+  a quarter each, the legs straighten into a plank, the feet sliding back to 0.96 m from the hands
+  and the centre of mass held 0.32 m up against 0.46 asked; on the feet 0.4 each and the hands
+  0.1, the knees stay down and the centre of mass goes toward the hands (0.49 to 0.66 m from the
+  ankles); on the shins held over the toes (`overProp`) and the hands, the knees fold to their stop
+  (2.57 rad) with the centre of mass 0.44 m from the ankles. As Stand up's route, none of the 64
+  falls passes its first stage after `fours`. A shin's task holds its knee on the ground, so
+  rocking back onto the feet is a movement the bearing stages do not make, whatever the ankle
+  allows.
 - **For the Rogue's lean** (`step-up`, the Rogue with the club over its left side, 64 falls:
   the target's sixteen directions at four offsets of 5.625 degrees, against 40 stood, at
   `14ccd6d1`): a body read on its front but leaning (the pelvis's forward above -0.9 or -0.8)

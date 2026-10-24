@@ -46,7 +46,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 
-1. **Now:** Recovery steps 2 and 4, step 3 waiting on the owner; Vanguard on hold, its
+1. **Now:** a mind that kills in the Crypt; Recovery steps 2 and 4, step 3 left at a wider
+   ankle that opens no route; Vanguard on hold, its
    explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
    alone by `--ablate`, with their decisions visible in Arena and Lab.
 2. **When each one's condition holds:**
@@ -70,10 +71,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
-- Whether the bodies get toes, or more ankle dorsiflexion than the measured 0.39 rad, for the
-  stand-up: every way up from hands and knees shorter than the kneel-up is closed by that stop
-  over a foot that is one box ([Recovery](plans/2026-10-23-recovery.md) step 3). Unchanged, Stand
-  up keeps the kneel-up and its time (52 of 64, none within 6 s).
 - An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**
