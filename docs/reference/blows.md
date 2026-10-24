@@ -824,3 +824,9 @@ against the Warrior (13 of 30) and sword and buckler (13 of 24).
   soon as the target stands within the slack, 7 foes killed and 2 levels cleared; with that, no
   stand at all, 6 and 2; with that, the head and the thrust alone, 5 and 1. None reads apart from
   the 8 and 2 it was set at.
+- **A wider slack** (the recipe strike's 20 cm along and 35 across, every humanoid on both sides; at
+  `93ea707d`, the same 8 runs, where the slack set kills 6, clears 2 and loses none): 8 killed,
+  1 cleared, none lost, the party dealing 5.4 of the foes' pools to 3.2 taken (4.7 to 4.4); at 30
+  and 50 cm, 8 killed, none cleared, 3 lost. In the Arena it scores 0.408 (0.333 to 0.483) against
+  the Duellist over the standard match's 120 bouts (protocol `5bc0cd3b51527a1a`, match
+  `1bd6771c5075dcce`).
