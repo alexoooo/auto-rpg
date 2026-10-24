@@ -13,6 +13,7 @@ import { VANGUARD_PLAN, type VanguardPlanConfig } from "./plan.ts";
 import { VANGUARD_WALK } from "./walk-part.ts";
 import { VANGUARD_EXCHANGE } from "./exchange.ts";
 import { VANGUARD_WEAPON } from "./weapon-part.ts";
+import { VANGUARD_NAVIGATION } from "./navigation-part.ts";
 import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../../skills/blade-part.ts";
 
 /** A fighter's slots, including its own planners, punches and calibrated walk. */
@@ -43,6 +44,7 @@ const WEAPON_ACTIONS = WEAPONS.map(executor => ({ name: executor.name, executor:
 /** A body punch behind an anticipatory guard, with a planted low punch and closed low cover. */
 const WARRIOR: VanguardConfig = deepFreeze({
   kind: "vanguard",
+  navigation: VANGUARD_NAVIGATION.defaults,
   locomotion: { ...MOVE, otherwise: "braced" }, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
   tactics: { kind: "vanguard-plan", lowGuard: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: false, plan: PLAN },
   executors: [...PUNCHES, ...WEAPONS],
@@ -54,7 +56,7 @@ const WARRIOR: VanguardConfig = deepFreeze({
 const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "fighter" }) as FighterConfig;
 
 /** The Rogue calibration uses a conservative stance walk. */
-const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, locomotion: VANGUARD_WALK.defaults });
+const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: GAME_NAVIGATION, locomotion: VANGUARD_WALK.defaults });
 
 /** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
 const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE,
@@ -71,7 +73,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
-  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK, VANGUARD_EXCHANGE, VANGUARD_WEAPON],
+  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK, VANGUARD_EXCHANGE, VANGUARD_WEAPON, VANGUARD_NAVIGATION],
   fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
