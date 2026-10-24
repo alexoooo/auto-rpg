@@ -133,6 +133,15 @@ nothing shoved forward turns its left hand at 0.15 to 0.21 m/s (3 to 5 rad/s) ev
 the seventh to the fifteenth while its centre of mass stays within a millimetre: a light segment
 at the end of a slack joint, kept going by the solver. What in the solver does it is not read.
 
+**The Warrior with the club shoved 270 degrees slides; it is not driven** (`felled` and `lie`,
+`research/core-rise-trials.mjs`, at `febe37a5`): it lies on its left side with the club hand
+against its head and the ground, nearly still from the sixth second (every segment under
+0.03 m/s), and from the thirteenth its club arm moves again at up to 0.18 m/s. Its potential
+energy falls throughout, 166.60 J at 6 s to 166.27 at 15, and its kinetic energy read each second
+stays under 0.04 J: the slack arm slides down its head onto the ground. The one rise in it,
+0.03 J at the seventh second with every segment under 0.03 m/s, is the contacts' correction
+pushing overlapping shapes apart.
+
 ## Stages
 
 The riser (`stagedRise`, `src/core/mind/rise/staged.ts`) plays a recipe (`Recipe`, `RISE`,

@@ -286,9 +286,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   palm's hull where the rise, the bar, the posture hold and the support entry were tuned on the
   capsule; the run's legs cost the rise; `docs/reference/native-posture-control.json` names an
   anatomy the body no longer has.
-- **Defects found, cause unknown:** a held body's fixed segment turns by about 7.5e-9 a step (the
-  Crypt); a felled Warrior's club arm under `lie` never comes to rest; a club at 10 m/s under the
-  lab dummy's ball ends a step inside it unread.
+- **Defects found, cause unknown:** a club at 10 m/s under the lab dummy's ball ends a step
+  inside it unread. A limp body's slack hand can be kept turning by the solver
+  ([lying](reference/rising.md#lying)).
 - **Research code no game path reads** retires with its experiment: `predictPointContacts` has
   no game reader, and goes with the local impulse predictor's question.
 - **Records no script reads again**, measured afresh when their subject changes:
