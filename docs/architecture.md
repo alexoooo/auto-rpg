@@ -938,7 +938,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
   its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, under
   drill tactics: thrown once at a still Warrior standing in guard, by body, mark, hand, offset and
-  range; landed, on the target elsewhere, missed, out of its window, refused, or fell). `--previous` reads a battery's subject
+  range; landed (on the mark at 6.8 m/s or more, the punch competency's bar), weak (on the mark, slower), on the
+  target elsewhere, missed, out of its window, refused, or fell). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot

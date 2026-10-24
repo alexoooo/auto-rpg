@@ -38,8 +38,10 @@ export function striker({ mind, action }: StrikeSubject, hand: Hand, mark: Mark)
  * Rung 0, a still target: the strikers' bodies; how far ahead the target's centre stands, m, and
  * how far to the striker's right; the mark and the hand; how long the striker stands in guard
  * before it asks, how long after that it may wait to be admitted, the longest a trial plays, and
- * how long it runs on once the action has ended, for a fall it brings about, s. A change here is
- * a new protocol.
+ * how long it runs on once the action has ended, for a fall it brings about, s; and the slowest
+ * blow that lands, m/s of closing speed: the punch competency's, the untrained fist less one SD
+ * ([thresholds](../../../docs/reference/competencies.md#thresholds)). A change here is a new
+ * protocol.
  */
 const STILL = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
@@ -48,6 +50,7 @@ const STILL = deepFreeze({
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
   settled: .5, patience: 2, seconds: 5, settle: .5,
+  blow: 6.8,
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
@@ -59,13 +62,13 @@ export type StrikeContact = {
 };
 
 /**
- * How a trial came out: `landed`, the hand on the mark while its action ran; `elsewhere`, the hand
- * on the target but not the mark; `missed`, committed and nothing of the hand's on the target;
+ * How a trial came out: `landed`, the hand on the mark while its action ran, at a blow's speed
+ * (`blow`); `weak`, on the mark but slower; `elsewhere`, the hand on the target but not the mark; `missed`, committed and nothing of the hand's on the target;
  * `abandoned`, begun and ended before committing; `outside`, never in its window; `refused` or
  * `waiting`, never admitted for the reason its readiness gave; `fell`, the striker down at any
  * time of the trial.
  */
-export type StrikeOutcome = "landed" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell";
+export type StrikeOutcome = "landed" | "weak" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell";
 
 /** What a trial came to. */
 export type StrikeReading = {
@@ -76,7 +79,7 @@ export type StrikeReading = {
   /** When the action began, committed, released and ended, s; null where it did not. */
   readonly began: number | null; readonly committed: number | null; readonly released: number | null; readonly ended: number | null;
   readonly ending: string | null;
-  /** The hand's hardest blow on the mark while the action ran; null where none. */
+  /** The hand's fastest touch on the mark while the action ran, by closing speed; null where none. */
   readonly hit: StrikeContact | null;
   /** Every blow of the striker's on the target. */
   readonly contacts: readonly StrikeContact[];
@@ -147,9 +150,9 @@ function strikeCases(protocol: typeof STILL): Cases<StrikeCondition, StrikeReadi
           });
           const live = (contact: StrikeContact) => times.began !== null && contact.time >= times.began && contact.time <= (times.ended ?? world.time);
           const hand = contacts.filter((contact) => contact.by === effector && live(contact));
-          const hit = hand.filter((contact) => marked.has(contact.on)).reduce<StrikeContact | null>((best, one) => best === null || one.energy > best.energy ? one : best, null);
+          const hit = hand.filter((contact) => marked.has(contact.on)).reduce<StrikeContact | null>((best, one) => best === null || one.closing > best.closing ? one : best, null);
           const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-          const outcome: StrikeOutcome = down ? "fell" : hit ? "landed" : hand.length ? "elsewhere" : times.committed !== null ? "missed"
+          const outcome: StrikeOutcome = down ? "fell" : hit ? hit.closing >= protocol.blow ? "landed" : "weak" : hand.length ? "elsewhere" : times.committed !== null ? "missed"
             : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
           return { outcome, phase, reason, ...times, ending: ledger?.ending.kind ?? null, hit, contacts, down, seconds: world.time };
         },

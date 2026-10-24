@@ -47,9 +47,9 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
     { name: "admitted", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.began !== null },
-    { name: "to contact", unit: "s from the commitment, the median landed", kind: "median", better: "lower", of: (r) => r.hit && r.committed !== null ? r.hit.time - r.committed : null },
-    { name: "closing", unit: "m/s, the median landed", kind: "median", better: "higher", of: (r) => r.hit?.closing ?? null },
-    { name: "energy", unit: "J, the median landed", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
+    { name: "to contact", unit: "s from the commitment to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.committed !== null ? r.hit.time - r.committed : null },
+    { name: "closing", unit: "m/s on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.closing ?? null },
+    { name: "energy", unit: "J on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
     { name: "return", unit: "s from the release, the median", kind: "median", better: "lower", of: (r) => r.released !== null && r.ended !== null ? r.ended - r.released : null },
     { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
   ],
