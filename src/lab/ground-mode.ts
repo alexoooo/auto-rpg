@@ -19,6 +19,7 @@ import { startWind } from "./wind.ts";
 import { groundEnvironment } from "./ground-environment.ts";
 import { addArenaSolids } from "../arena/room.ts";
 import { solidSenses } from "../core/mind/object-senses.ts";
+import { hypot } from "../core/math/real.ts";
 
 /**
  * **How a stand is verified**: from its recovery's takeover, upright and loaded on both feet,
@@ -96,7 +97,7 @@ function standCheck(actor: Actor, cap: number) {
         }
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing + STAND_CHECK.walking) {
           const centre = reading.observation.centre, from = state.walkFrom!;
-          state.walked = Math.hypot(centre[0] - from[0], centre[2] - from[2]);
+          state.walked = hypot(centre[0] - from[0], centre[2] - from[2]);
           state.stage = body.has === "command" ? "stood" : "failed"; orders = STAND_ORDERS;
           return;
         }

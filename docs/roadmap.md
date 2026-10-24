@@ -104,8 +104,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   step and answered at a step the asker names; a late answer makes the world wait. It comes with
   its first client.
 - The same run in every engine holds for an Arena bout and a Crypt run
-  ([real functions](reference/real-functions.md)); the Lab and the falls still place bodies and aim
-  orders with the engine's `Math`.
+  ([real functions](reference/real-functions.md)), and the falls compute as exactly; the Lab's
+  other scenarios still place bodies and aim orders with the engine's `Math`.
 - A new body family or item brings its own tasks; a shared name does not show an algorithm works
   on another family.
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:

@@ -129,9 +129,10 @@ step, quiet machine): 1.270 ms on the engine's `Math`, 1.296 and 1.334 ms on the
 
 ## What is not covered
 
-The lab and the falls take the engine's sine, cosine, arctangent and length where they place a body
-or aim a shove (`src/lab/`, `src/evaluation/fall.ts`), so a lab scenario or a fall is not held to be
-the same in every engine. The Crypt's look (`CRYPT_LOOK`: its decals, dressing and fog shader)
+The falls (`src/evaluation/fall.ts`, `rising.ts`, and the Lab's starts, shoves and stand check
+they reach) compute with the core's functions, held by the boundary test; the Lab's other
+scenarios take the engine's sine, cosine, arctangent and length where they place a body or aim an
+order (`src/lab/`), so a lab scenario is not held to be the same in every engine. The Crypt's look (`CRYPT_LOOK`: its decals, dressing and fog shader)
 takes the engine's arithmetic and decides nothing a body meets; Babylon's math is checked only
 under `src/core/`. A person's keys are read with the engine's `Math`
 (`src/arena/orders-input.ts`) but go on the tape as the number they came to.

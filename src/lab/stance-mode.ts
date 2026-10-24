@@ -7,6 +7,7 @@ import type { Tactics } from "../core/mind/tactics.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 import type { Actor } from "./actor.ts";
 import type { World } from "../core/world.ts";
+import { cos, hypot, sin } from "../core/math/real.ts";
 
 /**
  * **The lab's stance mode**: a human on its own feet under the core stance
@@ -117,8 +118,8 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
     const s = body.view.stance, height = s.centre.y - s.support.y;
     return {
       time: body.view.time, heading: report.heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
-      speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: report.reference === null ? height : report.reference - orders.lower,
-      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: body.view.down,
+      speed: hypot(s.velocity.x, s.velocity.z), height, goal: report.reference === null ? height : report.reference - orders.lower,
+      off: hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: body.view.down,
     };
   };
 
@@ -159,7 +160,7 @@ export function shoveBody(body: HostedBody, world: World, heading: () => number,
 
   const push = (impulse: number, degrees: number): void => {
     const a = heading() + degrees * Math.PI / 180;
-    shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
+    shove = new Vector3(impulse * sin(a), 0, impulse * cos(a));
   };
   return { shove: push, dispose: () => shoving.dispose() };
 }
