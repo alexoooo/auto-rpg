@@ -46,7 +46,7 @@ const WARRIOR: VanguardConfig = deepFreeze({
   kind: "vanguard",
   navigation: VANGUARD_NAVIGATION.defaults,
   locomotion: { ...MOVE, otherwise: "braced" }, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
-  tactics: { kind: "vanguard-plan", lowGuard: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: false, plan: PLAN },
+  tactics: { kind: "vanguard-plan", lowGuard: true, replantLow: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, flank: false, plan: PLAN },
   executors: [...PUNCHES, ...WEAPONS],
   actions: [...WEAPON_ACTIONS, ...(["punch", "low-punch"] as const).map(executor => ({ name: executor === "punch" ? "strike" : executor, executor,
     effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface", tuning: {} } }))],
@@ -56,11 +56,12 @@ const WARRIOR: VanguardConfig = deepFreeze({
 const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "fighter" }) as FighterConfig;
 
 /** The Rogue calibration uses a conservative stance walk. */
-const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: GAME_NAVIGATION, locomotion: VANGUARD_WALK.defaults });
+const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: GAME_NAVIGATION, locomotion: VANGUARD_WALK.defaults,
+  tactics: { ...WARRIOR.tactics, replantLow: false } });
 
 /** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
 const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE,
-  tactics: { ...WARRIOR.tactics, flank: true, plan: { ...VANGUARD_EXCHANGE.defaults, list: PLAN.list } },
+  tactics: { ...WARRIOR.tactics, replantLow: false, flank: true, plan: { ...VANGUARD_EXCHANGE.defaults, list: PLAN.list } },
   executors: [...PUNCHES.map(executor => executor.lowOnly ? executor : { ...executor, lead: .025, anchorAtDrive: true }), ...WEAPONS],
 });
 

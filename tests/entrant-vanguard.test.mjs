@@ -621,3 +621,40 @@ test("a closed low guard preserves an action's reserved hand pose", () => {
     assert.deepEqual(original.handPoses, { "hand.left": "open", "hand.right": "open" }, "the guard does not mutate its service's command");
   }
 });
+
+test('a planted low guard yields an unmet entry, finishes rising, and preserves orders and live actions', () => {
+  const movement = { kind: 'place', points: [{ x: 0, z: .1 }], near: .04 };
+  const request = { id: 1, action: 'low-punch', effector: 'hand.right', target: { kind: 'body', body: 'foe', region: { kind: 'mark', mark: 'middle' } } };
+  let actions = [], orders = null;
+  const decision = { focus: 'foe', approach: { at: [0, .3, .5], along: [.4, .6], across: [-.1, .1], facing: .3, speed: .1 } };
+  const base = { name: 'entry fixture', state: {}, decision,
+    decide: () => ({ move: null, face: 0, movement, guard: {}, actions }) };
+  const guard = lowGuard(base, modelSpec('workshop-fighter'), () => orders, true);
+  const sight = { view: { time: 0, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, facing: 0 },
+    senses: { others: [{ id: 'foe', out: false, spec: { marks: { high: 'head' } }, segments: new Map([['head', { centre: { x: 0, y: .3, z: .5 } }]]) }] } },
+    report: { actions: [], support: { stage: 'low', ready: true } } };
+  const step = () => { const intent = guard.decide(sight, .1); sight.view.time += .1; return intent; };
+  assert.ok(step().lower > STANCE_LOWER, 'the fixture reaches an actual planted-low request before testing its exit');
+  const saved = saveState(guard.state), start = sight.view.time;
+  const untilRise = () => {
+    for (let i = 0; i < 200; i++) { const intent = step(); if (intent.lower === STANCE_LOWER) return { intent, time: sight.view.time }; }
+    assert.fail('ready support with no admissible attack holds the legs indefinitely');
+  };
+  const first = untilRise();
+  assert.deepEqual(first.intent, { move: null, face: 0, movement: undefined, lower: STANCE_LOWER,
+    guard: {}, actions: [] });
+  loadState(guard.state, saved); sight.view.time = start;
+  assert.deepEqual(untilRise(), first, 'the entry wait and rise decision fork exactly');
+  sight.report.support = { stage: 'rise', ready: false };
+  assert.equal(step().lower, STANCE_LOWER);
+  sight.report.support = { stage: 'stand', ready: false };
+  assert.equal(step().lower, STANCE_LOWER, 'the rise finishes before low support is requested again');
+  assert.ok(step().lower > STANCE_LOWER);
+  sight.report.support = { stage: 'low', ready: true }; sight.report.actions = [request]; actions = [request];
+  for (let i = 0; i < 200; i++) {
+    const intent = step(); assert.equal(intent.actions, actions); assert.ok(intent.lower > STANCE_LOWER);
+    assert.equal(intent.interrupt, undefined, 'an owned stroke is left to its executor');
+  }
+  actions = []; sight.report.actions = []; orders = { move: null };
+  assert.deepEqual(step(), { move: null, face: 0, movement, guard: {}, actions: [] }, 'an explicit movement order keeps the base intent');
+});

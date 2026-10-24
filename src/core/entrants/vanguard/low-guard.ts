@@ -22,6 +22,8 @@ const NEAR = .7, FAR = 1.25, FACING = cos(.3);
 const TURN_PACE = .2;
 /** Unready support is abandoned within six seconds, including when a fall hides behind the crouch's height. */
 const PREPARE_LIMIT = 6;
+/** A ready planted fold needing another entry for six seconds rises so the legs can reposition. */
+const REPOSITION_WAIT = 6;
 
 /**
  * **Where a punch aims at a low foe**: the highest surface point of the target region's segments of
@@ -46,8 +48,9 @@ const lowFocus = (view: BodyView, decision: TacticalDecision | undefined) =>
 const freeHands = (spec: BodySpec) => handsOf(spec).filter(hand => holdsNothing(spec, hand));
 
 /** Prepare low support early and cover a low opponent's head with the free closed hands. */
-export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null): Tactics {
-  const state = { base: base.state ?? null, unready: null as number | null, rising: false, time: 0, decision: "no low target" };
+export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null, replant = false): Tactics {
+  const state = { base: base.state ?? null, unready: null as number | null, misplaced: null as number | null,
+    rising: false, riseReason: "rising after support timeout", time: 0, decision: "no low target" };
   const hands = freeHands(spec);
   const engagement = engagementWithDetails(() => base.engagement, () => [
     { label: "Low guard", value: state.decision },
@@ -60,7 +63,7 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       state.time = sight.view.time;
       if (!foe || ordered?.move !== undefined || sight.view.down) {
         state.decision = !foe ? "no low target" : sight.view.down ? "body down" : "movement ordered";
-        state.unready = null; state.rising = false;
+        state.unready = null; state.misplaced = null; state.rising = false;
         return intent;
       }
       const head = foe.segments.get(foe.spec.marks.high)!.centre, centre = sight.view.stance.centre;
@@ -68,7 +71,7 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       const face = atan2(dx, dz);
       const stage = sight.report.support?.stage, begun = stage === "lower" || stage === "low" || stage === "rise";
       if (state.rising) {
-        state.decision = "rising after support timeout";
+        state.decision = state.riseReason;
         if (stage === "stand") state.rising = false;
         return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
       }
@@ -84,10 +87,16 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
       const threat: Vec3 = [head.x, head.y, head.z], guarded: Vec3 = [centre.x, head.y, centre.z];
       const guard = { ...intent.guard };
       for (const hand of hands) guard[hand] = { threat, guarded };
+      state.misplaced = replant && sight.report.support?.ready && base.decision?.approach && !sight.report.actions.length
+        ? state.misplaced ?? sight.view.time : null;
+      if (state.misplaced !== null && sight.view.time - state.misplaced >= REPOSITION_WAIT) {
+        state.misplaced = null; state.rising = true; state.riseReason = "rising to reposition low attack"; state.decision = state.riseReason;
+        return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
+      }
       state.unready = sight.report.support?.ready ? null : state.unready ?? sight.view.time;
       if (state.unready !== null && sight.view.time - state.unready >= PREPARE_LIMIT) {
         state.decision = "rising after support timeout";
-        state.unready = null; state.rising = true;
+        state.unready = null; state.rising = true; state.riseReason = "rising after support timeout";
         return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
       }
       state.decision = sight.report.support?.ready ? "covering from ready support" : "preparing support";
