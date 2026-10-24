@@ -224,8 +224,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - selection and reflexes: valued, ranked and behaviour-list selection, interruption, reflex
     ownership;
   - orders: obedience against self-preservation, read with orders given; follow orders values
-    an order without its walk (`Orders.walk`); the options fighter given a held direction slows
-    from 1.3 to about 0.4 m/s within 2 s, where the Duellist holds 1.1.
+    an order without its walk (`Orders.walk`).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
