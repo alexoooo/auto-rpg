@@ -63,8 +63,8 @@ export function armedActions(parts: PartLookup, spec: BodySpec, executors: reado
 
 /** The part `config` names in `role`, or why there is none, a sentence. */
 function partOr<R extends "executor" | "aim">(parts: PartLookup, role: R, config: unknown): (R extends "aim" ? AimPart : ExecutorPart) | string {
-  const kind = (config as { kind?: unknown } | null)?.kind;
-  try { return parts.of(role, config as { kind: string }) as unknown as R extends "aim" ? AimPart : ExecutorPart; } catch { return `no ${role} of kind ${JSON.stringify(kind)}`; }
+  try { return parts.of(role, config as { kind: string }) as unknown as R extends "aim" ? AimPart : ExecutorPart; }
+  catch (error) { return `${role}: ${error instanceof Error ? error.message : String(error)}`; }
 }
 
 /** What is wrong with where an aiming action strikes, each a sentence: its regions, and its aim's kind, settings and effectors. */
