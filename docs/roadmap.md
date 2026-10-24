@@ -289,9 +289,6 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Defects found, cause unknown:** a held body's fixed segment turns by about 7.5e-9 a step (the
   Crypt); a felled Warrior's club arm under `lie` never comes to rest; a club at 10 m/s under the
   lab dummy's ball ends a step inside it unread.
-- **Found and not yet looked into:** `gapTo` (`src/core/engine/rapier.ts`) counts disabled
-  colliders; `research/ground-combat.mjs` reads a foe as rising only by the support recovery's
-  name.
 - **Research code no game path reads** retires with its experiment: the stand-up
   qualification, detached-dynamics, tracking-policy, contact-model, foot-design and beam scripts,
   `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts` has no game reader.
