@@ -79,8 +79,10 @@ function frame(segment: SegmentSpec): Frame {
 const negated = (axis: Quantity<Vec3>, what: string) => derive("1", `the negative of ${what}`, [axis], (a) => scale(a, -1));
 /** The side's sign: +1 on the right, -1 on the left, the mirror a limb's axes carry. */
 const sign = (side: Side) => (side === "right" ? 1 : -1);
-const mirrored = (axis: Quantity<Vec3>, what: string, side: Side, s = sign(side)) =>
-  derive("1", `${what}, mirrored for the ${side} side`, [axis], (a) => scale(a, s));
+const mirrored = (axis: Quantity<Vec3>, what: string, side: Side) => {
+  const s = sign(side);
+  return derive("1", `${what}, mirrored for the ${side} side`, [axis], (a) => scale(a, s));
+};
 
 const neutral = (what: string): Quantity<number> =>
   sourced(0, "rad", "reference-pose-assumptions", `the reference pose's ${what}, taken as neutral`);

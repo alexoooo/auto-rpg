@@ -134,7 +134,7 @@ export function contactTracking(physics: ReadPhysics, frames: ReadonlyMap<string
   return {
     state,
     begin(): void { if (state.motion) { state.motion.work = 0; state.motion.released.length = 0; state.motion.accelerationViolation = 0; } },
-    read(command: MotionCommand, released: ReadonlySet<string> = new Set(), freeAll = false,
+    read(command: MotionCommand, released: ReadonlySet<string>, freeAll: boolean,
       supportBand = config.supportBand): readonly MotionConstraint[] {
       checkSupportBand(supportBand);
       if (state.motion) state.motion.work++;

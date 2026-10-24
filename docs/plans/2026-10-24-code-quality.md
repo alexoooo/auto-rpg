@@ -131,10 +131,12 @@ top of the body; an explicit value, an empty registry included, wins.
   unchecked `as HumanoidModel`: a checked lookup that refuses a model without tuning.
 - [commandMind](../../src/core/body.ts)'s `dt` defaults to the nominal rate; its one caller passes
   the world's: required.
-- Defaults no caller uses: `driveFighter`'s `around` ([fighter.ts](../../src/core/mind/fighter.ts)),
-  `mirrored`'s `s` ([joints.ts](../../src/core/human/joints.ts)), `contacts.read`'s allocating
-  defaults ([contact-tracking.ts](../../src/core/control/contact-tracking.ts)), `partyCommander`'s
-  `config` ([party.ts](../../src/core/command/party.ts)): deleted, or the parameter required.
+- Defaults no caller uses: `mirrored`'s `s` ([joints.ts](../../src/core/human/joints.ts)),
+  `contacts.read`'s `released` and `freeAll`
+  ([contact-tracking.ts](../../src/core/control/contact-tracking.ts); its `supportBand` default is
+  read, its caller's band being optional), `partyCommander`'s `config`
+  ([party.ts](../../src/core/command/party.ts)): deleted, or the parameter required.
+  `driveFighter`'s `around` stays: the Lab's actor passes it through a controller's `drive`.
 
 **Checks:** Swap contracts still select a supplied part; locomotion and recovery fingerprint cases
 are unchanged.

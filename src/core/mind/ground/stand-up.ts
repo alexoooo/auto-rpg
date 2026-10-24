@@ -35,7 +35,8 @@ export const techniquesOf = (parts: PartLookup, config: StandUpConfig): Readonly
 
 /** A supervisor retries contracts from the body as read; no successful reposition clears a failure. */
 export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig, kit: MindKit,
-  registry: Readonly<Record<string, TechniquePart>> = techniquesOf(kit.parts, config)): SubMind {
+  given?: Readonly<Record<string, TechniquePart>>): SubMind {
+  const registry = given ?? techniquesOf(kit.parts, config);
   const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {}, order: readonly string[] = config.techniques.map((technique) => technique.kind);
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, order.includes(name), kit); runs[name] = run;
