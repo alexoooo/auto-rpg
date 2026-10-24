@@ -14,7 +14,7 @@ interface Anchor { body: string; segment: string; local: Vec3 }
 /** Predict the chosen surface point 0.12 s ahead, in addition to the age of its sensed frame. */
 const LEAD = .12;
 
-/** A punch follows one sensed point through its drive, optionally refreshing the opening while preparing. */
+/** A punch follows one sensed point, checking its aim before the arm drive and optionally refreshing it while preparing. */
 export function committedAim(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false, overlapReturn = false, returnHold = 0): Executor {
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,
     releasedAt: null as number | null, freeReturn: false };
@@ -56,7 +56,7 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       }
   };
   const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; state.releasedAt = null; state.freeReturn = false; };
-  const base = straightPunchExecutor(body, guard, actions, settings, follow);
+  const base = straightPunchExecutor(body, guard, actions, settings, follow, true);
   state.base = base.state;
   return {
     ...base, state,

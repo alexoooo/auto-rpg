@@ -33,6 +33,8 @@ import { cos, hypot, sin } from "../src/core/math/real.ts";
 import { armedActions, actionConfigFaults } from "../src/core/mind/action-config.ts";
 import { LOADOUTS, REPRESENTATIVE, withLoadout } from "../src/core/items/held.ts";
 import { holdsNothing } from "../src/core/skills/strikes.ts";
+import { buildBody } from "../src/core/build/build-body.ts";
+import { createSenses } from "../src/core/mind/senses.ts";
 
 /** Standing guard-return limits, in m, m/s and s: `docs/reference/vanguard.md#standing-miss-return`. */
 const RETURN_LIMITS = Object.freeze({ near: .05, slow: .6, hold: .05, deadline: 1.2 });
@@ -166,6 +168,112 @@ test("each Vanguard calibration's standing misses regain the physical guard and 
       assert.deepEqual(state.results.map(({ record, recovered }) => ({ effector: record.effector, committed: record.committed, ending: record.ending, recovered })),
         hands.map(effector => ({ effector, committed: true, ending: { kind: "completed" }, recovered: true })));
     } finally { minded.body.dispose(); stand.dispose(); }
+  }
+});
+
+test("each Vanguard low punch brakes an aim lost during its trunk lead and physically regains its guard", async () => {
+  for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
+    const spec = modelSpec(model), config = MINDS[id].config, hands = ["hand.right", "hand.left"], lower = .5;
+    const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
+    const hub = createSenses(stand.world), support = supportReadiness(stand.built);
+    const state = { stage: "settle", hand: 0, next: 3, active: null, reference: null, probe: null, settled: false,
+      sequence: 0, at: 0, quiet: 0, placements: 0, removed: 0, brakes: 0, loss: null, results: [], failure: null, readiness: null };
+    let target = null, pending = null, minded = null;
+    const install = at => {
+      if (target) { hub.remove("target"); target.dispose(); }
+      target = buildBody(modelSpec("reptile"), stand.world, { position: at });
+      for (const part of target.segments.values()) part.body.setFixed(true);
+      hub.add({ id: "target", side: "other", built: target, out: () => false }); state.placements++;
+    };
+    const sensed = hub.add({ id: "own", side: "own", built: stand.built, out: () => false, down: () => minded?.body.down ?? false });
+    const pointOf = view => view.effectors[hands[state.hand]].points[effectorAim(spec, hands[state.hand])];
+    const reading = view => { const point = pointOf(view);
+      return { error: hypot(point.x - state.reference[0], point.y - state.reference[1], point.z - state.reference[2]),
+        speed: hypot(...view.effectors[hands[state.hand]].feedback.velocity), planted: plantedSupport(support.state) }; };
+    const script = { state, decide(sight, dt) {
+      const view = sight.view, heading = sight.report.heading, effector = hands[state.hand];
+      if (state.stage === "settle" && view.time >= state.next && sight.report.support?.ready) {
+        if (!state.settled) {
+          const point = pointOf(view), prior = state.probe;
+          if (!prior || hypot(point.x - prior.point[0], point.y - prior.point[1], point.z - prior.point[2]) > RETURN_LIMITS.near)
+            state.probe = { point: point.asArray(), at: view.time };
+          else if (view.time - prior.at >= RETURN_LIMITS.deadline && plantedSupport(support.state)
+            && hypot(...view.effectors[effector].feedback.velocity) <= RETURN_LIMITS.slow) state.settled = true;
+        }
+        if (state.settled) {
+          if (!target && !pending) pending = [view.stance.centre.x, 0, view.stance.centre.z + .8];
+          if (target) {
+            const around = { heading, placed: view.stance.phase === "stand", support: sight.report.support, walk: null, lower };
+            const aim = { kind: "body", body: "target", region: { kind: "mark", mark: "middle" } };
+            const ready = sight.readiness(view, "low-punch", effector, aim, around); state.readiness = ready;
+            if (ready.kind === "position" && state.placements < 3) {
+              const along = (ready.window.along[0] + ready.window.along[1]) / 2, across = (ready.window.across[0] + ready.window.across[1]) / 2;
+              pending = [pendingAt[0] + view.stance.centre.x + along * sin(heading) + across * cos(heading) - ready.window.at[0], 0,
+                pendingAt[2] + view.stance.centre.z + along * cos(heading) - across * sin(heading) - ready.window.at[2]];
+            }
+            if (ready.kind === "ready") { state.reference = pointOf(view).asArray();
+              state.active = { id: sight.instance(), action: "low-punch", effector, target: aim }; state.stage = "live"; }
+          }
+        }
+      }
+      if (state.stage === "settle" && view.time >= state.next + 7) { state.failure = { kind: "invalid-fixture", readiness: state.readiness }; state.stage = "done"; }
+      for (const record of sight.report.ledger) if (record.sequence > state.sequence) {
+        state.sequence = record.sequence;
+        if (record.id !== state.active?.id) continue;
+        if (!record.committed || Object.values(record.contacts.counts.commit).some(count => count > 0)) {
+          state.failure = { kind: "invalid-fixture", record }; state.stage = "done";
+        } else if (record.ending.kind !== "completed") { state.failure = { kind: "recovery-failure", record }; state.stage = "done"; }
+        else { state.results.push({ record, recovered: false }); state.stage = "recover"; state.at = view.time; state.quiet = 0; }
+        state.active = null;
+      }
+      if (state.stage === "recover") {
+        const actual = reading(view);
+        state.quiet = actual.error <= RETURN_LIMITS.near && actual.speed <= RETURN_LIMITS.slow && actual.planted ? state.quiet + dt : 0;
+        if (state.quiet >= RETURN_LIMITS.hold) {
+          Object.assign(state.results.at(-1), { recovered: true, actual });
+          if (state.hand === hands.length - 1) state.stage = "done";
+          else { state.hand++; state.stage = "settle"; state.next = view.time + .3; state.reference = null; state.probe = null; state.settled = false; state.placements = 0; }
+        } else if (view.time - state.at >= RETURN_LIMITS.deadline) { state.failure = { kind: "recovery-failure", actual, support: structuredClone(support.state) }; state.stage = "done"; }
+      }
+      return { move: null, face: heading, lower, guard: {}, actions: state.active ? [state.active] : [] };
+    } };
+    minded = createMind(stand.built, stand.world, config, { name: id, orders: () => null, senses: sensed, script,
+      contactIdentity: other => {
+        if (!other) return { kind: "world" };
+        for (const [segment, part] of target?.segments ?? []) if (part.body.id === other.id) return { kind: "body", body: "target", segment, guard: false };
+        return null;
+      } });
+    let pendingAt = null, fell = false;
+    try {
+      while (state.stage !== "done" && stand.world.time < 24) {
+        if (pending) { pendingAt = pending; install(pending); pending = null; }
+        stand.world.step(); const view = minded.body.view, report = minded.skills.report;
+        support.read(view.stance.centre, view.stance.velocity, stand.world.dt);
+        if (target) for (const [name, part] of stand.built.segments) for (const contact of stand.world.physics.contactsOf(part.body))
+          if (contact.impulse > 0 && [...target.segments.values()].some(other => contact.other === other.body)) {
+            state.failure = { kind: "invalid-fixture", reason: "apparatus contact", name }; state.stage = "done";
+          }
+        if (state.loss) {
+          assert.equal(report.actions.find(action => action.id === state.loss)?.phase, "release", "the sensed loss brakes before the arm drive");
+          state.brakes++; state.loss = null;
+        }
+        if (target && report.actions.some(action => action.id === state.active?.id && action.phase === "commit")) {
+          state.loss = state.active.id; state.removed++; hub.remove("target"); target.dispose(); target = null;
+        }
+        if (minded.body.down) { fell = true; break; }
+      }
+      assert.notEqual(state.failure?.kind, "invalid-fixture", `${id}: low miss fixture not reached: ${JSON.stringify(state.failure)}`);
+      assert.equal(state.removed, hands.length, `${id}: both hands must actually commit before target loss`);
+      assert.equal(state.brakes, hands.length, `${id}: both lost aims must enter the controlled return`);
+      assert.equal(fell, false, `${id}: low miss fell at ${stand.world.time} s`);
+      assert.equal(state.failure, null, `${id}: physical return against ${JSON.stringify(RETURN_LIMITS)}: ${JSON.stringify(state.failure)}`);
+      assert.deepEqual(state.results.map(({ record, recovered }) => ({ action: record.action, effector: record.effector,
+        committed: record.committed, ending: record.ending, contacts: record.contacts, observations: record.observations, recovered })), hands.map(effector => ({
+        action: "low-punch", effector, committed: true, ending: { kind: "completed" }, recovered: true, observations: [],
+        contacts: { counts: Object.fromEntries(["prepare", "commit", "release"].map(phase => [phase, { target: 0, block: 0, incidental: 0, world: 0 }])),
+          loadedInCommit: false, blockedSegments: [], lastTarget: null },
+      })));
+    } finally { target?.dispose(); hub.dispose(); minded.body.dispose(); stand.dispose(); }
   }
 });
 
