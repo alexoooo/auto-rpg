@@ -618,6 +618,16 @@ bars are 0.4908 and 0.5143. Its win gate rejects it without wider cases. The exa
 source, complete row and saved-row comparison remain in `research/runs/vanguard/ward-cover/`;
 the one-worker pilot takes 97.8 active wall seconds. The cover change is not selected.
 
+An entrant-local evasion part reads predicted threats to the head-to-centre axis, instead of
+only the head. A detached geometric fixture confirms that a trunk-directed fist trajectory
+triggers its retreat while the ordinary head-only reader reports no threat. The prototype
+still loses candidate 7's full left court case at the cap, without falling: own bar 0.5201
+against 0.7051, versus the original's 0.6384 against 0.6647. The win gate rejects it without
+wider cases. Typecheck and the entrant scope check pass; the implementation is removed after
+the bout. Its exact source, fixture, configuration, physical row and saved-row comparison
+remain in `research/runs/vanguard/body-evade/`. The one-worker pilot takes 104.0 active wall
+seconds. This geometric sensing gap does not establish that broader evasion improves the fight.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
