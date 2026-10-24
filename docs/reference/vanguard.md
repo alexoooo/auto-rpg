@@ -16,9 +16,11 @@ turns that court loss into a win and clears all four Counter-puncher development
 preserving four Options wins. At that source, the [fresh Warrior screens](#fresh-warrior-field)
 win four cases each against Counter-puncher and Options, but the wider field stops on a Reptile
 loss. The selected [low-entry revision](#replanting-low-support) wins all four retained Reptile
-cases by injury without Warrior falls. The current source wins four [fresh Reptile cases](#fresh-body-screens)
-on the Warrior and four fresh Options cases on the Rogue. The Rogue's selected [route buffer](#rogue-route-room)
-also clears its Counter-puncher court loss while preserving four Options wins. The Skeleton's additional route room
+cases by injury without Warrior falls. Source `fe1c139b` wins four [fresh Reptile cases](#fresh-body-screens)
+on the Warrior and four fresh Options cases on the Rogue. The Rogue's [route buffer](#rogue-route-room)
+clears four fresh cases each against Counter-puncher and Options, but its [wider field](#fresh-rogue-field)
+stops on a chase-and-trip loss. Its selected [standing wait](#standing-wait-after-a-fall) converts
+that loss and clears nine development cases. The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
 remain unqualified.
 
@@ -1222,10 +1224,10 @@ development cases and results from other sources are not added to these results.
 
 ## Rogue route room
 
-The Rogue selects 0.15 m of additional route room. It wins all twelve retained Counter-puncher
-and Options cases without falls, including the right-court loss of its 0.1 m setting. This is
-development evidence; the selected setting needs fresh confirmation. The Warrior keeps 0.1 m
-and the Skeleton keeps stock navigation.
+The Rogue uses 0.15 m of additional route room. That setting wins all twelve retained
+Counter-puncher and Options cases without falls, including the right-court loss of its 0.1 m
+setting, and clears the two [fresh opponent screens](#fresh-rogue-field). The Warrior keeps
+0.1 m and the Skeleton keeps stock navigation.
 
 The 0.1 m setting converts a retained
 left-court Counter-puncher loss at 6.04 m into an injury win, clearing four Counter-puncher cases
@@ -1316,6 +1318,105 @@ errors; its preview is stopped by PID. Full configs, rows, ledgers and blows, na
 source and selection identities, browser record and harness remain in
 `research/runs/vanguard/rogue-room-15cm/`. Candidate header commit metadata names the actual
 `54cb5fa2` source; correcting the inherited older commit labels changes no raw physics or recipe.
+
+## Fresh Rogue field
+
+The frozen 0.15 m Rogue at source `2d449164`, commit `a1f2e9d1`, wins all four fresh cases
+against Counter-puncher and all four against Options. Counter-puncher ends four times by injury;
+Options contributes three injury wins and one health lead at the cap. The Options left-court
+cap win includes two Rogue falls, at 60 and 90.975 s, and nine opponent fall episodes. The other
+seven bouts have no falls. All seven fatal blows match committed punch observations.
+
+| Opponent / level / gap | Left assignment | Right assignment |
+| --- | --- | --- |
+| Counter-puncher / court / 4.76 m | Fatal win at 57 s | Fatal win at 71.35 s |
+| Counter-puncher / open / 6.96 m | Fatal win at 72.8333 s | Fatal win at 51.275 s |
+| Options / court / 6.69 m | Cap win, 0.8911 / 0.7217 | Fatal win at 43.8167 s |
+| Options / open / 3.27 m | Fatal win at 117.8083 s | Fatal win at 23.85 s |
+
+Cap rows give Vanguard's bar first. Harness: Node Arena Duel, vendored `rapier-coordinate`,
+120 Hz, matched Rogues, empty hands, default attributes, Balance 0/0 and zero sense delay,
+falls continuing to injury or 120 s. Configs freeze before hash-selected gaps exclude prior
+Rogue geometry. Each opponent's four-case screen stops at its first non-win. The screens take
+48.4 and 75.5 active pool wall seconds, with no invalid or unfinished cases. Each descriptive
+4/4 Wilson interval is 0.5101–1.000; these small screens do not establish the full target.
+Complete recipes, exclusions, rows, ledgers, blows, source identities and harnesses remain in
+`research/runs/vanguard/rogue-15cm-fresh/`.
+
+The remaining seven-opponent field stops on the left-court Behaviours loss at 6.57 m, by fatal
+injury at 28.025 s. Behaviours falls at 18.2083 s; the Rogue falls at 24.2583, 25.275 and
+26.6333 s. The other two complete cases win: Crawl and bite at left court 4.44 m at the cap,
+with one Rogue fall, and Scrapper at left court 5.02 m by injury at 39.4667 s, without falls.
+Twenty-five cases remain unfinished: two interrupted and twenty-three unplayed. There is no
+invalid case. No incomplete opponent screen is qualified by these wins so far.
+
+The full-cap projection cuts at 38.7 active wall seconds when its forecast exceeds 600 s,
+with one completed Reptile win. The six remaining court-left pilots retain the frozen source,
+cases and criterion, carrying that time into the same nine-minute active limit. Their deciding
+loss stops the pool at 70.4 cumulative wall seconds, before confirmation pricing or play.
+The Reptile uses its own body; humanoids use matched Rogues. Joint feedback (`direct`) is refused
+by `FIGHT_ENTRY`: “it strikes with nothing the body has”. It is explicitly excluded, not silently
+dropped. Full source and recipes, raw rows, both execution phases, exclusion, incomplete coverage
+and harnesses remain in `research/runs/vanguard/rogue-field-fresh/`. These records belong to the
+route-room setting without the selected standing wait.
+
+## Standing wait after a fall
+
+The Rogue's selected `waitFallen` layer holds a standing guard while its sensed low target is
+down. It finishes owned strokes without admitting another, preserves explicit movement orders,
+and completes an existing rise before resuming approach. It reads the granted physical fall
+state, not the opponent's injury or controller. The Warrior and Skeleton leave the option off.
+
+An unchanged reader of the Behaviours loss preserves the complete blow prefix through the first
+Rogue fall at 24.2583 s, digest `37bde5a22b8cc0cb`. Support stays at `stand`: the fold never starts.
+At 18.05 s the head remains 1.0838 m away while the body centre is 0.6009 m away. Navigation
+reports arrival at the centre-based range while low admission still waits for head range.
+Foot-to-foot contacts begin at 19.2167 s and recur before the fall. The reader stops at that
+fall in 6.9 wall seconds. Its recipe, samples, contacts and source remain in
+`research/runs/vanguard/rogue-low-entry-reading/`.
+
+The selected wait reaches the same opponent collapse and preserves every preceding blow,
+then converts the deciding loss into a cap win without a Rogue fall. All nine played development
+cases win: four against Behaviours, four against the Reptile and the Options court-left collapse
+case. They comprise four injury wins and five health leads at the cap. No Behaviours bout or
+the Options bout has a Rogue fall; three Reptile bouts still do. The retained Reptile left-court
+win preserves its full pose digest, `9bbdba252562093a`.
+
+| Opponent / level / gap | Left assignment | Right assignment |
+| --- | --- | --- |
+| Behaviours / court / 6.57 m | Cap win, 0.9400 / 0.9230 | Cap win, 0.9565 / 0.7394 |
+| Behaviours / open / 4.35 m | Cap win, 0.8277 / 0.8255 | Fatal win at 99.1833 s |
+| Reptile / court / 4.44 m | Exact retained cap win; one Rogue fall | Fatal win at 64.55 s |
+| Reptile / open / 3.23 m | Cap win, 0.9442 / 0.9224; one Rogue fall | Fatal win at 118.4167 s; one Rogue fall |
+| Options / court / 6.69 m | Fatal win at 109.4667 s; no Rogue fall | Unchanged reference without an opponent fall |
+
+The Options reference wins at the cap with two Rogue falls. Three candidate injury endings
+match committed punches. The Options ending is a right-hand impact on the upper trunk while
+the live action reports release; it is not credited as a committed fatal stroke. Its earlier
+68 joined committed impacts deliver 1.4153 HP of accepted injury. The close Behaviours open-left
+cap win remains a narrow development result, not a robust-rate claim.
+
+Eight retained wins have no opponent fall: four Counter-puncher, three Options and one Scrapper.
+The new branch cannot activate there. A contract through the configured planner holds every
+intent field and the complete saved state equal with the option on or off over 240 varied
+decisions without an opponent fall. These references are preserved by that conditional equality;
+they are not replayed or counted as newly played cases. The nine candidate cases take 129.2
+active pool wall seconds, below their nine-minute cap, with no invalid or unfinished cases.
+The before records are incomplete mirrored panels; native saved comparisons report zero complete
+paired units. The deciding case, the exact Reptile case and the Options collapse case are
+single-side before/after readings. This selection is a development gain and needs fresh confirmation.
+
+Harness and ordinary bout rules are those of the fresh Rogue field above. Prototype source is
+`f38a1f78`; the selected config at `c82542a7`, source `c1130f3d`, matches it exactly. Both other
+Vanguard preset configs remain exact, and the whole Rogue mind round-trips through its link.
+Typecheck, all 118 tests, build, four-file entrant scope and line endings pass. The added
+configuration-path regression takes 3.9 ms and holds the standing wait, owned-action identity,
+orders, rise completion, state fork and neutral path. A production browser look shows the Rogue
+standing beside its fallen target at 20 s, with advancing frames and no console errors; its
+preview is stopped by PID. Complete configurations, implementation snapshots, rows, observations,
+comparisons, selection probe, browser record and harnesses remain in
+`research/runs/vanguard/rogue-wait-fallen/`. The full field, other bodies, equipment and broader
+miss recovery remain unqualified.
 
 ## Skeleton route and blocked steps
 

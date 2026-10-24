@@ -47,9 +47,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
 1. **Now:** Vanguard's unarmed fighter. The Warrior rises from a low entry left unmet for six
-   seconds and wins four fresh Reptile cases; the Rogue's 0.15 m route room wins twelve retained
-   Counter-puncher and Options cases without falls, with fresh confirmation still open
-   ([Rogue](reference/vanguard.md#rogue-route-room), [Warrior](reference/vanguard.md#fresh-body-screens)). Its preceding
+   seconds and wins four fresh Reptile cases. The Rogue waits standing for a fallen low target;
+   it clears nine development cases after its route-room field stops on a chase-and-trip loss,
+   with fresh confirmation of the wait still open ([wait](reference/vanguard.md#standing-wait-after-a-fall)).
+   Its preceding 0.15 m setting clears four fresh cases each against Counter-puncher and Options,
+   but leaves twenty-five wider-field cases unfinished ([Rogue field](reference/vanguard.md#fresh-rogue-field)).
+   The Warrior's preceding
    route-room configuration wins four fresh cases each against Counter-puncher and Options across
    both levels and sides without falls; its wider field stops on the Reptile loss with seven
    cases unfinished ([record](reference/vanguard.md#fresh-warrior-field)). The Skeleton's per-hand
