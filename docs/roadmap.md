@@ -46,6 +46,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's Stand up on the owner's 64-fall target |
 | [Code quality (planned)](plans/2026-10-24-code-quality.md) | Swallowed errors, logic in parameter lists, positional flags, compressed ground positioning |
+| [Drills (planned)](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, profiles that tactics read, the owner's two-minute verdict |
 
 1. **Now:** Recovery steps 2 and 4, which the Crypt's kills wait on too; step 3 is left at a wider
    ankle that opens no route. Vanguard is on hold. Its Warrior rises from a low entry left unmet for six
@@ -87,6 +88,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **Choices**, each landed at its default:
 
+- When Drills starts, beside Recovery and Vanguard ([Drills](plans/2026-10-24-drills.md)).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search or a change to the body; whether the
   bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
