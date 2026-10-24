@@ -289,9 +289,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Defects found, cause unknown:** a held body's fixed segment turns by about 7.5e-9 a step (the
   Crypt); a felled Warrior's club arm under `lie` never comes to rest; a club at 10 m/s under the
   lab dummy's ball ends a step inside it unread.
-- **Research code no game path reads** retires with its experiment: the stand-up
-  qualification, detached-dynamics, tracking-policy, contact-model, foot-design and beam scripts,
-  `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts` has no game reader.
+- **Research code no game path reads** retires with its experiment: `predictPointContacts` has
+  no game reader, and goes with the local impulse predictor's question.
 - **Records no script reads again**, measured afresh when their subject changes:
   [servo and muscle](reference/servo-and-muscle.md), [body and engine](reference/body-and-engine.md),
   [stance tuning](reference/stance-tuning.md#wrench-lever).

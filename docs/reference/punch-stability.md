@@ -22,7 +22,7 @@ Physical qualification, not a force gain, decides their promotion.
 
 ## Qualification
 
-`research/punch-stability.mjs`, all hands and tasks in [punch-stability.json.gz](punch-stability.json.gz):
+`research/punch-stability.mjs@60c3ecc3`, all hands and tasks in [punch-stability.json.gz](punch-stability.json.gz):
 Node Warrior stand (unpinned) for standing impacts, Node Arena Duel for fallen and recovering
 targets; `rapier-coordinate`, symmetric actuation, 120 Hz, empty hands, balance 0 on both sides;
 paths at 5 m/s, 0.12 s strokes, elbow extension 0.5, torso rotation 0.2 rad.
