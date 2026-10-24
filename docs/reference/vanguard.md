@@ -789,6 +789,27 @@ seconds. Exact source, configuration, lifecycle probe, full physical row, invali
 saved-row comparison remain in `research/runs/vanguard/low-kick/`. The single-side comparison
 contains no complete mirrored unit. The prototype is rejected and removed.
 
+## Body hook repertoire
+
+Adding the shared path strike's body hook to the Skeleton's contact-learning repertoire loses
+the limiting full open-left Options bout at 7.63 m by fatal injury at 62.1833 s, bars 0.4110
+against 0.7092, without falls. The fighter commits 35 straight punches and 14 hooks. None of its
+ended hook records reports a target contact; three report blocks, and four time out on return.
+The four regression cases remain unplayed. The extra trajectory does not pass either the win
+gate or controlled recovery.
+
+The candidate adds one `path-strike` executor with non-overlapping returns and one body-hook
+action, both hands, middle-region surface aim and the shared trajectory settings unchanged.
+The existing contact planner chooses the action; no planner, anatomy, attributes or physics
+changes. Its [stand-qualified close hook](combat-strikes.md#close-hook) does not establish this
+moving fight's outcome. Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched
+Skeletons, empty hands, default attributes, Balance 0/0 and zero sense delay. The one-worker
+pilot takes 63.2 active wall seconds.
+
+The complete configuration, harness, physical row and saved-row comparison remain in
+`research/runs/vanguard/body-hook/`. The single-side comparison contains no complete mirrored
+unit. The configuration is rejected; the selected preset is unchanged.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
