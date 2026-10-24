@@ -24,6 +24,87 @@ import { standIntent } from "../src/core/mind/intent.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 import { engagementLines } from "../src/ui/action-readout.ts";
 import { VANGUARD_EXCHANGE } from "../src/core/entrants/vanguard/exchange.ts";
+import { builtAngles, createMind } from "../src/core/mind/minds.ts";
+import { centreOfToRef } from "../src/core/control/support.ts";
+import { effectorAim } from "../src/core/control/effectors.ts";
+import { plantedSupport, supportReadiness } from "../src/core/control/support-readiness.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { cos, hypot, sin } from "../src/core/math/real.ts";
+
+/** Standing guard-return limits, in m, m/s and s: `docs/reference/vanguard.md#standing-miss-return`. */
+const RETURN_LIMITS = Object.freeze({ near: .05, slow: .6, hold: .05, deadline: 1.2 });
+
+test("each Vanguard calibration's standing misses regain the physical guard and planted stance with both hands", async () => {
+  for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
+    const spec = modelSpec(model), config = MINDS[id].config;
+    const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
+    const support = supportReadiness(stand.built), centre = new Vector3(), hands = ["hand.right", "hand.left"];
+    const state = { stage: "settle", next: 2, hand: 0, active: null, reference: null, target: null, at: 0, quiet: 0,
+      sequence: 0, failure: null, results: [], support: support.state };
+    const reading = view => {
+      const effector = hands[state.hand], point = view.effectors[effector].points[effectorAim(spec, effector)];
+      return { error: hypot(point.x - state.reference[0], point.y - state.reference[1], point.z - state.reference[2]),
+        speed: hypot(...view.effectors[effector].feedback.velocity), planted: plantedSupport(support.state) };
+    };
+    const script = { state, decide(sight, dt) {
+      const view = sight.view, heading = sight.report.heading, effector = hands[state.hand];
+      if (state.stage === "settle" && view.time >= state.next) {
+        if (!state.target) {
+          centreOfToRef(stand.built.segments.get(spec.marks.middle[0]), centre);
+          const point = view.effectors[effector].points[effectorAim(spec, effector)]; state.reference = [point.x, point.y, point.z];
+          state.target = { kind: "point", at: [view.stance.centre.x, centre.y, view.stance.centre.z + .6] };
+        }
+        const around = { heading, placed: view.stance.phase === "stand", support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER };
+        let ready = sight.readiness(view, "strike", effector, state.target, around);
+        if (ready.kind === "position") {
+          const along = (ready.window.along[0] + ready.window.along[1]) / 2, across = (ready.window.across[0] + ready.window.across[1]) / 2;
+          state.target.at = [view.stance.centre.x + along * sin(heading) + across * cos(heading), state.target.at[1],
+            view.stance.centre.z + along * cos(heading) - across * sin(heading)];
+          ready = sight.readiness(view, "strike", effector, state.target, around);
+        }
+        if (ready.kind === "ready") {
+          state.active = { id: sight.instance(), action: "strike", effector, target: structuredClone(state.target) };
+          state.stage = "live";
+        } else if (view.time - state.next > 6) { state.failure = { kind: "invalid-fixture", ready }; state.stage = "done"; }
+      }
+      for (const record of sight.report.ledger) if (record.sequence > state.sequence) {
+        state.sequence = record.sequence;
+        if (record.id !== state.active?.id) continue;
+        if (!record.committed || Object.values(record.contacts.counts.commit).some(count => count > 0)) {
+          state.failure = { kind: "invalid-fixture", record }; state.stage = "done";
+        } else if (record.ending.kind !== "completed") { state.failure = { kind: "recovery-failure", record }; state.stage = "done"; }
+        else { state.results.push({ record, recovered: false }); state.stage = "recover"; state.at = view.time; state.quiet = 0; }
+        state.active = null;
+      }
+      if (state.stage === "recover") {
+        const actual = reading(view);
+        state.quiet = actual.error <= RETURN_LIMITS.near && actual.speed <= RETURN_LIMITS.slow && actual.planted ? state.quiet + dt : 0;
+        if (state.quiet >= RETURN_LIMITS.hold) {
+          Object.assign(state.results.at(-1), { recovered: true, seconds: view.time - state.at, actual });
+          if (state.hand === hands.length - 1) state.stage = "done";
+          else { state.hand++; state.stage = "settle"; state.next = view.time + .2; state.target = null; state.reference = null; }
+        } else if (view.time - state.at >= RETURN_LIMITS.deadline) { state.failure = { kind: "recovery-failure", actual, support: structuredClone(support.state) }; state.stage = "done"; }
+      }
+      return { move: null, face: heading, guard: {}, actions: state.active ? [state.active] : [] };
+    } };
+    const minded = createMind(stand.built, stand.world, config, { name: id, orders: () => null, script });
+    const committed = new Set(); let fell = false;
+    try {
+      while (state.stage !== "done" && stand.world.time < 18) {
+        stand.world.step(); const view = minded.body.view;
+        support.read(view.stance.centre, view.stance.velocity, stand.world.dt);
+        for (const action of minded.skills.report.actions) if (action.phase === "commit") committed.add(action.effector);
+        if (minded.body.down) { fell = true; break; }
+      }
+      assert.notEqual(state.failure?.kind, "invalid-fixture", `${id}: the empty-space miss fixture was not reached: ${JSON.stringify(state.failure)}`);
+      assert.ok(committed.size > 0, `${id}: no standing miss was committed before the fixture stopped`);
+      assert.equal(fell, false, `${id}: an unloaded miss fell at ${stand.world.time} s`);
+      assert.equal(state.failure, null, `${id}: physical return against ${JSON.stringify(RETURN_LIMITS)}: ${JSON.stringify(state.failure)}`);
+      assert.deepEqual(state.results.map(({ record, recovered }) => ({ effector: record.effector, committed: record.committed, ending: record.ending, recovered })),
+        hands.map(effector => ({ effector, committed: true, ending: { kind: "completed" }, recovered: true })));
+    } finally { minded.body.dispose(); stand.dispose(); }
+  }
+});
 
 /** A detached public report, read through the same formatter as inspection. */
 function reportOf(tactics) {
