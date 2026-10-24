@@ -3,9 +3,9 @@ import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { ARRIVAL, approach, direction, distance, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, direction, distance, onBearing, throughDoors, type Opening } from "./goals.ts";
 import { ALERT_SECONDS, SIGHT_METRES } from "./independent.ts";
-import { bearingOf, bearings, onBearing, spread } from "./spread.ts";
+import { bearingOf, bearings, spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /**

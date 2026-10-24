@@ -256,7 +256,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - the stance walk runs away sideways after a half turn, read before the walk steered the way its
     route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
-    a frontier point too close to a wall for a body with a club stalls the person's party;
+  - a foe that falls and cannot rise holds the party: its leader keeps clear of the fallen body,
+    which may not be struck, while the foe rolls and fails (level 7, from 12 s to the end of a
+    120 s run);
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;

@@ -1,4 +1,4 @@
-import { hypot } from "../math/real.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 import { placeMovement, sameMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import type { NavigationReport } from "../mind/navigator.ts";
 import type { TeamOrder } from "./commands.ts";
@@ -13,6 +13,27 @@ export const ARRIVAL = Object.freeze({ point: 0.4, post: 0.6, explored: 0.5, las
 export const distance = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z - b.z);
 
 /** The unit step on the ground from `from` toward `to`. */
+/** The point `metres` from `at` on `bearing`, radians from +z toward +x. */
+export const onBearing = (at: GroundPoint, bearing: number, metres: number): GroundPoint =>
+  ({ x: at.x + sin(bearing) * metres, z: at.z + cos(bearing) * metres });
+
+/** The room a goal is given beyond a body's footprint, m: about what a club held at its side reaches out. */
+const ROOM = 0.4;
+
+/**
+ * `goal`, or where it stands close by a wall, the nearest point within a metre of it with `ROOM`
+ * more than `radius` about it that a body of `radius` passes to straight from it: room for what
+ * the body carries, which its navigator keeps clear of the walls.
+ */
+export function roomy(level: TeamLevel, goal: GroundPoint | null, radius: number): GroundPoint | null {
+  if (!goal || level.fits(goal, radius + ROOM)) return goal;
+  for (const ring of [0.5, 1]) for (let i = 0; i < 8; i++) {
+    const at = onBearing(goal, i * Math.PI / 4, ring);
+    if (level.fits(at, radius + ROOM) && level.passes(goal, at, radius)) return at;
+  }
+  return goal;
+}
+
 export const direction = (from: GroundPoint, to: GroundPoint): GroundPoint => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };

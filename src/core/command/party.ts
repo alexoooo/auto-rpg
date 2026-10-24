@@ -5,7 +5,7 @@ import { directMovement, placeMovement, type GroundPoint, type MovementRequest }
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import { travelSpeed } from "../mind/travel.ts";
 import type { Command, DrawnRoute, TeamOrder } from "./commands.ts";
-import { ARRIVAL, approach, arrived, direction, distance, reportOf, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, arrived, direction, distance, reportOf, roomy, throughDoors, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /** How far behind the leader an unposted member trails before it walks after it, m: clear of the leader's reach (`docs/reference/play.md#following`). */
@@ -246,7 +246,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     if (lead?.explore) {
       const status = mind.goal ? reportOf(member, placeMovement(mind.goal, ARRIVAL.explored))?.status : undefined;
       if (!mind.goal || arrived(member, mind.goal, ARRIVAL.explored) || status === "unreachable" || status === "stalled")
-        mind.goal = level.frontier(member.at, member.radius);
+        mind.goal = roomy(level, level.frontier(member.at, member.radius), member.radius);
       return mind.goal ? placeMovement(mind.goal, ARRIVAL.explored) : null;
     }
     return null;

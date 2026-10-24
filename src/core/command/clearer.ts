@@ -2,14 +2,12 @@ import { deepFreeze } from "../state.ts";
 import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { ARRIVAL, approach, arrived, direction, distance, reportOf, throughDoors, type Opening } from "./goals.ts";
-import { onBearing, spread } from "./spread.ts";
+import { ARRIVAL, approach, arrived, direction, distance, reportOf, roomy, throughDoors, type Opening } from "./goals.ts";
+import { spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /** How far a member of a level-clearing party sees a foe along a clear line, m. */
 const SIGHT_METRES = 12;
-/** The room the leader's goal is given beyond its footprint, m: about what a club held at its side reaches out. */
-const ROOM = 0.4;
 /**
  * **The level-clearer's policy**, its distances in m and times in s:
  *
@@ -161,20 +159,6 @@ export function clearerCommander(host: TeamHost): Commander {
     }
   };
 
-  /**
-   * `goal`, or where it stands close by a wall, the nearest point within a metre of it with
-   * `ROOM` more than `radius` about it: room for what the leader carries, which its navigator
-   * keeps clear of the walls.
-   */
-  const roomy = (goal: GroundPoint | null, radius: number): GroundPoint | null => {
-    if (!goal || level.fits(goal, radius + ROOM)) return goal;
-    for (const ring of [0.5, 1]) for (let i = 0; i < 8; i++) {
-      const at = onBearing(goal, i * Math.PI / 4, ring);
-      if (level.fits(at, radius + ROOM) && level.passes(goal, at, radius)) return at;
-    }
-    return goal;
-  };
-
   /** The leader's way on: the edge of what is explored, or the exit once seen; exploring, it waits while another lags. */
   const explore = (view: TeamView, leader: MemberView, standing: readonly MemberView[]): MovementRequest | null => {
     if (state.mode === "explore") {
@@ -188,7 +172,7 @@ export function clearerCommander(host: TeamHost): Commander {
     const status = state.goal ? reportOf(leader, placeMovement(state.goal, ARRIVAL.explored))?.status : undefined;
     // A goal its navigator gives up on is dropped for a step, so that the one asked next is a new request to it.
     if (status === "unreachable" || status === "stalled") { state.goal = null; return null; }
-    if (!state.goal || arrived(leader, state.goal, ARRIVAL.explored)) state.goal = roomy(level.frontier(leader.at, leader.radius), leader.radius);
+    if (!state.goal || arrived(leader, state.goal, ARRIVAL.explored)) state.goal = roomy(level, level.frontier(leader.at, leader.radius), leader.radius);
     return state.goal ? placeMovement(state.goal, ARRIVAL.explored) : null;
   };
 
