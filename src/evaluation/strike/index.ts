@@ -10,7 +10,8 @@ import { MINDS } from "../../core/mind/controllers.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
-import { STRIKE_CASES, type StrikeCondition, type StrikeReading } from "./cases.ts";
+import { STRIKE_CASES, type StrikeCondition } from "./cases.ts";
+import type { StrikeReading } from "./read.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
 const DRILLED = ["puncher/strike", "scrapper/straight", "scrapper/cross", "duellist/swing high", "vanguard-warrior/strike"];
@@ -47,8 +48,9 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
     { name: "admitted", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.began !== null },
-    { name: "to contact", unit: "s from the commitment to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.committed !== null ? r.hit.time - r.committed : null },
-    { name: "closing", unit: "m/s on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.closing ?? null },
+    { name: "to contact", unit: "s from the action's start to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.began !== null ? r.hit.time - r.began : null },
+    { name: "speed", unit: "m/s over the fist's last 0.1 m to the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.speed ?? null },
+    { name: "mass", unit: "kg the fist met on its own side, the median", kind: "median", better: "higher", of: (r) => r.hit?.kg ?? null },
     { name: "energy", unit: "J on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
     { name: "return", unit: "s from the release, the median", kind: "median", better: "lower", of: (r) => r.released !== null && r.ended !== null ? r.ended - r.released : null },
     { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
@@ -60,10 +62,10 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
     return {
       lines: subjects.flatMap((subject) => [
         `${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
-        "| Model | Mark | Hand | Across, m | Gap, m | Outcome | Reason | Committed, s | To contact, s | Closing, m/s | Energy, J | Return, s |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Model | Mark | Hand | Across, m | Gap, m | Outcome | Reason | To contact, s | Speed, m/s | Mass, kg | Straight, cos | Energy, J | Return, s |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ...rows.filter((row) => row.subject === subject.id).map((r) =>
-          `| ${r.model} | ${r.mark} | ${r.hand} | ${r.across} | ${r.gap} | ${r.outcome} | ${r.reason || "-"} | ${f(r.committed)} | ${f(r.hit && r.committed !== null ? r.hit.time - r.committed : null)} | ${f(r.hit?.closing)} | ${f(r.hit?.energy)} | ${f(r.released !== null && r.ended !== null ? r.ended - r.released : null)} |`),
+          `| ${r.model} | ${r.mark} | ${r.hand} | ${r.across} | ${r.gap} | ${r.outcome} | ${r.reason || "-"} | ${f(r.hit && r.began !== null ? r.hit.time - r.began : null)} | ${f(r.hit?.speed)} | ${f(r.hit?.kg)} | ${f(r.hit?.straight)} | ${f(r.hit?.energy)} | ${f(r.released !== null && r.ended !== null ? r.ended - r.released : null)} |`),
         "",
       ]),
       json: rows.map(({ subject, model, mark, hand, across, gap, outcome }) => ({ subject, model, mark, hand, across, gap, outcome })) as unknown as Json,
