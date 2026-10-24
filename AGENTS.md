@@ -23,6 +23,11 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
 
 ## Checking a change
 
+**Do the work.** The owner sets goals; how to reach them is the agent's. A modelling choice (a
+muscle's curve, a joint's range, a solver setting, a bar's test, a plan's own gate) is decided
+toward the goal and recorded, never put to the owner. Stop only when the goal is met or no change
+is left to try; ask only a choice whose effect in play the owner can judge.
+
 **Speed comes first.** A change is checked for whether it broke the core, not re-qualified.
 
 | Change | Checks |
@@ -118,8 +123,9 @@ it never imports them.
   `src/core/control/assist.ts`), capped by the character's balance (a per cent of body weight,
   `AttributeSpec`, `Rulebook.balance`), metered every step. A figure read under an assist names
   each side's balance.
-- **No strength is raised for feel.** A muscle's strength and speed come from their source; a
-  change to one carries its measured before/after table.
+- **A muscle's strength and speed serve the owner's goal**: sourced where a source pins them, and
+  set for the result the owner asked for where none does (sourced as the owner's decision), never
+  raised for feel. A change to one carries its measured before/after table.
 - **A mind reaches the world only through its body**: its senses (`Senses`,
   `src/core/mind/senses.ts`) and `OwnBody` in; muscle commands and granted grip requests out
   (`Mind.step`, `src/core/mind/equipment-port.ts`). A grip request moves nothing and must pass
