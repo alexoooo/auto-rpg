@@ -766,6 +766,29 @@ as `balanced-stroke/harness-pilot-1.json`. Typecheck and the entrant scope check
 selection gates fail. `npm run compare` reports zero complete matched mirrored units for these
 single-side trials. All three prototypes are rejected and removed.
 
+## Low kick after blocks
+
+A bounded low-kick response to repeated hand blocks fails the limiting open-left Skeleton bout
+against Options at 7.63 m. It admits one kick at 17.05 s, reaches foot unloading at 18.4833 s and
+commits no kick. Recovery takes over at 21.8083 s; the first fall follows at 21.8833 s. The bout
+continues to the ordinary 120 s cap and loses, bars 0.9087 against 0.9281. The four regression
+cases remain unplayed. The pilot rejects this entry into the shared kick, not the physical
+capability established by its [stand record](front-kicks.md#harness-and-qualification).
+
+The entrant-local planner waits for two guard-only blocked hand strokes and the live hand's
+release, approaches for at most eight seconds at no more than 0.18 m/s, and then retains one
+request through the kick's native transfer, strike and return. It uses the shared `ARENA_KICKS`
+profile and leg-height aim at 0.4 m, with no anatomical or solver changes. A detached probe
+verifies admission, ownership, bounded approach and exact whole-state replay; typecheck and the
+entrant scope check pass. An initial setup using the hand-only surface aim is refused before
+physics and retained as invalid setup, not a loss.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands,
+default attributes, Balance 0/0 and zero sense delay. The one-worker pilot takes 74.8 active wall
+seconds. Exact source, configuration, lifecycle probe, full physical row, invalid setup and
+saved-row comparison remain in `research/runs/vanguard/low-kick/`. The single-side comparison
+contains no complete mirrored unit. The prototype is rejected and removed.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
