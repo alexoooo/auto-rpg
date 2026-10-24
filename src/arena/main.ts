@@ -100,6 +100,7 @@ const caseNote = ({ commit, world }: LinkedCase): string => {
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
+  const previewFailed = (error: Error) => { need("boot-note").textContent = `Preview unavailable: ${error.message}`; };
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   // A case opened from the Ratings puts its choices in the address, so the pickers show them; its
   // recipe and tape are what Fight plays until a choice is changed.
@@ -269,21 +270,21 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
       context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
-      try { attributePanel.read(); await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]); } catch { /* The editor displays its draft's error. */ }
+      let drafted = true;
+      try { attributePanel.read(); } catch { drafted = false; /* The editor displays its draft's error. */ }
+      if (drafted) await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]).catch(previewFailed);
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
         attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
         refresh();
         select.blur();
-        void view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }).catch(error => {
-          need("boot-note").textContent = `Preview unavailable: ${error.message}`;
-        });
+        void view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }).catch(previewFailed);
       }, { signal: lifetime.signal });
       appearancePicker.addEventListener("change", () => {
         const appearance = appearanceFor(select.value as BodyModel, appearancePicker.value);
         appearances = { ...appearances, [side]: appearance };
         appearancePicker.blur();
-        void view.setAppearance(0, appearance).catch(error => { need("boot-note").textContent = `Preview unavailable: ${error.message}`; });
+        void view.setAppearance(0, appearance).catch(previewFailed);
       }, { signal: lifetime.signal });
     }));
   }
@@ -430,7 +431,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
       attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
-      try { attributeEditors[side].read(); void previews[side].setCharacter(0, { model: matchup[side], attributes: attributes[side] }, appearances[side]); } catch { /* Invalid drafts stay in the editor. */ }
+      let drafted = true;
+      try { attributeEditors[side].read(); } catch { drafted = false; /* Invalid drafts stay in the editor. */ }
+      if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: attributes[side] }, appearances[side]).catch(previewFailed);
     }
   };
   const begin = async (next: Matchup) => {
