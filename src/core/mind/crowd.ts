@@ -7,7 +7,8 @@ import type { Senses } from "./senses.ts";
 import type { GaitLimits } from "./travel.ts";
 
 /**
- * How a body keeps clear of its own side's bodies (`crowdWalk`, `fallenSolids`); navigation
+ * How a body keeps clear of its own side's standing bodies and every fallen one (`crowdWalk`,
+ * `fallenSolids`); navigation
  * preferences, not anatomy:
  *
  * - `margin`, m: the room it keeps between its own clearance and another standing body's;
@@ -52,14 +53,14 @@ function reachOf(other: Senses["others"][number]): number {
 }
 
 /**
- * Where a walker keeps each fallen body of its own side lying (`fallenSolids`), by id: its
+ * Where a walker keeps each fallen body lying (`fallenSolids`), by id: its
  * footprint's least and most x and z, m, and where its centre of mass was when the footprint was
  * taken afresh. Its state (`src/core/state.ts`).
  */
 export type FallenMemory = Map<string, { x0: number; x1: number; z0: number; z1: number; x: number; z: number }>;
 
 /**
- * Each fallen body of the walker's own side but `exempt`, down or out of the fight, as a fixed
+ * Each fallen body of either side but `exempt`, down or out of the fight, as a fixed
  * solid a route keeps clear of: the box about its parts' centres, `CROWD.reach` wider, rounded out
  * to `CROWD.grid`, as high as a lying body. None where none lies.
  *
@@ -71,7 +72,6 @@ export type FallenMemory = Map<string, { x0: number; x1: number; z0: number; z1:
 export function fallenSolids(senses: Pick<Senses, "side" | "others">, exempt: string | null, memory: FallenMemory): readonly SolidSense[] {
   let solids: SolidSense[] | null = null;
   for (const other of senses.others) {
-    if (other.side !== senses.side) continue;
     if (!(other.down || other.out)) { memory.delete(other.id); continue; }
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const segment of other.segments.values()) {

@@ -618,8 +618,8 @@ neither straight ahead nor seen from the route's last corner and has gone `NAV.m
 route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
 else to the spot it chose last, carried with the body it ranges about while that spot is open and
 its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body.
-**Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
-routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
+**The bodies about it** (`src/core/mind/crowd.ts`): a fallen body, of either side but the one it
+ranges about, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
 changes no route; and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
