@@ -765,6 +765,13 @@ test('a planted low guard yields an unmet entry, finishes rising, and preserves 
   }
   actions = []; sight.report.actions = []; orders = { move: null };
   assert.deepEqual(step(), { move: null, face: 0, movement, guard: {}, actions: [] }, 'an explicit movement order keeps the base intent');
+  orders = null; sight.report.support = { stage: 'low', ready: true }; actions = [request];
+  for (let i = 0; i < 200; i++) {
+    const intent = step();
+    assert.equal(intent.actions, actions, 'a ready new request gets its chance to acquire the body');
+    assert.ok(intent.lower > STANCE_LOWER, 'a new request is not preempted by the reposition timer');
+  }
+
 });
 
 test("the configured fallen-target wait stops the chase, preserves owned actions and orders, and is neutral without a fall", () => {
