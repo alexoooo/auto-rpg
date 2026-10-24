@@ -242,14 +242,14 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - few die: the Duellist kills 8 of 128 foes over `crypt-clear`'s 8 runs and clears 2
-    ([in a fight](reference/blows.md#in-a-fight)). Over four of those runs a party member spends
-    60 to 90 % of the run walking under the level-clearer, 2 to 10 % fighting and up to 30 % down
-    (161 of 540 member-seconds on level 25); a foe that is fought dies (3 in 16
-    member-seconds of attack on level 25). More die with a faster rise (Recovery) and a
-    Commander that seeks fights. Within an attack a fighter still spends most of its time setting
-    its feet, a step's weight shift at a time. A Crypt fight ends by a mind that kills, not by a
-    rule (the owner, 2026-10-24);
+  - few die: the Duellist kills 6 of 128 foes over `crypt-clear`'s 8 runs and clears 2, at
+    `93ea707d` ([in a fight](reference/blows.md#in-a-fight)). Fighting longer does not kill more,
+    and a wider strike slack kills more in the Crypt but loses in the Arena
+    ([tried and not kept](reference/blows.md#tried-and-not-kept)): attacking, a fighter starts a
+    strike every 5 to 7 s, and half of them end at the preparation deadline as it sets its feet, a
+    step's weight shift at a time, after a target that has moved. More die with a strike that
+    needs fewer steps, a faster rise (Recovery), and blows on a body that is down, decided to apply
+    once the rise meets its bar ([Blows and wounds](#blows-and-wounds)). A Crypt fight ends by a mind that kills, not by a rule (the owner, 2026-10-24);
   - the stance walk runs away sideways after a half turn, read before the walk steered the way its
     route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
