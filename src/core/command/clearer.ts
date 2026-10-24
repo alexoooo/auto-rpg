@@ -2,7 +2,7 @@ import { deepFreeze } from "../state.ts";
 import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { ARRIVAL, approach, arrived, direction, distance, reportOf, roomy, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import { spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
@@ -73,13 +73,15 @@ export function clearerCommander(host: TeamHost): Commander {
     waiting: false,
     /** The member who leads, by id. */
     leader: null as string | null,
+    /** When each foe lying down went down, by id (`lyingSince`). */
+    down: {} as Record<string, number>,
   };
   const memory = (id: string): Memory => state.members[id] ??= { target: null, opening: null, down: null };
 
-  /** The foes in the fight: those seen, last seen within `engage` of a standing member, in the order sensed. */
+  /** The foes in the fight: those worth fighting (`worthFighting`) seen, last seen within `engage` of a standing member, in the order sensed. */
   const threat = (view: TeamView, standing: readonly MemberView[]): SensedBody[] => view.others.filter(other => {
     const known = state.known[other.id];
-    return other.fighting && known !== undefined && standing.some(member => distance(member.at, known.at) <= POLICY.engage);
+    return worthFighting(other, state.down, view.time) && known !== undefined && standing.some(member => distance(member.at, known.at) <= POLICY.engage);
   });
 
   /** The nearest of `foes` within `metres` of `member` that it sees, or none. */
@@ -154,7 +156,7 @@ export function clearerCommander(host: TeamHost): Commander {
     const given = spread(fit.map(member => ({ id: member.id, at: member.at, current: memory(member.id).target,
       seen: foes.filter(foe => level.sees(member.at, foe.at, SIGHT_METRES)) })));
     for (const member of standing) {
-      const foe = fit.includes(member) ? given.get(member.id) : nearest(member, view.others.filter(other => other.fighting), POLICY.upon);
+      const foe = fit.includes(member) ? given.get(member.id) : nearest(member, view.others.filter(other => worthFighting(other, state.down, view.time)), POLICY.upon);
       memory(member.id).target = foe?.id ?? null;
     }
   };
@@ -214,6 +216,7 @@ export function clearerCommander(host: TeamHost): Commander {
     // Nobody leads a level-clearer.
     hear() {},
     decide(view: TeamView): TeamDecision {
+      lyingSince(state.down, view);
       const standing = view.members.filter(member => member.fighting && !member.held), orders = new Map<string, Orders>();
       for (const member of standing) {
         const mind = memory(member.id);

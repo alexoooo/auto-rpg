@@ -97,6 +97,8 @@ export interface SensedBody {
   readonly id: string;
   readonly at: GroundPoint;
   readonly fighting: boolean;
+  /** Whether it lies on the ground (its body's `down`). */
+  readonly down: boolean;
 }
 
 /**

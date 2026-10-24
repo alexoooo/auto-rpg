@@ -2,7 +2,7 @@ import { deepFreeze } from "../state.ts";
 import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { ARRIVAL, approach, direction, distance, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, direction, distance, lyingSince, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
 /** How far a member of an independent team sees a foe along a clear line (`TeamLevel.sees`), m (`docs/reference/play.md#sight`). */
@@ -24,13 +24,14 @@ interface Memory {
  * Each look (`TeamView.look`) a member picks again; with no foe in the fight, what it last saw stands.
  */
 export function independentCommander(host: TeamHost): Commander {
-  const state = { members: {} as Record<string, Memory> };
+  // When each foe lying down went down, by id (`lyingSince`).
+  const state = { members: {} as Record<string, Memory>, down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=
     { target: null, lastSeen: null, alertedUntil: 0, opening: null };
   const { level } = host;
 
   const look = (view: TeamView) => {
-    const foes = view.others.filter(other => other.fighting);
+    const foes = view.others.filter(other => worthFighting(other, state.down, view.time));
     if (!foes.length) return;
     for (const member of view.members) {
       const mind = memory(member.id);
@@ -59,6 +60,7 @@ export function independentCommander(host: TeamHost): Commander {
     // Nobody leads an independent team.
     hear() {},
     decide(view: TeamView): TeamDecision {
+      lyingSince(state.down, view);
       if (view.look) look(view);
       const orders = new Map<string, Orders>();
       for (const member of view.members) {

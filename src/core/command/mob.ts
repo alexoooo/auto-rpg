@@ -3,7 +3,7 @@ import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import { ARRIVAL, approach, direction, distance, onBearing, throughDoors, type Opening } from "./goals.ts";
+import { ARRIVAL, approach, direction, distance, lyingSince, onBearing, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import { ALERT_SECONDS, SIGHT_METRES } from "./independent.ts";
 import { bearingOf, bearings, spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, TeamDecision, TeamHost, TeamView } from "./team.ts";
@@ -41,13 +41,14 @@ interface Memory {
  * what it last saw stands.
  */
 export function mobCommander(host: TeamHost): Commander {
-  const state = { members: {} as Record<string, Memory> };
+  // When each foe lying down went down, by id (`lyingSince`).
+  const state = { members: {} as Record<string, Memory>, down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=
     { target: null, bearing: null, slot: null, closed: false, lastSeen: null, alertedUntil: 0, opening: null };
   const { level } = host;
 
   const look = (view: TeamView) => {
-    const foes = view.others.filter(other => other.fighting);
+    const foes = view.others.filter(other => worthFighting(other, state.down, view.time));
     if (!foes.length) return;
     const attackers = [];
     for (const member of view.members) {
@@ -110,6 +111,7 @@ export function mobCommander(host: TeamHost): Commander {
     // Nobody leads a mob.
     hear() {},
     decide(view: TeamView): TeamDecision {
+      lyingSince(state.down, view);
       if (view.look) look(view);
       const orders = new Map<string, Orders>();
       for (const member of view.members) {
