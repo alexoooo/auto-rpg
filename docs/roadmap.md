@@ -254,6 +254,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     an order without its walk (`Orders.walk`).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)).
+- Ground positioning's foot-clearance probes (`sensedFootClearance`, `clearFootTranslation`,
+  `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
+  several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
   by name ([oracle](reference/oracle.md)).
 - A player's choices are the trade-offs a Mind's config exposes, offered once their effect is
