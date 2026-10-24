@@ -122,9 +122,10 @@ pauses, single-steps, scrubs and slows time.
 on the kits both have, and the matchup grid; a battery's figures by subject and by any condition.
 A subject opens its history across versions and pools and its cases, worst matchups first; a
 bout case recorded with its world opens in the Arena to watch. A drill's subject (the Strike drill,
-under Skills) shows a square for each trial and a reel that plays the failed trials first, one after
-another, and says whether the owner has accepted it. The address keeps what is shown:
-`&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`, `&reel=`.
+under Skills) shows a square for each trial, a reel of each outcome's trials, and a reel that plays
+the failed trials first, and says whether the owner has accepted it. The Arena plays a reel's trials
+one after another in place, each as long as it was scored, with auto-play on unless unticked. The
+address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
 
 Compare saved versions with `npm run compare -- before.jsonl after.jsonl --subject <id>`;
 `--previous <id>` selects a differently named baseline. It reads matched evidence, reports gaps

@@ -836,7 +836,7 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   (`arenaPlayback`, `src/arena/playback.ts`).
 - **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
   whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A case's world
-  carries it (`#case=`, `src/arena/case-link.ts`).
+  carries it, and the Arena plays it from its record (`#reel=`, `src/arena/case-link.ts`).
 - **Order sheets** (`DuelHooks.record`; `Sheet`, `SheetLog`, `src/core/mind/sheets.ts`): each
   side's muscle commands, assist asks and hand poses at the mind's seam. A bout given them
   (`DuelHooks.replay`) makes no mind (`replayedBody`) and plays the same. Each log names its build,
@@ -888,7 +888,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   kind of world and the kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
   key, so a description, script, screen or document edit replays nothing, and an entrant's edit
   replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
-  other. A summary reads the complete units with no fault and names how many it left out.
+  other. A row says how long its case played (`Row.played`, its world kind's clock when the reader
+  ended), where a watcher stops it. A summary reads the complete units with no fault and names how many it left out.
 - **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
   subject with a panel's members only (`--against`), `pairs` the pairs named.
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
@@ -1033,11 +1034,15 @@ are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
 `validateRoomPlacements` refuses a piece naming a collider the arena lacks, or a solid-looking one
-within reach naming none. `camera.ts` and `view.ts` own the camera and view settings. A case from the
-Ratings opens at `#case=` (`case-link.ts`): its world's recipe gives the pickers their choices
-(`caseSearch`), and Fight plays the recipe and tape as the record keeps them, on the case's
-engine, until a choice is changed; the bout is otherwise assembled from the address (`recipeOf`,
-`matchup.ts`). Back returns to the Ratings address the case was opened from.
+within reach naming none. `camera.ts` and `view.ts` own the camera and view settings. Cases from
+the Ratings open as a reel (`#reel=<evaluation>&cases=<keys>&at=&auto=&back=`, `case-link.ts`): the
+Arena reads the evaluation's records once (`reelTrials`, `reel.ts`; one engine and level a reel)
+and plays each trial's recipe and tape in the same screen, stopping it where it was scored
+(`Row.played`), the camera as the person left it; with auto-play, the default, the next begins a
+second later. The HUD names the trial, its conditions and recorded outcome. The trial shown gives
+the pickers its choices (`caseSearch`), and Setup leaves the reel for them; a bout is otherwise
+assembled from the address (`recipeOf`, `matchup.ts`). Back returns to the Ratings address the reel
+was opened from.
 
 **The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
 as the party comes near. Each side is a team under a Commander ([Command](#command)), the run its host
@@ -1069,11 +1074,12 @@ version's rating with its interval, minds on common ground (each pair's rating d
 kits both have, with how many) and the matchup grid; a battery shows each figure by subject and by
 a condition field (`&by=`). A subject shows each version's parent, what changed and its standing in
 each pool, and its cases by opponent (worst first) and condition; a case shows its record line,
-and a bout case with its world opens in the Arena; an imported case has none. A drill's subject
-also shows its trials as a strip, a square a trial coloured by its outcome, each opening it in the
-Arena, and the reel: every failed trial, then five passed ones chosen by their keys' digests, each
-opened in turn as the Arena returns (`&reel=`); and whether the owner has accepted its version on
-a rung (`assets/evaluations/<id>/accepted.json`, written only for the owner).
+and a bout case with its world opens in the Arena as a reel of one; an imported case has none. A
+drill's subject also shows its trials as a strip, a square a trial coloured by its outcome that
+plays the strip in the Arena from its trial; a reel of each outcome's trials from its legend; the
+reel: every failed trial, the rarest outcome's first, then five passed ones chosen by their keys'
+digests; and whether the owner has accepted its version on a rung
+(`assets/evaluations/<id>/accepted.json`, written only for the owner).
 An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):
