@@ -898,7 +898,7 @@ The rejected implementations are removed.
 
 Physical torso cover prevents the measured right-court collapse fall and preserves the opposite
 court win, but the combined candidate loses a selected court winner. It is not selected. Recent
-contact weighting does not recover that winner; the selected runtime remains
+contact weighting does not recover that winner. These screens use selected reference
 `sha256:a4f7664de866ef7ce15fff93549fab86be54a3ed322d41034c57652d6bc4e3d6`.
 
 The warning observes a naturally upright opponent's head descending faster than 0.2 m/s below
@@ -954,6 +954,51 @@ contract probes, physical rows and saved-row comparisons remain in
 Typecheck and the detached composition, ownership and complete-state replay probes pass; the
 source changes stay within Vanguard. The rejected implementations are removed.
 
+## Net contact selection
+
+Whole-body contact value does not restore the selected left-court winner at 5.92 m. Applying it
+to the attack/evasion policy, or conditioning hand choice on the preceding completed stroke,
+also loses that case. All three candidates fail their pilot; their other four cases are unplayed.
+None changes the selected unarmed calibration.
+
+The retained and absorbed-score bouts share 31 completed action records and 179 impact records.
+At 41.3417 s the retained selector chooses the right hand, the absorbed-score selector the left.
+Across the shared prefix, accepted injury dealt per attempted second favors the left, but injury
+dealt less full-body injury received favors the right. Accepted injury is harness-only evidence.
+
+The estimator uses the body's own detached contacts, their permitted identities and preceding
+observed rigid-point motion. Natural surface compliance, nominal blunt prices and bare-hand
+protection price both sides; no live wound pool or opponent policy is read. The unchanged
+41.35 s prefix preserves every saved impact and has digest `f52ec73ce41a404a`. All 143 sampled
+contacts resolve through permitted identities. Estimated net value favors the right hand too;
+that agreement does not carry through to a winning online policy.
+
+| Left court, 5.92 m / selector | Loss ending | Own / opponent bar | Candidate falls |
+| --- | --- | --- | ---: |
+| Net value per hand | Fatal injury at 98.2417 s | 0.4834 / 0.5775 | 0 |
+| Net value for hands and attack/evasion | Time limit at 120 s | 0.5441 / 0.7206 | 0 |
+| Net value by preceding completed hand | Fatal injury at 112.1167 s | 0.4942 / 0.7690 | 0 |
+
+The first fatal impact strikes the upper trunk; wound allocation empties the head. Fixed nominal
+capacity does not model depleted anatomical pools and their transfers. The policy variant counts
+received impacts even before an own commitment, retains switches between released strokes and
+shares one saved sampler with both child policies. The transition variant captures its previous
+hand at admission, advances it only after an ended committed stroke, and refreshes the candidate
+table immediately. Its recorded conditional hand preferences do not produce a winning controller.
+
+Extending the selected guard's covering point from 0.3 to 0.5 m, with the same 0.15 s response,
+also loses its pilot: left open at 7.63 m, 0.6636 against 0.7666 at the ordinary 120 s cap, without
+falls. Its other four cases are unplayed. A detached probe verifies the configuration reaches
+the actual guard goal without changing its reference posture, timing or hand pose. It is rejected.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay, falls continuing. The net-hand,
+net-policy, transition and forward-cover cohorts take 108.2, 122.3, 118.8 and 119.0 active pool
+wall seconds, each below its nine-minute cutoff. Sources, probes, exact physical rows and saved-row
+comparisons remain in `research/runs/vanguard/selector-divergence/`, `net-value/`, `net-policy/`,
+`transition-value/` and `forward-cover/`. Typechecks, ownership and complete-state replay probes
+pass. The rejected source variants and guard configuration are removed.
+
 ## Standing miss return
 
 The standing punch regains its physical guard and planted stance after an unloaded miss with
@@ -981,6 +1026,22 @@ Balance 0. Complete recipes, declared limits, records and source remain in
 `research/runs/vanguard/miss-return/`. The regression check runs in under ten seconds. Its scope
 is stationary empty-space standing punches; it does not qualify low punches, moving-target
 misses, equipment or collision-laden combat recovery, and it does not erase the failed bout gates.
+
+## Equipment path
+
+Vanguard carries equipped attacks through the shared fighter and Lab kit. Its `vanguard-weapon`
+part delegates held-item recipe strikes to the common executor and excludes empty hands. Shared
+`blade-cut` and `blade-thrust` executors supply directed edge and point actions. The weapon actions
+precede the punches where both are usable; ordinary arming removes them from an empty-handed kit.
+Each calibration retains its committed standing and low punches for hands that hold nothing.
+
+The loadout contract compiles every catalog assignment for the Warrior, Rogue and Skeleton and
+offers each calibration with the representative loadouts. A physical Node stand exercises club,
+sword-cut and sword-thrust actions with a buckler in the other hand: each action admits, commits
+and drives a held endpoint through the ordinary compositor and muscle controller. The checks
+live in `tests/entrant-vanguard.test.mjs` and run in under ten seconds. They establish equipment
+execution, not a winning rate or complete equipment miss-recovery qualification. Equipment bout
+qualification remains open.
 
 ## Tried and not kept
 

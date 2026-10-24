@@ -46,14 +46,16 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; faster braking on a run that follows the pace asked under its own ([tried](reference/locomotion.md#tried-and-not-kept)) |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** Vanguard's unarmed fighter; its unchanged Warrior wins four frozen fresh Options
+1. **Now:** Vanguard's unarmed fighter; its recorded Warrior screen wins four frozen fresh Options
    cases across both levels and sides, all at the bell without falls ([record](reference/vanguard.md#warrior-body-screen)). Per-hand contact selection improves its retained Skeleton
    development panel from one to two of four Options wins, but its sixth fresh campaign loses
    all three completed cases without falls ([record](reference/vanguard.md#contact-selection-campaign)). Standing misses have a physical return gate;
    a physical torso-cover prototype wins both sides of a court case without falls but loses a retained
    winner ([record](reference/vanguard.md#collapse-clearance)). Its explicit presets
    and planner layers are editable and replaceable alone by `--ablate`, with their decisions
-   visible in Arena and Lab. The braced walk's remaining work stays in its plan.
+   visible in Arena and Lab. Equipment actions use held-item recipes and blade cuts and thrusts;
+   equipment win rates remain unqualified ([path](reference/vanguard.md#equipment-path)).
+   The braced walk's remaining work stays in its plan.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
