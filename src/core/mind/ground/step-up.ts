@@ -6,10 +6,11 @@ import { turnOfToRef } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { deepFreeze } from "../../state.ts";
 import type { HumanoidModel } from "../../human/spec.ts";
+import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import { RISE, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
+import { RISE, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 
@@ -20,12 +21,15 @@ interface StageTiming { readonly scale: number; readonly progress?: NonNullable<
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
  * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
- * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`).
+ * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`);
+ * and the side a body's roll from its back goes over where it is not the recipe's (`rollOver`,
+ * `docs/reference/rising.md#the-roll`).
  */
 interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
   readonly rest?: { readonly seconds: number; readonly widen: number };
+  readonly over?: Side;
   readonly stages: Readonly<Record<string, StageTiming>>;
 }
 
@@ -70,7 +74,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
     },
   },
   "workshop-rogue": {
-    settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 },
+    settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 }, over: "left",
     stages: {
       "roll wind": { scale: .923 },
       "roll swing": { scale: 1.605 },
@@ -149,7 +153,7 @@ export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe 
   };
   return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
     ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
-    roll: { back: base.roll.back.map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
+    roll: { back: (tuning.over ? rollOver(tuning.over) : base.roll.back).map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
     rise: base.rise.map(timed("")) });
 }
 

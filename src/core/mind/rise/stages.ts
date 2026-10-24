@@ -222,7 +222,7 @@ const OVER = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "shoulder.near
 const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -0.8, "elbow.far flexion": 2.1 };
 
 /** The stages that turn a body on its back onto its front, over its `over` side. */
-const rollOver = (over: Side): PoseStage[] => [
+export const rollOver = (over: Side): PoseStage[] => [
   { kind: "pose", name: "wind", posture: rollingOver(over, WIND), seconds: 0.5, over },
   // Held until the body is on its near side (`docs/reference/rising.md#the-roll`).
   { kind: "pose", name: "swing", posture: rollingOver(over, SWING), seconds: 1, over, hold: { turned: 0.6, most: 3 } },

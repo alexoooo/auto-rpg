@@ -87,7 +87,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Whether the bodies get toes, or more ankle dorsiflexion than the measured 0.39 rad, for the
   stand-up: every way up from hands and knees shorter than the kneel-up is closed by that stop
   over a foot that is one box ([Recovery](plans/2026-10-23-recovery.md) step 3). Unchanged, Stand
-  up keeps the kneel-up and its time (48 of 64, none within 6 s).
+  up keeps the kneel-up and its time (52 of 64, none within 6 s).
 - The look's and the sound's values: torch density, which floor and wall textures ship,
   `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
   costume, after seeing the bones in play.
@@ -170,7 +170,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([plan](plans/2026-10-23-recovery.md)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
-  median at most 4 s, unassisted. Step-up, the baseline, stands 48 of 64 and none within 6 s
+  median at most 4 s, unassisted. Step-up, the baseline, stands 52 of 64 and none within 6 s
   ([step-up on the target](reference/rising.md#step-up-on-the-owners-target)); where it stops is
   in [rising](reference/rising.md#where-the-rise-stops). A policy acting on observations also runs
   the sixteen-fall screen (`research/stand-up-acceptance.mjs`), which does not establish the

@@ -616,6 +616,24 @@ many falls rolled twice; with the longer `wind` most first swings throw the body
 
 The Rogue's figures are the same with and without it.
 
+**The side, by body** (`StepUpTuning.over`): the Rogue rolls from its back over its left side, so
+its right hand, which holds the club, is the far one and comes over rather than going under; the
+Warrior rolls over its right. Rolled over the left, the Warrior stands 12 of its 16 target falls
+with the club against 16, and 15 empty-handed against 14. Paired on 256 Rogue falls (sixteen directions at each of eight offsets,
+0 to 19.6875 degrees by 2.8125, `research/rising-step-search.mjs --score`, 30 s cap, at
+`14ccd6d1`):
+
+| Rogue's roll | club, of 128 | median s | empty, of 128 | median s |
+|---|---|---:|---|---:|
+| over the right | 71 | 26.2 | 96 | 15.7 |
+| **over the left** | 87 | 17.2 | 94 | 15.8 |
+
+With the club 30 falls stand only over the left and 14 only over the right; empty-handed, 11 and
+13. Read at the start of the rise, a Rogue that begins it leaning (the pelvis's or the chest's
+forward above -0.85) reaches `fours` square in 3 of 36 rises with the club, against 74 of 82 that
+begin square, and the club then props it: at the end of a roll its hand is held 0.4 m up on the
+club's end planted beyond the head.
+
 **Where it came from**: a seeded random search (script not kept) of 2,400 sequences of two to four
 poses over 23 freedoms, played on the Warrior toppled backward: 13 ended on the front. Of the best
 sixteen, three turned the Rogue too; the best turned it only from where its first playing left it,
@@ -746,7 +764,7 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`npm run evaluate -- rising-target`, at `0b718b02` with the roll's hold,
+`npm run evaluate -- rising-target`, at `14ccd6d1` with the Rogue's roll over its left side,
 [the roll](#the-roll)):
 
 | Body | Loadout | Stood, of 16 | Median, s |
@@ -754,9 +772,9 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
 | Warrior | empty | 14 | 12.7 |
 | Warrior | club | 16 | 12.5 |
 | Rogue | empty | 13 | 15.5 |
-| Rogue | club | 5 | the cap |
+| Rogue | club | 9 | 20.7 |
 
-48 of 64; none within 6 s, and the 4 s median is not met (14.6 s).
+52 of 64; none within 6 s, and the 4 s median is not met (15.1 s).
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
   and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the
@@ -808,6 +826,16 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
   feet), the knees do not leave the ground: the centre of mass stays 0.30 m up against the 0.43
   to 0.52 m asked until the stage's limit, since the shank would tip forward past the ankle's
   dorsiflexion stop (0.39 rad) over a foot that is one box, with no toes to bend.
+- **For the Rogue's lean** (`step-up`, the Rogue with the club over its left side, 64 falls:
+  the target's sixteen directions at four offsets of 5.625 degrees, against 40 stood, at
+  `14ccd6d1`): a body read on its front but leaning (the pelvis's forward above -0.9 or -0.8)
+  first rolled on over that side stands 9 of the target's 16 either way, since `flat` lays it back
+  onto the side it rolled from; `flat` with the far leg kept ahead, as `over` has it, 1 of 16;
+  `flat` with the club arm straight, 30, and straight and out to its side, 28 (more rises begin
+  square, more end at `fours`); the club hand's wrist turned -1.6 to 1.4 rad through the roll and
+  down onto hands and knees, 36 to 43; `fours` given up 0.3 or 1 s in once the body is off its
+  front, 41 and 40; the rise without `prop` and `fours`, none of the target's 16 (it goes down in
+  the half kneel).
 - **A twisted front read as a side** (`LIE_UP` -0.9 for the front): over 30 s the Warrior reaches
   knees and hands in 16 of 16 empty and 10 of 15 club falls, against 15 and 12; no difference.
 - **`swing`'s near hip flexed 1 rad**, as the roll's search left it: the same falls turn and rise,
