@@ -86,6 +86,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
+- Bodies walking round the fallen, foe or friend, and a team passing over a foe lain down 30 s.
 
 ## Open, by layer
 
@@ -147,7 +148,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([plan](plans/2026-10-23-recovery.md)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
-  median at most 4 s, unassisted. Step-up, the baseline, stands 52 of 64 and none within 6 s
+  median at most 4 s, unassisted. Step-up, the baseline, stands 53 of 64 and none within 6 s
   ([step-up on the target](reference/rising.md#step-up-on-the-owners-target)); where it stops is
   in [rising](reference/rising.md#where-the-rise-stops). A policy acting on observations also runs
   the sixteen-fall screen (`research/stand-up-acceptance.mjs`), which does not establish the
