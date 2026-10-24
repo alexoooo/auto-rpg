@@ -7,7 +7,9 @@ four-case Options development panel on the current locomotion from 1/4 to 2/4, w
 both wins are health leads at the cap ([contact exchanges](#contact-exchanges)). The presets retain
 the selected development configurations for the Warrior, Rogue and Skeleton. Contact selection
 fails its sixth fresh campaign with three losses in three completed cases. All five preceding
-qualification campaigns fail too. Equipment is unqualified.
+qualification campaigns fail too. A separate [Warrior body screen](#warrior-body-screen) wins
+its four frozen fresh Options cases without falls; all four are health leads at the cap, not
+injury wins. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -474,8 +476,9 @@ loses two of four, with no injury wins, and these reused geometries do not quali
 
 The frozen presets at `df761155` fail the sixth fresh Options matrix with zero wins and three
 losses in three completed Skeleton cases. All reach the ordinary 120 s cap without falls.
-The third non-win makes ten wins in twelve impossible; the other nine cases remain unplayed,
-not losses. There are no invalid cases. The three completed cases' Wilson 95% interval is
+The third non-win makes ten wins in twelve impossible. The campaign record contains nine
+unfinished entries, not losses; its four Warrior entries have a separate
+[body screen](#warrior-body-screen). There are no invalid cases. The three completed cases' Wilson 95% interval is
 0 to 0.561; this sequentially stopped subset does not estimate the unplayed field's win rate.
 
 Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched bodies, empty hands,
@@ -809,6 +812,38 @@ pilot takes 63.2 active wall seconds.
 The complete configuration, harness, physical row and saved-row comparison remain in
 `research/runs/vanguard/body-hook/`. The single-side comparison contains no complete mirrored
 unit. The configuration is rejected; the selected preset is unchanged.
+
+## Warrior body screen
+
+The unchanged Warrior preset wins all four frozen fresh Options cases across both levels and
+sides, without candidate falls. All four wins are health leads at the ordinary 120 s cap; none
+is an injury win. Its completed-only Wilson 95% interval is 0.510 to 1.000. Four bouts against
+one opponent do not qualify the fighter across the requested field or establish its true win
+rate above 80%. The Skeleton's three non-wins still reject the full twelve-case matrix.
+
+The cases are the Warrior entries of `qualification/conditions-6.json`, with their original
+keys and recipes. The source identity remains
+`sha256:a4f7664de866ef7ce15fff93549fab86be54a3ed322d41034c57652d6bc4e3d6`;
+the freeze verifies that the selected preset equals the archived Warrior configuration before
+play. No candidate changes between cases. The first non-win or candidate fall rejects this
+body screen; the left court pilot wins, so the other three cases run. The complete screen
+passes, protecting the Warrior calibration while Skeleton development remains open.
+
+| Level / gap | Side | Ending | Own / opponent bar | Candidate falls |
+| --- | --- | --- | --- | ---: |
+| Court / 7.93 m | Left | Time-limit win | 0.7626 / 0.6710 | 0 |
+| Court / 7.93 m | Right | Time-limit win | 0.8973 / 0.5763 | 0 |
+| Open / 4.94 m | Left | Time-limit win | 0.9396 / 0.9095 | 0 |
+| Open / 4.94 m | Right | Time-limit win | 0.9435 / 0.9295 | 0 |
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Warriors, empty hands,
+default attributes, Balance 0/0 and zero sense delay, falls continuing to injury or the cap.
+The pilot and three-worker widening take 370.6 active pool wall seconds, below the nine-minute
+cutoff; the widening's first intervals price the pool below that ceiling. Exact configuration,
+source and harness snapshots, full physical rows, case keys, pose digests and uncertainty remain
+in `research/runs/vanguard/warrior-fresh/`. The original campaign record retains its stopped
+schedule; the separate body record supplies these four completed entries. No other opponent,
+equipment, Rogue case or remaining Skeleton case is played by this screen.
 
 ## Tried and not kept
 
