@@ -50,6 +50,13 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
   (`npm run compare` for historical records; `--previous` for live configurations; `npm run match`
   for two minds); kept, or the reason it was not recorded. Git retains old implementations and
   records retain their evidence; a live alternative stays only while an open question uses it.
+- **A claim that a skill works is a drill link**: its drill subject's Ratings page at the version
+  claimed (`?play=ratings&evaluation=strike&subject=<mind>/<action>&version=<version>`); without
+  the link there is no claim.
+- **Watch the reel before sending the link**: play the drill's reel (the failures first) in a
+  browser and say what was seen, the worst trials included, or that it could not be watched.
+- **Only the owner accepts a rung**: numbers are necessary, not sufficient; an agent writes a
+  drill's `accepted.json` only with what the owner said, and no agent marks a rung passed.
 - **A new test answers a specific need** ([Tests](#tests)), and is fast (under about 10 s).
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
 - **Work on main.** A new branch only when the owner asks for one.
