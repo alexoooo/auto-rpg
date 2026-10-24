@@ -187,7 +187,13 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
   /** Its rises, whole, joined part-way and whole over the other side; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
 } {
-  const whole = stepUpRecipe(tuning, base), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
+  const whole = stepUpRecipe(tuning, base);
+  /** The rise from its stage `stage` on. */
+  const from = (stage: string): Recipe => {
+    const at = whole.rise.findIndex(s => s.name === stage);
+    if (at < 0) throw new Error(`the step-up's rise has no ${JSON.stringify(stage)} stage to join at`);
+    return { ...whole, rise: whole.rise.slice(at) };
+  };
   const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
   const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: otherSide }, base)),
     fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
@@ -201,9 +207,8 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
   const reached = (g: GroundReading, to: Position) => to === "standing" && standReady({ down: view.down, ground: g });
   const join = (g: GroundReading): void => {
     const position = g.position;
-    if (position === "fours" || position === "half-kneel") {
-      try { rises[position].beginSupported(); state.entry = position; return; } catch { /* its supports do not all bear: the whole route */ }
-    }
+    // Joined where its supports all bear; else the whole route.
+    if ((position === "fours" || position === "half-kneel") && rises[position].beginSupported()) { state.entry = position; return; }
     state.entry = state.flip ? "other" : "whole"; rises[state.entry].begin();
   };
   return {

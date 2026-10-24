@@ -123,7 +123,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   readonly state: { readonly phase: "idle" | "settle" | "roll" | "rise"; readonly tries: number; readonly lie: Lie; readonly stage: number; readonly time: number; readonly steer: RiseSteer };
   /** How many stages `phase` plays, as the body lies now. */
   stages(phase: "roll" | "rise"): number;
-  beginSupported(posture?: Readonly<Record<string, number>>, options?: { readonly hold?: boolean }): void;
+  /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
+  beginSupported(): boolean;
 } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
@@ -150,7 +151,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
   /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
   const goalsOf = new Map<Stage, Float64Array>();
-  const supportedGoals = new Float64Array(count);
   /**
    * For a bearing stage, by the recipe's limb: whether it bears, and its share; and whether the
    * stage leaves it. `keeps`: it leaves none.
@@ -165,12 +165,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   }
 
   const state = {
-    /** A supported handoff can retain the measured legal posture while its limbs acquire contact. */
-    supportedPosture: null as Record<string, number> | null,
-    /** A caller can retain the first supported bearing stage while a free limb reaches its measured goal. */
-    holdSupported: false,
-    /** Whether the retained stage's supports, transfer, centre and pelvis currently meet its completion predicate. */
-    supportedReady: false,
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
     phase: "idle" as "idle" | "settle" | "roll" | "rise",
     lie: "front" as Lie,
@@ -218,8 +212,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   };
   const settle = (): void => {
     state.phase = "settle";
-    state.holdSupported = false;
-    state.supportedReady = false;
     state.still = 0;
     state.raised = false;
   };
@@ -233,7 +225,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       return;
     }
     state.phase = phase;
-    state.supportedReady = false;
     state.stage = index;
     state.time = 0;
     state.rested = 0;
@@ -257,14 +248,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   /** A step of `stage`; whether its limbs are down, those it leaves let go, the centre of mass at its aim and slow, and the pelvis turned to its. */
   const bear = (stage: BearStage, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
-    const retained = state.phase === "rise" && state.stage === 0 ? state.supportedPosture : null;
     const steer = state.steer, rate = exp(steer.clock), seconds = stage.seconds / rate, n = 1 / seconds;
-    const written = retained ? supportedGoals : goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
-    if (retained) for (let i = 0; i < count; i++) {
-      const channel = muscles.channels[i]!;
-      written[i] = Math.max(channel.dof.spec.min.value, Math.min(channel.dof.spec.max.value,
-        retained[channel.name]! - channel.dof.spec.bind.value));
-    }
+    const written = goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
     const goals = work.goals;
     for (let i = 0; i < count; i++) goals[i] = written[i]! + steerOf(i);
     const ground = upright.lowest(), standing = upright.standing;
@@ -349,31 +334,23 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Lying slack, rolling or rising; or, its rise over, down and off its feet.
     wants: () => state.phase !== "idle" || fallen(),
     begin() {
-      state.supportedPosture = null;
       settle();
       state.tries = 0;
       state.furthest = -1;
     },
-    /** A loaded, clear handoff can retain a detached posture and hold its first bearing stage within that stage's deadline. */
-    beginSupported(posture, options = {}) {
-      if (options.hold !== undefined && typeof options.hold !== "boolean") throw new Error("a supported hold is a boolean choice");
+    beginSupported() {
       const first = recipe.rise[0];
       if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
       if (upright.clearance(notTrunk) <= DOWN || !first.on.every(on => {
         const name = recipe.limbs.find(limb => limb.name === on.limb)!.segment;
         return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
           .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
-      })) throw new Error("a supported rise requires its actual supports and trunk clearance");
-      if (posture && muscles.channels.some(c => !Number.isFinite(posture[c.name])
-        || posture[c.name]! < c.dof.spec.min.value + c.dof.spec.bind.value
-        || posture[c.name]! > c.dof.spec.max.value + c.dof.spec.bind.value)) throw new Error("a supported posture stays within every actual joint range");
-      state.supportedPosture = posture ? { ...posture } : null;
-      state.holdSupported = options.hold ?? false;
-      state.supportedReady = false;
+      })) return false;
       state.tries = 1; state.furthest = -1; state.raised = false;
       enter("rise", 0);
+      return true;
     },
-    end() { state.phase = "idle"; state.holdSupported = false; state.supportedReady = false; },
+    end() { state.phase = "idle"; },
     step(_senses, dt) {
       switch (state.phase) {
         case "idle":
@@ -418,9 +395,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
             case "bear": {
               const there = bear(stage, dt);
               state.time += dt;
-              const held = state.phase === "rise" && state.stage === 0 && state.holdSupported;
-              state.supportedReady = held && there;
-              if (there && !held) enter(state.phase, state.stage + 1);
+              if (there) enter(state.phase, state.stage + 1);
               else if (state.time + dt / 2 >= stage.limit) settle();
               return;
             }
