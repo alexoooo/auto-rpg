@@ -14,6 +14,10 @@ The current answer:
   ([whole-body spike](../reference/whole-body-spike.md)) and 2.8 to 4.6 m/s asked for all it can
   give each step. The fast blows start the hips and trunk 0.1 to 0.3 s before the elbow; a
   controller has to choose now what pays off a third of a second later.
+- **On the Strike drill no straight blow reaches the bar from the guard** (6.0 to 6.2 m/s, the
+  trunk bowed to its range end): the elbow opens no faster than its muscles' curve allows, slower
+  than a person's punch. With the elbow at a punch's speed only an overhead chop lands, and only at
+  120 Hz ([a timed punch on the drill](#a-timed-punch-on-the-drill)).
 - **Speed is not worth.** The fastest blows land with the elbow bent, the fist meets 0.2 to
   1.4 kg, and they take 2 to 5 % of a Warrior's head. A straight arm on the line meets 6 kg. The
   game's straight punch wounds the chest at 0.05 to 0.15 HP a blow.
@@ -166,6 +170,93 @@ centre (its stand-off, `reach` 0.8 of the arm, ±0.05 m), and its 8 touches on t
 
 The owner watched the Puncher's and the Duellist's reels: the two stand very close, and the punch
 looks awkward and does not land.
+
+## A timed punch on the drill
+
+The Punch plan's step 2 asked whether a straight, aligned blow at the bar exists from the guard.
+**On today's body, no; with a faster elbow, only a chop from overhead, and only at 120 Hz.**
+
+`research/punch-drill.mjs` searches the Puncher's straight punch with its drive on a schedule
+(`StraightPunch.timed`: the trunk's, both legs' and the striking arm's 18 channels, each a level,
+a start and a length; the gap, the arm's aim and, in two runs, the posture beneath) by CMA. Each
+candidate is a trial of the drill's still rung (the Warrior's right hand, the middle mark), scored
+by the bar. Node, Rapier, 120 Hz; the best are read again at 480 Hz.
+
+| Run | Gap, m | Speed, m/s | Mass, kg | Straight, cos | Contact, s | At 480 Hz |
+|---|---|---|---|---|---|---|
+| seed 1, 60 generations | 0.84 | 6.01 | 2.81 | 0.935 | 0.47 | 5.61 m/s, 2.35 kg, 0.639 |
+| seed 2, 80 generations | 0.98 | 6.24 | 2.02 | 0.932 | 0.26 | 5.90 m/s, 1.57 kg, 0.948 |
+| seed 3 from seed 1, 80 generations | 0.84 | 6.01 | 2.81 | 0.935 | 0.47 | as seed 1 |
+| target 0.2 m to the right, posture searched, 15 generations | 0.83 | 4.01 | 1.85 | 0.943 | 0.13 | - |
+| from seed 2, posture searched, 25 generations | 1.09 | 5.19 | 2.34 | 0.983 | 0.33 | - |
+
+**No blow meets the bar** (6.8 m/s, 2.12 kg, within 20°, within 0.5 s). The best come 0.6 to 0.8
+m/s short, and are slower at 480 Hz. **Nor do they look like a punch.** Seed 2's best bends the
+lumbar spine to the end of its range (0.89 rad) to carry the fist in. At contact the elbow is
+still 82° short of straight, and the forearm meets the target's guard hand as the fist meets the
+chest.
+
+**The elbow limits the fist's speed.** The fist gains its last speed as the elbow opens, and the
+elbow opens at 13 to 17 rad/s. There its extensors give a sixth to a tenth of their isometric
+torque. Boxers' straight punches open the elbow at 22 to 41 rad/s: 32.9 rad/s for professionals
+(Gait Posture 49S, 2016, "Peak joint angular velocities of the straight punch in professional
+boxers"). The model's elbow extension is Frey-Law's column (60 to 300 deg/s, up to 5.2 rad/s) on
+Thelen's curvature 0.25. That puts its unloaded speed at 25.5 rad/s, so a person's punch is past
+what the model's muscles can turn.
+
+Frey-Law's points fix the curve near rest, not at its end. A flatter curve fits them as well or
+better, with 1.5 to 3 times the torque at 15 to 20 rad/s:
+
+| Curvature | Unloaded, rad/s | Fit, rms of the shares | N m at 10 rad/s | at 15 | at 20 |
+|---|---|---|---|---|---|
+| 0.05 | 94.8 | 0.030 | 15.2 | 10.7 | 8.0 |
+| 0.1 | 51.5 | 0.032 | 14.5 | 9.6 | 6.6 |
+| 0.1755, unloaded at the boxers' 32.9 rad/s | 32.9 | 0.035 | 13.4 | 8.0 | 4.6 |
+| 0.25 (the model's) | 25.5 | 0.037 | 12.5 | 6.5 | 2.8 |
+
+**With a faster elbow, the search finds a chop.** These runs used a scratch worktree that set the
+elbow's curvature; nothing of it is kept. The shoulder borrows the elbow flexors' curve, so it
+moved with them.
+
+| Arm curves | Run | Outcome | Speed, m/s | Mass, kg | Straight | Contact, s |
+|---|---|---|---|---|---|---|
+| curvature 0.1 | from seed 2, 60 generations | weak | 6.58 | 2.49 | 0.961 | 0.21 |
+| curvature 0.1 | 40 more generations | weak | 6.66 | 2.13 | 0.997 | 0.20 |
+| elbow unloaded at 32.9 rad/s both ways (extension 0.1755, flexion 0.1319) | from the above, 40 generations | **landed** | 7.86 | 2.27 | 0.963 | 0.31 |
+| the same, read at 480 Hz | | weak | 6.19 | 1.90 | 0.891 | 0.31 |
+
+The landed blow is no punch. The shoulder flexes to 2.17 rad and lifts the fist to 1.62 m, above
+the head. The fist then comes down onto the chest, with the lumbar spine bent 0.76 rad and the
+elbow 69° short of straight. Every run's best bends the lumbar spine to near its range end. The
+bar's straight test reads only the fist's last 0.1 m against the contact's normal, so a chop
+onto the chest's capsule counts. The drill cannot tell a chop from a punch; only the owner's eye
+can.
+
+**What it would take.** A punch at the bar needs at least these three:
+
+- the arm's curves past Frey-Law's speeds: Thelen's 0.25 kept, or the elbow's unloaded speed set
+  to a punch's (32.9 rad/s), a change to every arm in the game;
+- a bar that reads form: the elbow near straight at contact, the trunk's lean, the fist's path
+  below the shoulder;
+- a trunk that turns the shoulder through: the thoracic joint turns 0.43 rad either way, the
+  lumbar 0.08, and their muscles give 51 to 53 N m.
+
+## On the fight rung
+
+The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)
+throws each strike in place of its mind's own first to fourth action, in that mind's bout against
+seven game minds. No strike lands at the bar:
+
+| Strike | Weak | Elsewhere | Missed | Outside | Unreached | Fell | Abandoned |
+|---|---|---|---|---|---|---|---|
+| puncher/strike | 48 | 112 | 10 | 22 | 32 | 0 | 0 |
+| scrapper/straight | 47 | 134 | 38 | 5 | 0 | 0 | 0 |
+| scrapper/cross | 34 | 136 | 49 | 5 | 0 | 0 | 0 |
+| duellist/swing high | 116 | 82 | 3 | 10 | 8 | 3 | 2 |
+| vanguard-warrior/strike | 45 | 57 | 9 | 1 | 0 | 0 | 0 |
+
+"Elsewhere" is mostly the foe's guard. "Unreached" is a fight that never came to its third or
+fourth action within 30 s.
 
 ## Open choices
 

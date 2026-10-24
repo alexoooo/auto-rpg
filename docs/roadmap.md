@@ -55,10 +55,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
 
-1. **Now:** Punch steps 1 and 2: the human bar in the Strike drill, then whether a straight,
-   aligned punch at the bar exists from the guard. Then Drills step 2 (the moving target, overlays
-   and side by side), which Punch step 5 needs, and Footwork's first rungs, with Options step 2
-   (the legs' skills and the intent) before Footwork.
+1. **Now:** Punch waits on the owner's choice below: step 2 found no straight punch at the bar
+   from the guard. Steps 1 (the bar) and 3 (fight moments, the `fight` rung) have landed. Then
+   Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
+   Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
 2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
    the back, on the side, hands and knees, kneeling, standing); its edges are skills, slow ones
    that hand over at rest and fast ones that carry momentum (a sit-up tucking onto the feet,
@@ -78,6 +78,14 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **Choices**, each landed at its default:
 
+- The punch's body ([a timed punch on the drill](analysis/2026-10-08-punch-layer.md#a-timed-punch-on-the-drill)):
+  no straight blow at the bar exists from the guard; the elbow opens at most at its unloaded 25.5
+  rad/s (Frey-Law on Thelen's curvature), where boxers open it at 22 to 41. Set at its unloaded speed to a
+  punch's, 32.9 rad/s, a search lands only an overhead chop, and only at 120 Hz. The choices:
+  the arm's curves (kept, or the elbow's end set to a punch's speed), a form test in the bar (the
+  elbow near straight at contact, the trunk's lean, the fist below the shoulder), and the trunk's
+  turn (0.43 rad thoracic, 0.08 lumbar).
+
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search or a change to the body; whether the
   bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
@@ -94,6 +102,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=ratings&evaluation=strike`), the failures first; acceptance is the owner's. The
   Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing
   ([Punch](plans/2026-10-24-punch.md)).
+- The Strike drill's fight rung, a strike in place of its mind's own in a bout
+  (`?play=ratings&evaluation=strike`, the newest pool; the still rung is the other pool listed):
+  no strike lands at the bar; most meet the foe's guard.
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
