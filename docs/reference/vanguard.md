@@ -17,7 +17,8 @@ preserving four Options wins. At that source, the [fresh Warrior screens](#fresh
 win four cases each against Counter-puncher and Options, but the wider field stops on a Reptile
 loss. The selected [low-entry revision](#replanting-low-support) wins all four retained Reptile
 cases by injury without Warrior falls. The current source wins four [fresh Reptile cases](#fresh-body-screens)
-on the Warrior and four fresh Options cases on the Rogue. The Skeleton's additional route room
+on the Warrior and four fresh Options cases on the Rogue. The Rogue's selected [route buffer](#rogue-route-room)
+also clears its Counter-puncher court loss while preserving four Options wins. The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
 remain unqualified.
 
@@ -1218,6 +1219,103 @@ establish a true win rate above 80% or qualify the full field and equipment. Com
 selection exclusions, native rows, ledgers, blows, source identities, harnesses and summaries
 remain in `research/runs/vanguard/warrior-replant-fresh/` and `rogue-options-fresh/`. Earlier
 development cases and results from other sources are not added to these results.
+
+## Rogue route room
+
+The Rogue selects 0.15 m of additional route room. It wins all twelve retained Counter-puncher
+and Options cases without falls, including the right-court loss of its 0.1 m setting. This is
+development evidence; the selected setting needs fresh confirmation. The Warrior keeps 0.1 m
+and the Skeleton keeps stock navigation.
+
+The 0.1 m setting converts a retained
+left-court Counter-puncher loss at 6.04 m into an injury win, clearing four Counter-puncher cases
+while preserving all four Options wins. No bout in either before/after panel has a fall.
+One Options court win changes from an injury ending to a health lead at the cap; the other
+seven candidate wins comprise six injury wins and the unchanged open-left cap win.
+
+The selected reference fails its fresh Counter-puncher screen after one injury win and one
+injury loss, with both right-side cases interrupted. The original stopped screen stays intact.
+Its court-left bout commits only three punches: all five snapshots from 10 through 50 s remain
+in wall clearance and weight shift, with stride count 15 and about 0.02 m of centre travel.
+The buffered challenger commits 41 punches there and wins at 68.6583 s. Its ending bars are
+0.9185 / 0.6122, against the reference loss's 0.5949 / 0.9076, Vanguard first.
+
+| Opponent / level / gap | Side | Selected reference | Additional route room |
+| --- | --- | --- | --- |
+| Counter-puncher / court / 6.04 m | Left | Fatal loss at 58.6333 s | Fatal win at 68.6583 s |
+| Counter-puncher / court / 6.04 m | Right | Fatal win at 92.775 s | Fatal win at 98.2 s |
+| Counter-puncher / open / 2.83 m | Left / right | Fatal wins at 42.2 / 99.5667 s | Exact reference bouts |
+| Options / court / 6.24 m | Left | Fatal win at 94.9583 s | Fatal win at 39.85 s |
+| Options / court / 6.24 m | Right | Fatal win at 91.8167 s | Cap win, 0.8898 / 0.6715 |
+| Options / open / 3.12 m | Left | Cap win, 0.8087 / 0.5674 | Exact reference bout |
+| Options / open / 3.12 m | Right | Fatal win at 57.8 s | Exact reference bout |
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Rogues, empty hands,
+default attributes, Balance 0/0 and zero sense delay, with falls continuing to injury or the
+ordinary 120 s cap. Both configurations run at source `fe1c139b`. Only the candidate's navigator
+changes. It uses the shared extra-room part with `room: 0.1`; physical geometry, muscles, assists,
+guard, actions and planner settings remain fixed. These are development geometries.
+
+Six complete reference rows are reused exactly. The candidate's eight wins earn the two missing
+reference Counter-puncher sides; the new readings take 163.4 active pool wall seconds, below
+the nine-minute cap. The preceding stopped fresh screen takes 43.7 s. There are no invalid or
+unfinished comparison cases. `npm run compare` reads two complete fault-free mirrored units
+per opponent, with no changed shared context: Counter-puncher improves from 3/4 to 4/4; Options
+stays 4/4. All four open-stage full pose digests remain exact. Every candidate injury win matches
+its committed punch's same-time hand and target observation. Each descriptive 4/4 Wilson
+interval is 0.5101–1.000 and does not establish the full target.
+
+The 0.1 m production preset at `54cb5fa2`, source `2e67516f`, exactly matches that challenger config.
+The Warrior and Skeleton configs are unchanged; the Skeleton explicitly keeps stock navigation.
+The whole Rogue mind round-trips through its edited link. Typecheck, all 117 tests, production
+build, the one-file entrant scope and the line-ending gate pass. The production Arena briefly
+shows a committed punch beside the pillar, with advancing frames and no console errors or
+warnings. The existing large-chunk build warning remains; the temporary preview is stopped
+by PID. Complete configurations, native rows, full ledgers and blows, comparisons, source
+identities, selection probe, browser observation and harnesses remain in
+`research/runs/vanguard/rogue-counter-fresh/` and `rogue-route-room/`.
+
+### Fifteen centimetres
+
+The 0.1 m preset fails its fresh Counter-puncher body screen with three injury wins and one
+right-court cap loss at 6.82 m, bars 0.8380 / 0.8618. None falls. The failed bout commits only
+21 punches; snapshots from 20 through 80 s remain in wall clearance at stride count 17. Its
+other fresh starts are the mirrored open stage at 4.89 m. All three fatal wins match committed
+punch observations. The screen takes 75.1 active pool wall seconds. Its four preselected Options
+cases are unplayed when the deciding loss stops execution. Frozen configs, exclusions, rows,
+unfinished coverage and the harness remain in `research/runs/vanguard/rogue-room-fresh/`.
+
+The 0.15 m trial changes only the Rogue's `navigation.room`. It wins that right-court case at
+the cap, 0.8183 / 0.5952, with 94 committed punches, and preserves the other eleven recorded
+wins. The resulting twelve cases comprise nine injury wins and three health leads at the cap.
+All candidate and reference bouts have no falls; all six open-stage pose digests remain exact.
+
+| Court / opponent / gap | Side | 0.1 m room | Selected 0.15 m room |
+| --- | --- | --- | --- |
+| Counter-puncher / 6.82 m | Left | Fatal win at 56.975 s | Fatal win at 82.75 s |
+| Counter-puncher / 6.82 m | Right | Cap loss | Cap win, 0.8183 / 0.5952 |
+| Counter-puncher / 6.04 m | Left | Fatal win at 68.6583 s | Cap win, 0.9041 / 0.6070 |
+| Counter-puncher / 6.04 m | Right | Fatal win at 98.2 s | Fatal win at 100.15 s |
+| Options / 6.24 m | Left | Fatal win at 39.85 s | Fatal win at 56.15 s |
+| Options / 6.24 m | Right | Cap win | Fatal win at 40.5083 s |
+
+The six open-side results above stay exact. Native saved comparisons read two complete,
+fault-free mirrored units in each of the three groups, with no changed shared context. The
+6.82 m Counter-puncher group improves from 3/4 to 4/4; both preservation groups remain 4/4.
+Each candidate injury win matches its committed punch's same-time hand and target observation.
+All twelve reference rows are reused; the new candidate cases take 189.1 active pool wall
+seconds, below the nine-minute cap. There are no invalid or unfinished comparison cases.
+These known cases do not establish a held-out win rate or qualify the other bodies and equipment.
+
+Harness and rules are the matched-Rogue Node Arena Duel above. The prototype runs at source
+`2e67516f`; the selected preset at `be2499e2`, source `2d449164`, exactly matches its config.
+Both other Vanguard presets remain exact, and the edited mind link round-trips. Typecheck,
+all 117 tests, build, one-file entrant scope and line endings pass. The brief production browser
+look shows approach and repeated punches beside the pillar with advancing frames and no console
+errors; its preview is stopped by PID. Full configs, rows, ledgers and blows, native comparisons,
+source and selection identities, browser record and harness remain in
+`research/runs/vanguard/rogue-room-15cm/`. Candidate header commit metadata names the actual
+`54cb5fa2` source; correcting the inherited older commit labels changes no raw physics or recipe.
 
 ## Skeleton route and blocked steps
 
