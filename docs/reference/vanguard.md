@@ -677,6 +677,17 @@ pilots. Their narrower deficits are descriptive development evidence. No finite-
 is selected, and all motor prototypes are removed. Repeated arm-drive reversals do not by
 themselves establish the cause of the failed matchup.
 
+## Surface selection
+
+At commitment, all six punches in the limiting open-left prefix at 7.63 m anchor to the same
+segment the surface selector chooses: `upperTrunk`. This reading does not reproduce a lost
+segment identity, so the anchor assignment is unchanged. The 14.175 s diagnostic repeats pose
+digest `d24aef774da56f80`; it is the same prefix, not six independent bouts. Exact queries,
+selected surfaces, anchored segments, recipe and harness remain in
+`research/runs/vanguard/anchor-identity/reading.json` and `reading-source.json`. Harness: Node
+Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands, default
+attributes, Balance 0/0 and zero sense delay.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
