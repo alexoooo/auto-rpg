@@ -11,7 +11,9 @@ qualification campaigns fail too. A separate [Warrior body screen](#warrior-body
 its four frozen fresh Options cases without falls; all four are health leads at the cap, not
 injury wins. A seventh [torso-cover challenger](#torso-cover-challenger) campaign is incomplete
 after one fatal loss and a price cut. A fresh [Warrior Counter-puncher screen](#warrior-counter-puncher-screen)
-stops with an open-stage win and a court loss. Equipment is unqualified.
+stops with an open-stage win and a court loss. The selected Warrior's [additional route room](#room-for-an-exchange)
+turns that court loss into a win and clears all four Counter-puncher development cases while
+preserving four Options wins. These known cases do not qualify the new setting. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1010,6 +1012,65 @@ is restored exactly. Typecheck and the two-file entrant scope check pass. The tr
 active wall seconds. Source `f4031fa1`, configurations, full row and harness are retained under
 `research/runs/vanguard/warrior-exit/`. Its saved-record `npm run compare` reading has zero complete
 mirrored units; the single-case failure is not a paired-panel improvement claim.
+
+## Room for an exchange
+
+The Warrior's selected navigator, `vanguard-navigation` (`navigation-part.ts`), gives approaches
+an additional 0.1 m of horizontal obstacle room. It pads a detached copy of sensed solids for
+the shared visibility navigator's route and steering; physical collision geometry, anatomy,
+attributes, muscles and the ordinary clearance exit remain unchanged. The setting is editable
+in the navigation slot, and zero uses the ordinary navigator. Rogue and Skeleton keep their
+ordinary navigation. The new state contains the wrapped navigator and its frozen geometry cache;
+an Arena save/load probe reproduces the complete tail state and pose digest exactly.
+
+Selection requires all four retained Counter-puncher bouts to win and preservation of all four
+earlier Warrior Options wins without candidate falls. A 0.2 m trial
+clears Counter-puncher but loses the first Options court case at the cap, so it is rejected.
+The 0.1 m trial clears both screens. These are known geometries, not fresh qualification.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Warriors, empty hands,
+default attributes, Balance 0/0, zero sense delay, continuing after falls to injury or 120 s.
+The ordinary navigator's two missing Counter-puncher sides are completed for the paired study;
+its two existing rows are reused. The original stopped fresh-screen record is unchanged.
+
+| Counter-puncher case | Ordinary navigator | Additional 0.2 m | Selected 0.1 m |
+| --- | --- | --- | --- |
+| Court / 4.58 m / left | Fatal loss at 20.6833 s | Fatal win at 65.3167 s | Fatal win at 53.9083 s |
+| Court / 4.58 m / right | Fatal win at 94.5583 s | Fatal win at 34.6 s | Fatal win at 81.6417 s |
+| Open / 4.18 m / left | Fatal win at 105.2333 s | Exact same bout | Exact same bout |
+| Open / 4.18 m / right | Fatal win at 42.475 s | Exact same bout | Exact same bout |
+
+Every Counter-puncher bout above has no falls on either side. The selected left-court bout
+commits 30 completed punches instead of three; its ending bars are 0.8558 / 0.5632. Both open-stage
+bouts preserve the ordinary navigator's complete pose digests. Saved-record `npm run compare`
+reads two complete, fault-free mirrored units with no changed shared context: four wins rather
+than three. Two conditions do not establish an opponent's true win rate.
+
+| Options case | Additional 0.2 m | Selected 0.1 m, Vanguard / opponent bar |
+| --- | --- | --- |
+| Court / 7.93 m / left | Cap loss, 0.8518 / 0.9669 | Cap win, 0.8205 / 0.6570 |
+| Court / 7.93 m / right | Unplayed after rejection | Cap win, 0.8381 / 0.6727 |
+| Open / 4.94 m / left | Unplayed after rejection | Cap win, 0.9396 / 0.9095 |
+| Open / 4.94 m / right | Unplayed after rejection | Cap win, 0.9435 / 0.9295 |
+
+The selected Options cases have no falls on either side. Their two open-stage bouts match the
+earlier [body screen](#warrior-body-screen) digests exactly; the changed court bouts preserve
+wins. Counter-puncher and Options each supply four development wins, not eight independent
+held-out wins. Their other starts, other opponents, bodies and equipment remain unqualified.
+
+Complete recipes, sources, native rows, comparisons, decisions and harnesses are retained in
+`research/runs/vanguard/warrior-room/` for the rejected 0.2 m setting and paired ordinary baseline,
+and `research/runs/vanguard/warrior-room-10cm/` for the selected setting. Their full source hashes
+start `2a1c976a` and `ba63a215`. The 0.2 m Counter-puncher pool takes 62.6 active wall seconds,
+its Options rejection 58.6 s, and the two missing baseline rows 33.1 s. The selected setting's
+Options pool takes 98.9 s and Counter-puncher 61.9 s. Each pool is priced below its nine-minute
+cutoff. There are no invalid cases. The selected save/load probe also verifies unchanged sensed
+geometry and a whole-config link round-trip.
+
+Typecheck, all 116 tests, production build, entrant-only scope and the line-ending gate pass.
+The production Arena briefly shows the selected navigator approaching and exchanging punches
+beside the column, with advancing render frames and no console errors. The existing large-chunk
+build warning remains; the temporary preview is stopped by its own PID.
 
 ## Absorbed contact scores
 
