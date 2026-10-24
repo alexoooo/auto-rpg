@@ -357,6 +357,24 @@ on the coordinate-limit profile. Release needs the weight actually inside the re
 ([Recovery transfer](recovery-transfer.md)). A stage that leaves nothing is done at its place
 alone: `fours` at 1.4 rad, shins 0.38 each, hands 0.12, is done on the skeleton after 17 steps.
 
+**At rest short of its aims** (`Recipe.progress`'s `restSeconds` and `restWiden`, set from
+`StepUpTuning.rest`): a stage whose limbs are down and let go, whose body is as slow as the stage
+asks, and whose centre of mass and pelvis are within twice the stage's tolerances for 0.3 s is done
+too. The Rogue's weaker arms and legs leave its lunge and `fours` still a few centimetres or a
+few tenths of a radian short, where the stage waited out its limit and the attempt began again;
+at rest it hands on in 25 of its 32 target falls, in `onto the toes` and each lunge rung. The
+Rogue's alone, on 128 falls (the target's sixteen directions and three offsets of 5.625 degrees,
+`research/rising-step-search.mjs --score`, 30 s cap, at `b1c34096`):
+
+| Rest | empty, of 64 | club, of 64 | stood either way, median s |
+|---|---|---|---|
+| none | 44 | 30 | 15.71 |
+| **0.3 s within twice** | 47 | 33 | 15.41 |
+
+Paired, 10 falls stood only with it and 4 only without. Within four times its tolerances the
+Rogue stands 9 of the target's 32; for the Warrior, twice its tolerances stood 9 of its 32 target
+falls against 29, so the Warrior has no rest.
+
 ### The abort
 
 A rise whose trunk has been off the ground and comes back down has gone down. Once every segment of
@@ -709,16 +727,17 @@ What a rising body costs a step is in `play.md#bodies-in-the-step`.
 
 Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt. On
 [the owner's target](#the-owners-target) (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
-`npm run evaluate -- rising-target`, at `7f893332` with the held shove given again):
+`npm run evaluate -- rising-target`, at `b1c34096` with the Rogue's rest,
+[at rest short of its aims](#what-a-bearing-stage-is-done-by)):
 
 | Body | Loadout | Stood, of 16 | Median, s |
 |---|---|---:|---:|
-| Warrior | empty | 14 | 15.6 |
-| Warrior | club | 15 | 14.9 |
-| Rogue | empty | 12 | 16.6 |
+| Warrior | empty | 14 | 14.5 |
+| Warrior | club | 15 | 13.6 |
+| Rogue | empty | 13 | 15.5 |
 | Rogue | club | 4 | the cap |
 
-45 of 64; none within 6 s, and the 4 s median is not met (16.2 s).
+46 of 64; none within 6 s, and the 4 s median is not met (14.9 s).
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
   and the run's speed kept, the same settings stood 46 of 64 against 40 (at `627ecc3a`), but the

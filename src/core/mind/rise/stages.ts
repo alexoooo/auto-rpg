@@ -148,6 +148,14 @@ export interface Recipe {
     readonly turn?: number;
     readonly settleSpeed?: number;
     readonly settleSeconds?: number;
+    /**
+     * A bearing stage whose body has come to rest short of its aims is done too: its limbs down
+     * and let go, the body as slow as the stage asks, and the centre of mass and the pelvis within
+     * `restWiden` times the stage's tolerances for `restSeconds`, s. Absent, a stage is done at
+     * its aims alone.
+     */
+    readonly restSeconds?: number;
+    readonly restWiden?: number;
   };
   /** In the order the riser's memory keeps them. */
   readonly limbs: readonly LimbSpec[];

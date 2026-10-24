@@ -18,11 +18,14 @@ interface StageTiming { readonly scale: number; readonly progress?: NonNullable<
 /**
  * **Step up's settings**, searched (`research/rising-step-search.mjs`): how still a body lies
  * before it reads its lie, the stance's climb from where the rise leaves the body to standing
- * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`.
+ * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
+ * a body's bearing stages come to rest short of their aims, how long at rest and within how many
+ * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`).
  */
 interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
+  readonly rest?: { readonly seconds: number; readonly widen: number };
   readonly stages: Readonly<Record<string, StageTiming>>;
 }
 
@@ -67,7 +70,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
     },
   },
   "workshop-rogue": {
-    settle: { speed: .06004, seconds: .05 }, climb: 1.159,
+    settle: { speed: .06004, seconds: .05 }, climb: 1.159, rest: { seconds: .3, widen: 2 },
     stages: {
       "roll wind": { scale: .923 },
       "roll swing": { scale: 1.605 },
@@ -144,7 +147,8 @@ export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe 
     return stage.kind === "bear" ? { ...stage, seconds: stage.seconds * timing.scale, ...(timing.progress ? { progress: timing.progress } : {}) }
       : { ...stage, seconds: stage.seconds * timing.scale };
   };
-  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds },
+  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
+    ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
     roll: { back: base.roll.back.map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
     rise: base.rise.map(timed("")) });
 }

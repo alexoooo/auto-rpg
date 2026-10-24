@@ -129,6 +129,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
   const speed = recipe.progress?.speed ?? SLOW, near = recipe.progress?.near ?? NEAR, turnTolerance = recipe.progress?.turn ?? TURNED;
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
+  const restSeconds = recipe.progress?.restSeconds ?? null, restWiden = recipe.progress?.restWiden ?? 1;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own, recipe);
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
@@ -173,8 +174,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
     phase: "idle" as "idle" | "settle" | "roll" | "rise",
     lie: "front" as Lie,
-    /** The stage under way, in the roll or the rise; the time in it, s; how long it has lain still, s. */
-    stage: 0, time: 0, still: 0,
+    /** The stage under way, in the roll or the rise; the time in it, s; how long it has lain still, s; how long a bearing stage's body has rested short of its aims, s. */
+    stage: 0, time: 0, still: 0, rested: 0,
     /** How many attempts this fall has had, and the furthest stage of the rise any reached, -1 for none. */
     tries: 0, furthest: -1,
     /** Whether the bearing stage under way has let go the limbs it leaves: the centre of mass has been over the others. */
@@ -235,6 +236,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     state.supportedReady = false;
     state.stage = index;
     state.time = 0;
+    state.rested = 0;
     state.lifted = false;
     state.transfer.setAll(0);
     if (phase === "rise" && index > state.furthest) state.furthest = index;
@@ -325,9 +327,14 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
     const widened = 1 + steer.hurry, tolerance = (stage.progress?.turn ?? turnTolerance) * widened;
-    const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * seconds * seconds < tolerance * tolerance;
+    const turnLeft = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * seconds * seconds, apart = dx * dx + dy * dy + dz * dz;
     const slow = (stage.progress?.speed ?? speed) * widened, close = (stage.progress?.near ?? near) * widened;
-    return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < slow * slow && dx * dx + dy * dy + dz * dz < close * close;
+    const borneAndSlow = down && (keeps || state.lifted) && v.x * v.x + v.y * v.y + v.z * v.z < slow * slow;
+    if (restSeconds === null) return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close;
+    // At rest short of its aims: within the widened tolerances, slow, for the recipe's time.
+    const w = restWiden * restWiden;
+    state.rested = borneAndSlow && turnLeft < tolerance * tolerance * w && apart < close * close * w ? state.rested + dt : 0;
+    return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close || state.rested + dt / 2 >= restSeconds;
   };
 
   return {
