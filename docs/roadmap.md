@@ -62,12 +62,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **Choices**, each landed at its default:
 
-- Each character's balance, a per cent of its weight; every character has 0 %. At 25 % for both
-  sides, 19 of 99 bouts end by a fall where 80 do at none ([assist](reference/assist.md)).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
-- Where a fighter aims: the head, or the part a blow pays most on
-  ([blows](reference/blows.md#aim)); and whether a bare fist strikes at a head at all
-  ([wounds](reference/wounds.md#shares)).
 - What the bodies hold now that a hit point is 100 J of blunt blow
   ([wounds](reference/wounds.md#unit)); whether a blunt blow takes a part off; what two bodies
   that walk into each other cost ([bouts](reference/bouts.md#searched-blows)); the stiffness of
@@ -77,10 +72,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
-- How a Crypt fight ends. The duellist's club strike stalls in its preparation chest to chest, so
-  no club blow lands and nothing dies (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to
-  0.05). Options: another mind for the Crypt's humanoids; the strike stepping back to its stand-off;
-  a fall ending a Crypt fight (`fallEndsFight`, `src/dungeon/actors.ts`); smaller pools.
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
@@ -88,16 +79,13 @@ The plans in flight, and what comes next across them. Each plan names its own de
   stand-up: every way up from hands and knees shorter than the kneel-up is closed by that stop
   over a foot that is one box ([Recovery](plans/2026-10-23-recovery.md) step 3). Unchanged, Stand
   up keeps the kneel-up and its time (52 of 64, none within 6 s).
-- The look's and the sound's values: torch density, which floor and wall textures ship,
-  `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
-  costume, after seeing the bones in play.
+- An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**
 
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
-- A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
-  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`).
+- A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
 - The faster walk, 1.5 to 1.7 m/s forward, in Arena bouts and the Crypt.
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
@@ -265,6 +253,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
+  - nothing dies: the duellist's club strike stalls in its preparation chest to chest, so no club
+    blow lands (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to 0.05). A Crypt fight
+    ends by a mind that kills, not by a rule (the owner, 2026-10-24);
   - the stance walk runs away sideways after a half turn, read before the walk steered the way its
     route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;

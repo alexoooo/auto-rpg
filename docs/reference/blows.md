@@ -619,7 +619,8 @@ and took off its foe, at the head / at what pays.
 - **64 gaps a cell is a pilot**: a cell's d has a standard error near 0.13; 384 gaps a cell
   would take about 4 h a set, and were not played.
 
-`RECIPE_FIGHTER.tactics.aim` is `"head"`.
+`RECIPE_FIGHTER.tactics.aim` is `"head"`. Where a fighter aims, a bare fist at a head included,
+is its mind's choice, not a rule (the owner, 2026-10-24).
 
 ## Robustness
 

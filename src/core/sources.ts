@@ -216,7 +216,8 @@ export const SOURCES = Object.freeze({
       + "It is a per cent of the body's own weight, the most force its assist gives (the owner: 'why can we "
       + "not have it as a percentage?'). Proposed, for the owner to confirm: with each per cent go 0.0026 "
       + "weight-metres of moment, the force at a lever of 0.26 m, so that 25 % is the ceiling measured at a "
-      + "quarter of a weight and 50 N m for the Warrior; and every character starts at 0.",
+      + "quarter of a weight and 50 N m for the Warrior. Every character has 0 (the owner, 2026-10-24: "
+      + "'default balance 0').",
     record: "docs/reference/assist.md#balance",
   },
   "owner-haste": {

@@ -1,9 +1,10 @@
 # The look and the sound
 
 What the screens draw and play, and the numbers they do it with. Each section names its constants
-and where they live. A value is **set by eye** (or by ear) while the thing was built, and kept as
-found for the owner to confirm, unless the section says the owner chose it; only how loud a touch
-is and how fast a body's air begins are measured ([Sound](#sound)). None of it decides a fight,
+and where they live. A value is **set by eye** (or by ear) while the thing was built, or chosen by
+the owner where the section says so; the owner accepted the look and the sound as they are
+(2026-10-24). Only how loud a touch is and how fast a body's air begins are measured
+([Sound](#sound)). None of it decides a fight,
 except that a drawn wall, post or door is also a collider of the same size.
 
 ## Arena light
