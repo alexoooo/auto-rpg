@@ -845,6 +845,83 @@ in `research/runs/vanguard/warrior-fresh/`. The original campaign record retains
 schedule; the separate body record supplies these four completed entries. No other opponent,
 equipment, Rogue case or remaining Skeleton case is played by this screen.
 
+## Absorbed contact scores
+
+Estimating absorbed injury turns the fresh left-court Skeleton loss at 6.93 m into a win,
+but the mirrored case adds a fall and rejects the candidate. Braking its low-target turn and
+removing anticipatory low guard each win that mirrored bout at the cap, but both still fall.
+All three development screens fail their declared physical gate; none changes the selected preset.
+
+The saved-row audit joins impact rows to committed hand observations at exactly the same time,
+with the same striking hand and struck segment. It excludes unmatched and noncommit contacts;
+accepted injury is harness-only validation, never a policy input. Four of five audited cases
+rank the same hand by learned contact score and observed injury per attempted second. On the
+left court at 6.93 m the contact rates favor the right hand, 4.765 against 3.551, while observed
+injury rates favor the left, 0.01471 against 0.01308 HP/s. Exact inputs, join counts and source
+remain in `research/runs/vanguard/score-audit/`.
+
+The prototype scores onset impulse times preceding normal closing speed over two, shares that
+energy by the natural surfaces' compliance, subtracts bare-hand protection and normalizes the
+nominal blunt price by the target body's fixed pool capacity. Its preceding observed motion,
+completed-sample identity and action credit live in its plain decision state. It reads no live
+health, opponent policy or engine handle. A detached probe verifies material sharing, protection,
+preceding motion, sample deduplication and complete decision-state replay. Typecheck and the
+entrant scope check pass.
+
+| Controller / case | Result | Own / opponent bar | First candidate fall |
+| --- | --- | --- | --- |
+| Absorbed score / court 6.93 m, left | Time-limit win | 0.6289 / 0.5624 | None |
+| Absorbed score / court 6.93 m, right | Time-limit loss | 0.9115 / 0.9116 | 28.6333 s |
+| Low-turn braking / court 6.93 m, right | Time-limit win | 0.8186 / 0.8060 | 28.5083 s |
+| Without anticipatory low guard / court 6.93 m, right | Time-limit win | 0.9076 / 0.8640 | 30.6750 s |
+
+All bouts continue to the ordinary 120 s cap. The absorbed-score widening interrupts its other
+three cases after the fall; neither ablation starts its four remaining cases. Unfinished cases
+are not results. The first cohort takes 191.6 active pool wall seconds, braking 66.2 and removal
+75.8, each below its nine-minute cutoff. No injury win is recorded.
+
+The 28.6333 s replay exactly preserves the saved physical blow prefix and has pose digest
+`e75d3a875cd15f0c`. No flank step is commanded before the fall. Low guard asks a backward turn,
+support remains in its standing stage, and the observed body keeps accelerating during contact
+before recovery takes over. This is contact-laden motion, not a driven-speed qualification.
+The ablations do not establish that low guard alone causes the fall. Stability around a
+collapsing opponent remains unresolved.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons against Options,
+empty hands, default attributes, Balance 0/0 and zero sense delay. Exact source, configurations,
+probes, full rows, replay and saved-row comparisons remain in `research/runs/vanguard/absorbed-score/`,
+`absorbed-turn-brake/` and `absorbed-without-low/`. The first comparison has one complete mirrored
+unit, a descriptive change from zero to one win in two; the single-side ablations have none.
+The rejected implementations are removed.
+
+## Standing miss return
+
+The standing punch regains its physical guard and planted stance after an unloaded miss with
+each hand on the Warrior, Rogue and Skeleton. All six strokes commit, complete and return without
+falls. `RETURN_LIMITS` in `tests/entrant-vanguard.test.mjs` keeps the criterion fixed: the striking
+point is within 0.05 m of the settled guard, world speed at most 0.6 m/s, and both feet carry a
+quiet upright base without substitute support for 0.05 s, within 1.2 s after lifecycle completion.
+These are the [shared path return limits](combat-strikes.md#trajectory-settings), applied to the
+standing punch's actual return rather than its phase label.
+
+The fixture uses each named calibration's complete physical kit, built in its own guard, and
+the shared action compositor. A script asks an empty-space point at torso height within the
+executor's admission window, retains the request through release, then measures the guard
+point and physical support. A stroke that never commits or meets a collider is an invalid
+fixture before the recovery assertions. No body pose, velocity, strength or assistance is added.
+
+| Body | Right / left return after completion | Right / left guard error |
+| --- | --- | --- |
+| Warrior | 0.2583 / 0.2750 s | 0.0320 / 0.0312 m |
+| Rogue | 0.2833 / 0.2833 s | 0.0309 / 0.0285 m |
+| Skeleton | 0.3250 / 0.2083 s | 0.0432 / 0.0477 m |
+
+Harness: Node core stand, vendored `rapier-coordinate`, 120 Hz, default attributes, empty hands,
+Balance 0. Complete recipes, declared limits, records and source remain in
+`research/runs/vanguard/miss-return/`. The regression check runs in under ten seconds. Its scope
+is stationary empty-space standing punches; it does not qualify low punches, moving-target
+misses, equipment or collision-laden combat recovery, and it does not erase the failed bout gates.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
