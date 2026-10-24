@@ -65,7 +65,8 @@ function rowsFrom(sources) {
   for (const { name, rows: found } of sources) for (const row of found) {
     const had = rows.get(row.key);
     if (had && !sameRow(had, row)) throw new Error(`case ${row.key} reads differently in ${from.get(row.key)} and ${name}`);
-    if (!had) { rows.set(row.key, rowOf(row)); from.set(row.key, name); }
+    // A row that says how long it played is kept over one from before rows said it.
+    if (!had || had.played === null && row.played != null) { rows.set(row.key, rowOf(row)); from.set(row.key, name); }
   }
   return rows;
 }

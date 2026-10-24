@@ -12,5 +12,5 @@ parentPort.on("message", async ({ evaluation, protocol, key, condition, world, s
   const cases = EVALUATIONS[evaluation]?.protocols[protocol];
   parentPort.postMessage(cases
     ? await playRow(key, world, seconds, (built) => cases.read(built, condition))
-    : { key, reading: null, digest: null, fault: { kind: "error", message: `no cases for ${evaluation} ${protocol}` } });
+    : { key, reading: null, digest: null, played: null, fault: { kind: "error", message: `no cases for ${evaluation} ${protocol}` } });
 });

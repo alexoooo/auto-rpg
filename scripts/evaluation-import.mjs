@@ -59,10 +59,10 @@ export function importRun(provenance, root) {
   const unseenPlay = { ...protocol, unseen };
   return [
     { header: headerOf("tournament", protocol, ids), lines: parsed.map(({ row, left, right, gap }) =>
-      ({ subjects: [left, right], condition: { gap }, key: row.key, code: environment, world: null, reading: reading(row), digest: row.digest, fault: null })) },
+      ({ subjects: [left, right], condition: { gap }, key: row.key, code: environment, world: null, reading: reading(row), digest: row.digest, played: null, fault: null })) },
     { header: headerOf("unseen", unseenPlay, [...new Set(seen.map(({ id }) => id.split("/")[0]))].sort()), lines: seen.map(({ row, id, gap, side }) => {
       const [mind, model, held] = id.split("/");
-      return { subjects: [mind], condition: { model, loadout: loadoutOf(held), gap, side }, key: row.key, code: environment, world: null, reading: { ...reading(row), side }, digest: row.digest, fault: null };
+      return { subjects: [mind], condition: { model, loadout: loadoutOf(held), gap, side }, key: row.key, code: environment, world: null, reading: { ...reading(row), side }, digest: row.digest, played: null, fault: null };
     }) },
   ];
 }

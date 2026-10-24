@@ -134,8 +134,9 @@ export function readRecord(text: string, name: string): { header: RecordHeader; 
   return { header, lines };
 }
 
-/** The row a record's line holds. */
-export const rowOf = ({ key, reading, digest: trace, fault }: RecordLine | Row): Row => ({ key, reading, digest: trace, fault });
+/** The row a record's line holds; a line older than `Row.played` has it null. */
+export const rowOf = ({ key, reading, digest: trace, played, fault }: RecordLine | Row): Row => ({ key, reading, digest: trace, played: played ?? null, fault });
 
-/** Whether two rows of one key agree in reading, digest and fault. */
-export const sameRow = (a: Row, b: Row): boolean => recordingKey(rowOf(a)) === recordingKey(rowOf(b));
+/** Whether two rows agree in key, reading, digest and fault; how long each played follows from them. */
+export const sameRow = (a: Row, b: Row): boolean =>
+  recordingKey([a.key, a.reading, a.digest, a.fault]) === recordingKey([b.key, b.reading, b.digest, b.fault]);

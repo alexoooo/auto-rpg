@@ -3,10 +3,11 @@ import type { CaseWorld, Json, Reader, BuiltCase, WorldKind } from "./evaluation
 import { traceOf } from "./trace.ts";
 import { WORLD_BUILDERS } from "./worlds.ts";
 
-/** What a case came to: its reading and the digest of every pose it passed through (`traceOf`). */
+/** What a case came to: its reading, the digest of every pose it passed through (`traceOf`), and how long it played, simulated s. */
 interface Played<R extends Json = Json> {
   readonly reading: R;
   readonly digest: string;
+  readonly played: number;
 }
 
 /**
@@ -17,6 +18,8 @@ export interface Row<R extends Json = Json> {
   readonly key: string;
   readonly reading: R | null;
   readonly digest: string | null;
+  /** How long the case played until its reader ended, simulated s (its world kind's clock): where a watcher stops it. Null for an error, and on lines older than it. */
+  readonly played: number | null;
   readonly fault: { readonly kind: "error" | "invalid"; readonly message: string } | null;
 }
 
@@ -36,7 +39,7 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
       trace.take();
       reader.afterStep();
     }
-    return { reading: reader.reading(), digest: trace.digest() };
+    return { reading: reader.reading(), digest: trace.digest(), played: kind.clock(built) };
   } finally { built.dispose(); }
 }
 
@@ -44,8 +47,8 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
 export async function playRow<R extends Json>(key: string, world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>): Promise<Row<R>> {
   let played: Played<R>;
   try { played = await playCase(world, seconds, read); }
-  catch (error) { return { key, reading: null, digest: null, fault: { kind: "error", message: String((error as Error)?.message ?? error) } }; }
+  catch (error) { return { key, reading: null, digest: null, played: null, fault: { kind: "error", message: String((error as Error)?.message ?? error) } }; }
   try { recordingKey(played.reading); }
-  catch { return { key, reading: null, digest: played.digest, fault: { kind: "invalid", message: "the reading is not finite JSON" } }; }
-  return { key, reading: played.reading, digest: played.digest, fault: null };
+  catch { return { key, reading: null, digest: played.digest, played: played.played, fault: { kind: "invalid", message: "the reading is not finite JSON" } }; }
+  return { key, reading: played.reading, digest: played.digest, played: played.played, fault: null };
 }
