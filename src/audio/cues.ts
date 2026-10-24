@@ -2,6 +2,7 @@ import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { heldBy } from "../core/build/rigid.ts";
 import { woundedIn, type LandedBlow } from "../core/rules/blows.ts";
 import type { Substance } from "../core/spec/body.ts";
+import { hypot, square } from "../core/math/real.ts";
 
 /** The voices a touch has: on bone, on flesh, and on hard equipment. */
 export type SoundKind = "bone" | "body" | "shield";
@@ -122,7 +123,7 @@ export class CueInbox {
 }
 export function soundPlacement(point: SoundPoint, listener: SoundPoint, toward: SoundPoint, dungeon: boolean) {
   const dx = point.x - listener.x, dz = point.z - listener.z;
-  const length = Math.hypot(toward.x, toward.z) || 1;
+  const length = hypot(toward.x, toward.z) || 1;
   return { pan: Math.max(-PLACEMENT.panMost, Math.min(PLACEMENT.panMost, (-dx * toward.z + dz * toward.x) / length / PLACEMENT.panMetres)),
-    gain: dungeon ? Math.max(0, 1 - Math.hypot(dx, dz) / PLACEMENT.reach) ** 2 : 1 };
+    gain: dungeon ? square(Math.max(0, 1 - hypot(dx, dz) / PLACEMENT.reach)) : 1 };
 }

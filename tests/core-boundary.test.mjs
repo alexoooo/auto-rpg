@@ -218,8 +218,10 @@ const BOUT_BUILDER = "src/evaluation/bout.ts", CRYPT_BUILDER = "src/evaluation/c
  */
 const CRYPT_LOOK = new Set(["src/dungeon/decals.ts", "src/dungeon/dressing.ts", "src/dungeon/fog-plugin.ts"]);
 
-/** The falls' builders: the Lab's starts and shoves, and the rising bed's techniques alone. */
+/** The falls' builders (the Lab's starts and shoves, and the rising bed's techniques alone) and the Lab's scenarios. */
 const FALL_BUILDERS = ["src/evaluation/fall.ts", "src/evaluation/rising.ts"];
+const LAB_SCENARIOS = ["src/lab/scenarios.ts", "src/lab/lab-scenario.ts", "src/lab/attack-scenario.ts", "src/lab/locomotion-scenario.ts",
+  "src/lab/stance-scenario.ts", "src/lab/ground-scenario.ts"];
 
 /** Each listed evaluation's cases (the `cases.ts` beside its module), which write their worlds. */
 const caseModules = () => ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"), true, true).importedFiles
@@ -228,9 +230,10 @@ const caseModules = () => ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVAL
 
 /**
  * The modules beside the core that a case's world is built with: all that the bout's builder, the
- * Crypt run's, each evaluation's cases and the falls' builders reach, less the Crypt's look.
+ * Crypt run's, each evaluation's cases, the falls' builders and the Lab's scenarios reach, less the
+ * Crypt's look.
  */
-const worldReach = () => reachedBeside([BOUT_BUILDER, CRYPT_BUILDER, ...caseModules(), ...FALL_BUILDERS]);
+const worldReach = () => reachedBeside([BOUT_BUILDER, CRYPT_BUILDER, ...caseModules(), ...FALL_BUILDERS, ...LAB_SCENARIOS]);
 const worldBuilders = () => worldReach().filter((file) => !CRYPT_LOOK.has(file));
 
 /**
@@ -259,7 +262,7 @@ test("the core, and what builds a case's world, compute with IEEE's operations a
   // The bout's and the Crypt's worlds and a battery's cases are reached, each exemption names a module a case reaches, and a cut one that exists.
   assert.ok(files.includes("src/core/math/real.ts") && ["src/arena/duel.ts", "src/arena/room.ts", "src/evaluation/blade/cases.ts", "src/dungeon/run.ts",
     "src/dungeon/party-placement.ts", "src/dungeon/level.ts", "src/dungeon/world.ts", "src/lab/ground-mode.ts", "src/lab/ground-starts.ts",
-    "src/lab/stance-mode.ts", "src/lab/ground-environment.ts", ...FALL_BUILDERS].every((name) => builders.includes(name))
+    "src/lab/stance-mode.ts", "src/lab/ground-environment.ts", "src/lab/track.ts", ...FALL_BUILDERS, ...LAB_SCENARIOS].every((name) => builders.includes(name))
     && [...CRYPT_LOOK].every((name) => reached.includes(name)) && [...FALL_BUILDERS, ...builders].every((name) => fs.existsSync(path.join(ROOT, name))),
   `the builders found are ${builders.join(", ")}`);
   assert.deepEqual(files.flatMap((file) => engineArithmetic(fs.readFileSync(path.join(ROOT, file), "utf8"), file)), []);

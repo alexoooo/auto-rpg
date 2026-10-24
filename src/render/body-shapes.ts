@@ -12,6 +12,7 @@ import type { SegmentFrame, ShapeSpec } from "../core/spec/body.ts";
 import { convexHull } from "../core/spec/hull.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { dot, length, normalize, sub } from "../core/spec/vec.ts";
+import { acos } from "../core/math/real.ts";
 
 /**
  * **The body as the solver sees it**: each segment's collision shape, drawn on its node.
@@ -39,7 +40,7 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
       // The capsule is built along its y; turn y onto the span, in the segment's coordinates.
       const along = normalize(localDirection(frame, span));
       const axis = Vector3.Cross(Vector3.Up(), new Vector3(...along));
-      const angle = Math.acos(Math.max(-1, Math.min(1, along[1])));
+      const angle = acos(Math.max(-1, Math.min(1, along[1])));
       mesh.rotationQuaternion = axis.lengthSquared() > 1e-12
         ? Quaternion.RotationAxis(axis.normalize(), angle)
         : along[1] > 0 ? Quaternion.Identity() : Quaternion.RotationAxis(Vector3.Right(), Math.PI);

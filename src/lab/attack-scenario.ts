@@ -14,6 +14,7 @@ import { recordHistory } from "./history.ts";
 import type { LabScenario } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { gustText, type WindSettings } from "./wind.ts";
+import { norm } from "../core/math/real.ts";
 
 /** Seconds held for replay, including target positions, impacts and selection. */
 const HISTORY_SECONDS = 30;
@@ -86,7 +87,7 @@ export function attackScenario(scene: Scene): LabScenario {
           }
           for (let i = moment.targets.length; i < balls.length; i++) balls[i]!.mesh.setEnabled(false);
           shown.write({ ...Object.fromEntries(Object.entries(moment.totals).map(([key, value]) => [key, String(value)])) as Record<keyof typeof moment.totals, string>, hits: String(moment.hits), target: moment.selected ?? "None", phase: moment.phase ?? "Guard",
-            state: moment.down ? "Down" : "Upright", wind: Math.hypot(...moment.wind).toFixed(1) });
+            state: moment.down ? "Down" : "Upright", wind: norm(moment.wind).toFixed(1) });
           actionDetails.refresh({ actions: moment.actions, ledger: moment.ledger, engagement: moment.engagement });
           return moment.time;
         },

@@ -10,6 +10,7 @@ import type { Actor } from "./actor.ts";
 import { dummySpec, hangDummy, type Dummy } from "./targets.ts";
 import { startWind, type WindSettings } from "./wind.ts";
 import { dummyPart } from "./dummy-spec.ts";
+import { cos, sin, square } from "../core/math/real.ts";
 
 /** Seconds an impacted target stays physical and visible before replacement. */
 const FADE_SECONDS = 0.6;
@@ -57,10 +58,10 @@ export function startAttack(actor: Actor, options: AttackOptions) {
       const at: Vec3 = [(random.next() * 2 - 1) * FIELD,
         built.spec.stature.value * (0.5 + 0.4 * random.next()), (random.next() * 2 - 1) * FIELD];
       if ([...actorBodies].some((segment) => segment.gapTo(at) < radius + CLEARANCE)) continue;
-      if ([...targets.values()].some(({ dummy }) => Vector3.DistanceSquared(dummy.centre, Vector3.FromArray(at)) < (2 * radius + CLEARANCE) ** 2)) continue;
+      if ([...targets.values()].some(({ dummy }) => Vector3.DistanceSquared(dummy.centre, Vector3.FromArray(at)) < square(2 * radius + CLEARANCE))) continue;
       const id = `target-${state.next++}`, dummy = hangDummy(world, spec, at, rules);
       const angle = random.next() * Math.PI * 2;
-      const target: TargetState = { id, direction: [Math.sin(angle), Math.cos(angle)], hit: null };
+      const target: TargetState = { id, direction: [sin(angle), cos(angle)], hit: null };
       state.targets.push(target);
       targets.set(id, { dummy, sound: options.hears?.(dummy.fighter.built) });
       hub.add({ id, side: "targets", built: dummy.fighter.built, out: () => target.hit !== null });

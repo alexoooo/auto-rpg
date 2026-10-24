@@ -8,6 +8,7 @@ import { startGaitMeter, type GaitReading } from "./gait-meter.ts";
 import { ARRIVED, type Commands } from "./commands.ts";
 import type { Track } from "./track.ts";
 import { startWind, type WindSettings } from "./wind.ts";
+import { atan2, cos, hypot, sin } from "../core/math/real.ts";
 
 /**
  * **The lab's locomotion mode**: a human on its own feet going round a `Track`, or from one
@@ -209,7 +210,7 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
         }
         const to = track.at(along + (facing === undefined ? AIM_ALONG : AIM_AHEAD));
         aim = [to.x, to.z];
-        const toward = Math.atan2(to.x - c.x, to.z - c.z);
+        const toward = atan2(to.x - c.x, to.z - c.z);
         // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it from `LEAD` early; the next
         // corner likewise.
         let bend = Infinity;
@@ -234,7 +235,7 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
         } else {
           // Toward the point in the body's own frame: forward along its heading, and to its right.
           const off = toward - report.heading;
-          move = [pace * Math.cos(off), pace * Math.sin(off)];
+          move = [pace * cos(off), pace * sin(off)];
         }
       }
       return { move: facing === undefined ? [pace, 0] : move, face, guard: NO_COVER, actions: [] };
@@ -243,14 +244,14 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
       const running = setOff === null ? 0 : time - setOff, on = track.at(along);
       const pieces = onPiece.flatMap((on, i) => track.lengths[i]! > 0 ? [on.seconds > 0 ? on.metres / on.seconds : null] : []);
       return { along, travelled, laps, lastLap, pace, bending, mean: running > 0 ? travelled / running : 0, pieces, aim,
-        off: Math.hypot(x - on.x, z - on.z), leg: null };
+        off: hypot(x - on.x, z - on.z), leg: null };
     },
   };
 }
 
 /** The radius of the arc from a heading `lag` rad off the way to a point `reach` m away to that point, m: a half turn or more, the arc of half the reach. */
 function radiusTo(lag: number, reach: number): number {
-  return lag === 0 ? Infinity : reach / (2 * (lag < Math.PI / 2 ? Math.sin(lag) : 1));
+  return lag === 0 ? Infinity : reach / (2 * (lag < Math.PI / 2 ? sin(lag) : 1));
 }
 
 /**
@@ -278,7 +279,7 @@ function commandsTactics(commands: Commands, { top }: { readonly top?: number } 
       }
       walked += dt;
       const to = commands.at(index), dx = to.x - c.x, dz = to.z - c.z, d = Math.sqrt(dx * dx + dz * dz);
-      const length = Math.hypot(to.x - from[0], to.z - from[1]);
+      const length = hypot(to.x - from[0], to.z - from[1]);
       progress = Math.max(0, Math.min(length, length - d));
       if (d < ARRIVED) {
         reached++;
@@ -290,7 +291,7 @@ function commandsTactics(commands: Commands, { top }: { readonly top?: number } 
         bending = false;
         return stand();
       }
-      const fastest = top ?? fastestOf(envelope, undefined), toward = Math.atan2(dx, dz);
+      const fastest = top ?? fastestOf(envelope, undefined), toward = atan2(dx, dz);
       // Braking to arrive at the corner's pace, from `LEAD` early at the body's own speed; no faster than its turns carry it round to the destination.
       const early = LEAD * Math.sqrt(v.x * v.x + v.z * v.z);
       const arrive = Math.sqrt(CORNER_PACE * CORNER_PACE + 2 * BRAKE * Math.max(0, d - ARRIVED - early));
@@ -303,8 +304,8 @@ function commandsTactics(commands: Commands, { top }: { readonly top?: number } 
     frame(_time, x, z) {
       const to = commands.at(index);
       // Off the straight from where it set off to the destination, m.
-      const ux = to.x - from[0], uz = to.z - from[1], length = Math.hypot(ux, uz);
-      const off = length === 0 ? Math.hypot(x - from[0], z - from[1]) : Math.abs((x - from[0]) * uz - (z - from[1]) * ux) / length;
+      const ux = to.x - from[0], uz = to.z - from[1], length = hypot(ux, uz);
+      const off = length === 0 ? hypot(x - from[0], z - from[1]) : Math.abs((x - from[0]) * uz - (z - from[1]) * ux) / length;
       return { along: progress, travelled: done + progress, laps: reached, lastLap: lastLeg, pace, bending,
         mean: walked > 0 ? (done + progress) / walked : 0, pieces: [], aim: [to.x, to.z], off, leg: { from, to: [to.x, to.z], index } };
     },
@@ -338,7 +339,7 @@ export function startLocomotion(actor: Actor, course: Track | Commands, { top, f
     const s = body.view.stance, time = body.view.time;
     return {
       ...tactics.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace ?? 0,
-      speed: Math.hypot(s.velocity.x, s.velocity.z), gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
+      speed: hypot(s.velocity.x, s.velocity.z), gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
     };
   };
   return {
