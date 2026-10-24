@@ -50,13 +50,15 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Options](plans/2026-10-24-options.md) | Every skill in one shape (name and goal, entry condition, resources, profile); an intent of one skill choice per resource |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
+| [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Ratings](plans/2026-10-21-ratings.md) | Items, characters and attributes by design; skill batteries beside their ablations; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
 
-1. **Now:** Drills steps 2 to 4: the moving target with the overlays and side by side, the first
-   question (does any punch hit something that moves) and Footwork's first rungs, with Options
-   step 2 (the legs' skills and the intent) before Footwork.
+1. **Now:** Punch steps 1 and 2: the human bar in the Strike drill, then whether a straight,
+   aligned punch at the bar exists from the guard. Then Drills step 2 (the moving target, overlays
+   and side by side), which Punch step 5 needs, and Footwork's first rungs, with Options step 2
+   (the legs' skills and the intent) before Footwork.
 2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
    the back, on the side, hands and knees, kneeling, standing); its edges are skills, slow ones
    that hand over at rest and fast ones that carry momentum (a sit-up tucking onto the feet,
@@ -89,7 +91,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 **To watch:**
 
 - The Strike drill's still rung: each strike's strip and reel
-  (`?play=ratings&evaluation=strike`), the failures first; acceptance is the owner's.
+  (`?play=ratings&evaluation=strike`), the failures first; acceptance is the owner's. The
+  Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing
+  ([Punch](plans/2026-10-24-punch.md)).
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
