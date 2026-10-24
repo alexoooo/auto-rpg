@@ -430,7 +430,7 @@ export class DungeonRun {
   private partyView(look: boolean): TeamView {
     const { mode, cursor } = this.commands;
     return this.view(this.party, this.enemies, look, {
-      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: false,
+      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: this.commands.walk,
       aim: mode.facing ? cursor : null, strike: null, explore: mode.facing,
     });
   }

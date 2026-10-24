@@ -625,11 +625,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     KeyQ: { kind: "face", turn: -Math.PI / 4 }, KeyE: { kind: "face", turn: Math.PI / 4 },
   });
 
-  /** The keyboard: pause and help, the digits that select, the command keys and the movement keys; and the pause a
+  /** The keyboard: pause and help, the digits that select, the command keys, the movement keys and Caps Lock's walk; and the pause a
    * page takes when it loses the person's attention. */
   function wireKeys(page: DungeonPage, party: Party): void {
     const { signal, held } = page;
+    // Caps Lock walks, as every key's event reads it: Shift selects.
+    const capsLock = (event: KeyboardEvent) => { if (page.run) page.run.commands.walk = event.getModifierState("CapsLock"); };
     window.addEventListener("keydown", (event) => {
+      capsLock(event);
       if (!need("start-panel").hidden || page.launching) return;
       if ((event.target as HTMLElement).matches("input, select, textarea")) return;
       if (event.code === "Escape" || event.code === "Space") {
@@ -667,6 +670,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       }
     }, { signal });
     window.addEventListener("keyup", (event) => {
+      capsLock(event);
       held.delete(event.code);
       sampleKeys(page);
     }, { signal });

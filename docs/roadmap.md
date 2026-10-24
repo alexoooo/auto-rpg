@@ -83,8 +83,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
 - The skeleton's look in play.
-- The person's commands: in the Crypt H holds, X stops, Q/E turn, a right click faces or follows;
-  in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
+- The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
+  faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
 
 ## Open, by layer
@@ -265,8 +265,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** the Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion
-  courses drive by velocities, not goals.
+- **Input:** the Lab's locomotion courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
