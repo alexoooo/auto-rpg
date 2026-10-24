@@ -24,7 +24,8 @@ that loss and clears nine development cases. A [fresh wait screen](#fresh-standi
 wins all four Behaviours cases, then stops on a Reptile pilot loss with seven cases unplayed.
 The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
-remain unqualified.
+remain unqualified. Standing misses pass their physical return gate; a stable-reference
+[low target-loss miss](#low-target-loss-miss) fails it on the Warrior.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1455,6 +1456,23 @@ pilot does not estimate its unplayed cases. Full configurations, exclusions, rec
 rows, ledgers, blows, snapshots and harnesses remain in `research/runs/vanguard/rogue-wait-fresh/`.
 Other opponents, bodies, equipment and broader miss recovery remain open.
 
+### Rogue replant trial
+
+Enabling the existing six-second `replantLow` option on the standing-wait Rogue does not
+preserve its Reptile winners. It converts the 4.31 m court-left loss into an injury win at
+74.6917 s without a Rogue fall, and both retained 4.44 m court sides win by injury without
+Rogue falls. The retained 3.23 m open-right injury win becomes a cap loss, bars 0.9386 against
+0.9505, with a Rogue fall at 77.7667 s. That loss rejects the configuration. Open-left is
+interrupted; all four Behaviours cases and the Options collapse case remain unplayed.
+
+The deciding pilot actually rises to reposition at 41.4917 s. The four completed bouts contain
+three injury wins and one cap loss, with no invalid cases. Native saved-record comparison has
+one complete mirrored unit, the retained court pair; the converted pilot and open regression
+are single-side readings. The pool takes 77.5 active wall seconds, below its nine-minute cap.
+Harness, bodies, physical rules and source `c1130f3d` are the fresh wait screen's, with only
+the candidate config flag changed. Full configurations, rows, comparisons and harnesses remain
+in `research/runs/vanguard/rogue-low-replant/`. The selected Rogue leaves `replantLow` off.
+
 ## Skeleton route and blocked steps
 
 Selecting the Warrior's navigator with its additional 0.1 m route room does not repair the
@@ -1490,6 +1508,21 @@ configuration, full row, action ledger, native records, decision and reader rema
 `research/runs/vanguard/skeleton-displacement/`. Its one-worker pilot takes 29.2 active wall
 seconds, with a pool forecast below the nine-minute cap. There is no invalid case or complete
 mirrored comparison unit; `npm run compare` reports zero paired units.
+
+### Rogue kit on the Skeleton
+
+The complete selected Rogue kit, unchanged on the Skeleton body, loses the limiting Options
+court-left case at 6.93 m by fatal injury at 88.0583 s, without falls. Own and opponent bars
+are 0.4773 and 0.8538; the fighter completes 55 committed punches. The loss rejects this kit
+transfer and leaves the other three preservation cases unplayed. Native saved-record comparison
+has no complete mirrored unit. This does not change the selected Skeleton calibration.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched Skeletons, empty hands,
+default attributes, Balance 0/0 and zero sense delay, falls continuing to injury or 120 s.
+Source `c1130f3d`, at commit `862243b9`, freezes the whole candidate and its four development
+cases before the pilot. The one-worker pilot takes 24.4 active wall seconds, below its
+nine-minute cap. Its config, physical row, comparison and harness remain in
+`research/runs/vanguard/skeleton-rogue-kit/`.
 
 ## Guard-forearm choices
 
@@ -1726,6 +1759,50 @@ Balance 0. Complete recipes, declared limits, records and source remain in
 `research/runs/vanguard/miss-return/`. The regression check runs in under ten seconds. Its scope
 is stationary empty-space standing punches; it does not qualify low punches, moving-target
 misses, equipment or collision-laden combat recovery, and it does not erase the failed bout gates.
+
+## Low target-loss miss
+
+The Warrior's selected low punch fails physical recovery after a clean target-loss miss.
+The right hand remains 0.0651 m from its settled low guard at the 1.2 s return deadline,
+against the unchanged 0.05 m limit. Its speed is 0.2944 m/s, below the 0.6 m/s limit, but its
+centre of mass lies outside its feet: it does not regain the required planted base. It stays
+upright. The first failure stops the screen; the other hand, Rogue and Skeleton remain unplayed.
+
+The fixture waits for ready low support and a guard that stays within 0.05 m over a full 1.2 s
+window before admission. A fixed Reptile mannequin provides sensed low-body geometry. Its
+initial placement uses the punch's public entry window; it is removed at the first committed
+step, making the stroke miss. Every attacker segment is checked for apparatus contact, and
+the action ledger has zero external contacts in preparation, drive and release. A no-punch
+control over the exact admission-to-deadline window drifts only 0.0085 m and has no apparatus
+contacts. The attacker receives ordinary intent and muscle control throughout.
+
+| Candidate / stable-reference fixture | Right-hand result at the deadline | Base |
+| --- | --- | --- |
+| Selected low punch | 0.0651 m error, 0.2944 m/s | Outside feet; no fall |
+| Low punch without trunk turn | 0.2331 m error, 0.0755 m/s | Planted |
+| Dedicated point-following guard | 0.1724 m error, 0.1219 m/s | Planted |
+| Body return at the stroke's recovery response | Falls at 7.9417 s, before the deadline | Failed |
+
+None of these candidates is selected. The point-following guard gives an uncovered empty hand
+its ordinary arm response while carrying its guard on the actual trunk; explicit cover retains
+priority. The body-response overlay keeps the same fold and uses the configured stroke recovery
+time during release. These requests change no anatomy, muscle strength, assists or physics.
+Their source snapshots remain beside their rows, and all runtime changes are removed.
+
+An earlier fixture samples its guard at 3 s while that guard is still settling: a no-punch
+control drifts 0.1963 m over its reading window. Its apparent recovery failure and four
+return-control prototypes have an invalid guard reference and do not establish a recovery
+result. The stable-reference fixture corrects this setup without easing the return limits.
+
+Harness: Node core stand, vendored `rapier-coordinate`, 120 Hz, Warrior, empty hands, default
+attributes, Balance 0, a requested 0.5 m low fold. The baseline and no-turn candidate use source
+`c1130f3d`; manifests retain their full, distinct configs. The guard and body-response prototypes
+use sources `041bc65f` and `235a35e0`. Each stable-reference fixture takes under one wall second.
+Limits are the [standing miss return's](#standing-miss-return); setup controls and full readings
+remain in `research/runs/vanguard/low-miss-control-settled/`, `low-miss-return-settled/`,
+`low-miss-without-turn/`, `low-miss-guard-part/` and `low-miss-body-return/`. The invalid setup
+and its control remain in `low-miss-return/` and `low-miss-control/` under the same run root.
+This establishes a reproducible unmet recovery requirement; moving and loaded misses remain open.
 
 ## Equipment path
 

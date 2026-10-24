@@ -51,6 +51,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    it clears nine development cases after its route-room field stops on a chase-and-trip loss.
    Its fresh wait screen wins all four Behaviours cases, then loses the Reptile pilot at the cap
    with seven cases unplayed ([wait](reference/vanguard.md#fresh-standing-wait-screen)).
+   Enabling its six-second replant repairs that pilot but regresses a retained Reptile winner;
+   the option stays off ([trial](reference/vanguard.md#rogue-replant-trial)).
    Its preceding 0.15 m setting clears four fresh cases each against Counter-puncher and Options,
    but leaves twenty-five wider-field cases unfinished ([Rogue field](reference/vanguard.md#fresh-rogue-field)).
    The Warrior's preceding
@@ -63,7 +65,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    its court loss ([steps](reference/vanguard.md#skeleton-route-and-blocked-steps),
    [targets](reference/vanguard.md#guard-forearm-choices)).
    A torso-cover challenger is incomplete after a price cut ([record](reference/vanguard.md#torso-cover-challenger)).
-   Standing misses have a physical return gate. Presets and planner layers are editable and
+   Standing misses have a physical return gate; a stable-reference low miss fails on the Warrior,
+   and the first repair candidates are rejected ([low return](reference/vanguard.md#low-target-loss-miss)).
+   Presets and planner layers are editable and
    replaceable alone by `--ablate`, with decisions visible in Arena and Lab. Equipment uses held-item
    recipes and blade cuts and thrusts; its win rates remain unqualified
    ([path](reference/vanguard.md#equipment-path)).
