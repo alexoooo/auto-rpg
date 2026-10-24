@@ -786,13 +786,14 @@ the 6 s preparation deadline. The slack is beyond what [Robustness](#robustness)
 
 **In the Crypt.** `crypt-clear`'s standard protocol (levels 10 and 25, two trials each, the mob and
 independent foes, 180 s; the level-clearer leading), every humanoid on both sides under the mind
-read; Node, `rapier-coordinate`, 120 Hz, at `b1471856`:
+read; Node, `rapier-coordinate`, 120 Hz, at `b1471856`; the last row is
+`npm run evaluate -- crypt-clear` at `3ea295de` to the run (`assets/evaluations/crypt-clear/2026-10-24-3ea295de-e459f9c8.jsonl`):
 
 | The Duellist's recipe strike | Foes killed, of 128 | Levels cleared, of 8 | Party members lost |
 |---|---|---|---|
 | as searched: 1.5 s stood, no slack | 1 | 0 | 1 |
-| 0.25 s, slack 6 cm along and 12 across | 8 | 1 | 4 |
-| **0.25 s, slack 12 cm along and 20 across** | 9 | 2 | 1 |
+| 0.25 s, slack 6 cm along and 12 across | 7 | 1 | 4 |
+| **0.25 s, slack 12 cm along and 20 across** | 8 | 2 | 1 |
 
 **In the Arena.** `npm run match -- <the change> duellist` (protocol `5bc0cd3b51527a1a`, match
 `e7b03e082ac20a1a`, at `b1471856`): the change scores 0.767 (0.692 to 0.833) over 120 bouts, 92 won,
@@ -822,4 +823,4 @@ against the Warrior (13 of 30) and sword and buckler (13 of 24).
 - **In the Crypt, beside [In a fight](#in-a-fight)**, the same 8 runs each: the feet stopped as
   soon as the target stands within the slack, 7 foes killed and 2 levels cleared; with that, no
   stand at all, 6 and 2; with that, the head and the thrust alone, 5 and 1. None reads apart from
-  the 9 and 2 it was set at.
+  the 8 and 2 it was set at.

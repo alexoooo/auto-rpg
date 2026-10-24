@@ -245,7 +245,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - few die: the Duellist kills 9 of 128 foes over `crypt-clear`'s 8 runs and clears 2
+  - few die: the Duellist kills 8 of 128 foes over `crypt-clear`'s 8 runs and clears 2
     ([in a fight](reference/blows.md#in-a-fight)); a fighter still spends most of an attack
     setting its feet, a step's weight shift at a time. A Crypt fight ends by a mind that kills,
     not by a rule (the owner, 2026-10-24);
