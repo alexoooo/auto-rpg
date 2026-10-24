@@ -56,7 +56,7 @@ const WARRIOR: VanguardConfig = deepFreeze({
 const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "fighter" }) as FighterConfig;
 
 /** The Rogue calibration uses a conservative stance walk and room beside obstacles. */
-const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: VANGUARD_NAVIGATION.defaults, locomotion: VANGUARD_WALK.defaults,
+const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: { ...VANGUARD_NAVIGATION.defaults, room: .15 }, locomotion: VANGUARD_WALK.defaults,
   tactics: { ...WARRIOR.tactics, replantLow: false } });
 
 /** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
