@@ -48,8 +48,8 @@ const STILL = deepFreeze({
   settled: .5, seconds: 5, settle: .75,
 });
 
-/** One trial's conditions. */
-export type StrikeCondition = { readonly model: BodyModel; readonly gap: number; readonly across: number; readonly mark: Mark; readonly hand: Hand };
+/** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
+export type StrikeCondition = { readonly model: BodyModel; readonly mark: Mark; readonly hand: Hand; readonly across: number; readonly gap: number };
 
 /** A blow of the striker's on the target: when, by which of its segments on which of the target's, and in the rules' units. */
 export type StrikeContact = {
@@ -96,7 +96,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
 function strikeCases(protocol: typeof STILL): Cases<StrikeCondition, StrikeReading> {
   const conditions: StrikeCondition[] = [];
   for (const model of protocol.models) for (const mark of protocol.marks) for (const hand of protocol.hands)
-    for (const across of protocol.across) for (const gap of protocol.gaps) conditions.push({ model, gap, across, mark, hand });
+    for (const across of protocol.across) for (const gap of protocol.gaps) conditions.push({ model, mark, hand, across, gap });
   return {
     arity: 1,
     play: protocol as unknown as Json,
