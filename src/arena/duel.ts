@@ -121,6 +121,9 @@ export interface DuelRecipe {
   readonly start?: Readonly<Partial<Record<Side, { readonly at?: readonly [number, number]; readonly heading?: number }>>>;
 }
 
+/** What a mind must do to enter a bout of `recipe` (`DuelRecipe.entry`): the recipe's rule, or a fight's; a page with no recipe yet plays a fight. */
+export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRule[] => recipe?.entry ?? FIGHT_ENTRY;
+
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
 function stiffened(spec: BodySpec, factors: Readonly<Record<string, number>>): BodySpec {
   for (const name of Object.keys(factors)) if (!spec.segments.some((segment) => segment.name === name)) throw new Error(`${spec.model} has no segment ${name} to stiffen`);
@@ -253,7 +256,7 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side], info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
       modelHolding(model, loadout, characters[side].config.attributes);
-      const refused = modelRefusal(model, config, loadout, recipe.entry ?? FIGHT_ENTRY, characters[side].config.attributes);
+      const refused = modelRefusal(model, config, loadout, entryRules(recipe), characters[side].config.attributes);
       if (refused !== null) throw new Error(`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`);
     }
     this.world = world;
