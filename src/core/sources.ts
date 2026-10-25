@@ -248,6 +248,13 @@ export const SOURCES = Object.freeze({
       + "is fastest and surest at.",
     record: "docs/reference/run-body.md",
   },
+  "owner-punch-body": {
+    kind: "decision", date: "2026-10-24",
+    decided: "A body's numbers may be set to what gives a punch like a person's (the owner: 'the speed curve "
+      + "is arbitrary to me ... the goal is a human level punch'). Each number set so is the one a punch "
+      + "searched on the Strike drill lands at the bar with.",
+    record: "docs/reference/punch-body.md",
+  },
   "owner-stride-room": {
     kind: "decision", date: "2026-10-18",
     decided: "A thigh's capsule leaves 30 mm between it and the other thigh with the legs hanging straight, "

@@ -37,7 +37,8 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *
  * The figure's column is its sex's. Speed is not scaled to size: a geometrically similar body turns
  * its joints at the same rate. What the owner has set a leg's joints to turn at in use over the
- * curve read (`IN_USE`) multiplies the unloaded speed, and so does the figure's speed, where it has one.
+ * curve read (`IN_USE`), and every other joint's (`UPPER_SPEED_IN_USE`), multiplies the unloaded
+ * speed, and so does the figure's speed, where it has one.
  */
 export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {
   const { sex } = figure;
@@ -47,7 +48,8 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
     : derive(q.unit, `${measured}'s, taken for ${exertion}: a stated assumption (BORROWED, src/core/human/speed.ts)`, [q], (v) => v);
   const curvature = borrowed(own.curvature), read = borrowed(own.unloadedSpeed), inUse = IN_USE[exertion];
   const unloaded = inUse ? derive("rad/s", "the leg's unloaded speed times its in use over the curve read, and one plus its haste over a human's", [read, inUse, si(figure.haste)],
-    (w, f, h) => w * f * (1 + h)) : read;
+    (w, f, h) => w * f * (1 + h))
+    : derive("rad/s", "the arm's, trunk's or neck's unloaded speed times its in use over the curve read", [read, UPPER_SPEED_IN_USE], (w, f) => w * f);
   const unloadedSpeed = figure.speed
     ? derive("rad/s", "the unloaded speed times the figure's speed", [unloaded, figure.speed], (w, s) => w * s) : unloaded;
   return {
@@ -61,6 +63,13 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
  * run searched on the body is fastest and surest at (`docs/reference/run-body.md`).
  */
 const LEG_SPEED_IN_USE = sourced(1.98, "1", "owner-run-body", "a leg joint's unloaded speed in use over the curve read");
+/**
+ * How much faster the arm's, the trunk's and the neck's joints turn in use than the curves read, as
+ * the owner has set it: what a punch like a person's needs (`docs/reference/punch-body.md`). The
+ * curves read stop at 5.2 rad/s (Frey-Law's fastest), where a person's straight punch opens the
+ * elbow at 22 to 41.
+ */
+export const UPPER_SPEED_IN_USE = sourced(2.5, "1", "owner-punch-body", "an arm's, trunk's or neck's joint's unloaded speed in use over the curve read");
 export const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze(Object.fromEntries(([
   "hipFlexion", "hipExtension", "hipAbduction", "hipAdduction", "hipExternalRotation", "hipInternalRotation",
   "kneeExtension", "kneeFlexion", "ankleDorsiflexion", "anklePlantarflexion", "footInversion", "footEversion",

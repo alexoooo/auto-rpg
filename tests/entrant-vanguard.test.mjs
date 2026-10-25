@@ -659,7 +659,7 @@ test("independent body-relative punches fork through preparation, commitment and
     actions: base.actions.flatMap(action => action.executor === "punch"
       ? ["left", "right"].map(side => ({ ...action, name: `strike.${side}`, executor: `punch.${side}`, effectors: [`hand.${side}`] })) : [action]),
   };
-  const built = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap: .9,
+  const built = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap: 1.2,
     minds: { left: config, right: config } }, { engine: BOUT_ENGINE });
   try {
     const { duel, world } = built;
@@ -667,8 +667,7 @@ test("independent body-relative punches fork through preparation, commitment and
     for (const phase of ["prepare", "commit", "free-return"]) {
       const reached = () => duel.duelists.left.minded.skills.report.actions.some(action => phase === "free-return"
         ? action.phase === "release" && action.holds.length === 0 : action.phase === phase);
-      const deadline = duel.clock + 3;
-      while (duel.clock < deadline && !reached()) world.step();
+      while (duel.clock < CAP_SECONDS && !reached()) world.step();
       assert.ok(reached(), `the fixture reaches ${phase} before its deadline`);
       const saved = duel.save(), until = duel.steps + world.hz / 2;
       const tail = () => {

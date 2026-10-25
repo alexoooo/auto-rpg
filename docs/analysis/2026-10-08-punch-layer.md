@@ -14,10 +14,11 @@ The current answer:
   ([whole-body spike](../reference/whole-body-spike.md)) and 2.8 to 4.6 m/s asked for all it can
   give each step. The fast blows start the hips and trunk 0.1 to 0.3 s before the elbow; a
   controller has to choose now what pays off a third of a second later.
-- **On the Strike drill no straight blow reaches the bar from the guard** (6.0 to 6.2 m/s, the
-  trunk bowed to its range end): the elbow opens no faster than its muscles' curve allows, slower
-  than a person's punch. With the elbow at a punch's speed only an overhead chop lands, and only at
-  120 Hz ([a timed punch on the drill](#a-timed-punch-on-the-drill)).
+- **On the Strike drill a straight blow reaches the bar from the guard only on a faster body**:
+  at the curves read it makes 6.0 to 6.2 m/s with the trunk bowed to its range end, the elbow no
+  faster than its muscles' curve allows; with the arms and trunk at 2.5 times the curves read, a
+  punch of a punch's form lands at 120 and 480 Hz, in its own cell alone
+  ([a timed punch on the drill](#a-timed-punch-on-the-drill), [the punch's body](../reference/punch-body.md)).
 - **Speed is not worth.** The fastest blows land with the elbow bent, the fist meets 0.2 to
   1.4 kg, and they take 2 to 5 % of a Warrior's head. A straight arm on the line meets 6 kg. The
   game's straight punch wounds the chest at 0.05 to 0.15 HP a blow.
@@ -232,14 +233,13 @@ bar's straight test reads only the fist's last 0.1 m against the contact's norma
 onto the chest's capsule counts. The drill cannot tell a chop from a punch; only the owner's eye
 can.
 
-**What it would take.** A punch at the bar needs at least these three:
-
-- the arm's curves past Frey-Law's speeds: Thelen's 0.25 kept, or the elbow's unloaded speed set
-  to a punch's (32.9 rad/s), a change to every arm in the game;
-- a bar that reads form: the elbow near straight at contact, the trunk's lean, the fist's path
-  below the shoulder;
-- a trunk that turns the shoulder through: the thoracic joint turns 0.43 rad either way, the
-  lumbar 0.08, and their muscles give 51 to 53 N m.
+**What it took.** The arms, trunk and neck at 2.5 times the curves read, and a bar that reads a
+punch's form: the fist's last 0.1 m more along the arm than across it, the elbow within 30° of
+straight, the chest within 30° of upright. The trunk's turn was left as it is: twice and four
+times its torque gained nothing ([the punch's body](../reference/punch-body.md)). Near a straight
+elbow the forearm opens mostly across the arm's line (at 30° short, three quarters across), so
+the fist's path keeps to the line only as far as the shoulder carries it; a 20° cone failed every
+fast blow found.
 
 ## On the fight rung
 

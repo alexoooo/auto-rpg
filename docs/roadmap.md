@@ -55,8 +55,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 | [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
 
-1. **Now:** Punch waits on the owner's choice below: step 2 found no straight punch at the bar
-   from the guard. Steps 1 (the bar) and 3 (fight moments, the `fight` rung) have landed. Then
+1. **Now:** Punch step 4, a punch that lands across the still rung and the fight moments: steps
+   1 (the bar), 2 (a straight punch at the bar from the guard, on [the punch's
+   body](reference/punch-body.md), in one cell) and 3 (fight moments, the `fight` rung) have landed. Then
    Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
 2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
@@ -77,14 +78,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 ## Waiting on the owner
 
 **Choices**, each landed at its default:
-
-- The punch's body ([a timed punch on the drill](analysis/2026-10-08-punch-layer.md#a-timed-punch-on-the-drill)):
-  no straight blow at the bar exists from the guard; the elbow opens at most at its unloaded 25.5
-  rad/s (Frey-Law on Thelen's curvature), where boxers open it at 22 to 41. Set at its unloaded speed to a
-  punch's, 32.9 rad/s, a search lands only an overhead chop, and only at 120 Hz. The choices:
-  the arm's curves (kept, or the elbow's end set to a punch's speed), a form test in the bar (the
-  elbow near straight at contact, the trunk's lean, the fist below the shoulder), and the trunk's
-  turn (0.43 rad thoracic, 0.08 lumbar).
 
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search or a change to the body; whether the
