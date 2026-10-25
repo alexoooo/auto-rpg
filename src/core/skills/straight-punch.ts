@@ -38,7 +38,9 @@ import { closesToStrike } from "./strikes.ts";
  * channel the punching hand's schedule names is not pushed toward its goal: each of its pushes
  * (`TimedPush`) drives the channel flat out over its own window of the drive. A channel it does
  * not name is pushed toward its goal as above, and the posture beneath is the one above. With both,
- * the schedule pushes its channels and the striking point is driven as `driven` says.
+ * the schedule pushes its channels and the striking point is driven as `driven` says. With `fire`,
+ * the arm's drive begins as soon as the striking point comes within `fire` of the arm's length of
+ * the target, if that is before `lead`: the arm opens at the same distance whatever the range.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -57,6 +59,7 @@ export interface StraightPunch {
   readonly longest: number;
   readonly recover: number;
   readonly landed?: boolean;
+  readonly fire?: number;
   readonly driven?: { readonly accel: number; readonly steer: number; readonly arrive: number };
   readonly timed?: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
 }
@@ -94,14 +97,36 @@ export function validStraightPunch(settings: StraightPunch): boolean {
     settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
+    && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
     && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
 }
 
 /** The channels `settings` push on a schedule that a body of `spec` lacks. */
-export function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
+function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
   const channels = new Set(spec.joints.flatMap((joint) => joint.dofs.map((dof) => `${joint.name} ${dof.positive}`)));
   return settings.timed ? HANDS.flatMap((hand) => settings.timed![hand].map((push) => push.channel)).filter((channel) => !channels.has(channel)) : [];
+}
+
+/**
+ * Why a body of `spec` cannot take `settings`' schedule, or null: a channel it lacks, or one on
+ * the arm a `driven` drive moves (from the joint that leaves the hand's base down), which a body
+ * refuses to push while it drives the hand's point.
+ */
+export function timedChannelFault(spec: BodySpec, settings: StraightPunch): string | null {
+  const missing = missingTimedChannels(spec, settings);
+  if (missing.length) return `has no ${missing.join(", ")} to push`;
+  if (!settings.timed || !settings.driven) return null;
+  const driven = HANDS.flatMap((hand) => {
+    const base = spec.effectors?.find((e) => e.segment === `hand.${hand}`)?.base, arm = new Set<string>();
+    for (let at: string | undefined = `hand.${hand}`; at !== undefined && at !== base;) {
+      const joint = spec.joints.find((j) => j.child === at);
+      joint?.dofs.forEach((dof) => arm.add(`${joint.name} ${dof.positive}`));
+      at = joint?.parent;
+    }
+    return settings.timed![hand].map((push) => push.channel).filter((channel) => arm.has(channel));
+  });
+  return driven.length ? `pushes ${driven.join(", ")} on the arm it drives` : null;
 }
 
 /** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
@@ -208,6 +233,8 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     target: [0, 0, 0] as [number, number, number], face: 0,
     /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
+    /** When the arm's drive began, s into the drive that began at `firedFor`, where `fire` began it before `lead`. */
+    fired: null as number | null, firedFor: -1,
     still: 0, thrown: { left: 0, right: 0 },
     /**
      * Each shoulder at contact from the head as the last step left it, in the body frame: the
@@ -279,11 +306,17 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       if (since >= p.from && since < p.from + p.length && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) });
     }
     for (const g of limb.goals) push(g.channel, g.angle);
-    if (since >= settings.lead && settings.driven) {
+    if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; }
+    if (settings.fire !== undefined && state.fired === null && since < settings.lead) {
+      const fist = view.fists[hand].position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= settings.fire * limb.arm) state.fired = since;
+    }
+    const start = state.fired ?? settings.lead;
+    if (since >= start && settings.driven) {
       for (const f of limb.free) posture[f.name] = limb.angles[f.joint]![f.k]!;
       points.push(drivenPoint(view, hand, limb, settings.driven));
-    } else if (since >= settings.lead) {
-      for (const f of limb.free) if (!/^elbow/.test(f.name) || since >= settings.lead + settings.elbow) push(f.name, limb.angles[f.joint]![f.k]!);
+    } else if (since >= start) {
+      for (const f of limb.free) if (!/^elbow/.test(f.name) || since >= start + settings.elbow) push(f.name, limb.angles[f.joint]![f.k]!);
     }
     return posture;
   };

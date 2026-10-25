@@ -44,7 +44,7 @@ export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, driven: true, timed: true, low: true, lowOnly: true, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: true,
+    recover: true, landed: true, fire: true, driven: true, timed: true, low: true, lowOnly: true, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: true,
   },
   fields: [text("name", "Name"), toggle("low", "Aim and fold for a low foe"), toggle("lowOnly", "Only at a low foe"),
     toggle("predict", "Lead the followed point"), toggle("anchorAtDrive", "Choose the point until the drive"),

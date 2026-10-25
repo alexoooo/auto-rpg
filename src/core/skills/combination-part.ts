@@ -3,7 +3,7 @@ import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { COMBINATION, combinationExecutor, combinationFits, validCombination, type Combination } from "./combination.ts";
 import { holdsNothing } from "./strikes.ts";
-import { missingTimedChannels } from "./straight-punch.ts";
+import { timedChannelFault } from "./straight-punch.ts";
 
 /** **The combination** (`combinationExecutor`): two straight punches, one hand then the other, its settings these. */
 interface Config extends Combination {
@@ -17,10 +17,10 @@ export const COMBINATION_PART: ExecutorPart<Config> = {
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, driven: true, timed: true, drives: true, gap: true, poise: true, wait: true,
+    recover: true, landed: true, fire: true, driven: true, timed: true, drives: true, gap: true, poise: true, wait: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(combinationFits, "needs both arms on the upper trunk and a thoracic joint"),
-    (spec, config) => { const missing = missingTimedChannels(spec, config); return missing.length ? `has no ${missing.join(", ")} to push` : null; }),
+    timedChannelFault),
   faults: config => validCombination(config) ? [] : ["invalid combination settings"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   blows: config => config.drives,
   // Its punches are thrown by hands that hold nothing: of two drives, the hand asked for and the other.
