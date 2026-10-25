@@ -48,6 +48,9 @@ const FIRE = [0, 1.2];
 /** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
 const BRAKE = [0, 0.3];
 
+/** The most a landed blow's score counts of its room inside one test (`scoreOf`). */
+const MARGIN = 0.3;
+
 /** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
 const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
@@ -79,7 +82,8 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
 }
 
 /**
- * A trial's score: a landed blow above 9 by its speed and mass past the bar; else up to 8 by how
+ * A trial's score: a landed blow above 9 by how far inside each of the bar's tests it is, each
+ * margin a share of its limit's room and capped, so a search moves off the tests' edges; else up to 8 by how
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin; -1 nothing on the mark; -3 a fall.
  */
@@ -88,8 +92,13 @@ export function scoreOf(reading, hand) {
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" ? -0.5 : -1;
   const speed = (hit.speed ?? 0) / BAR.speed[hand], mass = hit.kg / BAR.mass[hand];
-  if (reading.outcome === "landed") return 9 + Math.min(speed - 1, 0.5) + Math.min(mass - 1, 0.5);
   const cone = Math.cos(BAR.cone * Math.PI / 180), wide = Math.cos(2 * BAR.cone * Math.PI / 180), unit = (v) => Math.max(0, Math.min(1, v));
+  if (reading.outcome === "landed") {
+    const room = (value, limit, best) => Math.min(MARGIN, Math.max(0, (value - limit) / (best - limit)));
+    const along = Math.cos(BAR.along * Math.PI / 180), rad = Math.PI / 180;
+    return 9 + room(speed, 1, 1.5) + room(mass, 1, 2) + room(hit.straight, cone, 1) + room(hit.along, along, 1)
+      + room(-hit.bend, -BAR.bend * rad, 0) + room(-hit.lean, -BAR.lean * rad, 0) + room(-(hit.time - reading.began), -BAR.within, 0);
+  }
   const towards = (cosine) => cosine === null ? 0 : unit((cosine - wide) / (cone - wide));
   const within = (angle, limit) => unit(1 - Math.max(0, angle - limit * Math.PI / 180) / (limit * Math.PI / 180));
   const late = reading.began === null ? 1 : Math.max(0, hit.time - reading.began - BAR.within);
