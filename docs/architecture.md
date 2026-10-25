@@ -326,9 +326,10 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   hand closes for its blow and strikes with the fist's point (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`; the combination throws two): from a
   stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
-  contact pose its IK solves each step. With `timed`, the drive pushes each channel on a schedule
-  of its own (`TimedPush`: a level, a start and a length into the drive), the stance and that
-  contact pose beneath.
+  contact pose its IK solves each step. With `timed`, the drive pushes each channel the schedule
+  names on a schedule of its own (`TimedPush`: a level, a start and a length into the drive) and
+  every other channel at the contact pose as before, the stance beneath; with `driven` beside it,
+  the striking point is driven along the line too.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
@@ -946,7 +947,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   drill tactics: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
-  it, straight, soon; `BAR`, `strike/read.ts`), weak (on the mark, short of it), on the target
+  it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
+  straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), on the target
   elsewhere, missed, out of its window, refused, fell, or a fight that never came to its moment). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).

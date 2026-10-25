@@ -4,13 +4,13 @@
  * legs and the striking arm) a level, a start and a length into the drive, the stance and the arm's
  * aim beneath. A candidate is played as the drill plays a trial (`STRIKE_CASES.still`, its world
  * and its reader, `readStrike`) on one cell: a body, a hand, a mark, an offset across and a gap,
- * the gap searched with the schedule unless given. It is scored by the bar (`BAR`, `read.ts`): a
+ * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by the bar (`BAR`, `read.ts`): a
  * landed blow scores above every other, by its speed and mass past the bar; any other trial by how
  * near its hit came to each of the bar's tests; a fall lowest. The punch is admitted at any range
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--hz 120] [--workers 12] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--rates 120,480] [--without <channel,...>] [--driven] [--chest] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -41,40 +41,55 @@ export function ceilingChannels(hand) {
  * posture beneath, the hips' turn, the chest's and the trunk's lean, rad (`StraightPunch`).
  */
 const WINDOW = 0.45, GAPS = [0.75, 1.3], LEAD = [0, 0.45], THROUGH = [0, 0.3], HIPS = [0, 0.6], TURN = [0, 0.43], LEAN = [0, 0.5];
+/** With `--driven`, the striking point's drive (`StraightPunch.driven`): its acceleration, m/s^2, its steer, 1/s, and the way it arrives over, m. */
+const ACCEL = [40, 600], STEER = [0, 60], ARRIVE = [0, 0.4];
+
+/** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
+const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
 /** The drive's settings around a schedule: admitted at any range past `reach` of the arm, driven for at most `longest` s. */
-const AROUND = { reach: 0.3, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
+const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
 
-/** The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given. */
-export function decode(x, hand, gap) {
+/**
+ * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
+ * channels `without` left off the schedule, so the punch pushes them toward their goals.
+ */
+export function decode(x, hand, gap, without = new Set()) {
   const channels = ceilingChannels(hand), n = channels.length * 3;
-  const pushes = channels.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], length: Math.max(0, x[3 * i + 2]) })).filter((p) => Math.abs(p.level) > 0.05);
+  const pushes = channels.map((channel, i) => ({ channel, level: Math.abs(x[3 * i]) > 0.05 ? x[3 * i] : 0, from: x[3 * i + 1], length: Math.max(0, x[3 * i + 2]) }))
+    .filter((p, i) => !without.has(channels[i]));
   const rest = x.slice(n), searched = gap === undefined;
-  const [lead, through, hips, turn, lean] = rest.slice(searched ? 1 : 0);
-  return { pushes, gap: searched ? rest[0] : gap, lead, through, beneath: hips === undefined ? {} : { hips, turn, lean } };
+  const [lead, through, hips, turn, lean, accel, steer, arrive] = rest.slice(searched ? 1 : 0);
+  return { pushes, gap: searched ? rest[0] : gap, lead, through, beneath: hips === undefined ? {} : { hips, turn, lean },
+    ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }) };
 }
 
 /** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target. */
-export function timedPuncher({ pushes, lead, through, beneath }, hand) {
+export function timedPuncher({ pushes, lead, through, beneath, driven }, hand, aim = null) {
   const preset = MINDS.puncher.config, punch = preset.executors[0];
-  const executor = { ...punch, ...AROUND, lead, through, ...beneath, timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
-  return { mind: { ...preset, executors: [executor] }, action: "strike" };
+  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim } : action) : preset.actions;
+  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+  return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
 }
 
 /**
- * A trial's score: a landed blow above 6 by its speed and mass past the bar; else up to 5.6 by how
- * near it came to each test, its speed counted twice and past the bar; -1 nothing on the mark; -3 a fall.
+ * A trial's score: a landed blow above 9 by its speed and mass past the bar; else up to 8 by how
+ * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
+ * another's margin; -1 nothing on the mark; -3 a fall.
  */
 export function scoreOf(reading, hand) {
   if (reading.down) return -3;
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" ? -0.5 : -1;
   const speed = (hit.speed ?? 0) / BAR.speed[hand], mass = hit.kg / BAR.mass[hand];
-  if (reading.outcome === "landed") return 6 + Math.min(speed - 1, 0.5) + Math.min(mass - 1, 0.5);
-  const cone = Math.cos(BAR.cone * Math.PI / 180), wide = Math.cos(2 * BAR.cone * Math.PI / 180);
-  const straight = hit.straight === null ? 0 : Math.max(0, Math.min(1, (hit.straight - wide) / (cone - wide)));
+  if (reading.outcome === "landed") return 9 + Math.min(speed - 1, 0.5) + Math.min(mass - 1, 0.5);
+  const cone = Math.cos(BAR.cone * Math.PI / 180), wide = Math.cos(2 * BAR.cone * Math.PI / 180), unit = (v) => Math.max(0, Math.min(1, v));
+  const towards = (cosine) => cosine === null ? 0 : unit((cosine - wide) / (cone - wide));
+  const within = (angle, limit) => unit(1 - Math.max(0, angle - limit * Math.PI / 180) / (limit * Math.PI / 180));
   const late = reading.began === null ? 1 : Math.max(0, hit.time - reading.began - BAR.within);
-  return 2 * Math.min(1.3, speed) + Math.min(1, mass) + straight + Math.max(0, 1 - late / 0.3) - (reading.ended === null ? 0.5 : 0);
+  const lined = (cosine) => cosine === null ? 0 : unit((cosine - Math.cos(2 * BAR.along * Math.PI / 180)) / (Math.cos(BAR.along * Math.PI / 180) - Math.cos(2 * BAR.along * Math.PI / 180)));
+  return 2 * Math.min(1, speed) + Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend, BAR.bend) + within(hit.lean, BAR.lean)
+    + Math.max(0, 1 - late / 0.3) - (reading.ended === null ? 0.5 : 0);
 }
 
 /** One drill trial of `subject` on `condition` at `hz`: its reading. */
@@ -93,12 +108,16 @@ export async function drillTrial(subject, condition, hz) {
   } finally { built.dispose(); }
 }
 
-/** `x` played on `cell`: its score and what it read. */
+/** `x` played on `cell` at each of its rates: the worst rate's score and what it read there. */
 async function trial(x, cell) {
-  const decoded = decode(x, cell.hand, cell.gap ?? undefined);
+  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []));
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
-  const reading = await drillTrial(timedPuncher(decoded, cell.hand), condition, cell.hz);
-  return { score: scoreOf(reading, cell.hand), gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, straight: reading.hit.straight, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
+  let worst = null;
+  for (const hz of cell.rates) {
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null), condition, hz), score = scoreOf(reading, cell.hand);
+    if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
+  }
+  return worst;
 }
 
 if (!isMainThread && workerData?.drill) {
@@ -109,30 +128,30 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
+    sigma: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, chest: { type: "boolean" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
   if (values.verify) {
-    const found = JSON.parse(readFileSync(values.verify, "utf8")), decoded = decode(found.best.x, found.cell.hand, found.cell.gap ?? undefined);
+    const found = JSON.parse(readFileSync(values.verify, "utf8")), decoded = decode(found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []));
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
-        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand), { model, mark, hand: found.cell.hand, across, gap }, hz);
+        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null), { model, mark, hand: found.cell.hand, across, gap }, hz);
         const h = reading.hit;
         console.log(JSON.stringify({ hz, model, mark, across, gap: +gap.toFixed(3), outcome: reading.outcome, score: +scoreOf(reading, found.cell.hand).toFixed(3),
-          hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), straight: h.straight && +h.straight.toFixed(3), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));
+          hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), straight: h.straight && +h.straight.toFixed(3), along: h.along && +h.along.toFixed(3), bend: +h.bend.toFixed(2), lean: +h.lean.toFixed(2), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));
       }
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? null : Number(values.gap), hz: Number(values.hz ?? 120) };
+    gap: values.gap === undefined ? null : Number(values.gap), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, chest: !!values.chest, rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
-  const lo = [], hi = [];
-  for (let i = 0; i < ceilingChannels(cell.hand).length; i++) { lo.push(-1, 0, 0); hi.push(1, WINDOW, WINDOW); }
-  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN]) { lo.push(low); hi.push(high); }
+  const lo = [], hi = [], without = new Set(cell.without);
+  for (const channel of ceilingChannels(cell.hand)) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }
+  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : [])]) { lo.push(low); hi.push(high); }
   const pool = workerPool(fileURLToPath(import.meta.url), { drill: true, cell }, nw);
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
   const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.x : null;
-  const start = from ? lo.map((l, i) => from[i] === undefined ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
-  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: 4 * nw, generations, seed: Number(values.seed ?? 1),
+  const start = from ? lo.map((l, i) => from[i] === undefined || hi[i] === l ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
+  const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 4 * nw), generations, seed: Number(values.seed ?? 1),
     score: (u) => pool.evaluate(toX(u)),
     onGeneration(entry, { best, mean, log }) {
       console.error(JSON.stringify(entry));

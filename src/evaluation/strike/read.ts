@@ -4,17 +4,27 @@
  * Every rung reads its trials so.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { pointOfToRef } from "../../core/control/support.ts";
+import { pointOfToRef, turnOfToRef } from "../../core/control/support.ts";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../../core/build/rigid.ts";
+import { jointAngles } from "../../core/build/joint-state.ts";
 import { regionSegments } from "../../core/mind/action-aim.ts";
 import type { DrillPhase } from "../../core/mind/drill-tactics.ts";
 import { aimOf } from "../../core/skills/strikes.ts";
-import { cos } from "../../core/math/real.ts";
+import { acos, cos } from "../../core/math/real.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";
+import type { BodySpec } from "../../core/spec/body.ts";
 import type { Reader } from "../evaluation.ts";
 
 export type Mark = "high" | "middle" | "legs";
+
+/** The segment `steps` joints above `segment` in `spec`'s tree: a hand's forearm at 1, its upper arm at 2. */
+function limbAbove(spec: BodySpec, segment: string, steps: number): string | undefined {
+  let at: string | undefined = segment;
+  for (let k = 0; k < steps && at !== undefined; k++) at = spec.joints.find((joint) => joint.child === at)?.parent;
+  return at;
+}
 export type Hand = "left" | "right";
 
 /**
@@ -26,11 +36,18 @@ export type Hand = "left" | "right";
  * `cone` degrees of the surface's normal, as the punch competency's straight blow does, and it
  * meets the target within `within` s of the action's start
  * ([thresholds](../../../docs/reference/competencies.md#thresholds)).
+ *
+ * And it is a punch, as the owner asked (2026-10-24, "I want the punch to be a punch"): its last
+ * `run` m come out more along the arm than across it, within `along` degrees of the line from the
+ * striking shoulder to the strike point at contact (a thrust runs along that line, a swing across
+ * it; an elbow near straight opens mostly across it, so a person's punch is not held nearer); the
+ * elbow is within `bend` degrees of straight (its range's end) at contact; and the chest is within
+ * `lean` degrees of upright then.
  */
 export const BAR = Object.freeze({
   speed: Object.freeze({ right: 6.8, left: 5.3 }),
   mass: Object.freeze({ right: 2.12, left: 2.34 }),
-  run: .1, cone: 20, within: .5,
+  run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
 });
 export type Bar = typeof BAR;
 
@@ -47,8 +64,13 @@ export type StrikeHit = StrikeContact & {
   readonly speed: number | null;
   /** The cosine between that travel and the surface's normal; null where it travelled less. */
   readonly straight: number | null;
+  /** The cosine between that travel and the line from the shoulder to the strike point at contact; null where it travelled less. */
+  readonly along: number | null;
+  /** How far the elbow was from straight at contact, and the chest from upright, rad. */
+  readonly bend: number; readonly lean: number;
   /** Which of the bar's tests it met. */
   readonly fast: boolean; readonly heavy: boolean; readonly square: boolean; readonly soon: boolean;
+  readonly lined: boolean; readonly extended: boolean; readonly upright: boolean;
 };
 
 /**
@@ -96,23 +118,36 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const aim = rigidPoints(left.built.spec, limb.spec).get(aimOf(left.built.spec, hand))!.value, point = new Vector3();
-  /** The strike point's path, world, a step at a time: time, x, y, z. */
+  const spec = left.built.spec, shoulderJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 2));
+  const upperArm = shoulderJoint && left.built.segments.get(shoulderJoint.child), chest = left.built.segments.get("upperTrunk");
+  const elbowJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 1));
+  if (!shoulderJoint || !upperArm || !chest || !elbowJoint) throw new Error(`the striker's ${effector} has no shoulder, elbow or chest to read a punch's form by`);
+  const elbow = left.built.joints.get(elbowJoint.name), straightElbow = elbowJoint.dofs[0]!.min.value, angles: number[] = [];
+  if (!elbow) throw new Error(`the striker has no built ${elbowJoint.name}`);
+  const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3();
+  /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, the shoulder's x, y, z, the elbow's bend and the chest's lean, rad. */
   const path: number[] = [];
+  const STRIDE = 9;
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
-  const coneCosine = cos(bar.cone * Math.PI / 180);
+  const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false;
   /** The actions the fight asked before the drill had the body. */
   const before = new Set<number>();
+  /** The last step before `time`'s place in `path`, or -1. */
+  const stepBefore = (time: number): number => {
+    let end = path.length - STRIDE;
+    while (end >= 0 && path[end]! >= time) end -= STRIDE;
+    return end;
+  };
   /** The strike point's travel over its last `bar.run` m before `time`: its speed and its direction, or null where it travelled less. */
   const approach = (time: number): { speed: number; direction: [number, number, number] } | null => {
-    let end = path.length - 4;
-    while (end >= 0 && path[end]! >= time) end -= 4;
+    const end = stepBefore(time);
     if (end < 0) return null;
     const ex = path[end + 1]!, ey = path[end + 2]!, ez = path[end + 3]!;
-    for (let k = end - 4; k >= 0; k -= 4) {
+    for (let k = end - STRIDE; k >= 0; k -= STRIDE) {
       const dx = ex - path[k + 1]!, dy = ey - path[k + 2]!, dz = ez - path[k + 3]!, far = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (far < bar.run) continue;
-      const next = k + 4, nx = ex - path[next + 1]!, ny = ey - path[next + 2]!, nz = ez - path[next + 3]!, near = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const next = k + STRIDE, nx = ex - path[next + 1]!, ny = ey - path[next + 2]!, nz = ez - path[next + 3]!, near = Math.sqrt(nx * nx + ny * ny + nz * nz);
       const f = far === near ? 0 : (far - bar.run) / (far - near), at = path[k]! + f * (path[next]! - path[k]!);
       const sx = path[k + 1]! + f * (path[next + 1]! - path[k + 1]!), sy = path[k + 2]! + f * (path[next + 2]! - path[k + 2]!), sz = path[k + 3]! + f * (path[next + 3]! - path[k + 3]!);
       const tx = ex - sx, ty = ey - sy, tz = ez - sz, length = Math.sqrt(tx * tx + ty * ty + tz * tz);
@@ -142,7 +177,10 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       }
       if (id !== null && times.ended === null) {
         pointOfToRef(limb, aim, point);
-        path.push(world.time, point.x, point.y, point.z);
+        pointOfToRef(upperArm, shoulderJoint.centre.value, shoulder);
+        up.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(chest, turn), up);
+        path.push(world.time, point.x, point.y, point.z, shoulder.x, shoulder.y, shoulder.z,
+          jointAngles(elbow, angles)[0]! - straightElbow, acos(Math.max(-1, Math.min(1, up.y))));
       }
       down ||= left.body.down;
     },
@@ -161,13 +199,17 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const live = (time: number) => times.began !== null && time >= times.began && time <= (times.ended ?? world.time);
       const byHand = touches.filter(({ contact }) => contact.by === effector && live(contact.time));
       const hits = byHand.filter(({ contact }) => marked.has(contact.on)).map(({ contact, normal }): StrikeHit => {
-        const travel = approach(contact.time);
+        const travel = approach(contact.time), at = stepBefore(contact.time);
         const straight = travel && travel.direction[0] * normal[0] + travel.direction[1] * normal[1] + travel.direction[2] * normal[2];
-        return { ...contact, speed: travel?.speed ?? null, straight,
+        const ax = path[at + 1]! - path[at + 4]!, ay = path[at + 2]! - path[at + 5]!, az = path[at + 3]! - path[at + 6]!, arm = Math.sqrt(ax * ax + ay * ay + az * az) || 1;
+        const along = travel && (travel.direction[0] * ax + travel.direction[1] * ay + travel.direction[2] * az) / arm;
+        const bent = at < 0 ? Math.PI : path[at + 7]!, leaning = at < 0 ? Math.PI : path[at + 8]!;
+        return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning,
           fast: travel !== null && travel.speed >= bar.speed[hand], heavy: contact.kg >= bar.mass[hand], square: straight !== null && straight >= coneCosine,
-          soon: times.began !== null && contact.time - times.began <= bar.within };
+          soon: times.began !== null && contact.time - times.began <= bar.within,
+          lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean };
       });
-      const meets = (hit: StrikeHit) => hit.fast && hit.heavy && hit.square && hit.soon;
+      const meets = (hit: StrikeHit) => hit.fast && hit.heavy && hit.square && hit.soon && hit.lined && hit.extended && hit.upright;
       const hit = hits.find(meets) ?? hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
       const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak" : byHand.length ? "elsewhere"

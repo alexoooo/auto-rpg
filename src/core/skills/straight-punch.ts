@@ -34,9 +34,11 @@ import { closesToStrike } from "./strikes.ts";
  * at the speed `accel` m/s^2 gives it over what is left of the way, and no less than it gives over
  * `arrive` m, so the fist meets the target moving and the arm's range stops it; the velocity that
  * asks closed at `steer` per second and the ask no more than `accel`. The arm is drawn toward its
- * contact pose beneath it, and the whole-body solve gives what the muscles can. With `timed`, no
- * channel is pushed toward its goal: each of the punching hand's pushes (`TimedPush`) drives its
- * channel flat out over its own window of the drive, and the posture beneath is the one above.
+ * contact pose beneath it, and the whole-body solve gives what the muscles can. With `timed`, a
+ * channel the punching hand's schedule names is not pushed toward its goal: each of its pushes
+ * (`TimedPush`) drives the channel flat out over its own window of the drive. A channel it does
+ * not name is pushed toward its goal as above, and the posture beneath is the one above. With both,
+ * the schedule pushes its channels and the striking point is driven as `driven` says.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -93,7 +95,7 @@ export function validStraightPunch(settings: StraightPunch): boolean {
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
-    && (settings.timed === undefined || settings.driven === undefined && HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
+    && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
 }
 
 /** The channels `settings` push on a schedule that a body of `spec` lacks. */
@@ -198,6 +200,8 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
+  /** The channels each hand's schedule names, which are pushed only on it. */
+  const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
     /** Where it aims, world, the last target asked; the way it faces as the drive began. */
@@ -268,7 +272,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     solve(view, limb, true, (apart) => apart + settings.through, null);
     const push = (channel: string, goal: number) => {
       const error = goal - (view.angles[channel] ?? 0);
-      if (!settings.timed && Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1, level: 1 });
+      if (!scheduled[hand].has(channel) && Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1, level: 1 });
       posture[channel] = goal;
     };
     if (settings.timed) for (const p of settings.timed[hand]) {
