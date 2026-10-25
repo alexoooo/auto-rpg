@@ -382,9 +382,11 @@ fourth action within 30 s.
   a step, and a horizon multiplies it.
 - **The competency's angle**: whether a blow counts only if it comes in straight, and at what
   angle; with it, the fastest chop no longer passes.
-- **The mass bar for a lighter body**: the bar's 2.1 kg is an adult's from Adamec; the Rogue
-  weighs 0.73 of the Warrior and its arm 0.65, and the most any of its schedules meets is 2.1 kg.
-  Whether the bar scales with the striker's mass decides whether the Rogue has a punch at the bar.
+- **The bar for another body** (decided by the owner, 2026-10-25): the bar is an adult man's
+  (Adamec), the Warrior's; it is to scale with the striker's body (its mass, dimensions and
+  strength), so that any humanoid's bar follows from it. The Warrior's punch comes first; the
+  scaled bar, and the Rogue's punch at it, after. The Rogue weighs 0.73 of the Warrior and its arm
+  0.65, and the most any of its schedules meets is 2.1 kg.
 - **The head behind the guard**: the punch aims at the head and lands on the chest; a punch that
   reaches the head has to go around or over the guard.
 - **The fist's threshold against a head**: at 36.8 J and a 62 % share the exchange stops paying at
