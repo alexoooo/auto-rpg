@@ -1,7 +1,7 @@
 import { strikesWithOneOf, fitsAll, fitsWhen } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
-import { missingTimedChannels, STRAIGHT_PUNCH, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
+import { STRAIGHT_PUNCH, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./strikes.ts";
 
 /** **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact pose, its settings these. */
@@ -19,7 +19,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
     recover: true, landed: true, fire: true, driven: true, timed: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
-    (spec, config) => { const missing = missingTimedChannels(spec, config); return missing.length ? `has no ${missing.join(", ")} to push` : null; }),
+    timedChannelFault),
   faults: config => validStraightPunch(config) ? [] : ["invalid straight punch settings"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),

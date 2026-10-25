@@ -103,9 +103,30 @@ export function validStraightPunch(settings: StraightPunch): boolean {
 }
 
 /** The channels `settings` push on a schedule that a body of `spec` lacks. */
-export function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
+function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
   const channels = new Set(spec.joints.flatMap((joint) => joint.dofs.map((dof) => `${joint.name} ${dof.positive}`)));
   return settings.timed ? HANDS.flatMap((hand) => settings.timed![hand].map((push) => push.channel)).filter((channel) => !channels.has(channel)) : [];
+}
+
+/**
+ * Why a body of `spec` cannot take `settings`' schedule, or null: a channel it lacks, or one on
+ * the arm a `driven` drive moves (from the joint that leaves the hand's base down), which a body
+ * refuses to push while it drives the hand's point.
+ */
+export function timedChannelFault(spec: BodySpec, settings: StraightPunch): string | null {
+  const missing = missingTimedChannels(spec, settings);
+  if (missing.length) return `has no ${missing.join(", ")} to push`;
+  if (!settings.timed || !settings.driven) return null;
+  const driven = HANDS.flatMap((hand) => {
+    const base = spec.effectors?.find((e) => e.segment === `hand.${hand}`)?.base, arm = new Set<string>();
+    for (let at: string | undefined = `hand.${hand}`; at !== undefined && at !== base;) {
+      const joint = spec.joints.find((j) => j.child === at);
+      joint?.dofs.forEach((dof) => arm.add(`${joint.name} ${dof.positive}`));
+      at = joint?.parent;
+    }
+    return settings.timed![hand].map((push) => push.channel).filter((channel) => arm.has(channel));
+  });
+  return driven.length ? `pushes ${driven.join(", ")} on the arm it drives` : null;
 }
 
 /** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
