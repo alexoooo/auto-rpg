@@ -347,7 +347,7 @@ Read on the still rung (Node, Rapier, the Warrior's rear hand, `research/punch-d
   elbow 0.2 rad more bent. With `brake` in its place (flat out, then the posture's servo near the
   goal, solved within the step) the two rates' bends at contact agree to 0.1 rad at 0.93 and 0.96 m.
 - **The mass a fist meets is its holds'.** With every joint free it meets 0.45 to 2.6 kg, alike at
-  both rates; the muscles' holds make it 1.7 to 9 kg at 120 Hz and 1.8 to 8 kg at 480, differently
+  both rates; the muscles' holds make it 0.9 to 9.2 kg at 120 Hz and 1.1 to 5.5 kg at 480, differently
   at the same gap. On the touch step the elbow is still opening at 35 to 63 rad/s, where its
   muscles' ceiling is 0.2 to 8 N m, so which step the touch falls on decides the hold.
 - **Tried and not kept**: holds at no less than the activation's isometric strength (raises every
