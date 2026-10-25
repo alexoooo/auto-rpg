@@ -241,6 +241,60 @@ elbow the forearm opens mostly across the arm's line (at 30° short, three quart
 the fist's path keeps to the line only as far as the shoulder carries it; a 20° cone failed every
 fast blow found.
 
+## Across places
+
+The Punch plan's step 4 asks for a punch that lands off its own cell. **A timed punch's landing
+band is a few centimetres of range**: open-loop, it lands where its trunk puts the shoulder an arm's
+length from the target as the elbow straightens, and the bar leaves little room there. With the
+elbow within 30° of straight the shoulder-to-fist length changes 2 cm (0.628 to 0.65 m on the
+Warrior), so the shoulder at contact must be within about 2 cm of where it was found. Searches by
+`research/punch-drill.mjs`, the Warrior's right hand at the middle mark, Node, Rapier:
+
+| Search | Places | Landed |
+|---|---|---|
+| from the reference punch, scored by the mean over places | 12: the Warrior and the Rogue, three gaps each, square on and 0.1 m across | 0 |
+| the same, the arm opened at a distance (`fire`) | 12 | 1 |
+| the schedule held, its time scale, shift, aim and posture tuned per place | 1 each | none off the reference's place |
+| scored by each test's room inside the bar, capped (`scoreOf`) | the Warrior at 0.92, 0.94 and 0.96 m, square and 0.1 m across, 120 Hz | 5 of 6 |
+| the same, both rates | 0.93 and 0.95 m, square and 0.1 m across | 2 of 4 |
+| the same, eased (`ease` searched), each push its share of a step, `fire` searched | 0.91, 0.93, 0.95 and 0.97 m, square, both rates | 2 of 4; read at 0.89 to 1.01 m, it lands from 0.93 to 0.97 m at 120 Hz and from 0.95 to 0.97 m at 480 Hz |
+
+What narrows it:
+
+- **The arm chattered on its line.** The shoulder's channels were pushed flat out at a goal that
+  moves each step, so they overshot it each step: near contact the fist's heading turned by 20 to 50°
+  from one step to the next, and whether its last 0.1 m came in within 20° of the normal was luck.
+  Eased onto its goals (`StraightPunch.ease`, 0.05 rad), the same schedule's fist meets the chest at
+  every gap from 0.91 to 0.97 m with the elbow within 30° of straight; searched with it, at 120 Hz it
+  lands from 0.93 to 0.96 m.
+- **The schedule ran on whole steps.** A push began and ended on a control step, 8.3 ms at 120 Hz,
+  so 120 and 480 Hz played different schedules. A push now covers its share of a step.
+- **Nearer, the elbow meets the target bent**; further, the arm is straight before contact and the
+  fist slows below the bar, or meets the guard. A distance trigger (`fire`) opens the arm earlier
+  when nearer, but the earlier blow meets lighter (0.8 kg at 0.91 m).
+- **The lean cannot be taken off the schedule**: pushed at a goal instead, the punch's timing comes
+  apart at every gap.
+
+**A policy over the schedule widens it.** The punch steered (`StraightPunch.steered`,
+`src/core/skills/learned-punch.ts`): 60 times a second through the drive a network reads the
+drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
+mass's velocity, whether the hand touches, and the trunk's, legs' and arm's angles and speeds, and
+adds a level to each push the schedule or the contact pose is making (a channel not being pushed
+stays with the posture or the stance: a push of any level takes it from them, and with it every
+punch). Trained by PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`)
+from the schedule above, on the Warrior's two hands, gaps 0.86 to 1.04 m and 0 to 0.15 m across,
+each episode a drill trial loaded at the drive's first step and scored by the bar. Read whole
+(the trial played out, falls counted) on 60 places training never drew
+(`research/punch-policy-check.mjs`, seed 1001):
+
+| Punch | 120 Hz landed | 480 Hz landed | Fell |
+|---|---|---|---|
+| the schedule alone | 8 of 60 | 2 of 60 | 0 |
+| steered, trained 2 M decisions at 120 Hz | 35 of 60; 33 of the 39 at 0.86 to 0.98 m | 9 of 60 | 0 |
+| the same, 1 M more with half its episodes at 480 Hz | 33 of 60 | 24 of 60 | 0 |
+
+Past 0.98 m the fist does not reach at the bar steered or not.
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)

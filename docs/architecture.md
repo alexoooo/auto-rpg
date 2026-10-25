@@ -333,7 +333,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   the striking point is driven along the line too. With `fire`, the arm's drive begins once the
   fist comes within that share of the arm's length of the target, so it opens at one distance
   whatever the range. With `ease`, a channel pushed at the contact pose eases off in proportion
-  near its goal instead of pushing past it each step, so the fist keeps its line.
+  near its goal instead of pushing past it each step, so the fist keeps its line. With `steered`,
+  60 times a second through the drive it reads itself (`punchFeatures`,
+  `src/core/skills/learned-punch.ts`: the target from the shoulder, the fist, the trunk's, legs'
+  and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
+  making (`steerPushes`); a channel it is not pushing stays with the posture or the stance.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.

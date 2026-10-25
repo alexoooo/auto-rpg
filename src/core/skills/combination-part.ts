@@ -17,7 +17,7 @@ export const COMBINATION_PART: ExecutorPart<Config> = {
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, fire: true, ease: true, driven: true, timed: true, drives: true, gap: true, poise: true, wait: true,
+    recover: true, landed: true, fire: true, ease: true, steered: true, driven: true, timed: true, drives: true, gap: true, poise: true, wait: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(combinationFits, "needs both arms on the upper trunk and a thoracic joint"),
     timedChannelFault),

@@ -55,7 +55,7 @@ const EASE = [0.005, 0.095];
 const MARGIN = 0.3;
 
 /** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
-const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
+export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
 /** The drive's settings around a schedule: admitted at any range past `reach` of the arm, driven for at most `longest` s. */
 const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
@@ -115,7 +115,7 @@ export function scoreOf(reading, hand) {
  * `x`, a schedule for `from`'s hand, made the other hand's in place: each side's channel moved to
  * the other side's, the trunk's turn reversed.
  */
-function mirrored(x, from, to) {
+export function mirrored(x, from, to) {
   const source = ceilingChannels(from), target = ceilingChannels(to), copy = [...x];
   const swap = (name) => name.replace(/\.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `);
   source.forEach((channel, i) => {
