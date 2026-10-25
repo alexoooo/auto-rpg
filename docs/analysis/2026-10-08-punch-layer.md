@@ -308,6 +308,31 @@ the Warrior's rear hand at 0.91 to 0.99 m, 120 and 480 Hz), the best schedule me
 the guard covers the face, and the open lane over it is the top of the head, which a straight
 punch cannot meet square.
 
+### Both bodies and fight moments
+
+Trained on: still targets for both bodies, and the fight rung's moments 1 to 8 against its seven
+foes, the half not held out by a digest of each moment's condition. Each body's punch is admitted
+in a window of its own. The features add the target's velocity. Read on held-out trials (Node,
+Rapier, `punch-policy-check.mjs`, seed 1001): 80 still places across both bodies, and the 28 held-out
+moments of each body at the middle mark:
+
+| Network | Warrior still, 0.90 to 0.98 m: 120 / 480 Hz | Rogue still: 120 / 480 Hz | Fights: 120 / 480 Hz | Fell |
+|---|---|---|---|---|
+| 4.0 M decisions, the Rogue trained at 0.72 to 0.96 m | 12 of 16 / 4 of 16 | 0 of 41 / 0 of 41 | 0 of 56 / 0 of 56 | 2 |
+| 5.0 M, the Rogue at 0.77 to 0.88 m, the target's velocity read | 14 of 16 / 7 of 16 | 1 of 41 / 2 of 41 | 0 of 56 / 0 of 56 | 2 |
+
+- **At 480 Hz the elbow meets the target more bent**: the Warrior's blows that land at 120 Hz meet
+  it 0.35 to 0.45 rad short of straight, and at 480 Hz the same places 0.4 to 0.8 rad, where the
+  fist meets 0.7 to 2.3 kg instead of 3 to 7.
+- **The Rogue's blow is light**: its body is 57.6 kg to the Warrior's 79.0, its arm 0.65 times as
+  heavy. Its schedules reach its straight arm only from 0.84 to 0.88 m, and meet 1.2 to 1.9 kg
+  there, its fist's line 45° or more off the arm's (`along`). Searched at 0.79 to 0.83 m or 0.88 to
+  0.92 m (`--heavier 3`), no schedule passes: nearer, the elbow meets the target 0.6 to 0.9 rad
+  short of straight and 0.3 kg; farther, the fist arrives below 6.5 m/s or not at all.
+- **In a fight the foe comes on**: the punch is admitted at its window's near edge, and the foe
+  closes during the 0.2 s before contact: the fist meets the guard or the trunk with the elbow
+  0.8 to 1.5 rad short of straight, 0.5 to 1.9 kg, often at 7 to 8.8 m/s.
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)
@@ -332,6 +357,9 @@ fourth action within 30 s.
   a step, and a horizon multiplies it.
 - **The competency's angle**: whether a blow counts only if it comes in straight, and at what
   angle; with it, the fastest chop no longer passes.
+- **The mass bar for a lighter body**: the bar's 2.1 kg is an adult's from Adamec; the Rogue
+  weighs 0.73 of the Warrior and its arm 0.65, and the most any of its schedules meets is 2.1 kg.
+  Whether the bar scales with the striker's mass decides whether the Rogue has a punch at the bar.
 - **The head behind the guard**: the punch aims at the head and lands on the chest; a punch that
   reaches the head has to go around or over the guard.
 - **The fist's threshold against a head**: at 36.8 J and a 62 % share the exchange stops paying at

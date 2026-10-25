@@ -52,7 +52,8 @@ export function steeredSubjects({ schedule, schedules = {}, windows = {} }) {
     const decoded = decode(x, hand, cell.gap ?? undefined, new Set((cell.without ?? []).map((c) => hand === cell.hand ? c : c.replace(`.${cell.hand} `, `.${hand} `))), flags);
     const subject = timedPuncher(decoded, hand, cell.chest ? CHEST : null);
     subject.mind.executors[0].steered = true;
-    if (windows[model]) [subject.mind.executors[0].reach, subject.mind.executors[0].band, subject.mind.executors[0].aside, subject.mind.executors[0].above] = windows[model];
+    const punch = subject.mind.executors[0];
+    if (windows[model]) [punch.reach, punch.band, punch.aside, punch.above] = windows[model];
     made.set(key, subject);
     return subject;
   };

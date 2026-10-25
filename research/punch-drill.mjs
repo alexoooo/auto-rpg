@@ -78,10 +78,10 @@ export function decode(x, hand, gap, without = new Set(), { driven = true, fire 
     ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }), ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }), ...(eased === undefined ? {} : { ease: eased }) };
 }
 
-/** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target. */
+/** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. */
 export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake, ease }, hand, aim = null) {
   const preset = MINDS.puncher.config, punch = preset.executors[0];
-  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim } : action) : preset.actions;
+  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action) : preset.actions;
   const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), ...(ease === undefined ? {} : { ease }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
   return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
 }
