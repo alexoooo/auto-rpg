@@ -1,8 +1,27 @@
+import meta from "../../../assets/core/learned-punch.meta.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { MusclePush } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
+import type { StraightPunch } from "./straight-punch.ts";
+
+/**
+ * **A learned punch** (`dataOf("learned-punch")`): for each body it was trained on, the straight
+ * punch's settings it was trained with (its schedule, `StraightPunch.timed`, and its drive), and
+ * the network that steers it (`punchFeatures` in, `PUNCH_ACTIONS` steer out, as `recoveryNetwork`
+ * evaluates it); `made` says how.
+ */
+export interface PunchPolicy {
+  readonly made: string;
+  readonly bodies: Readonly<Record<string, Partial<StraightPunch>>>;
+  readonly actions: number;
+  readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
+}
+
+/** **What is known of the learned punch before it loads**: the bodies it has settings for. */
+export const PUNCH_POLICY: { readonly bodies: readonly string[] } = deepFreeze(meta);
 
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
 export const PUNCH_DECIDE = 1 / 60;
@@ -20,7 +39,7 @@ const CHANNELS = ["thoracic rotation right", "lumbar rotation right", "thoracic 
 export const PUNCH_ACTIONS = CHANNELS.length;
 
 /** How many features a steered punch reads (`punchFeatures`). */
-export const PUNCH_FEATURES = 14 + 2 * CHANNELS.length;
+export const PUNCH_FEATURES = 16 + 2 * CHANNELS.length;
 
 /**
  * `hand`'s punch's steered channels, in `CHANNELS`' order, and each one's sense: the left hand's
@@ -47,12 +66,13 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  * **What a steered punch reads**, into `out`, the hand's side mirrored away (across negated for
  * the left hand): the drive's age, s; the target from the punching shoulder and the fist from the
  * target, in the body frame, m; the fist's velocity and the centre of mass's in the body frame,
- * m/s; whether the hand touches; then each steered channel's angle and speed (`punchChannels`),
- * rad and rad/s, each in its channel's sense. `fromShoulder` is the target less the shoulder, body
- * frame; `channels` are `hand`'s (`punchChannels`).
+ * m/s; whether the hand touches; the arm's straight length, shoulder to knuckles, and the height
+ * the body stands at (`BodyView.standing`), m, which tell one body from another; then each steered
+ * channel's angle and speed (`punchChannels`), rad and rad/s, each in its channel's sense.
+ * `fromShoulder` is the target less the shoulder, body frame; `channels` are `hand`'s (`punchChannels`).
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
-  touching: boolean, out: number[]): number[] {
+  touching: boolean, arm: number, out: number[]): number[] {
   const side = hand === "right" ? 1 : -1, fist = view.fists[hand], { names, senses } = channels, muscles = body.muscles;
   let k = 0;
   out[k++] = since;
@@ -67,6 +87,7 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   framed(view, c.x + v.x, c.y + v.y, c.z + v.z, moved);
   out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
   out[k++] = touching ? 1 : 0;
+  out[k++] = arm; out[k++] = view.standing;
   for (let i = 0; i < names.length; i++) out[k++] = muscles.angle(muscles.channel(names[i]!)) * senses[i]!;
   for (let i = 0; i < names.length; i++) out[k++] = muscles.speed(muscles.channel(names[i]!)) * senses[i]!;
   out.length = k;

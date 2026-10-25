@@ -58,7 +58,7 @@ const MARGIN = 0.3;
 export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
 /** The drive's settings around a schedule: admitted at any range past `reach` of the arm, driven for at most `longest` s. */
-const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
+export const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
 
 /**
  * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the

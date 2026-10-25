@@ -19,7 +19,9 @@ import { PUNCH_DECIDE, punchChannels, punchFeatures, steerPushes } from "./learn
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
  * m/s, facing the target, with it `reach` of the arm's straight length (shoulder to knuckles)
  * from the punching shoulder, no more than `band` m further across the ground and no nearer than
- * `CROWDED` (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
+ * `CROWDED`, and no more than `aside` m (`band` where unset) to either side of the line it faces,
+ * the target no more than `reach` of the arm above or below the shoulder, nor more than `above` m
+ * above it where given (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
  * both feet bearing (no foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
@@ -52,6 +54,8 @@ export interface StraightPunch {
   readonly pace: number;
   readonly reach: number;
   readonly band: number;
+  readonly aside?: number;
+  readonly above?: number;
   readonly settle: number;
   readonly through: number;
   readonly hips: number;
@@ -108,6 +112,8 @@ export function validStraightPunch(settings: StraightPunch): boolean {
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
+    && (settings.aside === undefined || Number.isFinite(settings.aside) && settings.aside > 0)
+    && (settings.above === undefined || Number.isFinite(settings.above))
     && (settings.ease === undefined || Number.isFinite(settings.ease) && settings.ease > 0)
     && (settings.steered === undefined || typeof settings.steered === "boolean")
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
@@ -250,8 +256,11 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     fired: null as number | null, firedFor: -1,
     /** The control step's length, s, as the last update had it: what a push covers of it. */
     step: 0,
-    /** With `steered`: what the drive last read of itself (`punchFeatures`), when, s into it, and the steer it adds (`steerPushes`). */
-    features: [] as number[], decided: -Infinity, steer: [] as number[],
+    /**
+     * With `steered`: what the drive last read of itself (`punchFeatures`), when, s into it, the
+     * steer it adds (`steerPushes`), and when the steer was last set from what it read.
+     */
+    features: [] as number[], decided: -Infinity, steer: [] as number[], steeredAt: -Infinity,
     still: 0, thrown: { left: 0, right: 0 },
     /**
      * Each shoulder at contact from the head as the last step left it, in the body frame: the
@@ -311,7 +320,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
    * `elbow` s later; or with `driven`, the arm drawn to that pose and its striking point driven
    * (`drivenPoint`).
    */
-  const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], points: PointTask[]): Pose => {
+  const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], points: PointTask[], policy?: (features: readonly number[]) => number[]): Pose => {
     const limb = limbs[hand], posture: Record<string, number> = { ...(chamber(view, hand) ?? guard) }, step = state.step;
     solve(view, limb, true, (apart) => apart + settings.through, null);
     /** The share of this control step, from `since` for `step` s, that falls from `from` to `to`; with no step, whether `since` does. */
@@ -328,7 +337,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       if (part > 0 && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) * part });
     }
     for (const g of limb.goals) push(g.channel, g.angle);
-    if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steer.length = 0; }
+    if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steeredAt = -Infinity; state.steer.length = 0; }
     if (settings.fire !== undefined && state.fired === null && since < settings.lead) {
       const fist = view.fists[hand].position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= settings.fire * limb.arm) state.fired = since;
@@ -344,6 +353,13 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       }
     }
     if (settings.steered) {
+      // A policy's steer from what the drive last read holds from the step after it read it.
+      if (policy && state.decided > state.steeredAt) {
+        state.steeredAt = state.decided;
+        const steer = policy(state.features);
+        state.steer.length = 0;
+        for (const level of steer) state.steer.push(level);
+      }
       if (since >= state.decided + PUNCH_DECIDE - 1e-9) {
         state.decided = since;
         // The shoulder where the trunk stands, against the target the solve above left in the body frame.
@@ -351,7 +367,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
         for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
         pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
         punchFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target,
-          (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, state.features);
+          (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, state.features);
       }
       steerPushes(pushes, steeredChannels[hand], state.steer);
     }
@@ -391,7 +407,8 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       }
   };
   return { state, report, end, read, standOff, chamber, drive, sense,
-    heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm };
+    heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
+      && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
 
 /** A stopped approach must establish its local stroke within this many seconds. */
@@ -413,14 +430,18 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
   const ahead = dx * sin(heading) + dz * cos(heading), across = dx * cos(heading) - dz * sin(heading);
   // Entry permits the configured approach speed and a modest bearing error before settling.
   const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
-    across: [across - settings.band, across + settings.band] as const, facing: .4, speed: settings.pace };
+    across: [across - (settings.aside ?? settings.band), across + (settings.aside ?? settings.band)] as const, facing: .4, speed: settings.pace };
   if (!withinActionWindow(view, window, heading)) return { kind: "position", window };
   return { kind: "ready" };
 }
 
-/** A straight-punch instance owns settling, its committed drive and its bounded guard return; `requireArmAim` checks the aim while the trunk leads the arm. */
+/**
+ * A straight-punch instance owns settling, its committed drive and its bounded guard return;
+ * `requireArmAim` checks the aim while the trunk leads the arm; `policy` sets a steered punch's
+ * steer from what it reads (`PunchPolicy`).
+ */
 export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch,
-  resolve: TargetResolver, { requireArmAim = false }: { readonly requireArmAim?: boolean } = {}): Executor {
+  resolve: TargetResolver, { requireArmAim = false, policy }: { readonly requireArmAim?: boolean; readonly policy?: (features: readonly number[]) => number[] } = {}): Executor {
   if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
   const technique = straightTechnique(body, guard, settings), motion = technique.state;
   technique.read(body.view);
@@ -498,7 +519,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`straight punch has no instance ${id}`);
       const pushes: MusclePush[] = [], points: PointTask[] = [];
-      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, points)
+      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, points, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
       return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),
         legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,

@@ -295,6 +295,16 @@ each episode a drill trial loaded at the drive's first step and scored by the ba
 
 Past 0.98 m the fist does not reach at the bar steered or not.
 
+The last network, played as the core plays it (`learned: true`, `assets/core/learned-punch.json`),
+admitted 0.90 to 0.98 m from the target, to 0.3 m either side of the line it faces and no higher
+than 0.1 m over the shoulder, on the still rung (Node, Rapier, 120 Hz, the Warrior only, not
+recorded): 8 of 64 trials thrown, 4 landed at 6.9 to 7.7 m/s and 3.2 to 5.0 kg, none fell. The
+four not landed were thrown at 1.0 m or 0.2 m across, where the body had swayed into the window
+after it settled. The high mark is refused: its point is 0.2 to 0.28 m over the shoulder on
+both bodies, the middle mark's 0.12 m under it to level, and the schedule thrown at it meets the
+chest at 7 to 8.7 m/s (no schedule searched for the high mark yet finds the head: its score is
+flat at the guard).
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)

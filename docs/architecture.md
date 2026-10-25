@@ -337,7 +337,14 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   60 times a second through the drive it reads itself (`punchFeatures`,
   `src/core/skills/learned-punch.ts`: the target from the shoulder, the fist, the trunk's, legs'
   and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
-  making (`steerPushes`); a channel it is not pushing stays with the posture or the stance.
+  making (`steerPushes`); a channel it is not pushing stays with the posture or the stance. Its
+  window may be narrower across the line it faces than along it (`aside`) and refuse a target
+  higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and
+  window and the steer's network are the learned punch's (`PunchPolicy`, `dataOf("learned-punch")`,
+  `assets/core/learned-punch.json`, exported by `research/punch-export.mjs`; the bodies it has
+  settings for, `PUNCH_POLICY`, before it loads): the schedule searched for that body
+  (`research/punch-drill.mjs`), the network trained over it (`research/punch-learning-environment.mjs`)
+  and admitted where it lands (`research/punch-policy-check.mjs`).
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
@@ -558,9 +565,9 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 | Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed in rank order, rolling to reposition (`techniquesOf`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
-**Mind data loads per use** (`src/core/data/store.ts`). The learned run's and the learned rise's
-networks and Research rise's recorded get-ups (`assets/core/learned-run.json`,
-`assets/core/learned-rise.json`, `assets/research/research-rise*.json`) are each a module of their
+**Mind data loads per use** (`src/core/data/store.ts`). The learned run's, the learned rise's and
+the learned punch's networks and Research rise's recorded get-ups (`assets/core/learned-run.json`,
+`assets/core/learned-rise.json`, `assets/core/learned-punch.json`, `assets/research/research-rise*.json`) are each a module of their
 own in `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
@@ -702,7 +709,8 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   ([The screens](#the-screens)) shows every record.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
-  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
+  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run, the
+  learned punch);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 ### Command
