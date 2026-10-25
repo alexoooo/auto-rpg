@@ -6,11 +6,12 @@
  * and its reader, `readStrike`) on one cell: a body, a hand, a mark, an offset across and a gap,
  * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by the bar (`BAR`, `read.ts`): a
  * landed blow scores above every other, by its speed and mass past the bar; any other trial by how
- * near its hit came to each of the bar's tests; a fall lowest. The punch is admitted at any range
+ * near its hit came to each of the bar's tests (with `--near`, one with nothing on the mark by how
+ * near the fist came to the punch's target, `NEAR`); a fall lowest. The punch is admitted at any range
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--ease] [--chest] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--ease] [--chest] [--near] [--heavier <times>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -89,9 +90,9 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
  * A trial's score: a landed blow above 9 by how far inside each of the bar's tests it is, each
  * margin a share of its limit's room and capped, so a search moves off the tests' edges; else up to 8 by how
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
- * another's margin; -1 nothing on the mark; -3 a fall.
+ * another's margin, the mass counted `heavier` times within those 8; -1 nothing on the mark; -3 a fall.
  */
-export function scoreOf(reading, hand) {
+export function scoreOf(reading, hand, heavier = 1) {
   if (reading.down) return -3;
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" ? -0.5 : -1;
@@ -107,8 +108,8 @@ export function scoreOf(reading, hand) {
   const within = (angle, limit) => unit(1 - Math.max(0, angle - limit * Math.PI / 180) / (limit * Math.PI / 180));
   const late = reading.began === null ? 1 : Math.max(0, hit.time - reading.began - BAR.within);
   const lined = (cosine) => cosine === null ? 0 : unit((cosine - Math.cos(2 * BAR.along * Math.PI / 180)) / (Math.cos(BAR.along * Math.PI / 180) - Math.cos(2 * BAR.along * Math.PI / 180)));
-  return 2 * Math.min(1, speed) + Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend, BAR.bend) + within(hit.lean, BAR.lean)
-    + Math.max(0, 1 - late / 0.3) - (reading.ended === null ? 0.5 : 0);
+  return (2 * Math.min(1, speed) + heavier * Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend, BAR.bend) + within(hit.lean, BAR.lean)
+    + Math.max(0, 1 - late / 0.3)) * 8 / (7 + heavier) - (reading.ended === null ? 0.5 : 0);
 }
 
 /**
@@ -150,21 +151,29 @@ function spreadOf(text, offsets) {
   });
 }
 
-/** One drill trial of `subject` on `condition` at `hz`: its reading. */
+/** One drill trial of `subject` on `condition` at `hz`: its reading, and the nearest its fist came to the punch's target through the drive, m. */
 export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined);
   const built = await buildBout(world.recipe, { hz });
   try {
-    const reader = cases.read(built, condition);
+    const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[0].motion, body = built.duel.duelists.left.body;
+    let nearest = Infinity;
     built.duel.play(world.tape);
     while (!reader.ended) {
       if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
       built.world.step();
       reader.afterStep();
+      if (motion.phase === "swing") {
+        const f = body.view.fists[condition.hand].position, t = motion.target;
+        nearest = Math.min(nearest, Math.sqrt((f.x - t[0]) * (f.x - t[0]) + (f.y - t[1]) * (f.y - t[1]) + (f.z - t[2]) * (f.z - t[2])));
+      }
     }
-    return reader.reading();
+    return Object.assign(reader.reading(), { nearest });
   } finally { built.dispose(); }
 }
+
+/** With `--near`, how much a trial with nothing on the mark gains for its fist's coming within `NEAR` m of the punch's target: up to `NEARING`, still below any hit's. */
+const NEAR = 0.25, NEARING = 0.5;
 
 /**
  * `x` played on `cell` at each of its rates, the worst rate's score and what it read there; with a
@@ -183,7 +192,8 @@ async function trial(x, cell) {
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
   let worst = null;
   for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null), condition, hz), score = scoreOf(reading, cell.hand);
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null), condition, hz);
+    const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }
   return worst;
@@ -197,7 +207,7 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, ease: { type: "boolean" }, chest: { type: "boolean" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, ease: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8"));
     const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { driven: found.cell.driven !== false, fire: !!found.cell.fire, brake: !!found.cell.brake, ease: !!found.cell.ease });
@@ -212,7 +222,7 @@ if (!isMainThread && workerData?.drill) {
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, fire: !!values.fire, brake: !!values.brake, ease: !!values.ease, chest: !!values.chest, rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
+    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, fire: !!values.fire, brake: !!values.brake, ease: !!values.ease, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
   const lo = [], hi = [], without = new Set(cell.without);
   for (const channel of ceilingChannels(cell.hand)) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }

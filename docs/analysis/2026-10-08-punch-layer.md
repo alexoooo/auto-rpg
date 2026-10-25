@@ -302,8 +302,11 @@ recorded): 8 of 64 trials thrown, 4 landed at 6.9 to 7.7 m/s and 3.2 to 5.0 kg, 
 four not landed were thrown at 1.0 m or 0.2 m across, where the body had swayed into the window
 after it settled. The high mark is refused: its point is 0.2 to 0.28 m over the shoulder on
 both bodies, the middle mark's 0.12 m under it to level, and the schedule thrown at it meets the
-chest at 7 to 8.7 m/s (no schedule searched for the high mark yet finds the head: its score is
-flat at the guard).
+chest at 7 to 8.7 m/s. Searched for the high mark from it (`punch-drill.mjs --mark high --near`,
+the Warrior's rear hand at 0.91 to 0.99 m, 120 and 480 Hz), the best schedule meets the head at
+6.3 m/s but coming down onto its crown, 79° off the surface's normal and 84° off the arm's line:
+the guard covers the face, and the open lane over it is the top of the head, which a straight
+punch cannot meet square.
 
 ## On the fight rung
 

@@ -335,8 +335,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   whatever the range. With `ease`, a channel pushed at the contact pose eases off in proportion
   near its goal instead of pushing past it each step, so the fist keeps its line. With `steered`,
   60 times a second through the drive it reads itself (`punchFeatures`,
-  `src/core/skills/learned-punch.ts`: the target from the shoulder, the fist, the trunk's, legs'
-  and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
+  `src/core/skills/learned-punch.ts`: the target from the shoulder and its velocity, the fist, the
+  trunk's, legs' and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
   making (`steerPushes`); a channel it is not pushing stays with the posture or the stance. Its
   window may be narrower across the line it faces than along it (`aside`) and refuse a target
   higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and

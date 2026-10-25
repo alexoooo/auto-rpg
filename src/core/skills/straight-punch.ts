@@ -191,6 +191,9 @@ const CROWDED = 0.05;
 const SHIFTING_PACE = 0.25;
 
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
+
+/** The most a component of the target's velocity counts, m/s: a foe's lunge is under it, the aim's jump from one opening to another is cut to it. */
+const AIM_SPEED = 4;
 /**
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
  * that meets its target with the arm's mass behind it rather than an elbow giving way. Admitted
@@ -248,8 +251,8 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
-    /** Where it aims, world, the last target asked; the way it faces as the drive began. */
-    target: [0, 0, 0] as [number, number, number], face: 0,
+    /** Where it aims, world, the last target asked, and how fast that moved over the last step, m/s (`aimAt`); the way it faces as the drive began. */
+    target: [0, 0, 0] as [number, number, number], aimed: [0, 0, 0] as [number, number, number], face: 0,
     /** Seconds stood at the stand-off on both feet; when the drive began, when its hand began to touch, whether it touched last step, and when it came back. */
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     /** When the arm's drive began, s into the drive that began at `firedFor`, where `fire` began it before `lead`. */
@@ -366,7 +369,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
         const { chain, angles, trunk } = limb;
         for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
         pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
-        punchFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target,
+        punchFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
           (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, state.features);
       }
       steerPushes(pushes, steeredChannels[hand], state.steer);
@@ -406,7 +409,14 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
         into[0] = x - head.x; into[1] = shoulder.y - head.y; into[2] = z - head.z;
       }
   };
-  return { state, report, end, read, standOff, chamber, drive, sense,
+  /** Aims at `at`, world, and reads how fast the target moved since it aimed `dt` s before (at rest with none). */
+  const aimAt = (at: readonly number[], dt = 0): void => {
+    for (let i = 0; i < 3; i++) {
+      state.aimed[i] = dt > 0 ? Math.max(-AIM_SPEED, Math.min(AIM_SPEED, (at[i]! - state.target[i]!) / dt)) : 0;
+      state.target[i] = at[i]!;
+    }
+  };
+  return { state, report, end, read, standOff, chamber, drive, sense, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
@@ -479,7 +489,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (!at) throw new Error("straight punch target has no aim");
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, quiet: 0, lower: around.lower,
         withdrawn: false, ending: { kind: "completed" } };
-      motion.hand = hand; motion.phase = "settle"; motion.target = [...at]; motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
+      motion.hand = hand; motion.phase = "settle"; technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
@@ -492,7 +502,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
       else if (requireArmAim && live.phase === "commit" && live.time < settings.lead && !at) release({ kind: "completed" });
-      if (at && !live.withdrawn && live.phase !== "release") motion.target = [...at];
+      if (at && !live.withdrawn && live.phase !== "release") technique.aimAt(at, dt);
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";

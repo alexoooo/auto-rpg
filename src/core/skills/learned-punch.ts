@@ -39,7 +39,7 @@ const CHANNELS = ["thoracic rotation right", "lumbar rotation right", "thoracic 
 export const PUNCH_ACTIONS = CHANNELS.length;
 
 /** How many features a steered punch reads (`punchFeatures`). */
-export const PUNCH_FEATURES = 16 + 2 * CHANNELS.length;
+export const PUNCH_FEATURES = 19 + 2 * CHANNELS.length;
 
 /**
  * `hand`'s punch's steered channels, in `CHANNELS`' order, and each one's sense: the left hand's
@@ -67,12 +67,13 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  * the left hand): the drive's age, s; the target from the punching shoulder and the fist from the
  * target, in the body frame, m; the fist's velocity and the centre of mass's in the body frame,
  * m/s; whether the hand touches; the arm's straight length, shoulder to knuckles, and the height
- * the body stands at (`BodyView.standing`), m, which tell one body from another; then each steered
+ * the body stands at (`BodyView.standing`), m, which tell one body from another; the target's
+ * velocity in the body frame, m/s (`aimed`, a foe coming on or going off); then each steered
  * channel's angle and speed (`punchChannels`), rad and rad/s, each in its channel's sense.
  * `fromShoulder` is the target less the shoulder, body frame; `channels` are `hand`'s (`punchChannels`).
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
-  touching: boolean, arm: number, out: number[]): number[] {
+  aimed: readonly number[], touching: boolean, arm: number, out: number[]): number[] {
   const side = hand === "right" ? 1 : -1, fist = view.fists[hand], { names, senses } = channels, muscles = body.muscles;
   let k = 0;
   out[k++] = since;
@@ -88,6 +89,9 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
   out[k++] = touching ? 1 : 0;
   out[k++] = arm; out[k++] = view.standing;
+  framed(view, target[0]!, target[1]!, target[2]!, point);
+  framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
+  out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
   for (let i = 0; i < names.length; i++) out[k++] = muscles.angle(muscles.channel(names[i]!)) * senses[i]!;
   for (let i = 0; i < names.length; i++) out[k++] = muscles.speed(muscles.channel(names[i]!)) * senses[i]!;
   out.length = k;
