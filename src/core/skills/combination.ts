@@ -128,7 +128,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
-      technique.read(view); motion.now = view.time;
+      technique.read(view); motion.now = view.time; motion.step = dt;
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }

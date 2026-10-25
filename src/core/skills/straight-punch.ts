@@ -26,7 +26,9 @@ import { closesToStrike } from "./strikes.ts";
  * contact pose: straight at a point `through` m past the target along the line from the shoulder,
  * the elbow `elbow` s after the rest of the arm, so the upper arm lifts the fist to the line
  * before the forearm opens along it. Each channel is pushed flat out until it is within `brake`
- * rad of its goal, then held there by the posture. The drive ends `follow` s after the hand begins
+ * rad of its goal, then held there by the posture; with `ease`, its push falls in proportion to what is
+ * left within `ease` rad of the goal, so the arm settles on its line rather than pushing past it
+ * each step. The drive ends `follow` s after the hand begins
  * to touch something, or `longest` s after it began; the arm comes back to the guard over
  * `recover` s. With `landed`, the drive also waits for both feet to bear: a step under way lands
  * first, as a boxer's lead foot lands with the jab. With `driven`, the arm is not pushed joint by
@@ -60,13 +62,16 @@ export interface StraightPunch {
   readonly recover: number;
   readonly landed?: boolean;
   readonly fire?: number;
+  readonly ease?: number;
   readonly driven?: { readonly accel: number; readonly steer: number; readonly arrive: number };
   readonly timed?: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
 }
 
 /**
  * **A push on a schedule**: `channel` driven flat out from `from` s into the drive for `length` s,
- * at `level` of its muscles' strength, its sign the push's sense.
+ * at `level` of its muscles' strength, its sign the push's sense. A control step the window covers
+ * in part pushes for that part (its level times the share of the step covered), so a schedule asks
+ * the same impulse at every rate.
  */
 export interface TimedPush { readonly channel: string; readonly level: number; readonly from: number; readonly length: number }
 
@@ -98,6 +103,7 @@ export function validStraightPunch(settings: StraightPunch): boolean {
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
+    && (settings.ease === undefined || Number.isFinite(settings.ease) && settings.ease > 0)
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
     && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
 }
@@ -235,6 +241,8 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     stood: 0, began: 0, touched: null as number | null, touching: false, ended: 0, now: 0, headY: 0,
     /** When the arm's drive began, s into the drive that began at `firedFor`, where `fire` began it before `lead`. */
     fired: null as number | null, firedFor: -1,
+    /** The control step's length, s, as the last update had it: what a push covers of it. */
+    step: 0,
     still: 0, thrown: { left: 0, right: 0 },
     /**
      * Each shoulder at contact from the head as the last step left it, in the body frame: the
@@ -295,15 +303,20 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
    * (`drivenPoint`).
    */
   const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], points: PointTask[]): Pose => {
-    const limb = limbs[hand], posture: Record<string, number> = { ...(chamber(view, hand) ?? guard) };
+    const limb = limbs[hand], posture: Record<string, number> = { ...(chamber(view, hand) ?? guard) }, step = state.step;
     solve(view, limb, true, (apart) => apart + settings.through, null);
-    const push = (channel: string, goal: number) => {
+    /** The share of this control step, from `since` for `step` s, that falls from `from` to `to`; with no step, whether `since` does. */
+    const share = (from: number, to: number) => step > 0 ? Math.max(0, Math.min(since + step, to) - Math.max(since, from)) / step
+      : since >= from && since < to ? 1 : 0;
+    const push = (channel: string, goal: number, part = 1) => {
       const error = goal - (view.angles[channel] ?? 0);
-      if (!scheduled[hand].has(channel) && Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1, level: 1 });
+      if (!scheduled[hand].has(channel) && Math.abs(error) > settings.brake) pushes.push({ channel, sense: error > 0 ? 1 : -1,
+        level: part * (settings.ease === undefined ? 1 : Math.min(1, Math.abs(error) / settings.ease)) });
       posture[channel] = goal;
     };
     if (settings.timed) for (const p of settings.timed[hand]) {
-      if (since >= p.from && since < p.from + p.length && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) });
+      const part = share(p.from, p.from + p.length);
+      if (part > 0 && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) * part });
     }
     for (const g of limb.goals) push(g.channel, g.angle);
     if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; }
@@ -315,8 +328,11 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     if (since >= start && settings.driven) {
       for (const f of limb.free) posture[f.name] = limb.angles[f.joint]![f.k]!;
       points.push(drivenPoint(view, hand, limb, settings.driven));
-    } else if (since >= start) {
-      for (const f of limb.free) if (!/^elbow/.test(f.name) || since >= start + settings.elbow) push(f.name, limb.angles[f.joint]![f.k]!);
+    } else if (share(start, Infinity) > 0) {
+      for (const f of limb.free) {
+        const part = share(/^elbow/.test(f.name) ? start + settings.elbow : start, Infinity);
+        if (part > 0) push(f.name, limb.angles[f.joint]![f.k]!, part);
+      }
     }
     return posture;
   };
@@ -425,7 +441,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
-      technique.read(view); motion.now = view.time;
+      technique.read(view); motion.now = view.time; motion.step = dt;
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
