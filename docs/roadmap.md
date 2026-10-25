@@ -48,7 +48,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Options](plans/2026-10-24-options.md) | Every skill in one shape (name and goal, entry condition, resources, profile); an intent of one skill choice per resource |
+| [Options](plans/2026-10-24-options.md) | Every skill in one shape (name and goal, entry condition, resources, profile); an intent of one skill choice per resource, run at once; the options fighter choosing them |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Ratings](plans/2026-10-21-ratings.md) | Items, characters and attributes by design; skill batteries beside their ablations; a sparse league and live runs |
