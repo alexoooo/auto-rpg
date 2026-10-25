@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a fighter thinks · Auto-RPG</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f3f2ee; --panel: #fcfcfb; --ink: #1d1d1c; --ink2: #55554f; --muted: #8a8983;
+    --line: #d9d8d2; --ring: #a9a8a1; --node: #ffffff; --nodeline: #c4c3bc; --lane: #f1f0ec;
+    --hatch-bg: #efeee9; --hatch: #d6d5cf; --multi: #eceae4;
+    --left: #008300; --right: #e87ba4; --trunk: #eda100; --legs: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8f8e86;
+      --line: #34342f; --ring: #6b6a63; --node: #232321; --nodeline: #47463f; --lane: #20201e;
+      --hatch-bg: #222220; --hatch: #33332f; --multi: #2a2a27;
+      --left: #008300; --right: #d55181; --trunk: #c98500; --legs: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8f8e86;
+    --line: #34342f; --ring: #6b6a63; --node: #232321; --nodeline: #47463f; --lane: #20201e;
+    --hatch-bg: #222220; --hatch: #33332f; --multi: #2a2a27;
+    --left: #008300; --right: #d55181; --trunk: #c98500; --legs: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1200px; margin: 0 auto; padding: 36px 30px 8px; }
+  h1 { margin: 0; font-size: 34px; letter-spacing: -.01em; }
+  .sub { margin: 6px 0 16px; color: var(--ink2); font-size: 16px; }
+  .sub a { color: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; font-size: 13.5px; color: var(--ink2); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .you { background: var(--ink); color: var(--panel); border-radius: 8px; padding: 3px 10px 3px 8px; font-weight: 600; }
+  .sw { width: 13px; height: 13px; border-radius: 3px; background: var(--c); display: inline-block; }
+  .hatchsw { width: 26px; height: 13px; border-radius: 3px; display: inline-block;
+    background: repeating-linear-gradient(45deg, var(--hatch-bg) 0 3px, var(--hatch) 3px 5px); }
+  main { max-width: 1200px; margin: 0 auto; padding: 0 0 30px; }
+  svg { width: 100%; height: auto; display: block; }
+
+  .frame { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+  .num circle { fill: var(--ink); }
+  .num-t { font: 700 14px system-ui, sans-serif; fill: var(--panel); }
+  .h2 { font: 700 21px system-ui, sans-serif; fill: var(--ink); }
+  .cap { font: 400 14px system-ui, sans-serif; fill: var(--ink2); }
+  .zoom { fill: var(--ink); fill-opacity: .045; }
+  .zoom-edge { stroke: var(--ring); stroke-width: 1; stroke-dasharray: 3 4; fill: none; }
+
+  .node rect { fill: var(--node); stroke: var(--nodeline); stroke-width: 1.5; }
+  .node.key rect { stroke: var(--ink); stroke-width: 2.5; }
+  .n-label { font: 600 15px system-ui, sans-serif; fill: var(--ink); }
+  .n-sub { font: 400 11.5px system-ui, sans-serif; fill: var(--muted); }
+  .link { stroke: var(--ring); stroke-width: 2; fill: none; }
+  .link-you { stroke: var(--ink); stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; }
+  .ah { fill: var(--ring); }
+  .ah-you { fill: var(--ink); }
+  .arc-label { font: italic 400 12.5px system-ui, sans-serif; fill: var(--muted); }
+  .centre { font: 500 13px system-ui, sans-serif; fill: var(--muted); }
+  .small { font: 400 12px system-ui, sans-serif; fill: var(--muted); }
+  .smallcaps { font: 700 11px system-ui, sans-serif; fill: var(--muted); letter-spacing: .08em; }
+
+  .badge rect { fill: var(--ink); }
+  .badge .icon { fill: var(--panel); }
+  .badge .b-label { font: 700 13px system-ui, sans-serif; fill: var(--panel); }
+  .badge .b-sub { font: 400 11.5px system-ui, sans-serif; fill: var(--panel); opacity: .8; }
+  .badge.neutral rect { fill: var(--node); stroke: var(--nodeline); stroke-width: 1.5; }
+  .badge.neutral .icon { fill: var(--muted); }
+  .badge.neutral .b-label { fill: var(--ink); }
+  .badge.neutral .b-sub { fill: var(--ink2); opacity: 1; }
+
+  .tag rect { fill: var(--lane); stroke: var(--line); }
+  .tag text { font: 400 13px system-ui, sans-serif; fill: var(--ink2); }
+
+  .lane { fill: var(--lane); }
+  .lane-name { font: 600 13.5px system-ui, sans-serif; fill: var(--ink); }
+  .chip-label { font: 600 13px system-ui, sans-serif; fill: var(--ink); }
+  .chip-sub { font: 400 11.5px system-ui, sans-serif; fill: var(--ink2); }
+  .def-label { font: 400 12px system-ui, sans-serif; fill: var(--muted); }
+  .chip-multi { fill: var(--multi); stroke: var(--nodeline); }
+  .focus { fill: none; stroke: var(--ink); stroke-width: 2.5; }
+  .chip:hover rect:first-child, .node:hover rect, .badge:hover rect { filter: brightness(.96); }
+
+  .figure .part { stroke: var(--panel); stroke-width: 2; }
+  .f-label { font: 700 20px system-ui, sans-serif; fill: var(--ink); }
+  .f-label2 { font: 600 14px system-ui, sans-serif; fill: var(--ink2); }
+  .path-dots { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 1 6; stroke-linecap: round; fill: none; }
+  .marker circle { fill: var(--ink); }
+  .marker text { font: 700 12px system-ui, sans-serif; fill: var(--panel); }
+  .leg-title { font: 700 13.5px system-ui, sans-serif; fill: var(--ink); }
+  .leg-sub { font: 400 12.5px system-ui, sans-serif; fill: var(--ink2); }
+
+  .grid { stroke: var(--line); stroke-width: 1; }
+  .axis-t { font: 400 11.5px system-ui, sans-serif; fill: var(--muted); }
+  .band { fill: var(--ink); fill-opacity: .06; }
+  .p-line { stroke: var(--right); stroke-width: 2; fill: none; }
+  .p-area { fill: var(--right); fill-opacity: .14; }
+  .p-dot { fill: var(--right); stroke: var(--panel); stroke-width: 2; }
+  .p-hit { fill: transparent; }
+  .p-hit:hover + .p-dot { stroke: var(--ink); }
+  .tip rect { fill: var(--ink); }
+  .tip text { font: 600 12px system-ui, sans-serif; fill: var(--panel); }
+  .foot { font: 400 12px system-ui, sans-serif; fill: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>How a fighter thinks</h1>
+  <p class="sub">Auto-RPG’s target design, in five layers. Each layer opens up one part of the layer above. The types behind it: <a href="fighter-mind-types.html">The fighter’s mind: types</a>.</p>
+  <div class="legend">
+    <span><span class="you">● You</span> what the player sets</span>
+    <span><span class="sw" style="--c: var(--left)"></span>left hand</span>
+    <span><span class="sw" style="--c: var(--right)"></span>right hand</span>
+    <span><span class="sw" style="--c: var(--trunk)"></span>trunk</span>
+    <span><span class="sw" style="--c: var(--legs)"></span>legs</span>
+    <span><span class="hatchsw"></span>a free part’s default</span>
+  </div>
+</header>
+<main>
+<svg id="poster" viewBox="0 0 1200 2045" role="img" aria-label="Five layers: team and body loops; the Mind's loop; the Intent's skills on the body; one skill; the body's motor loop">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path class="ah" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="ah-you" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+      <path class="ah-you" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" style="fill: var(--hatch-bg)"/>
+      <line x1="0" y1="0" x2="0" y2="6" style="stroke: var(--hatch); stroke-width: 3"/>
+    </pattern>
+  </defs>
+</svg>
+</main>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("poster");
+const set = (e, a) => { for (const k in a) if (a[k] !== null && a[k] !== undefined) e.setAttribute(k, a[k]); return e; };
+const el = (tag, a = {}, parent = svg) => parent.appendChild(set(document.createElementNS(NS, tag), a));
+const txt = (parent, x, y, s, cls, anchor = "middle") => { const t = el("text", { x, y, class: cls, "text-anchor": anchor }, parent); t.textContent = s; return t; };
+const tip = (g, s) => { if (s) el("title", {}, g).textContent = s; };
+
+const gFrames = el("g"), gZoom = el("g"), gC = el("g");
+
+function frame(y, h, n, title, caption) {
+  el("rect", { x: 30, y, width: 1140, height: h, rx: 18, class: "frame" }, gFrames);
+  const g = el("g", { class: "num" }, gC);
+  el("circle", { cx: 64, cy: y + 37, r: 15 }, g);
+  txt(g, 64, y + 42, String(n), "num-t");
+  txt(gC, 90, y + 44, title, "h2", "start");
+  txt(gC, 90, y + 66, caption, "cap", "start");
+}
+
+function zoom(x0, x1, y0, y1) {
+  el("path", { d: `M${x0},${y0} L${x1},${y0} L1170,${y1} L30,${y1} Z`, class: "zoom" }, gZoom);
+  el("path", { d: `M${x0},${y0} L30,${y1} M${x1},${y0} L1170,${y1}`, class: "zoom-edge" }, gZoom);
+}
+
+function pill(parent, cx, cy, label, o = {}) {
+  const g = el("g", { class: "node" + (o.key ? " key" : "") }, parent);
+  tip(g, o.tip);
+  const r = el("rect", {}, g);
+  const hasSub = o.sub !== undefined;
+  const t = txt(g, cx, hasSub ? cy - 3 : cy + 5, label, "n-label");
+  let w = t.getComputedTextLength();
+  if (hasSub && o.sub) { const s = txt(g, cx, cy + 14, o.sub, "n-sub"); w = Math.max(w, s.getComputedTextLength()); }
+  w = Math.max(o.minW || 0, w + 36);
+  const h = hasSub ? 50 : 38;
+  set(r, { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx: h / 2 });
+  return { g, w, h, cx, cy, left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
+}
+
+/** Four nodes on a loop, clockwise from the top, with arrows between them. */
+function ring(cx, cy, r, defs, o = {}) {
+  const arcs = el("g", {}, gC);
+  const A = [-90, 0, 90, 180].map(d => d * Math.PI / 180);
+  const nodes = defs.map((d, i) => pill(gC, cx + r * Math.cos(A[i]), cy + r * Math.sin(A[i]), d.label, d));
+  const gap = i => {
+    const n = nodes[i], along = (i % 2 === 0 ? n.w : n.h) / 2 + 9, across = (i % 2 === 0 ? n.h : n.w) / 2 + 9;
+    return Math.min(Math.asin(Math.min(along / r, .99)), Math.acos(Math.max(1 - across / r, -1)));
+  };
+  const p = a => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4, a0 = A[i] + gap(i), a1 = A[j] + (j === 0 ? 2 * Math.PI : 0) - gap(j);
+    el("path", { d: `M${p(a0)} A${r},${r} 0 0 1 ${p(a1)}`, class: "link", "marker-end": "url(#ah)" }, arcs);
+    const lab = o.labels && o.labels[i];
+    if (lab) {
+      const am = (a0 + a1) / 2, c = Math.cos(am);
+      txt(arcs, cx + (r + 16) * c, cy + (r + 16) * Math.sin(am) + 4, lab, "arc-label", c > .2 ? "start" : c < -.2 ? "end" : "middle");
+    }
+  }
+  (o.centre || []).forEach((s, k, all) => txt(gC, cx, cy + 5 + (k - (all.length - 1) / 2) * 19, s, "centre"));
+  return nodes;
+}
+
+/** A setting: dark for the player's, outlined for one the game measures. */
+function badge(x, cy, label, sub, o = {}) {
+  const g = el("g", { class: "badge" + (o.neutral ? " neutral" : "") }, gC);
+  tip(g, o.tip);
+  const r = el("rect", {}, g);
+  if (o.neutral) {
+    [[0, 6], [5, 10], [10, 14]].forEach(([dx, h]) => el("rect", { x: x + 10 + dx, y: cy + 7 - h, width: 3.5, height: h, rx: 1, class: "icon" }, g));
+  } else {
+    el("circle", { cx: x + 17, cy: cy - 4, r: 4.2, class: "icon" }, g);
+    el("path", { d: `M${x + 9.5},${cy + 9} a7.5,7 0 0 1 15,0 z`, class: "icon" }, g);
+  }
+  const t = txt(g, x + 33, sub ? cy - 3 : cy + 4.5, label, "b-label", "start");
+  let w = t.getComputedTextLength();
+  if (sub) { const s = txt(g, x + 33, cy + 13, sub, "b-sub", "start"); w = Math.max(w, s.getComputedTextLength()); }
+  w += 46;
+  const h = sub ? 42 : 30;
+  set(r, { x, y: cy - h / 2, width: w, height: h, rx: 10 });
+  return { left: x, right: x + w, cy };
+}
+
+function tag(x, cy, label) {
+  const g = el("g", { class: "tag" }, gC), r = el("rect", {}, g);
+  const t = txt(g, x + 12, cy + 4.5, label, "", "start"), w = t.getComputedTextLength() + 24;
+  set(r, { x, y: cy - 14, width: w, height: 28, rx: 14 });
+  return { left: x, right: x + w, cy };
+}
+
+const link = (d, you) => el("path", { d, class: you ? "link-you" : "link", "marker-end": you ? "url(#ah-you)" : "url(#ah)" }, gC);
+
+// ── 1 · Team and body ────────────────────────────────────────────────────────
+frame(10, 360, 1, "Team and body", "A Commander leads the team. Each member’s Mind runs its own body.");
+const team = ring(330, 215, 100, [
+  { label: "Commander", key: true, tip: "Decides what the team does: who to fight, where to go, who holds back." },
+  { label: "Orders", tip: "Go there, fight that one, hold, walk: goals for a member, never motion." },
+  { label: "Members", tip: "Each member’s own Mind carries its orders out." },
+  { label: "Team view", tip: "What the members see, pooled." },
+], { centre: ["the team"] });
+const body = ring(860, 215, 100, [
+  { label: "Body & world" },
+  { label: "Senses", tip: "What this body sees and feels: nothing more." },
+  { label: "Mind", key: true, tip: "Turns senses and orders into muscle commands. Opened up below." },
+  { label: "Muscles" },
+], { centre: ["each member", "120× a second"] });
+badge(team[0].right + 16, 112, "You lead", "or pick a Commander", { tip: "A person can be the Commander, or choose one." });
+link(`M${team[1].right + 2},215 C600,215 640,326 ${body[2].left - 4},${body[2].cy + 6}`);
+txt(gC, 610, 300, "to each member", "arc-label");
+zoom(body[2].cx - 32, body[2].cx + 32, body[2].bottom, 420);
+
+// ── 2 · Inside the Mind ──────────────────────────────────────────────────────
+frame(420, 450, 2, "Inside the Mind", "It reads the situation, chooses skills and writes them into the Intent.");
+const mind = ring(600, 655, 150, [
+  { label: "Situation", tip: "What a decision reads, from the senses alone." },
+  { label: "Chooser", key: true, tip: "Your rules first; then each skill priced by its profile and your rewards." },
+  { label: "Intent", key: true, sub: "", minW: 120, tip: "The skills selected now, with goals: one per body part. Opened up below." },
+  { label: "Skills", tip: "Each runs its own motion until it ends or is interrupted." },
+], { labels: [null, "selects", "runs", "ends · events"], centre: ["rethinks on an event", "or every 0.2 s"] });
+const intent = mind[2];
+["left", "right", "trunk", "legs"].forEach((k, i) =>
+  el("rect", { x: intent.cx - 35 + i * 18, y: intent.cy + 8, width: 15, height: 7, rx: 2, style: `fill: var(--${k})` }, intent.g));
+
+txt(gC, 92, 548, "IT READS", "smallcaps", "start");
+const reads = ["a foe and its distance", "a blow coming", "who is down", "orders"].map((s, i) => tag(90, 578 + i * 38, s));
+link(`M${Math.max(...reads.map(r => r.right)) + 6},${reads[0].cy} C330,${reads[0].cy} 340,${mind[0].cy} 420,${mind[0].cy} L${mind[0].left - 4},${mind[0].cy}`);
+
+const inputs = [
+  badge(880, 560, "Skill deck", "what it can use", { tip: "The skills this fighter has." }),
+  badge(880, 612, "Rewards", "what it values", { tip: "What a blow dealt, a blow taken, a fall and obeying are worth." }),
+  badge(880, 664, "Gambits", "your rules come first", { tip: "Ordered “if this, do that” rules, read before worth." }),
+  badge(880, 724, "Profiles", "measured on drills", { neutral: true, tip: "How well each skill does where it can start: the game measures it." }),
+];
+const chooser = mind[1];
+inputs.forEach((b, i) => link(`M${b.left - 4},${b.cy} C${b.left - 40},${b.cy} ${chooser.right + 40},${chooser.cy + (i - 1.5) * 8} ${chooser.right + 4},${chooser.cy + (i - 1.5) * 8}`, i < 3));
+zoom(intent.left + 12, intent.right - 12, intent.bottom, 920);
+
+// ── 3 · The Intent: skills on the body ───────────────────────────────────────
+frame(920, 390, 3, "The Intent: skills on the body", "Each body part is held by one skill. A skill may hold several. A free part runs its default.");
+
+function figure(cx, top) {
+  const g = el("g", { class: "figure" }, gC);
+  const part = (k, a, name) => { const e = el(a.r ? "circle" : "rect", { ...a, class: "part", style: `fill: var(--${k})` }, g); tip(e, name); };
+  part("trunk", { cx, cy: top + 20, r: 17 }, "trunk (with the neck)");
+  part("trunk", { x: cx - 34, y: top + 42, width: 68, height: 102, rx: 14 }, "trunk");
+  part("right", { x: cx - 58, y: top + 46, width: 20, height: 94, rx: 10 }, "right hand and arm");
+  part("left", { x: cx + 38, y: top + 46, width: 20, height: 94, rx: 10 }, "left hand and arm");
+  part("legs", { x: cx - 31, y: top + 148, width: 27, height: 112, rx: 11 }, "legs");
+  part("legs", { x: cx + 4, y: top + 148, width: 27, height: 112, rx: 11 }, "legs");
+  txt(g, cx - 48, top + 160, "right", "small");
+  txt(g, cx + 48, top + 160, "left", "small");
+}
+figure(170, 1004);
+
+const LANES = [["left", "left hand"], ["right", "right hand"], ["trunk", "trunk"], ["legs", "legs"]];
+const X0 = 445, LW = 685, LH = 46, laneY = i => 1004 + i * 56;
+LANES.forEach(([k, name], i) => {
+  el("rect", { x: X0, y: laneY(i), width: LW, height: LH, rx: 8, class: "lane" }, gC);
+  el("rect", { x: 318, y: laneY(i) + 17, width: 13, height: 13, rx: 3, style: `fill: var(--${k})` }, gC);
+  txt(gC, 340, laneY(i) + 28, name, "lane-name", "start");
+});
+const skills = [
+  { rows: [3], t: [0, .54], label: "keep-range", sub: "foe, jab’s range" },
+  { rows: [0], t: [0, .30], label: "cover", sub: "head" },
+  { rows: [1, 2], t: [.08, .24], label: "jab", sub: "head", focus: true },
+  { rows: [0, 1, 2], t: [.32, .50], label: "one-two", sub: "holds three parts" },
+  { rows: [2, 3], t: [.555, .82], label: "fold", sub: "legs + trunk" },
+  { rows: [0], t: [.555, .82], label: "cover", sub: "head" },
+  { rows: [1], t: [.60, .74], label: "low jab", sub: "from the fold" },
+  { rows: [3], t: [.84, 1], label: "step-out", sub: "" },
+];
+function chip(s) {
+  const r0 = Math.min(...s.rows), r1 = Math.max(...s.rows);
+  const x = X0 + s.t[0] * LW + 1.5, w = (s.t[1] - s.t[0]) * LW - 3, y = laneY(r0), h = laneY(r1) + LH - y;
+  const g = el("g", { class: "chip" }, gC), cy = y + h / 2;
+  if (!s.label) {
+    el("rect", { x, y, width: w, height: h, rx: 6, style: "fill: url(#hatch)" }, g);
+    if (w > 70) txt(g, x + w / 2, cy + 4, "default", "def-label");
+    tip(g, `${LANES[r0][1]}: its default`);
+    return;
+  }
+  tip(g, `${s.label}${s.sub ? " (" + s.sub + ")" : ""} · holds ${s.rows.map(r => LANES[r][1]).join(" + ")}`);
+  if (s.rows.length > 1) {
+    el("rect", { x, y, width: w, height: h, rx: 6, class: "chip-multi" }, g);
+    s.rows.forEach(r => el("rect", { x, y: laneY(r), width: 6, height: LH, style: `fill: var(--${LANES[r][0]})` }, g));
+  } else {
+    el("rect", { x, y, width: w, height: h, rx: 6, style: `fill: var(--${LANES[r0][0]}); fill-opacity: .22` }, g);
+    el("rect", { x, y, width: 6, height: h, style: `fill: var(--${LANES[r0][0]})` }, g);
+  }
+  txt(g, x + w / 2 + 3, s.sub ? cy - 2 : cy + 4.5, s.label, "chip-label");
+  if (s.sub) txt(g, x + w / 2 + 3, cy + 13, s.sub, "chip-sub");
+  if (s.focus) el("rect", { x: x - 2, y: y - 2, width: w + 4, height: h + 4, rx: 8, class: "focus" }, gC);
+}
+// A part no skill holds runs its default.
+LANES.forEach((_, row) => {
+  const held = skills.filter(s => s.rows.includes(row)).map(s => s.t).sort((a, b) => a[0] - b[0]);
+  let at = 0;
+  for (const [a, b] of [...held, [1, 1]]) { if (a - at > .012) chip({ rows: [row], t: [at, a] }); at = Math.max(at, b); }
+});
+skills.forEach(chip);
+el("path", { d: `M${X0},1240 L${X0 + LW},1240`, class: "link", "marker-end": "url(#ah)" }, gC);
+txt(gC, X0, 1262, "time", "small", "start");
+
+const jab = skills.find(s => s.focus);
+zoom(X0 + jab.t[0] * LW, X0 + jab.t[1] * LW, laneY(2) + LH, 1360);
+
+// ── 4 · One skill ────────────────────────────────────────────────────────────
+frame(1360, 390, 4, "One skill", "Where it can start, its own motion, where it hands over, and how well it does.");
+el("path", { d: "M470,1458 C590,1463 640,1533 690,1540 L735,1540 L735,1566 L690,1566 C640,1573 590,1643 470,1648 Z",
+  style: "fill: url(#hatch); stroke: var(--nodeline); stroke-width: 1.5" }, gC);
+el("path", { d: "M90,1438 C250,1443 330,1528 400,1535 L492,1535 L492,1571 L400,1571 C330,1578 250,1663 90,1668 Z",
+  style: "fill: var(--right); fill-opacity: .22; stroke: var(--right); stroke-width: 2" }, gC);
+txt(gC, 205, 1560, "jab", "f-label");
+txt(gC, 600, 1620, "next skill", "f-label2");
+el("path", { d: "M120,1474 C200,1484 300,1582 400,1553 S560,1548 650,1553", class: "path-dots", "marker-end": "url(#ah-you)" }, gC);
+el("circle", { cx: 120, cy: 1474, r: 4.5, style: "fill: var(--ink)" }, gC);
+const mark = (x, y, n) => { const g = el("g", { class: "marker" }, gC); el("circle", { cx: x, cy: y, r: 11 }, g); txt(g, x, y + 4.3, n, ""); };
+mark(70, 1553, "1"); mark(300, 1484, "2"); mark(492, 1517, "3");
+[[56, "1", "Can start here", "in range, facing, steady"],
+ [282, "2", "Does its own motion", "never walks to its range"],
+ [500, "3", "Hands over", "it ends inside the next one’s start"]].forEach(([x, n, a, b]) => {
+  mark(x + 11, 1704, n);
+  txt(gC, x + 30, 1709, a, "leg-title", "start");
+  txt(gC, x + 30, 1727, b, "leg-sub", "start");
+});
+
+txt(gC, 800, 1434, "HOLDS", "smallcaps", "start");
+[["right", "right hand"], ["trunk", "trunk"]].reduce((x, [k, name]) => {
+  const g = el("g", {}, gC), r = el("rect", {}, g);
+  const t = txt(g, x + 22, 1434, name, "chip-label", "start"), w = t.getComputedTextLength() + 32;
+  set(r, { x, y: 1415, width: w, height: 28, rx: 14, style: `fill: var(--${k}); fill-opacity: .22` });
+  el("circle", { cx: x + 12, cy: 1429, r: 4.5, style: `fill: var(--${k})` }, g);
+  return x + w + 8;
+}, 862);
+
+// Profile: lands, by range (an example shape, not a measurement).
+const PX0 = 840, PW = 280, PY0 = 1490, PH = 140;
+const px = m => PX0 + (m - .4) / .8 * PW, py = v => PY0 + PH - v / 100 * PH;
+txt(gC, 800, 1478, "Profile", "leg-title", "start");
+txt(gC, 856, 1478, "· lands, by range", "leg-sub", "start");
+txt(gC, 1120, 1478, "example", "small", "end");
+el("rect", { x: px(.55), y: PY0, width: px(1.0) - px(.55), height: PH, class: "band" }, gC);
+mark(px(.55) + 14, PY0 + 14, "1");
+[0, 50, 100].forEach(v => { el("path", { d: `M${PX0},${py(v)} H${PX0 + PW}`, class: "grid" }, gC); txt(gC, PX0 - 8, py(v) + 4, v + "%", "axis-t", "end"); });
+[.4, .6, .8, 1.0, 1.2].forEach(m => txt(gC, px(m), PY0 + PH + 18, m.toFixed(1) + (m === 1.2 ? " m" : ""), "axis-t"));
+const DATA = [[.4, 12], [.5, 38], [.6, 66], [.7, 84], [.8, 88], [.9, 79], [1.0, 56], [1.1, 26], [1.2, 9]];
+const line = DATA.map(([m, v], i) => `${i ? "L" : "M"}${px(m).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
+el("path", { d: `${line} L${px(1.2)},${py(0)} L${px(.4)},${py(0)} Z`, class: "p-area" }, gC);
+el("path", { d: line, class: "p-line" }, gC);
+const tipG = el("g", { class: "tip", visibility: "hidden" }, gC), tipR = el("rect", { rx: 6 }, tipG), tipT = txt(tipG, 0, 0, "", "", "middle");
+DATA.forEach(([m, v]) => {
+  const g = el("g", {}, gC);
+  const hit = el("rect", { x: px(m) - 16, y: PY0 - 6, width: 32, height: PH + 12, class: "p-hit" }, g);
+  el("circle", { cx: px(m), cy: py(v), r: 4.5, class: "p-dot" }, g);
+  hit.addEventListener("pointerenter", () => {
+    tipT.textContent = `${m.toFixed(1)} m: lands ${v}%`;
+    set(tipT, { x: px(m), y: py(v) - 16 });
+    const w = tipT.getComputedTextLength() + 16;
+    set(tipR, { x: px(m) - w / 2, y: py(v) - 32, width: w, height: 23 });
+    tipG.setAttribute("visibility", "visible");
+  });
+  hit.addEventListener("pointerleave", () => tipG.setAttribute("visibility", "hidden"));
+});
+txt(gC, 800, 1677, "Drills measure it; the Chooser reads it.", "leg-sub", "start");
+zoom(270, 370, 1750, 1800);
+
+// ── 5 · Body ─────────────────────────────────────────────────────────────────
+frame(1800, 200, 5, "Body", "Every 1/120 s, the running skills’ motion becomes muscle commands, and physics moves the body.");
+const motor = ["Skills’ motion", "Motor control", "Muscles", "Physics"].map((s, i) => pill(gC, 220 + i * 260, 1908, s));
+for (let i = 0; i < 3; i++) link(`M${motor[i].right + 4},1908 L${motor[i + 1].left - 6},1908`);
+link(`M${motor[3].cx},${motor[3].bottom + 4} V1960 H${motor[0].cx} V${motor[0].bottom + 6}`);
+txt(gC, 610, 1978, "the body’s state, felt back", "arc-label");
+
+txt(gC, 600, 2030, "Target design, from the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).", "foot");
+</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The fighter's mind: types · Auto-RPG</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f3f2ee; --panel: #fcfcfb; --ink: #1d1d1c; --ink2: #55554f; --muted: #8a8983;
+    --line: #d9d8d2; --ring: #a9a8a1; --node: #ffffff; --nodeline: #c4c3bc; --head: #f1f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8f8e86;
+      --line: #34342f; --ring: #6b6a63; --node: #232321; --nodeline: #47463f; --head: #2a2a27;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #8f8e86;
+    --line: #34342f; --ring: #6b6a63; --node: #232321; --nodeline: #47463f; --head: #2a2a27;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1720px; margin: 0 auto; padding: 36px 30px 10px; }
+  h1 { margin: 0; font-size: 34px; letter-spacing: -.01em; }
+  .sub { margin: 6px 0 16px; color: var(--ink2); font-size: 16px; }
+  .sub a { color: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; font-size: 13.5px; color: var(--ink2); }
+  .legend > span { display: inline-flex; align-items: center; gap: 8px; }
+  .box { width: 30px; height: 18px; border-radius: 5px; background: var(--node); border: 1.5px solid var(--nodeline); display: inline-block; }
+  .box.new { border-style: dashed; }
+  .box.key { border: 2.5px solid var(--ink); }
+  .chip { font-size: 11.5px; font-weight: 600; border-radius: 6px; padding: 1px 7px; border: 1px solid var(--ink2); color: var(--ink2); }
+  .you { font-size: 11.5px; font-weight: 700; border-radius: 6px; padding: 2px 8px; background: var(--ink); color: var(--panel); }
+  code { font: 600 13px ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--ink); }
+  main { max-width: 1720px; margin: 0 auto; padding: 0 0 30px; }
+  svg { width: 100%; height: auto; display: block; }
+
+  .frame { fill: var(--panel); stroke: var(--line); }
+  .num circle { fill: var(--ink); }
+  .num-t { font: 700 14px system-ui, sans-serif; fill: var(--panel); }
+  .h2 { font: 700 21px system-ui, sans-serif; fill: var(--ink); }
+  .cap { font: 400 14px system-ui, sans-serif; fill: var(--ink2); }
+  .path { font: 400 12.5px ui-monospace, "Cascadia Code", Consolas, monospace; fill: var(--muted); }
+  .zoom { fill: var(--ink); fill-opacity: .045; }
+  .zoom-edge { stroke: var(--ring); stroke-dasharray: 3 4; fill: none; }
+
+  .card .body { fill: var(--node); stroke: var(--nodeline); stroke-width: 1.5; }
+  .card.new .body { stroke-dasharray: 6 4; }
+  .card.key .body { stroke: var(--ink); stroke-width: 2.5; }
+  .card .top { fill: var(--head); }
+  .t-name { font: 700 15px ui-monospace, "Cascadia Code", Consolas, monospace; fill: var(--ink); }
+  .t-kind { font: 400 11.5px system-ui, sans-serif; fill: var(--muted); }
+  .t-desc { font: 400 12px system-ui, sans-serif; fill: var(--ink2); }
+  .f { font: 400 12px ui-monospace, "Cascadia Code", Consolas, monospace; fill: var(--ink2); }
+  .f .k { fill: var(--ink); font-weight: 600; }
+  .f.added { font-weight: 700; fill: var(--ink); }
+  .note { font: italic 400 12px system-ui, sans-serif; fill: var(--muted); }
+  .tag rect { fill: none; stroke: var(--ink2); }
+  .tag text { font: 600 10.5px system-ui, sans-serif; fill: var(--ink2); }
+  .you-tag rect { fill: var(--ink); }
+  .you-tag text { font: 700 10.5px system-ui, sans-serif; fill: var(--panel); }
+
+  .edge { stroke: var(--ring); stroke-width: 1.8; fill: none; }
+  .edge.hot { stroke: var(--ink); stroke-width: 2.4; }
+  .ah { fill: var(--ring); }
+  .e-label rect { fill: var(--panel); }
+  .e-label text { font: italic 400 12px system-ui, sans-serif; fill: var(--ink2); }
+  .card { cursor: default; }
+  .card.dim, .edge.dim, .e-label.dim { opacity: .25; }
+  .foot { font: 400 12px system-ui, sans-serif; fill: var(--muted); }
+  .foot a { fill: var(--ink2); text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>The fighter’s mind: types</h1>
+  <p class="sub">The target design’s key interfaces and data types, and how they connect. Names are the code’s where a type carries over.
+    The picture of it: <a href="fighter-mind.html">How a fighter thinks</a>.</p>
+  <div class="legend">
+    <span><span class="box"></span>in the code</span>
+    <span><span class="box new"></span>added by the plan</span>
+    <span><span class="chip">reshaped</span>in the code, changes shape</span>
+    <span><code>+ field</code> added field</span>
+    <span><span class="you">You</span>the player sets it</span>
+    <span><span class="box key"></span>a loop’s main type</span>
+    <span>Hover a type to trace its links.</span>
+  </div>
+</header>
+<main>
+<svg id="chart" viewBox="0 0 1720 2400" role="img" aria-label="Key interfaces and data types of the fighter's mind, in five layers, with how they connect">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+      <path class="ah" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+</svg>
+</main>
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("chart");
+const set = (e, a) => { for (const k in a) if (a[k] !== null && a[k] !== undefined) e.setAttribute(k, a[k]); return e; };
+const el = (tag, a = {}, parent = svg) => parent.appendChild(set(document.createElementNS(NS, tag), a));
+const txt = (parent, x, y, s, cls, anchor = "start") => { const t = el("text", { x, y, class: cls, "text-anchor": anchor }, parent); t.textContent = s; return t; };
+
+const COLX = [60, 390, 720, 1050, 1380], CW = 260, LINE = 17;
+const gFrames = el("g"), gZoom = el("g"), gEdges = el("g"), gCards = el("g"), gLabels = el("g");
+
+// Each line: "name: Type" a field, "+ …" an added field, "~ …" a note.
+const BANDS = [
+  { title: "Team", cap: "A Commander reads its team and gives each member orders.", path: "src/core/command/", rows: [[
+    { id: "TeamView", col: 0, kind: "interface", desc: "what the team senses, at a step", lines: [
+      "time: s", "members: MemberView[]", "others: SensedBody[]", "~ every member's senses, pooled", "lead: Lead | null", "look: boolean"] },
+    { id: "Commander", col: 1, kind: "interface", key: true, desc: "leads a team; its memory in state", lines: [
+      "state: object", "hear(command, view): void", "decide(view): TeamDecision", "idle(member, time): boolean", "report(member): MemberReport"] },
+    { id: "TeamDecision", col: 2, kind: "interface", desc: "one step's orders", lines: [
+      "orders: Map<member, Orders>", "looked: boolean", "~ a member not named keeps its last"] },
+    { id: "Orders", col: 3, kind: "interface", tag: "reshaped", desc: "goals for one member, never motion", lines: [
+      "move?: MovementRequest | null", "pace?: m/s", "walk?: true", "face: Heading | null", "foe?: body id", "region?: segment",
+      "+ choices?: SkillChoice[]"] },
+  ], [
+    { id: "TeamLevel", col: 0, kind: "interface", desc: "the ground, as the level answers it", lines: [
+      "sees(from, to, metres)", "fits(at, radius)", "reaches(from, to, radius)", "frontier(from, radius)", "doorway(from, to, radius)"] },
+    { id: "Command", col: 1, kind: "union", you: true, desc: "what a person tells the team", lines: [
+      "select { members }", "go { destination | route }", "attack { foe }", "face { toward | turn }", "hold | stop | regroup", "follow { member }"] },
+  ]] },
+  { title: "The Mind’s seam", cap: "All a Mind gets is its own body and its senses. All it gives back is muscle commands.", path: "src/core/mind/", rows: [[
+    { id: "BodyHost", col: 0, kind: "interface", desc: "what a Mind’s maker gets, not the world", lines: [
+      "spec: BodySpec", "clock: Clock", "parts: PartLookup", "command(options): Body", "hosted(make(own, senses))", "policy(make(model))"] },
+    { id: "OwnBody", col: 1, kind: "interface", desc: "its own body, whole", lines: [
+      "spec: BodySpec", "built: ReadBody", "muscles: MuscleDriver", "assist: Assist", "requestHandPoses(requests)"] },
+    { id: "Mind", col: 2, kind: "interface", key: true, desc: "one body’s controller", lines: [
+      "name: string", "step(senses, dt): void", "idle?(): void", "state?: object"] },
+    { id: "Senses", col: 3, kind: "interface", desc: "the world, each control step", lines: [
+      "time: s", "side: string", "out: boolean", "others: BodySense[]", "objects?: ObjectSense[]", "solids?: SolidSense[]"] },
+    { id: "BodySense", col: 4, kind: "interface", desc: "another body, as sensed", lines: [
+      "id, side: string", "spec: BodySpec", "out, down: boolean", "centre, velocity: Vector3", "segments: Map<name, SegmentSense>", "~ no hit points, no orders, no mind"] },
+  ]] },
+  { title: "Choosing", cap: "Inside the options Mind: the situation, the player’s settings and the skills’ profiles become the Intent.", path: "src/core/mind/options/", rows: [[
+    { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the player sets", lines: [
+      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "gambits: Gambit[]", "~ { when: Condition,", "~   then: SkillChoice }"] },
+    { id: "Chooser", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
+      "choose(now, running): Intent", "~ gambits first, top to bottom;", "~ then the best worth:", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
+    { id: "Intent", col: 2, kind: "interface", tag: "reshaped", key: true, desc: "the skills selected now", lines: [
+      "+ choices: SkillChoice[]", "~ no two share a Resource", "interrupt?: id[]", "~ a free part runs its default"] },
+    { id: "SkillChoice", col: 3, kind: "interface", tag: "new", desc: "one skill and its goal", lines: [
+      "id: number", "skill: SkillName", "goal: Goal", "~ holds skill.needs(goal)"] },
+    { id: "Goal", col: 4, kind: "union", tag: "new", desc: "what a skill is aimed at", lines: [
+      "TargetRef { body, region }", "range { foe, near, far }", "place { at }", "velocity { walk, face }", "~ footwork adds pace, height"] },
+  ], [
+    { id: "Situation", col: 0, kind: "interface", desc: "what a decision reads", lines: [
+      "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "danger, exposure: cost",
+      "reach { apart, theirs, mine }", "+ ended: Ended[]"] },
+    { id: "Terms", col: 1, kind: "interface", desc: "what a choice is expected to bring", lines: [
+      "duration: s", "dealt: J", "taken: cost", "orders: progress", "fall: chance"] },
+    { id: "Profile", col: 3, kind: "interface", tag: "new", desc: "a skill’s measured model", lines: [
+      "skill: SkillName", "over: its entry variables", "lands, time to contact", "recovery, falls", "model(now): Terms"] },
+    { id: "Drill", col: 4, kind: "battery", desc: "one skill, rung by rung", lines: [
+      "subject: mind/skill @ version", "rungs: still pad → opponent", "record: trials", "~ the owner accepts a rung"] },
+  ]] },
+  { title: "Skills", cap: "Each skill is an option: where it can start, its own motion, what it holds, how it ends.", path: "src/core/skills/", rows: [[
+    { id: "ResourceMap", col: 0, kind: "interface", desc: "the body’s parts, compiled", lines: [
+      "footprints: Resource → controls", "overlap(a, b): boolean", "~ a humanoid: legs, trunk,", "~ hand.left, hand.right"] },
+    { id: "Skill", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "an option (the Executor, widened)", lines: [
+      "needs(goal): Resource[]", "readiness(view, goal): Readiness", "start(view, choice)", "update(…): phase, holds", "command(view, id): ActionClaim",
+      "interrupt?(view, id)", "+ exit: Window", "state: object", "~ holds only ever shrink"] },
+    { id: "SkillSet", col: 2, kind: "function", key: true, desc: "runs the Intent on the body", lines: [
+      "~ each step: start, update, command", "~ claims first, then the defaults:", "~ legs stand, trunk holds the guard,", "~ hands hold the guard pose", "→ BodyCommand"] },
+    { id: "ActionClaim", col: 3, kind: "interface", desc: "one skill’s writes this step", lines: [
+      "posture?: Pose", "pushes?: MusclePush[]", "effectors?: by segment", "handPoses?: by hand", "legs?: LegsAsk", "lower?, steer?, support?", "delegate?: Resource[]"] },
+  ], [
+    { id: "Readiness", col: 0, kind: "union", desc: "can it start here?", lines: [
+      "ready", "position { window: Window }", "~ Window { at, along, across,", "~   facing, speed }", "waiting | blocked { reason }"] },
+    { id: "Ended", col: 1, kind: "interface", desc: "one skill’s last record", lines: [
+      "ending: completed | cancelled", "  | refused | interrupted", "  | lost | stalled", "committed: boolean", "contacts, observations"] },
+  ]] },
+  { title: "Body", cap: "Every 1/120 s: goals become muscle commands, and the world steps.", path: "src/core/control/, muscle/, world.ts", rows: [[
+    { id: "Timing", col: 0, kind: "note", desc: "how often each loop turns", lines: [
+      "World.step: 1/120 s", "Mind.step: every step", "Chooser: an event, or 0.2 s", "Commander: its own schedule"] },
+    { id: "BodyCommand", col: 2, kind: "interface", desc: "goals for the whole body", lines: [
+      "posture: Pose", "effectors?: goals by segment", "pushes: MusclePush[]", "points?: PointTask[]", "stance: StanceGoal | null", "handPoses?: by hand"] },
+    { id: "MotorControl", col: 3, kind: "interface", desc: "goals into muscle commands", lines: [
+      "setPosture(pose)", "setPushes(pushes)", "control: MuscleController", "carries: MotorGoal[]"] },
+    { id: "MuscleDriver", col: 4, kind: "interface", desc: "the muscles, by channel", lines: [
+      "channels: MuscleChannel[]", "activation: Float64Array", "velocity: Float64Array", "angle(i), rate(i), speed(i)"] },
+  ], [
+    { id: "World", col: 4, kind: "interface", desc: "physics, control, combat, clock", lines: [
+      "step(): 1/120 s", "advance(seconds)", "~ then the next Senses"] },
+  ]] },
+];
+
+const EDGES = [
+  ["TeamView", "r", "Commander", "l", "view", .3, .3],
+  ["TeamLevel", "r", "Commander", "b", "the ground", .2, .15],
+  ["Command", "t", "Commander", "b", "hear", .62, .62],
+  ["Commander", "r", "TeamDecision", "l", "decide", .3, .3],
+  ["TeamDecision", "r", "Orders", "l", "orders", .3, .3],
+  ["Orders", "b", "Mind", "t", "delivered", .5, .7],
+  ["BodyHost", "r", "OwnBody", "l", "gives", .3, .3],
+  ["OwnBody", "r", "Mind", "l", "made with", .3, .3],
+  ["Senses", "l", "Mind", "r", "step", .3, .3],
+  ["Senses", "r", "BodySense", "l", "others", .3, .3],
+  ["Settings", "r", "Chooser", "l", "settings", .35, .35],
+  ["Situation", "t", "Chooser", "b", "now", .85, .15],
+  ["Terms", "t", "Chooser", "b", "worth", .5, .62],
+  ["Profile", "l", "Terms", "r", "model(now)"],
+  ["Drill", "l", "Profile", "r", "measures"],
+  ["Chooser", "r", "Intent", "l", "writes", .3, .3],
+  ["Intent", "r", "SkillChoice", "l", "choices", .3, .3],
+  ["SkillChoice", "r", "Goal", "l", "goal", .3, .3],
+  ["Intent", "b", "SkillSet", "t", "every step", .25, .25],
+  ["SkillSet", "l", "Skill", "r", "runs", .3, .25],
+  ["ResourceMap", "r", "Skill", "l", "needs", .3, .2],
+  ["Skill", "b", "Readiness", "t", "readiness", .25, .5],
+  ["Skill", "b", "Ended", "t", "ends", .5, .5],
+  ["SkillSet", "r", "ActionClaim", "l", "collects", .3, .3],
+  ["SkillSet", "b", "BodyCommand", "t", "composes"],
+  ["BodyCommand", "r", "MotorControl", "l", "goals", .3, .3],
+  ["MotorControl", "r", "MuscleDriver", "l", "drives", .3, .3],
+  ["MuscleDriver", "b", "World", "t", "activations"],
+];
+
+const cards = {};
+function card(c, top) {
+  const x = COLX[c.col], g = el("g", { class: "card" + (c.tag === "new" ? " new" : "") + (c.key ? " key" : ""), "data-id": c.id }, gCards);
+  const h = 62 + c.lines.length * LINE + 10;
+  el("rect", { x, y: top, width: CW, height: h, rx: 10, class: "body" }, g);
+  const clip = `M${x + 1},${top + 52} V${top + 11} a10,10 0 0 1 10,-10 H${x + CW - 11} a10,10 0 0 1 10,10 V${top + 52} Z`;
+  el("path", { d: clip, class: "top" }, g);
+  el("path", { d: `M${x},${top + 52} H${x + CW}`, style: "stroke: var(--nodeline)" }, g);
+  const name = txt(g, x + 14, top + 24, c.id, "t-name");
+  const kind = txt(g, x + CW - 14, top + 23, c.kind, "t-kind", "end");
+  let right = x + CW - 14 - kind.getComputedTextLength() - 8;
+  const chip = (label, cls) => {
+    const t = el("g", { class: cls }, g), r = el("rect", { rx: 5 }, t), s = txt(t, 0, top + 22.5, label, "", "middle");
+    const w = s.getComputedTextLength() + 12;
+    set(s, { x: right - w / 2 });
+    set(r, { x: right - w, y: top + 11, width: w, height: 17 });
+    right -= w + 6;
+  };
+  if (c.tag) chip(c.tag, "tag");
+  if (c.you) chip("You", "you-tag");
+  txt(g, x + 14, top + 43, c.desc, "t-desc");
+  c.lines.forEach((line, i) => {
+    const y = top + 52 + 20 + i * LINE;
+    if (line.startsWith("~")) return txt(g, x + 14, y, line.slice(1).trim(), "note");
+    const added = line.startsWith("+"), t = el("text", { x: x + 14, y, class: "f" + (added ? " added" : "") }, g);
+    const body = added ? line : line, cut = body.indexOf(":"), paren = body.indexOf("(");
+    const split = cut > 0 && (paren < 0 || cut < paren) ? cut : -1;
+    if (split > 0) {
+      el("tspan", { class: "k" }, t).textContent = body.slice(0, split);
+      el("tspan", {}, t).textContent = body.slice(split);
+    } else t.textContent = body;
+  });
+  g.querySelectorAll("text").forEach(t => { if (t.getComputedTextLength() > CW - 22) console.warn("overflow", c.id, t.textContent); });
+  cards[c.id] = { x, y: top, w: CW, h, g };
+}
+
+let y = 10;
+BANDS.forEach((band, n) => {
+  const top = y, rowTop = [top + 86];
+  const placed = [];
+  band.rows.forEach((row, r) => {
+    if (r > 0) rowTop[r] = rowTop[r - 1] + Math.max(...band.rows[r - 1].map(c => 62 + c.lines.length * LINE + 10)) + 44;
+    row.forEach(c => { card(c, rowTop[r]); placed.push(cards[c.id]); });
+  });
+  const bottom = Math.max(...placed.map(c => c.y + c.h)) + 34;
+  el("rect", { x: 30, y: top, width: 1660, height: bottom - top, rx: 18, class: "frame" }, gFrames);
+  const num = el("g", { class: "num" }, gCards);
+  el("circle", { cx: 64, cy: top + 37, r: 15 }, num);
+  txt(num, 64, top + 42, String(n + 1), "num-t", "middle");
+  const title = txt(gCards, 90, top + 44, band.title, "h2");
+  txt(gCards, 90 + title.getComputedTextLength() + 14, top + 44, band.path, "path");
+  txt(gCards, 90, top + 66, band.cap, "cap");
+  band.top = top; band.bottom = bottom;
+  y = bottom + 40;
+});
+
+// Inside the Mind: the Choosing layer opens up the Mind.
+{
+  const m = cards.Mind, b = BANDS[2];
+  el("path", { d: `M${m.x + 40},${m.y + m.h} L${m.x + m.w - 40},${m.y + m.h} L1690,${b.top} L30,${b.top} Z`, class: "zoom" }, gZoom);
+  el("path", { d: `M${m.x + 40},${m.y + m.h} L30,${b.top} M${m.x + m.w - 40},${m.y + m.h} L1690,${b.top}`, class: "zoom-edge" }, gZoom);
+}
+
+const anchor = (id, side, f = .5) => {
+  const c = cards[id];
+  switch (side) {
+    case "l": return { x: c.x, y: c.y + c.h * f, nx: -1, ny: 0 };
+    case "r": return { x: c.x + c.w, y: c.y + c.h * f, nx: 1, ny: 0 };
+    case "t": return { x: c.x + c.w * f, y: c.y, nx: 0, ny: -1 };
+    case "b": return { x: c.x + c.w * f, y: c.y + c.h, nx: 0, ny: 1 };
+    default: throw new Error(`unknown side ${side}`);
+  }
+};
+const edgeEls = [];
+function label(x, y, s, ids) {
+  const g = el("g", { class: "e-label" }, gLabels), r = el("rect", { rx: 4 }, g), t = txt(g, x, y + 4, s, "", "middle");
+  const w = t.getComputedTextLength() + 10;
+  set(r, { x: x - w / 2, y: y - 9, width: w, height: 18 });
+  return g;
+}
+EDGES.forEach(([a, as, b, bs, text, fa, fb]) => {
+  const p = anchor(a, as, fa), q = anchor(b, bs, fb ?? fa);
+  const q2 = { x: q.x + q.nx * 3, y: q.y + q.ny * 3 };
+  const k = Math.max(30, Math.hypot(q.x - p.x, q.y - p.y) * .4);
+  const c1 = { x: p.x + p.nx * k, y: p.y + p.ny * k }, c2 = { x: q2.x + q.nx * k, y: q2.y + q.ny * k };
+  const path = el("path", { d: `M${p.x},${p.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${q2.x},${q2.y}`, class: "edge", "marker-end": "url(#ah)" }, gEdges);
+  const mx = (p.x + 3 * c1.x + 3 * c2.x + q2.x) / 8, my = (p.y + 3 * c1.y + 3 * c2.y + q2.y) / 8;
+  edgeEls.push({ a, b, path, label: label(mx, my, text) });
+});
+// A skill's ending is an event the next decision reads: round the outside, up the left margin.
+{
+  const e = cards.Ended, s = cards.Situation, low = BANDS[3].bottom - 16;
+  const d = `M${e.x + e.w * .5},${e.y + e.h} V${low} H44 V${s.y + s.h * .5} H${s.x - 3}`;
+  const path = el("path", { d, class: "edge", "marker-end": "url(#ah)", "stroke-linejoin": "round" }, gEdges);
+  edgeEls.push({ a: "Ended", b: "Situation", path, label: label(200, low, "events: a skill ended") });
+}
+
+// Hover a type: its links and the types at their other ends stay lit.
+for (const [id, c] of Object.entries(cards)) {
+  c.g.addEventListener("pointerenter", () => {
+    const near = new Set([id]);
+    edgeEls.forEach(e => { if (e.a === id || e.b === id) { near.add(e.a); near.add(e.b); } });
+    for (const [other, o] of Object.entries(cards)) o.g.classList.toggle("dim", !near.has(other));
+    edgeEls.forEach(e => {
+      const on = e.a === id || e.b === id;
+      e.path.classList.toggle("dim", !on); e.label.classList.toggle("dim", !on); e.path.classList.toggle("hot", on);
+    });
+  });
+  c.g.addEventListener("pointerleave", () => {
+    for (const o of Object.values(cards)) o.g.classList.remove("dim");
+    edgeEls.forEach(e => { e.path.classList.remove("dim", "hot"); e.label.classList.remove("dim"); });
+  });
+}
+
+const foot = el("text", { x: 860, y: y + 4, class: "foot", "text-anchor": "middle" });
+foot.textContent = "Target design, from the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).";
+svg.setAttribute("viewBox", `0 0 1720 ${y + 24}`);
+</script>
+</body>
+</html>

@@ -162,7 +162,7 @@ finishing a fight decisively, and AI above a single fighter. See [the roadmap](d
 | `research/` | measurement scripts ([README](research/README.md)) |
 | `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
 | `scripts/` | asset builders and the evaluation runner |
-| `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), plans, reference records, [art](docs/art/) |
+| `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), plans, reference records, [art](docs/art/), [diagrams](docs/diagrams/) |
 
 [AGENTS.md](AGENTS.md) holds the rules for working in this repository.
 

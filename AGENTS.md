@@ -300,6 +300,7 @@ updates the documents it makes wrong.
 | `docs/reference/` | records code cites, and measurements the owner asked for | summary; what is used; measurement; tried and not kept |
 | `docs/analysis/` | the study behind a decision still open, named by date; deleted once decided | question, options, findings, answer |
 | `docs/art/` | how the art is made and rebuilt | source, rebuild, rules |
+| `docs/diagrams/` | the design drawn; each page says whether it shows now or a target | a self-contained HTML page |
 
 - **Lead with the answer**; short paragraphs, lists and tables; present tense; say a thing once
   and link to the document that owns it.
