@@ -333,6 +333,31 @@ moments of each body at the middle mark:
   closes during the 0.2 s before contact: the fist meets the guard or the trunk with the elbow
   0.8 to 1.5 rad short of straight, 0.5 to 1.9 kg, often at 7 to 8.8 m/s.
 
+### Why the two rates part
+
+Read on the still rung (Node, Rapier, the Warrior's rear hand, `research/punch-drill.mjs --verify`):
+
+- **The sweet spot is about 2 cm deep.** The arm's two segments make the elbow's bend at contact
+  a steep function of the shoulder's distance from the target: 2 cm nearer moves it about 0.27 rad.
+  A schedule lands over a few centimetres of gap and no more: the one searched at 480 Hz across
+  0.92 to 0.96 m meets the target 0.76, 0.49, 0.39 and 0.18 rad short of straight at 0.90, 0.92,
+  0.94 and 0.96 m.
+- **`ease` is what the rates disagree on.** It sets each push's level from the error left, read once
+  a control step; at 120 Hz the shoulder runs ahead and the fist reaches the target 2 cm sooner, the
+  elbow 0.2 rad more bent. With `brake` in its place (flat out, then the posture's servo near the
+  goal, solved within the step) the two rates' bends at contact agree to 0.1 rad at 0.93 and 0.96 m.
+- **The mass a fist meets is its holds'.** With every joint free it meets 0.45 to 2.6 kg, alike at
+  both rates; the muscles' holds make it 1.7 to 9 kg at 120 Hz and 1.8 to 8 kg at 480, differently
+  at the same gap. On the touch step the elbow is still opening at 35 to 63 rad/s, where its
+  muscles' ceiling is 0.2 to 8 N m, so which step the touch falls on decides the hold.
+- **Tried and not kept**: holds at no less than the activation's isometric strength (raises every
+  mass, 1.1 to 3 times, and leaves the rates apart); holds that decay over a deactivation time of 20
+  or 40 ms (likewise); the arm's push kept full within 3 to 10 cm of the target (no change).
+- **In a fight the fist meets the guard or comes too close**: of the Warrior's 28 held-out moments
+  at 120 Hz, 11 meet the foe's hands or forearms first; at moments the tactics ask from 0.35 to 0.5 m
+  apart the fist is on the foe as the drive begins; where both close at 1.4 m/s the blow comes 0.4
+  s later on the thigh or the belly.
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)
