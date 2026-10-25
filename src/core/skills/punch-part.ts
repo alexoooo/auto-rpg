@@ -16,7 +16,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, driven: true, timed: true,
+    recover: true, landed: true, fire: true, driven: true, timed: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
     (spec, config) => { const missing = missingTimedChannels(spec, config); return missing.length ? `has no ${missing.join(", ")} to push` : null; }),

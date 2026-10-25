@@ -10,7 +10,7 @@
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--rates 120,480] [--without <channel,...>] [--driven] [--chest] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--chest] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -43,6 +43,10 @@ export function ceilingChannels(hand) {
 const WINDOW = 0.45, GAPS = [0.75, 1.3], LEAD = [0, 0.45], THROUGH = [0, 0.3], HIPS = [0, 0.6], TURN = [0, 0.43], LEAN = [0, 0.5];
 /** With `--driven`, the striking point's drive (`StraightPunch.driven`): its acceleration, m/s^2, its steer, 1/s, and the way it arrives over, m. */
 const ACCEL = [40, 600], STEER = [0, 60], ARRIVE = [0, 0.4];
+/** With `--fire`, how near the fist comes to the target before the arm's drive begins, arm lengths (`StraightPunch.fire`). */
+const FIRE = [0, 1.2];
+/** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
+const BRAKE = [0, 0.3];
 
 /** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
 const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
@@ -54,21 +58,23 @@ const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0,
  * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
  * channels `without` left off the schedule, so the punch pushes them toward their goals.
  */
-export function decode(x, hand, gap, without = new Set()) {
+export function decode(x, hand, gap, without = new Set(), { driven = true, fire = false, brake = false } = {}) {
   const channels = ceilingChannels(hand), n = channels.length * 3;
   const pushes = channels.map((channel, i) => ({ channel, level: Math.abs(x[3 * i]) > 0.05 ? x[3 * i] : 0, from: x[3 * i + 1], length: Math.max(0, x[3 * i + 2]) }))
     .filter((p, i) => !without.has(channels[i]));
   const rest = x.slice(n), searched = gap === undefined;
-  const [lead, through, hips, turn, lean, accel, steer, arrive] = rest.slice(searched ? 1 : 0);
+  const [lead, through, hips, turn, lean, ...more] = rest.slice(searched ? 1 : 0);
+  const [accel, steer, arrive] = driven ? more : [], reach = fire ? more[driven ? 3 : 0] : undefined;
+  const held = brake ? more[(driven ? 3 : 0) + (fire ? 1 : 0)] : undefined;
   return { pushes, gap: searched ? rest[0] : gap, lead, through, beneath: hips === undefined ? {} : { hips, turn, lean },
-    ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }) };
+    ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }), ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }) };
 }
 
 /** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target. */
-export function timedPuncher({ pushes, lead, through, beneath, driven }, hand, aim = null) {
+export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake }, hand, aim = null) {
   const preset = MINDS.puncher.config, punch = preset.executors[0];
   const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim } : action) : preset.actions;
-  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
   return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
 }
 
@@ -92,6 +98,45 @@ export function scoreOf(reading, hand) {
     + Math.max(0, 1 - late / 0.3) - (reading.ended === null ? 0.5 : 0);
 }
 
+/**
+ * `x`, a schedule for `from`'s hand, made the other hand's in place: each side's channel moved to
+ * the other side's, the trunk's turn reversed.
+ */
+function mirrored(x, from, to) {
+  const source = ceilingChannels(from), target = ceilingChannels(to), copy = [...x];
+  const swap = (name) => name.replace(/\.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `);
+  source.forEach((channel, i) => {
+    const j = target.indexOf(swap(channel));
+    if (j < 0) throw new Error(`no mirror of ${channel}`);
+    x[3 * j] = /rotation right$/.test(channel) && !channel.includes(".") ? -copy[3 * i] : copy[3 * i];
+    x[3 * j + 1] = copy[3 * i + 1]; x[3 * j + 2] = copy[3 * i + 2];
+  });
+}
+
+/**
+ * With `--tune`, the searched knobs over a schedule held fixed: its time scale and shift, s, then
+ * the arm's aim (when it begins, s, and how far through, m) and the posture beneath.
+ */
+const TUNE = [[0.7, 1.4], [-0.1, 0.1], LEAD, THROUGH, HIPS, TURN, LEAN];
+
+/** `base`, a whole schedule's `x`, with `knobs` (`TUNE`'s) set on it for `cell`. */
+function tuned(base, knobs, cell) {
+  const x = [...base], n = 3 * ceilingChannels(cell.hand).length, [scale, shift, ...rest] = knobs;
+  for (let i = 0; i < n; i += 3) { x[i + 1] = Math.max(0, x[i + 1] * scale + shift); x[i + 2] *= scale; }
+  rest.forEach((value, k) => { x[n + k] = value; });
+  return x;
+}
+
+/** The places `--spread` names ("body:gap,gap;body:gap"), each at every offset across of `--offsets`; null without one. */
+function spreadOf(text, offsets) {
+  if (!text) return null;
+  const across = (offsets ?? "0").split(",").map(Number);
+  return text.split(";").flatMap((part) => {
+    const [model, gaps] = part.split(":");
+    return gaps.split(",").map(Number).flatMap((gap) => across.map((offset) => ({ model, gap, across: offset })));
+  });
+}
+
 /** One drill trial of `subject` on `condition` at `hz`: its reading. */
 export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined);
@@ -108,9 +153,20 @@ export async function drillTrial(subject, condition, hz) {
   } finally { built.dispose(); }
 }
 
-/** `x` played on `cell` at each of its rates: the worst rate's score and what it read there. */
+/**
+ * `x` played on `cell` at each of its rates, the worst rate's score and what it read there; with a
+ * spread, on each of its places (a body, a gap and an offset across), scored by their mean.
+ */
 async function trial(x, cell) {
-  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []));
+  if (cell.base) return trial(tuned(cell.base, x, cell), { ...cell, base: null });
+  if (cell.spread) {
+    const each = [];
+    for (const place of cell.spread) each.push(await trial(x, { ...cell, ...place, spread: null }));
+    const landed = each.filter((r) => r.outcome === "landed").length;
+    return { score: each.reduce((sum, r) => sum + r.score, 0) / each.length, landed, places: each.length,
+      outcomes: each.map((r) => r.outcome), worst: each.reduce((a, b) => (b.score < a.score ? b : a)) };
+  }
+  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []), { driven: !!cell.driven, fire: !!cell.fire, brake: !!cell.brake });
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
   let worst = null;
   for (const hz of cell.rates) {
@@ -128,9 +184,10 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, chest: { type: "boolean" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
   if (values.verify) {
-    const found = JSON.parse(readFileSync(values.verify, "utf8")), decoded = decode(found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []));
+    const found = JSON.parse(readFileSync(values.verify, "utf8"));
+    const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { driven: found.cell.driven !== false, fire: !!found.cell.fire, brake: !!found.cell.brake });
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
@@ -142,15 +199,19 @@ if (!isMainThread && workerData?.drill) {
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? null : Number(values.gap), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, chest: !!values.chest, rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
+    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
   const lo = [], hi = [], without = new Set(cell.without);
   for (const channel of ceilingChannels(cell.hand)) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }
-  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : [])]) { lo.push(low); hi.push(high); }
-  const pool = workerPool(fileURLToPath(import.meta.url), { drill: true, cell }, nw);
+  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : []), ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : [])]) { lo.push(low); hi.push(high); }
+  if (values.tune) { lo.length = 0; hi.length = 0; for (const [low, high] of TUNE) { lo.push(low); hi.push(high); } }
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
-  const from = values.from ? JSON.parse(readFileSync(values.from, "utf8")).best.x : null;
+  const fromFile = values.from ? JSON.parse(readFileSync(values.from, "utf8")) : null, from = fromFile ? [...fromFile.best.x] : null;
+  if (from && fromFile.cell.gap === null && cell.gap !== null) from.splice(3 * ceilingChannels(cell.hand).length, 1);
+  if (from && fromFile.cell.hand !== cell.hand) mirrored(from, fromFile.cell.hand, cell.hand);
+  if (values.tune) { cell.base = [...from]; const n = 3 * ceilingChannels(cell.hand).length; from.length = 0; from.push(1, 0, ...cell.base.slice(n, n + 5)); }
   const start = from ? lo.map((l, i) => from[i] === undefined || hi[i] === l ? 0.5 : (from[i] - l) / (hi[i] - l)) : undefined;
+  const pool = workerPool(fileURLToPath(import.meta.url), { drill: true, cell }, nw);
   const { best: found } = await cmaSearch({ n: lo.length, start, sigma: Number(values.sigma ?? (from ? 0.15 : 0.25)), lambda: Number(values.lambda ?? 4 * nw), generations, seed: Number(values.seed ?? 1),
     score: (u) => pool.evaluate(toX(u)),
     onGeneration(entry, { best, mean, log }) {

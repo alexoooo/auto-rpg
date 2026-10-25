@@ -329,7 +329,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   contact pose its IK solves each step. With `timed`, the drive pushes each channel the schedule
   names on a schedule of its own (`TimedPush`: a level, a start and a length into the drive) and
   every other channel at the contact pose as before, the stance beneath; with `driven` beside it,
-  the striking point is driven along the line too.
+  the striking point is driven along the line too. With `fire`, the arm's drive begins once the
+  fist comes within that share of the arm's length of the target, so it opens at one distance
+  whatever the range.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
