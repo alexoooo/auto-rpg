@@ -23,7 +23,7 @@ interface Config extends StraightPunch {
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch", name: "punch", ...STRAIGHT_PUNCH },
   keys: {
-    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, above: true, settle: true, through: true, hips: true, turn: true,
+    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true, fire: true, ease: true, steered: true, driven: true, timed: true, learned: true,
   },

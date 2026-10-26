@@ -1,5 +1,5 @@
 /**
- * **The Strike drill**: does a strike skill, thrown once from where the striker stands, land on
+ * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`puncher/strike`); the drill puts its own tactics in
@@ -38,7 +38,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   id: "strike",
   title: "The Strike drill",
   group: "skills",
-  question: "Does a strike skill, thrown once from where the striker stands, land on its mark and come back without felling the striker?",
+  question: "Does a strike skill, thrown once, land on its mark and come back without felling the striker?",
   protocols: STRIKE_CASES,
   defaultProtocol: "still",
   schedule: "all",
