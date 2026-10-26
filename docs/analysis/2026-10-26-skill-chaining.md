@@ -293,6 +293,15 @@ The editor's fields for `CONDITIONS` carry over, so what a player may set is wha
   blows land more often and reading the foe's preparation pays. The drills' fight rungs and the
   tactics move with it.
 
+#### Considered and not kept: history in the senses
+
+The senses hub could expose past frames beyond the delay. It is not kept: the framework holds
+only what it does fundamentally more cheaply or a rule only it can enforce. The delay is such a
+rule; history is neither, since a mind may keep any memory in its `state`, and the hub would save
+work only where many minds keep raw frames of many bodies, which none needs. History belongs to
+the shared library: a ring a mind keeps in its own `state`, and a percept's option to keep its
+recent values.
+
 #### A possible direction, not proposed: a delay by pathway
 
 People do not perceive at one delay:
