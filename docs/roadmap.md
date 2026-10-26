@@ -181,9 +181,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([Recovery](plans/2026-10-23-recovery.md), [now](#order)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
-  median at most 4 s, unassisted. Step-up, the baseline, stands 53 of 64 and none within 6 s
-  ([step-up on the target](reference/rising.md#step-up-on-the-owners-target)); where it stops is
-  in [rising](reference/rising.md#where-the-rise-stops). A policy acting on observations also runs
+  median at most 4 s, unassisted. Step-up, the baseline, stands 51 of 64 and none within 6 s at
+  `8e3df885`; where its time goes is [the budget](reference/rising.md#the-budget) (step 1,
+  landed) and [where the rise stops](reference/rising.md#where-the-rise-stops). Next: step 2,
+  whether a fast route exists. A policy acting on observations also runs
   the sixteen-fall screen (`research/stand-up-acceptance.mjs`), which does not establish the
   target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control

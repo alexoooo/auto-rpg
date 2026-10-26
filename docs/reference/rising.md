@@ -811,6 +811,51 @@ it stood 52.
   24 s cap) and 15 of the target's 32, most failures at `even`; "Rise, then steady" stands 6, 8, 0
   and 1, medians 29.5 s and over, and none of the skeleton's shoves.
 
+## The budget
+
+Of the target's 4 s median, the body is first slow 0.6 s after takeover, and step-up's hand-back
+from the end of its rise to verified standing takes 1.7 s: about 1.7 s is left for the rise. The
+stance alone from the squat takes 2.1 to 3.4 s to verified standing. Back and side falls (53 of 64)
+all go through the roll; front falls stand least.
+
+`node research/rising-budget.mjs` (Node stand, core world, Rapier, 120 Hz, at `8e3df885`): the
+target's 64 falls under Stand up with step-up alone, the same falls and readings as the target's
+record (`assets/evaluations/rising-target/2026-10-26-8e3df885-3f63197b.jsonl`, every fall's verified
+time equal), probed each step. The lie is the reading's when the body is first slow (centre of mass
+under 0.5 m/s and trunk spin under 1 rad/s, the brace's own test). Times are from takeover:
+landed, the first reading of a lie; slow; the brace, to the first edge begun; the hand-back, from
+the end of the rise's last stage to verified standing (`STAND_CHECK`), on stood falls. Medians; a
+fall not stood counts at the 30 s cap.
+
+| Group | Back | Side | Front | Stood | Landed, s | Slow, s | Brace, s | Hand-back, s | Median, s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Warrior, empty | 8 | 6 | 2 | 14 of 16 | 0.36 | 0.60 | 0.59 | 1.71 | 12.20 |
+| Warrior, club | 9 | 5 | 2 | 14 of 16 | 0.35 | 0.57 | 0.57 | 1.55 | 12.77 |
+| Rogue, empty | 4 | 8 | 4 | 11 of 16 | 0.29 | 0.63 | 0.62 | 1.77 | 18.91 |
+| Rogue, club | 6 | 7 | 3 | 12 of 16 | 0.24 | 0.58 | 0.57 | 1.81 | 16.10 |
+| all | 27 | 26 | 11 | 51 of 64 | 0.27 | 0.59 | 0.58 | 1.71 | 15.36 |
+
+| Lie | Falls | Stood | Median, s |
+|---|---:|---:|---:|
+| back | 27 | 24 | 14.37 |
+| side | 26 | 22 | 15.80 |
+| front | 11 | 5 | 30.00 |
+
+- **Before the rise**: the body lands 0.27 s after takeover and is slow at 0.59 s (90th percentile
+  1.06); 7 of 64 braces run to their 1 s limit (`BRACE_LIMIT`). An edge that begins in motion can
+  gain at most the 0.3 s between landing and slow.
+- **After the rise**: 1.42 to 2.32 s over the 51 stood falls, the standing check's 0.5 s of quiet
+  included.
+- **The stance from the squat** (the Warrior's stored `squat`, its angles put on each body, placed
+  seeds 1 to 8, the stance alone): the Warrior stands from all 12 of its placed draws but one, 95 %
+  of standing height in 0.55 s, verified in 2.33 to 2.48 s (median by loadout; 2.07 to 3.36 in
+  all). Past standing height the trunk pitches forward (its up axis at 0.84 of vertical 1 s in, on
+  seed 4) and is upright and still about 1.6 s in; then the 0.5 s quiet. The Rogue in the Warrior's
+  squat stands from 1 of its 9 placed draws.
+- **The allowance**: a median fall has 4 s less 0.6 s, about 3.4 s from first slow to verified
+  standing. Ended at step-up's lunge, about 1.7 s of that is the rise's; handed to the stance in a
+  squat, at most about 1.3 s.
+
 ## Tried and not kept
 
 - **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
