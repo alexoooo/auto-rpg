@@ -19,6 +19,10 @@ The current answer:
   faster than its muscles' curve allows; with the arms and trunk at 2.5 times the curves read, a
   punch of a punch's form lands at 120 and 480 Hz, in its own cell alone
   ([a timed punch on the drill](#a-timed-punch-on-the-drill), [the punch's body](../reference/punch-body.md)).
+- **A learned punch lands on the still rung, not yet in fights.** The Warrior's, steered by a
+  policy and admitted square to its striking shoulder, lands 91 % of held-out still places at 120
+  and 480 Hz with no fall, and none of the fight rung's moments
+  ([square to the striking shoulder](#square-to-the-striking-shoulder)).
 - **Speed is not worth.** The fastest blows land with the elbow bent, the fist meets 0.2 to
   1.4 kg, and they take 2 to 5 % of a Warrior's head. A straight arm on the line meets 6 kg. The
   game's straight punch wounds the chest at 0.05 to 0.15 HP a blow.
@@ -358,6 +362,46 @@ Read on the still rung (Node, Rapier, the Warrior's rear hand, `research/punch-d
   apart the fist is on the foe as the drive begins; where both close at 1.4 m/s the blow comes 0.4
   s later on the thigh or the belly.
 
+### Square to the striking shoulder
+
+**The Warrior's learned punch lands 91 % of the still places its window admits, at both rates,
+and none falls.** Read on held-out places (Node, Rapier, `research/punch-policy-check.mjs`, seed
+1001; 240 places at 0.86 to 1.05 m and 0.15 m across the body to 0.3 m to the hand's side, of
+which the window admits 122; the network `assets/core/learned-punch.json` holds at `33f70997`):
+
+| Hand | 120 Hz landed | 480 Hz landed | Fell |
+|---|---|---|---|
+| left (lead) | 30 of 30 | 29 of 34 | 0 |
+| right (rear) | 26 of 29 | 26 of 29 | 0 |
+
+- **A target across the body is struck from the wrong shoulder.** The still rung's offset across
+  put the left hand's target 0.2 m to the striker's right, about 0.4 m across from the left
+  shoulder, where its blow came in outside the 20° cone. The rung now stands the target off toward
+  the striking hand (`toward`), and the window is centred on the line the striking shoulder faces
+  along at contact (`StraightPunch.squared`): with the hips turned that shoulder is about 0.06 m
+  across from the head and 0.22 m ahead of it. The surface aim prefers a face square to that
+  shoulder (`square`, [combat strikes](../reference/combat-strikes.md)).
+- **A window changes the punches, not only which are thrown.** On the same 100 places, 30 of the
+  127 thrown came out differently with the window on: a place a little outside it waits until the
+  target's sway brings the aim point in, 1.2 s instead of 0.5 s, and by then the target's guard
+  has moved. Trained on the trials the window admits, the held-out rate went from 69 % to 89 %
+  (0.1 m aside) and 91 % (0.17 m aside, which admits the drill's 0.2 m cells), 1.7 M decisions.
+- **The near edge is the weak one.** From 0.94 m out, 140 of 146 land; from 0.88 to 0.94 m, 82 of
+  100. The misses sit a hair under one test: the speed (9 of 27), the mass (7), the arm's line (4),
+  the cone (2). Training half its places at 0.88 to 0.95 m did not move it within 0.5 M decisions.
+- **On the Strike drill** (record `2026-10-26-33f70997-ffe842e0`, 120 Hz): 8 of the Warrior's 64
+  trials thrown, 7 landed at a median 7.3 m/s and 4.5 kg; the eighth, the right hand at 0.9 m and
+  0.2 m across, meets the target at 6.73 m/s. The high mark is refused.
+- **Seen in the reel** (the drill's own trials, frames 0.05 s apart): the rear hand comes in
+  straight to the belly under the target's guard about 0.15 s into the drive; after it the body
+  keeps turning until its back half faces the target, and the lead hand's blow ends in a deep
+  crouch, head down and hands low, that it holds for half a second.
+- **Tried and not kept**: a standing pivot to face the target before the drive (the right hand's
+  held-out landing 46 of 70, below the policy's without it, and one fell); a sway of the trunk toward the target
+  (41 of 70); 0.05 m more drive past the target (78 against 79 of 90); a slower approach before
+  admission (`pace` 0.3 m/s: no change); trained on fight moments beside the still places (still
+  80 %, fights 1 of 51 after 0.5 M decisions).
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)
@@ -374,6 +418,18 @@ seven game minds. No strike lands at the bar:
 
 "Elsewhere" is mostly the foe's guard. "Unreached" is a fight that never came to its third or
 fourth action within 30 s.
+
+**The learned punch lands none either** (record `2026-10-26-33f70997-ec782ad1`; the Warrior only):
+it refuses the 56 high-mark moments, and of the 56 at the middle mark 21 are weak, 18 meet the
+guard and 17 miss; none falls. On the held-out moments (the same harness as above, 120 Hz):
+
+- **The foe comes on.** At the first action against every foe the two close at about 1.4 m/s; the
+  drive begins about 1 m apart, and 0.2 s in the fist meets the foe's forward hand or forearm.
+- **The foe steps back.** Where it moves off at 0.25 to 0.55 m/s the fist chases the aim point and
+  meets nothing. A drive that ran its 0.5 s so carried the body over in 4 moments; it now ends 0.3 s
+  in (`longest`), and those moments are misses.
+- **Aiming further ahead does not reach the trunk.** Predicting the target 0.2 or 0.3 s ahead
+  instead of 0.12 s moves 2 to 5 blows off the guard onto the trunk, all of them weak.
 
 ## Open choices
 
