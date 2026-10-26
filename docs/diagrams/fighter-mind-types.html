@@ -78,7 +78,7 @@
 <body>
 <header>
   <h1>The fighter’s mind: types</h1>
-  <p class="sub">The target design’s key interfaces and data types, and how they connect. Names are the code’s where a type carries over.
+  <p class="sub">The reference design’s key interfaces and data types, as targeted, and how they connect. Bands 1, 2 and 5 are contracts every Mind meets; bands 3 and 4 are the reference, which any Mind may use in part or replace. Names are the code’s where a type carries over.
     The picture of it: <a href="fighter-mind.html">How a fighter thinks</a>.</p>
   <div class="legend">
     <span><span class="box"></span>in the code</span>
@@ -120,7 +120,7 @@ const BANDS = [
       "orders: Map<member, Orders>", "looked: boolean", "~ a member not named keeps its last"] },
     { id: "Orders", col: 3, kind: "interface", tag: "reshaped", desc: "goals for one member, never motion", lines: [
       "move?: MovementRequest | null", "pace?: m/s", "walk?: true", "face: Heading | null", "foe?: body id", "region?: segment",
-      "+ choices?: SkillChoice[]"] },
+      "+ choices?: SkillChoice[]", "~ optional: for a Mind with those skills"] },
   ], [
     { id: "TeamLevel", col: 0, kind: "interface", desc: "the ground, as the level answers it", lines: [
       "sees(from, to, metres)", "fits(at, radius)", "reaches(from, to, radius)", "frontier(from, radius)", "doorway(from, to, radius)"] },
@@ -139,17 +139,17 @@ const BANDS = [
     { id: "BodySense", col: 4, kind: "interface", desc: "another body, as sensed", lines: [
       "id, side: string", "spec: BodySpec", "out, down: boolean", "centre, velocity: Vector3", "segments: Map<name, SegmentSense>", "~ no hit points, no orders, no mind"] },
   ]] },
-  { title: "Choosing", cap: "Inside the options Mind: the situation, the player’s settings and the skills’ profiles become the Intent.", path: "src/core/mind/options/", rows: [[
+  { title: "Choosing", cap: "Inside the reference Mind: the situation, the player’s settings and the skills’ profiles become the Intent. The chooser is a part, so another can be swapped in.", path: "src/core/mind/options/", rows: [[
     { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the chooser lets a player set", lines: [
-      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "~ whatever the chooser reads"] },
-    { id: "Chooser", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
-      "choose(now, running): Intent", "~ the best worth:", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
+      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "depth: number", "~ whatever the chooser reads"] },
+    { id: "Chooser", col: 1, kind: "part role", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
+      "choose(now, running): Intent", "~ reference: best(now, depth),", "~ worth plus the best follow-up", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
     { id: "Intent", col: 2, kind: "interface", tag: "reshaped", key: true, desc: "the skills selected now", lines: [
       "+ choices: SkillChoice[]", "~ no two share a Resource", "interrupt?: id[]", "~ a free part runs its default"] },
     { id: "SkillChoice", col: 3, kind: "interface", tag: "new", desc: "one skill and its goal", lines: [
       "id: number", "skill: SkillName", "goal: Goal", "~ holds skill.needs(goal)"] },
     { id: "Goal", col: 4, kind: "union", tag: "new", desc: "what a skill is aimed at", lines: [
-      "TargetRef { body, region }", "range { foe, near, far }", "place { at }", "velocity { walk, face }", "~ footwork adds pace, height"] },
+      "TargetRef { body, region }", "range { foe, near, far }", "~ near, far: m, or a name", "place { at }", "velocity { walk, face }", "~ footwork adds pace, height"] },
   ], [
     { id: "Situation", col: 0, kind: "interface", desc: "what a decision reads", lines: [
       "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "danger, exposure: cost",
@@ -157,16 +157,16 @@ const BANDS = [
     { id: "Terms", col: 1, kind: "interface", desc: "what a choice is expected to bring", lines: [
       "duration: s", "dealt: J", "taken: cost", "orders: progress", "fall: chance"] },
     { id: "Profile", col: 3, kind: "interface", tag: "new", desc: "a skill’s measured model", lines: [
-      "skill: SkillName", "over: its entry variables", "lands, time to contact", "recovery, falls", "model(now): Terms"] },
+      "skill: SkillName", "over: its entry variables", "lands, time to contact", "recovery, falls", "exit: where it hands over", "model(now): Terms"] },
     { id: "Drill", col: 4, kind: "battery", desc: "one skill, rung by rung", lines: [
       "subject: mind/skill @ version", "rungs: still pad → opponent", "record: trials", "~ the owner accepts a rung"] },
   ]] },
-  { title: "Skills", cap: "Each skill is an option: where it can start, its own motion, what it holds, how it ends.", path: "src/core/skills/", rows: [[
+  { title: "Skills", cap: "A shared library any Mind may use: where a skill starts, its motion, holds and exit.", path: "src/core/skills/", rows: [[
     { id: "ResourceMap", col: 0, kind: "interface", desc: "the body’s parts, compiled", lines: [
       "footprints: Resource → controls", "overlap(a, b): boolean", "~ a humanoid: legs, trunk,", "~ hand.left, hand.right"] },
     { id: "Skill", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "an option (the Executor, widened)", lines: [
       "needs(goal): Resource[]", "readiness(view, goal): Readiness", "start(view, choice)", "update(…): phase, holds", "command(view, id): ActionClaim",
-      "interrupt?(view, id)", "+ exit: Window", "state: object", "~ holds only ever shrink"] },
+      "interrupt?(view, id)", "+ exit: Window", "~ a caller may take over there", "state: object", "~ holds only ever shrink"] },
     { id: "SkillSet", col: 2, kind: "function", key: true, desc: "runs the Intent on the body", lines: [
       "~ each step: start, update, command", "~ claims first, then the defaults:", "~ legs stand, trunk holds the guard,", "~ hands hold the guard pose", "→ BodyCommand"] },
     { id: "ActionClaim", col: 3, kind: "interface", desc: "one skill’s writes this step", lines: [
@@ -338,7 +338,7 @@ for (const [id, c] of Object.entries(cards)) {
 }
 
 const foot = el("text", { x: 860, y: y + 4, class: "foot", "text-anchor": "middle" });
-foot.textContent = "Target design, from the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).";
+foot.textContent = "Reference design, as targeted by the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).";
 svg.setAttribute("viewBox", `0 0 1720 ${y + 24}`);
 </script>
 </body>

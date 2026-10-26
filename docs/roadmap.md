@@ -92,8 +92,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
 - An optional skeleton costume, after seeing the bones in play.
-- Skills that chain: a skill ends at its exit, defaults accept any state, goals are names, and the
-  chooser looks two skills ahead ([skill chaining](analysis/2026-10-26-skill-chaining.md));
+- Skills that chain: the shared skills expose their exits and their defaults accept any state;
+  the reference chooser becomes a part role that looks ahead a set number of skills
+  ([skill chaining](analysis/2026-10-26-skill-chaining.md));
   decided before the [Options](plans/2026-10-24-options.md) plan's step 3.
 
 **To watch:**

@@ -110,7 +110,7 @@
 <body>
 <header>
   <h1>How a fighter thinks</h1>
-  <p class="sub">Auto-RPG’s target design, in five layers. Each layer opens up one part of the layer above. The types behind it: <a href="fighter-mind-types.html">The fighter’s mind: types</a>.</p>
+  <p class="sub">Auto-RPG’s reference design, as targeted, in five layers. Each layer opens up one part of the layer above. Every Mind meets layers 1 and 5; inside the Mind (2 to 4) is the reference, which any Mind may replace. The types behind it: <a href="fighter-mind-types.html">The fighter’s mind: types</a>.</p>
   <div class="legend">
     <span><span class="you">● You</span> what the player sets</span>
     <span><span class="sw" style="--c: var(--left)"></span>left hand</span>
@@ -246,7 +246,7 @@ txt(gC, 610, 300, "to each member", "arc-label");
 zoom(body[2].cx - 32, body[2].cx + 32, body[2].bottom, 420);
 
 // ── 2 · Inside the Mind ──────────────────────────────────────────────────────
-frame(420, 450, 2, "Inside the Mind", "It reads the situation, chooses skills and writes them into the Intent.");
+frame(420, 450, 2, "Inside the Mind", "The reference Mind: it reads, chooses skills and writes the Intent.");
 const mind = ring(600, 655, 150, [
   { label: "Situation", tip: "What a decision reads, from the senses alone." },
   { label: "Chooser", key: true, tip: "Each skill priced by its profile and what the fighter values." },
@@ -406,7 +406,7 @@ for (let i = 0; i < 3; i++) link(`M${motor[i].right + 4},1908 L${motor[i + 1].le
 link(`M${motor[3].cx},${motor[3].bottom + 4} V1960 H${motor[0].cx} V${motor[0].bottom + 6}`);
 txt(gC, 610, 1978, "the body’s state, felt back", "arc-label");
 
-txt(gC, 600, 2030, "Target design, from the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).", "foot");
+txt(gC, 600, 2030, "Reference design, as targeted by the Options and Drills plans (docs/plans/2026-10-24-options.md, 2026-10-24-drills.md).", "foot");
 </script>
 </body>
 </html>
