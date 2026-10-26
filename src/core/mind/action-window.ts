@@ -7,6 +7,9 @@ import { placeMovement, type MovementRequest } from "./movement.ts";
 /** Braking begins one second before the centre would enter its window. */
 const RESPONSE = 1;
 
+/** How near the window's middle a walk into it counts as arrived, m, unless its caller asks nearer. */
+const ARRIVED = .04;
+
 /** Pure geometric admission, in the same ground frame the approach controller uses. */
 export function withinActionWindow(view: BodyView, window: Window, heading: number): boolean {
   const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
@@ -20,9 +23,9 @@ export function withinActionWindow(view: BodyView, window: Window, heading: numb
  * Bring a pending target into its declared entry window without taking an action's controls: a
  * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`;
  * while that place is more than `travel` m off, the body faces its way there (`travelFacing`), and
- * turns to the target within it.
+ * turns to the target within it. The walk counts as arrived `near` m from that place.
  */
-export function approachActionWindow(view: BodyView, window: Window, heading: number, ceiling: number, travel = Infinity): {
+export function approachActionWindow(view: BodyView, window: Window, heading: number, ceiling: number, travel = Infinity, near = ARRIVED): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number; readonly travelFacing?: true;
 } {
   const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
@@ -32,6 +35,6 @@ export function approachActionWindow(view: BodyView, window: Window, heading: nu
   const x = dx - along * sin(face) - across * cos(face), z = dz - along * cos(face) + across * sin(face);
   const distance = hypot(x, z);
   if (distance === 0) return { move: null, face };
-  return { move: null, face, movement: placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, .04),
+  return { move: null, face, movement: placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near),
     pace: Math.min(Math.max(0, ceiling), distance / RESPONSE), ...(distance > travel ? { travelFacing: true as const } : {}) };
 }

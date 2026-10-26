@@ -58,7 +58,7 @@ const STILL = deepFreeze({
   toward: "hand",
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: .5, pace: 1, patience: 4, seconds: 7, settle: .5,
+  settled: .5, pace: 1, patience: 8, seconds: 11, settle: .5,
 });
 
 /**
