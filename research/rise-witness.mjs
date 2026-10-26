@@ -27,7 +27,9 @@
  *
  *   node research/rise-witness.mjs --move push-off --out research/runs/rise-witness/push-off
  *     [--model workshop-fighter] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
- *   node research/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2]
+ *   node research/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--steady <json>]
+ *
+ * `--steady` changes the steady as `research/crouch-steady.mjs`'s variants do: `ease`, `servo`, `tuning`.
  */
 import { parentPort, isMainThread, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -265,7 +267,7 @@ function bearer(own, view) {
 }
 
 /** One trial of `u` from `move`'s start at `seed`: its score, the hand-over and verified times from the start, s. */
-export async function witnessTrial({ move, model = "workshop-fighter", held = "empty", seed, u, hold = 1, cap = 8, trace = false }) {
+export async function witnessTrial({ move, model = "workshop-fighter", held = "empty", seed, u, hold = 1, cap = 8, trace = false, steady = {} }) {
   const spec = bodySpec(model, held), placed = placement(move, spec, seed);
   if ("refused" in placed) return { score: 0, refused: placed.refused };
   const plan = phases(move, spec, u), handover = plan.reduce((s, p) => s + p.duration, 0);
@@ -273,10 +275,10 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
-  const control = { active: true, time: 0, phase: -1, steady: false, ready: 0 };
+  const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), kit = kitOf(partLookup, own.spec, PUNCHER), legs = locomotion(null);
-    const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the witness");
+    const motor = carrying(kit.motor(own.built, steady.servo ?? SERVO_SECONDS, kit.posture, steady.tuning, own.assist), ["stance"], "the witness");
     return { name: `witness:${move}`, state: { control, bearing: bearing.state, motor: motor.state, legs: legs.state }, wants: () => control.active, begin() {}, end() {},
       step(_senses, dt) {
         if (control.time < handover) {
@@ -290,7 +292,11 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
           }
           control.phase = k;
         } else {
-          if (!control.steady) { control.steady = true; motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); }
+          if (!control.steady) { control.steady = true; control.from = own.muscles.channels.map((_, i) => own.muscles.angle(i)); motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); }
+          if (steady.ease) {
+            const e = Math.min(1, (control.time - handover) / steady.ease), k = e * e * (3 - 2 * e);
+            motor.setPosture(Object.fromEntries(own.muscles.channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k])));
+          }
           motor.stance.read();
           motor.setStance(legs.goal({ ...view, stance: motor.stance.reading }, null, legs.heading, dt));
           motor.control(own.muscles, dt);
@@ -333,12 +339,12 @@ if (!isMainThread) {
 } else if (process.argv[1]?.endsWith("rise-witness.mjs")) {
   const { values } = parseArgs({ options: { move: { type: "string" }, out: { type: "string" }, model: { type: "string" }, held: { type: "string" },
     generations: { type: "string" }, workers: { type: "string" }, sigma: { type: "string" }, replay: { type: "string" },
-    seeds: { type: "string" }, hold: { type: "string" }, cap: { type: "string" } } });
+    seeds: { type: "string" }, hold: { type: "string" }, cap: { type: "string" }, steady: { type: "string" } } });
   const cap = Number(values.cap ?? 8);
   if (values.replay) {
     const best = JSON.parse(await readFile(values.replay, "utf8")), spec = bodySpec(best.model, best.held);
     for (const seed of acceptedSeeds(best.move, spec, Number(values.seeds ?? 4)))
-      console.log(JSON.stringify(await witnessTrial({ move: best.move, model: best.model, held: best.held, seed, u: best.u, hold: Number(values.hold ?? 2), cap, trace: true })));
+      console.log(JSON.stringify(await witnessTrial({ move: best.move, model: best.model, held: best.held, seed, u: best.u, hold: Number(values.hold ?? 2), cap, trace: true, steady: JSON.parse(values.steady ?? "{}") })));
   } else {
     const move = values.move, model = values.model ?? "workshop-fighter", held = values.held ?? "empty";
     if (!MOVES[move]) throw new Error(`--move is one of ${Object.keys(MOVES).join(", ")}`);

@@ -917,6 +917,69 @@ stands none of 6 on either body (the sit-up stalls in its curl or times out shor
 - **What it does not say**: the Rogue, a start on a side, the target's falls (a witness is from a
   placed start at rest), or a witness with width.
 
+## The hand-back from a crouch
+
+Stand up's steady stands a crouched body to verified standing in 2.2 s at best, not the 1 s a fast
+route needs. Its stance climbs to standing height in 0.6 to 1.1 s, but violently: the pelvis
+pitches, the arms whip and the feet step to catch the body, and the settling after takes as long
+again before the 0.5 s of quiet. No setting tried takes off more than about 0.5 s. A supported root
+pose and a posture-path climb stand none of 8. A hand-back near 1 s needs a climb that carries the
+centre of mass over the feet before the legs extend and ends still; no controller here does.
+
+`node research/crouch-steady.mjs` (Node stand, core world, Rapier, 120 Hz, calm, no assist; on
+`5458a251`'s core): the Warrior's stored squat placed on each body, the first 8 seeds its
+placement accepts; Stand up's steady as `standUp` runs it (its own motor, the locomotion resumed,
+the stance's goal), handed back once `standReady` holds 0.1 s, the host's stance after; verified
+by the stand check (`STAND_CHECK`), 5 s cap. Each grid of 8 runs in 3 to 10 s.
+
+| Body | Loadout | The steady: stood, median | Posture eased over 0.5 s |
+|---|---|---|---|
+| Warrior | empty | 6 of 8, 2.85 s | 8 of 8, 2.54 s |
+| Warrior | club | 7 of 8, 3.11 s | 8 of 8, 2.63 s |
+| Rogue | empty | 2 of 8, 2.97 s | 3 of 8, 2.33 s |
+| Rogue | club | 1 of 8, 3.40 s | 2 of 8, 2.70 s |
+
+The steady's variants (`--variant`), the Warrior empty-handed:
+
+| Variant | Stood | Median, s |
+|---|---:|---:|
+| the steady | 6 of 8 | 2.85 |
+| the posture eased from the crouch's angles to the guard's over 0.5 s (`ease`) | 8 of 8 | 2.54 |
+| eased, the centre of mass asked 6 cm ahead of the feet's middle for 0.5 s (`ahead`) | 8 of 8 | 2.52 |
+| searched: the stance's time constants, track and ankle spare, the servo's constant, the ease (`--search`, 40 generations of 12, 4.3 min) | 8 of 8 | mean 2.34 |
+| the search's best at three places | 7 of 8 | 2.44 |
+| the pelvis's turn at 0.3 s, not 0.15 | 6 of 8 | 2.83 |
+| no catch steps (`tuning.recovery` null) | 0 of 8 | – |
+| the supported root pose on the combat fold's schedule (`fold`; over 0.6, 1 and 2 s, response 0.2 to 0.5 s) | 0 of 8 | – |
+| the supported root pose, every other joint held at the crouch's angle (`lift`, pitch ±0.45 rad) | 0 of 8 | – |
+| no stance: a minimum-jerk posture path, the hips and ankles fed the centre of mass's lead (`climb`) | 0 of 8 | – |
+
+The witnesses ([a fast route](#a-fast-route)) replayed with the steady changed
+(`node research/rise-witness.mjs --replay <file> --steady <json>`, held 1 s); verified, from rest:
+
+| Witness | Hand-over, s | The steady | Posture eased over 0.5 s |
+|---|---:|---|---|
+| push-off-bear | 1.47 | 3.68; seeds 2 to 4 none | 4.93; none |
+| rock-up-bear | 2.69 | 4.89, 6.99, none, 6.52 | 5.38, 6.85, none, 5.32 |
+
+- **Where the time goes** (seed 2, the steady): 95 % of standing height at 0.59 s; at 0.2 s the
+  pelvis is at 0.54 of upright and the arms move at 4.4 m/s (the guard asked at once, from the
+  squat's arms, at the servo's 0.1 s); a catch step at 0.35 to 0.45 s; every segment under
+  0.1 m/s at 1.75 s, the hands last; verified at 2.23 s. On every seed the last condition met is a
+  segment's speed (head, hands or forearms), at 1.7 to 2.65 s.
+- **The squat is on its stops**: the knees at 2.44 of 2.46 rad, ankle dorsiflexion and inversion at
+  their stops, thoracic flexion at its stop, the arms abducted 2.42 rad. Its centre of mass is
+  6.5 cm behind the feet's middle. Without its catch steps the stance takes every seed over
+  backward: the pelvis is held upright as the knees extend, and the centre of mass goes back.
+- **The height ramp is not followed** from a crouch: the ankle's floor (`STANCE_ANKLE_SPARE`) lifts
+  the plan at the height's constant, the body at full height by 0.7 s against `RISING_SECONDS`' 1.3.
+- **The supported root pose loses its pitch** from the squat: asked 0.45 or 0.9 rad either way, the
+  pelvis is upright within 0.25 s while the pose asks the ground for 2 to 15 m/s² forward, which
+  the soles do not give (a shortfall of 200 to 2300 N), and the body goes over backward.
+- **From the witnesses' hand-overs** the steady takes 2.2 s at best. The rock-up hands over low (0.43
+  of standing height, the pelvis at 0.47 of upright); the stance climbs in 0.9 s with the arms at
+  up to 5 m/s and the feet stepping, then settles 0.8 s before the quiet. Eased, neither is faster.
+
 ## Tried and not kept
 
 - **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
