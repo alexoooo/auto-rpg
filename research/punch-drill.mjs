@@ -6,11 +6,12 @@
  * and its reader, `readStrike`) on one cell: a body, a hand, a mark, an offset across and a gap,
  * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by the bar (`BAR`, `read.ts`): a
  * landed blow scores above every other, by its speed and mass past the bar; any other trial by how
- * near its hit came to each of the bar's tests; a fall lowest. The punch is admitted at any range
+ * near its hit came to each of the bar's tests (with `--near`, one with nothing on the mark by how
+ * near the fist came to the punch's target, `NEAR`); a fall lowest. The punch is admitted at any range
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--chest] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--ease] [--chest] [--near] [--heavier <times>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -48,20 +49,23 @@ const FIRE = [0, 1.2];
 /** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
 const BRAKE = [0, 0.3];
 
+/** With `--ease`, how near its goal a channel's push falls in proportion, rad (`StraightPunch.ease`). */
+const EASE = [0.005, 0.095];
+
 /** The most a landed blow's score counts of its room inside one test (`scoreOf`). */
 const MARGIN = 0.3;
 
 /** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
-const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
+export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
 /** The drive's settings around a schedule: admitted at any range past `reach` of the arm, driven for at most `longest` s. */
-const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
+export const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
 
 /**
  * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
  * channels `without` left off the schedule, so the punch pushes them toward their goals.
  */
-export function decode(x, hand, gap, without = new Set(), { driven = true, fire = false, brake = false } = {}) {
+export function decode(x, hand, gap, without = new Set(), { driven = true, fire = false, brake = false, ease = false } = {}) {
   const channels = ceilingChannels(hand), n = channels.length * 3;
   const pushes = channels.map((channel, i) => ({ channel, level: Math.abs(x[3 * i]) > 0.05 ? x[3 * i] : 0, from: x[3 * i + 1], length: Math.max(0, x[3 * i + 2]) }))
     .filter((p, i) => !without.has(channels[i]));
@@ -69,15 +73,16 @@ export function decode(x, hand, gap, without = new Set(), { driven = true, fire 
   const [lead, through, hips, turn, lean, ...more] = rest.slice(searched ? 1 : 0);
   const [accel, steer, arrive] = driven ? more : [], reach = fire ? more[driven ? 3 : 0] : undefined;
   const held = brake ? more[(driven ? 3 : 0) + (fire ? 1 : 0)] : undefined;
+  const eased = ease ? more[(driven ? 3 : 0) + (fire ? 1 : 0) + (brake ? 1 : 0)] : undefined;
   return { pushes, gap: searched ? rest[0] : gap, lead, through, beneath: hips === undefined ? {} : { hips, turn, lean },
-    ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }), ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }) };
+    ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }), ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }), ...(eased === undefined ? {} : { ease: eased }) };
 }
 
-/** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target. */
-export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake }, hand, aim = null) {
+/** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. */
+export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake, ease }, hand, aim = null) {
   const preset = MINDS.puncher.config, punch = preset.executors[0];
-  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim } : action) : preset.actions;
-  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action) : preset.actions;
+  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), ...(ease === undefined ? {} : { ease }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
   return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
 }
 
@@ -85,9 +90,9 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
  * A trial's score: a landed blow above 9 by how far inside each of the bar's tests it is, each
  * margin a share of its limit's room and capped, so a search moves off the tests' edges; else up to 8 by how
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
- * another's margin; -1 nothing on the mark; -3 a fall.
+ * another's margin, the mass counted `heavier` times within those 8; -1 nothing on the mark; -3 a fall.
  */
-export function scoreOf(reading, hand) {
+export function scoreOf(reading, hand, heavier = 1) {
   if (reading.down) return -3;
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" ? -0.5 : -1;
@@ -103,15 +108,15 @@ export function scoreOf(reading, hand) {
   const within = (angle, limit) => unit(1 - Math.max(0, angle - limit * Math.PI / 180) / (limit * Math.PI / 180));
   const late = reading.began === null ? 1 : Math.max(0, hit.time - reading.began - BAR.within);
   const lined = (cosine) => cosine === null ? 0 : unit((cosine - Math.cos(2 * BAR.along * Math.PI / 180)) / (Math.cos(BAR.along * Math.PI / 180) - Math.cos(2 * BAR.along * Math.PI / 180)));
-  return 2 * Math.min(1, speed) + Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend, BAR.bend) + within(hit.lean, BAR.lean)
-    + Math.max(0, 1 - late / 0.3) - (reading.ended === null ? 0.5 : 0);
+  return (2 * Math.min(1, speed) + heavier * Math.min(1, mass) + towards(hit.straight) + lined(hit.along) + within(hit.bend, BAR.bend) + within(hit.lean, BAR.lean)
+    + Math.max(0, 1 - late / 0.3)) * 8 / (7 + heavier) - (reading.ended === null ? 0.5 : 0);
 }
 
 /**
  * `x`, a schedule for `from`'s hand, made the other hand's in place: each side's channel moved to
  * the other side's, the trunk's turn reversed.
  */
-function mirrored(x, from, to) {
+export function mirrored(x, from, to) {
   const source = ceilingChannels(from), target = ceilingChannels(to), copy = [...x];
   const swap = (name) => name.replace(/\.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `);
   source.forEach((channel, i) => {
@@ -146,21 +151,29 @@ function spreadOf(text, offsets) {
   });
 }
 
-/** One drill trial of `subject` on `condition` at `hz`: its reading. */
+/** One drill trial of `subject` on `condition` at `hz`: its reading, and the nearest its fist came to the punch's target through the drive, m. */
 export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined);
   const built = await buildBout(world.recipe, { hz });
   try {
-    const reader = cases.read(built, condition);
+    const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[0].motion, body = built.duel.duelists.left.body;
+    let nearest = Infinity;
     built.duel.play(world.tape);
     while (!reader.ended) {
       if (built.duel.clock > cases.seconds + 1) throw new Error("the trial ran past its seconds");
       built.world.step();
       reader.afterStep();
+      if (motion.phase === "swing") {
+        const f = body.view.fists[condition.hand].position, t = motion.target;
+        nearest = Math.min(nearest, Math.sqrt((f.x - t[0]) * (f.x - t[0]) + (f.y - t[1]) * (f.y - t[1]) + (f.z - t[2]) * (f.z - t[2])));
+      }
     }
-    return reader.reading();
+    return Object.assign(reader.reading(), { nearest });
   } finally { built.dispose(); }
 }
+
+/** With `--near`, how much a trial with nothing on the mark gains for its fist's coming within `NEAR` m of the punch's target: up to `NEARING`, still below any hit's. */
+const NEAR = 0.25, NEARING = 0.5;
 
 /**
  * `x` played on `cell` at each of its rates, the worst rate's score and what it read there; with a
@@ -175,11 +188,12 @@ async function trial(x, cell) {
     return { score: each.reduce((sum, r) => sum + r.score, 0) / each.length, landed, places: each.length,
       outcomes: each.map((r) => r.outcome), worst: each.reduce((a, b) => (b.score < a.score ? b : a)) };
   }
-  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []), { driven: !!cell.driven, fire: !!cell.fire, brake: !!cell.brake });
+  const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []), { driven: !!cell.driven, fire: !!cell.fire, brake: !!cell.brake, ease: !!cell.ease });
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
   let worst = null;
   for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null), condition, hz), score = scoreOf(reading, cell.hand);
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null), condition, hz);
+    const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }
   return worst;
@@ -193,10 +207,10 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, ease: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8"));
-    const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { driven: found.cell.driven !== false, fire: !!found.cell.fire, brake: !!found.cell.brake });
+    const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { driven: found.cell.driven !== false, fire: !!found.cell.fire, brake: !!found.cell.brake, ease: !!found.cell.ease });
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
@@ -208,11 +222,11 @@ if (!isMainThread && workerData?.drill) {
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
+    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), driven: !!values.driven, fire: !!values.fire, brake: !!values.brake, ease: !!values.ease, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number) };
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
   const lo = [], hi = [], without = new Set(cell.without);
   for (const channel of ceilingChannels(cell.hand)) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }
-  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : []), ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : [])]) { lo.push(low); hi.push(high); }
+  for (const [low, high] of [...(cell.gap === null ? [GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : []), ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : []), ...(cell.ease ? [EASE] : [])]) { lo.push(low); hi.push(high); }
   if (values.tune) { lo.length = 0; hi.length = 0; for (const [low, high] of TUNE) { lo.push(low); hi.push(high); } }
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
   const fromFile = values.from ? JSON.parse(readFileSync(values.from, "utf8")) : null, from = fromFile ? [...fromFile.best.x] : null;

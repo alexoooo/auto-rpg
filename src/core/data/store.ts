@@ -1,11 +1,13 @@
 import type { RisePolicy } from "../mind/ground/learned-rise.ts";
 import type { RunPolicy } from "../skills/learned-run.ts";
+import type { PunchPolicy } from "../skills/learned-punch.ts";
 import type { ResearchRiseData } from "./research-rise.ts";
 
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "learned-rise" | "learned-run" | "research-rise";
+export type DataKey = "learned-punch" | "learned-rise" | "learned-run" | "research-rise";
 
 interface DataOf {
+  "learned-punch": PunchPolicy;
   "learned-rise": RisePolicy;
   "learned-run": RunPolicy;
   "research-rise": ResearchRiseData;
@@ -17,6 +19,7 @@ interface DataOf {
  * needs import attributes in Node, and the bundle keeps such an import's path unresolved.
  */
 const LOADERS: { readonly [K in DataKey]: () => Promise<DataOf[K]> } = {
+  "learned-punch": () => import("./learned-punch.ts").then((m) => m.LEARNED_PUNCH),
   "learned-rise": () => import("./learned-rise.ts").then((m) => m.LEARNED_RISE),
   "learned-run": () => import("./learned-run.ts").then((m) => m.LEARNED_RUN),
   "research-rise": () => import("./research-rise.ts").then((m) => m.RESEARCH_RISE),

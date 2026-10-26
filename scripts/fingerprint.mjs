@@ -45,7 +45,7 @@ import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { partOf } from "../src/core/mind/catalog.ts";
-import { CLASSIC, QUADRUPED, STAND_UP } from "../src/core/mind/config.ts";
+import { CLASSIC, PUNCHER, QUADRUPED, STAND_UP } from "../src/core/mind/config.ts";
 import { LOCOMOTIONS } from "../src/core/mind/locomotions.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
@@ -440,12 +440,17 @@ const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(min
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
  * read by a case that plays it: Research rise and the learned rise, the Warrior laid down; the
  * learned run's policy, which steers only a run and is asked none in a bout, round the lab's circle
- * at 3 m/s.
+ * at 3 m/s; the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
  */
 const DATA_CASES = [
   felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
   felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: [{ kind: "learned-rise" }] }] }),
   { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: LOCOMOTIONS["learned-run"].defaults }, 3) },
+  { name: "data: learned-punch", run: () => {
+    const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
+      actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };
+    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
+  } },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [

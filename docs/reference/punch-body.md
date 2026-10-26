@@ -28,7 +28,8 @@ their isometric torque at 33 rad/s, where at the curve read they give none.
 searched by CMA-ES, each candidate a trial of the drill's still rung (the Warrior's right hand at
 the middle mark, square on, its gap searched) at 120 and at 480 Hz, scored by the worse. The
 shoulder and the elbow are left off the schedule and pushed at the contact pose; the strike aims
-at the chest's open surface (`--chest`). Node, Rapier. Each factor's best, read at the worse rate:
+at the chest's open surface (`--chest`). Node, Rapier. Each factor's best, read at the worse rate,
+at `3a472896` (a scheduled push then began and ended on whole control steps):
 
 | Factor | Outcome | Speed, m/s | Mass, kg | Straight, cos | Along the arm, cos | Elbow from straight, rad | Chest from upright, rad |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -36,14 +37,21 @@ at the chest's open surface (`--chest`). Node, Rapier. Each factor's best, read 
 | 2.5 | **landed** at both | 7.01 | 6.35 | 0.981 | 0.824 | 0.32 | 0.25 |
 | 3.0 | weak, 480 Hz | 7.86 | 1.79 | 0.968 | 0.798 | 0.48 | 0.34 |
 
-The landed punch, read at 480 Hz: 7.90 m/s, 3.13 kg, straight 0.993, along 0.806, the elbow 0.50
-rad from straight, the chest 0.25 rad from upright, first contact 0.22 s after the request. Its
-schedule is `punch-body.json` (`node research/punch-drill.mjs --verify docs/reference/punch-body.json`);
-rounded to six decimals, it no longer lands at 480 Hz.
+The landed punch, searched again from it with each push covering its share of a control step
+(`TimedPush`), at a gap of 0.951 m:
 
-It lands in its own cell alone. Read at gaps 0.85 to 1.05 m and offsets across of 0, 0.1 and 0.2
-m, on the Warrior and the Rogue, at both rates (60 trials), it lands only at its own gap, square
-on, on the Warrior: off it, the fist meets the target's guard or misses. A punch that lands across
+| Rate | Speed, m/s | Mass, kg | Straight, cos | Along the arm, cos | Elbow from straight, rad | Chest from upright, rad | First contact, s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 120 Hz | 7.56 | 6.36 | 0.997 | 0.802 | 0.39 | 0.29 | 0.225 |
+| 480 Hz | 7.67 | 3.26 | 0.978 | 0.796 | 0.41 | 0.27 | 0.221 |
+
+Its schedule is `punch-body.json` (`node research/punch-drill.mjs --verify docs/reference/punch-body.json`).
+
+It lands in its own cell alone. Read at gaps 0.90 to 0.98 m, it lands at 0.94 m at 120 Hz and at
+no other gap; nearer, the elbow meets the target bent; further, the fist meets the target's guard
+or misses. The schedule before it, read at gaps 0.85 to 1.05 m and offsets across of 0, 0.1 and
+0.2 m on the Warrior and the Rogue at both rates (60 trials), landed only at its own gap, square
+on, on the Warrior. A punch that lands across
 them is the [Punch](../plans/2026-10-24-punch.md) plan's step 4.
 
 What the factor moves (`scripts/fingerprint.mjs --experimental` against `3a472896`): every bout

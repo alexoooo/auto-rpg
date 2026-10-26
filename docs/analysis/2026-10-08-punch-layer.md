@@ -241,6 +241,123 @@ elbow the forearm opens mostly across the arm's line (at 30° short, three quart
 the fist's path keeps to the line only as far as the shoulder carries it; a 20° cone failed every
 fast blow found.
 
+## Across places
+
+The Punch plan's step 4 asks for a punch that lands off its own cell. **A timed punch's landing
+band is a few centimetres of range**: open-loop, it lands where its trunk puts the shoulder an arm's
+length from the target as the elbow straightens, and the bar leaves little room there. With the
+elbow within 30° of straight the shoulder-to-fist length changes 2 cm (0.628 to 0.65 m on the
+Warrior), so the shoulder at contact must be within about 2 cm of where it was found. Searches by
+`research/punch-drill.mjs`, the Warrior's right hand at the middle mark, Node, Rapier:
+
+| Search | Places | Landed |
+|---|---|---|
+| from the reference punch, scored by the mean over places | 12: the Warrior and the Rogue, three gaps each, square on and 0.1 m across | 0 |
+| the same, the arm opened at a distance (`fire`) | 12 | 1 |
+| the schedule held, its time scale, shift, aim and posture tuned per place | 1 each | none off the reference's place |
+| scored by each test's room inside the bar, capped (`scoreOf`) | the Warrior at 0.92, 0.94 and 0.96 m, square and 0.1 m across, 120 Hz | 5 of 6 |
+| the same, both rates | 0.93 and 0.95 m, square and 0.1 m across | 2 of 4 |
+| the same, eased (`ease` searched), each push its share of a step, `fire` searched | 0.91, 0.93, 0.95 and 0.97 m, square, both rates | 2 of 4; read at 0.89 to 1.01 m, it lands from 0.93 to 0.97 m at 120 Hz and from 0.95 to 0.97 m at 480 Hz |
+
+What narrows it:
+
+- **The arm chattered on its line.** The shoulder's channels were pushed flat out at a goal that
+  moves each step, so they overshot it each step: near contact the fist's heading turned by 20 to 50°
+  from one step to the next, and whether its last 0.1 m came in within 20° of the normal was luck.
+  Eased onto its goals (`StraightPunch.ease`, 0.05 rad), the same schedule's fist meets the chest at
+  every gap from 0.91 to 0.97 m with the elbow within 30° of straight; searched with it, at 120 Hz it
+  lands from 0.93 to 0.96 m.
+- **The schedule ran on whole steps.** A push began and ended on a control step, 8.3 ms at 120 Hz,
+  so 120 and 480 Hz played different schedules. A push now covers its share of a step.
+- **Nearer, the elbow meets the target bent**; further, the arm is straight before contact and the
+  fist slows below the bar, or meets the guard. A distance trigger (`fire`) opens the arm earlier
+  when nearer, but the earlier blow meets lighter (0.8 kg at 0.91 m).
+- **The lean cannot be taken off the schedule**: pushed at a goal instead, the punch's timing comes
+  apart at every gap.
+
+**A policy over the schedule widens it.** The punch steered (`StraightPunch.steered`,
+`src/core/skills/learned-punch.ts`): 60 times a second through the drive a network reads the
+drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
+mass's velocity, whether the hand touches, and the trunk's, legs' and arm's angles and speeds, and
+adds a level to each push the schedule or the contact pose is making (a channel not being pushed
+stays with the posture or the stance: a push of any level takes it from them, and with it every
+punch). Trained by PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`)
+from the schedule above, on the Warrior's two hands, gaps 0.86 to 1.04 m and 0 to 0.15 m across,
+each episode a drill trial loaded at the drive's first step and scored by the bar. Read whole
+(the trial played out, falls counted) on 60 places training never drew
+(`research/punch-policy-check.mjs`, seed 1001):
+
+| Punch | 120 Hz landed | 480 Hz landed | Fell |
+|---|---|---|---|
+| the schedule alone | 8 of 60 | 2 of 60 | 0 |
+| steered, trained 2 M decisions at 120 Hz | 35 of 60; 33 of the 39 at 0.86 to 0.98 m | 9 of 60 | 0 |
+| the same, 1 M more with half its episodes at 480 Hz | 33 of 60 | 24 of 60 | 0 |
+
+Past 0.98 m the fist does not reach at the bar steered or not.
+
+The last network, played as the core plays it (`learned: true`, `assets/core/learned-punch.json`),
+admitted 0.90 to 0.98 m from the target, to 0.3 m either side of the line it faces and no higher
+than 0.1 m over the shoulder, on the still rung (Node, Rapier, 120 Hz, the Warrior only, not
+recorded): 8 of 64 trials thrown, 4 landed at 6.9 to 7.7 m/s and 3.2 to 5.0 kg, none fell. The
+four not landed were thrown at 1.0 m or 0.2 m across, where the body had swayed into the window
+after it settled. The high mark is refused: its point is 0.2 to 0.28 m over the shoulder on
+both bodies, the middle mark's 0.12 m under it to level, and the schedule thrown at it meets the
+chest at 7 to 8.7 m/s. Searched for the high mark from it (`punch-drill.mjs --mark high --near`,
+the Warrior's rear hand at 0.91 to 0.99 m, 120 and 480 Hz), the best schedule meets the head at
+6.3 m/s but coming down onto its crown, 79° off the surface's normal and 84° off the arm's line:
+the guard covers the face, and the open lane over it is the top of the head, which a straight
+punch cannot meet square.
+
+### Both bodies and fight moments
+
+Trained on: still targets for both bodies, and the fight rung's moments 1 to 8 against its seven
+foes, the half not held out by a digest of each moment's condition. Each body's punch is admitted
+in a window of its own. The features add the target's velocity. Read on held-out trials (Node,
+Rapier, `punch-policy-check.mjs`, seed 1001): 80 still places across both bodies, and the 28 held-out
+moments of each body at the middle mark:
+
+| Network | Warrior still, 0.90 to 0.98 m: 120 / 480 Hz | Rogue still: 120 / 480 Hz | Fights: 120 / 480 Hz | Fell |
+|---|---|---|---|---|
+| 4.0 M decisions, the Rogue trained at 0.72 to 0.96 m | 12 of 16 / 4 of 16 | 0 of 41 / 0 of 41 | 0 of 56 / 0 of 56 | 2 |
+| 5.0 M, the Rogue at 0.77 to 0.88 m, the target's velocity read | 14 of 16 / 7 of 16 | 1 of 41 / 2 of 41 | 0 of 56 / 0 of 56 | 2 |
+
+- **At 480 Hz the elbow meets the target more bent**: the Warrior's blows that land at 120 Hz meet
+  it 0.35 to 0.45 rad short of straight, and at 480 Hz the same places 0.4 to 0.8 rad, where the
+  fist meets 0.7 to 2.3 kg instead of 3 to 7.
+- **The Rogue's blow is light**: its body is 57.6 kg to the Warrior's 79.0, its arm 0.65 times as
+  heavy. Its schedules reach its straight arm only from 0.84 to 0.88 m, and meet 1.2 to 1.9 kg
+  there, its fist's line 45° or more off the arm's (`along`). Searched at 0.79 to 0.83 m or 0.88 to
+  0.92 m (`--heavier 3`), no schedule passes: nearer, the elbow meets the target 0.6 to 0.9 rad
+  short of straight and 0.3 kg; farther, the fist arrives below 6.5 m/s or not at all.
+- **In a fight the foe comes on**: the punch is admitted at its window's near edge, and the foe
+  closes during the 0.2 s before contact: the fist meets the guard or the trunk with the elbow
+  0.8 to 1.5 rad short of straight, 0.5 to 1.9 kg, often at 7 to 8.8 m/s.
+
+### Why the two rates part
+
+Read on the still rung (Node, Rapier, the Warrior's rear hand, `research/punch-drill.mjs --verify`):
+
+- **The sweet spot is about 2 cm deep.** The arm's two segments make the elbow's bend at contact
+  a steep function of the shoulder's distance from the target: 2 cm nearer moves it about 0.27 rad.
+  A schedule lands over a few centimetres of gap and no more: the one searched at 480 Hz across
+  0.92 to 0.96 m meets the target 0.76, 0.49, 0.39 and 0.18 rad short of straight at 0.90, 0.92,
+  0.94 and 0.96 m.
+- **`ease` is what the rates disagree on.** It sets each push's level from the error left, read once
+  a control step; at 120 Hz the shoulder runs ahead and the fist reaches the target 2 cm sooner, the
+  elbow 0.2 rad more bent. With `brake` in its place (flat out, then the posture's servo near the
+  goal, solved within the step) the two rates' bends at contact agree to 0.1 rad at 0.93 and 0.96 m.
+- **The mass a fist meets is its holds'.** With every joint free it meets 0.45 to 2.6 kg, alike at
+  both rates; the muscles' holds make it 0.9 to 9.2 kg at 120 Hz and 1.1 to 5.5 kg at 480, differently
+  at the same gap. On the touch step the elbow is still opening at 35 to 63 rad/s, where its
+  muscles' ceiling is 0.2 to 8 N m, so which step the touch falls on decides the hold.
+- **Tried and not kept**: holds at no less than the activation's isometric strength (raises every
+  mass, 1.1 to 3 times, and leaves the rates apart); holds that decay over a deactivation time of 20
+  or 40 ms (likewise); the arm's push kept full within 3 to 10 cm of the target (no change).
+- **In a fight the fist meets the guard or comes too close**: of the Warrior's 28 held-out moments
+  at 120 Hz, 11 meet the foe's hands or forearms first; at moments the tactics ask from 0.35 to 0.5 m
+  apart the fist is on the foe as the drive begins; where both close at 1.4 m/s the blow comes 0.4
+  s later on the thigh or the belly.
+
 ## On the fight rung
 
 The Strike drill's `fight` rung (record `2026-10-24-9047625b-070af15a`; Node, Rapier, 120 Hz)
@@ -265,6 +382,11 @@ fourth action within 30 s.
   a step, and a horizon multiplies it.
 - **The competency's angle**: whether a blow counts only if it comes in straight, and at what
   angle; with it, the fastest chop no longer passes.
+- **The bar for another body** (decided by the owner, 2026-10-25): the bar is an adult man's
+  (Adamec), the Warrior's; it is to scale with the striker's body (its mass, dimensions and
+  strength), so that any humanoid's bar follows from it. The Warrior's punch comes first; the
+  scaled bar, and the Rogue's punch at it, after. The Rogue weighs 0.73 of the Warrior and its arm
+  0.65, and the most any of its schedules meets is 2.1 kg.
 - **The head behind the guard**: the punch aims at the head and lands on the chest; a punch that
   reaches the head has to go around or over the guard.
 - **The fist's threshold against a head**: at 36.8 J and a 62 % share the exchange stops paying at

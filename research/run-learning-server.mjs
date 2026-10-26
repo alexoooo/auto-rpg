@@ -7,8 +7,8 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration is the environment's (`runEnvironment`, or the learned rise's
- * `riseEnvironment` with `"environment": "rise"`) with `workers`, `each`, and `models`, `holds`
+ * The configuration is the environment's (`runEnvironment`, the learned rise's `riseEnvironment`
+ * with `"environment": "rise"`, or the steered punch's `punchEnvironment` with `"environment": "punch"`) with `workers`, `each`, and `models`, `holds`
  * and `hastes`, whose every combination the environments take in turn; environment i is seeded
  * `seed + i`.
  */
@@ -18,21 +18,25 @@ import { readFileSync } from 'node:fs';
 
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
-  const make = workerData[0].environment === 'rise' ? (await import('./rise-learning-environment.mjs')).riseEnvironment : (await import('./run-learning-environment.mjs')).runEnvironment;
+  const kind = workerData[0].environment;
+  const make = kind === 'rise' ? (await import('./rise-learning-environment.mjs')).riseEnvironment
+    : kind === 'punch' ? (await import('./punch-learning-environment.mjs')).punchEnvironment : (await import('./run-learning-environment.mjs')).runEnvironment;
   const envs = [];
   for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
-  parentPort.on('message', ({ op, actions }) => {
+  parentPort.on('message', async ({ op, actions }) => {
     try {
-      if (op === 'reset') { parentPort.postMessage({ answers: envs.map((e) => ({ observation: e.reset() })) }); return; }
+      const answers = [];
+      if (op === 'reset') { for (const e of envs) answers.push({ observation: await e.reset() }); parentPort.postMessage({ answers }); return; }
       if (op === 'close') { for (const e of envs) e.dispose(); parentPort.postMessage({ closed: true }); return; }
-      parentPort.postMessage({ answers: envs.map((e, k) => {
-        const r = e.step(actions[k]);
+      for (let k = 0; k < envs.length; k++) {
+        const e = envs[k], r = await e.step(actions[k]);
         const done = r.terminated || r.truncated;
         const info = { ...r.info, truncated: r.truncated && !r.terminated };
         if (done) info.terminal = r.observation;
-        return { observation: done ? e.reset() : r.observation, reward: r.reward, done, info };
-      }) });
+        answers.push({ observation: done ? await e.reset() : r.observation, reward: r.reward, done, info });
+      }
+      parentPort.postMessage({ answers });
     } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
   });
 } else {

@@ -124,11 +124,11 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       if (!at) throw new Error("combination target has no aim");
       state.live = { request: { ...request }, first, phase: "prepare", stage: "settle", time: 0, drive: 0, quiet: 0, lower: around.lower,
         withdrawn: false, ending: { kind: "completed" } };
-      motion.hand = first; motion.phase = "settle"; motion.target = [...at]; motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
+      motion.hand = first; motion.phase = "settle"; technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
-      technique.read(view); motion.now = view.time;
+      technique.read(view); motion.now = view.time; motion.step = dt;
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
@@ -136,7 +136,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       if (!request) live.withdrawn = true;
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
-      if (at && !live.withdrawn && live.phase !== "release") motion.target = [...at];
+      if (at && !live.withdrawn && live.phase !== "release") technique.aimAt(at, dt);
       if (live.phase === "prepare" || live.stage === "between") motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
       live.time += dt; live.drive += dt;
       if (live.phase === "prepare") {
