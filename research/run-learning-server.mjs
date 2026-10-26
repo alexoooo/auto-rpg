@@ -4,6 +4,8 @@
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
  * last observation in its info (`terminal`). `{"op":"close"}` answers and ends it, its workers with it.
+ * Between messages a worker gives its environments' `idle` work, where they have it, a slice at a
+ * time, each slice yielding so that the next message waits for at most one.
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
@@ -24,10 +26,27 @@ if (!isMainThread) {
   const envs = [];
   for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
+  /** The idle work: each environment's next slice in turn, until none has any; `working` while a round is under way, `busy` while a message is. */
+  let working = false, busy = false, turn = 0;
+  const work = async () => {
+    if (working || busy) return;
+    working = true;
+    try {
+      for (let tried = 0; tried < envs.length && !busy; tried++) {
+        const e = envs[turn];
+        turn = (turn + 1) % envs.length;
+        if (e.idle && await e.idle()) { tried = -1; await new Promise((resolve) => setImmediate(resolve)); }
+      }
+    } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
+    working = false;
+  };
+  const idled = (message) => { busy = false; parentPort.postMessage(message); setImmediate(work); };
   parentPort.on('message', async ({ op, actions }) => {
+    busy = true;
+    while (working) await new Promise((resolve) => setImmediate(resolve));
     try {
       const answers = [];
-      if (op === 'reset') { for (const e of envs) answers.push({ observation: await e.reset() }); parentPort.postMessage({ answers }); return; }
+      if (op === 'reset') { for (const e of envs) answers.push({ observation: await e.reset() }); idled({ answers }); return; }
       if (op === 'close') { for (const e of envs) e.dispose(); parentPort.postMessage({ closed: true }); return; }
       for (let k = 0; k < envs.length; k++) {
         const e = envs[k], r = await e.step(actions[k]);
@@ -36,7 +55,7 @@ if (!isMainThread) {
         if (done) info.terminal = r.observation;
         answers.push({ observation: done ? await e.reset() : r.observation, reward: r.reward, done, info });
       }
-      parentPort.postMessage({ answers });
+      idled({ answers });
     } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
   });
 } else {

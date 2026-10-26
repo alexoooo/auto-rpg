@@ -11,8 +11,10 @@
  * and its `moments`, a fight's moment of the drill's `fight` rung, one of the half of them
  * `heldOut` leaves to training; a hand of `hands`, a mark of `marks`, a rate of `rates`), played
  * to its drive's first step and saved (`Duel.save`).
- * An episode loads one of them, a fresh reader beside it, and redraws that start first one time in
- * `refresh`. It ends with the drive, scored by the bar on what the reader read
+ * An episode loads one of them, a fresh reader beside it, and owes the pool one fresh start every
+ * `refresh` episodes: the server plays it between its steps (`idle`), `slice` world steps at a
+ * time, so that a start's walk in never holds up the trainer's lockstep, and it takes the place of
+ * a start no episode is playing. It ends with the drive, scored by the bar on what the reader read
  * (`scoreOf`, `punch-drill.mjs`; a hit that passes every test counts as landed, the striker's
  * standing left to the drill): that score is the episode's one reward, less `effort` times the
  * steer's mean square at each decision, and, where the fist met nothing on the mark, less `near`
@@ -69,36 +71,66 @@ export function drawn(place, pick, between, o) {
 
 export async function punchEnvironment(configuration = {}) {
   const o = { schedule: 'docs/reference/punch-body.json', places: [{ model: 'workshop-fighter', gaps: [0.9, 1], across: [0, 0.1] }], hands: ['right'], marks: ['middle'],
-    rates: [120], seed: 1, effort: 0.02, near: 4, pool: 12, refresh: 8, ...configuration };
-  let word = (o.seed * 2654435761) >>> 0;
-  const random = () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296);
-  const pick = (list) => list[Math.floor(random() * list.length)];
+    rates: [120], seed: 1, effort: 0.02, near: 4, pool: 12, refresh: 8, slice: 4, ...configuration };
+  if (o.pool < 2) throw new Error('a punch environment pools at least two starts, so that one can be replaced while another plays');
+  /** A generator on `seed`: the episodes' draws on one, the fresh starts' places on another, so that when the idle time plays them moves neither. */
+  const generator = (seed) => { let word = (seed * 2654435761) >>> 0; return () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296); };
+  const random = generator(o.seed), drawing = generator(o.seed + 7919);
+  const pick = (list) => list[Math.floor(drawing() * list.length)];
   const subjects = steeredSubjects(o);
   const motionOf = (built) => built.duel.duelists.left.minded.skills.state.actions.executors[0].motion;
   /** Whether the drill's own punch drives: the drill has the body (a fight's punches before its moment are the fight's) and the drive has read its first features. */
   const drilled = (built, motion) => built.duel.duelists.left.minded.skills.report.engagement?.phase !== 'fighting' && motion.phase === 'swing' && motion.features.length > 0;
-  /** A start: a bout at a fresh place played to its drive's first step, and its save; null where the drive never began. */
-  const start = async () => {
-    const place = pick(o.places), between = ([lo, hi]) => lo + (hi - lo) * random(), hz = pick(o.rates);
+  /** A bout at a fresh place, built and its tape begun; null where the place is a fight's moment held out. */
+  const begin = async () => {
+    const place = pick(o.places), between = ([lo, hi]) => lo + (hi - lo) * drawing(), hz = pick(o.rates);
     const condition = drawn(place, pick, between, o), cases = STRIKE_CASES[place.foes ? 'fight' : 'still'];
     if (place.foes && heldOut(condition)) return null;
     const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined), built = await buildBout(world.recipe, { hz });
     const reader = cases.read(built, condition), motion = motionOf(built);
     built.duel.play(world.tape);
-    while (!reader.ended && !drilled(built, motion)) { built.world.step(); reader.afterStep(); }
-    if (reader.ended) { built.dispose(); return null; }
-    return { built, cases, condition, hz, motion, saved: built.duel.save(), features: motion.features.slice() };
+    return { built, cases, condition, hz, reader, motion };
   };
+  /** `p` played on by up to `steps` world steps: `more`, its drive's first step reached (`drilled`), or its trial `ended` before it. */
+  const advance = (p, steps) => {
+    for (let k = 0; k < steps && !p.reader.ended && !drilled(p.built, p.motion); k++) { p.built.world.step(); p.reader.afterStep(); }
+    return p.reader.ended ? 'ended' : drilled(p.built, p.motion) ? 'drilled' : 'more';
+  };
+  /** A start: `p` at its drive's first step, and its save. */
+  const startOf = (p) => ({ built: p.built, cases: p.cases, condition: p.condition, hz: p.hz, motion: p.motion, saved: p.built.duel.save(), features: p.motion.features.slice() });
   const pool = [];
-  const fill = async (k) => { for (;;) { const s = await start(); if (s) { pool[k]?.built.dispose(); pool[k] = s; return; } } };
-  for (let k = 0; k < o.pool; k++) await fill(k);
-  let ep = null;
+  while (pool.length < o.pool) {
+    const p = await begin();
+    if (!p) continue;
+    if (advance(p, Infinity) === 'drilled') pool.push(startOf(p)); else p.built.dispose();
+  }
+  let ep = null, owed = 0, pending = null;
+  /**
+   * One slice of the idle time's work: while the pool is owed a fresh start, a bout begun or played
+   * on `slice` steps, and once at its drive, put in the place of a start no episode plays; whether
+   * there is more to do.
+   */
+  const idle = async () => {
+    if (!pending) {
+      if (owed < 1) return false;
+      pending = await begin();
+      return true;
+    }
+    const reached = advance(pending, o.slice);
+    if (reached === 'more') return true;
+    if (reached === 'drilled') {
+      let k = Math.floor(drawing() * pool.length);
+      if (pool[k] === ep?.start) k = (k + 1) % pool.length;
+      pool[k].built.dispose(); pool[k] = startOf(pending); owed -= 1;
+    } else pending.built.dispose();
+    pending = null;
+    return owed >= 1;
+  };
   const reset = async () => {
-    const k = Math.floor(random() * pool.length);
-    if (random() * o.refresh < 1) await fill(k);
-    const s = pool[k];
+    const s = pool[Math.floor(random() * pool.length)];
+    owed += 1 / o.refresh;
     s.built.duel.load(s.saved);
-    ep = { ...s, reader: s.cases.read(s.built, s.condition), decisions: 0, nearest: Infinity, body: s.built.duel.duelists.left.body };
+    ep = { ...s, start: s, reader: s.cases.read(s.built, s.condition), decisions: 0, nearest: Infinity, body: s.built.duel.duelists.left.body };
     return s.features.slice();
   };
   const step = (action) => {
@@ -122,5 +154,5 @@ export async function punchEnvironment(configuration = {}) {
     const info = { landed: meets ? 1 : 0, score, speed: hit?.speed ?? null, kg: hit?.kg ?? null, gap: ep.condition.gap ?? null, fight: ep.condition.foe ? 1 : 0, hz: ep.hz, decisions: ep.decisions, nearest: ep.nearest };
     return { observation, reward, terminated: true, truncated: false, info };
   };
-  return { reset, step, observationSize: PUNCH_FEATURES, actionSize: PUNCH_ACTIONS, dispose: () => { for (const s of pool) s.built.dispose(); }, inside: () => ep };
+  return { reset, step, idle, observationSize: PUNCH_FEATURES, actionSize: PUNCH_ACTIONS, dispose: () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); }, inside: () => ep };
 }
