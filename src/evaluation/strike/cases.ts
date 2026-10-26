@@ -11,7 +11,7 @@
  *
  * In a fight's moment the striker is the subject's mind fighting a foe's by its own tactics, as a
  * bout does, until its tactics ask their `moment`th action; the drill asks its own in that one's
- * place from that step (`DrillTacticsConfig.fight`), and the foe fights on. Up to that step the
+ * place from that step, walking into its window as at a still target (`DrillTacticsConfig.fight`), and the foe fights on. Up to that step the
  * bout is the subject's own bout against that foe.
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
@@ -64,7 +64,8 @@ const STILL = deepFreeze({
 /**
  * A fight's moments: the strikers' bodies; the foes, the game's minds that fight with empty hands,
  * on the Warrior's body; which of the striker's tactics' actions the drill takes the place of, the
- * first asked being 1; the marks and the hands; how long after the drill has the body it may wait
+ * first asked being 1; the marks and the hands; the most speed the striker walks at to bring the foe
+ * into its action's window, m/s; how long after the drill has the body it may wait
  * to be admitted, the longest a trial plays (the bout up to its moment included), and how long it
  * runs on once the action has ended, s.
  */
@@ -74,7 +75,7 @@ const FIGHT = deepFreeze({
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
-  settled: 0, patience: 2, seconds: 30, settle: .5,
+  settled: 0, pace: 1, patience: 2, seconds: 30, settle: .5,
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
@@ -131,7 +132,7 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
       // A fight on the open stage from its spawns, nothing ending it but the reader.
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
-          minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { after: 0, moment }), right: MINDS[foe]!.config as MindConfig } } };
+          minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { after: 0, pace: protocol.pace, moment }), right: MINDS[foe]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };
