@@ -44,7 +44,8 @@ export function striker({ mind, action }: StrikeSubject, hand: Hand, mark: Mark,
 
 /**
  * Rung 0, a still target: the strikers' bodies; how far ahead the target's centre stands, m, and
- * how far to the striker's right; the mark and the hand; how long the striker stands in guard
+ * how far to the side of the striking hand (`toward`), so each hand is tried on the line ahead and
+ * in front of its own shoulder alike; the mark and the hand; how long the striker stands in guard
  * before it asks, how long after that it may wait to be admitted, the longest a trial plays, and
  * how long it runs on once the action has ended, for a fall it brings about, s. A trial is judged
  * by the bar a person's punch sets (`BAR`, `read.ts`). A change here is a new protocol.
@@ -53,6 +54,7 @@ const STILL = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
   gaps: [6, 7, 8, 9, 10, 11, 12, 13].map((tenths) => tenths / 10),
   across: [0, .2],
+  toward: "hand",
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
   settled: .5, patience: 2, seconds: 5, settle: .5,
@@ -106,7 +108,7 @@ function stillCases(protocol: typeof STILL): Cases<StrikeCondition, StrikeReadin
       // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
-        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, -across], heading: -Math.PI / 2 } },
+        start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
         minds: { left: striker(value as unknown as StrikeSubject, hand, mark), right: STANDS } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
