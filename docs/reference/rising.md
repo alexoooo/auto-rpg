@@ -856,6 +856,48 @@ fall not stood counts at the 30 s cap.
   standing. Ended at step-up's lunge, about 1.7 s of that is the rise's; handed to the stance in a
   squat, at most about 1.3 s.
 
+## A fast route
+
+No witness was found. An open-loop search found no rise to verified standing within 8 s, from hands
+and knees or from the back. The closed-loop techniques for those moves (`plant-up`; `sit-up` then
+`post-up`) stand from none of their placed starts. The search's control keeps a rise it is given
+but finds none better, so its "none" says little about the body.
+
+`node research/rise-witness.mjs --move <move>` (Node stand, core world, Rapier, 120 Hz, the
+Warrior empty-handed, calm, no assist; on `b19f3525`'s core): from one placed start (the first
+seed its placement accepts), four keyframes of the pose drive, each its seed posture with the trunk's
+flexion and each limb's main freedoms searched and mirrored, a duration (none to 1.2 s), a rate
+ceiling and an activation; then Stand up's steady (`standUp`) until ready 0.1 s; verified by the
+stand check's quiet (`STAND_CHECK`) and held 1 s. Diagonal CMA-ES, 100 generations of 16, a cap
+of 8 s; short of verified, a trial scores its best reading held 0.1 s of the soles' share of weight,
+height, uprightness and stillness, multiplied (1 standing still).
+
+| Move | Start | Seed postures | Best | Wall |
+|---|---|---|---|---:|
+| squat-up, the control | squat (seed 2) | squat, squat, stand, stand; no duration | verified 2.00 s (the start's 2.24 s) | 2.2 min |
+| push-off | hands and knees | fours, between it and the squat, squat, stand | held reading 0.13, none verified | 4.0 min |
+| rock-up | back | squat, squat, squat, stand | held reading 0.13, none verified | 5.5 min |
+
+The closed-loop techniques, alone from placed starts (`techniqueTrial`, seeds 1 to 6, 8 s cap):
+`plant-up` from hands and knees stands the Warrior from none of 6 (3 fail in `plant` within 1.2 s,
+3 stall there at about 2 s; the Rogue has no hands-and-knees start); `sit-up` then `post-up` from
+the back stands none of 6 on either body (the sit-up stalls in its curl or times out short of
+sitting).
+
+- **The placed squat is lost if the stance takes it 0.05 s late.** Held by the pose drive first
+  (seeds 2 and 4): 0.008 s, verified 2.51 and 3.63 s; 0.025 s, 2.79 s and none; 0.05 s or more,
+  neither. Stand up's steady from the first step verifies seeds 2 and 4 (2.24, 2.98 s) and not 3.
+  An open-loop move must hand the body over inside a catch region that narrow.
+- **The control's search kept its start**: in its first generation one keyframe of 0.07 s brought
+  verification to 2.00 s, and 99 generations found nothing better; nearly every other keyframe
+  loses the balance. A search that cannot improve a known rise cannot be read as showing that none
+  exists.
+- **A body flung by the solver reads as standing for a step**: the command stance driving a body
+  on its side launched it to 0.9 of standing height with 8 to 10 body weights on one foot. A reading
+  counts only held 0.1 s.
+- **What it does not say**: closed-loop moves beyond the two read, other move families, the
+  Rogue, other seeds or more generations.
+
 ## Tried and not kept
 
 - **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
