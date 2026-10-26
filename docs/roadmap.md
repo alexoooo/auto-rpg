@@ -53,7 +53,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Ratings](plans/2026-10-21-ratings.md) | Items, characters and attributes by design; skill batteries beside their ablations; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [Recovery (paused)](plans/2026-10-23-recovery.md) | The staged rise on the owner's 64-fall target, paused for its rework |
+| [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
 
 1. **Now:** Punch step 4, a punch that lands across the still rung and the fight moments: steps
    1 (the bar), 2 (a straight punch at the bar from the guard, on [the punch's
@@ -64,20 +64,16 @@ The plans in flight, and what comes next across them. Each plan names its own de
    the bar scaled to the body and the Rogue's punch. Then
    Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
-2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
-   the back, on the side, hands and knees, kneeling, standing); its edges are skills, slow ones
-   that hand over at rest and fast ones that carry momentum (a sit-up tucking onto the feet,
-   entered mid-roll). The fastest edge whose entry condition holds is taken, and a failed one
-   ends in a safe state ([handing over](plans/2026-10-24-options.md#handing-over-at-rest-or-in-motion)).
-   Read on Rise's drills and the owner's 64-fall target, it brings the rise into the skill set,
-   the one control stack. Until then the game keeps today's Stand up.
+2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: step 1 (step-up
+   cut at its safe postures), then step 2, which asks whether a route at the 4 s median exists on
+   the body as built before the rest is built. Until step 8 the game keeps today's Stand up. And
+   Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
 3. **When each one's condition holds:**
    - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
      ablation is next read; step 9 when a question about an item, a character or an attribute is asked; step 11 (the
      sparse league) only when the owner asks; step 14 (run live) once the Ratings screen is in use
      and a live run would save a trip to the command line;
-   - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
-     carries data arrives; step 4 when the owner asks.
+   - Mind data step 4 (Research rise's response tables) when the owner asks.
 
 ## Waiting on the owner
 
@@ -182,7 +178,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
   falls 6.5 s into its run.
-- **Recovery** (paused for its rework, [Next](#order)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
+- **Recovery** ([Recovery](plans/2026-10-23-recovery.md), [now](#order)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 53 of 64 and none within 6 s
