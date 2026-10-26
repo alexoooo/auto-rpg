@@ -1,0 +1,144 @@
+{
+ "mind": {
+  "kind": "fighter",
+  "tactics": {
+   "kind": "behaviours",
+   "target": [
+    {
+     "kind": "ordered"
+    },
+    {
+     "kind": "current"
+    },
+    {
+     "kind": "nearest",
+     "prefer": "standing-first"
+    }
+   ],
+   "choose": {
+    "kind": "first-ready",
+    "rethink": 0.2,
+    "patience": 2
+   },
+   "list": [
+    {
+     "kind": "follow-orders"
+    },
+    {
+     "kind": "clear-of-fallen"
+    },
+    {
+     "kind": "break-clinch",
+     "metres": 0.65
+    },
+    {
+     "kind": "attack"
+    },
+    {
+     "kind": "edge",
+     "band": 0.25,
+     "patience": 4
+    },
+    {
+     "kind": "approach"
+    },
+    {
+     "kind": "cover",
+     "guard": "pose"
+    }
+   ]
+  },
+  "locomotion": {
+   "kind": "move",
+   "rules": [
+    {
+     "kind": "when-standing",
+     "gait": "braced"
+    },
+    {
+     "kind": "when-distance",
+     "of": "foe",
+     "than": "under",
+     "metres": 5,
+     "gait": "braced"
+    },
+    {
+     "kind": "when-distance",
+     "of": "ally",
+     "than": "under",
+     "metres": 8.5,
+     "gait": "braced"
+    },
+    {
+     "kind": "when-distance",
+     "of": "destination",
+     "than": "under",
+     "metres": 5,
+     "gait": "braced"
+    }
+   ],
+   "otherwise": "run"
+  },
+  "guard": {
+   "kind": "shield-guard"
+  },
+  "executors": [
+   {
+    "name": "punch",
+    "kind": "straight-punch",
+    "pace": 1.021,
+    "reach": 0.8,
+    "band": 0.05,
+    "settle": 0,
+    "through": 0.265,
+    "hips": 0.22,
+    "turn": 0.41,
+    "lean": 0.276,
+    "chamber": 0.195,
+    "lead": 0.055,
+    "elbow": 0,
+    "brake": 0,
+    "follow": 0.02,
+    "longest": 0.249,
+    "recover": 0.376,
+    "learned": true
+   }
+  ],
+  "actions": [
+   {
+    "name": "strike",
+    "executor": "punch",
+    "effectors": [
+     "hand.right",
+     "hand.left"
+    ],
+    "regions": [
+     {
+      "kind": "mark",
+      "mark": "middle"
+     }
+    ],
+    "aim": {
+     "kind": "surface",
+     "tuning": {
+      "upperTrunk": 1,
+      "middleTrunk": -1,
+      "square": 4
+     }
+    }
+   }
+  ],
+  "support": null,
+  "subs": [
+   {
+    "kind": "stand-up",
+    "techniques": [
+     {
+      "kind": "step-up"
+     }
+    ]
+   }
+  ]
+ },
+ "action": "strike"
+}
