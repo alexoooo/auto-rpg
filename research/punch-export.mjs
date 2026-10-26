@@ -2,7 +2,8 @@
  * **A learned punch's data**: each body's searched schedule (`research/punch-drill.mjs` results)
  * as the straight punch's settings for both hands, the left mirrored from the right, with the
  * drive's settings the search played it with (`AROUND`), where it is admitted (`reach`, `band`, `aside` and `above`:
- * where the steered punch lands, read on held-out trials, `punch-policy-check.mjs`), and the
+ * where the steered punch lands, read on held-out trials, `punch-policy-check.mjs`; `aside` of
+ * the punching shoulder's line, `squared`), and the
  * steer's trained network (`research/run-train.py`'s `policy.json`), written as the core reads them
  * (`PunchPolicy`, `src/core/skills/learned-punch.ts`): `assets/core/learned-punch.json`, and the bodies
  * it has settings for in `assets/core/learned-punch.meta.json`.
@@ -28,7 +29,7 @@ for (const pair of positionals) {
   };
   const right = sided('right'), left = sided('left');
   if (right.driven) throw new Error(`${file}: a learned punch's schedule drives no point`);
-  bodies[model] = { ...AROUND, reach, band, aside, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
+  bodies[model] = { ...AROUND, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
     ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }),
     timed: { left: left.pushes, right: right.pushes } };
 }

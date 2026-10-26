@@ -15,7 +15,7 @@ interface Config extends Combination {
 export const COMBINATION_PART: ExecutorPart<Config> = {
   role: "executor", label: "Combination", stage: "game", defaults: { kind: "combination", name: "combination", ...COMBINATION },
   keys: {
-    kind: true, name: true, pace: true, reach: true, band: true, aside: true, above: true, settle: true, through: true, hips: true, turn: true,
+    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, above: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true, fire: true, ease: true, steered: true, driven: true, timed: true, drives: true, gap: true, poise: true, wait: true,
   },

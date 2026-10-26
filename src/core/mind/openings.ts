@@ -5,7 +5,7 @@ import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "../skills/attack-path.ts";
 import { aimOf } from "../skills/strikes.ts";
-import { placedReach } from "../skills/strike.ts";
+import { placedReach, shoulderFromHead } from "../skills/strike.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../spec/vec.ts";
@@ -20,7 +20,9 @@ const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, h
   // Optional side-surface rays: `docs/reference/combat-strikes.md#lateral-head-surfaces`.
   headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4,
   // Upward close-range development cells: `docs/reference/combat-uppercut.md`.
-  uppercut: .1, uppercutReserve: .25 });
+  uppercut: .1, uppercutReserve: .25,
+  // How much a side blow's line from the striking shoulder off the surface's normal costs, by one less its cosine: none unless a tuning asks.
+  square: 0 });
 
 /** What choosing `family` asks of a blow: the reach it keeps back, its score, and the vertical sense of its contact direction, 0 for none. */
 function familyTerms(family: BlowFamily, settings: Readonly<Record<"hookReserve" | "hookCost" | "overhand" | "uppercut" | "uppercutReserve", number>>): { readonly reserve: number; readonly cost: number; readonly vertical: -1 | 0 | 1 } {
@@ -34,7 +36,7 @@ function familyTerms(family: BlowFamily, settings: Readonly<Record<"hookReserve"
 }
 
 /** Immutable target preferences for development searches over the same geometry and executor. */
-export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost" | "uppercut" | "uppercutReserve"]?: number };
+export type OpeningTuning = { readonly [K in "head" | "upperTrunk" | "middleTrunk" | "blocked" | "reachPenalty" | "repeated" | "overhand" | "headLateral" | "hookCost" | "uppercut" | "uppercutReserve" | "square"]?: number };
 
 /** Opening scores are finite; the lateral surface fraction stays on the sensed collider. */
 export function validOpeningTuning(tuning: OpeningTuning): boolean {
@@ -355,6 +357,8 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
   // A path's ends and contact direction in the body's frame, and where its point path starts, likewise.
   const home: [number, number, number] = [0, 0, 0], end: [number, number, number] = [0, 0, 0], direction: [number, number, number] = [0, 0, 0];
   const from: { position: Vec3; readonly velocity: Vec3 } = { position: AT_REST, velocity: AT_REST };
+  // The striking shoulder, world, and a candidate face's outward normal, likewise.
+  const shoulder: [number, number, number] = [0, 0, 0], normal: [number, number, number] = [0, 0, 0];
   /** `at`, in the frame of sensed segment `sensed`, into `out` in the world's. */
   const pointToRef = (sensed: { readonly position: Vector3; readonly rotation: Quaternion }, at: Vec3, out: [number, number, number]) => {
     scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
@@ -386,6 +390,10 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     if (selection) families = [selection.family];
     const { high } = foe.spec.marks;
     const ahead = OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time)), aim = aimOf(spec, hand);
+    if (settings.square) {
+      scratch.set(...shoulderFromHead(spec, hand)).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.head);
+      shoulder[0] = scratch.x; shoulder[1] = scratch.y; shoulder[2] = scratch.z;
+    }
     /** `at`, in the body's root frame, into `out` in the world's. */
     const worldToRef = (at: Vec3, out: [number, number, number]) => {
       scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.root.position);
@@ -403,13 +411,18 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
        * uppercut, its side for any other), scored: in the order the faces are found, so that a tie
        * keeps the first. The target is read into a work array, and copied only into the best.
        */
-      const consider = (front: Vec3, face: "side" | "top" | "bottom") => {
+      const consider = (front: Vec3, face: "side" | "top" | "bottom", outward: Vec3 | null = null) => {
         const lx = front[0] - sensed.centre.x, ly = front[1] - sensed.centre.y, lz = front[2] - sensed.centre.z;
         target[0] = front[0] + (velocity.x + (spin.y * lz - spin.z * ly)) * ahead;
         target[1] = front[1] + (velocity.y + (spin.z * lx - spin.x * lz)) * ahead;
         target[2] = front[2] + (velocity.z + (spin.x * ly - spin.y * lx)) * ahead;
         const armReach = placedReach(spec, hand, target[1] - view.head.y);
         const flat = hypot(target[0] - view.head.x, target[1] - target[1], target[2] - view.head.z);
+        let off = 0;
+        if (settings.square && outward) {
+          const lx = target[0] - shoulder[0], ly = target[1] - shoulder[1], lz = target[2] - shoulder[2], line = hypot(lx, ly, lz);
+          if (line > 0) off = settings.square * (1 + (lx * outward[0] + ly * outward[1] + lz * outward[2]) / line);
+        }
         for (const family of families) {
           if ((family === "overhand") !== (face === "top")) continue;
           if ((family === "uppercut") !== (face === "bottom")) continue;
@@ -433,7 +446,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
             }
           }
           const score = (preference[name] ?? 0) + (repeated ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-            + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost;
+            + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost + off;
           if (!best || score < best.score) best = { hand, target: [target[0], target[1], target[2]], segment: name, family, blocked, reach, score,
             ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
         }
@@ -443,7 +456,14 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         const from:Vec3 = [scratch.x,scratch.y,scratch.z];
         for(const vertical of ELEVATIONS)for(const lateral of ELEVATIONS) {
           toward[0]=poly.middle[0]+lateral*poly.extent[0]/2; toward[1]=poly.middle[1]+vertical*poly.extent[1]/2; toward[2]=poly.middle[2]+0;
-          const entry=hullEntry(poly.planes,from,toward);if(entry){pointToRef(sensed,entry,front);consider(front,"side");}
+          const entry=hullEntry(poly.planes,from,toward);
+          if(entry){
+            pointToRef(sensed,entry,front);
+            let facing=poly.planes[0]!, nearest=-Infinity;
+            for(const plane of poly.planes){const d=dot(plane.normal,entry)-plane.offset;if(d>nearest){nearest=d;facing=plane;}}
+            scratch.set(...facing.normal).applyRotationQuaternionToRef(sensed.rotation,scratch);normal[0]=scratch.x;normal[1]=scratch.y;normal[2]=scratch.z;
+            consider(front,"side",normal);
+          }
         }
       }
       if(local) {
@@ -460,9 +480,11 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         const fraction = squared ? Math.max(0, Math.min(1, ((cx - a[0]) * ax + (cy - a[1]) * ay + (cz - a[2]) * az) / squared)) : 0;
         const nx = a[0] + ax * fraction, ny = a[1] + ay * fraction, nz = a[2] + az * fraction;
         const mx = cx - nx, my = cy - ny, mz = cz - nz, normalLength = hypot(mx, my, mz);
-        if (normalLength > 0) { const out = radius / normalLength; front[0] = nx + mx * out; front[1] = ny + my * out; front[2] = nz + mz * out; }
-        else { front[0] = cx; front[1] = cy; front[2] = cz; }
-        consider(front, "side");
+        if (normalLength > 0) {
+          const out = radius / normalLength; front[0] = nx + mx * out; front[1] = ny + my * out; front[2] = nz + mz * out;
+          normal[0] = mx / normalLength; normal[1] = my / normalLength; normal[2] = mz / normalLength;
+          consider(front, "side", normal);
+        } else { front[0] = cx; front[1] = cy; front[2] = cz; consider(front, "side"); }
        }
       }
       if (top) consider(top, "top");

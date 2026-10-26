@@ -39,9 +39,10 @@ export function heldOut({ model, foe, mark, hand, moment }) {
 /**
  * The steered Puncher for a body and a hand: its body's schedule of `schedules` (by model), else
  * `schedule`, mirrored for the other hand, its punch `steered`, admitted where its body's of
- * `windows` says.
+ * `windows` says, its strike aimed by `aim` where given (else its schedule's), its punch's settings
+ * overridden by `punch`.
  */
-export function steeredSubjects({ schedule, schedules = {}, windows = {} }) {
+export function steeredSubjects({ schedule, schedules = {}, windows = {}, aim = null, punch: settings = {} }) {
   const made = new Map();
   return (model, hand) => {
     const key = `${model} ${hand}`;
@@ -50,10 +51,11 @@ export function steeredSubjects({ schedule, schedules = {}, windows = {} }) {
     const x = [...found.best.x];
     if (hand !== cell.hand) mirrored(x, cell.hand, hand);
     const decoded = decode(x, hand, cell.gap ?? undefined, new Set((cell.without ?? []).map((c) => hand === cell.hand ? c : c.replace(`.${cell.hand} `, `.${hand} `))), flags);
-    const subject = timedPuncher(decoded, hand, cell.chest ? CHEST : null);
+    const subject = timedPuncher(decoded, hand, aim ?? (cell.chest ? CHEST : null));
     subject.mind.executors[0].steered = true;
     const punch = subject.mind.executors[0];
     if (windows[model]) [punch.reach, punch.band, punch.aside, punch.above] = windows[model];
+    Object.assign(punch, settings);
     made.set(key, subject);
     return subject;
   };
