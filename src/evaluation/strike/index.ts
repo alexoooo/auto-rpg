@@ -50,6 +50,8 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   outcome: strikeOutcome,
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
+    { name: "landed on the body", unit: "share of blows that met the target past its arms", kind: "rate", better: "higher",
+      of: (r) => r.outcome === "landed" || r.outcome === "weak" || r.outcome === "elsewhere" ? r.outcome === "landed" : null },
     { name: "admitted", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.began !== null },
     { name: "to contact", unit: "s from the action's start to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.began !== null ? r.hit.time - r.began : null },
     { name: "speed", unit: "m/s over the fist's last 0.1 m to the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.speed ?? null },

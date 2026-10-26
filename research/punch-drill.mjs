@@ -95,7 +95,7 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
 export function scoreOf(reading, hand, heavier = 1) {
   if (reading.down) return -3;
   const hit = reading.hit;
-  if (!hit) return reading.outcome === "elsewhere" ? -0.5 : -1;
+  if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;
   const speed = (hit.speed ?? 0) / BAR.speed[hand], mass = hit.kg / BAR.mass[hand];
   const cone = Math.cos(BAR.cone * Math.PI / 180), wide = Math.cos(2 * BAR.cone * Math.PI / 180), unit = (v) => Math.max(0, Math.min(1, v));
   if (reading.outcome === "landed") {
