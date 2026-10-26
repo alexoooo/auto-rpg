@@ -72,8 +72,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    Read on Rise's drills and the owner's 64-fall target, it brings the rise into the skill set,
    the one control stack. Until then the game keeps today's Stand up.
 3. **When each one's condition holds:**
-   - Ratings step 10's other research batteries, as their family's drills, when next worked on;
-     step 9 when a question about an item, a character or an attribute is asked; step 11 (the
+   - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
+     ablation is next read; step 9 when a question about an item, a character or an attribute is asked; step 11 (the
      sparse league) only when the owner asks; step 14 (run live) once the Ratings screen is in use
      and a live run would save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
