@@ -293,6 +293,31 @@ The editor's fields for `CONDITIONS` carry over, so what a player may set is wha
   blows land more often and reading the foe's preparation pays. The drills' fight rungs and the
   tactics move with it.
 
+#### A possible direction, not proposed: a delay by pathway
+
+People do not perceive at one delay:
+
+| Pathway | Delay in people | In the design |
+|---|---|---|
+| Choosing something new: a punch starting, a cover chosen | about 0.15 to 0.2 s, longer among several choices (Hick 1952) | the chooser's events, behaviour conditions |
+| Steering an action under way toward a target that moves | about 0.1 s, automatic and hard to suppress (Prablanc and Martin 1992; Brenner and Smeets 1997; Pisella et al. 2000) | a skill's tracking of its own goal: an aim, a range kept |
+| The body's own state | about 0.05 to 0.1 s for the long-latency stretch response, under 0.05 s for the short one (Pruszynski and Scott 2012) | balance and motor control, through `OwnBody`, undelayed now |
+
+Prediction hides much of each delay (forward models: Wolpert, Ghahramani and Jordan 1995), and
+experts beat the decision delay by reading the foe's preparation, not by reacting faster (Mori,
+Ohtani and Imanaka 2002).
+
+- **How it would work:** a percept is read at its consumer's age; the hub keeps frames for the
+  longest delay and one shown copy for each distinct delay, costing bodies × distinct delays a
+  step.
+- **What it would need:** a skill steers only toward the goal it was given and never chooses one,
+  or a decision could take the faster path. The delays are the same for both sides and named by
+  every match.
+- **Why not now:** it adds settings to judge and a rule to hold, and nothing yet shows that one
+  delay plays wrongly. It is worth reading only if the single delay shows a specific fault in
+  play: strikes that miss a moving foe because their aim lags, or covers too slow to matter at
+  any setting.
+
 ### The reference chooser
 
 ```ts
