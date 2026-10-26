@@ -96,6 +96,11 @@ function armOf(spec: BodySpec, hand: Side, aim: string): Arm {
   };
 }
 
+/** `hand`'s shoulder from the head's centre of mass in the reference pose, body frame (x across, y up, z ahead), m. */
+export function shoulderFromHead(spec: BodySpec, hand: Side): Vec3 {
+  return aimedArm(spec, hand, undefined).shoulder;
+}
+
 /**
  * How far ahead of the head a placed blow's target stands, `up` m over the head: where it is
  * `stretch` of the arm from the shoulder, straight ahead of the head. A target too high or too

@@ -69,7 +69,7 @@ if (!isMainThread) {
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   let next = 0;
   await Promise.all(Array.from({ length: count }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { schedule: o.schedule, schedules: o.schedules ?? {}, windows: o.windows ?? {}, policy } });
+    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { schedule: o.schedule, schedules: o.schedules ?? {}, windows: o.windows ?? {}, aim: o.aim ?? null, punch: o.punch ?? {}, policy } });
     const give = () => { if (next >= jobs.length) { worker.terminate(); resolve(); return; } worker.postMessage(jobs[next++]); };
     worker.on('message', ({ id, r, error }) => { if (error) { reject(new Error(error)); return; } results[id] = r; give(); });
     worker.on('error', reject);

@@ -69,6 +69,7 @@ extent). Hull geometry is cached per sourced segment.
 | capsule sample elevations (`elevation`) | -0.5, 0, 0.5 radii |
 | hook rank cost / reach kept back (`hookCost`, `hookReserve`) | 0.1 / 0.15 m |
 | samples of the commanded hand path (`pathSamples`) | 4 |
+| a side blow's line off square (`square`): the line from the striking shoulder (`shoulderFromHead`) to the target against the surface's outward normal there (a hull's entry plane, a capsule's radius), costed by one plus their cosine | 0; a tuning sets it |
 
 These are development search cells. Mixed selection can compare both hands (ties keep the
 alternating hand), refreshes at most every 0.12 s while free, and keeps its committed choice and

@@ -1,5 +1,5 @@
 /**
- * **The Strike drill**: does a strike skill, thrown once from where the striker stands, land on
+ * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`puncher/strike`); the drill puts its own tactics in
@@ -38,7 +38,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   id: "strike",
   title: "The Strike drill",
   group: "skills",
-  question: "Does a strike skill, thrown once from where the striker stands, land on its mark and come back without felling the striker?",
+  question: "Does a strike skill, thrown once, land on its mark and come back without felling the striker?",
   protocols: STRIKE_CASES,
   defaultProtocol: "still",
   schedule: "all",
@@ -50,6 +50,8 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   outcome: strikeOutcome,
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
+    { name: "landed on the body", unit: "share of blows that met the target past its arms", kind: "rate", better: "higher",
+      of: (r) => r.outcome === "landed" || r.outcome === "weak" || r.outcome === "elsewhere" ? r.outcome === "landed" : null },
     { name: "admitted", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.began !== null },
     { name: "to contact", unit: "s from the action's start to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.began !== null ? r.hit.time - r.began : null },
     { name: "speed", unit: "m/s over the fist's last 0.1 m to the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.speed ?? null },

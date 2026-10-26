@@ -42,7 +42,7 @@ export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   role: "executor", label: "Committed punch", stage: "experimental",
   defaults: { kind: "vanguard-punch", name: "punch", ...STRAIGHT_PUNCH, low: false, lowOnly: false, predict: false, anchorAtDrive: false, overlapReturn: false, returnHold: 0 },
   keys: {
-    kind: true, name: true, pace: true, reach: true, band: true, aside: true, above: true, settle: true, through: true, hips: true, turn: true,
+    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true, fire: true, ease: true, steered: true, driven: true, timed: true, low: true, lowOnly: true, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: true,
   },

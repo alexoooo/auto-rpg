@@ -57,7 +57,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 1. **Now:** Punch step 4, a punch that lands across the still rung and the fight moments: steps
    1 (the bar), 2 (a straight punch at the bar from the guard, on [the punch's
-   body](reference/punch-body.md), in one cell) and 3 (fight moments, the `fight` rung) have landed. Then
+   body](reference/punch-body.md), in one cell) and 3 (fight moments, the `fight` rung) have landed.
+   The Warrior's learned punch lands 91 % of held-out still places at 120 and 480 Hz and none of
+   the fight moments ([square to the striking shoulder](analysis/2026-10-08-punch-layer.md#square-to-the-striking-shoulder));
+   next its near edge and the fight moments (the guard, a foe coming on or stepping back), then
+   the bar scaled to the body and the Rogue's punch. Then
    Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
 2. **Next:** Recovery, reworked as a graph of posture skills. Its nodes are the safe postures (on
@@ -95,8 +99,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=ratings&evaluation=strike`), the failures first; acceptance is the owner's. The
   Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing
   ([Punch](plans/2026-10-24-punch.md)).
+- The Warrior's learned punch on the still rung
+  (`?play=ratings&evaluation=strike&pool=7f867ed6&subject=learned-puncher&version=ac43944db7f4ef32`):
+  7 of the 8 thrown land at the bar; after the blow the rear hand's body turns on past the target
+  and the lead hand's ends in a deep crouch.
 - The Strike drill's fight rung, a strike in place of its mind's own in a bout
-  (`?play=ratings&evaluation=strike`, the newest pool; the still rung is the other pool listed):
+  (`?play=ratings&evaluation=strike&pool=0a8f1708`):
   no strike lands at the bar; most meet the foe's guard.
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
@@ -179,7 +187,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
   and works in a fight. The body has a straight blow over the competency's 6.8 m/s at every cell
-  searched, and no controller lands one ([punch](analysis/2026-10-08-punch-layer.md),
+  searched; a learned punch lands it on the still rung, not yet in fights ([punch](analysis/2026-10-08-punch-layer.md),
   [punch calibration](reference/punch-calibration.md)). Read on the Strike drills
   ([Drills](plans/2026-10-24-drills.md), steps 1 to 3), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)).

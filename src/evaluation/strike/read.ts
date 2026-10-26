@@ -76,12 +76,13 @@ export type StrikeHit = StrikeContact & {
 /**
  * How a trial came out: `landed`, a touch of the hand on the mark that meets the bar while its
  * action ran, the striker up and its action ended; `weak`, on the mark short of the bar;
- * `elsewhere`, the hand on the target but not the mark; `missed`, committed and nothing of the
+ * `guarded`, the hand on the target's arms alone, its guard; `elsewhere`, the hand on the
+ * target's body but not the mark; `missed`, committed and nothing of the
  * hand's on the target; `abandoned`, begun and ended before committing; `outside`, never in its
  * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `fell`, the
  * striker down at any time of the trial; `unreached`, a fight that never came to its moment.
  */
-export type StrikeOutcome = "landed" | "weak" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
+export type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
 
 /** What a trial came to. */
 export type StrikeReading = {
@@ -114,7 +115,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   ending: Ending, bar: Bar = BAR): Reader<StrikeReading> {
   const left = duel.duelists.left, skills = left.minded.skills;
   if (!skills) throw new Error("the striker runs no skills");
-  const marked = new Set(regionSegments(duel.duelists.right.built.spec, { kind: "mark", mark })), effector = `hand.${hand}`;
+  const target = duel.duelists.right.built.spec, marked = new Set(regionSegments(target, { kind: "mark", mark })), effector = `hand.${hand}`;
+  /** The target's arms, hand to upper arm: what a guard meets a blow with. */
+  const arms = new Set((["left", "right"] as const).flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
   const aim = rigidPoints(left.built.spec, limb.spec).get(aimOf(left.built.spec, hand))!.value, point = new Vector3();
@@ -212,7 +215,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const meets = (hit: StrikeHit) => hit.fast && hit.heavy && hit.square && hit.soon && hit.lined && hit.extended && hit.upright;
       const hit = hits.find(meets) ?? hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak" : byHand.length ? "elsewhere"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
+        : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       return { outcome, phase, reason, handed, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
     },

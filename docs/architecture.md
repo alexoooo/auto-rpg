@@ -338,8 +338,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   `src/core/skills/learned-punch.ts`: the target from the shoulder and its velocity, the fist, the
   trunk's, legs' and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
   making (`steerPushes`); a channel it is not pushing stays with the posture or the stance. Its
-  window may be narrower across the line it faces than along it (`aside`) and refuse a target
-  higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and
+  window may be narrower across the line it faces than along it (`aside`), centred with
+  `squared` on the line the punching shoulder faces along at contact rather than the head's, and
+  refuse a target higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and
   window and the steer's network are the learned punch's (`PunchPolicy`, `dataOf("learned-punch")`,
   `assets/core/learned-punch.json`, exported by `research/punch-export.mjs`; the bodies it has
   settings for, `PUNCH_POLICY`, before it loads): the schedule searched for that body

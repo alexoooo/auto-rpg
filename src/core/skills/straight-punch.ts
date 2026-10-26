@@ -19,9 +19,12 @@ import { PUNCH_DECIDE, punchChannels, punchFeatures, steerPushes } from "./learn
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
  * m/s, facing the target, with it `reach` of the arm's straight length (shoulder to knuckles)
  * from the punching shoulder, no more than `band` m further across the ground and no nearer than
- * `CROWDED`, and no more than `aside` m (`band` where unset) to either side of the line it faces,
+ * `CROWDED`, and no more than `aside` m (`band` where unset) to either side of the line it faces
+ * (with `squared`, of the line the punching shoulder faces along as the drive carries it, so a
+ * target is struck from in front of that shoulder rather than across the body),
  * the target no more than `reach` of the arm above or below the shoulder, nor more than `above` m
- * above it where given (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
+ * above it where given, and with `poised` its stance already quiet (`quietToPunch`), so that it never
+ * waits to settle while a foe closes (`punchReadiness`: the tactics bring the body there), and stands for `settle` s with
  * both feet bearing (no foot swinging in a step), its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
@@ -55,6 +58,8 @@ export interface StraightPunch {
   readonly reach: number;
   readonly band: number;
   readonly aside?: number;
+  readonly squared?: boolean;
+  readonly poised?: boolean;
   readonly above?: number;
   readonly settle: number;
   readonly through: number;
@@ -113,6 +118,8 @@ export function validStraightPunch(settings: StraightPunch): boolean {
     && (settings.landed === undefined || typeof settings.landed === "boolean")
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
     && (settings.aside === undefined || Number.isFinite(settings.aside) && settings.aside > 0)
+    && (settings.squared === undefined || typeof settings.squared === "boolean")
+    && (settings.poised === undefined || typeof settings.poised === "boolean")
     && (settings.above === undefined || Number.isFinite(settings.above))
     && (settings.ease === undefined || Number.isFinite(settings.ease) && settings.ease > 0)
     && (settings.steered === undefined || typeof settings.steered === "boolean")
@@ -437,11 +444,11 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
-  const ahead = dx * sin(heading) + dz * cos(heading), across = dx * cos(heading) - dz * sin(heading);
+  const ahead = dx * sin(heading) + dz * cos(heading), across = dx * cos(heading) - dz * sin(heading) + (settings.squared ? technique.state.shoulders[hand][0] : 0);
   // Entry permits the configured approach speed and a modest bearing error before settling.
   const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
     across: [across - (settings.aside ?? settings.band), across + (settings.aside ?? settings.band)] as const, facing: .4, speed: settings.pace };
-  if (!withinActionWindow(view, window, heading)) return { kind: "position", window };
+  if (!withinActionWindow(view, window, heading) || settings.poised && !quietToPunch(view)) return { kind: "position", window };
   return { kind: "ready" };
 }
 
