@@ -858,45 +858,64 @@ fall not stood counts at the 30 s cap.
 
 ## A fast route
 
-No witness was found. An open-loop search found no rise to verified standing within 8 s, from hands
-and knees or from the back. The closed-loop techniques for those moves (`plant-up`; `sit-up` then
-`post-up`) stand from none of their placed starts. The search's control keeps a rise it is given
-but finds none better, so its "none" says little about the body.
+The body gets off the ground fast: closed-loop phases rise from the back to a crouch on the feet in
+1.55 s and from hands and knees in 1.48 s, and stand to verified standing in 4.89 and 3.68 s from
+rest. The slow part is from the crouch to quiet standing, 2.2 to 3.3 s, the stance's settling
+([the budget](#the-budget)). With a hand-back near 1 s, the rise from the back would come within
+the target's allowance of about 3.4 s. Neither witness is robust: the push-off stands from its own
+start only, the rock-up from 3 of 4.
 
 `node research/rise-witness.mjs --move <move>` (Node stand, core world, Rapier, 120 Hz, the
-Warrior empty-handed, calm, no assist; on `b19f3525`'s core): from one placed start (the first
-seed its placement accepts), four keyframes of the pose drive, each its seed posture with the trunk's
-flexion and each limb's main freedoms searched and mirrored, a duration (none to 1.2 s), a rate
-ceiling and an activation; then Stand up's steady (`standUp`) until ready 0.1 s; verified by the
-stand check's quiet (`STAND_CHECK`) and held 1 s. Diagonal CMA-ES, 100 generations of 16, a cap
-of 8 s; short of verified, a trial scores its best reading held 0.1 s of the soles' share of weight,
-height, uprightness and stillness, multiplied (1 standing still).
+Warrior empty-handed, calm, no assist; on `58f10e91`'s core): from one placed start (the first seed
+its placement accepts), four phases, then Stand up's steady (`standUp`) until ready 0.1 s; verified
+by the stand check's quiet (`STAND_CHECK`) and held 1 s (2 s on replay). A phase is a pose of the
+pose drive (open-loop) or plant-up's bearing solve on the limbs given weight shares, aiming the
+centre of mass at a place and a velocity and the pelvis at a pitch (closed-loop); each searches the
+trunk's flexion and each limb's main freedoms, mirrored, and its own settings, including a
+duration that may be none. Diagonal CMA-ES, 100 generations of 16; short of verified, a trial scores
+its best reading held 0.1 s of the soles' share of weight, height, uprightness and stillness,
+multiplied (1 standing still). The open-loop searches had a 5 s cap, the closed-loop ones 8 s.
 
-| Move | Start | Seed postures | Best | Wall |
+| Move | Start | Phases | Best | Wall |
 |---|---|---|---|---:|
-| squat-up, the control | squat (seed 2) | squat, squat, stand, stand; no duration | verified 2.00 s (the start's 2.24 s) | 2.2 min |
-| push-off | hands and knees | fours, between it and the squat, squat, stand | held reading 0.13, none verified | 4.0 min |
-| rock-up | back | squat, squat, squat, stand | held reading 0.13, none verified | 5.5 min |
+| squat-up, control | squat (seed 2) | pose, pose, pose, pose; none long | verified 2.00 s (the start's 2.24 s, the stance alone) | 2.2 min |
+| push-off | hands and knees | pose ×4 | held reading 0.13, none verified | 4.0 min |
+| rock-up | back | pose ×4 | held reading 0.13, none verified | 5.5 min |
+| squat-up-bear, control | squat (seed 2) | bear ×2, held 0.2 s | held reading 0.50, none verified | 5.4 min |
+| push-off-bear | hands and knees | bear ×4 | **verified 3.68 s** (generation 38; first verified, 7) | 6.4 min |
+| rock-up-bear | back | pose ×2, bear ×2 | **verified 4.89 s** (generation 75; first verified, 26) | 7.2 min |
 
-The closed-loop techniques, alone from placed starts (`techniqueTrial`, seeds 1 to 6, 8 s cap):
-`plant-up` from hands and knees stands the Warrior from none of 6 (3 fail in `plant` within 1.2 s,
-3 stall there at about 2 s; the Rogue has no hands-and-knees start); `sit-up` then `post-up` from
-the back stands none of 6 on either body (the sit-up stalls in its curl or times out short of
-sitting).
+The witnesses (`assets/research/rise-witness/`, `node research/rise-witness.mjs --replay <file>`)
+replayed, held 2 s; the time each is first read on its feet and standing:
+
+| Witness | Seed | Crouch, s | Standing, s | Hand-over, s | Verified, s | Next starts (seeds 2 to 4) |
+|---|---:|---:|---:|---:|---:|---|
+| push-off-bear | 1 | 1.48 | 2.49 | 1.47 | 3.68 | none stands |
+| rock-up-bear | 1 | 1.55 | 3.80 | 2.69 | 4.89 | 6.99, none, 6.52 |
+
+The push-off's phases bear on the shins and hands with the centre of mass driven toward the feet at
+1.3 to 1.4 m/s, then mostly on the feet; the rock-up tucks and swings by pose (1.33 s), then bears on the
+feet and shins. Both are single candidates: each search's median stays under 0.2.
+
+The existing closed-loop techniques, alone from placed starts (`techniqueTrial`, seeds 1 to 6, 8 s
+cap): `plant-up` from hands and knees stands the Warrior from none of 6 (3 fail in `plant` within
+1.2 s, 3 stall there at about 2 s; the Rogue has no hands-and-knees start) and from the squat none
+of seeds 2 to 5 (each goes over onto its back in `rise`); `sit-up` then `post-up` from the back
+stands none of 6 on either body (the sit-up stalls in its curl or times out short of sitting).
 
 - **The placed squat is lost if the stance takes it 0.05 s late.** Held by the pose drive first
   (seeds 2 and 4): 0.008 s, verified 2.51 and 3.63 s; 0.025 s, 2.79 s and none; 0.05 s or more,
   neither. Stand up's steady from the first step verifies seeds 2 and 4 (2.24, 2.98 s) and not 3.
-  An open-loop move must hand the body over inside a catch region that narrow.
-- **The control's search kept its start**: in its first generation one keyframe of 0.07 s brought
-  verification to 2.00 s, and 99 generations found nothing better; nearly every other keyframe
-  loses the balance. A search that cannot improve a known rise cannot be read as showing that none
-  exists.
+- **The controls cannot improve a rise they are given.** The open-loop control trimmed its start to
+  2.00 s in its first generation and found nothing better in 99 more; the closed-loop one, its bear
+  phases held, never verified and never found the start's own escape (every phase of no duration),
+  which no small step reaches. A search here finds isolated witnesses; one that finds none does not
+  show that none exists.
 - **A body flung by the solver reads as standing for a step**: the command stance driving a body
   on its side launched it to 0.9 of standing height with 8 to 10 body weights on one foot. A reading
   counts only held 0.1 s.
-- **What it does not say**: closed-loop moves beyond the two read, other move families, the
-  Rogue, other seeds or more generations.
+- **What it does not say**: the Rogue, a start on a side, the target's falls (a witness is from a
+  placed start at rest), or a witness with width.
 
 ## Tried and not kept
 

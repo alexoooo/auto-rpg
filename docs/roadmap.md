@@ -87,10 +87,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
-- Recovery past its step 2, stopped there: no fast rise was found, and the open-loop search that
-  looked cannot improve a rise it is given ([a fast route](reference/rising.md#a-fast-route)). A
-  closed-loop search for one, or the body's options (a toe joint on the solver, the ankle's
-  weight-bearing range) ([Recovery](plans/2026-10-23-recovery.md)).
 - An optional skeleton costume, after seeing the bones in play.
 - Skills that chain: the shared skills expose their exits and their defaults accept any state;
   one registry of percepts feeds reflexes, events, entry conditions and profiles; the reference
@@ -187,8 +183,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 51 of 64 and none within 6 s at
   `8e3df885`; where its time goes is [the budget](reference/rising.md#the-budget) (step 1,
-  landed) and [where the rise stops](reference/rising.md#where-the-rise-stops). Step 2 found no
-  fast route ([a fast route](reference/rising.md#a-fast-route)); what follows waits on the owner. A policy acting on observations also runs
+  landed) and [where the rise stops](reference/rising.md#where-the-rise-stops). Step 2 found
+  closed-loop rises from the back and from hands and knees, on the feet in 1.5 s and verified in
+  4.9 and 3.7 s ([a fast route](reference/rising.md#a-fast-route)). Next: step 3, the hand-back
+  from a crouch, the gate on both. A policy acting on observations also runs
   the sixteen-fall screen (`research/stand-up-acceptance.mjs`), which does not establish the
   target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
