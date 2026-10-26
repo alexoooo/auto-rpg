@@ -1,4 +1,4 @@
-# Skills that chain: exits, defaults and a short look-ahead
+# Skills that chain: exits, percepts and a short look-ahead
 
 The question: how does the options fighter choose a skill whose worth lies in what it makes
 possible? Three cases:
@@ -10,8 +10,8 @@ The aim is one mechanism for all of them, not one for each, at a cost a decision
 must leave the testbed open: the options fighter is the strong reference, not the only way a
 fighter can think.
 
-The proposed answer, in two layers. It waits on the owner, because it changes the AI's layering
-and types.
+The proposed answer, in three parts. It waits on the owner, because it changes the AI's layering
+and types, and reaction time changes how fights play.
 
 **The shared library: additive, and nobody has to use it.**
 - **A skill exposes its exit**, the region where it can hand over: a strike's stroke's end, a rise
@@ -25,6 +25,16 @@ and types.
 - **A goal is a number, or a name the library resolves each step**, such as "out of their reach"
   or "the jab's best range".
 - **The ground graph's edges are priced** by their profiles, in the ground layer, for any chooser.
+- **A percept is a cheap, pure reading of the senses**: a feature such as range, closing speed or
+  the foe's posture. A cue compares a percept with a limit. A mind's events are its cues changing
+  value. Reflex triggers, the chooser's events, entry conditions, profiles' variables and the
+  conditions of behaviour lists all read the same percepts, each computed once a step and only
+  if something watches it.
+
+**The rules: reaction time.**
+- **Every body sees the others a set time late**, the same for both sides, set in seconds by the
+  rules and later by a character attribute. A mind may decide as often as it likes; deciding
+  faster cannot beat the delay, so prediction is what pays.
 
 **The reference fighter: the options fighter's own choices.**
 - **The chooser looks ahead a set number of skills.** A skill is worth its own payoff plus the best
@@ -33,6 +43,8 @@ and types.
   at 2.
 - **The chooser is a part role**, so an experiment brings its own by configuration, as the swap
   test already proves for other roles.
+- **It decides when a skill ends or a cue it watches changes**; the period (`rethink`) is a
+  fallback setting.
 
 It reshapes the [Options](../plans/2026-10-24-options.md) plan's steps 3 and 4 and the
 [types](../diagrams/fighter-mind-types.html). Step 2 (footwork and the intent) is unaffected
@@ -46,6 +58,7 @@ except that its goals may be names. The decision is needed before step 3 starts.
 | **The Commander's boundary**: its team's view in, orders out | how a Commander decides |
 | **Orders in the world's terms**: go, face, attack a foe, a region; skill choices only as an optional extra (`choices?`), read by a mind that has those skills | whether a mind uses the skill library, profiles or goal names |
 | **The drills as a common measure** of a skill, whoever built it | how a skill moves |
+| **Reaction time**: the others seen a set time late, by the rules | how a mind predicts through it, and how often it decides |
 
 A mind may use the whole stack, part of it or none. An end-to-end learned controller on the
 muscles meets only the first row.
@@ -131,6 +144,74 @@ A follow-up table indexed by range, built once per decision, was considered and 
 loses the exit's motion, which is what limits the follow-ups: just after a jab it would offer a
 jab.
 
+### When the chooser decides
+
+The meta-controller checks three triggers every step (`metaController`, `meta.ts`):
+1. the running option ends or is no longer available;
+2. an event (`eventOf`): the body going down or getting up, a threat, a blow coming, another
+   focus, other orders;
+3. `rethink` s (0.2) without either.
+
+The cover reflex runs every step on its own, so quick reactions do not wait for the period. The
+period only catches drift: a foe closing slowly, slowing or turning without an event.
+
+- **Its length follows from drift, not taste.** A foe closing at 1 m/s moves 0.2 m in 0.2 s,
+  about a strike window's width. At 1 s a chance through the window is missed; at 0.1 s little
+  changes, the cost doubles, and near-equal options trade places without more `keep`.
+- **A drift is an event nobody named.** A skill's entry condition turning true or false, or the
+  foe crossing a reach, is the change that matters. With those as events, the period is only a
+  safety net.
+- **Not measured:** how often a periodic rethink with no new event changes the choice. The
+  meta-controller records the event of each decision, so it is a count over a few bouts.
+
+### Perception: one shape in five forms
+
+| Today | Where | What it is |
+|---|---|---|
+| `CONDITIONS` | `src/core/mind/conditions.ts` | predicates with editor fields and a hysteresis margin, for behaviour selectors and movement rules |
+| `Reflex.trigger` | `src/core/mind/options/reflex.ts` | a predicate that sets off a cover, each step |
+| `eventOf` | `src/core/mind/options/meta.ts` | a fixed tuple whose change makes the chooser decide |
+| Threat readings (`READINGS`) | `src/core/mind/threat.ts` | a predicate with prediction: a blow predicted to cross the head |
+| Entry conditions (`Readiness`, `Window`) | `src/core/skills/action.ts` | a region over range, bearing, facing and speed |
+
+Each reads the senses and the body's own view and gives a value, some with memory. They are
+written separately, so one consumer cannot read another's, and a feature two of them need is
+computed twice.
+
+### The sensing delay
+
+`createSenses(world, delay)` (`src/core/mind/senses.ts`) shows each body the others `delay` steps
+late:
+
+- **A ring of `delay + 1` frames per body**, made once, plain numbers in the hub's `state`: 17
+  numbers a segment (position, rotation, centre, velocity, spin, hand pose) and 9 for the whole
+  body (centre, velocity, out, down, the time it was observed).
+- **Each step, in the sensing phase,** a body's state is read into the oldest frame, and the
+  frame `delay` steps old is copied into its one shared `BodySense`, which every other mind's
+  `Senses.others` points to. Every observer sees the same moment.
+- **A mind's own body is not delayed** (`OwnBody`), nor its own "out". Each frame keeps the time it
+  was observed, so a mind can tell a reading's age and predict through it.
+- **An Arena recipe sets it** (`DuelRecipe.senseDelay`, `src/arena/duel.ts`). It is 0 unless given
+  and nothing gives it, so every mind reacts within one step, about 8 ms. People start a response
+  to a seen cue in about 0.15 to 0.2 s, and 0.25 to 0.4 s when choosing among several; covering
+  against a seen punch is in that range, not a spinal reflex's 30 to 50 ms.
+
+Its cost:
+
+| Cost | Scales with |
+|---|---|
+| Work a step | bodies × segments, whatever the delay: one read and one show a body at 0 or at 24 |
+| Allocation a step | none |
+| Memory | bodies × (delay + 1) × (17 × segments + 9) × 8 bytes: for a body of 16 segments at 24 steps, about 56 KB |
+| A fork or a save | the same as memory: the oracle's duel save holds 30 KB of state beside a 339 KB engine snapshot, and would gain about 110 KB at 24 steps |
+
+Its limits:
+- one delay for every body;
+- whole steps, so the same setting is a quarter of the time at 480 Hz;
+- for the first `delay` steps a body is shown in the pose it was added in;
+- every percept is equally late, and a faster path (a contact felt) would need its own, as "out"
+  has.
+
 ### Elsewhere
 
 - **Legged robots look ahead briefly, on a simplified body, and plan again constantly** (MPC: Di
@@ -167,6 +248,50 @@ jab.
 | A profile records the exit beside the payoff, over the entry condition's variables | a reader may ignore it |
 | A goal is a number or a name the library resolves each step | numbers stay valid |
 | The ground graph's edges are priced, in the ground layer | a mind that routes by the unpriced graph keeps it |
+| Percepts and cues, one registry for the five forms above | each consumer reads the same values it reads now; a mind may read raw senses |
+
+### Percepts
+
+```ts
+interface Percept<V> {          // a feature of the senses: number, boolean or a name
+  readonly name: string;
+  read(senses: Senses, own: BodyView, state: object): V;
+  readonly state?: object;      // memory, for prediction or smoothing
+}
+interface Cue {                 // a percept against a limit
+  readonly percept: string; readonly than: "under" | "over" | "is";
+  readonly value: number | string; readonly margin: number;
+}
+```
+
+- **Pure:** a percept reads only what a mind may sense, keeps memory only in its `state`, and does
+  nothing. The response is its consumer's.
+- **Once a step, only if watched:** each consumer names the percepts it reads; the rest are not
+  computed, so a dear one (the threat prediction, the openings) costs nothing unwatched.
+- **An event is a cue changing value**, with its margin so that it does not chatter.
+
+| Consumer | Reads percepts as |
+|---|---|
+| A reflex | a cue that sets off its response, each step, unweighed |
+| A chooser | cues whose changes are its events |
+| A skill's entry condition | a region over percepts; its edges are events |
+| A profile | the variables it is measured over, so a drill measures what a chooser reads |
+| A behaviour list, a tree, a player's rule | cues as conditions |
+
+The editor's fields for `CONDITIONS` carry over, so what a player may set is what already exists.
+
+### Reaction time
+
+- **A rule, in seconds:** the `Rulebook` holds the delay, the same for both sides, converted to
+  steps at the world's rate. A match and an evaluation name it, as minds are compared alike.
+- **Later, a character attribute:** a quicker character sees the others sooner. The hub keeps one
+  `BodySense` a body for each distinct delay and a ring as long as the longest; a step's showing
+  costs bodies × distinct delays.
+- **On perceiving others only.** A delay on a mind's commands would also delay balance and motor
+  control, punishing the body, not the decision.
+- **Expected in play:** a cover that waits to see a 0.2 to 0.3 s punch catches only its end, so
+  blows land more often and reading the foe's preparation pays. The drills' fight rungs and the
+  tactics move with it.
 
 ### The reference chooser
 
@@ -185,8 +310,8 @@ function best(now: Situation, depth: number): { gain: number; time: number } {
 }
 ```
 
-- **Depth is a setting**, 2 in the reference. The chooser runs when a skill ends or on an event,
-  and chooses for the resources freed. Hands outside the line are given cover by worth, as now.
+- **Depth is a setting**, 2 in the reference. The chooser runs when a skill ends or a cue it
+  watches changes, `rethink` s on at the latest, and chooses for the resources freed. Hands outside the line are given cover by worth, as now.
 - **The chooser is a part role** (`chooser`), as `technique`, `gait` or `aim` are. Today's choice
   (`meta: "valued" | "ranked"`, `src/core/mind/options/kind.ts`) is a closed setting. Valued at
   depth 1 and ranked become its first parts. A bandit, a learned or a searching chooser is
@@ -228,6 +353,12 @@ part or an entrant:
 - **Each step of option 3** is read by `npm run match` against the version before. The depth
   setting makes depth 1 against depth 2 one match.
 - **The drills** read each whole skill beside its parts.
+- **The period:** a count of the periodic rethinks that change the choice with no new event. Few,
+  and the period hardly matters; many, and there are cues to name. Then one match at `rethink`
+  0.1, 0.2 and 0.5 s.
+- **Reaction time is the owner's to judge in play:** Arena bouts at a delay of 0 and of about
+  0.2 s, watched side by side. The recipe takes the delay (`senseDelay`); the Arena's link does
+  not yet.
 
 ## If accepted
 
@@ -236,21 +367,28 @@ part or an entrant:
   - the chooser becomes a part role, with depth a setting;
   - the reference fighter drops its "close and" options;
   - the ground graph's edges are priced, with the rise rework.
-- **The Drills plan, step 6:** a profile records the exit beside the payoff, over the entry
-  condition's variables.
+- **The Drills plan, step 6:** a profile records the exit beside the payoff, over percepts, the
+  same variables entry conditions read.
+- **The rules:** the sensing delay in seconds, in the `Rulebook`, named by every match and
+  evaluation; per character when attributes come.
 - **The types chart:**
   - `Profile` gains an exit;
   - `Skill` exposes its exit;
   - `Goal` takes a number or a name;
-  - the `Chooser` is a part role whose reference is `best()`.
+  - the `Chooser` is a part role whose reference is `best()`;
+  - `Percept` and `Cue` join the Mind's seam, read by the chooser, the reflexes, entry conditions
+    and profiles.
 - **This analysis is deleted.**
 
 The order of work:
-1. A hand-written profile with an exit: the punch's payoff by range.
-2. Skills expose their exits; the defaults accept motion and contact.
-3. The chooser as a part role: today's valued and ranked choices as its first parts, moving no
-   fingerprint.
-4. `best()` with its depth setting; the reference at depth 2.
-5. Goals as names beside numbers.
-6. The ground graph priced.
-7. Measured profiles in place of hand-written ones.
+1. Percepts and cues: one registry for the five forms, moving no fingerprint.
+2. A hand-written profile with an exit: the punch's payoff by range.
+3. Skills expose their exits; the defaults accept motion and contact.
+4. The chooser as a part role: today's valued and ranked choices as its first parts, moving no
+   fingerprint; it decides on its cues, `rethink` a fallback.
+5. `best()` with its depth setting; the reference at depth 2.
+6. Goals as names beside numbers.
+7. The ground graph priced.
+8. Measured profiles in place of hand-written ones.
+
+The sensing delay is apart from this order: it waits only on the owner's look in play.
