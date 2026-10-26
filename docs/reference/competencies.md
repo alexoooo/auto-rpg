@@ -77,7 +77,7 @@ x1.25, and speed x0.85 to x1.15, the last an engineering range with no source. T
 | punch | 8.0 ± 1.2 m/s over the last 0.1 m, 22.8 N s; 29 untrained men, dominant fist, at maximum effort into a padded plate | Adamec, `HUMAN_PUNCH` (`research/punch-calibration.mjs`); trained 17.2 N s, `TRAINED_ATTACKS` |
 | walk | comfortable 1.39 m/s and maximum 2.53 m/s, men aged 20 to 29; comfortable speed is 1.27 to 1.46 m/s across every age and sex group of 20 to 79 years | Bohannon RW (1997), *Age and Ageing* 26:15–19, doi:10.1093/ageing/26.1.15 |
 | kick | front kick foot speed into a target: 7.7 ± 1.2 m/s novice, 8.56 ± 1.08 sub-elite, 9.61 ± 1.05 elite | Vagner M et al. (2023), *Sports* 11:141, doi:10.3390/sports11080141 |
-| rise | every young adult (12 men, 12 women, mean age 23) rose from every lying position unaided; healthy older adults took twice as long as the young | Alexander NB et al. (1997), *J Am Geriatr Soc* 45:564–9, doi:10.1111/j.1532-5415.1997.tb03088.x (abstract; the times are in its tables, not read here) |
+| rise | every young adult (12 men, 12 women, mean age 23) rose from every lying position unaided; asked to rise at a comfortable rate by any motion, the young took a mean 1.4 to 2.6 s by starting position (back, side, front, hands and knees, sitting) and healthy older adults 2.4 to 5.5 s, timed from leaving a floor switch to pressing one 0.9 m up; asked for speed from the back, the young rose a mean 34 % faster | Alexander NB et al. (1997), *J Am Geriatr Soc* 45:564–9, doi:10.1111/j.1532-5415.1997.tb03088.x (the text's ranges; the means by position are its Figure 1) |
 | run | none sourced; people change from a walk to a run near 2 m/s | |
 | stand | none sourced | |
 | guard | none: an engineering gate | |
@@ -99,7 +99,7 @@ Each rate is a run of its own; `research/competency-passes.mjs` reads the runs t
 | guard | 95 % of predictive trials succeed | engineering |
 | punch | every trial succeeds; 95 % of blows land; every landed blow at least 6.8 m/s; first contact within 0.5 s of the order | the untrained mean less one SD; the 0.5 s is engineering |
 | walk | 1.27 m/s travelled; both turns upright | the slowest group's comfortable speed |
-| rise | 95 % of falls risen; median 6 s or less | the share from the young adults; the time is engineering until the paper's tables are read |
+| rise | 95 % of falls risen; median 6 s or less | the share from the young adults; the time is engineering, above the healthy older adults' slowest mean (5.5 s, [targets](#targets)) |
 | kick | every trial succeeds; 95 % of blows land; every landed blow at least 6.5 m/s | the novice mean less one SD |
 | run | none yet | |
 
