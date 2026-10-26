@@ -140,10 +140,10 @@ const BANDS = [
       "id, side: string", "spec: BodySpec", "out, down: boolean", "centre, velocity: Vector3", "segments: Map<name, SegmentSense>", "~ no hit points, no orders, no mind"] },
   ]] },
   { title: "Choosing", cap: "Inside the options Mind: the situation, the player’s settings and the skills’ profiles become the Intent.", path: "src/core/mind/options/", rows: [[
-    { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the player sets", lines: [
-      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "gambits: Gambit[]", "~ { when: Condition,", "~   then: SkillChoice }"] },
+    { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the chooser lets a player set", lines: [
+      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "~ whatever the chooser reads"] },
     { id: "Chooser", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
-      "choose(now, running): Intent", "~ gambits first, top to bottom;", "~ then the best worth:", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
+      "choose(now, running): Intent", "~ the best worth:", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
     { id: "Intent", col: 2, kind: "interface", tag: "reshaped", key: true, desc: "the skills selected now", lines: [
       "+ choices: SkillChoice[]", "~ no two share a Resource", "interrupt?: id[]", "~ a free part runs its default"] },
     { id: "SkillChoice", col: 3, kind: "interface", tag: "new", desc: "one skill and its goal", lines: [

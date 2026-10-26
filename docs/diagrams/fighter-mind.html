@@ -249,7 +249,7 @@ zoom(body[2].cx - 32, body[2].cx + 32, body[2].bottom, 420);
 frame(420, 450, 2, "Inside the Mind", "It reads the situation, chooses skills and writes them into the Intent.");
 const mind = ring(600, 655, 150, [
   { label: "Situation", tip: "What a decision reads, from the senses alone." },
-  { label: "Chooser", key: true, tip: "Your rules first; then each skill priced by its profile and your rewards." },
+  { label: "Chooser", key: true, tip: "Each skill priced by its profile and what the fighter values." },
   { label: "Intent", key: true, sub: "", minW: 120, tip: "The skills selected now, with goals: one per body part. Opened up below." },
   { label: "Skills", tip: "Each runs its own motion until it ends or is interrupted." },
 ], { labels: [null, "selects", "runs", "ends · events"], centre: ["rethinks on an event", "or every 0.2 s"] });
@@ -262,13 +262,12 @@ const reads = ["a foe and its distance", "a blow coming", "who is down", "orders
 link(`M${Math.max(...reads.map(r => r.right)) + 6},${reads[0].cy} C330,${reads[0].cy} 340,${mind[0].cy} 420,${mind[0].cy} L${mind[0].left - 4},${mind[0].cy}`);
 
 const inputs = [
-  badge(880, 560, "Skill deck", "what it can use", { tip: "The skills this fighter has." }),
-  badge(880, 612, "Rewards", "what it values", { tip: "What a blow dealt, a blow taken, a fall and obeying are worth." }),
-  badge(880, 664, "Gambits", "your rules come first", { tip: "Ordered “if this, do that” rules, read before worth." }),
-  badge(880, 724, "Profiles", "measured on drills", { neutral: true, tip: "How well each skill does where it can start: the game measures it." }),
+  badge(880, 580, "Skill deck", "what it can use", { tip: "The skills this fighter has." }),
+  badge(880, 632, "Rewards", "what it values", { tip: "What a blow dealt, a blow taken, a fall and obeying are worth." }),
+  badge(880, 700, "Profiles", "measured on drills", { neutral: true, tip: "How well each skill does where it can start: the game measures it." }),
 ];
 const chooser = mind[1];
-inputs.forEach((b, i) => link(`M${b.left - 4},${b.cy} C${b.left - 40},${b.cy} ${chooser.right + 40},${chooser.cy + (i - 1.5) * 8} ${chooser.right + 4},${chooser.cy + (i - 1.5) * 8}`, i < 3));
+inputs.forEach((b, i) => link(`M${b.left - 4},${b.cy} C${b.left - 40},${b.cy} ${chooser.right + 40},${chooser.cy + (i - 1) * 8} ${chooser.right + 4},${chooser.cy + (i - 1) * 8}`, i < 2));
 zoom(intent.left + 12, intent.right - 12, intent.bottom, 920);
 
 // ── 3 · The Intent: skills on the body ───────────────────────────────────────
