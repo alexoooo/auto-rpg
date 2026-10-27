@@ -27,10 +27,10 @@ export const FIGHTER_MIND = controller<FighterConfig>({
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   presets: deepFreeze({
-    classic: { label: "Classic fighter", config: CLASSIC },
+    classic: { label: "Classic fighter", config: CLASSIC, offered: false },
     puncher: { label: "Puncher", config: PUNCHER },
-    counter: { label: "Counter-puncher", config: COUNTER_PUNCHER },
-    behaviours: { label: "Behaviours", config: BEHAVIOURS },
+    counter: { label: "Counter-puncher", config: COUNTER_PUNCHER, offered: false },
+    behaviours: { label: "Behaviours", config: BEHAVIOURS, offered: false },
     duellist: { label: "Duellist", config: DUELLIST },
   }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

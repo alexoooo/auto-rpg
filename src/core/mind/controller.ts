@@ -15,7 +15,12 @@ export interface MindPreset<C extends MindConfig = MindConfig> {
   readonly label: string;
   readonly config: C;
   readonly models?: readonly BodySpec["model"][];
+  /** False: kept off the Arena's and the Crypt's menus (`offered`), which a link, an evaluation or a test may still name. */
+  readonly offered?: false;
 }
+
+/** Whether `preset` is listed in the Arena's and the Crypt's menus (`MindPreset.offered`). */
+export const offered = (preset: Pick<MindPreset, "offered">): boolean => preset.offered !== false;
 
 /** Whether a named calibration is offered for this model; a custom configuration has its own fit. */
 export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodySpec["model"]): boolean =>

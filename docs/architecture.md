@@ -507,7 +507,9 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher and Behaviours vary
 the actions and spacing. The Duellist (`DUELLIST`), a weapon and a cover, is every humanoid's
-default (`modelInfo`). An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
+default (`modelInfo`). A preset marked `offered: false` (Classic, Counter-puncher, Behaviours) is
+kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
+or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
 

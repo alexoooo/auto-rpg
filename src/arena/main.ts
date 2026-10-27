@@ -34,6 +34,7 @@ import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
+import { offered } from "../core/mind/controller.ts";
 import { partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -257,10 +258,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const holds = loadout(), previous = control.value;
       let choices: readonly string[];
       try { choices = controlsFor(model, holds, attributes[side]); } catch { choices = controlsFor(model, holds); }
-      control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
+      // The menu lists the offered minds (`offered`), and the one the link chose if it is another.
+      const listed = choices.filter(value => offered(MINDS[value]!) || value === previous);
+      control.replaceChildren(...listed.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
       const fallback = defaultControl(model, holds);
-      const preferred = choices.includes(fallback) ? fallback : choices[0]!;
-      control.value = choices.includes(previous) ? previous : preferred;
+      const preferred = listed.includes(fallback) ? fallback : listed[0]!;
+      control.value = listed.includes(previous) ? previous : preferred;
       showSettings(control.value !== previous ? MINDS[control.value]!.config : editor.config);
     };
     for (const hand of SIDES) hands[hand].addEventListener("change", () => { hands[hand].blur(); refresh(); });
