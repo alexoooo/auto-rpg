@@ -68,7 +68,10 @@ export interface ReadSegment {
   readonly body: ReadSegmentBody;
   /** The node's rotation in the reference pose, from which a joint reads its angles. */
   readonly rest: Quaternion;
-  /** Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has. */
+  /**
+   * Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has;
+   * its shapes are as they are now, a hand's in its pose (`poses`) and a foot's toes as they lie.
+   */
   readonly rigid: Rigid;
   /** Applied hand configuration, with pending requests kept in the body's pose state. */
   readonly handPose?: { readonly applied: HandPose; readonly requested: HandPose };

@@ -5,7 +5,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { createEquipment } from "../core/equipment.ts";
 import { segmentFrame } from "../core/spec/body.ts";
 import type { SegmentFrame, ShapeSpec } from "../core/spec/body.ts";
@@ -103,29 +103,39 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
   right.diffuseColor = Color3.Lerp(tint, new Color3(...SHAPE_TINT.warm), SHAPE_TINT.warmShare);
   right.specularColor = left.specularColor;
   const meshes: Mesh[] = [];
-  const changing: { segment: import("../core/build/build-body.ts").BuiltSegment; mesh: Mesh; pose: string }[] = [];
+  /** `segment`'s regions as its rigid body has them now, drawn in `material`. */
+  const regionsOf = (segment: BuiltSegment, material: StandardMaterial): Mesh[] => segment.rigid.owners.flatMap((owner, k) => {
+    if (owner.kind !== "region") return [];
+    const region = shapeMesh(`${segment.node.name}.contact.${owner.region.name}`, segment.frame, segment.rigid.shapes[k]!, scene);
+    region.parent = segment.node; region.material = material;
+    return [region];
+  });
+  const changing: { segment: BuiltSegment; mesh: Mesh; regions: Mesh[]; rigid: BuiltSegment["rigid"] }[] = [];
   for (const segment of built.segments.values()) {
-    // Its own shape, a hand's in the pose it is in; what it holds is `drawHeld`'s.
+    // Its own shape and regions as they are now, a hand's in its pose and a foot's with its toes; what it holds is `drawHeld`'s.
     const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.rigid.shapes[0]!, scene);
     mesh.parent = segment.node;
-    mesh.material = segment.spec.name.endsWith(".right") ? right : left;
-    meshes.push(mesh);
-    for (const contact of segment.spec.contacts ?? []) {
-      const region = shapeMesh(`${segment.node.name}.contact.${contact.name}`, segment.frame, contact.shape, scene);
-      region.parent = segment.node; region.material = mesh.material; meshes.push(region);
-    }
-    if (segment.handPose) changing.push({ segment, mesh, pose: segment.handPose.applied });
+    const material = segment.spec.name.endsWith(".right") ? right : left;
+    mesh.material = material;
+    const regions = regionsOf(segment, material);
+    meshes.push(mesh, ...regions);
+    if (segment.handPose || segment.toes) changing.push({ segment, mesh, regions, rigid: segment.rigid });
   }
   const observer = scene.onBeforeRenderObservable.add(() => {
     for (const item of changing) {
-      const pose = item.segment.handPose!.applied;
-      if (pose === item.pose) continue;
-      const replacement = shapeMesh(`${item.mesh.name}.geometry`, item.segment.frame, item.segment.rigid.shapes[0]!, scene);
+      if (item.segment.rigid === item.rigid) continue;
+      item.rigid = item.segment.rigid;
+      const replacement = shapeMesh(`${item.mesh.name}.geometry`, item.segment.frame, item.rigid.shapes[0]!, scene);
       replacement.geometry!.applyToMesh(item.mesh);
       item.mesh.position.copyFrom(replacement.position);
       // Only a capsule is turned in its segment's coordinates; a box, sphere or hull is not.
       item.mesh.rotationQuaternion = replacement.rotationQuaternion ? replacement.rotationQuaternion.clone() : Quaternion.Identity();
-      replacement.dispose(false, false); item.pose = pose;
+      replacement.dispose(false, false);
+      // The regions drawn again, in `meshes` in place of the last, shown as the segment's own shape is.
+      for (const region of item.regions) { meshes.splice(meshes.indexOf(region), 1); region.dispose(false, false); }
+      item.regions = regionsOf(item.segment, item.mesh.material as StandardMaterial);
+      for (const region of item.regions) region.setEnabled(item.mesh.isEnabled(false));
+      meshes.push(...item.regions);
     }
   });
   return {

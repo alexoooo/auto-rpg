@@ -94,7 +94,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     } };
   try { mind = make(own); }
   catch (error) { muscles.dispose(); throw error; }
-  return { own, mind, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
+  return { own, mind, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, toes: built.toes, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

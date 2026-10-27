@@ -204,6 +204,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   the target. Step 8 found no fast edge ([tried and not kept](reference/rising.md#tried-and-not-kept)):
   from hands and knees the bearing solve holds a pike on the toes, the hands bearing, and does not
   balance on the feet alone; a fast rise waits on a controller that brings the weight onto flat feet.
+  The body's options (plan step 2): toes that bend are in the core ([toes](reference/toes.md)); with
+  them and the ankle's dorsiflexion stop at 0.8 rad, a research stand-up from hands and knees stands
+  32 of 32 in a median of 3.3 s. No body has them yet: the Warrior gets them once its walking and
+  fights are read before and after.
   Step 9 (landed short): the tuck's arms out stand the Rogue empty-handed 13 of 16, with the club 9
   ([the pose stages](reference/rising.md#the-pose-stages)). Step 10 waits: the staged route stands
   52 and 53 of 64 on the target against step-up's 56 and 53, the Rogue with the club 9 and 10 of 16

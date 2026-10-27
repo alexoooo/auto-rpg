@@ -4,12 +4,14 @@ import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../e
 import type { HandConfiguration, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
 import type { World } from "../world.ts";
-import { frameOf, handShapeAt, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, handShapeAt, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { dot, sub } from "../spec/vec.ts";
-import { hasProducts, principalOf, rigidOf } from "./rigid.ts";
+import { dot } from "../spec/vec.ts";
+import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createHandPoses, type HandPoses } from "./hand-poses.ts";
+import { colliderOf, local } from "./collider.ts";
+import { createToes, flatToes, toesOf, type ToesState } from "./toes.ts";
 
 /**
  * **`buildBody`: bodies and joints from a spec and an initial placement.**
@@ -36,6 +38,10 @@ export interface BuiltSegment extends ReadSegment {
   readonly node: TransformNode;
   readonly body: SegmentBody;
   readonly handPose?: { applied: HandPose; requested: HandPose };
+  /** A foot's toes now (`toes.ts`): its body's state, which its `rigid` follows. */
+  readonly toes?: ToesState;
+  /** A foot's toes at each bend, made once (`toesOf`). */
+  readonly bent?: (bend: number) => { readonly rigid: Rigid; readonly collider: ColliderShape };
 }
 
 /** A joint as built: as read (`ReadJoint`), with its engine joint. */
@@ -52,6 +58,8 @@ export interface BuiltBody extends ReadBody {
   readonly segments: ReadonlyMap<string, BuiltSegment>;
   readonly joints: ReadonlyMap<string, BuiltJoint>;
   readonly handPoses: HandPoses;
+  /** Each foot's toes (`toes.ts`), by segment, as plain state. */
+  readonly toes: Readonly<Record<string, ToesState>>;
   dispose(): void;
 }
 
@@ -67,32 +75,9 @@ interface InitialPose { readonly position: Vector3; readonly rotation: Quaternio
 
 const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 
-/** `point`, body frame, in `frame`'s coordinates. */
-function local(frame: SegmentFrame, point: Vec3): Vec3 {
-  const d = sub(point, frame.origin);
-  return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)];
-}
-
 /** `direction`, body frame, in `frame`'s coordinates. */
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
-
-function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
-  switch (spec.kind) {
-    case "capsule":
-      return { kind: "capsule", from: local(frame, spec.from.value), to: local(frame, spec.to.value), radius: spec.radius.value };
-    case "box":
-      return { kind: "box", centre: local(frame, spec.centre.value), size: spec.size.value };
-    case "sphere":
-      return { kind: "sphere", centre: local(frame, spec.centre.value), radius: spec.radius.value };
-    case "hull":
-      return { kind: "hull", points: spec.points.map((p) => local(frame, p.value)) };
-    default: {
-      const never: never = spec;
-      throw new Error(`unknown shape ${JSON.stringify(never)}`);
-    }
-  }
-}
 
 function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
   const frame = frameOf(spec);
@@ -134,8 +119,9 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       ...(surface?.friction ? { friction: surface.friction.value } : {}) };
   }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
-  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}),
-    get rigid() { return poses && handPose ? poses[handPose.applied].rigid : rigid; } };
+  const toes = spec.toes ? flatToes() : undefined, bent = spec.toes ? toesOf(spec, frame, rigid) : undefined;
+  return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
+    get rigid() { return poses && handPose ? poses[handPose.applied].rigid : bent && toes ? bent(toes.bend).rigid : rigid; } };
 }
 
 
@@ -233,11 +219,13 @@ export function buildBody(spec: BodySpec, world: World, asked: Placement): Built
     joints.set(joint.name, buildJoint(joint, parent, child, world));
   }
   const handPoses = createHandPoses(spec, segments, world);
+  const toes = createToes([...segments.values()], world);
   return {
     spec, physics: world.physics, segments, joints,
-    handPoses,
+    handPoses, toes: toes.state,
     dispose() {
       handPoses.dispose();
+      toes.dispose();
       // Removing a body removes its colliders and joints with it.
       for (const segment of segments.values()) {
         world.physics.removeBody(segment.body);

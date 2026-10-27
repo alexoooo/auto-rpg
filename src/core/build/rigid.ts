@@ -1,6 +1,7 @@
 import { frameOf, segmentFrame, type BodySpec, type ContactRegionSpec, type HeldSpec, type ItemShape, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, cross, dot, scale, sub } from "../spec/vec.ts";
+import { toesRegion } from "./toes.ts";
 
 /**
  * **A segment's rigid body**: the segment and whatever it holds (`BodySpec.held`), as the solver
@@ -79,11 +80,19 @@ export function rigidPoints(spec: BodySpec, segment: SegmentSpec): ReadonlyMap<s
 }
 
 /** `segment`'s rigid body in `spec`. */
+/** A segment's own contact regions: its anatomical ones, then a foot's toes lying flat (`toes.ts`). */
+function regionsOf(segment: SegmentSpec): readonly ContactRegionSpec[] {
+  return [...(segment.contacts ?? []), ...(segment.toes ? [toesRegion(segment, frameOf(segment), 0)] : [])];
+}
+
+/** Which of a segment's rigid shapes (`Rigid.shapes`) is its toes': after its own shape and anatomical regions (`regionsOf`). */
+export const toesShape = (segment: SegmentSpec): number => 1 + (segment.contacts?.length ?? 0);
+
 export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   const holding = heldBy(spec, segment.name);
   const [ix, iy, iz] = segment.inertia.value;
   if (holding.length === 0) {
-    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape)], owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region }))] };
+    return { mass: segment.mass.value, centre: segment.centreOfMass.value, tensor: [ix, iy, iz, 0, 0, 0], shapes: [segment.shape, ...regionsOf(segment).map(c => c.shape)], owners: [{ kind: "segment" }, ...regionsOf(segment).map(region => ({ kind: "region" as const, region }))] };
   }
   const own = frameOf(segment);
   const pieces = [
@@ -110,9 +119,9 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   }
   return {
     mass, centre, tensor: t as unknown as Tensor,
-    shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape), ...holding.flatMap((held) =>
+    shapes: [segment.shape, ...regionsOf(segment).map(c => c.shape), ...holding.flatMap((held) =>
       [...held.item.shapes, ...(held.item.contacts ?? []).map(region => region.shape)].map(shape => placedShape(held, shape)))],
-    owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held): ShapeOwner[] =>
+    owners: [{ kind: "segment" }, ...regionsOf(segment).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held): ShapeOwner[] =>
       [...held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })), ...(held.item.contacts ?? []).map(region => ({ kind: "held-region" as const, held, region }))])],
   };
 }

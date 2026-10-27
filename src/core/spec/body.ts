@@ -216,6 +216,19 @@ export interface SegmentSpec {
   readonly surface: SurfaceSpec;
   /** Additional anatomical contact shapes; their mass is included in the segment's stated mass properties. */
   readonly contacts?: readonly ContactRegionSpec[];
+  /** A foot's toes, ahead of its box (`src/core/build/toes.ts`). */
+  readonly toes?: ToesSpec;
+}
+
+/**
+ * **A foot's toes**: a slab ahead of its box (`SegmentSpec.shape`, the foot from heel to ball),
+ * hinged at the box's bottom front edge, that bends to lie along the ground (`src/core/build/toes.ts`).
+ */
+export interface ToesSpec {
+  /** How far the toes reach ahead of the ball, m: no further than the box is high, so bent at a right angle they lie along its front. */
+  readonly length: Quantity<number>;
+  /** Their slab's thickness from the sole, m. */
+  readonly thickness: Quantity<number>;
 }
 
 /** A named collider with its own surface, in the body's reference frame or its item's frame. */
