@@ -2,7 +2,6 @@ import { GET_AWAY_PART } from "./ground/get-away-part.ts";
 import { GROUND_FIGHT_PART } from "./ground/ground-fight-part.ts";
 import { STAND_UP_PART } from "./ground/stand-up-part.ts";
 import { LIE_PART } from "./lie-part.ts";
-import { RESEARCH_RISE_PART } from "./rise/research-part.ts";
 import { SUPPORT_RECOVERY_PART } from "./rise/support-recovery-part.ts";
 
 /**
@@ -12,4 +11,4 @@ import { SUPPORT_RECOVERY_PART } from "./rise/support-recovery-part.ts";
  * `scripts/build-identity.mjs`).
  */
 export const SUB_MINDS = { "stand-up": STAND_UP_PART, "get-away": GET_AWAY_PART, "ground-fight": GROUND_FIGHT_PART, "lie": LIE_PART,
-  "support-recovery": SUPPORT_RECOVERY_PART, "research-rise": RESEARCH_RISE_PART };
+  "support-recovery": SUPPORT_RECOVERY_PART };

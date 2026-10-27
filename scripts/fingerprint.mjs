@@ -45,7 +45,7 @@ import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { partOf } from "../src/core/mind/catalog.ts";
-import { CLASSIC, PUNCHER, QUADRUPED, STAND_UP } from "../src/core/mind/config.ts";
+import { PUNCHER, QUADRUPED } from "../src/core/mind/config.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
 import { hostedMind } from "../src/core/mind/minds.ts";
@@ -57,8 +57,6 @@ import { cutawayCondition } from "../src/dungeon/reference-look.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { GUARD } from "../src/core/skills/guard.ts";
-import { poseAngles } from "../src/core/control/kinematics.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
@@ -390,28 +388,10 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
     run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) }];
 });
 /**
- * A bout in which the Warrior under `mind`, otherwise `CLASSIC`, falls: against `counter`, which fells it at
- * about 29 s, a fall not ending the bout, so that what `mind` does down is played.
- */
-/** The Warrior laid on its back in the guard, minded by `mind`, for 15 s: how long it was down and which minds had it, and the pose. */
-async function laidDown(mind) {
-  const spec = humanSpec("workshop-fighter"), half = Math.sqrt(.5);
-  const stand = await coreStand(spec, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
-  const actor = labActor(stand.built, stand.world, { mind });
-  try {
-    const trace = traceOf([stand.built]), meter = downMeter(actor.body, stand.world.hz);
-    for (let i = 0; i < stand.seconds(15); i++) { stand.step(); trace.take(); meter.take(); }
-    const pose = trace.digest(), down = meter.reading();
-    return { line: `${down}, pose ${pose}`, record: { pose, down } };
-  } finally { actor.dispose(); stand.dispose(); }
-}
-const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(mind) });
-/**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: Research rise, the Warrior laid down; the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
+ * read by a case that plays it: the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
  */
 const DATA_CASES = [
-  felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
   { name: "data: learned-punch", run: () => {
     const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };

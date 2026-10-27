@@ -70,7 +70,7 @@ npm run evaluate -- rising-target [riser ...]
 - **The baseline** is the game's Stand up (`step-up`) ([Step-up on the owner's target](#step-up-on-the-owners-target)).
 - **A controller that acts on the muscles from an observation** runs on the stand-up screen's
   sixteen falls, made afresh each run:
-  `node research/stand-up-acceptance.mjs --candidate <module>`. The screen does not establish the
+  `node research/stand-up-acceptance.mjs --candidate <module>` (at `ffdaaeea`). The screen does not establish the
   target.
 
 The protocol changes when a controller needs it to; a figure read on an earlier protocol is read
@@ -1337,7 +1337,37 @@ arms folded); placed at rest it is done in none.
   in 5.775 to 8.6333 s; a library chosen from observed posture and motion completes seven of ten
   trained side falls (two within 6 s) and three of the screen's sixteen, none within 6 s; settling
   search reaches Warrior/club in 6.0333 s, and four nearby perturbations fail
-  ([stand-up planning](../analysis/2026-10-11-stand-up-planning.md#settling-aware-physical-search)).
+  (the full log: `docs/analysis/2026-10-11-stand-up-planning.md@ffdaaeea`; its scripts,
+  `research/stand-up-*.mjs@ffdaaeea`, and keyed results, `research/stand-up-path-results.json@ffdaaeea`).
+  The Rogue stands on no route. What the study found besides:
+  - **Whole-body IK at one placement** (a lead step 0.2 leg lengths aside and 0.3 ahead, both
+    hands and the rear shin held): the foot misses by 0.304 m with the pelvis and spine fixed,
+    0.056 m with the pelvis floating (0.131 m deep in the floor), 0.0016 m with the spine
+    floating too (the thigh through the trunk), and 0.145 m with collision penalties (0.011 m
+    deep). None is feasible on five seeds; a continuous path fails at its second waypoint.
+  - **Every route stalls at one transition**: bringing a foot under the body and carrying the
+    weight onto it while the hands bear. Carried with the hands bearing, the foot ends 0.21 to
+    0.34 m from its target, the knee at its extension stop and the ankle at its dorsiflexion
+    stop (of 204 carry steps, 123 touch the body and 109 arrive at a limit). A valid endpoint
+    has no continuous path to it; 33 rear-foot endpoint searches fail floor or self clearance.
+    A bilateral pike onto hands and feet holds (36 of 36), but every rise from it unloads the
+    feet. A held feet-up kneel was rejected by the owner as inhuman.
+  - **The predictors miss**: with no self-contact the coupled predictor errs by 3.3 m/s² and
+    30 rad/s²; the measured motor torque in place of the bounded request cuts a foot-carry
+    miss from 23 to 0.6 m/s². Orientation gains, solver acceptance and search scores rose while
+    the centre of mass fell.
+  - **Research rise in play** (the library through the muscles, the Warrior after two 60 N s
+    gusts): Front, Right, Back and Left in 13.0, 6.6, 34.9 and 32.1 s, retrying after
+    kneel-and-topple with the soles tipped; the unshod Warrior's measured motions take Left to
+    6.40 s and -92° to 6.28 s.
+  - **Assisted and learned**: an assisted rise at balance 100 stands 62 of 64 falls within 6 s
+    and none at a balance of 50 or less; SAC on the muscles stands nothing in 15 minutes, and as
+    a residual over feedback is no better than the feedback.
+  - **Defects found**: the compliant-sole filter averaged a leg torque with one from before the
+    stance was released (the stance's reset clears it); research joint limits had bind angles
+    subtracted twice, a tilted sole was placed with its box rotated twice, gravity was 9.81; and
+    support read from foot corners near the lowest dropped a tilted foot's loaded corners
+    (support is the loaded, penetrating patch points).
 - **A faster route on the same stages** (`step-up`, the owner's target, at `b1c34096` and
   `cb523f2f`): pose stages ended once every freedom is within 0.1 rad of its posture and the body
   slower than 0.15 m/s change nothing from `fold` to `tall` (each clock is about the time its

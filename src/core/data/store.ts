@@ -1,12 +1,10 @@
 import type { PunchPolicy } from "../skills/learned-punch.ts";
-import type { ResearchRiseData } from "./research-rise.ts";
 
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "learned-punch" | "research-rise";
+export type DataKey = "learned-punch";
 
 interface DataOf {
   "learned-punch": PunchPolicy;
-  "research-rise": ResearchRiseData;
 }
 
 /**
@@ -16,7 +14,6 @@ interface DataOf {
  */
 const LOADERS: { readonly [K in DataKey]: () => Promise<DataOf[K]> } = {
   "learned-punch": () => import("./learned-punch.ts").then((m) => m.LEARNED_PUNCH),
-  "research-rise": () => import("./research-rise.ts").then((m) => m.RESEARCH_RISE),
 };
 
 /** Every key, in `LOADERS`' order. */
