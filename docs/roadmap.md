@@ -14,7 +14,7 @@ from its readings. Each layer depends only on those below it, and a mind uses as
 as it needs ([architecture](architecture.md#the-layers)).
 
 - **Skills, proficiency and use.** A body has an array of skills, each in one shape: a name and
-  goal, an entry condition, the resources it holds and a profile
+  goal, an entry condition, the resources it holds, an exit and a profile
   ([Options](plans/2026-10-24-options.md)). A skill is proved on drills, ladders of rungs the owner
   watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
   Tactics choose skills by their entry conditions and profiles, never motion. The more general
@@ -48,67 +48,60 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Options](plans/2026-10-24-options.md) | Every skill in one shape (name and goal, entry condition, resources, profile); an intent of one skill choice per resource, run at once; the options fighter choosing them |
-| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
+| [Options](plans/2026-10-24-options.md) | Every skill in one shape (entry, resources, model, exit); one commitment and a default layer of footwork and cover; a chooser part role that looks ahead a set number of skills; reaction time as a rule |
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
-| [Ratings](plans/2026-10-21-ratings.md) | Items, characters and attributes by design; skill batteries beside their ablations; a sparse league and live runs |
-| [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
+| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
+| [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now:** Punch step 4, a punch that lands across the still rung and the fight moments: steps
-   1 (the bar), 2 (a straight punch at the bar from the guard, on [the punch's
-   body](reference/punch-body.md), in one cell) and 3 (fight moments, the `fight` rung) have landed.
-   The Warrior's learned punch lands 91 % of held-out still places at 120 and 480 Hz and none of
-   the fight moments ([square to the striking shoulder](analysis/2026-10-08-punch-layer.md#square-to-the-striking-shoulder));
-   next its near edge and the fight moments (the guard, a foe coming on or stepping back), then
-   the bar scaled to the body and the Rogue's punch. Then
-   Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
-   Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
-2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 7
-   landed (the budget, the witnesses, the steady's climb, step-up's route in parts, hand-overs in
-   motion, a drill for each edge, routes priced); step 8 found no fast edge; step 9 landed short
-   (the Rogue with the club 9 of 16); step 10 waits: the graph stands the Rogue with the club
-   fewer falls than step-up, and the game keeps step-up. And
-   Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
-3. **When each one's condition holds:**
-   - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
-     ablation is next read; step 9 when a question about an item, a character or an attribute is asked; step 11 (the
-     sparse league) only when the owner asks; step 14 (run live) once the Ratings screen is in use
-     and a live run would save a trip to the command line;
-   - Mind data step 4 (Research rise's response tables) when the owner asks.
+1. **Now: the clean-up lands.** The minds, gaits, techniques and policies that never worked or are
+   replaced go (Joint feedback, the Scrapper and its stride, Research rise, the SIMBICON gaits, the
+   learned run and rise, the driven and whole-body strikes); Classic, Behaviours and the
+   Counter-puncher leave the menus, their configs kept as building blocks. Toes go on the Warrior
+   and the Rogue, with the ankle's dorsiflexion stop at 0.8 rad, read before and after on walking,
+   shoves, fights, the stand-up and the learned punch ([toes](reference/toes.md)). Then the options
+   fighter takes the shape at depth 1 (Options step 1).
+2. **Next: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
+   (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
+   trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
+   mark).
+3. **Beside the punch:** Drills step 2 (the moving target, overlays and side by side), which Punch
+   step 5 needs, and Drills step 7 (the owner's two-minute verdict), which Punch step 6 and every
+   rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
+   rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
+   and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
+4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
 
 **Choices**, each landed at its default:
 
+- Reaction time, judged in play: Arena bouts at a delay of 0 and of about 0.2 s, watched side by
+  side; decided before the punch is trained on fight moments
+  ([Options](plans/2026-10-24-options.md), step 2).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
-- Whether the skeleton's sides and back are worth a search or a change to the body; whether the
-  bodies take the ankle's tendon ([locomotion](reference/locomotion.md)).
+- Whether the skeleton's sides and back are worth a search ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
 - An optional skeleton costume, after seeing the bones in play.
-- Skills that chain: the shared skills expose their exits and their defaults accept any state;
-  one registry of percepts feeds reflexes, events, entry conditions and profiles; the reference
-  chooser becomes a part role that looks ahead a set number of skills; a reaction time, seen
-  first in play ([skill chaining](analysis/2026-10-26-skill-chaining.md));
-  decided before the [Options](plans/2026-10-24-options.md) plan's step 3.
 
 **To watch:**
 
-- The Strike drill's still rung: each strike's strip and reel
-  (`?play=ratings&evaluation=strike`), the failures first; acceptance is the owner's. The
-  Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing
-  ([Punch](plans/2026-10-24-punch.md)).
-- The Warrior's learned punch on the still rung
-  (`?play=ratings&evaluation=strike&pool=7f867ed6&subject=learned-puncher&version=ac43944db7f4ef32`):
-  7 of the 8 thrown land at the bar; after the blow the rear hand's body turns on past the target
-  and the lead hand's ends in a deep crouch.
-- The Strike drill's fight rung, a strike in place of its mind's own in a bout
-  (`?play=ratings&evaluation=strike&pool=0a8f1708`):
-  no strike lands at the bar; most meet the foe's guard.
+- The Warrior's learned punch on the Strike drill's still rung
+  (`?play=ratings&evaluation=strike&subject=learned-puncher&version=24ccf7106e3471ef`): 30 of 32
+  land at the middle mark; the owner said "the punch actually looks not bad", not an acceptance.
+  After contact the striker bows forward at the hips and comes back up
+  ([learned punch](reference/learned-punch.md)).
+- The learned punch on the fight rung
+  (`?play=ratings&evaluation=strike&pool=4145285b&subject=learned-puncher&version=c0e976aff6125d66`):
+  3 of 56 middle-mark moments land; most are weak or meet the guard, 9 never come into its window,
+  and the striker sometimes waits half a second before it throws.
+- The Strike drill's other subjects (`?play=ratings&evaluation=strike`), the failures first: the
+  Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing; on
+  the fight rung no game mind's strike lands at the bar.
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
@@ -116,6 +109,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
+- The Warrior and the Rogue on toes: walking and rising in the Lab.
 - The skeleton's look in play.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
@@ -130,7 +124,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   and no scene in Node comes with a client that needs it, keeping exact arithmetic and the engine
   contract.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
-  the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md), step 1).
+  the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md)).
 - The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
   is shown as not opened, so its reel cannot be watched.
 - Participant contracts, each extended with its first client: every accepted grip request and
@@ -145,7 +139,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
-    ([Options](plans/2026-10-24-options.md), step 2);
+    ([Options](plans/2026-10-24-options.md), step 3);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -157,6 +151,18 @@ The plans in flight, and what comes next across them. Each plan names its own de
     a policy body has not;
   - the rising bed's pre-fall pose and the Lab's start placements are the stock guard posture
     (`guardPosture`), not the mind's guard.
+- Ratings, each when its condition holds (the design is `docs/plans/2026-10-21-ratings.md@ffdaaeea`):
+  - items, characters and attributes rated by design (`loadouts`, `characters`, `attributes`), when
+    a question about an item, a character or an attribute is asked;
+  - the Ratings screen showing a skill's battery beside its ablations, when a skill's ablation is
+    next read;
+  - a sparse league (`sparse { opponents, seed }` beside `all`, `versus` and `pairs`), only when
+    the owner asks;
+  - live runs on the Ratings screen (a case worker, a browser pool, a run panel; each worker calls
+    `loadData`), once the screen is in use and a live run would save a trip to the command line;
+  - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
+    a chooser scored by regret, when a tactics question needs one; it waits on a common value unit
+    and on how a chooser ranks responses.
 
 ### Body and motor control
 
@@ -171,7 +177,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   wakes the enemy at 7 of seeds 1 to 60.
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
-  trials, the forward club envelope at or above SIMBICON's; stops and turns exercised; sideways
+  trials; forward with the club at least 4 m/s for the Warrior, 2 for the Rogue and 1.2 for the
+  skeleton (`assets/core/simbicon-run-envelope.json@20ea40e6`); stops and turns exercised; sideways
   and back stay stepping walks at their own pace; the owner accepts the look. Today's gaits and
   what was tried are in [locomotion](reference/locomotion.md). Open there: a run that does not ask
   a body past what its legs hold (the club throws the Rogue's run), braking faster, a pace past
@@ -179,46 +186,24 @@ screened small (one body, one loadout, one group of falls) before its full targe
   turns at no rate in every trial at 1 m/s or faster, and brakes late, so the speed rule plans
   its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
-  ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
-  envelope, so the speed rule asks it nothing and it stands under orders; on the lab's circle it
-  falls 6.5 s into its run.
-- **Recovery** ([Recovery](plans/2026-10-23-recovery.md), [now](#order)). The owner's 64-fall target (`npm run evaluate -- rising-target`,
-  [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
-  every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
-  median at most 4 s, unassisted. Step-up, the baseline, stands 51 of 64 and none within 6 s at
-  `8e3df885`; where its time goes is [the budget](reference/rising.md#the-budget) (step 1,
-  landed) and [where the rise stops](reference/rising.md#where-the-rise-stops). Step 2 found
-  closed-loop rises from the back and from hands and knees, on the feet in 1.5 s and verified in
-  4.9 and 3.7 s ([a fast route](reference/rising.md#a-fast-route)). Step 3 (landed): Stand up's
-  steady climbs from a crouch quiet on both flat feet in a median of 1.46 s
-  ([a planned climb](reference/rising.md#a-planned-climb)); no rise hands over in one yet, so the
-  fast edges (step 8) must end there. Step 4 (landed): step-up's route is five edges that stand
-  the target as step-up does, within a placebo's spread ([the staged route](reference/rising.md#the-staged-route)).
-  Step 5 (landed): their entries read the raw position and the body's motion, and they hand over
-  without bracing, within the same spread, the Warrior empty-handed at its edge. Step 6 (landed):
-  the Rise drill gives each edge's profile placed and in motion
-  ([the Rise drill](reference/rising.md#the-rise-drill)); every edge is done from its own posture
-  placed but the Rogue's kneel-up (0 of 6, for step 9). Its reel waits on a page that plays a
-  technique case (open item, Framework); the Lab's Stand-up scenario plays the staged route. Step 7 (landed): Stand up prices routes by the edges'
-  profiles ([routes priced](reference/rising.md#routes-priced)); the fresh falls are a case set of
-  the target. Step 8 found no fast edge ([tried and not kept](reference/rising.md#tried-and-not-kept)):
-  from hands and knees the bearing solve holds a pike on the toes, the hands bearing, and does not
-  balance on the feet alone; a fast rise waits on a controller that brings the weight onto flat feet.
-  The body's options (plan step 2): toes that bend are in the core ([toes](reference/toes.md)); with
-  them and the ankle's dorsiflexion stop at 0.8 rad, a research stand-up from hands and knees stands
-  32 of 32 in a median of 3.3 s. No body has them yet: the Warrior gets them once its walking and
-  fights are read before and after.
-  Step 9 (landed short): the tuck's arms out stand the Rogue empty-handed 13 of 16, with the club 9
-  ([the pose stages](reference/rising.md#the-pose-stages)). Step 10 waits: the staged route stands
-  52 and 53 of 64 on the target against step-up's 56 and 53, the Rogue with the club 9 and 10 of 16
-  against 11 and 12; no fall of either stands within 6 s.
-  A policy acting on observations also runs the sixteen-fall screen
-  (`research/stand-up-acceptance.mjs`), which does not establish the target.
-- **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
-  and works in a fight. The body has a straight blow over the competency's 6.8 m/s at every cell
-  searched; a learned punch lands it on the still rung, not yet in fights ([punch](analysis/2026-10-08-punch-layer.md),
-  [punch calibration](reference/punch-calibration.md)). Read on the Strike drills
-  ([Drills](plans/2026-10-24-drills.md), steps 1 to 3), then in fights by the paired report.
+  ([the walk and run](reference/locomotion.md#the-walk-and-run)).
+- **Recovery** ([Recovery](plans/2026-10-23-recovery.md)). The owner's 64-fall target
+  (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
+  at least 15 of 16 verified recoveries within 6 s in every group, 61 of 64 overall, every
+  cardinal direction in every group, a failure-inclusive median at most 4 s, unassisted. Step-up,
+  the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
+  edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
+  Rogue with the club (9 and 10 of 16 against 11 and 12). No fast edge yet: from hands and knees
+  the bearing solve does not balance on the feet alone
+  ([tried and not kept](reference/rising.md#tried-and-not-kept)); with toes and the ankle's stop
+  at 0.8 rad a research stand-up from hands and knees stands 30 of 32 in a median of 3.98 s
+  ([toes](reference/toes.md)). The Rise drill's reel waits on a page that plays a technique case
+  ([Framework](#framework)).
+- **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
+  punch lands 92 % of 320 held-out still trials and 3 of 56 fight moments; the Rogue has none at
+  its bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
+  [Punch](plans/2026-10-24-punch.md)). Read on the Strike drill's rungs
+  ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)).
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
@@ -252,12 +237,21 @@ screened small (one body, one loadout, one group of falls) before its full targe
   `ATTACK_METRES`, `EDGE`, `IK_POSTURE_PULL`, `IK_TURN`, `STANCE_LOWER`, a human's `down.fallen`;
   set on an engine that is gone: `STAND`, `AIM_AHEAD`, the lab's seek budget. Gameplay keeps the
   symmetric muscle bounds until recovery is corrected ([joint limits](reference/joint-limits.md)).
+  A tendon in series with the ankle's plantar flexors is in the core and on no body; on the stride
+  it fell more ([locomotion](reference/locomotion.md)).
 
 ### Blows and wounds
 
 - Not built: a tolerance of a part's own (the pool's rule stands, by the owner's answer); the face
   apart from the head; armour, a layer more in `energyShares`; an edge and a point on equipment
   ([wounds](reference/wounds.md)).
+- The fist's threshold against a head: at 36.8 J (`Rulebook.fist`) and a 62 % share the exchange
+  stops paying at 59 J, and a boxer's blow costs the hand
+  ([what a blow is worth](reference/learned-punch.md#what-a-blow-is-worth)); read again before a
+  punch is trained on the head ([Punch](plans/2026-10-24-punch.md), step 4d).
+- The head behind the guard: the guard covers the face, and the open lane over it is the top of
+  the head, which a straight punch cannot meet square; a punch at the head goes around or over the
+  guard, or waits for it to open (Punch, step 4d).
 - Decided (the owner, 2026-10-01; `docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`): a fall
   takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
   verdict ([Drills](plans/2026-10-24-drills.md), step 7); a body that is down may be struck, to
@@ -280,8 +274,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   a time, and read by the paired report:
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is the
-    legs' skills (`keep-range`, `step-in`, `step-out`, `circle`;
-    [Options](plans/2026-10-24-options.md), step 2);
+    legs' skills (`approach`, `keep-range`, `step-out`, `circle`;
+    [Options](plans/2026-10-24-options.md), step 3);
   - an option's worth is its profile: attack value, incoming cost, travel time, falls and
     recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
@@ -297,13 +291,14 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
-  by name ([oracle](reference/oracle.md)).
+  by name ([oracle](reference/oracle.md)); two decisions over one, with strikes by name, gates the
+  chooser's depth 2 ([Options](plans/2026-10-24-options.md), step 5).
 - A player's choices are the trade-offs a Mind's config exposes, offered once their effect is
   understood, with presets that round-trip through the editor, the link and a save.
 - The controls are to be worked over in play: the pointer does nothing while a person's body
   stands still.
-- Retiring what the new skills replace, each with its records: the strike repertoire, the staged
-  rise, the Scrapper preset.
+- Retiring what the new skills replace, each with its records, once they do: the strike
+  repertoire and the staged rise.
 - Team bouts in the Arena, N against N.
 
 ### The game
