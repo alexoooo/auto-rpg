@@ -10,6 +10,7 @@ import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
 import type { BuiltFall, FallCase } from "./fall.ts";
 import type { BuiltLone, LoneCase } from "./lone.ts";
+import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 
@@ -33,15 +34,16 @@ export interface Subject {
 /**
  * What a case plays, as plain data: one kind of world each (`WorldKind`, listed in `WORLD_BUILDERS`,
  * `worlds.ts`). A bout, a lone body and a Crypt run are bit-equal between JavaScript engines; a
- * fall is not (`fall.ts`).
+ * fall and techniques in turn are not (`fall.ts`, `technique.ts`).
  */
 export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
   | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }
   | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase }
-  | { readonly kind: "lone"; readonly engine: EngineName; readonly lone: LoneCase };
+  | { readonly kind: "lone"; readonly engine: EngineName; readonly lone: LoneCase }
+  | { readonly kind: "technique"; readonly engine: EngineName; readonly technique: TechniqueCase };
 
-/** What a case's world gives its reader: a bout's, a fall's, a Crypt run's or a lone body's. */
-export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone;
+/** What a case's world gives its reader: a bout's, a fall's, a Crypt run's, a lone body's or techniques in turn. */
+export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone | BuiltTechnique;
 
 /**
  * **A kind of case world**: how a world of it is built, what it is handed once its reader is made

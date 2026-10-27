@@ -18,7 +18,7 @@ export interface GroundRefusal { readonly refused: string }
 type Point = readonly [number, number, number];
 interface Convex { readonly segment: string; readonly points: readonly Point[]; readonly radius: number }
 /** The placed configurations with installed joint geometry. */
-export const GROUND_POSTURES = ["back", "front", "left", "right", "fours", "half-kneel", "squat"] as const;
+export const GROUND_POSTURES = ["back", "front", "left", "right", "fours", "kneeling", "half-kneel", "squat"] as const;
 
 /** Which installed starts this anatomy supplies. */
 export function groundPostures(spec: BodySpec): readonly (typeof GROUND_POSTURES)[number][] {
@@ -153,8 +153,12 @@ function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress
   return faults.length ? { refused: `invalid ${options.level} ground start: ${faults.join(", ")}` } : result;
 }
 
-/** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height; or why the bed refuses the start. */
-export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement | GroundRefusal {
+/**
+ * A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height; or
+ * why the bed refuses the start. `spread` is the share of each joint's range a draw moves it by at
+ * most: by default 0.3 for a dropped start, 0.1 for another.
+ */
+export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement, spread?: number): Placement | GroundRefusal {
   const options = address.ground;
   if (options.start === "shoved" || options.start === "round") return inEnvironment(spec, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }, options);
   if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
@@ -162,9 +166,9 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
   for (let attempt = 0; attempt < 5; attempt++) {
     const random = mulberry32((address.seed + Math.imul(attempt, 0x9e3779b9)) >>> 0);
     const base = waypoint?.joints ?? installed?.placement.joints as Readonly<Record<string, readonly number[]>> | undefined ?? poseAngles(spec, guardPosture(spec));
-    const spread = options.start === "dropped" ? .3 : .1;
+    const share = spread ?? (options.start === "dropped" ? .3 : .1);
     const joints = Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map((d, k) => Math.max(d.min.value,
-      Math.min(d.max.value, (base[j.name]?.[k] ?? 0) + (random() * 2 - 1) * spread * (d.max.value - d.min.value))))]));
+      Math.min(d.max.value, (base[j.name]?.[k] ?? 0) + (random() * 2 - 1) * share * (d.max.value - d.min.value))))]));
     let rotation: readonly [number, number, number, number];
     if (options.start === "dropped") {
       const u = random(), a = random() * 2 * Math.PI, b = random() * 2 * Math.PI;
@@ -178,7 +182,7 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
         case "front": rotation = [half, 0, 0, half]; break;
         case "left": rotation = [0, 0, half, half]; break;
         case "right": rotation = [0, 0, -half, half]; break;
-        case "fours": case "half-kneel": case "squat": throw new Error(`no installed ${options.posture} start`);
+        case "fours": case "kneeling": case "half-kneel": case "squat": throw new Error(`no installed ${options.posture} start`);
         default: { const never: never = options.posture; throw new Error(`unknown ground posture ${never}`); }
       }
     }

@@ -64,9 +64,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    the bar scaled to the body and the Rogue's punch. Then
    Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
-2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 5
+2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 6
    landed (the budget, the witnesses, the steady's climb, step-up's route in parts, hand-overs in
-   motion); next step 6 (a drill for each edge). Until step 10 the game keeps today's Stand up. And
+   motion, a drill for each edge); next step 7 (routes priced). Until step 10 the game keeps today's Stand up. And
    Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
 3. **When each one's condition holds:**
    - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
@@ -129,6 +129,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   contract.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
   the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md), step 1).
+- The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
+  is shown as not opened, so its reel cannot be watched.
 - Participant contracts, each extended with its first client: every accepted grip request and
   external input on the tape; exact physical replay apart from live continuation for a
   nondeterministic policy; a slower policy's cadence, held actions and work allowance.
@@ -191,7 +193,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   fast edges (step 8) must end there. Step 4 (landed): step-up's route is five edges that stand
   the target as step-up does, within a placebo's spread ([the staged route](reference/rising.md#the-staged-route)).
   Step 5 (landed): their entries read the raw position and the body's motion, and they hand over
-  without bracing, within the same spread, the Warrior empty-handed at its edge. Next, step 6.
+  without bracing, within the same spread, the Warrior empty-handed at its edge. Step 6 (landed):
+  the Rise drill gives each edge's profile placed and in motion
+  ([the Rise drill](reference/rising.md#the-rise-drill)); every edge is done from its own posture
+  placed but the Rogue's kneel-up (0 of 6, for step 9). Its reel waits on a page that plays a
+  technique case (open item, Framework). Next, step 7.
   A policy acting on observations also runs the sixteen-fall screen
   (`research/stand-up-acceptance.mjs`), which does not establish the target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control

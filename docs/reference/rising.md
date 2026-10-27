@@ -1094,7 +1094,7 @@ a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`
 |---|---|---|---|
 | `staged-roll` | back, either side; front | still | the roll at once (the retry over the other side), lying slack until its front is read still |
 | `staged-down` | front; fours | still | `fold` to `sit` |
-| `staged-kneel-up` | fours; kneeling | moving | `kneel 0` to `tall` |
+| `staged-kneel-up` | fours; kneeling | moving | `kneel 0` to `tall`; from `sit` on a body not yet sat back (`SAT_BACK`) |
 | `staged-step-through` | kneeling; half-kneel | moving | `shift` to `onto the toes` |
 | `staged-lunge` | half-kneel; standing | moving | `lunge 0` to `even`, then step-up's climb and steadying (`stanceSteady`) |
 
@@ -1108,6 +1108,13 @@ a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`
   at the end of the `fours` stage 34 of 108 (that stage bears on the toes, the knees light);
   kneeling at the end of `tall` 64 of 69; half kneeling at the end of `onto the toes` 55 of 59, and
   at the end of `half kneel` 30 of 63.
+- **A body on its hands and knees not yet sat back begins the kneel-up at `sit`** (`SAT_BACK`:
+  `GroundReading.upright` under 0.22). Down hands over sat back on the heels, the trunk at about
+  0.56 to 0.61 for the Warrior and 0.30 to 0.33 for the Rogue; placed on its hands and knees the
+  Warrior's reads about 0.09 to 0.15, and begun at `kneel 0` it falls on its face 8 times of 8, from
+  `sit` it kneels 8 of 8 ([the Rise drill](#the-rise-drill)). On the target one fall of 64 changes
+  (the Rogue with the club at 292.5°: stood at 25.5 s, now down), every group within the placebo's
+  spread (49 to 54 of 64 over four runs, as before).
 - **A part plays the route on from its first stage** and hands over at the first cut where its
   posture has been read, slow enough for the part begun there, for 0.1 s (`REACHED_SECONDS`) from
   that stage's start until the next cut's begins; read at none, it plays on to standing.
@@ -1149,7 +1156,65 @@ The Warrior empty-handed is at the edge of the spread (13 of 16 once, the median
 roll takes a mean 3.2 s against 4.0 s at rest; the Rogue's down fails 63 times of 167 against 12 of
 38.
 
+## The Rise drill
+
+Each edge of the staged route played alone on a body, begun once its entry admits the body, and
+read by whether it takes the body to its posture and how fast: `npm run evaluate -- rise`
+(`src/evaluation/rise/`, on techniques in turn, `src/evaluation/technique.ts`; Node, core world,
+Rapier, 120 Hz). The Warrior and the Rogue empty-handed, six seeds each. A technique waits up to
+2 s for its entry, runs up to 16 s, and one that stands the body is watched 2 s on its feet
+(`TECHNIQUE_LIMITS`). Its summary is each edge's profile: begun, done, the median time, by body and
+by the speed it was begun at.
+
+- **Rung `placed`**: from each position the edge is begun from, placed there at rest. A seed moves
+  each joint by up to 0.02 of its range (`TECHNIQUE_SPREAD`): at the Lab's 0.1 most kneeling
+  starts are refused or fail, and at 0.03 the Warrior's step-through is done 2 of 4 and the Rogue's
+  lunge 2 of 4. Kneeling, and the Rogue's hands and knees and half kneeling,
+  are the route's own poses where down, kneel-up and step-through hand over
+  (`research/route-postures.mjs`, `assets/research/posture-holds.json`), the hips and shoulders
+  opened until six seeds of eight place clear; the Warrior's hands and knees and half kneeling are
+  the Lab's. No staged edge is begun sitting, so no sitting start is drilled.
+- **Rung `moving`**: the route's edges up to the one drilled, from the nearest begun lying, placed
+  there (down from back or a side after the roll, the rest from the front after down); the roll
+  after a shove from standing toward six directions. An edge is entered as the route hands the
+  body over; a trial whose edge is never begun is no reading of it.
+- **The reel cannot be watched**: the Ratings reel plays bout cases, and a technique case is
+  shown as not opened.
+
+Placed, at the commit the record names (begun, done of those begun, the median time to done):
+
+| Edge | Warrior | Time, s | Rogue | Time, s |
+|---|---|---|---|---|
+| Roll | 18, 18 | 2.60 | 18, 18 | 4.38 |
+| Down | 6, 6 | 2.98 | 6, 6 | 2.63 |
+| Kneel-up | 6, 6 | 3.17 | 6, 0 | |
+| Step-through | 5, 4 | 1.70 | 6, 5 | 1.50 |
+| Lunge | 2, 2 | 2.50 | 6, 3 | 2.25 |
+
+Moving:
+
+| Edge | Warrior | Time, s | Rogue | Time, s | Speed begun at, m/s |
+|---|---|---|---|---|---|
+| Roll | 3, 3 | 2.71 | 5, 5 | 4.40 | 0.02 to 0.34 |
+| Down | 6, 6 | 2.72 | 6, 6 | 2.63 | 0.01 to 0.32 |
+| Kneel-up | 5, 5 | 1.68 | 6, 6 | 1.98 | 0.01 to 0.23 |
+| Step-through | 5, 5 | 1.75 | 6, 6 | 1.52 | 0.05 to 0.10 |
+| Lunge | 5, 4 | 2.08 | 4, 3 | 2.22 | 0.07 to 0.10 |
+
+- **The Rogue's kneel-up rides the sit's swing back**: from down it kneels 6 of 6; placed sat back
+  at rest, the same pose, its trunk goes forward over the knees through `kneel 1` and it falls on its
+  face 6 of 6; begun at `sit` from that pose, it kneels 3 of 7.
+- **The Warrior's lunge is drilled placed on two seeds**: the Lab's half kneel overlaps itself
+  (the trunk and the left thigh) and four seeds of six find no clear draw at the drill's spread.
+- **The route's edges are entered nearly still**: no moving entry above 0.34 m/s; the down's and
+  the step-through's slow hand-overs leave the next edge a body under 0.1 m/s.
+
 ## Tried and not kept
+
+- **The fours cut at the end of the `fours` stage** (down from `fold` to the bearing stage, the
+  kneel-up from `sit`): the Warrior kneels from any hands and knees, but on the target 44 to 52 of
+  64 over four runs, the Rogue empty-handed 8 to 11 of 16 against 11 to 14; the Rogue's down handed
+  over mid-sit kneels 0 of 8 from the front, against 6 of 8.
 
 - **The staged route's roll and down begun moving** (`HAND_OVER`, every part `moving`), on the
   target: at 1 m/s and 2 rad/s, 52 of 64, down failing 29 of 76 against 22 of 70 at rest and the

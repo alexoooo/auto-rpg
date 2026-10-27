@@ -904,7 +904,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
   conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
-  fall, a Crypt run or a lone body, `lone.ts`; each kind built, stepped and traced by one loop,
+  fall, a Crypt run, a lone body, `lone.ts`, or techniques in turn, `technique.ts`; each kind built, stepped and traced by one loop,
   `playCase`, from its `WorldKind`) and its reader, and the engine where the protocol fixes one (`Cases.engine`); A worker plays it as its description's `protocols` (`EVALUATIONS`), the one list. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
@@ -986,6 +986,11 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   (`buildLoneFall`), and a condition that bed cannot play is refused with why. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
+- **Techniques in turn** (`technique.ts`): one body on the arena's solids, placed in a posture or
+  shoved from standing, its stand-up techniques played one after another with no Stand up to route
+  them, each begun once its entry admits the body; not bit-equal between JavaScript engines, as a
+  fall is. The Rise drill (`rise/`) plays each edge of the staged route from its posture placed and
+  after the edges before it ([the Rise drill](reference/rising.md#the-rise-drill)).
 - **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
   model's own, each side's Commander (the party's and a mob unless named), and a script of the
   person's orders, a leg at a time, or none (`CryptCase`), a leg that brings the case about ending it

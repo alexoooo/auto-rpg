@@ -28,13 +28,22 @@ const handsOver = (g: GroundReading): boolean =>
   g.velocity.lengthSquared() < HAND_OVER.speed * HAND_OVER.speed && g.spin < HAND_OVER.spin;
 
 /**
+ * **How upright a trunk sat back on its heels is** (`GroundReading.upright`): above it a body on its
+ * hands and knees is sat back as the route's down leaves it, below it the kneel-up sits it back
+ * first (`docs/reference/rising.md#the-staged-route`).
+ */
+const SAT_BACK = .22;
+
+/**
  * **A part of step up's route** (`stepUp`): where in its rise it begins (none: the roll alone), the
- * positions it is begun from, the one it takes the body to, and how slow a body it is begun on is:
- * `moving`, under `HAND_OVER`; `still`, under the speed its body's step up lies still at before it
- * reads its lie (`STEP_UP`'s `settle`).
+ * stage before that it begins at instead on a body not yet sat back (`SAT_BACK`), the positions it
+ * is begun from, the one it takes the body to, and how slow a body it is begun on is: `moving`,
+ * under `HAND_OVER`; `still`, under the speed its body's step up lies still at before it reads its
+ * lie (`STEP_UP`'s `settle`).
  */
 interface Part {
   readonly first: string | null;
+  readonly unsat?: string;
   readonly from: readonly Position[];
   readonly to: Position;
   readonly entry: "moving" | "still";
@@ -44,7 +53,7 @@ interface Part {
 const PARTS = Object.freeze({
   "staged-roll": { first: null, from: ["back", "left", "right"], to: "front", entry: "still" },
   "staged-down": { first: "fold", from: ["front"], to: "fours", entry: "still" },
-  "staged-kneel-up": { first: "kneel 0", from: ["fours"], to: "kneeling", entry: "moving" },
+  "staged-kneel-up": { first: "kneel 0", unsat: "sit", from: ["fours"], to: "kneeling", entry: "moving" },
   "staged-step-through": { first: "shift", from: ["kneeling"], to: "half-kneel", entry: "moving" },
   "staged-lunge": { first: "lunge 0", from: ["half-kneel"], to: "standing", entry: "moving" },
 } as const satisfies Record<string, Part>);
@@ -68,7 +77,7 @@ const partFrom = (at: Position): StagedKind | undefined =>
  * **A part's entry**: begun on the left, body `model` read in a position it is begun from (its raw
  * reading, `GroundReading.raw`) and slow enough for it (`Part.entry`), still or not.
  */
-export const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Side): boolean =>
+const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Side): boolean =>
   side === "left" && (PARTS[kind].from as readonly Position[]).includes(g.raw) && slowFor(kind, model, g);
 
 /**
@@ -77,7 +86,7 @@ export const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, s
  * once, the attempt after one that failed over the other side; lies slack after it and reads again,
  * rolling again where it is not on its front; and is done once its rolled body has been read on its
  * front, slow enough to hand over, for `REACHED_SECONDS`. A part of the rise plays step up's route on
- * from its first stage; it is done at the end of the first cut's stage (`CUTS`) where the body has
+ * from its first stage, or from its `unsat` stage on a body not yet sat back; it is done at the end of the first cut's stage (`CUTS`) where the body has
  * been read in that cut's posture, slow enough to hand over, for `REACHED_SECONDS`, from that stage
  * on until the next cut's begins; read at none, it plays the route to its end, step up's climb and
  * steadying (`stanceSteady`). A rise that falls back to lying slack, or onto its back, fails; one
@@ -95,9 +104,12 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
   /** The cuts this part may end at, by the index of the stage each is read after. */
   const cuts = CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
   const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
-  const recipe: Recipe = part.first === null ? { ...whole, rise: [] } : { ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(first) };
-  const rises: Record<"whole" | "other", StepUpRise> = { whole: stagedRise(own, view, recipe),
-    other: stagedRise(own, view, part.first === null ? { ...stepUpRecipe({ ...tuning, over: otherSide }), rise: [] } : recipe) };
+  const from = (index: number): Recipe => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) });
+  // `other`: the roll over the other side; for a part with an `unsat` stage, its rise from there.
+  const begins = { whole: first, other: part.unsat === undefined ? first : at(part.unsat) };
+  const rises: Record<"whole" | "other", StepUpRise> = part.first === null
+    ? { whole: stagedRise(own, view, { ...whole, rise: [] }), other: stagedRise(own, view, { ...stepUpRecipe({ ...tuning, over: otherSide }), rise: [] }) }
+    : { whole: stagedRise(own, view, from(first)), other: stagedRise(own, view, from(begins.other)) };
   const motor = part.first === null ? null : carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = motor && stanceSteady(own, view, motor, tuning.climb);
   // `flip`: this attempt rolls over the other side, the last having failed. `rolled`: the roll has
@@ -115,7 +127,8 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : reads(g, to),
     begin() {
       state.flip = part.first === null && (state.ended === "failed" || state.ended === "timed-out") ? !state.flip : false;
-      state.phase = "rise"; state.entry = state.flip ? "other" : "whole"; state.rose = false; state.rolled = false; state.ended = null;
+      const unsat = part.unsat !== undefined && (view.ground?.upright ?? 0) < SAT_BACK;
+      state.phase = "rise"; state.entry = state.flip || unsat ? "other" : "whole"; state.rose = false; state.rolled = false; state.ended = null;
       state.elapsed = 0; state.cut = -1; state.reached = 0;
       const rise = rises[state.entry];
       if (part.first === null) rise.beginRolling(); else rise.beginRising();
@@ -147,7 +160,7 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
           // A rise fallen back to lying slack has failed, read at the next step.
           const after: string = rise.state.phase;
           if (after === "settle") return null;
-          const now = after === "idle" ? whole.rise.length : first + rise.state.stage;
+          const now = after === "idle" ? whole.rise.length : begins[state.entry] + rise.state.stage;
           let cut = -1;
           for (let k = 0; k < cuts.length; k++) if (cuts[k]!.index <= now) cut = k;
           if (cut !== state.cut) { state.cut = cut; state.reached = 0; }

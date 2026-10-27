@@ -22,6 +22,7 @@ import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribu
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { loadoutAttributes } from "./loadout.ts";
 import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
+import { GROUND_POSTURES } from "./ground-starts.ts";
 import { dummyPart } from "./dummy-spec.ts";
 
 /**
@@ -146,7 +147,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
     readonly waypoint: "none" | "brace" | "plant" | "transfer" | "rise";
     /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
     readonly start: "shoved" | "dropped" | "placed" | "round";
-    readonly posture: "back" | "front" | "left" | "right" | "fours" | "half-kneel" | "squat";
+    readonly posture: (typeof GROUND_POSTURES)[number];
     /** Null draws the shove from the seed. */
     readonly degrees: number | null;
     readonly impulse: number | null;
@@ -199,7 +200,7 @@ export function labAddress(search: string): LabAddress {
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
       rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "step-up",
       start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
-      posture: (["back", "front", "left", "right", "fours", "half-kneel", "squat"] as const).find(v => v === query.get("groundPosture")) ?? "back",
+      posture: GROUND_POSTURES.find(v => v === query.get("groundPosture")) ?? "back",
       degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
       impulse: query.has("groundImpulse") ? bounded("groundImpulse", 40, 90, 60) : null,
       foe: ([0, 1, 2, 4] as const).find(v => String(v) === query.get("groundFoe")) ?? 0,

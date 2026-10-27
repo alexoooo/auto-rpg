@@ -348,6 +348,7 @@ function caseView(found: { record: Kept; line: Kept["lines"][number] } | null, v
       : line.world.kind === "fall" ? `a fall on ${line.world.engine}; not opened, as a fall is not yet the same in every JavaScript engine`
       : line.world.kind === "crypt" ? `a Crypt run on ${line.world.engine}; not opened, as the Crypt opens no case`
       : line.world.kind === "lone" ? `a lone body on ${line.world.engine}; not opened, as the Arena opens bouts only`
+      : line.world.kind === "technique" ? `techniques in turn on ${line.world.engine}; not opened, as they are not yet the same in every JavaScript engine`
       : `${line.world.kind} on ${line.world.engine}`],
   ];
   const watch = watchHref(header.evaluation, [line], back);
