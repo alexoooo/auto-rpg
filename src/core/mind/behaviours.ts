@@ -3,10 +3,9 @@ import { ATTACK } from "./behaviours/attack.ts";
 import { CLEAR_OF_FALLEN } from "./behaviours/clear-of-fallen.ts";
 import { CLEAR_OF_WALLS } from "./behaviours/clear-of-walls.ts";
 import { COVER } from "./behaviours/cover.ts";
-import { BREAK_CLINCH, CLOSE_IN, KEEP_DISTANCE } from "./behaviours/distance.ts";
+import { BREAK_CLINCH } from "./behaviours/distance.ts";
 import { EDGE } from "./behaviours/edge.ts";
 import { EVADE } from "./behaviours/evade.ts";
-import { FLEE } from "./behaviours/flee.ts";
 import { FOLLOW_ORDERS } from "./behaviours/follow-orders.ts";
 import { GROUND } from "./behaviours/ground.ts";
 
@@ -16,4 +15,4 @@ import { GROUND } from "./behaviours/ground.ts";
  * this list and nothing else: a case's code reads it as where each kind's own code begins
  * (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const BEHAVIOURS = { "follow-orders": FOLLOW_ORDERS, attack: ATTACK, approach: APPROACH, flee: FLEE, "close-in": CLOSE_IN, "keep-distance": KEEP_DISTANCE, "break-clinch": BREAK_CLINCH, edge: EDGE, evade: EVADE, "clear-of-walls": CLEAR_OF_WALLS, "clear-of-fallen": CLEAR_OF_FALLEN, ground: GROUND, cover: COVER };
+export const BEHAVIOURS = { "follow-orders": FOLLOW_ORDERS, attack: ATTACK, approach: APPROACH, "break-clinch": BREAK_CLINCH, edge: EDGE, evade: EVADE, "clear-of-walls": CLEAR_OF_WALLS, "clear-of-fallen": CLEAR_OF_FALLEN, ground: GROUND, cover: COVER };

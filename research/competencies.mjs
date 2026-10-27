@@ -164,7 +164,7 @@ export function competencyJobs({ competency, model, held, seed, physique, blow }
 export function blowConfig(kind, settings = "") {
   const part = PARTS[kind];
   if (!part || part.role !== "executor") throw new Error(`no blow part ${kind}`);
-  const config = structuredClone({ ...part.defaults, ...(kind === "path-strike" || kind === "driven-strike"
+  const config = structuredClone({ ...part.defaults, ...(kind === "path-strike"
     ? { tuning: { paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION } } : {}) });
   for (const pair of settings.split(",").filter(Boolean)) {
     const [path, text] = pair.split("="), keys = path.split("."), last = keys.pop();

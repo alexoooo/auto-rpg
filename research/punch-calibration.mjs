@@ -66,7 +66,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
   const executor = { name: 'motion', ...(blow ?? { kind: 'path-strike', overlap: false, tuning: { paths: { ...paths, contactSpeed }, execution } }) };
   const action = { name: 'strike', executor: executor.name, effectors: [`hand.${hand}`], regions: [{ kind: 'mark', mark: 'high' }], aim: { kind: 'centre', lead: 0 },
-    ...(['path-strike','driven-strike'].includes(executor.kind) ? { family, armExtension } : {}) };
+    ...(executor.kind === 'path-strike' ? { family, armExtension } : {}) };
   const guard=guardSkill(spec);
   const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard,
     executors:configuredExecutors(partLookup,body,s.world,guard.posture,[executor],[action]), actions:[action] });

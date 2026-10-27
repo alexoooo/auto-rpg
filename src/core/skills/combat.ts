@@ -2,7 +2,7 @@ import { kickExecutor, type KickTuning } from "./kick.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import { cos, hypot, sin } from "../math/real.ts";
+import { cos, sin } from "../math/real.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -31,31 +31,6 @@ export function validCombatExecution(execution: CombatExecution): boolean {
     .every(v => Number.isFinite(v) && v >= 0) && execution.normalAlignment <= 1;
 }
 
-/**
- * **The driven strike**: the path strike with its trunk driven into the swing. The cross and the
- * hook turn the trunk the way that brings the striking shoulder back in the chamber and forward in
- * the swing, `torso` rad each way; the swing pushes `thoracic rotation right` flat out at level
- * `drive` (`MusclePush`) until the trunk is turned that far. The hand is aimed from where the trunk
- * is (`EffectorGoal.carried`); the chamber winds up `windup` m; and the swing takes the time an
- * evenly accelerating fist takes from where it is at launch to `contact` m/s at the target: twice
- * the distance over the speed.
- */
-export interface DrivenStrike {
-  readonly drive: number;
-  readonly torso: number;
-  readonly windup: number;
-  readonly contact: number;
-}
-
-/** The driven strike's first setting tried, its punch rows in `docs/reference/competencies.md#research-blows`. */
-export const DRIVEN_STRIKE: DrivenStrike = Object.freeze({ drive: 1, torso: 0.43, windup: 0.3, contact: 7.5 });
-
-/** A driven strike's settings: a level in [0, 1], a turn and a wind-up finite and not negative, and a positive speed. */
-export function validDrivenStrike(driven: DrivenStrike): boolean {
-  return [driven.drive, driven.torso, driven.windup, driven.contact].every(Number.isFinite) && driven.drive >= 0 && driven.drive <= 1
-    && driven.torso >= 0 && driven.windup >= 0 && driven.contact > 0;
-}
-
 /** **What the path strike's usual skill set is made of**; a setting left out is its default. */
 interface CombatSettings {
   /** The hands' paths. */
@@ -75,8 +50,8 @@ interface CombatSettings {
 /** The elbow's opening `u` of the way from `from` to `to`, eased in and out. */
 const smoothElbow = (from: number, to: number, u: number) => from + (to - from) * u * u * (3 - 2 * u);
 
-/** What a path strike's blows are carried out with, and whether its trunk is driven (`DrivenStrike`); a setting left out is its default. */
-type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap"> & { readonly driven?: DrivenStrike };
+/** What a path strike's blows are carried out with; a setting left out is its default. */
+type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap">;
 
 const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
 
@@ -112,12 +87,12 @@ interface PathExecutorSettings extends PathStrikeSettings {
   readonly direction?: TargetResolver;
 }
 
-/** Path and driven actions retain separate returning instances and generate only their own writes. */
+/** Path actions retain separate returning instances and generate only their own writes. */
 export function pathExecutor(body: Body, guard: Pose, actions: readonly PathAction[], settings: PathExecutorSettings): Executor {
-  const { execution, driven, overlap = false } = settings;
+  const { execution, overlap = false } = settings;
   const paths = settings.paths ?? ATTACK_PATH;
-  const tuning = driven ? { ...paths, windup: driven.windup, torso: driven.torso, contactSpeed: driven.contact } : paths;
-  if (!validAttackTuning(tuning) || execution && !validCombatExecution(execution) || driven && !validDrivenStrike(driven))
+  const tuning = paths;
+  if (!validAttackTuning(tuning) || execution && !validCombatExecution(execution))
     throw new Error("invalid path executor settings");
   const spec = body.built.spec, guarding = guard;
   const resolve = settings.resolve;
@@ -145,7 +120,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       ...(action.lower !== undefined || execution?.planted ? ["legs"] : [])]),
   }]));
   type Motion = { request: ActionRequest; target: Vec3; direction: Vec3 | null; home: Vec3; chamber: Vec3; lower: number;
-    withdrawn: boolean; ending: ActionEnding; elapsed: number; supportPhase: "lower" | "ready" | "rise"; supportTime: number; elbow: number; initialElbow: number; launch: number | null };
+    withdrawn: boolean; ending: ActionEnding; elapsed: number; supportPhase: "lower" | "ready" | "rise"; supportTime: number; elbow: number; initialElbow: number };
   const state = { lives: { left: null as Motion | null, right: null as Motion | null },
     cycles: { left: strikes.left.state, right: strikes.right.state }, cooldown: 0,
     ...(foundation ? { foundation: foundation.state } : {}) };
@@ -158,7 +133,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
     const path = attackPath(live.home, [target.x, target.y, target.z], hand, action.family, tuning,
       aimed ? [direction.x, direction.y, direction.z] : undefined);
     const course: StrikeCourse = { home: live.home, chamber: live.chamber, target: [target.x, target.y, target.z],
-      contactVelocity: path.contactVelocity, seconds: live.launch ?? path.seconds, ...(path.curve ? { curve: path.curve } : {}) };
+      contactVelocity: path.contactVelocity, seconds: path.seconds, ...(path.curve ? { curve: path.curve } : {}) };
     return { path, course };
   };
   const held = (hand: Side, live: Motion): readonly Resource[] => state.cycles[hand].phase === "return" && find(live.request.action).lower === undefined
@@ -209,7 +184,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       const chamber = attackPath(home, [target.x, target.y, target.z], hand, action.family, tuning).chamber;
       const direction = request.target.kind === "point" ? request.target.direction : settings.direction?.(view, request.target, request.action, request.effector);
       state.lives[hand] = { request: { ...request }, target: [...at], direction: direction ? [...direction] : null, home, chamber, lower: action.lower ?? around.lower,
-        withdrawn: false, ending: { kind: "completed" }, elapsed: 0, supportPhase: action.lower === undefined ? "ready" : "lower", supportTime: 0, elbow: 0, initialElbow: 0, launch: null };
+        withdrawn: false, ending: { kind: "completed" }, elapsed: 0, supportPhase: action.lower === undefined ? "ready" : "lower", supportTime: 0, elbow: 0, initialElbow: 0 };
       strike.state.previous = [...home]; strike.begin("chamber", [0, 0, 0]);
     },
     update(view, continued, around, dt) {
@@ -272,11 +247,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
         if (event & STRIKE_EVENT.failed) live.ending = { kind: "stalled", reason: cycle.phase === null
           ? `return deadline${live.ending.kind === "completed" ? "" : ` after ${live.ending.reason ?? live.ending.kind}`}` : "preparation deadline" };
         if (event & STRIKE_EVENT.aborted) live.ending = { kind: "interrupted", reason: "stroke lost support or met blocking contact" };
-        if (cycle.phase !== previous) {
-          live.initialElbow = live.elbow;
-          if (driven && cycle.phase === "swing") live.launch = Math.max(dt, 2 * hypot(course.target[0] - cycle.previous![0],
-            course.target[1] - cycle.previous![1], course.target[2] - cycle.previous![2]) / driven.contact);
-        }
+        if (cycle.phase !== previous) live.initialElbow = live.elbow;
         if (event & STRIKE_EVENT.finished) {
           if (action.lower !== undefined) {
             live.supportPhase = "rise"; live.supportTime = 0;
@@ -306,16 +277,14 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
         const name = `elbow.${hand} flexion`, dof = spec.joints.find(j => j.name === `elbow.${hand}`)?.dofs.find(d => d.positive === "flexion");
         if (dof) posture[name] = Math.max(dof.min.value, Math.min(dof.max.value, (1 - live.elbow) * guarding[name]!));
       }
-      const turn = driven ? -path.torso : path.torso, rotation = phase === "chamber" ? -turn : phase === "swing" ? turn : 0;
+      const turn = path.torso, rotation = phase === "chamber" ? -turn : phase === "swing" ? turn : 0;
       if (rotation) {
         const name = "thoracic rotation right", dof = spec.joints.find(j => j.name === "thoracic")?.dofs.find(d => d.positive === "rotation right");
-        const sense = rotation > 0 ? 1 : -1, turned = sense * (view.angles[name] ?? 0) >= sense * rotation;
-        if (driven && driven.drive > 0 && phase === "swing" && dof && !turned) pushes.push({ channel: name, sense, level: driven.drive });
-        else posture[name] = dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0;
+        posture[name] = dof ? Math.max(dof.min.value, Math.min(dof.max.value, rotation)) : 0;
       }
       const owns = held(hand, live), low = find(live.request.action).lower;
       const goal = strike.goal(course);
-      return { posture, pushes, effectors: { [live.request.effector]: driven ? { ...goal, carried: true } : goal },
+      return { posture, pushes, effectors: { [live.request.effector]: goal },
         ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}),
         ...(owns.includes("legs") ? { legs: HOLD, lower: live.lower } : {}),
         ...(low !== undefined ? { support: live.lower } : {}) };

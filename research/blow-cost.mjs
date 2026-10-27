@@ -11,8 +11,7 @@ import { parseArgs } from "node:util";
 import { blowConfig } from "./competencies.mjs";
 import { punchStand } from "./punch-calibration.mjs";
 
-const BLOWS = Object.freeze([["path strike", "path-strike", ""], ["driven strike", "driven-strike", ""],
-  ["whole-body, timed", "whole-body-strike", ""], ["whole-body, flat out", "whole-body-strike", "drive=flat-out"]]);
+const BLOWS = Object.freeze([["path strike", "path-strike", ""]]);
 const MODELS = Object.freeze([["Warrior", "workshop-fighter"], ["Rogue", "workshop-rogue"]]);
 
 /** One playing of `blow` on `model` at `hz`: the timed steps with a blow under way and without. */
