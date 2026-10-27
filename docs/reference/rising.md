@@ -47,6 +47,10 @@ npm run evaluate -- rising-target [riser ...]
   one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
   `stand-up` with every technique, a technique's name, or a mind's JSON. `research/rising-bed.mjs
   --target` plays the same falls (`src/evaluation/rising.ts`).
+- **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved halfway between
+  the target's directions, 11.25 degrees past each (`FRESH_OFFSET`), read against the same gates,
+  their cardinals the four directions just past each. No edge, timing or route is tuned on them:
+  they show whether a gain on the target is fitted to its 64 falls.
 - **A recovery** is timed to verified standing, from the riser's takeover, through landing,
   orientation and retries. A fall not stood counts at the cap.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
@@ -1164,7 +1168,8 @@ read by whether it takes the body to its posture and how fast: `npm run evaluate
 Rapier, 120 Hz). The Warrior and the Rogue empty-handed, six seeds each. A technique waits up to
 2 s for its entry, runs up to 16 s, and one that stands the body is watched 2 s on its feet
 (`TECHNIQUE_LIMITS`). Its summary is each edge's profile: begun, done, the median time, by body and
-by the speed it was begun at.
+by the speed it was begun at. An edge that ends not done leaves the body slack until it comes to
+rest (settled and under 0.1 m/s, for up to 2 s), and the trial reads the position it rests in.
 
 - **Rung `placed`**: from each position the edge is begun from, placed there at rest. A seed moves
   each joint by up to 0.02 of its range (`TECHNIQUE_SPREAD`): at the Lab's 0.1 most kneeling

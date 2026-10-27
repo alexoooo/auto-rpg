@@ -64,7 +64,7 @@ export function riseCase(edge: TechniqueName, condition: RiseCondition): Techniq
 
 const play = (rung: string): Json => ({ drill: "rise", rung, limits: TECHNIQUE_LIMITS as unknown as Json });
 /** The longest case: the route's every edge in turn. */
-const seconds = TECHNIQUE_LIMITS.admit * (DRILLED.length + 1) + TECHNIQUE_LIMITS.run * DRILLED.length + TECHNIQUE_LIMITS.stood + 2;
+const seconds = TECHNIQUE_LIMITS.admit * (DRILLED.length + 1) + TECHNIQUE_LIMITS.run * DRILLED.length + TECHNIQUE_LIMITS.stood + TECHNIQUE_LIMITS.rest + 2;
 
 /** The drill's rungs. A case whose start no seed's draw places clear is refused before it plays. */
 export const RISE_CASES: Readonly<Record<"placed" | "moving", Cases<RiseCondition, TechniqueReading & Json, BuiltTechnique>>> = Object.freeze({

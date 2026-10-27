@@ -45,10 +45,11 @@ export interface TechniqueCase {
 
 /**
  * How long a technique may wait for its entry to admit the body, s, from the start, the end of the
- * one before, or a shoved body first down; how long one may run, s; and how long a body a technique
- * stood is watched on its feet, s.
+ * one before, or a shoved body first down; how long one may run, s; how long a body a technique
+ * stood is watched on its feet, s; and how long a body one did not take to its posture is watched
+ * coming to rest, s, and how slow it is then, m/s.
  */
-export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2 });
+export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2, rest: 2, still: .1 });
 
 /**
  * How far a seed moves a placed start's joints, a share of each joint's range: a posture the route
@@ -66,7 +67,7 @@ export type LinkReading = {
   readonly seconds: number;
   /** As it was begun: the raw position, the centre of mass's speed, m/s, the pelvis's spin, rad/s, and how long it waited for its entry, s; null where it was not. */
   readonly entry: { readonly position: string; readonly speed: number; readonly spin: number; readonly waited: number } | null;
-  /** The settled position at its end. */
+  /** The settled position at its end; where it ended not done, where the body came to rest (`TECHNIQUE_LIMITS.rest`). */
   readonly position: string;
 };
 
@@ -103,7 +104,8 @@ export function techniquePlacement(one: TechniqueCase): ReturnType<typeof ground
  * any other posture, it holds its placement's. Each technique begins once its entry admits the body (on its first side), the settled
  * position read, within `TECHNIQUE_LIMITS.admit` s; until then the commands of the one before
  * carry on. The case ends at the last technique's end, or `TECHNIQUE_LIMITS.stood` s after a
- * technique that stands the body, or when one is not entered.
+ * technique that stands the body, or when one is not entered; once one ends not done, the body
+ * lies slack until it comes to rest, for up to `TECHNIQUE_LIMITS.rest` s.
  */
 export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engine"]): Promise<BuiltTechnique> {
   if (one.chain.length === 0) throw new Error("a technique case plays at least one technique");
@@ -116,7 +118,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   const held: Record<string, number> = {};
   for (const joint of spec.joints) joint.dofs.forEach((dof, k) => { held[`${joint.name} ${dof.positive}`] = (placement.joints?.[joint.name]?.[k] ?? 0) + dof.bind.value; });
   const lying = one.start.kind === "shoved" || LYING.includes(one.start.posture);
-  const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "stood" | "over", since: 0, down: false,
+  const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false,
     links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
   let runs: TechniqueRun[] = [];
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
@@ -136,6 +138,15 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
       step(senses, dt) {
         const g = view.ground;
         if (!g) { carry(); return; }
+        if (state.phase === "rest") {
+          // A technique that ended short: the body lies slack until it comes to rest, read there.
+          own.muscles.activation.fill(0); own.muscles.velocity.fill(0);
+          if (g.settled && g.velocity.lengthSquared() < TECHNIQUE_LIMITS.still * TECHNIQUE_LIMITS.still || clock.time - state.since + dt / 2 >= TECHNIQUE_LIMITS.rest) {
+            const last = state.links.length - 1;
+            state.links[last] = { ...state.links[last]!, position: g.position }; state.phase = "over";
+          }
+          return;
+        }
         if (state.phase === "wait") {
           const run = runs[state.link]!, side = TECHNIQUES[one.chain[state.link]!].sides[0]!;
           if (g.settled && run.admits(g, side)) {
@@ -158,6 +169,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
         close(end, g);
         if (state.link + 1 < one.chain.length && end === "done") { state.link++; state.phase = "wait"; state.since = clock.time; }
         else if (stands) { state.phase = "stood"; state.since = clock.time; }
+        else if (end !== "done") { state.phase = "rest"; state.since = clock.time; }
         else state.phase = "over";
       } };
   }] });
@@ -170,7 +182,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
     const a = one.start.degrees * Math.PI / 180;
     root.body.applyImpulse(new Vector3(1.5 * mass * sin(a), 0, 1.5 * mass * cos(a)), root.node.position);
   });
-  const cap = TECHNIQUE_LIMITS.admit * (one.chain.length + 1) + TECHNIQUE_LIMITS.run * one.chain.length + TECHNIQUE_LIMITS.stood + 2;
+  const cap = TECHNIQUE_LIMITS.admit * (one.chain.length + 1) + TECHNIQUE_LIMITS.run * one.chain.length + TECHNIQUE_LIMITS.stood + TECHNIQUE_LIMITS.rest + 2;
   return {
     world, body: built,
     get ended() { return state.phase === "over" || world.time >= cap; },

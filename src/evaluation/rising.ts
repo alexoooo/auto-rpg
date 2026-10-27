@@ -248,13 +248,23 @@ export interface RisingOptions {
   readonly balance?: number;
   readonly gusts?: boolean;
   readonly target?: boolean;
+  /** The target's shoves turned this far, degrees: its fresh falls (`FRESH_OFFSET`). */
+  readonly offset?: number;
   readonly obstacles?: boolean;
   readonly loadouts?: readonly Loadout[] | null;
 }
 
 /**
+ * **The fresh falls**: the target's bodies and loadouts shoved halfway between its sixteen
+ * directions, degrees (`docs/reference/rising.md#the-owners-target`). No edge, timing or route is
+ * tuned on them; they show whether a gain on the target is fitted to its falls.
+ */
+export const FRESH_OFFSET = 11.25;
+
+/**
  * The bed's jobs. The owner's target: the Warrior and the Rogue, empty-handed and with the club,
- * each shoved sixteen ways, every direction once in each group. Equipped falls (`loadouts`): the
+ * each shoved sixteen ways, every direction once in each group, turned by `offset` for the fresh
+ * falls. Equipped falls (`loadouts`): the
  * target's sixteen shoves on each loadout. Obstacle falls: the target's on every level but the open
  * floor. Everyday starts: eight shoves a seed, a drop, or each installed posture.
  */
@@ -268,7 +278,7 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
       jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: false, equipped: true, sub: options.sub, ...techniques });
   } else if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"] as const) for (const held of ["empty", "club"] as const) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: true, sub: options.sub, ...techniques });
+      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, sub: options.sub, ...techniques });
   } else for (const model of options.models!) for (const held of options.held!) for (const seed of options.seeds!) for (const start of options.starts!) {
     const common: RisingJob = { model, held, seed, start, balance: options.balance ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, sub: options.sub, ...techniques,
       ...(options.technique ? { technique: options.technique, after: options.after ?? null } : {}) };
@@ -319,13 +329,15 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   }
   let gates: Record<string, boolean> | null = null;
   if (target) {
-    const expected = risingJobs({ target: true, sub: "support-recovery" }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
+    // The fresh falls are read against the same gates, their cardinals the directions just past each.
+    const offset = rows.length > 0 && rows.every(row => row.degrees! % 22.5 === FRESH_OFFSET) ? FRESH_OFFSET : 0;
+    const expected = risingJobs({ target: true, offset, sub: "support-recovery" }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const actual = rows.map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const complete = JSON.stringify(actual) === JSON.stringify(expected);
     gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),
       eachGroup15of16: complete && groups.every(group => group.within6 >= 15),
       total61of64: complete && rows.filter(row => successful(row, 6)).length >= 61,
-      allCardinals: complete && rows.filter(row => row.degrees! % 90 === 0).every(row => successful(row, 6)),
+      allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, 6)),
       median4: complete && median(rows.map(row => time(row) ?? 30))! <= 4 };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
