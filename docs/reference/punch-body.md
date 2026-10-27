@@ -4,7 +4,7 @@ The arms, the trunk and the neck turn 2.5 times as fast unloaded as the curves r
 (`UPPER_SPEED_IN_USE`, `src/core/human/speed.ts`; `owner-punch-body`, `src/core/sources.ts`): the
 least of the factors tried at which a punch searched on the Strike drill lands at the bar
 (`BAR`, `src/evaluation/strike/read.ts`) at 120 and 480 Hz. At the curves read, no straight punch
-does ([a timed punch on the drill](../analysis/2026-10-08-punch-layer.md#a-timed-punch-on-the-drill)).
+does ([a timed punch on the drill](learned-punch.md#a-timed-punch-on-the-drill)).
 
 ## What is used
 
@@ -52,7 +52,7 @@ no other gap; nearer, the elbow meets the target bent; further, the fist meets t
 or misses. The schedule before it, read at gaps 0.85 to 1.05 m and offsets across of 0, 0.1 and
 0.2 m on the Warrior and the Rogue at both rates (60 trials), landed only at its own gap, square
 on, on the Warrior. A punch that lands across
-them is the [Punch](../plans/2026-10-24-punch.md) plan's step 4.
+them is the steered one, [the learned punch](learned-punch.md).
 
 What the factor moves (`scripts/fingerprint.mjs --experimental` against `3a472896`): every bout
 and crypt fight, the Lab's run and routine and the learned rise and run move; no stand moves. Of
@@ -62,7 +62,7 @@ the 24 arena bouts without the reptile, 4 end in a fall and 4 in a fatal blow, a
 
 - The elbow's curvature flattened (0.1, or its unloaded speed at 32.9 rad/s), the rest as read: the
   search lands only an overhead chop, at 120 Hz alone
-  ([a timed punch on the drill](../analysis/2026-10-08-punch-layer.md#a-timed-punch-on-the-drill)).
+  ([a timed punch on the drill](learned-punch.md#a-timed-punch-on-the-drill)).
 - The trunk's axial rotation torque 2.5 and 4 times Pan's, the factor at 1.98: the best of each
   is weak at 120 Hz, 6.35 and 5.61 m/s, read with a 20-degree arm-line test.
 - The fist driven along the line (`driven`) beside the timed trunk: on the line (along 0.98), at
