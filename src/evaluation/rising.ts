@@ -167,8 +167,8 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
-    run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, true, kit);
-    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, true, kit) ?? null : null;
+    run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, kit);
+    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
     return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },
       wants: () => control.active,

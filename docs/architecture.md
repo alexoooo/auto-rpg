@@ -558,20 +558,18 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have profiles (`ground/profiles.ts`, `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), and the learned rise (`ground/learned-rise.ts`) are experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have profiles (`ground/profiles.ts`, `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), is experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
-**Mind data loads per use** (`src/core/data/store.ts`). The learned rise's and the learned
-punch's networks and Research rise's recorded get-ups (`assets/core/learned-rise.json`, `assets/core/learned-punch.json`, `assets/research/research-rise*.json`) are each a module of their
+**Mind data loads per use** (`src/core/data/store.ts`). The learned punch's network and Research
+rise's recorded get-ups (`assets/core/learned-punch.json`, `assets/research/research-rise*.json`) are each a module of their
 own in `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
 `treeData(config)` (`mind/catalog.ts`) collects a tree's: the Arena loads both sides' before the
-bout, the Crypt every participant's before the run, the Lab its mind's and its scenario's subs'
-(`LabScenario.subsData`) before the body. In Node, `tests/harness/preload-data.mjs` loads every key,
-imported by each module that builds a data-reading mind (the stand and the bout among them). Stand
-up makes a learned rise that its config does not list without a network (`TechniqueSpec.make`'s
-`listed`), so it reads no data.
+bout, the Crypt every participant's before the run, the Lab its mind's before the body. In Node,
+`tests/harness/preload-data.mjs` loads every key, imported by each module that builds a
+data-reading mind (the stand and the bout among them).
 
 `BodyView.ground` (`mind/ground/reading.ts`) reads each segment's fixed-contact load, sole support
 and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the
@@ -704,7 +702,7 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   ([The screens](#the-screens)) shows every record.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
-  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned punch);
+  part that reads mind data (`DATA_CASES`: Research rise, the learned punch);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 ### Command

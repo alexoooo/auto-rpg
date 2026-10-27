@@ -36,7 +36,7 @@ export function groundTechnique(name: TechniqueName, own: OwnBody, view: BodyVie
   const spec: TechniquePart = TECHNIQUES[name];
   const refused = spec.fits(own.spec, spec.defaults, partLookup);
   if (refused !== null) throw new Error(`${spec.label} does not fit ${own.spec.model}: ${refused}`);
-  const run = spec.make(own, view, clock, true, kitOf(partLookup, own.spec, { guard: GAME_GUARD }));
+  const run = spec.make(own, view, clock, kitOf(partLookup, own.spec, { guard: GAME_GUARD }));
   const state: GroundTechniqueState = { kind: "ground-technique", technique: name, run: run.state, phase: run.phase,
     ended: null, reached: false, time: 0, active: immediate, waiting: !immediate };
   return { name: `technique: ${name}`, state,

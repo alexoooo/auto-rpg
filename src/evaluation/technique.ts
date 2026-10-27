@@ -123,7 +123,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   let runs: TechniqueRun[] = [];
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), drive = poseDrive(own.muscles);
-    runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, true, kit));
+    runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, kit));
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
     const remember = () => { command.activation.set(own.muscles.activation); command.velocity.set(own.muscles.velocity); };
     const carry = () => { own.muscles.activation.set(command.activation); own.muscles.velocity.set(command.velocity); };

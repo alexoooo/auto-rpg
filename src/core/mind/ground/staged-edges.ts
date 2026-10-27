@@ -182,7 +182,7 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
 
 const routeTechnique = <K extends StagedKind>(kind: K, label: string) => technique(kind, { label, stage: "experimental", moving: true,
   sides: Object.freeze(["left"] as const), edges: Object.freeze(PARTS[kind].from.map(from => Object.freeze({ from, to: PARTS[kind].to as Position }))),
-  make: (own, view, _clock: Clock, _listed, kit) => routePart(own, view, kit, kind) });
+  make: (own, view, _clock: Clock, kit) => routePart(own, view, kit, kind) });
 
 /** **Staged roll**: from the back or a side onto the front, as step up rolls. */
 export const STAGED_ROLL = routeTechnique("staged-roll", "Staged roll");

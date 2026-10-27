@@ -108,7 +108,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 
 | Family | Scripts | Record |
 |---|---|---|
-| Standing up | `rising-*.mjs`, `stand-up-*.mjs`, `rise-learning-environment.mjs`, `recovery-transfer.mjs` | [rising](../docs/reference/rising.md), [recovery transfer](../docs/reference/recovery-transfer.md), [stand-up study](../docs/analysis/2026-10-11-stand-up-planning.md) |
+| Standing up | `rising-*.mjs`, `stand-up-*.mjs`, `recovery-transfer.mjs` | [rising](../docs/reference/rising.md), [recovery transfer](../docs/reference/recovery-transfer.md), [stand-up study](../docs/analysis/2026-10-11-stand-up-planning.md) |
 | Punches | `punch-*.mjs`, `greedy-punch.mjs`, `whole-body-spike.mjs` | [punch calibration](../docs/reference/punch-calibration.md), [punch foundation](../docs/reference/punch-foundation.md), [whole-body spike](../docs/reference/whole-body-spike.md), [learned punch](../docs/reference/learned-punch.md) |
 | Walking and running | `locomotion-*.mjs`, `run-*.mjs`, `run-train.py`, `mocap-import.mjs`, `bvh.mjs`, `combat-locomotion.mjs` | [locomotion](../docs/reference/locomotion.md), [run body](../docs/reference/run-body.md) |
 | Strikes and fights | `arena-combat*.mjs`, `combat-*.mjs`, `strike-*.mjs`, `empty-hand-league.mjs`, `attack-force.mjs`, `front-kicks.mjs`, `core-range.mjs`, `stance-stagger.mjs`, `oracle-spread.mjs`, `cap-series.mjs` (shorter bout caps from recorded reports' bar series) | [arena combat](../docs/reference/arena-combat-evaluation.md), [blows](../docs/reference/blows.md), [front kicks](../docs/reference/front-kicks.md), [presets](../docs/reference/controller-presets.md) |

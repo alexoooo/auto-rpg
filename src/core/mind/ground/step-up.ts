@@ -214,7 +214,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
   };
 }
 
-/** A rise step up plays, as its steer and progress are read from outside (`learnedRise`). */
+/** A rise step up plays (`stagedRise`). */
 export type StepUpRise = ReturnType<typeof stagedRise>;
 
 /**
@@ -227,10 +227,7 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * one way, by a wall or a body lying beside it, turns the other.
  */
 export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, given?: StepUpTuning,
-  base: Recipe = RISE): TechniqueRun & {
-  /** Its rises, whole, joined part-way and whole over the other side; the one it plays; and whether the rise is over and the stance steadies the body. */
-  readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
-} {
+  base: Recipe = RISE): TechniqueRun {
   const tuning = given ?? stepUpTuning(own.spec.model);
   const whole = stepUpRecipe(tuning, base);
   /** The rise from its stage `stage` on. */
@@ -258,7 +255,6 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
   };
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : `${rises[state.entry].state.phase}`; },
-    rises: [rises.whole, rises.fours, rises["half-kneel"], rises.other], get rise() { return rises[state.entry]; }, get steadying() { return state.phase === "steady"; },
     get yields() { return state.ended !== null || state.phase === "steady" || rises[state.entry].state.phase === "settle"; },
     admits(g, side) { return side === "left" && g.spin < 8 && g.velocity.lengthSquared() < 9 && g.position !== "standing" && g.position !== "crouch"; },
     reached,
@@ -295,4 +291,4 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
 
 /** **Step up** (`stepUp`): the game's stand-up, from any position. */
 export const STEP_UP_TECHNIQUE = technique("step-up", { label: "Step up", stage: "game", sides: Object.freeze(["left"] as const), edges: TO_STANDING,
-  make: (own, view, clock, _listed, kit) => stepUp(own, view, clock, kit) });
+  make: (own, view, clock, kit) => stepUp(own, view, clock, kit) });

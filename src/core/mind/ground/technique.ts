@@ -36,8 +36,8 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
   readonly moving: boolean;
-  /** A run of it on the body, driving it with the mind's motor and guard (`kit`); `listed`, its stand-up's config names it, and a technique that reads mind data reads it only then (the supervisor routes only through those named). */
-  make(own: OwnBody, view: BodyView, clock: Clock, listed: boolean, kit: MindKit): TechniqueRun;
+  /** A run of it on the body, driving it with the mind's motor and guard (`kit`). */
+  make(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit): TechniqueRun;
 }
 
 /** A reached physical predicate must remain true this long; search settings cannot change it. */

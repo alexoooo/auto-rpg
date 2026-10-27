@@ -9,8 +9,7 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration is the environment's (the steered punch's `punchEnvironment`, the default, or the
- * learned rise's `riseEnvironment` with `"environment": "rise"`) with `workers`, `each`, and `models`, `holds`
+ * The configuration is the environment's (the steered punch's `punchEnvironment`) with `workers`, `each`, and `models`, `holds`
  * and `hastes`, whose every combination the environments take in turn; environment i is seeded
  * `seed + i`.
  */
@@ -21,8 +20,8 @@ import { readFileSync } from 'node:fs';
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
   const kind = workerData[0].environment;
-  const make = kind === 'rise' ? (await import('./rise-learning-environment.mjs')).riseEnvironment
-    : (await import('./punch-learning-environment.mjs')).punchEnvironment;
+  if (kind !== 'punch') throw new Error(`no learning environment ${kind}`);
+  const { punchEnvironment: make } = await import('./punch-learning-environment.mjs');
   const envs = [];
   for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });

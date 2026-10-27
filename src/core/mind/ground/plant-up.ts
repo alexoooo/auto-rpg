@@ -169,4 +169,4 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKi
 /** **Plant up** (`plantUp`): from the front, on all fours or kneeling. */
 export const PLANT_UP_TECHNIQUE = technique("plant-up", { label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
   edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
-  make: (own, view, clock, _listed, kit) => plantUp(own, view, clock, kit) });
+  make: (own, view, clock, kit) => plantUp(own, view, clock, kit) });

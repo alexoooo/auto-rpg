@@ -408,12 +408,10 @@ async function laidDown(mind) {
 const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(mind) });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: Research rise and the learned rise, the Warrior laid down; the
- * learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
+ * read by a case that plays it: Research rise, the Warrior laid down; the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
  */
 const DATA_CASES = [
   felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
-  felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: [{ kind: "learned-rise" }] }] }),
   { name: "data: learned-punch", run: () => {
     const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };

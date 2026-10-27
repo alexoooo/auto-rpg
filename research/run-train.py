@@ -1,7 +1,6 @@
 """Train a learned skill's policy with PPO (Stable-Baselines3) against its environments on Node
-worker threads (research/run-learning-server.mjs: the steered punch's, or the learned rise's with
-"environment": "rise"), and export it as the core reads it (src/core/skills/learned-punch.ts,
-PunchPolicy; src/core/mind/ground/learned-rise.ts, RisePolicy): ReLU layers, the observation's
+worker threads (research/run-learning-server.mjs: the steered punch's), and export it as the core
+reads it (src/core/skills/learned-punch.ts, PunchPolicy): ReLU layers, the observation's
 normalisation folded into the first, tanh on the outputs. Each line of train.log has the mean of
 each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is
 policy.json, and every `--keep` steps a copy stays as policy-<steps>.json: the training return

@@ -62,7 +62,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   // `waits`: it routes through an edge whose entry reads motion, so a body still landing is held for one rather than routed.
   let waits = false;
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
-    const run = spec.make(own, view, clock, order.includes(name), kit); runs[name] = run;
+    const run = spec.make(own, view, clock, kit); runs[name] = run;
     waits ||= spec.moving && order.includes(name);
     const profile = edgeProfile(own.spec.model, name);
     graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => run.admits(g, side) };

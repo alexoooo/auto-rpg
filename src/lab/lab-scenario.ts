@@ -8,7 +8,6 @@ import type { LabAddress } from "./scenarios.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import type { BodyOptions } from "../core/body.ts";
-import type { DataKey } from "../core/data/store.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -32,8 +31,6 @@ export interface LabScenario {
   placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
   /** Explicit standalone experiments may replace the selected fighter's sub-minds. */
   subs?(address: LabAddress): BodyOptions["subs"];
-  /** The mind data its `subs` read when made at `address` (`dataOf`), loaded before they are; none where absent. */
-  subsData?(address: LabAddress): readonly DataKey[];
   start(context: ScenarioContext): ScenarioRun;
 }
 

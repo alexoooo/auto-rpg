@@ -6,7 +6,7 @@ import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
 import { DOWN, footStatesOf, readSupport, turnOfToRef, withinSupport } from "../../control/support.ts";
-import { atan2, cos, exp, sin } from "../../math/real.ts";
+import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
@@ -54,30 +54,6 @@ const LEFT = 0.01;
 const RAISED = 0.1;
 
 /**
- * **What steers a rise**, each nought for its recipe as written: `clock`, how fast its stages
- * run, the log of the times faster than written; `hurry`, the share a bearing stage's
- * tolerances are widened by (the centre of mass's nearness and slowness, the pelvis's turn);
- * `forward` and `side`, the centre of mass's place moved along and across the way the pelvis
- * faces, m; `height`, its height raised, a share of standing height; `pitch`, the pelvis's pitch
- * raised, rad; and the posture turned, rad: each hip's and knee's flexion, each ankle's
- * dorsiflexion, the spine's flexion, and both shoulders' and both elbows' flexion (`STEERED`).
- */
-export interface RiseSteer {
-  clock: number; hurry: number; forward: number; side: number; height: number; pitch: number;
-  hipLeft: number; hipRight: number; kneeLeft: number; kneeRight: number; ankleLeft: number; ankleRight: number;
-  spine: number; shoulders: number; elbows: number;
-}
-/** The steer's keys, in the order a policy gives them. */
-export const RISE_STEER_KEYS: readonly (keyof RiseSteer)[] = Object.freeze(["clock", "hurry", "forward", "side", "height", "pitch",
-  "hipLeft", "hipRight", "kneeLeft", "kneeRight", "ankleLeft", "ankleRight", "spine", "shoulders", "elbows"]);
-/** The channels each of the steer's posture keys turns. */
-const STEERED: Readonly<Partial<Record<keyof RiseSteer, readonly string[]>>> = Object.freeze({
-  hipLeft: ["hip.left flexion"], hipRight: ["hip.right flexion"], kneeLeft: ["knee.left flexion"], kneeRight: ["knee.right flexion"],
-  ankleLeft: ["ankle.left dorsiflexion"], ankleRight: ["ankle.right dorsiflexion"], spine: ["thoracic flexion", "lumbar flexion"],
-  shoulders: ["shoulder.left flexion", "shoulder.right flexion"], elbows: ["elbow.left flexion", "elbow.right flexion"],
-});
-
-/**
  * How a body lies, by its root segment `root`: its forward (the reference pose's +z) against up
  * says back or front, and between them the side its left (the reference pose's -x) is under.
  * `work` carries nothing between calls.
@@ -120,7 +96,7 @@ export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: n
  * level, and where its limbs are.
  */
 export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & {
-  readonly state: { readonly phase: "idle" | "settle" | "roll" | "rise"; readonly tries: number; readonly lie: Lie; readonly stage: number; readonly time: number; readonly steer: RiseSteer };
+  readonly state: { readonly phase: "idle" | "settle" | "roll" | "rise"; readonly tries: number; readonly lie: Lie; readonly stage: number; readonly time: number };
   /** How many stages `phase` plays, as the body lies now. */
   stages(phase: "roll" | "rise"): number;
   /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
@@ -182,8 +158,6 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     raised: false,
     /** Accumulated weight-transfer error, m, bounded by the body's standing height (docs/reference/recovery-transfer.md). */
     transfer: new Vector3(),
-    /** What steers it now (`RiseSteer`), set from outside; nought, the recipe as written. */
-    steer: Object.fromEntries(RISE_STEER_KEYS.map((key) => [key, 0])) as unknown as RiseSteer,
     /**
      * A bearing stage's records, each written by a step before it reads it: each limb's task, the
      * aims and the root's acceleration found for them, what the assist is asked, the freedoms held
@@ -202,13 +176,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const work = {
     place: new Vector3(), target: new Vector3(), across: new Vector3(), spin: new Vector3(), rootSpin: new Vector3(),
     turn: new Quaternion(), yaw: new Quaternion(), pitch: new Quaternion(), moved: new Uint8Array(count),
-    /** A bearing stage's goals turned as the steer asks. */
-    goals: new Float64Array(count),
   };
-  /** Each channel's posture key of the steer (`STEERED`), or null. */
-  const steeredBy = muscles.channels.map((channel) => (Object.keys(STEERED) as (keyof RiseSteer)[]).find((key) => STEERED[key]!.includes(channel.name)) ?? null);
-  /** How far the steer turns channel `i`, rad. */
-  const steerOf = (i: number): number => { const key = steeredBy[i]!; return key === null ? 0 : state.steer[key]; };
 
   const slack = (): void => {
     muscles.activation.fill(0);
@@ -237,9 +205,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage): void => {
-    const rate = exp(state.steer.clock), goals = goalsOf.get(stage)!, top = (stage.drive?.speed ?? POSE_SPEED) * rate, within = (stage.drive?.within ?? POSE_SECONDS) / rate;
+    const goals = goalsOf.get(stage)!, top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS;
     for (let i = 0; i < goals.length; i++) {
-      muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! + steerOf(i) - muscles.angle(i)) / within));
+      muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
       muscles.activation[i] = 1;
     }
   };
@@ -252,10 +220,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   /** A step of `stage`; whether its limbs are down, those it leaves let go, the centre of mass at its aim and slow, and the pelvis turned to its. */
   const bear = (stage: BearStage, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
-    const steer = state.steer, rate = exp(steer.clock), seconds = stage.seconds / rate, n = 1 / seconds;
-    const written = goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
-    const goals = work.goals;
-    for (let i = 0; i < count; i++) goals[i] = written[i]! + steerOf(i);
+    const seconds = stage.seconds, n = 1 / seconds;
+    const goals = goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
     const ground = upright.lowest(), standing = upright.standing;
     // The way the pelvis faces, about up: its left-to-right axis says it however far forward it is pitched.
     across.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, turn), across);
@@ -274,11 +240,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       place.addInPlaceFromFloats(share[l]! * over.x, 0, share[l]! * over.z);
       borne += share[l]!;
     });
-    if (borne > 0) {
-      place.scaleInPlace(1 / borne);
-      const fx = sin(heading), fz = cos(heading);
-      place.addInPlaceFromFloats(steer.forward * fx + steer.side * fz, 0, steer.forward * fz - steer.side * fx);
-    }
+    if (borne > 0) place.scaleInPlace(1 / borne);
     else place.set(c.x, 0, c.z);
     // Those it leaves bear where they are, while they are down, until the centre of mass is over
     // the others (within the outline of where they bear, drawn in as a stance's is); the rest
@@ -298,13 +260,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       if (!on[l] && !(leaves[l] && !state.lifted && made.bear(l, goals, n, ground, LEFT, !keeps))) made.rest(l);
     }
     // The centre of mass: toward the place, at the stage's height over the ground if it has one, critically damped.
-    target.set(place.x, (stage.height === null ? c.y : ground + stage.height * standing) + steer.height * standing, place.z);
+    target.set(place.x, (stage.height === null ? c.y : ground + stage.height * standing), place.z);
     aim.centre.set(n * n * (target.x - c.x + state.transfer.x) - 2 * n * v.x, n * n * (target.y - c.y) - 2 * n * v.y, n * n * (target.z - c.z + state.transfer.z) - 2 * n * v.z);
     // The pelvis: toward its reference turn pitched forward, then turned about up to the way it faces now.
     root.body.angularVelocityToRef(rootSpin);
     if (stage.pitch === null) spin.setAll(0);
     else {
-      turnAboutToRef(across.set(1, 0, 0), stage.pitch + steer.pitch, pitch);
+      turnAboutToRef(across.set(1, 0, 0), stage.pitch, pitch);
       yaw.multiplyToRef(pitch, turn).multiplyInPlace(root.rest);
       spinBetweenToRef(root.node.rotationQuaternion!, turn, seconds, spin);
     }
@@ -312,7 +274,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around
     // the limbs' motion, and the limbs' torques. Every freedom is asked toward the posture: a
     // bearing limb's are then the solve's, and its stem moves as the servo asked.
-    const asked = servoAsk(muscles, (i) => goals[i], (stage.postureSeconds ?? stage.seconds) / rate, dt);
+    const asked = servoAsk(muscles, (i) => goals[i], stage.postureSeconds ?? stage.seconds, dt);
     // A moment the patches miss is weighed as a force missed at the root's height over the ground.
     const lever = muscles.dynamics.root.centre[1] - ground;
     const carried = carryRoot(solve, muscles, asked, aim, lever);
@@ -321,12 +283,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     bearLimbs(solve, muscles, asked, lever, true);
     const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
-    const widened = 1 + steer.hurry, tolerance = (stage.progress?.turn ?? turnTolerance) * widened;
+    const tolerance = stage.progress?.turn ?? turnTolerance;
     const turnLeft = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * seconds * seconds, apart = dx * dx + dy * dy + dz * dz;
-    const slow = (stage.progress?.speed ?? speed) * widened, close = (stage.progress?.near ?? near) * widened;
+    const slow = stage.progress?.speed ?? speed, close = stage.progress?.near ?? near;
     const borneAndSlow = down && (keeps || state.lifted) && v.x * v.x + v.y * v.y + v.z * v.z < slow * slow;
     if (restSeconds === null) return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close;
-    // At rest short of its aims: within the widened tolerances, slow, for the recipe's time.
+    // At rest short of its aims: within the tolerances widened at rest, slow, for the recipe's time.
     const w = restWiden * restWiden;
     state.rested = borneAndSlow && turnLeft < tolerance * tolerance * w && apart < close * close * w ? state.rested + dt : 0;
     return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close || state.rested + dt / 2 >= restSeconds;
@@ -408,7 +370,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           switch (stage.kind) {
             case "pose":
               pose(stage);
-              state.time += dt * exp(state.steer.clock);
+              state.time += dt;
               if (state.time + dt / 2 >= stage.seconds && !held(stage, dt)) enter(state.phase, state.stage + 1);
               return;
             case "bear": {

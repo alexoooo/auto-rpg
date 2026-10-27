@@ -256,9 +256,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     return scenario.mind?.(chosen, to) ?? chosen;
   }
 
-  /** The mind data a load of `to` reads (`loadData`): its mind's and its scenario's subs'; none where `to` does not load, which `loadWorld` reports. */
+  /** The mind data a load of `to` reads (`loadData`): its mind's; none where `to` does not load, which `loadWorld` reports. */
   function dataAt(to: LabAddress): readonly DataKey[] {
-    try { return [...treeData(mindAt(to, loadoutSpec(to))), ...scenario.subsData?.(to) ?? []]; }
+    try { return treeData(mindAt(to, loadoutSpec(to))); }
     catch { return []; }
   }
 

@@ -66,7 +66,7 @@ const JOINED = { whole: 0, other: 0, fours: RISE.rise.findIndex(s => s.name === 
 /** One target fall under Step up with `tuning`; scored as the header says. */
 export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise", ...job }) {
   let furthest = -1, steady = 0, failed = false;
-  const registry = { ...TECHNIQUES, "step-up": { ...TECHNIQUES["step-up"], make: (own, view, world, _listed, kit) => {
+  const registry = { ...TECHNIQUES, "step-up": { ...TECHNIQUES["step-up"], make: (own, view, world, kit) => {
     const run = stepUp(own, view, world, kit, tuning, RECIPES[recipe]), step = run.step;
     return Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(run), step: { value(g, senses, dt) {
       const end = step(g, senses, dt), s = run.state;

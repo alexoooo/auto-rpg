@@ -1342,7 +1342,7 @@ arms folded); placed at rest it is done in none.
   `cb523f2f`): pose stages ended once every freedom is within 0.1 rad of its posture and the body
   slower than 0.15 m/s change nothing from `fold` to `tall` (each clock is about the time its
   posture takes) and break the step through (the Warrior empty-handed 0 of 16); the whole rise
-  played 1.3 times faster (`RiseSteer.clock`) stands 18 of 64, 1.6 times none; the pose drive at
+  played 1.3 times faster (`RiseSteer.clock`, `src/core/mind/rise/staged.ts@ffdaaeea`) stands 18 of 64, 1.6 times none; the pose drive at
   4.5 rad/s in 0.15 s (`POSE_SPEED`, `POSE_SECONDS`) stands 39, at 6 rad/s in 0.1 s none. The
   stages wait on balance.
 - **Shorter stages, searched by hand**: the Rogue's `swing` at 0.9 or 1.2 of its time (against
