@@ -4,6 +4,7 @@ import { POST_UP } from "./post-up.ts";
 import { ROLL_BACK } from "./roll-back.ts";
 import { ROLL } from "./roll.ts";
 import { SIT_UP } from "./sit-up.ts";
+import { STAGED_DOWN, STAGED_KNEEL_UP, STAGED_LUNGE, STAGED_ROLL, STAGED_STEP_THROUGH } from "./staged-edges.ts";
 import { STEP_UP_TECHNIQUE } from "./step-up.ts";
 
 /**
@@ -12,4 +13,5 @@ import { STEP_UP_TECHNIQUE } from "./step-up.ts";
  * and nothing else: a case's code reads it as where each kind's own code begins (`caseCoder`,
  * `scripts/build-identity.mjs`).
  */
-export const TECHNIQUES = { "step-up": STEP_UP_TECHNIQUE, "learned-rise": LEARNED_RISE, "plant-up": PLANT_UP_TECHNIQUE, roll: ROLL, "roll-back": ROLL_BACK, "sit-up": SIT_UP, "post-up": POST_UP };
+export const TECHNIQUES = { "step-up": STEP_UP_TECHNIQUE, "learned-rise": LEARNED_RISE, "plant-up": PLANT_UP_TECHNIQUE, roll: ROLL, "roll-back": ROLL_BACK, "sit-up": SIT_UP, "post-up": POST_UP,
+  "staged-roll": STAGED_ROLL, "staged-down": STAGED_DOWN, "staged-kneel-up": STAGED_KNEEL_UP, "staged-step-through": STAGED_STEP_THROUGH, "staged-lunge": STAGED_LUNGE };

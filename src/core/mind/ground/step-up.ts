@@ -1,4 +1,4 @@
-import { carrying } from "../../control/motor.ts";
+import { carrying, type Carrying } from "../../control/motor.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
@@ -144,7 +144,7 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
 });
 
 /** The step-up's tuning for `model`; a model it has none for cannot play it. */
-function stepUpTuning(model: string): StepUpTuning {
+export function stepUpTuning(model: string): StepUpTuning {
   if (!Object.hasOwn(STEP_UP, model)) throw new Error(`the step-up has no tuning for ${model}`);
   return STEP_UP[model as HumanoidModel];
 }
@@ -166,15 +166,53 @@ export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe 
 /** Where the rise may be joined part-way, by the position the body is read in, and the stage it joins at. */
 const JOINS = { fours: "fours", "half-kneel": "half kneel" } as const;
 /** The longest a whole attempt may take, s, and the stance's steadying after it. */
-const LIMIT = 16, STEADY_LIMIT = 3;
+export const LIMIT = 16;
+const STEADY_LIMIT = 3;
 /** Under this height, m, a body on its back is lying on it. */
-const LOW = .5;
+export const LOW = .5;
 /** How long a body read between positions waits for its reading to settle before taking the whole route, s. */
 const JOIN_WAIT = .25;
 /** How long the steadying stance may be read off its two feet, s (a foot unloaded as the body sways), before the attempt has failed. */
 const STEADY_OFF = .3;
 type Entry = "whole" | "other" | keyof typeof JOINS;
 type Phase = "rise" | "steady";
+
+/**
+ * **The stance's climb and steadying after a rise**: from the height the rise leaves the body at
+ * over its lower sole, the stance's goal raised to standing height over `climb` s on a smoothstep,
+ * on both feet, heading the way the pelvis faces. Done once the body has been ready to hand back
+ * (`standReady`) `REACHED_SECONDS`; failed once off its feet `STEADY_OFF` after its first 0.5 s;
+ * timed out past `STEADY_LIMIT`.
+ */
+export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
+  const state = { time: 0, off: 0, reached: 0, height: 0, heading: 0 };
+  const work = { turn: new Quaternion(), across: new Vector3() };
+  return {
+    state,
+    /** Begin from where the rise has left the body. */
+    begin(g: GroundReading): void {
+      turnOfToRef(own.built.segments.get("lowerTrunk")!, work.turn);
+      work.across.set(1, 0, 0).applyRotationQuaternionToRef(work.turn, work.across);
+      state.heading = atan2(-work.across.z, work.across.x);
+      motor.reset(); motor.stance.read();
+      const soles = motor.stance.reading.soles;
+      state.height = g.centre.y - Math.min(soles.left.y, soles.right.y);
+      state.time = 0; state.off = 0; state.reached = 0;
+    },
+    step(g: GroundReading, dt: number): TechniqueEnd | null {
+      state.time += dt;
+      state.off = g.position !== "standing" && g.position !== "crouch" ? state.off + dt : 0;
+      if (state.off > STEADY_OFF && state.time > .5) return "failed";
+      if (state.time > STEADY_LIMIT) return "timed-out";
+      const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
+      motor.stance.read();
+      motor.setStance({ feet: ["left", "right"], centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
+      motor.control(own.muscles, dt);
+      state.reached = standReady({ down: view.down, ground: g }) ? state.reached + dt : 0;
+      return state.reached + 1e-9 >= REACHED_SECONDS ? "done" : null;
+    },
+  };
+}
 
 /** A rise step up plays, as its steer and progress are read from outside (`learnedRise`). */
 export type StepUpRise = ReturnType<typeof stagedRise>;
@@ -205,11 +243,11 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
   const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: otherSide }, base)),
     fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the step-up");
+  const steady = stanceSteady(own, view, motor, tuning.climb);
   // `flip`: this attempt rolls over the other side, the last having failed.
   const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null, flip: false,
-    elapsed: 0, steady: 0, off: 0, reached: 0, height: 0, heading: 0,
+    elapsed: 0, steady: steady.state,
     rises: { whole: rises.whole.state, other: rises.other.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };
-  const work = { turn: new Quaternion(), across: new Vector3() };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   const reached = (g: GroundReading, to: Position) => to === "standing" && standReady({ down: view.down, ground: g });
   const join = (g: GroundReading): void => {
@@ -226,7 +264,7 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
     reached,
     begin() {
       state.flip = state.ended === "failed" || state.ended === "timed-out" ? !state.flip : false;
-      state.phase = "rise"; state.entry = "whole"; state.begun = false; state.rose = false; state.ended = null; state.elapsed = 0; state.steady = 0; state.reached = 0; motor.reset();
+      state.phase = "rise"; state.entry = "whole"; state.begun = false; state.rose = false; state.ended = null; state.elapsed = 0; steady.state.time = 0; steady.state.reached = 0; motor.reset();
     },
     end() { if (state.ended === null) { rises[state.entry].end(); finish("interrupted"); } },
     step(g, senses, dt) {
@@ -246,24 +284,11 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
         if (state.elapsed > LIMIT) { rise.end(); return finish("timed-out"); }
         if (rise.state.phase !== "idle") { rise.step(senses, dt); return null; }
         // The rise is over: the stance takes the body from the height it was left at.
-        turnOfToRef(own.built.segments.get("lowerTrunk")!, work.turn);
-        work.across.set(1, 0, 0).applyRotationQuaternionToRef(work.turn, work.across);
-        state.heading = atan2(-work.across.z, work.across.x);
-        motor.reset(); motor.stance.read();
-        const soles = motor.stance.reading.soles;
-        state.height = g.centre.y - Math.min(soles.left.y, soles.right.y);
-        state.phase = "steady"; state.steady = 0; state.off = 0;
+        steady.begin(g);
+        state.phase = "steady";
       }
-      state.steady += dt;
-      state.off = g.position !== "standing" && g.position !== "crouch" ? state.off + dt : 0;
-      if (state.off > STEADY_OFF && state.steady > .5) return finish("failed");
-      if (state.steady > STEADY_LIMIT) return finish("timed-out");
-      const w = Math.min(1, state.steady / tuning.climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
-      motor.stance.read();
-      motor.setStance({ feet: ["left", "right"], centre: null, height: state.height + (top - state.height) * smooth, heading: state.heading });
-      motor.control(own.muscles, dt);
-      state.reached = reached(g, "standing") ? state.reached + dt : 0;
-      return state.reached + 1e-9 >= REACHED_SECONDS ? finish("done") : null;
+      const end = steady.step(g, dt);
+      return end === null ? null : finish(end);
     },
   };
 }

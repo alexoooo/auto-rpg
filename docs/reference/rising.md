@@ -1081,7 +1081,60 @@ The climb's time and response (`research/climb.mjs`'s `path` with `gate`, the sa
 - **The fingerprint** (`scripts/fingerprint.mjs`) moves no pose: no fight or run of the game
   reaches a crouch the climb begins from.
 
+## The staged route
+
+Step-up's route as five techniques, each an edge of Stand up's graph
+(`src/core/mind/ground/staged-edges.ts`), stands the same falls of the owner's target as step-up,
+within a placebo's spread; the Warrior empty-handed stands 0.25 s later at the median, the
+hand-overs' cost. Stand up lists them in route order, then step-up for what they do not take
+(sitting, between, a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`.
+
+| Technique | From, to | Plays of step-up's route |
+|---|---|---|
+| `staged-roll` | back, either side; front | lying still, the roll (the retry over the other side), lying still |
+| `staged-down` | front; fours | lying still, `fold` to `sit` |
+| `staged-kneel-up` | fours; kneeling | `kneel 0` to `tall` |
+| `staged-step-through` | kneeling; half-kneel | `shift` to `onto the toes` |
+| `staged-lunge` | half-kneel; standing | `lunge 0` to `even`, then step-up's climb and steadying (`stanceSteady`) |
+
+- **The cuts are where the postures are read** (`CUTS`). On step-up's route over the target's 64
+  falls, the position read at a stage's end: hands and knees at the end of `sit` 64 times of 81, and
+  at the end of the `fours` stage 34 of 108 (that stage bears on the toes, the knees light);
+  kneeling at the end of `tall` 64 of 69; half kneeling at the end of `onto the toes` 55 of 59, and
+  at the end of `half kneel` 30 of 63.
+- **A part plays the route on from its first stage** and hands over at the first cut where its
+  posture has been read, not tumbling (`tumbling`), for 0.1 s (`REACHED_SECONDS`) from that stage's
+  start until the next cut's begins; read at none, it plays on to standing. Over the four runs below
+  a down hands over on hands and knees 23 to 34 times and kneeling 14 to 18; a step-through half
+  kneeling 26 to 34 times and standing 4 to 7.
+- **Half kneeling is read on a foot ahead and upright** (`groundReading`, `reading.ts`): one shin
+  and the other foot bear, the sole flat, or the foot ahead of that knee the way the pelvis faces
+  and the trunk as upright as a kneel's (`KNEEL_UP`). The step's half kneel bears on the ball of the
+  foot (`HALF_KNEEL`'s ankle -0.55 rad) and was read nowhere on the route; without the foot ahead,
+  the `shift` read as half kneeling 61 times of 69, the back foot on its toes behind the knee.
+- **The fingerprint** (`scripts/fingerprint.mjs`) moves no pose, and step-up's target is the same
+  fall by fall: the game lists step-up alone.
+
+`npm run evaluate -- rising-target` (Node, core world, Rapier, 120 Hz), four runs each: the code
+as it is and the pose drive's `POSE_SECONDS` 0.2 s times 1 + 1e-9, 1 + 2e-9 and 1 - 1e-9, a
+placebo that moves no mechanism:
+
+| Group | Step-up: stood, of 16 | Median, s | The staged route: stood, of 16 | Median, s |
+|---|---|---|---|---|
+| Warrior, club | 13 to 16 | 12.8 to 15.6 | 13 to 16 | 12.8 to 14.5 |
+| Warrior, empty | 14, 15 | 11.9 to 12.4 | 14 to 16 | 12.2 to 12.5 |
+| Rogue, club | 8 to 12 | 16.1 to 25.7 | 8 to 12 | 16.4 to 28.6 |
+| Rogue, empty | 11 to 15 | 15.6 to 18.9 | 10 to 13 | 15.9 to 17.5 |
+| All, of 64 | 50 to 54 | | 49 to 54 | |
+
 ## Tried and not kept
+
+- **Parts that end at their own last stage**, played on there until their posture is read (at most
+  1 s) and failed if it is not: 44, 51 and 44 of 64 (the code, and `POSE_SECONDS` times 1 + 1e-9 and
+  1 + 2e-9), the Rogue 7 or 8
+  of 16 with the club and 9 to 12 empty-handed. It passes a cut unread a quarter of the time, where
+  step-up goes on and mostly stands. Played on, the `fours` stage pitched it forward in the kneel
+  that followed, and the tall kneel's pose let it sway over.
 
 - **A pelvis pitch in the stance's own climb** (a goal's pitch about the heading's right, the
   pelvis's turn aimed at it, searched from -0.3 to 0.9 rad, from 0 or from the hand-over's pitch let

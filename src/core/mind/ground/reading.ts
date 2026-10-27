@@ -36,7 +36,7 @@ export interface GroundReading {
 const BEARS = 0.03, GROUND_UP = 0.7;
 /** A flat sole's normal stays within this cosine of vertical. */
 const FLAT = 0.9;
-/** Standing has at least this share of reference height; kneeling keeps its trunk near vertical. */
+/** Standing has at least this share of reference height; kneeling, and half kneeling on a foot not flat, keep the trunk near vertical. */
 const STANDING = 0.85, KNEEL_UP = 0.83;
 /** A sitting trunk raises its upper centre this far over its pelvis, metres. */
 const SITTING = 0.15;
@@ -44,6 +44,8 @@ const SITTING = 0.15;
 const SETTLE_STEPS = 6;
 /** Quiet hand-back needs nearly all weight on the feet, small linear speed, and little spin. */
 const HAND_BACK_LOAD = 0.9, SLOW = 0.3, SPIN = 1;
+/** A body faster than this, m/s, or spinning faster than this, rad/s, is tumbling. */
+const TUMBLING = 0.5, TUMBLING_SPIN = 1;
 
 /** Read fixed support and body geometry once per step. Reset between periods of ground ownership. */
 export function groundReading(built: ReadBody, dt: number) {
@@ -60,7 +62,7 @@ export function groundReading(built: ReadBody, dt: number) {
     lie: "front", height: 0, upright: 0, spin: 0, raw: "between", position: "between", side: null,
   };
   const state = { reading, candidate: "between" as Position, steps: 0 };
-  const work = { vector: new Vector3(), upper: new Vector3(), lower: new Vector3(), turn: new Quaternion(), way: new Vector3() };
+  const work = { vector: new Vector3(), upper: new Vector3(), lower: new Vector3(), turn: new Quaternion(), way: new Vector3(), knee: new Vector3() };
   const index = (name: string) => parts.findIndex(p => p.spec.name === name);
   const trunk = [index("lowerTrunk"), index("middleTrunk"), index("upperTrunk")];
   const shank = [index("shank.left"), index("shank.right")];
@@ -73,6 +75,13 @@ export function groundReading(built: ReadBody, dt: number) {
     sitting: new Set([trunk[0]!, ...indices, ...handsBoth, ...thighs]),
   };
   const bears = (i: number) => i >= 0 && reading.load[i]! >= BEARS;
+  /** Whether foot `f` is ahead of shank `s` the way the pelvis faces (`work.turn`, the root's turn as the lie reads it). */
+  const ahead = (f: number, s: number): boolean => {
+    centreOfToRef(parts[shank[s]!]!, work.knee);
+    work.way.set(0, 0, 1).applyRotationQuaternionToRef(work.turn, work.way);
+    const middle = feet[f]!.middle;
+    return (middle.x - work.knee.x) * work.way.x + (middle.z - work.knee.z) * work.way.z > 0;
+  };
   const only = (admitted: ReadonlySet<number>) => {
     for (let i = 0; i < parts.length; i++) if (bears(i) && !admitted.has(i)) return false;
     return true;
@@ -82,7 +91,9 @@ export function groundReading(built: ReadBody, dt: number) {
       if (reading.flat[0] && reading.flat[1] && reading.height >= STANDING && only(allowed.standing)) return "standing";
       if (only(allowed.crouch)) return "crouch";
     }
-    for (let k = 0; k < 2; k++) if (bears(shank[k]!) && reading.flat[1 - k] && only(allowed.half[k]!)) {
+    // On one shin and the other foot: its sole flat, or the foot ahead of the knee and the trunk upright as a tall kneel's.
+    for (let k = 0; k < 2; k++) if (bears(shank[k]!) && only(allowed.half[k]!)
+      && (reading.flat[1 - k] || bears(indices[1 - k]!) && reading.upright >= KNEEL_UP && ahead(1 - k, k))) {
       reading.side = feet[1 - k]!.side;
       return "half-kneel";
     }
@@ -149,6 +160,11 @@ export function groundReading(built: ReadBody, dt: number) {
       return reading;
     },
   };
+}
+
+/** Whether the body is tumbling: its centre of mass faster than `TUMBLING`, or its pelvis spinning faster than `TUMBLING_SPIN`. */
+export function tumbling(g: GroundReading): boolean {
+  return g.velocity.lengthSquared() > TUMBLING * TUMBLING || g.spin > TUMBLING_SPIN;
 }
 
 /** Quiet, flat two-foot support with the mass inside its inset outline is ready for the host. */

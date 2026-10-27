@@ -125,6 +125,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   stages(phase: "roll" | "rise"): number;
   /** Join the rise at its first bearing stage, its supports bearing and the trunk clear; false, nothing begun, where they are not. */
   beginSupported(): boolean;
+  /** Join the rise at its first stage now, the body as it is. */
+  beginRising(): void;
 } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
@@ -328,6 +330,22 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     return borneAndSlow && turnLeft < tolerance * tolerance && apart < close * close || state.rested + dt / 2 >= restSeconds;
   };
 
+  /** Whether the rise's first stage, a bearing one, has every limb it bears on pressed on the ground and the trunk clear. */
+  function supported(): boolean {
+    const first = recipe.rise[0];
+    if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
+    return upright.clearance(notTrunk) > DOWN && first.on.every(on => {
+      const name = recipe.limbs.find(limb => limb.name === on.limb)!.segment;
+      return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
+        .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
+    });
+  }
+  /** The rise from its first stage, as one attempt. */
+  function rising(): void {
+    state.tries = 1; state.furthest = -1; state.raised = false;
+    enter("rise", 0);
+  }
+
   return {
     name: "staged-rise", state,
     stages: (phase) => playing(phase).length,
@@ -339,17 +357,11 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       state.furthest = -1;
     },
     beginSupported() {
-      const first = recipe.rise[0];
-      if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
-      if (upright.clearance(notTrunk) <= DOWN || !first.on.every(on => {
-        const name = recipe.limbs.find(limb => limb.name === on.limb)!.segment;
-        return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
-          .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
-      })) return false;
-      state.tries = 1; state.furthest = -1; state.raised = false;
-      enter("rise", 0);
+      if (!supported()) return false;
+      rising();
       return true;
     },
+    beginRising: rising,
     end() { state.phase = "idle"; },
     step(_senses, dt) {
       switch (state.phase) {

@@ -13,7 +13,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
-import { quietOnFeet, standReady, type Position } from "./reading.ts";
+import { quietOnFeet, standReady, tumbling, type Position } from "./reading.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
 import type { PartLookup } from "../lookup.ts";
 
@@ -148,8 +148,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
       }
       // A body steadying on its feet is the stance's to catch: bracing it would fold the legs under it.
       const onFeet = g.position === "standing" || g.position === "crouch";
-      const tumbling = g.velocity.lengthSquared() > .25 || g.spin > 1;
-      if (tumbling && !state.braceUsed && !(onFeet && state.mode === "steady")) {
+      if (tumbling(g) && !state.braceUsed && !(onFeet && state.mode === "steady")) {
         if (state.mode !== "brace") mode("brace");
         drive(BRACE, .3, 2, .4); remember(); state.time += dt;
         if (state.time >= BRACE_LIMIT) state.braceUsed = true;

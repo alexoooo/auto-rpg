@@ -3,6 +3,7 @@
  * A riser is a mind's recovery on the bed's host (`risingMind`): the game's Stand up (`step-up`)
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
+import { STAGED_ROUTE } from "../../core/mind/ground/staged-edges.ts";
 import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
 import type { TechniqueName } from "../../core/mind/ground/technique.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
@@ -14,14 +15,16 @@ import { RISING_TARGET_CASES, type TargetCondition } from "./cases.ts";
 const riserSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
 
 /**
- * The risers named: `support-recovery`, `stand-up` with every technique, a technique's name for a
- * stand-up with it alone, or a mind given whole; the game's Stand up (`step-up`) when none is.
+ * The risers named: `support-recovery`, `stand-up` with every technique, `staged` for a stand-up on
+ * the staged route (`STAGED_ROUTE`), a technique's name for a stand-up with it alone, or a mind
+ * given whole; the game's Stand up (`step-up`) when none is.
  */
 export function riserSubjects(choice: SubjectChoice): readonly Subject[] {
   return (choice.length > 0 ? choice : ["step-up"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
     : one === "support-recovery" || one === "stand-up" ? riserSubject(one, one === "stand-up" ? "Stand up, every technique" : "Support recovery", risingMind(one) as unknown as Json)
+    : one === "staged" ? riserSubject(one, "Stand up on the staged route", risingMind("stand-up", STAGED_ROUTE) as unknown as Json)
     : Object.hasOwn(TECHNIQUES, one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind("stand-up", [one as TechniqueName]) as unknown as Json)
-    : (() => { throw new Error(`${one} is no riser: support-recovery, stand-up or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
+    : (() => { throw new Error(`${one} is no riser: support-recovery, stand-up, staged or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
 }
 
 /** A fall's time to its verified stand, s; a fall not stood counts at the cap. */
