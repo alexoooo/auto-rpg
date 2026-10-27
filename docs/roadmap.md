@@ -64,9 +64,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    the bar scaled to the body and the Rogue's punch. Then
    Drills step 2 (the moving target, overlays and side by side), which Punch step 5 needs, and
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
-2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 3
-   landed (the budget, the witnesses, the steady's climb); next step 4 (step-up cut at its safe
-   postures). Until step 10 the game keeps today's Stand up. And
+2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 4
+   landed (the budget, the witnesses, the steady's climb, step-up's route in parts); next step 5
+   (edges that hand over in motion). Until step 10 the game keeps today's Stand up. And
    Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
 3. **When each one's condition holds:**
    - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
@@ -188,7 +188,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   4.9 and 3.7 s ([a fast route](reference/rising.md#a-fast-route)). Step 3 (landed): Stand up's
   steady climbs from a crouch quiet on both flat feet in a median of 1.46 s
   ([a planned climb](reference/rising.md#a-planned-climb)); no rise hands over in one yet, so the
-  fast edges (step 8) must end there. Next, step 4.
+  fast edges (step 8) must end there. Step 4 (landed): step-up's route is five edges that stand
+  the target as step-up does, within a placebo's spread ([the staged route](reference/rising.md#the-staged-route)).
+  Next, step 5.
   A policy acting on observations also runs the sixteen-fall screen
   (`research/stand-up-acceptance.mjs`), which does not establish the target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
