@@ -17,7 +17,10 @@ import { armedWith, type Held } from "../core/items/held.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
 import { partLookup } from "../core/mind/catalog.ts";
 import { PUNCHER } from "../core/mind/config.ts";
-import { kitOf } from "../core/mind/kit.ts";
+import { kitOf, type MindKit } from "../core/mind/kit.ts";
+import type { OwnBody } from "../core/mind/mind.ts";
+import type { BodyView } from "../core/body.ts";
+import type { Clock } from "../core/clock.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/mind/ground/technique.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import type { GroundReading } from "../core/mind/ground/reading.ts";
@@ -87,6 +90,12 @@ export interface BuiltTechnique {
   dispose(): void;
 }
 
+/**
+ * A run in place of the chain's technique at `link`, for a search that tries settings the
+ * technique does not hold; null plays the technique's own.
+ */
+export type TechniqueMaker = (link: number, own: OwnBody, view: BodyView, clock: Clock, kit: MindKit) => TechniqueRun | null;
+
 /** The body a case plays: the model, armed in its right hand. */
 export const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held">): BodySpec => armedWith(humanoidSpec(one.model), "right", one.held);
 
@@ -99,7 +108,7 @@ export function techniquePlacement(one: TechniqueCase): ReturnType<typeof ground
 
 /**
  * `one`'s world on `engine`: the body built in its placement on the arena's solids, under the
- * command layers with one sub-mind that plays the chain. Placed lying, or shoved once it is first
+ * command layers with one sub-mind that plays the chain, each technique's own run or `made`'s. Placed lying, or shoved once it is first
  * down (standing in guard until then), it lies slack until the first technique begins; placed in
  * any other posture, it holds its placement's. Each technique begins once its entry admits the body (on its first side), the settled
  * position read, within `TECHNIQUE_LIMITS.admit` s; until then the commands of the one before
@@ -107,7 +116,7 @@ export function techniquePlacement(one: TechniqueCase): ReturnType<typeof ground
  * technique that stands the body, or when one is not entered; once one ends not done, the body
  * lies slack until it comes to rest, for up to `TECHNIQUE_LIMITS.rest` s.
  */
-export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engine"]): Promise<BuiltTechnique> {
+export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engine"], made?: TechniqueMaker): Promise<BuiltTechnique> {
   if (one.chain.length === 0) throw new Error("a technique case plays at least one technique");
   const placement = techniquePlacement(one);
   if ("refused" in placement) throw new Error(placement.refused);
@@ -123,7 +132,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   let runs: TechniqueRun[] = [];
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), drive = poseDrive(own.muscles);
-    runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, true, kit));
+    runs = one.chain.map((name, link) => made?.(link, own, view, clock, kit) ?? TECHNIQUES[name].make(own, view, clock, true, kit));
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
     const remember = () => { command.activation.set(own.muscles.activation); command.velocity.set(own.muscles.velocity); };
     const carry = () => { own.muscles.activation.set(command.activation); own.muscles.velocity.set(command.velocity); };

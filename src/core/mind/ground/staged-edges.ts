@@ -24,7 +24,7 @@ const CUTS: readonly { readonly after: string; readonly at: Position }[] = Objec
 const HAND_OVER = Object.freeze({ speed: 1, spin: 2 });
 
 /** Whether the body moves slowly enough for a part of the route to take it or hand it on (`HAND_OVER`). */
-const handsOver = (g: GroundReading): boolean =>
+export const handsOver = (g: GroundReading): boolean =>
   g.velocity.lengthSquared() < HAND_OVER.speed * HAND_OVER.speed && g.spin < HAND_OVER.spin;
 
 /**

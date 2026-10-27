@@ -1250,6 +1250,47 @@ against step 6's). The fresh falls on the staged route: 50 of 64 stood, the Warr
 The Rogue's failures rest on its front (kneel-up, 6) and its back (step-through 1, lunge 3); the
 Warrior's step-through's on its front.
 
+## The fast edges
+
+No fast edge is found: no phased rise from hands and knees or from the back ends in a crouch quiet
+on both flat feet (`quietOnFeet`), where Stand up's climb begins
+([a planned climb](#a-planned-climb)), from any start searched.
+
+A **phased rise** (`phasedRun`, `src/core/mind/ground/phased-rise.ts`) plays a witness's phases
+([a fast route](#a-fast-route)) for their times, then a hold: the bearing solve on the feet until
+the body is quiet on both of them lower than 0.9 of standing for 0.1 s (done), lying (failed), or
+2 s on (timed out). A route that reaches a crouch by an edge ends there, priced at the planned
+climb's median from a quiet crouch, 1.46 s (`STEADY_SECONDS`, `graph.ts`).
+
+`node research/fast-edge-search.mjs --edge <push-off|rock-up>` (Node stand, core world, Rapier,
+120 Hz, the Warrior empty-handed, calm, no assist): diagonal CMA-ES over the witness's first three
+phases and the hold, 12 candidates a generation, each played from seeds 1 to 3 placed (at the drill's
+spread) and from a second start (after down from the front; shoved backward). A trial scores 2 and
+more once done; short of it, under 1, by the feet's share of the weight, the soles flat and the body
+still, held 0.1 s.
+
+| Run | Hold seeded at | Generations | Best | Trials done |
+|---|---|---:|---:|---:|
+| push-off-bear's phases as found | its fourth phase | (replay) | 0.05 | 0 of 6 |
+| rock-up-bear's phases as found | its fourth phase | (replay) | 0.09 | 0 of 6 |
+| push-off search | its fourth phase | 34 | 0.29 | 0 |
+| push-off search | both feet, 0.75 high, flat soles weighted | 41 | 0.16 | 0 |
+
+- **The heels stay up while the hands bear.** From hands and knees the bearing solve lifts the knees
+  and straightens them to their stop, holding a pike: the trunk hanging (`upright` -0.6 to -0.9),
+  the ankles at their dorsiflexion stop (0.36 rad), each heel 0.2 to 0.3 m over its toes, the feet
+  bearing 0.3 to 0.55 of the weight with the hands asked 0.05 to 0.1. A foot on its toes bears at its
+  front edge, so a hold aimed over the feet aims at the toes.
+- **The bearing solve does not balance a body on its feet alone**: from a placed squat on flat feet
+  it goes over backward within 0.9 s, with the ankle's dorsiflexion raised to 37 degrees too (an
+  override of `ankleDorsiflexion`, not kept).
+- **Handed to the stance from the pike** (the combat fold's goal on planted feet, from the height
+  the body is at): the body rises onto its toes and falls within 0.6 s; its centre of mass is still
+  over the hands.
+- **What it needs**: the weight brought from the hands onto flat feet, the hands walked back toward
+  the feet or the feet stepped up to the hands, and a controller that balances on the feet from
+  there. No controller here does.
+
 ## Tried and not kept
 
 - **The fours cut at the end of the `fours` stage** (down from `fold` to the bearing stage, the

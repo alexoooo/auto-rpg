@@ -20,6 +20,15 @@ const POSITIONS: readonly Position[] = Object.freeze(["standing", "crouch", "hal
 const index = (at: Position): number => POSITIONS.indexOf(at);
 
 /**
+ * **What a crouch is worth**, s: an edge that ends in one hands the body to Stand up's steady, whose
+ * planned climb stands a body quiet on both feet in a median of 1.46 s
+ * (`docs/reference/rising.md#the-fast-edges`). A route ends at standing, or at a crouch an edge reaches.
+ */
+const STEADY_SECONDS = 1.46;
+/** Whether a route at `at`, having taken `taken` edges, is at its end. */
+const arrived = (at: Position, taken: number): boolean => at === "standing" || at === "crouch" && taken > 0;
+
+/**
  * Search scratch is per supervisor and carries no choice between calls: `time` holds each position's
  * expected seconds to standing while a route is priced (`price`).
  */
@@ -57,7 +66,7 @@ function cost(profile: EdgeProfile, from: Position, to: Position, time: Float64A
  * of their failures, found again until none falls; Infinity where no priced route goes.
  */
 function price(order: readonly string[], techniques: Registry, failures: readonly GraphFailure[], retries: number, time: Float64Array): void {
-  time.fill(Infinity); time[index("standing")] = 0;
+  time.fill(Infinity); time[index("standing")] = 0; time[index("crouch")] = STEADY_SECONDS;
   for (let round = 0; round < 2 * POSITIONS.length; round++) {
     let fell = false;
     for (const name of order) {
@@ -82,7 +91,7 @@ function price(order: readonly string[], techniques: Registry, failures: readonl
 function cheapest(order: readonly string[], reading: GroundReading, techniques: Registry, failures: readonly GraphFailure[], retries: number, work: Work): boolean {
   price(order, techniques, failures, retries, work.time);
   let from: Position | null = null;
-  for (let step = 0; step <= POSITIONS.length && from !== "standing"; step++) {
+  for (let step = 0; step <= POSITIONS.length && !(from !== null && arrived(from, step)); step++) {
     let best = Infinity, pick: RouteStep | null = null;
     for (const name of order) {
       const technique = techniques[name];
@@ -100,7 +109,7 @@ function cheapest(order: readonly string[], reading: GroundReading, techniques: 
     if (pick === null) { work.route.length = 0; return false; }
     work.route.push(pick); from = pick.to;
   }
-  if (from === "standing") return true;
+  if (from !== null && arrived(from, work.route.length)) return true;
   work.route.length = 0;
   return false;
 }
@@ -117,7 +126,7 @@ function sideOf(technique: GraphTechnique, name: string, from: Position, failure
 
 function search(order: readonly string[], from: Position, techniques: Registry, failures: readonly GraphFailure[],
   retries: number, work: Work, reading?: GroundReading): boolean {
-  if (from === "standing") return true;
+  if (arrived(from, work.route.length)) return true;
   if (work.visited.includes(from)) return false;
   work.visited.push(from);
   for (const name of order) {
@@ -161,7 +170,7 @@ export function choose(order: readonly string[], reading: GroundReading, techniq
     if (side === null || work.visited.includes(step.to)) { retained = false; break; }
     work.visited.push(here); work.route.push({ ...step, side }); from = step.to;
   }
-  if (retained && from === "standing") return work.route.slice();
+  if (retained && arrived(from, work.route.length)) return work.route.slice();
   work.visited.length = 0; work.route.length = 0;
   if (cheapest(order, reading, techniques, failures, retries, work)) return work.route.slice();
   return search(order, reading.position, techniques, failures, retries, work, reading) ? work.route.slice() : null;
