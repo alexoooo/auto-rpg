@@ -5,7 +5,7 @@
  *
  * A candidate is a move's phases, each held for its duration, then the body steadied by the stance
  * as Stand up's steady steadies it (`standUp`, `src/core/mind/ground/stand-up.ts`) and handed back
- * once ready for `READY` s. A phase is one of two kinds:
+ * once ready (`research/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;
  * - **bear**, closed-loop: plant-up's bearing solve (`plantUp`, `src/core/mind/ground/plant-up.ts`)
@@ -29,7 +29,8 @@
  *     [--model workshop-fighter] [--held empty] [--generations 100] [--workers 16] [--sigma .15] [--cap 8]
  *   node research/rise-witness.mjs --replay <best.json> [--seeds 4] [--hold 2] [--steady <json>]
  *
- * `--steady` changes the steady as `research/crouch-steady.mjs`'s variants do: `ease`, `servo`, `tuning`.
+ * `--steady` changes the steady as `research/crouch-steady.mjs`'s variants do (`research/climb.mjs`).
+ * With `HANDOVER=1` each replay prints the body as the steady takes it; with `TABLE=1`, the steady's trace.
  */
 import { parentPort, isMainThread, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -37,12 +38,13 @@ import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "./cma.mjs";
+import { crouchSteady, traceRow } from "./climb.mjs";
 import "../tests/harness/preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { createBody } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
@@ -53,9 +55,8 @@ import { groundPlacement, groundPostures } from "../src/lab/ground-starts.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
-import { groundReading, standReady } from "../src/core/mind/ground/reading.ts";
+import { groundReading } from "../src/core/mind/ground/reading.ts";
 import { poseDrive } from "../src/core/mind/ground/technique.ts";
-import { carrying } from "../src/core/control/motor.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../src/core/control/bearing.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { servoAsk, servoSolve } from "../src/core/control/servo.ts";
@@ -64,10 +65,6 @@ import { atan2 } from "../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../src/core/math/turn.ts";
 import { riseLimbs } from "../src/core/mind/rise/limbs.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
-import { locomotion } from "../src/core/skills/locomotion.ts";
-import { kitOf } from "../src/core/mind/kit.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
-import { PUNCHER } from "../src/core/mind/config.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */
@@ -121,8 +118,6 @@ const BEAR_SEED = { duration: .35, response: .35, pitch: .6, toward: 0, height: 
 const WITHIN = .2;
 /** How long a partial reading must hold to count, s; the speed of the centre of mass at which it counts nothing, m/s. */
 const HELD = .1, STILL = .5;
-/** How long Stand up's steady waits on a ready body before it hands it back, s. */
-const READY = .1;
 const log = (u, [lo, hi]) => Math.exp(Math.log(lo) + Math.min(1, Math.max(0, u)) * (Math.log(hi) - Math.log(lo)));
 const unlog = (v, [lo, hi]) => Math.min(1, Math.max(0, Math.log(v / lo) / Math.log(hi / lo)));
 const lin = (u, [lo, hi]) => lo + Math.min(1, Math.max(0, u)) * (hi - lo);
@@ -277,9 +272,9 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const reader = groundReading(built, world.dt);
   const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
-    const drive = poseDrive(own.muscles), bearing = bearer(own, view), kit = kitOf(partLookup, own.spec, PUNCHER), legs = locomotion(null);
-    const motor = carrying(kit.motor(own.built, steady.servo ?? SERVO_SECONDS, kit.posture, steady.tuning, own.assist), ["stance"], "the witness");
-    return { name: `witness:${move}`, state: { control, bearing: bearing.state, motor: motor.state, legs: legs.state }, wants: () => control.active, begin() {}, end() {},
+    const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
+    control.steadying = steadying.control;
+    return { name: `witness:${move}`, state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {},
       step(_senses, dt) {
         if (control.time < handover) {
           let at = control.time, k = 0;
@@ -292,28 +287,24 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
           }
           control.phase = k;
         } else {
-          if (!control.steady) { control.steady = true; control.from = own.muscles.channels.map((_, i) => own.muscles.angle(i)); motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); }
-          if (steady.ease) {
-            const e = Math.min(1, (control.time - handover) / steady.ease), k = e * e * (3 - 2 * e);
-            motor.setPosture(Object.fromEntries(own.muscles.channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k])));
-          }
-          motor.stance.read();
-          motor.setStance(legs.goal({ ...view, stance: motor.stance.reading }, null, legs.heading, dt));
-          motor.control(own.muscles, dt);
-          control.ready = standReady(view) ? control.ready + dt : 0;
-          if (control.ready + 1e-9 >= READY) control.active = false;
+          const first = !control.steady;
+          control.steady = true;
+          steadying.step(dt);
+          if (first && process.env.HANDOVER) handoverState(steadying.control, view, seed);
+          control.active = steadying.control.on;
         }
         control.time += dt;
       } };
   }] });
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
-  const path = [], window = new Float64Array(Math.round(HELD / world.dt));
+  const table = [], path = [], window = new Float64Array(Math.round(HELD / world.dt));
   let steps = 0, quiet = 0, verified = null, fell = false, progress = 0, last = "";
   try {
     while (world.time < cap + (verified === null ? 0 : hold) && (verified === null || world.time - verified < hold)) {
       world.step();
       const m = measure(), g = reader.read();
+      if (process.env.TABLE && control.steady && steps % 6 === 0) table.push(traceRow(m, body, control.steadying, world));
       const feet = Math.min(1, g.footLoad[0] + g.footLoad[1]);
       window[steps++ % window.length] = feet * Math.min(1, g.height) * Math.max(0, g.upright) * Math.max(0, 1 - g.velocity.length() / STILL);
       if (steps >= window.length) progress = Math.max(progress, Math.min(...window));
@@ -323,15 +314,22 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
       if (verified === null && world.time > cap) break;
     }
   } finally { world.dispose(); scene.dispose(); engine.dispose(); }
+  if (table.length) console.table(table);
   const score = verified !== null && !fell ? 2 + (cap - verified) / cap : verified !== null ? 1 + .5 * (cap - verified) / cap : .9 * progress;
   return { score, seed, handover: +handover.toFixed(3), verified: verified === null ? null : +verified.toFixed(3), fell, progress: +progress.toFixed(3),
     ...(trace ? { path } : {}) };
 }
 
+/** The body's state as the steady takes it over, to stderr: the centre of mass's lead over the feet's middle and its speeds, its height's share of standing. */
+function handoverState(steady, view, seed) {
+  const g = view.ground;
+  console.error(JSON.stringify({ seed, position: g?.position ?? null, lead: +steady.lead.toFixed(3), height: +(steady.at / view.standing).toFixed(2), speed: g ? +g.velocity.length().toFixed(2) : null }));
+}
+
 /** A best candidate's phases as plain data, its postures left out. */
 const described = (move, spec, u) => phases(move, spec, u).map(({ posture, ...rest }) => Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(3) : v])));
 
-if (!isMainThread) {
+if (!isMainThread && workerData.harness === "rise-witness") {
   parentPort.on("message", async ({ id, x }) => {
     try { parentPort.postMessage({ id, r: await witnessTrial({ ...workerData, u: x }) }); }
     catch (error) { parentPort.postMessage({ id, r: { score: 0, error: String(error?.stack ?? error) } }); }
@@ -352,7 +350,7 @@ if (!isMainThread) {
     const spec = bodySpec(model, held), [seed] = acceptedSeeds(move, spec, 1), start = seedUnit(move, spec);
     await mkdir(dirname(values.out), { recursive: true });
     const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
-    const pool = workerPool(new URL(import.meta.url), { move, model, held, seed, cap }, workers), t0 = Date.now();
+    const pool = workerPool(new URL(import.meta.url), { harness: "rise-witness", move, model, held, seed, cap }, workers), t0 = Date.now();
     try {
       const result = await cmaSearch({ n: start.length, start, sigma: Number(values.sigma ?? .15), lambda: workers, generations: Number(values.generations ?? 100), seed: 7,
         score: u => pool.evaluate(u),

@@ -185,10 +185,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   `8e3df885`; where its time goes is [the budget](reference/rising.md#the-budget) (step 1,
   landed) and [where the rise stops](reference/rising.md#where-the-rise-stops). Step 2 found
   closed-loop rises from the back and from hands and knees, on the feet in 1.5 s and verified in
-  4.9 and 3.7 s ([a fast route](reference/rising.md#a-fast-route)). Step 3: the stance stands
-  a crouched body in 2.2 s at best, not the 1 s a fast route needs
-  ([the hand-back from a crouch](reference/rising.md#the-hand-back-from-a-crouch)); next, a
-  climb in Stand up's steady that carries the centre of mass over the feet before the legs extend.
+  4.9 and 3.7 s ([a fast route](reference/rising.md#a-fast-route)). Step 3: Stand up's steady
+  stands a crouched body in 2 s at best, and a climb on the stance, searched, has no width
+  ([a climb on the stance](reference/rising.md#a-climb-on-the-stance)); next, a climb on its own
+  planned path that arrives at standing still, with no catch step.
   A policy acting on observations also runs the sixteen-fall screen
   (`research/stand-up-acceptance.mjs`), which does not establish the target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control

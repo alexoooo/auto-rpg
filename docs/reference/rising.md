@@ -919,12 +919,15 @@ stands none of 6 on either body (the sit-up stalls in its curl or times out shor
 
 ## The hand-back from a crouch
 
-Stand up's steady stands a crouched body to verified standing in 2.2 s at best, not the 1 s a fast
-route needs. Its stance climbs to standing height in 0.6 to 1.1 s, but violently: the pelvis
+Stand up's steady stands a crouched body to verified standing in 2 s at best, and 1 s is below what
+the body can do. Its stance climbs to standing height in 0.6 to 1.1 s, but violently: the pelvis
 pitches, the arms whip and the feet step to catch the body, and the settling after takes as long
-again before the 0.5 s of quiet. No setting tried takes off more than about 0.5 s. A supported root
-pose and a posture-path climb stand none of 8. A hand-back near 1 s needs a climb that carries the
-centre of mass over the feet before the legs extend and ends still; no controller here does.
+again before the 0.5 s of quiet. No setting tried takes off more than about 0.5 s. A climb on the
+stance (the weight shifted ahead, the height on a minimum-jerk path, the trunk and arms leaned and
+let go) searched over the witnesses' hand-overs reads 2.0 to 3.4 s and has no width: a rounding of
+its settings changes which starts stand. Without the catch steps, or on planted feet, the body
+falls from the rock-up. A faster hand-back needs a controller that arrives at standing still with no catch step; no
+controller here does ([a climb on the stance](#a-climb-on-the-stance)).
 
 `node research/crouch-steady.mjs` (Node stand, core world, Rapier, 120 Hz, calm, no assist; on
 `5458a251`'s core): the Warrior's stored squat placed on each body, the first 8 seeds its
@@ -980,8 +983,54 @@ The witnesses ([a fast route](#a-fast-route)) replayed with the steady changed
   of standing height, the pelvis at 0.47 of upright); the stance climbs in 0.9 s with the arms at
   up to 5 m/s and the feet stepping, then settles 0.8 s before the quiet. Eased, neither is faster.
 
+### A climb on the stance
+
+`node research/climb-search.mjs` (Node stand, core world, Rapier, 120 Hz, calm, no assist; the
+Warrior empty-handed): the steady of `research/climb.mjs`, timed from its start to verified
+standing, 5 s cap, from the first 4 seeds the squat's placement accepts and the witnesses'
+hand-overs (push-off-bear seed 1, the one whose hand-over is on its feet; rock-up-bear seeds 1 to
+4). The climb (`ramp`): for `delay` s the height held, the centre of mass asked `d` ahead of the
+feet's middle, the trunk's flexion and the shoulders' raised; then the height to standing over `T`
+s on a minimum-jerk path as the lead and the lean are let go, the posture from the hand-over's angles
+to the guard's over `Tp` s. Seconds from the steady's start; – not verified:
+
+| The steady | Squat 2, 3, 4, 5 | Push-off 1 | Rock-up 1, 2, 3, 4 | Witness starts' mean, a failure at 6 |
+|---|---|---:|---|---:|
+| the game's | 2.24, –, 2.98, 3.15 | 2.22 | 2.20, 4.30, –, 3.83 | 3.71 |
+| the posture eased over 0.5 s (`ease`) | 2.55, 2.64, 2.98, 2.53 | 3.20 | 3.09, –, –, 2.36 | 4.13 |
+| the search's best (below) | –, –, 2.66, – | 2.01 | 2.93, 2.52, –, 2.97 | 3.29 |
+| its settings rounded to 3 decimals | –, –, 2.81, – | 2.03 | –, 2.89, 3.36, 2.89 | 3.43 |
+| `T` 1 s, `d` 0.02 m, no ankle floor; track 0.12, across 0.2, height 0.05, turn 0.12 s; servo 0.06 s | | 2.51 | 2.69, 3.24, 3.35, 3.07 | 2.97 |
+| no catch steps (`tuning.recovery` null) | | 2.22 | –, 2.36, –, – | 4.52 |
+| planted feet: the supported root pose (`lift`, `fold`; 0.8 to 1.2 s, pitch 0 to 0.5) | | 2.44 to 2.79 | – but one 3.23 | 4.78 to 5.36 |
+
+The search: diagonal CMA-ES over the climb's `T`, `delay`, `d`, `lean`, `reach` and `Tp`, the
+stance's time constants, track and ankle spare, and the servo's constant, 10 generations of 12 on
+the witness starts, 7.4 min. Its best: `T` 0.4, `delay` 0.21, `d` 0.014 m, `lean` 0.30,
+`reach` 0.40, `Tp` 0.55 s; across 0.19, height 0.13, turn 0.16 s; track 0.17 s; no ankle floor;
+servo 0.25 s. Its mean over the witness starts, as searched, 2.56 s.
+
+- **The catch steps start at the hand-over.** From the squat (seed 2) the stance begins a step
+  0.03 s in, the centre of mass 6.4 cm behind the feet's middle; from the rock-up (seed 1) at its
+  first step, the centre of mass at 0.30 m over the soles, the pelvis at 0.49 of upright, the
+  soles 700 to 1300 N short of what it asks. The climbs traced take 3 to 6 catch steps. Without
+  them the body falls, so a climb on the stance keeps them, and the settling after them.
+- **The ankle's floor lifts the body** ahead of a held height: asked to hold 0.49 m, the squat is
+  at 0.79 m by 0.3 s. With the floor off (`ankleSpare` null) the height holds, and with no catch
+  steps the centre of mass still goes back 13 cm in 0.3 s.
+- **Holding the body past ready** (`keep` 0.5 s, the faster constants' row): the five stand at a
+  mean of 3.27 s against 2.97 handed back at ready.
+- **1 s is the floor itself.** Verified standing holds 0.5 s of quiet after the body arrives still.
+  The rock-up's hand-over is 0.67 m under standing; on a minimum-jerk path whose braking stays
+  within gravity (the soles cannot pull) the climb takes at least √(5.77 × 0.67 / 9.81) = 0.63 s,
+  the squat's 0.45 m at least 0.52 s: 1.0 to 1.1 s to verified with no settling at all.
+
 ## Tried and not kept
 
+- **A pelvis pitch in the stance's own climb** (a goal's pitch about the heading's right, the
+  pelvis's turn aimed at it, searched from -0.3 to 0.9 rad, from 0 or from the hand-over's pitch let
+  go): the search above set it to 0.001 rad, and by hand (0.3 to 0.9 rad) the fastest start stood
+  was 2.01 s, as without it ([a climb on the stance](#a-climb-on-the-stance)).
 - **The skeleton's trunk from its art** (at `39954c37`, `research/rising-step-search.mjs --score`,
   the skeleton's 32 target falls, 30 s cap, its step-up settings as searched on the box trunk): each
   trunk segment the hull of the art's ribcage, lumbar and pelvis vertices, rounded at the back where
