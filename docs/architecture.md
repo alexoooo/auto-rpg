@@ -583,7 +583,8 @@ return walking, facing, lowering, cover and discrete action requests; they never
 posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
 (`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
 guard, behaviours, or a drill (`drill-tactics.ts`: one action at one mark of the nearest foe, asked
-once from where the body stands, turning to its window and never walking; with `fight`, it fights
+once: it turns to its window, walks there no faster than its `pace` (with none, it never walks),
+and asks once it stands settled at the window's middle; with `fight`, it fights
 by those tactics until they ask their `moment`th action, and asks its own in that one's place). Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
 one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
 behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
@@ -955,8 +956,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   hand, offset and range; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
-  straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), on the target
-  elsewhere, missed, out of its window, refused, fell, or a fight that never came to its moment). `--previous` reads a battery's subject
+  straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), guarded
+  (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
+  refused or waiting, fell, or a fight that never came to its moment). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot

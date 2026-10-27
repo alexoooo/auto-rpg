@@ -54,13 +54,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now: the clean-up lands.** The minds, gaits, techniques and policies that never worked or are
-   replaced go (Joint feedback, the Scrapper and its stride, Research rise, the SIMBICON gaits, the
-   learned run and rise, the driven and whole-body strikes); Classic, Behaviours and the
-   Counter-puncher leave the menus, their configs kept as building blocks. Toes go on the Warrior
-   and the Rogue, with the ankle's dorsiflexion stop at 0.8 rad, read before and after on walking,
-   shoves, fights, the stand-up and the learned punch ([toes](reference/toes.md)). Then the options
-   fighter takes the shape at depth 1 (Options step 1).
+1. **Now: toes, then the options fighter's shape.** Toes go on the Warrior and the Rogue, with the
+   ankle's dorsiflexion stop at 0.8 rad, read before and after on walking, shoves, fights, the
+   stand-up and the learned punch ([toes](reference/toes.md)). Then the options fighter takes the
+   shape at depth 1 (Options step 1).
 2. **Next: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
    (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
    trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
