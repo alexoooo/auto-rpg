@@ -1,4 +1,3 @@
-import { PUSH_OFF, ROCK_UP } from "./fast-edges.ts";
 import { LEARNED_RISE } from "./learned-rise.ts";
 import { PLANT_UP_TECHNIQUE } from "./plant-up.ts";
 import { POST_UP } from "./post-up.ts";
@@ -15,5 +14,4 @@ import { STEP_UP_TECHNIQUE } from "./step-up.ts";
  * `scripts/build-identity.mjs`).
  */
 export const TECHNIQUES = { "step-up": STEP_UP_TECHNIQUE, "learned-rise": LEARNED_RISE, "plant-up": PLANT_UP_TECHNIQUE, roll: ROLL, "roll-back": ROLL_BACK, "sit-up": SIT_UP, "post-up": POST_UP,
-  "staged-roll": STAGED_ROLL, "staged-down": STAGED_DOWN, "staged-kneel-up": STAGED_KNEEL_UP, "staged-step-through": STAGED_STEP_THROUGH, "staged-lunge": STAGED_LUNGE,
-  "push-off": PUSH_OFF, "rock-up": ROCK_UP };
+  "staged-roll": STAGED_ROLL, "staged-down": STAGED_DOWN, "staged-kneel-up": STAGED_KNEEL_UP, "staged-step-through": STAGED_STEP_THROUGH, "staged-lunge": STAGED_LUNGE };

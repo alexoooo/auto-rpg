@@ -66,7 +66,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    Footwork's first rungs, with Options step 2 (the legs' skills and the intent) before Footwork.
 2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 7
    landed (the budget, the witnesses, the steady's climb, step-up's route in parts, hand-overs in
-   motion, a drill for each edge, routes priced); next step 8 (the fast edges). Until step 10 the game keeps today's Stand up. And
+   motion, a drill for each edge, routes priced); step 8 found no fast edge; next step 9 (the
+   Rogue). Until step 10 the game keeps today's Stand up. And
    Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
 3. **When each one's condition holds:**
    - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
@@ -199,7 +200,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   placed but the Rogue's kneel-up (0 of 6, for step 9). Its reel waits on a page that plays a
   technique case (open item, Framework). Step 7 (landed): Stand up prices routes by the edges'
   profiles ([routes priced](reference/rising.md#routes-priced)); the fresh falls are a case set of
-  the target. Next, step 8.
+  the target. Step 8 found no fast edge ([tried and not kept](reference/rising.md#tried-and-not-kept)):
+  from hands and knees the bearing solve holds a pike on the toes, the hands bearing, and does not
+  balance on the feet alone; a fast rise waits on a controller that brings the weight onto flat feet.
+  Next, step 9.
   A policy acting on observations also runs the sixteen-fall screen
   (`research/stand-up-acceptance.mjs`), which does not establish the target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
