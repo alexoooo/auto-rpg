@@ -11,7 +11,7 @@ const shard = Number(values.shard), of = Number(values.of);
 
 /** The reptile against each humanoid controller, with and without a club, and against itself; at nine gaps, 60 s each. */
 const OPPONENTS = [
-  ...["classic", "puncher", "scrapper"].flatMap((control) =>
+  ...["classic", "puncher"].flatMap((control) =>
     ["empty", "club"].map((held) => ({ right: "workshop-fighter", control, held }))),
   { right: "reptile", control: "crawl", held: "empty" },
 ];

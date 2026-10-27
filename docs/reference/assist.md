@@ -88,7 +88,7 @@ the body fall onto them.
 
 ## A gait's assist
 
-A gait that drives the legs itself (the SIMBICON walk and its run, `simbicon.ts`) has no bearing
+A gait that drives the legs itself (the walk and run's run cycle, `cycle-run.ts`) has no bearing
 solve to say what the soles miss, so it asks the assist each step for a moment on the root that
 turns the pelvis to the gait's own: facing its heading, at the walk's lean or the lean and bank the
 run's stance hip last held, in 0.15 s as a body of 0.3 m radius of gyration would be turned

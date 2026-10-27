@@ -55,7 +55,7 @@ both-hand low and recovery trials two of four attackers fall and none passes eve
 
 ```powershell
 node research/punch-foundation.mjs
-node research/punch-arena.mjs
+node research/punch-arena.mjs   # at ffdaaeea
 node research/punch-mass-audit.mjs
 ```
 

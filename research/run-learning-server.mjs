@@ -1,5 +1,5 @@
 /**
- * The learned run's environments on worker threads, `each` to a thread, served to a trainer over
+ * A learned skill's environments on worker threads, `each` to a thread, served to a trainer over
  * stdin and stdout as JSON lines (`research/run-train.py`): `{"op":"reset"}` answers every
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
@@ -9,8 +9,8 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration is the environment's (`runEnvironment`, the learned rise's `riseEnvironment`
- * with `"environment": "rise"`, or the steered punch's `punchEnvironment` with `"environment": "punch"`) with `workers`, `each`, and `models`, `holds`
+ * The configuration is the environment's (the steered punch's `punchEnvironment`, the default, or the
+ * learned rise's `riseEnvironment` with `"environment": "rise"`) with `workers`, `each`, and `models`, `holds`
  * and `hastes`, whose every combination the environments take in turn; environment i is seeded
  * `seed + i`.
  */
@@ -22,7 +22,7 @@ if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
   const kind = workerData[0].environment;
   const make = kind === 'rise' ? (await import('./rise-learning-environment.mjs')).riseEnvironment
-    : kind === 'punch' ? (await import('./punch-learning-environment.mjs')).punchEnvironment : (await import('./run-learning-environment.mjs')).runEnvironment;
+    : (await import('./punch-learning-environment.mjs')).punchEnvironment;
   const envs = [];
   for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
@@ -60,7 +60,7 @@ if (!isMainThread) {
   });
 } else {
   const configuration = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-  const { workers: count = 8, each = 1, hastes = [0], environment = 'run', models = ['workshop-fighter'], holds = ['empty'], seed = 1, ...rest } = configuration;
+  const { workers: count = 8, each = 1, hastes = [0], environment = 'punch', models = ['workshop-fighter'], holds = ['empty'], seed = 1, ...rest } = configuration;
   const kinds = models.flatMap((model) => holds.flatMap((held) => hastes.map((haste) => ({ model, held, haste }))));
   const workers = Array.from({ length: count }, (_, w) => {
     const configurations = Array.from({ length: each }, (_, k) => { const i = w * each + k; return { ...rest, environment, seed: seed + i, ...kinds[i % kinds.length] }; });

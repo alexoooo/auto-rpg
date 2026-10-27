@@ -12,26 +12,20 @@
  * begun are not played. A trial is played once a run: the readings over every thing held read the
  * trials each thing's own played.
  *
- *   node research/core-stance-envelope.mjs [--legs stance|stride|walk-run|learned-run|simbicon|simbicon-run] [--write] [--out file]
+ *   node research/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--out file]
  *     [--models workshop-fighter,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
- *     [--config settings.json] [--physique '{"speed":1.25}'] [--policy policy.json --hasted 0.5]
+ *     [--physique '{"speed":1.25}']
  *
- * `--legs` names the walk measured: the stance's own (`stance`, the default), the stride, the walk
- * and run free to run, the learned run with its run steered by the trained policy, the SIMBICON walk
- * told it may not run, or free to run; `--write` writes `assets/core/<legs>-envelope.json`, `--out`
+ * `--legs` names the walk measured: the stance's own (`stance`, the default), or the walk and run
+ * free to run; `--write` writes `assets/core/<legs>-envelope.json`, `--out`
  * that file in place of it. `--models` and `--holds` screen a few bodies or things held first.
  * `--walks` measures the walks alone, with no turns. `--gusts rate:strength:seeds` walks each walk
  * calm and again in the lab's gusts (`startWind`) on each seed, and a speed holds only if every one
- * of them held: calm, as asked; in the gusts, standing. With `--legs simbicon --config` (or
- * `simbicon-run`), the walk is the SIMBICON gait's with the settings in that file. `--physique`
- * builds each body of that physique (`Physique`, `src/core/human/physique.ts`) in place of its own.
- * With `--legs learned-run --policy`, its run is steered by the policy in that file, its gait timed
- * to its haste by `--hasted` (0 unless given).
+ * of them held: calm, as asked; in the gusts, standing. `--physique` builds each body of that
+ * physique (`Physique`, `src/core/human/physique.ts`) in place of its own.
  */
-import { readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
-import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { HELD } from "../src/core/items/held.ts";
@@ -40,15 +34,11 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
 /**
- * The battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's,
- * the walk and run's past both to the run's; the SIMBICON walk's take 1.5, just past the pace it
- * runs from (`SimbiconSettings.run`), and begin at 0.3: slower, a step's pendulum carries the body
- * on past the pace asked, or short of it.
+ * The battery's speeds, m/s, by the legs it measures: the walk and run's reach past the stance
+ * walk's to the run's.
  */
 const RUN_SPEEDS = [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5, 3, 3.5, 4, 4.5];
-const SIMBICON_SPEEDS = [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5];
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], "walk-run": RUN_SPEEDS, "learned-run": RUN_SPEEDS,
-  simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3, 3.5, 4, 4.5] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5], "walk-run": RUN_SPEEDS };
 /** The ways a walk is measured, degrees to the right of forward: the four `StanceEnvelope.ways` reads. */
 const WAYS = [0, 90, 180, 270];
 /**
@@ -56,14 +46,14 @@ const WAYS = [0, 90, 180, 270];
  * (`walk`): the run comes up to its pace and down from it at 0.6 m/s² (`RunCycleSettings.accel`,
  * `brake`), from 0 to 4.5 m/s and back in some 8 s each way.
  */
-const TIMES_OF = { stance: {}, stride: {}, "walk-run": { setOff: 10, rest: 10 }, "learned-run": { setOff: 10, rest: 10 }, simbicon: {}, "simbicon-run": { setOff: 10, rest: 10 } };
+const TIMES_OF = { stance: {}, "walk-run": { setOff: 10, rest: 10 } };
 const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**
- * The turn battery's rates, rad/s, by the legs it measures: the walk and run's and SIMBICON's finer, for their turns
+ * The turn battery's rates, rad/s, by the legs it measures: the walk and run's finer, for its turns
  * set the Run's pace round a bend and a turn read between two rates is the slower's.
  */
 const FINE_RATES = [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4];
-const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], "walk-run": FINE_RATES, "learned-run": FINE_RATES, simbicon: FINE_RATES, "simbicon-run": FINE_RATES };
+const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], "walk-run": FINE_RATES };
 const SENSES = [1, -1];
 /**
  * When a turn begins, s after the walk sets off: every eighth of a second to 1.5, over the first
@@ -71,16 +61,12 @@ const SENSES = [1, -1];
  */
 const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
-const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, config: { type: "string" }, out: { type: "string" },
-  physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" }, policy: { type: "string" }, hasted: { type: "string" }, models: { type: "string" }, holds: { type: "string" } } });
+const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, out: { type: "string" },
+  physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" }, models: { type: "string" }, holds: { type: "string" } } });
 const legs = values.legs ?? "stance";
 if (!Object.hasOwn(SPEEDS_OF, legs)) throw new Error(`no envelope is measured for legs ${legs}`);
-const simbiconLegs = legs === "simbicon" || legs === "simbicon-run";
-if (values.config && !simbiconLegs) throw new Error("--config gives a SIMBICON walk's settings: it needs --legs simbicon or simbicon-run");
-if (values.policy && legs !== "learned-run") throw new Error("--policy names a learned run's policy: it needs --legs learned-run");
-/** What each trial walks by: the legs' name (none for the stance's own), or the settings given. */
-const walker = values.config ? { ...JSON.parse(readFileSync(values.config, "utf8")), runs: legs === "simbicon-run" }
-  : values.policy ? { kind: "learned-run", policy: resolve(values.policy), hasted: Number(values.hasted ?? 0) } : legs === "stance" ? null : legs;
+/** What each trial walks by: the legs' name, none for the stance's own. */
+const walker = legs === "stance" ? null : legs;
 const physique = values.physique ? JSON.parse(values.physique) : undefined;
 /** The winds each walk is walked in: calm, and the gusts on each seed asked. */
 const WINDS = [null, ...(() => {

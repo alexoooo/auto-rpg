@@ -251,8 +251,7 @@ a stance goal) into muscle commands.
   give, plans each leg (`aimLimb`), publishes what the soles missed (`StanceReading.shortfall`),
   limits each ankle's load to what it holds lengthening (`ankleStrength`), places steps from the capture point (`catchStep`,
   `landingHeading`) and flies a step on request (`SwingGoal.flight`).
-- **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `strideEnvelope`, `simbiconEnvelope`,
-  `simbiconRunEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held
+- **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held
   item, from `assets/core/*-envelope.json`: each way's fastest is the fastest speed at which every
   trial held (`fastestEvery`), and `paceToward` picks the fastest pace that held a share of its
   trials.
@@ -292,11 +291,7 @@ no feet finds them standing.
 | Skill | File | What it is |
 |---|---|---|
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`StanceWalk.place`) |
-| Walk and run | `walk-run.ts` | the stance's walk, handing over to SIMBICON's run cycle (`runCycle`, `WALK_RUN_CYCLE`) when asked past its walk and allowed (`Locomotion.runs`) |
-| SIMBICON walk | `simbicon.ts` | drives the legs itself (`Locomotion.drive`) by Yin, Loken and van de Panne 2007, running by `runCycle` (`cycle-run.ts`, CMU clips in `assets/core/run-cycle.json`) |
-| Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`dataOf("learned-run")`, `assets/core/learned-run.json`; its names and timing before it loads, `RUN_POLICY`); experimental |
-| Stride | `stride.ts` | plans its own capture-point steps; experimental |
-| Run | `run.ts` | Raibert-placed flying steps; experimental |
+| Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `Locomotion.drive`) when asked past its walk and allowed (`Locomotion.runs`) |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
@@ -511,7 +506,7 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   JavaScript that states none is a fault in every tree that holds it, never a crash.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
-`MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
+`MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher and Behaviours vary
 the actions and spacing. The Duellist (`DUELLIST`), a weapon and a cover, is every humanoid's
 default (`modelInfo`). An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
@@ -566,9 +561,8 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 | Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have profiles (`ground/profiles.ts`, `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), and the learned rise (`ground/learned-rise.ts`) are experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
-**Mind data loads per use** (`src/core/data/store.ts`). The learned run's, the learned rise's and
-the learned punch's networks and Research rise's recorded get-ups (`assets/core/learned-run.json`,
-`assets/core/learned-rise.json`, `assets/core/learned-punch.json`, `assets/research/research-rise*.json`) are each a module of their
+**Mind data loads per use** (`src/core/data/store.ts`). The learned rise's and the learned
+punch's networks and Research rise's recorded get-ups (`assets/core/learned-rise.json`, `assets/core/learned-punch.json`, `assets/research/research-rise*.json`) are each a module of their
 own in `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
@@ -710,8 +704,7 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   ([The screens](#the-screens)) shows every record.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
-  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run, the
-  learned punch);
+  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned punch);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 ### Command

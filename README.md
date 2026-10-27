@@ -40,7 +40,7 @@ two-minute bell the fuller health bar wins.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Duellist (the default), Options fighter, Classic, Puncher, Counter-puncher, Scrapper, Behaviours; the Reptile's Crawl and bite |
+| Controller | the mind: Duellist (the default), Options fighter, Classic, Puncher, Counter-puncher, Behaviours; the Reptile's Crawl and bite |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
@@ -67,7 +67,7 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | Parameter | Example |
 | --- | --- |
 | `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`) |
-| `control` | `&control=scrapper,classic` |
+| `control` | `&control=puncher,classic` |
 | `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
 | `you` | `&you=left` |
 | `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |

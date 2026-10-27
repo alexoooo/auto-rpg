@@ -1,7 +1,5 @@
 import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
-import strideMeasured from "../../../assets/core/stride-envelope.json" with { type: "json" };
-import simbiconMeasured from "../../../assets/core/simbicon-envelope.json" with { type: "json" };
-import simbiconRunMeasured from "../../../assets/core/simbicon-run-envelope.json" with { type: "json" };
+import runTurnsMeasured from "../../../assets/core/simbicon-run-envelope.json" with { type: "json" };
 import walkRunMeasured from "../../../assets/core/walk-run-envelope.json" with { type: "json" };
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
@@ -57,9 +55,8 @@ export interface StanceEnvelope {
 /**
  * **How a walk must go to have held**, shares of the pace asked: its pace along the way asked at
  * least `along`, and across that way at most `across`. A walk that stands, or goes another way, has
- * not walked at the pace asked however long it stays up. At these shares the stance's walk and the
- * stride hold the speeds they held by their falls alone; the SIMBICON walk backward makes half the
- * pace asked, and does not.
+ * not walked at the pace asked however long it stays up. At these shares the stance's walk holds
+ * the speeds it held by its falls alone.
  */
 export const WENT = Object.freeze({ along: 0.7, across: 0.35 });
 
@@ -240,7 +237,7 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
 
 /**
  * `envelope` for a gait `quick` times as quick as the one it was measured on (a hasted body's,
- * `quickness`, `src/core/skills/simbicon.ts`): every speed and turn it holds, and every pace it
+ * `quickness`, `src/core/skills/gait-scale.ts`): every speed and turn it holds, and every pace it
  * tried, that many times as fast; `envelope` itself at 1.
  */
 export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {
@@ -260,38 +257,11 @@ export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
 }
 
 /**
- * The measured envelope of `spec`'s model walking by the stride (`src/core/skills/stride.ts`):
- * `assets/core/stride-envelope.json`, the same batteries by the same rule at the stride's speeds
- * (`research/core-stance-envelope.mjs --legs stride`).
- */
-export function strideEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(strideMeasured, "stride-envelope", spec, "the stride");
-}
-
-/**
- * The measured envelope of `spec`'s model walking by the SIMBICON walk (`src/core/skills/simbicon.ts`)
- * told it may not run: `assets/core/simbicon-envelope.json`, the same batteries by the same rule at
- * its walk's speeds (`research/core-stance-envelope.mjs --legs simbicon`).
- */
-export function simbiconEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(simbiconMeasured, "simbicon-envelope", spec, "the SIMBICON walk");
-}
-
-/**
- * The measured envelope of `spec`'s model walking by the SIMBICON walk free to run:
- * `assets/core/simbicon-run-envelope.json`, the same batteries by the same rule
- * (`research/core-stance-envelope.mjs --legs simbicon-run`).
- */
-export function simbiconRunEnvelope(spec: BodySpec): StanceEnvelope {
-  return envelopeIn(simbiconRunMeasured, "simbicon-run-envelope", spec, "the SIMBICON run");
-}
-
-/**
  * The measured envelope of `spec`'s model walking by the walk and run (`src/core/skills/walk-run.ts`)
  * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
  * (`research/core-stance-envelope.mjs --legs walk-run --walks`). It measured no turns: its turns are
- * the SIMBICON run's (`simbiconRunEnvelope`).
+ * those a run on the same run cycle held (`assets/core/simbicon-run-envelope.json`).
  */
 export function walkRunEnvelope(spec: BodySpec): StanceEnvelope {
-  return { ...envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run"), turns: simbiconRunEnvelope(spec).turns };
+  return { ...envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run"), turns: envelopeIn(runTurnsMeasured, "simbicon-run-envelope", spec, "the run's turns").turns };
 }

@@ -1,5 +1,5 @@
 import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
-import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorEntry, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
+import { OPTIONS, PATH_STRIKES, STAND_UP, type ActionConfig, type ExecutorEntry, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
@@ -41,9 +41,9 @@ const optionsOwn = <T extends { readonly name: string }>(list: readonly T[], nam
   return found;
 };
 
-/** A path blow of `family` at the body, aimed as the Scrapper aims its paths. */
+/** A path blow of `family` at the body, aimed as the path strikes aim at the body. */
 const atBody = (family: "uppercut" | "cross"): PathActionConfig => ({ name: family, executor: "paths", family, effectors: ["hand.right", "hand.left"],
-  regions: [{ kind: "mark", mark: "middle" }], aim: SCRAPPER.actions[0]!.aim });
+  regions: [{ kind: "mark", mark: "middle" }], aim: PATH_STRIKES.actions[0]!.aim });
 
 /**
  * Its blows: a straight punch at the head (the Puncher's), the options fighter's one-two, an

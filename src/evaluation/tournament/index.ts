@@ -32,7 +32,7 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
     panel: [
       "tempo/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
       "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/crypt-skeleton/empty,empty",
-      "options/workshop-rogue/empty,club", "scrapper/crypt-skeleton/empty,sword",
+      "options/workshop-rogue/empty,club", "duellist/crypt-skeleton/empty,sword",
     ],
     /**
      * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at

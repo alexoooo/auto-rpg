@@ -7,7 +7,7 @@ import { atan2, cos, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
-import { runCycle, validRunCycle, type RunCycleMemory, type RunCycleSettings } from "./cycle-run.ts";
+import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
 
 /** **The walk and run's settings** (`walkRun`): when it runs, and how its heading turns running. */
@@ -68,15 +68,6 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
  * at 0.25 the Warrior runs 0.75 m past and at 0.3 1.24 (`docs/reference/locomotion.md#the-walk-and-run`).
  */
 const RUN_STOPPING = 0.2;
-
-/** What steers a walk and run's run, before each of its steps: told the heading, the pace asked, m/s, the run's memory, whose steer it sets (`RunSteer`), and the heading's turn, rad/s. */
-type RunSteerer = (view: BodyView, heading: number, asked: number, run: RunCycleMemory, turning: number) => void;
-
-/** What else a walk and run may be given: what steers its run (`RunSteerer`), and the envelope its run is held to in place of its own (`walkRunEnvelope`), null for none. */
-interface WalkRunOptions {
-  readonly steer?: RunSteerer;
-  readonly runEnvelope?: StanceEnvelope | null;
-}
 
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked
@@ -157,19 +148,18 @@ interface WalkRunMemory {
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
- * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`, unless
- * it is given another, `WalkRunOptions.runEnvelope`); it states it stops at its walk's rate, and while it may run
- * at `RUN_STOPPING`. Its
+ * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`); it
+ * states it stops at its walk's rate, and while it may run at `RUN_STOPPING`. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  */
-export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true, options: WalkRunOptions = {}): Locomotion {
+export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
-  const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
+  const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
@@ -274,7 +264,6 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
       const h = memory.heading;
-      options.steer?.(view, h, memory.pace, cycle.state, memory.spin);
       const driven = cycle.drive(view, dt, h, memory.pace);
       const landing = driven.landed !== null && driven.landed !== memory.landed;
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }

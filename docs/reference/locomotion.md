@@ -85,7 +85,7 @@ not the one realised. Stripping one limit at a time (the bed's `--probe`): twice
 the forward walk about 16 %, and an assist with it to 1.4 m/s; the yaw given alone, lighter legs,
 stronger ankles, 240 Hz and more friction hold no more. What lifted the pace is the swing's share of
 the step: a longer swing and a shorter double support. The ankle gives 4 to 7 % of the stride's
-positive work, where a person's gives about half (`research/gait-audit.mjs`).
+positive work, where a person's gives about half (`research/gait-audit.mjs@ffdaaeea`).
 
 **A catch holds the facing it began at** (`step.facing`, `src/core/control/stance.ts`). A catch's
 landing is aimed facing the way the pelvis faces as it begins. A pelvis that turns on toward the
@@ -149,58 +149,9 @@ way's deepest point out of the box (21); 10 cm between the thighs (`STRIDE_ROOM`
 (13 of 300 against 6); a catch that would land no nearer the capture point than the bearing foot
 stands put down at once, and the bearing foot stepping out (27).
 
-## The stride
+## The run cycle
 
-Experimental. It plans its own steps on the capture point and holds 0.7 m/s every way for the
-Warrior and 0.5 for the Rogue and the skeleton (`assets/core/stride-envelope.json`). On the Lab's
-lines (`research/locomotion-run.mjs`, 20 N gusts) the Warrior holds 1.2 m/s asked forward, 0.95
-along the line, and 0.7 the other ways; the Rogue 1 forward (0.75 along). Its defaults are the best
-of a search over its settings (`research/locomotion-search.mjs`): against the stance's own step
-they fell 364 times against 425 in 640 paired runs on the lines, and 41 against 62 in 120 on the
-turns.
-
-**It does not help a fight.** In the empty-hand league (66 bouts a striding entrant, at the
-stride's earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride
-rates under itself on the stance's walk:
-
-| Preset | Stance's walk | Stride |
-|---|---|---|
-| Puncher | 1546 | 1412 |
-| Scrapper | 1204 | 1126 |
-| Classic | 400 | 312 |
-
-The Puncher on the stride falls 1.74 times a bout against 0.11: its straight punch drives as soon as
-its foe is in the band, mid-step. Waiting for both feet as the drive begins (`landed`) brings that to
-1.45; waiting 0.1 s on both feet (`settle`) cures the falls and loses every bout to the Puncher on
-the stance's walk; no `EDGE` helps.
-
-## The run
-
-Experimental (`run.ts`). It flies between steps, its feet placed as a hopping machine places them
-and the capture point asked where a steady run's is as each foot lands, the arms swinging against
-each other. On the spot it stays up; forward it holds 10 s at about 1 m/s whatever pace is asked (a
-search over its settings reached 0.9 m/s held, 0.76 for the Rogue, by giving up the flight). Each
-step the pelvis yaws some 0.8 rad: the swing's yaw is more than the bearing sole's twist gives at
-the ground's friction (0.5), and the bearing hip turns to its stop. A foot landed behind its neutral
-point, to speed up, falls within about 2 s.
-
-## The SIMBICON walk
-
-The walk every fighter travels by (`simbicon.ts`): it drives the legs itself, with no stance goal.
-Told it may not run, it walks forward to 1.31 m/s. Its envelope (`assets/core/simbicon-envelope.json`:
-calm and in four seeds of 5 N gusts, with each thing held) is every way 1.4 m/s for the Warrior, 1
-for the Rogue and 0.7 for the skeleton, and forward 1.5, 1.2 and 1.5. It is measured from 0.3 m/s,
-since slower a step's pendulum carries the body past the pace asked or short of it. Each way changes
-the walk asked at its own rates: forward 1.16 m/s² faster and 0.47 slower, the side and back ways
-0.5.
-
-Departures from the paper: the late swing lands by the inverted pendulum (Coros 2010) in place of
-the paper's feedback on distance; there is no gravity term through the stance leg; gains are a
-settling time and shares of strength, not N m/rad.
-
-## The SIMBICON run
-
-Past 1.31 m/s the walk tracks a person's run cycle (`runCycle`, `cycle-run.ts`): three CMU clips'
+Past its walk, the walk and run tracks a person's run cycle (`runCycle`, `cycle-run.ts`): three CMU clips'
 cycles (16_35 at 2.75 m/s, 16_45 at 3.94, 102_05 at 4.38; `assets/core/run-cycle.json`,
 `research/run-cycle.mjs`), its phase from landing to landing, blended by the pace and scaled by
 Froude. Its pace is held no more than `ahead` past the body's own; its settings (`RUN_CYCLE`) were
@@ -211,7 +162,7 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   the Warrior, 2.65 for the Rogue, 2.98 for the skeleton (calm, empty-handed and with the club). Its
   stride falls short of the clips' at the cadence it runs, and no leg muscle but the ankles is at
   its ceiling there. Haste and balance move it ([assist](assist.md#haste)).
-- **Envelope** (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s
+- **Envelope**, read on the SIMBICON walk's run (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s
   after): forward to 4 m/s for the Warrior by the rule, to 1.2 for the Rogue and the skeleton, since
   a few of their trials at every pace fall. Forward at 3 m/s the Warrior held 10 of 10 trials, the
   Rogue 7, the skeleton 10; at 4, 10, 3 and 10.
@@ -245,7 +196,7 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
 
 ## The walk and run
 
-The game's Run (`walk-run.ts`): the stance's walk, and past its threshold the SIMBICON run's cycle,
+The game's Run (`walk-run.ts`): the stance's walk, and past its threshold the run cycle,
 facing the way asked. Its envelope (`assets/core/walk-run-envelope.json`, `walkRunEnvelope`) holds
 each way's fastest speed at which every one of 20 trials held (`fastestEvery`): calm and in four
 seeds of 5 N gusts, with each of the empty hand, the club, the buckler and the sword; each walk set
@@ -377,6 +328,57 @@ not.
   longer steps.
 
 ## Tried and not kept
+
+### The stride
+
+It planned its own steps on the capture point and holds 0.7 m/s every way for the
+Warrior and 0.5 for the Rogue and the skeleton (`assets/core/stride-envelope.json@ffdaaeea`). On the Lab's
+lines (`research/locomotion-run.mjs`, 20 N gusts) the Warrior holds 1.2 m/s asked forward, 0.95
+along the line, and 0.7 the other ways; the Rogue 1 forward (0.75 along). Its defaults are the best
+of a search over its settings (`research/locomotion-search.mjs@ffdaaeea`): against the stance's own step
+they fell 364 times against 425 in 640 paired runs on the lines, and 41 against 62 in 120 on the
+turns.
+
+**It did not help a fight.** In the empty-hand league (66 bouts a striding entrant, at the
+stride's earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride
+rates under itself on the stance's walk:
+
+| Preset | Stance's walk | Stride |
+|---|---|---|
+| Puncher | 1546 | 1412 |
+| Scrapper | 1204 | 1126 |
+| Classic | 400 | 312 |
+
+The Puncher on the stride falls 1.74 times a bout against 0.11: its straight punch drives as soon as
+its foe is in the band, mid-step. Waiting for both feet as the drive begins (`landed`) brings that to
+1.45; waiting 0.1 s on both feet (`settle`) cures the falls and loses every bout to the Puncher on
+the stance's walk; no `EDGE` helps.
+
+### The flying run
+
+A run (`src/core/skills/run.ts@ffdaaeea`) that flies between steps, its feet placed as a hopping machine places them
+and the capture point asked where a steady run's is as each foot lands, the arms swinging against
+each other. On the spot it stays up; forward it holds 10 s at about 1 m/s whatever pace is asked (a
+search over its settings reached 0.9 m/s held, 0.76 for the Rogue, by giving up the flight). Each
+step the pelvis yaws some 0.8 rad: the swing's yaw is more than the bearing sole's twist gives at
+the ground's friction (0.5), and the bearing hip turns to its stop. A foot landed behind its neutral
+point, to speed up, falls within about 2 s.
+
+### The SIMBICON walk
+
+A walk (`src/core/skills/simbicon.ts@ffdaaeea`) that drives the legs itself, with no stance goal.
+Told it may not run, it walks forward to 1.31 m/s. Its envelope (`assets/core/simbicon-envelope.json@ffdaaeea`:
+calm and in four seeds of 5 N gusts, with each thing held) is every way 1.4 m/s for the Warrior, 1
+for the Rogue and 0.7 for the skeleton, and forward 1.5, 1.2 and 1.5. It is measured from 0.3 m/s,
+since slower a step's pendulum carries the body past the pace asked or short of it. Each way changes
+the walk asked at its own rates: forward 1.16 m/s² faster and 0.47 slower, the side and back ways
+0.5.
+
+Departures from the paper: the late swing lands by the inverted pendulum (Coros 2010) in place of
+the paper's feedback on distance; there is no gravity term through the stance leg; gains are a
+settling time and shares of strength, not N m/rad.
+
+### On the stance's walk
 
 On the stance's walk and the stride:
 

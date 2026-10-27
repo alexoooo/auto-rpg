@@ -7,7 +7,7 @@ import type { MoveRule } from "./move.ts";
 export const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
 
 /** The gaits as a choice offers them. */
-export const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label]);
+export const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[name].label]);
 
 /** A rule of Move's config: when it holds, and the gait it chooses then. */
 export interface RuleConfig extends PartConfig { readonly gait: GaitName }

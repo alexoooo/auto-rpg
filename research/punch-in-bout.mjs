@@ -7,8 +7,8 @@
  * second the puncher spent down and `LOST` for a bout it lost; with `--head`, also that many hit points for
  * the share of the foe's vital part (its head) emptied, less the same of the puncher's, since an
  * emptied head ends the bout however full the rest is. The foes are a Warrior standing in
- * guard, or Classic, the tests' Combat, Brawler and Kicker, Scrapper or the Puncher fighting back
- * (`--foes stands,classic,combat,brawler,kicker,scrapper,puncher`), or a rival: the Puncher throwing
+ * guard, or Classic, the tests' Combat, Brawler and Kicker, or the Puncher fighting back
+ * (`--foes stands,classic,combat,brawler,kicker,puncher`), or a rival: the Puncher throwing
  * the straight punch with the settings `--rival` gives (`--foes rival`).
  * `--scene` also plays the punch test's bout (`tests/straight-punch-capability.test.mjs@2a1b29ac`: walked in, on a Warrior
  * standing in guard 1.2 m off, 5 s) and takes off what it falls short of there: `SHORT` a wounding
@@ -29,7 +29,7 @@ import { actionCycles } from "./action-cycles.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { CLASSIC, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
+import { CLASSIC, PUNCHER } from "../src/core/mind/config.ts";
 import { BRAWLER, COMBAT, KICKER } from "../tests/fixtures/minds.mjs";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
@@ -51,7 +51,7 @@ const argOf = (name) => { const i = process.argv.indexOf(`--${name}`); return i 
 const RIVAL = Object.freeze(isMainThread ? JSON.parse(argOf("rival") ?? "{}") : workerData?.rival ?? {});
 
 /** The foes a setting may be scored against, by name. */
-const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER, scrapper: SCRAPPER, puncher: PUNCHER,
+const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER, puncher: PUNCHER,
   rival: { ...PUNCHER, executors: PUNCHER.executors.map(executor => ({ ...executor, ...RIVAL })) } });
 
 /** The settings searched, each its range. */

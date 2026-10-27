@@ -46,8 +46,6 @@ import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { partOf } from "../src/core/mind/catalog.ts";
 import { CLASSIC, PUNCHER, QUADRUPED, STAND_UP } from "../src/core/mind/config.ts";
-import { LOCOMOTIONS } from "../src/core/mind/locomotions.ts";
-import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
 import { hostedMind } from "../src/core/mind/minds.ts";
@@ -198,34 +196,6 @@ async function labRun(model) {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }
     return `pose ${trace.digest()}`;
-  } finally { run.dispose(); stand.dispose(); }
-}
-
-/** The walk and run's memory in a mind's skills' state (`walkRun`), or null. */
-function walkRunOf(state, depth = 0) {
-  if (!state || typeof state !== "object" || depth > 8) return null;
-  if (state.walkRun && "running" in state.walkRun) return state.walkRun;
-  for (const value of Object.values(state)) { const found = walkRunOf(value, depth + 1); if (found) return found; }
-  return null;
-}
-
-/**
- * The Warrior round the lab's circle for 10 s under `mind`, asked `top` m/s, past what its walk and
- * run walks: what the pose was, and how long the walk and run ran and the body was down.
- */
-async function labDataRun(mind, top) {
-  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
-  const actor = labActor(stand.built, stand.world, { mind });
-  const run = startLocomotion(actor, trackOf(TRACKS.circle.pieces), { top });
-  try {
-    const trace = traceOf([stand.built]), meter = downMeter(actor.body, stand.world.hz);
-    let ran = 0;
-    for (let i = 0; i < stand.seconds(10); i++) {
-      stand.step(); trace.take(); meter.take();
-      if (walkRunOf(actor.skills?.state)?.running) ran++;
-    }
-    const pose = trace.digest(), down = `ran ${(ran / stand.world.hz).toFixed(2)} s, ${meter.reading()}`;
-    return { line: `${down}, pose ${pose}`, record: { pose, down } };
   } finally { run.dispose(); stand.dispose(); }
 }
 
@@ -439,13 +409,11 @@ const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(min
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
  * read by a case that plays it: Research rise and the learned rise, the Warrior laid down; the
- * learned run's policy, which steers only a run and is asked none in a bout, round the lab's circle
- * at 3 m/s; the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
+ * learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
  */
 const DATA_CASES = [
   felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
   felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: [{ kind: "learned-rise" }] }] }),
-  { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: LOCOMOTIONS["learned-run"].defaults }, 3) },
   { name: "data: learned-punch", run: () => {
     const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };

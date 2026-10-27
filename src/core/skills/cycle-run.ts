@@ -104,32 +104,6 @@ export const RUN_CYCLE: RunCycleSettings = Object.freeze({
  */
 export const RUN_ARMS = Object.freeze({ abduction: 0 });
 
-/**
- * **A run's steer**: offsets on what the cycle asks, each 0 leaving it as the cycle has it, set
- * by whatever steers the run (a learned policy, `learned-run.ts`) before each step. By the legs'
- * roles: the swinging leg's hip flexion, its abduction, its knee and its ankle; the bearing leg's
- * knee, its ankle's dorsiflexion and its inversion; the pelvis's lean forward and its bank toward
- * the bearing side (rad); the cycle's rate (a share over its own); the pace the clips are blended
- * at (m/s over the run's); and each push's share of strength (a share over its own, at most all).
- */
-export interface RunSteer {
-  swingHip: number;
-  swingOut: number;
-  swingKnee: number;
-  swingAnkle: number;
-  stanceKnee: number;
-  stanceAnkle: number;
-  stanceRoll: number;
-  lean: number;
-  bank: number;
-  cadence: number;
-  pace: number;
-  effort: number;
-}
-
-/** A steer's offsets in order: what a policy's outputs are read as (`learned-run.ts`). */
-export const STEER_KEYS: readonly (keyof RunSteer)[] = Object.freeze(["swingHip", "swingOut", "swingKnee", "swingAnkle", "stanceKnee", "stanceAnkle", "stanceRoll", "lean", "bank", "cadence", "pace", "effort"]);
-
 /** The run's settings, `tuning` over `base` (by default `RUN_CYCLE`). */
 export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}, base: RunCycleSettings = RUN_CYCLE): RunCycleSettings {
   return { ...base, ...tuning };
@@ -192,9 +166,6 @@ export interface RunCycleMemory {
   /** The pelvis's lean forward and its bank to the right that the stance hip last held it to, rad: the run's own lean as it begins. */
   lean: number;
   bank: number;
-  /** What steers the run now (`RunSteer`), and the steps it has driven since it began. */
-  steer: RunSteer;
-  steps: number;
 }
 
 /**
@@ -282,8 +253,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       bind: { hip: bindOf(`hip.${side}`), knee: bindOf(`knee.${side}`), ankle: bindOf(`ankle.${side}`) }, spread: bindOf(`hip.${side}`, 1) };
   };
   const legs = { left: limbOf("left"), right: limbOf("right") };
-  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0,
-    steer: Object.fromEntries(STEER_KEYS.map((key) => [key, 0])) as unknown as RunSteer, steps: 0 };
+  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number] };
   const runner = armSwing(p.arms, true);
@@ -315,17 +285,14 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       memory.heading = heading;
       memory.lean = p.lean;
       memory.bank = 0;
-      for (const key of STEER_KEYS) memory.steer[key] = 0;
-      memory.steps = 0;
     },
     drive(view, dt, heading, asked) {
-      const s = view.stance, c = s.centre, v = s.velocity, steer = memory.steer;
-      memory.steps += 1;
+      const s = view.stance, c = s.centre, v = s.velocity;
       const fx = sin(heading), fz = cos(heading), rx = cos(heading), rz = -sin(heading), along = v.x * fx + v.z * fz;
       memory.pace += Math.max(-p.brake * dt, Math.min(p.accel * dt, Math.min(asked, along + p.ahead) - memory.pace));
-      blend(memory.pace + steer.pace);
+      blend(memory.pace);
       // The phase: on at the cycle's rate, set to a landing near its own, held a while for one late.
-      let next = memory.phase + dt * (1 + steer.cadence) / blended.period, landed: Side | null = null;
+      let next = memory.phase + dt / blended.period, landed: Side | null = null;
       for (const side of ["left", "right"] as const) {
         const o = own(side);
         if (s.touching[side] && !memory.touching[side]) {
@@ -353,7 +320,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       const pushes: MusclePush[] = [];
       const drive = (name: string, i: number, goal: number, level: number, more = 0): void => {
         const u = more + (goal - muscles.angle(i)) / p.settle;
-        pushes.push({ channel: name, sense: u >= 0 ? 1 : -1, level: Math.min(1, level * (1 + steer.effort)), speed: u });
+        pushes.push({ channel: name, sense: u >= 0 ? 1 : -1, level: Math.min(1, level), speed: u });
       };
       const a = dynamics.pivot(st.ankle[0]), across = v.x * rx + v.z * rz;
       const error = along - memory.pace, turned = heading - memory.heading, turning = (turned - 2 * Math.PI * Math.round(turned / (2 * Math.PI))) / dt;
@@ -362,24 +329,24 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       // The swinging leg: its thigh in the world, the clip's lean taken off, with the feedback late in its swing.
       at(ow);
       const feedback = ow >= p.late || ow < 0.5 ? p.cv * error + p.cd * ((c.x - a[0]!) * fx + (c.z - a[2]!) * fz) + memory.trim : 0;
-      drive(sw.names.hip[0], sw.hip[0], angle("hip") - sw.bind.hip - blended.lean + p.hipAdd + feedback + pitch + steer.swingHip, p.swing, rate("hip"));
+      drive(sw.names.hip[0], sw.hip[0], angle("hip") - sw.bind.hip - blended.lean + p.hipAdd + feedback + pitch, p.swing, rate("hip"));
       const hp = dynamics.pivot(sw.hip[0]), height = Math.max(0.3, hp[1]! - Math.min(s.soles.left.y, s.soles.right.y));
       const aside = ((c.x - hp[0]!) * rx + (c.z - hp[2]!) * rz + across * (p.contact / 2 + p.gainSide)) * out;
       const landOut = atan2(aside + p.width, height) + p.cdSide * ((c.x - a[0]!) * rx + (c.z - a[2]!) * rz) * out;
-      drive(sw.names.hip[1], sw.hip[1], landOut + out * roll - sw.spread + steer.swingOut, p.swing);
+      drive(sw.names.hip[1], sw.hip[1], landOut + out * roll - sw.spread, p.swing);
       drive(sw.names.hip[2], sw.hip[2], 0, p.swing);
-      drive(sw.names.knee, sw.knee, angle("knee") - sw.bind.knee + steer.swingKnee, p.swing, rate("knee"));
-      drive(sw.names.ankle[0], sw.ankle[0], angle("ankle") - sw.bind.ankle + p.ankleAdd + steer.swingAnkle, p.swing, rate("ankle"));
+      drive(sw.names.knee, sw.knee, angle("knee") - sw.bind.knee, p.swing, rate("knee"));
+      drive(sw.names.ankle[0], sw.ankle[0], angle("ankle") - sw.bind.ankle + p.ankleAdd, p.swing, rate("ankle"));
       drive(sw.names.ankle[1], sw.ankle[1], 0, p.swing);
       // The leg on the stance side: knee and ankle on the cycle; its hip holds the pelvis while its sole bears.
       at(os);
-      drive(st.names.knee, st.knee, angle("knee") - st.bind.knee + (bearing ? p.kneeAdd : 0) + steer.stanceKnee, p.stance, rate("knee"));
-      drive(st.names.ankle[0], st.ankle[0], angle("ankle") - st.bind.ankle + p.ankleAdd + steer.stanceAnkle, p.ankle, rate("ankle"));
-      drive(st.names.ankle[1], st.ankle[1], p.cvAnkleSide * across * out + steer.stanceRoll, p.ankle);
+      drive(st.names.knee, st.knee, angle("knee") - st.bind.knee + (bearing ? p.kneeAdd : 0), p.stance, rate("knee"));
+      drive(st.names.ankle[0], st.ankle[0], angle("ankle") - st.bind.ankle + p.ankleAdd, p.ankle, rate("ankle"));
+      drive(st.names.ankle[1], st.ankle[1], p.cvAnkleSide * across * out, p.ankle);
       if (bearing) {
-        const lean = p.lean - Math.max(-p.leanMost, Math.min(p.leanMost, p.leanGain * error)) + steer.lean;
+        const lean = p.lean - Math.max(-p.leanMost, Math.min(p.leanMost, p.leanGain * error));
         // Leaning into the turn: to the right (about forward, negative) as the heading turns right.
-        const roll = -p.bank * atan2(along * turning, STANDARD_GRAVITY.value) + steer.bank * out;
+        const roll = -p.bank * atan2(along * turning, STANDARD_GRAVITY.value);
         memory.lean = lean; memory.bank = roll;
         turnAboutToRef(Vector3.UpReadOnly, heading, scratch.target).multiplyInPlace(turnAboutToRef(RIGHT, lean, scratch.pitch))
           .multiplyInPlace(turnAboutToRef(FORWARD, roll, scratch.roll));
@@ -389,7 +356,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
         for (const i of st.hip) { const axis = dynamics.axis(i), u = muscles.speed(i); relative.x += axis[0]! * u; relative.y += axis[1]! * u; relative.z += axis[2]! * u; }
         relative.addInPlace(spin).subtractInPlace(wanted);
         const speeds = speedsFor(st.hip, relative, scratch.speeds);
-        for (let k = 0; k < 3; k++) pushes.push({ channel: st.names.hip[k]!, sense: speeds[k]! >= 0 ? 1 : -1, level: Math.min(1, p.hold * (1 + steer.effort)), speed: speeds[k]! });
+        for (let k = 0; k < 3; k++) pushes.push({ channel: st.names.hip[k]!, sense: speeds[k]! >= 0 ? 1 : -1, level: Math.min(1, p.hold), speed: speeds[k]! });
       } else {
         drive(st.names.hip[0], st.hip[0], angle("hip") - st.bind.hip - blended.lean + pitch, p.swing, rate("hip"));
         drive(st.names.hip[1], st.hip[1], -st.spread, p.swing);

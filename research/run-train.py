@@ -1,7 +1,7 @@
 """Train a learned skill's policy with PPO (Stable-Baselines3) against its environments on Node
-worker threads (research/run-learning-server.mjs: the learned run's, or the learned rise's with
-"environment": "rise"), and export it as the core reads it (src/core/skills/learned-run.ts,
-RunPolicy; src/core/mind/ground/learned-rise.ts, RisePolicy): ReLU layers, the observation's
+worker threads (research/run-learning-server.mjs: the steered punch's, or the learned rise's with
+"environment": "rise"), and export it as the core reads it (src/core/skills/learned-punch.ts,
+PunchPolicy; src/core/mind/ground/learned-rise.ts, RisePolicy): ReLU layers, the observation's
 normalisation folded into the first, tanh on the outputs. Each line of train.log has the mean of
 each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is
 policy.json, and every `--keep` steps a copy stays as policy-<steps>.json: the training return
@@ -89,7 +89,7 @@ class RunEnvs(VecEnv):
 
 
 def export(model, normalize, path):
-    """The policy's mean as the core's RunPolicy: the normalisation folded into the first layer."""
+    """The policy's mean as the core reads it (`PunchPolicy`): the normalisation folded into the first layer."""
     mean, var = normalize.obs_rms.mean, normalize.obs_rms.var
     scale = 1.0 / np.sqrt(var + normalize.epsilon)
     linears = [m for m in model.policy.mlp_extractor.policy_net if isinstance(m, torch.nn.Linear)] + [model.policy.action_net]

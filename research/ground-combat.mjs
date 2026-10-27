@@ -4,7 +4,8 @@ import {turnAboutToRef,spinBetweenToRef} from '../src/core/math/turn.ts';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { combatContact, combatFingerprint } from './arena-combat.mjs';
-import { SCRAPPER, RECIPE_FIGHTER } from '../src/core/mind/config.ts';
+import { RECIPE_FIGHTER } from '../src/core/mind/config.ts';
+import { PATHS } from '../tests/fixtures/minds.mjs';
 import { COMBAT } from '../tests/fixtures/minds.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
@@ -13,7 +14,7 @@ import { motionAtToRef, centreOfToRef } from '../src/core/control/support.ts';
 /** An ordinary shove creates a low target in the actual Arena mind/skills/recovery path. */
 export async function groundFight(options = {}) {
  const side=options.side??'left',other=side==='left'?'right':'left',seconds=options.seconds??45;
- const base=options.candidate??SCRAPPER,candidate={...base,actions:base.actions.map(action=>({...action,effectors:options.hand&&options.hand!=='alternate'?['hand.'+options.hand]:action.effectors}))},recover=options.recover??true;
+ const base=options.candidate??PATHS,candidate={...base,actions:base.actions.map(action=>({...action,effectors:options.hand&&options.hand!=='alternate'?['hand.'+options.hand]:action.effectors}))},recover=options.recover??true;
  const config={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{[side]:candidate,[other]:recover?COMBAT:RECIPE_FIGHTER},gap:options.gap??.8,capSeconds:seconds,recoverySeconds:null};
  const fingerprint=combatFingerprint(),bout=await buildBout(config,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

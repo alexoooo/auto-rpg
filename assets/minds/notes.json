@@ -37,44 +37,6 @@
       }
     }
   },
-  "scrapper": {
-    "note": "1490 2026-10-21",
-    "loadouts": {
-      "buckler,club": "1762 2026-10-21",
-      "empty,club": "1644 2026-10-21",
-      "empty,sword": "1355 2026-10-21",
-      "empty,empty": "1199 2026-10-21"
-    },
-    "bodies": {
-      "workshop-fighter": {
-        "note": "1637 2026-10-21",
-        "loadouts": {
-          "buckler,club": "1978 2026-10-21",
-          "empty,club": "1846 2026-10-21",
-          "empty,sword": "1366 2026-10-21",
-          "empty,empty": "1357 2026-10-21"
-        }
-      },
-      "workshop-rogue": {
-        "note": "1413 2026-10-21",
-        "loadouts": {
-          "buckler,club": "1691 2026-10-21",
-          "empty,club": "1594 2026-10-21",
-          "empty,sword": "1315 2026-10-21",
-          "empty,empty": "1051 2026-10-21"
-        }
-      },
-      "crypt-skeleton": {
-        "note": "1421 2026-10-21",
-        "loadouts": {
-          "buckler,club": "1618 2026-10-21",
-          "empty,club": "1492 2026-10-21",
-          "empty,sword": "1385 2026-10-21",
-          "empty,empty": "1190 2026-10-21"
-        }
-      }
-    }
-  },
   "duellist": {
     "note": "1588 2026-10-21",
     "loadouts": {

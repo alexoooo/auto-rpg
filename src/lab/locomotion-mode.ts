@@ -110,8 +110,7 @@ const AIM_AHEAD = 1;
 const AIM_ALONG = 1.25;
 
 /**
- * How hard the tactics slow for a bend or a corner, m/s²: about as hard as the body slows, which is
- * less than the walk asked of the SIMBICON walk's feedback changes (`SimbiconSettings.speedup`):
+ * How hard the tactics slow for a bend or a corner, m/s²: about as hard as the body slows;
  * slowed harder, the body comes to a bend going faster than its pace there, and swings wide of it,
  * or carries on past a corner while its walk swings round to the next way.
  */

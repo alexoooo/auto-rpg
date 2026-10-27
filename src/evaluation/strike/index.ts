@@ -17,7 +17,7 @@ const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${conditio
 import type { StrikeReading } from "./read.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
-const DRILLED = ["puncher/strike", "scrapper/straight", "scrapper/cross", "duellist/swing high", "vanguard-warrior/strike"];
+const DRILLED = ["puncher/strike", "duellist/swing high", "vanguard-warrior/strike"];
 
 /** A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's name. */
 function actionSubject(name: string): Subject {

@@ -232,26 +232,22 @@ const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middl
 export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 });
 
 /**
- * The Arena's second-tier fighter: opening tactics over the path strike, straight blows and hooks
- * aimed at the body (`docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`),
- * fighting from low support against a foe that is down or rising
- * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
- * travels by the stride.
+ * **The path strikes at the body**: the path strike's executor, its straight blow, cross, hook and
+ * downward blow from either hand aimed at the body's openings
+ * (`docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`), the downward
+ * one thrown from low support (`docs/reference/ground-combat.md#arena-integration`), and the
+ * support fold it is thrown from.
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...CLASSIC,
-  locomotion: { ...MOVE, rules: MOVE.rules.filter(rule => rule.gait === "braced"), otherwise: "stride" },
-  tactics: { ...FIGHTING, choose: { kind: "estimate", rethink: .2, patience: 2 }, list: [
-    { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "ground" }, { kind: "attack" },
-    { kind: "approach", spacing: 0, spacingStep: 0 }, { kind: "cover", guard: "predictive" }] },
-  executors: [{ name: "paths", kind: "path-strike", overlap: false }],
+export const PATH_STRIKES = deepFreeze({
+  executors: [{ name: "paths", kind: "path-strike" as const, overlap: false }],
   actions: (["straight", "cross", "hook", "downward"] as const).map(family => ({ name: family, executor: "paths", family, ...(family === "downward" ? { lower: .5 } : {}),
-    effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
-  support: { kind: "support-fold" } });
+    effectors: ["hand.right", "hand.left"] as const, regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
+  support: { kind: "support-fold" as const } });
 
-/** The Scrapper's low blow, thrown from low support. */
+/** The path strikes' low blow, thrown from low support. */
 const LOW = (() => {
-  const low = SCRAPPER.actions.find((action) => action.lower !== undefined);
-  if (!low) throw new Error("the Scrapper has no low blow");
+  const low = PATH_STRIKES.actions.find((action) => action.lower !== undefined);
+  if (!low) throw new Error("the path strikes have no low blow");
   return low;
 })();
 
@@ -265,17 +261,17 @@ const ONE_TWO: ActionConfig = (() => {
 /**
  * **The options fighter's config** (`createOptionsFighter`). Its skills are the Counter-puncher's (`COUNTER_PUNCHER`), its straight
  * punch with either hand thrown as a combination of one drive (`COMBINATION`), which waits for its
- * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); the Scrapper's for a
- * low foe, its low blow and the support fold it is thrown from; and Classic's gaits (`MOVE`):
+ * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); for a low foe, the
+ * path strikes' low blow and the support fold it is thrown from (`PATH_STRIKES`); and Classic's gaits (`MOVE`):
  * braced near, and farther the walk that runs where it asks a run's pace. Its standing blows aim
  * at an opening in the foe's guard (`surface`), and its one reflex is cover.
  */
 export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
   executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
     { name: "combination", kind: "combination" as const, ...COMBINATION },
-    ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
+    ...PATH_STRIKES.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }],
+  support: PATH_STRIKES.support, reflexes: [{ kind: "cover-reflex" }],
   subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */

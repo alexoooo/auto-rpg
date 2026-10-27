@@ -1,6 +1,6 @@
 import { deepFreeze } from "../state.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, SCRAPPER, type FighterConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, type FighterConfig } from "./config.ts";
 import { controller } from "./controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "./kit.ts";
@@ -30,7 +30,6 @@ export const FIGHTER_MIND = controller<FighterConfig>({
     classic: { label: "Classic fighter", config: CLASSIC },
     puncher: { label: "Puncher", config: PUNCHER },
     counter: { label: "Counter-puncher", config: COUNTER_PUNCHER },
-    scrapper: { label: "Scrapper", config: SCRAPPER },
     behaviours: { label: "Behaviours", config: BEHAVIOURS },
     duellist: { label: "Duellist", config: DUELLIST },
   }),

@@ -4,8 +4,8 @@
  * the chain from the stance's plan to the ground, and where it parts.
  *
  *   node research/locomotion-wrench.mjs [--models workshop-fighter,workshop-rogue] [--paces 0,0.5,1.2]
- *     [--legs stride,stance,sway] [--seconds 12] [--from 3] [--out wrench.jsonl] [--workers 12]
- *     [--scale "ankle dorsiflexion+=3;ankle dorsiflexion-=2"] [--stride "push=0"]
+ *     [--legs stance,sway] [--seconds 12] [--from 3] [--out wrench.jsonl] [--workers 12]
+ *     [--scale "ankle dorsiflexion+=3;ankle dorsiflexion-=2"]
  *
  * The four stages, each read in the step it acts in:
  *
@@ -78,15 +78,15 @@ function pressureCentre(C, F, M, y0) {
 const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 const round = (x, k = 3) => x === null || x === undefined ? null : +x.toFixed(k);
 
-async function runOnce({ model, pace, legs, seconds, from, scale, stride }) {
-  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_PRESETS }, { coreStand }, { STRIDE }, { footStatesOf, centreOfToRef }] = await Promise.all([
+async function runOnce({ model, pace, legs, seconds, from, scale }) {
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_PRESETS }, { coreStand }, { footStatesOf, centreOfToRef }] = await Promise.all([
     import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
-    import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/skills/stride.ts"), import("../src/core/control/support.ts"),
+    import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/control/support.ts"),
   ]);
   centreOf = centreOfToRef;
   const stand = await coreStand(modelSpec(model), { ground: true, groundSize: GROUND });
   const subject = legs === "sway" ? await swaying(stand, pace)
-    : running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace);
+    : running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS }, pace);
   const { muscles, stance, reading } = subject, dt = stand.world.dt, g = -stand.built.physics.gravity[1];
   const segments = [...stand.built.segments.values()], mass = segments.reduce((s, x) => s + x.rigid.mass, 0);
   const feet = footStatesOf(stand.built);
@@ -291,10 +291,9 @@ function summarize(rows, torque, kin) {
   return out;
 }
 
-/** The Lab's Locomotion scenario on the forward line, its legs the stride's or the stance's own walk. */
-function running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace) {
-  const locomotion = legs === "stride" ? { kind: "stride", ...STRIDE, ...stride } : null;
-  const mind = { ...LAB_PRESETS.script.config, ...(locomotion ? { locomotion } : {}) };
+/** The Lab's Locomotion scenario on the forward line, its legs the stance's own walk. */
+function running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS }, pace) {
+  const mind = LAB_PRESETS.script.config;
   const run = startLocomotion(labActor(stand.built, stand.world, { mind, measuring: true }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
   const { body } = run;
   return { muscles: body.muscles, stance: body.state.mind.host.motor.stance, reading: body.view.stance, down: () => body.view.down,
@@ -343,13 +342,12 @@ if (!isMainThread) {
 } else {
   const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
   const list = (name, fallback) => arg(name, fallback).split(",");
-  const models = list("models", "workshop-fighter,workshop-rogue"), paces = list("paces", "0,0.5,1.2").map(Number), legsList = list("legs", "stride,stance");
+  const models = list("models", "workshop-fighter,workshop-rogue"), paces = list("paces", "0,0.5,1.2").map(Number), legsList = list("legs", "stance");
   const scale = Object.fromEntries((arg("scale", "") || "").split(";").filter(Boolean).map((x) => { const [k, v] = x.split("="); return [k, Number(v)]; }));
-  const stride = Object.fromEntries((arg("stride", "") || "").split(";").filter(Boolean).map((x) => { const [k, v] = x.split("="); return [k, Number(v)]; }));
   const seconds = Number(arg("seconds", "12")), from = Number(arg("from", "3")), out = arg("out");
   const workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
   const jobs = [];
-  for (const model of models) for (const legs of legsList) for (const pace of paces) jobs.push({ id: jobs.length, model, legs, pace, seconds, from, scale, stride });
+  for (const model of models) for (const legs of legsList) for (const pace of paces) jobs.push({ id: jobs.length, model, legs, pace, seconds, from, scale });
   const results = [];
   await new Promise((resolve, reject) => {
     let next = 0, done = 0;

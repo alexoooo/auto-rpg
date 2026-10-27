@@ -69,7 +69,7 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 type Legs = "move" | GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
   { value: "move", name: "Move, as the game" },
-  ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label })),
+  ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].label })),
   { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character" },
 ];
 
