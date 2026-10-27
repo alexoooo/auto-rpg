@@ -44,7 +44,7 @@ function segmentView(segment: BuiltSegment): ReadSegment {
   const handPose = pose ? Object.freeze({ get applied(): HandPose { return pose.applied; }, get requested(): HandPose { return pose.requested; } }) : undefined;
   return Object.freeze({
     spec: segment.spec, frame: segment.frame, node, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
-    ...(handPose ? { handPose } : {}), ...(segment.poses ? { poses: segment.poses } : {}),
+    ...(handPose ? { handPose } : {}), ...(segment.poses ? { poses: segment.poses } : {}), ...(segment.toes ? { toes: segment.toes } : {}),
   });
 }
 

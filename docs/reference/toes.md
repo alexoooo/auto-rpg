@@ -16,9 +16,13 @@ and knees on its toes. No body in the game has toes yet.
 - **The bend**: the foot's tip heel-up, from flat to a right angle. It is scaled by how upright the
   foot's own plane stands, so a foot rolled onto its side has flat toes: its tip there has no
   ground to lie along.
-- **Readers**: the stance reads the box, heel to ball, as the sole. The toes give support it does
-  not count. The ground reading counts the toes as the foot (a region of it). Drawing and contact
-  tracking read the segment's rigid body, which follows the bend.
+- **Readers**: the stance reads the sole from the heel to the toes' tips while those tips, read
+  rigid with the foot, are no more than `DOWN` (0.03 m) over the ball, the height at which it
+  counts an end of a sole down: for 0.06 m toes, a bend up to 30°. Bent further, it reads the sole
+  from the heel to the ball (`soleCorners`, `fitSole`, `src/core/control/support.ts`). A foot
+  standing flat is read as the whole foot was before it had toes. The ground reading counts the
+  toes as the foot (a region of it). Drawing and contact tracking read the segment's rigid body,
+  which follows the bend.
 
 ### `TOE_STEP`
 
@@ -32,13 +36,28 @@ rebuild its toes every step.
 The hand-off study's stand-up harness (Node, `rapier` engine, 120 Hz), the workshop fighter
 empty-handed, dorsiflexion stop 0.8 rad, toes 0.06 m long and 0.025 m thick. It starts from the
 game's hands and knees and runs plant, sit back, watched rise, handover to the stance, then a
-closing step. 32 starts, unassisted, timed to the standing check.
+closing step. 32 starts, unassisted, timed to the standing check; read with the stance's foot
+reading of flat toes (`fitSole`), which moves none of these figures.
 
-| Foot | Stood | Median, s | Worst, s |
+| Foot | Stood (all within 6 s) | Median, s | Worst stood, s |
 | --- | --- | --- | --- |
-| Toes that bend (`TOE_STEP` steps) | 32/32 | 3.29 | 5.88 |
+| Toes that bend (`TOE_STEP` steps) | 30/32 | 3.98 | 5.25 |
 | The box whole, no toes | 0/32 | – | – |
-| Toes, but the game's ankle stop (0.36 rad) | 2/32 | – | – |
+| Toes, but the game's ankle stop (0.36 rad) | 20/32 | 4.47 | 5.82 |
+
+The two starts that fail with toes time out in the plant, before the stance takes over. Neither
+a bend step a quarter as large (0.005 rad: 30/32, 4.09 s) nor toes that ignore the foot's roll
+(30/32, 3.98 s) changes this.
+
+Walking, the core stance sweep (`research/core-stance-sweep.mjs`, Node stand, `rapier`, 120 Hz),
+the workshop fighter, toes 0.06 m: the shove battery (176 shoves), and 40 walks of order 0.5
+shoved at 20 N s (seeds 1 to 40).
+
+| Foot | Shoves held | Least held, N s | Shoved walks fell | Catch steps a walk |
+| --- | --- | --- | --- | --- |
+| The game's (no toes) | 173/176 | 20 | 0/40 | 1.50 |
+| Toes, the stance reading them while within `DOWN` | 172/176 | 30 | 1/40 | 1.82 |
+| The same, and the dorsiflexion stop 0.8 rad | 176/176 | 60 | 0/40 | 2.58 |
 
 ## Tried and not kept
 
@@ -49,6 +68,10 @@ closing step. 32 starts, unassisted, timed to the standing check.
   closing step follows on 18 of 32 starts against 10. Holding them out until the foot is flat
   again did not help (4.25 s).
 - **Rebuilding the box whenever the toes turn**: the same contact restarts, median 4.14 s.
+- **The stance reading the toes only while they lie exactly flat** (bend 0): a standing foot tips
+  past a half step, so the stance reads the sole short; shoved walks take 2.77 catch steps against
+  1.50. Reading them always: 1.80, but a foot on end reads its toes' tips in the air.
+- **The stance never reading the toes** (heel to ball): 2.70 catch steps.
 - **A sole and instep shaped as a foot**: no better than the box to the ball.
 - **Dropping the toes at the handover**: the box grows back 4.4 cm into the floor and the solver
   kicks the foot.

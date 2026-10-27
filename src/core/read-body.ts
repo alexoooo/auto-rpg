@@ -77,6 +77,8 @@ export interface ReadSegment {
   readonly handPose?: { readonly applied: HandPose; readonly requested: HandPose };
   /** A posable hand's configurations, made once: each pose's shape (`handShapeAt`), its rigid body and its collider. */
   readonly poses?: Readonly<Record<HandPose, HandConfiguration>>;
+  /** A foot's toes now (`ToesState`, `src/core/build/toes.ts`): their bend, rad, 0 flat. */
+  readonly toes?: { readonly bend: number };
 }
 
 /** A spec freedom as the joint has it: its angular axis is the freedom's index, and its sense may be flipped. */

@@ -84,20 +84,32 @@ export function lowestCorner(foot: FootState): number {
 /** How high `foot`'s sole's lowest corner is over the ground it last stood on, m (`FootMemory.ground`): 0 while the ground presses it. */
 export const soleHeight = (foot: FootState): number => lowestCorner(foot) - foot.memory.ground;
 
-/** A foot as the stance reads it. */
+/**
+ * A foot as the stance reads it. What it reads from its sole (`SoleFit`) is its sole's to its toes'
+ * tips while those, read with the foot, are within `DOWN` of the ground, and its box's, heel to
+ * ball, once they are bent further (`fitSole`).
+ */
 export interface FootState {
   readonly side: Side;
   readonly segment: ReadSegment;
+  /**
+   * What it reads from its sole with its toes, and without (the same for a foot without toes), and
+   * the most bend of its toes, rad, at which it reads them: their tips, read with the foot, are
+   * then no more than `DOWN` over the ball.
+   */
+  readonly fits: { readonly flat: SoleFit; readonly bent: SoleFit; readonly within: number };
+  /** Whether the fit with its toes is the one read now. */
+  toesFlat: boolean;
   readonly chain: ReadJoint[];
   /** The sole's corners, in the segment's own frame. */
-  readonly sole: readonly Vector3[];
+  sole: readonly Vector3[];
   /**
    * The most moment the ankle holds about itself each way, N m (`ankleStrength`): the plantar
    * flexors' toward the toes, the dorsiflexors' toward the heel, the lesser of the invertors' and the
    * evertors' lengthening to a side; a way the ankle has no freedom named for is unbounded. What a
    * bearing sole's wrench may load the ankle with (`BearingSole.hold`).
    */
-  readonly ankleHold: AnkleHold;
+  ankleHold: AnkleHold;
   /**
    * The regions of the sole the stance plans in, in the segment's own frame: from under the ankle,
    * as far each way as the hold that way reaches at the load on the foot, no further than the
@@ -107,9 +119,9 @@ export interface FootState {
    * the whole weight (the front edge's two corners, the heel's two, then the two ends of the line
    * under the ankle across it), the same six at half the weight, and then the ankle's centre.
    */
-  readonly hold: readonly Vector3[];
+  hold: readonly Vector3[];
   /** How far `hold` reaches from under the ankle toward the toes and the heel, and to each side, m, at the whole weight. */
-  readonly holdReach: { readonly toe: number; readonly heel: number; readonly side: number };
+  holdReach: { readonly toe: number; readonly heel: number; readonly side: number };
   readonly memory: FootMemory;
   /** The sole's corners and middle, world, as last read (the reading's `soles`). */
   readonly corners: Vector3[];
@@ -128,32 +140,35 @@ export interface FootState {
   /** The leg as a pendulum about its hip (`swingSeconds`, `withinReach`). */
   readonly leg: SwingLeg;
   /** The sole's width across the foot, m. */
-  readonly width: number;
+  width: number;
   /** Half the sole's length, m. */
-  readonly reach: number;
+  reach: number;
   /**
    * The sole's corners in order ahead of the ankle, in the reference pose: the front edge's two,
    * then the heel's. The foot's own, whichever way it is turned.
    */
-  readonly ahead: readonly number[];
+  ahead: readonly number[];
   /** The sole's two ends, world, as last read: the front edge (`ahead`'s first two corners) and the heel's. */
   readonly ends: { readonly front: SoleEdge; readonly heel: SoleEdge };
   /** How far the heel's edge stands over the front edge, m, as last read. */
   heel: number;
   /** `heel` in the reference pose, the foot flat on the ground, m. */
-  readonly flat: number;
+  flat: number;
   /** How far the sole's middle stands over its lowest corner in the reference pose, m: over the ground, the foot flat on it. */
-  readonly stand: number;
+  stand: number;
   /** The ankle's centre's height over the sole's middle in the reference pose, m. */
-  readonly ankle: number;
+  ankle: number;
   /** The ankle's centre behind the sole's middle along the foot in the reference pose, m: the heel is shorter than the toes. */
-  readonly back: number;
+  back: number;
   /**
    * The pelvis's heading less the way the foot faces (`facingOf`), rad, at its hip's rotation
    * stops, least then most: the headings the pelvis can face over the foot where it is planted.
    */
   readonly turns: readonly [number, number];
 }
+
+/** What of a foot is read from its sole, reference pose (`soleFit`). */
+type SoleFit = Pick<FootState, "sole" | "ankleHold" | "hold" | "holdReach" | "width" | "reach" | "ahead" | "flat" | "stand" | "ankle" | "back">;
 
 /** The regions a foot's ankle holds at one load: the whole, and its toe and heel halves from under the ankle (`FootState.held`). */
 interface HeldRegions {
@@ -169,24 +184,19 @@ interface HeldRegions {
  */
 export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[] {
   const weight = massOf([...built.segments.values()]) * STANDARD_GRAVITY.value;
-  const feet = (["left", "right"] as const).map((side) => {
+  const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
-    const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
-    const ankle = chain[2]!.spec.centre.value, ahead = aheadOf(corners, ankle), [mx, mz] = ankleToMiddle(corners, ankle);
-    const { points: holdPoints, reach: holdReach, hold: ankleHold } = holdOf(corners, ahead, ankle, chain[2]!, weight, inset), held = holdPoints.map(() => new Vector3());
+    const chain = chainTo(built, segment), flat = soleFit(segment, chain, weight, inset, true);
+    const toes = segment.spec.toes?.length.value, within = toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1));
+    const fits = { flat, bent: toes === undefined ? flat : soleFit(segment, chain, weight, inset, false), within };
+    const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
-    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, hold: soleOf(segment, holdPoints), holdReach, ankleHold, memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
-      corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+    return { ...flat, fits, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
+      memory: { channels: [] as number[], rolled: null, hip: new Vector3(), ground: 0, lifted: 0 },
+      corners: flat.sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       held: { points: held, under: new Vector3(), ankle: held[12]!, full: regions(0), half: regions(6) },
-      straight: -referenceBendOf(chain), leg: swingLegOf(chain),
-      width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
-      // The rectangle's sides from one corner: the nearer two of the other three.
-      reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
-      ahead, middle: new Vector3(), ends: { front: soleEdge(), heel: soleEdge() }, heel: 0,
-      flat: (corners[ahead[2]!]![1] + corners[ahead[3]!]![1]) / 2 - (corners[ahead[0]!]![1] + corners[ahead[1]!]![1]) * 0.5,
-      stand: corners.reduce((sum, q) => sum + q[1], 0) / corners.length - Math.min(...corners.map((q) => q[1])),
-      ankle: ankle[1] - corners.reduce((sum, q) => sum + q[1], 0) / corners.length, back: hypot(mx, mz) };
+      straight: -referenceBendOf(chain), leg: swingLegOf(chain), middle: new Vector3(), ends: { front: soleEdge(), heel: soleEdge() }, heel: 0 };
   });
   for (const foot of feet) {
     soleMiddleToRef(foot, foot.middle);
@@ -195,6 +205,32 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
     foot.memory.ground = Math.min(...foot.corners.map((q) => q.y));
   }
   return feet;
+}
+
+/**
+ * What a stance reads from the sole of `segment`, a foot on `chain` (`soleCorners`, its toes flat
+ * or not), reference pose: the sole, what its ankle holds over it at `weight` drawn in by `inset`
+ * (`holdOf`), and its measures.
+ */
+function soleFit(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number, toesFlat: boolean): SoleFit {
+  const corners = soleCorners(segment, toesFlat), sole = soleOf(segment, corners);
+  const ankle = chain[2]!.spec.centre.value, ahead = aheadOf(corners, ankle), [mx, mz] = ankleToMiddle(corners, ankle);
+  const { points, reach: holdReach, hold: ankleHold } = holdOf(corners, ahead, ankle, chain[2]!, weight, inset);
+  return { sole, hold: soleOf(segment, points), holdReach, ankleHold, ahead,
+    width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
+    // The rectangle's sides from one corner: the nearer two of the other three.
+    reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
+    flat: (corners[ahead[2]!]![1] + corners[ahead[3]!]![1]) / 2 - (corners[ahead[0]!]![1] + corners[ahead[1]!]![1]) * 0.5,
+    stand: corners.reduce((sum, q) => sum + q[1], 0) / corners.length - Math.min(...corners.map((q) => q[1])),
+    ankle: ankle[1] - corners.reduce((sum, q) => sum + q[1], 0) / corners.length, back: hypot(mx, mz) };
+}
+
+/** `foot` read with the fit (`FootState.fits`) of its toes now: with them, or bent past `within`, without. */
+function fitSole(foot: FootState): void {
+  const flat = (foot.segment.toes?.bend ?? 0) <= foot.fits.within;
+  if (flat === foot.toesFlat) return;
+  Object.assign(foot, flat ? foot.fits.flat : foot.fits.bent);
+  foot.toesFlat = flat;
 }
 
 /**
@@ -290,7 +326,7 @@ export function standingHeight(built: ReadBody): number {
   for (const side of ["left", "right"] as const) {
     const foot = built.segments.get(`foot.${side}`);
     if (!foot) throw new Error(`${built.spec.model} has no ${side} foot`);
-    for (const corner of soleCorners(foot)) {
+    for (const corner of soleCorners(foot, true)) {
       sole += corner[1];
       count += 1;
     }
@@ -400,6 +436,7 @@ type Sole = { readonly corners: readonly Vector3[] };
 
 /** The middle of `foot`'s sole's corners, world, now. */
 export function soleMiddleToRef(foot: FootState, out: Vector3): Vector3 {
+  fitSole(foot);
   const turn = foot.segment.node.rotationQuaternion!, at = foot.segment.node.position;
   out.setAll(0);
   foot.sole.forEach((corner, k) => { out.addInPlace(corner.applyRotationQuaternionToRef(turn, foot.corners[k]!).addInPlace(at)); });
@@ -718,14 +755,19 @@ function lengthsOf(chain: readonly ReadJoint[]): [number, number] {
   return [distance(hip!, knee!), distance(knee!, ankle!)];
 }
 
-/** The corners of `foot`'s sole, body frame, reference pose: the four corners of its box lowest there. */
-function soleCorners(foot: ReadSegment): Vec3[] {
+/**
+ * The corners of `foot`'s sole, body frame, reference pose: the four corners of its box lowest
+ * there, its front ones carried out to its toes' tips (`ToesSpec`) under `toesFlat`. Flat toes
+ * bear the foot as its sole does; bent, it turns about the ball, the box's front.
+ */
+function soleCorners(foot: ReadSegment, toesFlat: boolean): Vec3[] {
   const shape = foot.spec.shape;
   if (shape.kind !== "box") throw new Error(`${foot.spec.name} is a ${shape.kind}; a stance reads a box's sole`);
   const { x, y, z } = foot.frame, centre = shape.centre.value, size = shape.size.value;
+  const toes = toesFlat ? foot.spec.toes?.length.value ?? 0 : 0;
   const corners: Vec3[] = [];
   for (const sx of [-0.5, 0.5]) for (const sy of [-0.5, 0.5]) for (const sz of [-0.5, 0.5]) {
-    const at = (k: number) => centre[k]! + sx * size[0] * x[k]! + sy * size[1] * y[k]! + sz * size[2] * z[k]!;
+    const at = (k: number) => centre[k]! + sx * size[0] * x[k]! + (sy * size[1] + (sy > 0 ? toes : 0)) * y[k]! + sz * size[2] * z[k]!;
     corners.push([at(0), at(1), at(2)]);
   }
   corners.sort((a, b) => a[1] - b[1]);
