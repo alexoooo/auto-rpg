@@ -24,7 +24,14 @@
  *   `lean` and `reach` rad, then the height to standing over `T` s (minimum jerk) as they are let
  *   go, the posture from the crouch's angles to the guard's over `Tp` s; with `tuning.ankleSpare`
  *   null the ankles' floor does not lift the plan;
- * - `keep`: s the steady holds the body past ready before it hands it back.
+ * - `keep`: s the steady holds the body past ready before it hands it back;
+ * - `path`: `{ T, s, d, lean, reach, Tp, gate, slow, below, flat, stay, top, keepPitch }`, the planned
+ *   climb: the centre of mass on a quintic from where it is, at its speed, to `top` (standing) over
+ *   the feet's middle (`d` ahead) at rest over `T` s, the pelvis from its pitch to upright, the
+ *   posture to the guard's over `Tp` s with `lean` and `reach` on the way, the feet planted
+ *   (`StanceGoal.pose`, followed at `s` s); with `gate`, begun once both soles are flat and
+ *   touching, the centre of mass over them, slower than `slow` and lower than `below` of standing;
+ *   `stay` and `keepPitch` hold the centre of mass's place and the pelvis's pitch where they are.
  *
  *   node research/crouch-steady.mjs [--model workshop-fighter] [--held empty] [--variant '{"ease":0.5}'] [--seeds 8] [--trace <seed>]
  *   node research/crouch-steady.mjs --search [--generations 40]

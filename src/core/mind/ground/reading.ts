@@ -153,8 +153,15 @@ export function groundReading(built: ReadBody, dt: number) {
 
 /** Quiet, flat two-foot support with the mass inside its inset outline is ready for the host. */
 export function standReady(view: { readonly down: boolean; readonly ground: GroundReading | null }): boolean {
-  const g = view.ground;
-  if (!g || view.down || g.position !== "standing" || !g.flat[0] || !g.flat[1]
+  return !view.down && view.ground?.position === "standing" && quietOnFeet(view.ground);
+}
+
+/**
+ * Quiet on both feet at any height, down or not: both soles flat and bearing nearly all the weight,
+ * slow, little spin, and the centre of mass inside the soles' inset outline.
+ */
+export function quietOnFeet(g: GroundReading): boolean {
+  if (!g.flat[0] || !g.flat[1]
     || g.footLoad[0]! + g.footLoad[1]! < HAND_BACK_LOAD || g.velocity.lengthSquared() >= SLOW * SLOW || g.spin >= SPIN) return false;
   const [x, z] = withinSupport(g.soles, g.centre.x, g.centre.z);
   return x === g.centre.x && z === g.centre.z;

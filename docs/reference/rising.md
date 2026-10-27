@@ -1025,6 +1025,62 @@ servo 0.25 s. Its mean over the witness starts, as searched, 2.56 s.
   within gravity (the soles cannot pull) the climb takes at least √(5.77 × 0.67 / 9.81) = 0.63 s,
   the squat's 0.45 m at least 0.52 s: 1.0 to 1.1 s to verified with no settling at all.
 
+### A planned climb
+
+From a crouch quiet on both flat feet, Stand up's steady climbs on one planned path (`CLIMB`,
+`standUp`, `src/core/mind/ground/stand-up.ts`) and stands the body in 1.36 to 1.91 s, a median of
+1.46 s; the stance's steady takes 2.17 to 2.89 s from the same crouches. The climb begins once the
+body is quiet on both feet (`quietOnFeet`, `src/core/mind/ground/reading.ts`: both soles flat and
+bearing, slow, the centre of mass inside the soles' inset outline) and lower than 0.9 of standing
+height. Over 0.6 s the centre of mass goes from where it is, at its speed, to standing height over
+the feet's middle at rest (a quintic), the pelvis from its pitch to upright, the posture from the
+crouch's angles to the guard's (minimum jerk), the feet planted (`StanceGoal.pose`, followed at
+0.08 s); then the stance's goal at standing height. No rise hands over in such a crouch yet: the
+research climb with the same entry (`path` with `gate`) begins from none of the starts of
+[a climb on the stance](#a-climb-on-the-stance), and their times are the stance's steady's.
+
+`node research/fold-rise.mjs` (Node stand, core world, Rapier, 120 Hz, calm, no assist): the body
+built standing, held 1.5 s, lowered over 2 s into the combat fold (`COMBAT_FOLD`: `depth` of its
+0.5 m lowering, pitch and spine's flexion, on planted feet) and held 1 s; seconds from the steady's
+start to verified standing (`STAND_CHECK`). With `--core` the game's Stand up (step-up its
+technique) takes the body; without, `research/climb.mjs`'s steady (`--variant '{}'`: the stance's
+steady as `standUp` runs it):
+
+| Body | Loadout | Folded to, of standing height (depth 0.5, 0.75, 1) | The stance's steady | Stand up with the climb |
+|---|---|---|---|---|
+| Warrior | empty | 0.77, 0.71, 0.70 | 2.23, 2.17, 2.35 | 1.36, 1.40, 1.42 |
+| Warrior | club | 0.76, 0.70, 0.69 | 2.73, 2.30, 2.84 | 1.38, 1.44, 1.69 |
+| Rogue | empty | 0.74, 0.64, 0.63 | 2.67, 2.62, 2.84 | 1.36, 1.47, 1.52 |
+| Rogue | club | 0.74, 0.63, 0.62 | 2.55, 2.89, 2.88 | 1.60, 1.77, 1.91 |
+
+The climb's time and response (`research/climb.mjs`'s `path` with `gate`, the same 12 folds):
+
+| Climb, s | Response, s | Fastest | Slowest | Median |
+|---:|---:|---:|---:|---:|
+| 0.5 | 0.1 | 1.37 | 2.23 | 1.55 |
+| 0.6 | 0.06 | 1.24 | 3.51 | 1.63 |
+| 0.6 | 0.08 | 1.36 | 1.87 | 1.46 |
+| 0.6 | 0.1 | 1.46 | 2.58 | 1.56 |
+| 0.7 | 0.05 | 1.28 | 2.44 | 1.81 |
+| 0.7 | 0.06 | 1.33 | 2.00 | 1.54 |
+| 0.7 | 0.08 | 1.42 | 1.78 | 1.50 |
+| 0.7 | 0.1 | 1.51 | 2.38 | 1.60 |
+| 0.7 | 0.12 | 1.60 | 2.73 | 1.72 |
+| 0.8 | 0.06 | 1.38 | 2.11 | 1.67 |
+
+- **Where the climb cannot begin.** The witnesses hand over on their toes: the rock-up's hips at
+  their extension stop, the knees fully bent, the pelvis 1.06 to 1.30 rad back, each foot's sole
+  turned toes-down (its up 0.55 to -0.27 of vertical); the push-off's feet off the ground. The
+  placed squat is flat but on its stops, its centre of mass 8.5 cm behind the feet's middle; held
+  where it is on planted feet (`path` with `stay`, `keepPitch` and its own height) it goes over
+  backward in 0.8 s, the soles 200 N short at once and 3900 N by 0.45 s. On the game's solver no
+  flat squat from 0.45 to 0.80 m is held by its joints' motors either
+  ([the stand hold](postures.md#the-stand-hold-node-core-world-rapier-at-the-solver-named)).
+- **From the combat fold without the climb** the game's Stand up braces (the fold reads as down
+  and, moving, as between), the brace folds the legs, and the body goes onto its back.
+- **The fingerprint** (`scripts/fingerprint.mjs`) moves no pose: no fight or run of the game
+  reaches a crouch the climb begins from.
+
 ## Tried and not kept
 
 - **A pelvis pitch in the stance's own climb** (a goal's pitch about the heading's right, the

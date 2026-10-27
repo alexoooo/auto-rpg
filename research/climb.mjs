@@ -4,6 +4,7 @@
  * `READY` s, with the variants `research/crouch-steady.mjs` names. `research/crouch-steady.mjs` runs it
  * from the placed squat, `research/rise-witness.mjs` from a witness's hand-over.
  */
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { carrying } from "../src/core/control/motor.ts";
 import { locomotion } from "../src/core/skills/locomotion.ts";
@@ -11,12 +12,22 @@ import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
 import { standReady } from "../src/core/mind/ground/reading.ts";
+import { footStatesOf, readSupport, withinSupport } from "../src/core/control/support.ts";
 
 /** How long the steady waits on a ready body before it hands it back, s. */
 export const READY = .1;
 /** The combat fold's lowering, m, and the stance's own, m. */
 const FOLD = .5, LOWER = .03;
 const smooth = u => u * u * (3 - 2 * u), jerk = u => u * u * u * (10 - 15 * u + 6 * u * u);
+/**
+ * A quintic from `x0` at speed `v0` (no acceleration) to `x1` at rest over `T` s: its place, speed and
+ * acceleration at `t` (held at `x1` after).
+ */
+export function quintic(x0, v0, x1, T, t) {
+  if (t >= T) return [x1, 0, 0];
+  const D = x1 - x0 - v0 * T, A = 10 * D + 4 * v0 * T, B = -15 * D - 7 * v0 * T, C = 6 * D + 3 * v0 * T, u = t / T;
+  return [x0 + v0 * t + A * u ** 3 + B * u ** 4 + C * u ** 5, v0 + (3 * A * u * u + 4 * B * u ** 3 + 5 * C * u ** 4) / T, (6 * A * u + 12 * B * u * u + 20 * C * u ** 3) / (T * T)];
+}
 
 /**
  * The steady of `own` as `variant` changes it: `step(dt)` each control step from its first; `control.on`
@@ -24,11 +35,20 @@ const smooth = u => u * u * (3 - 2 * u), jerk = u => u * u * u * (10 - 15 * u + 
  */
 export function crouchSteady(own, view, variant = {}) {
   const control = { on: true, t0: null, from: null, mid: null, depth: null, height: null, c0: null, climbed: false, ready: 0, handBack: null,
-    lead: 0, steps: 0, asked: null, at: 0, short: 0 };
+    lead: 0, steps: 0, asked: null, at: 0, short: 0, path: null, planned: null };
   const kit = kitOf(partLookup, own.spec, PUNCHER), legs = locomotion(null);
   const motor = carrying(kit.motor(own.built, variant.servo ?? SERVO_SECONDS, kit.posture, variant.tuning, own.assist), ["stance"], "the crouch steady");
   const channels = own.muscles.channels;
   const blend = k => Object.fromEntries(channels.map((c, i) => [c.name, control.from[i] + ((kit.posture[c.name] ?? 0) - control.from[i]) * k]));
+  const feet = footStatesOf(own.built), middle = new Vector3();
+  /** Whether the climb can begin: both soles flat and bearing, the centre of mass over what they hold, slow, and lower than `below` of standing. */
+  const climbable = (r, f) => {
+    readSupport(feet, feet, middle);
+    if (!r.touching.left || !r.touching.right || r.velocity.length() > (f.slow ?? .3) || r.centre.y - r.support.y > (f.below ?? .9) * view.standing) return false;
+    for (const foot of feet) { const q = foot.segment.node.rotationQuaternion.multiply(Quaternion.Inverse(foot.segment.rest)); if (new Vector3(0, 1, 0).applyRotationQuaternion(q).y < (f.flat ?? .9)) return false; }
+    const [x, z] = withinSupport(feet, r.centre.x, r.centre.z);
+    return x === r.centre.x && z === r.centre.z;
+  };
   const resume = () => { motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); };
   return { control, state: { motor: motor.state, legs: legs.state, control },
     step(dt) {
@@ -78,6 +98,37 @@ export function crouchSteady(own, view, variant = {}) {
           const d = c.dof.spec; pose[c.name] = Math.max(d.min.value, Math.min(d.max.value, pose[c.name]));
         }
         motor.setPosture(pose);
+      }
+      if (goal && variant.path && (!variant.path.gate || control.path || climbable(r, variant.path))) {
+        // The planned path: the centre of mass from where it is handed over, at its speed, to standing height over the
+        // feet's middle (`d` m ahead) at rest over `T` s; the pelvis from its pitch to upright; the posture from the
+        // hand-over's angles to the guard's, the trunk's flexion and the shoulders' raised by `lean` and `reach` on the
+        // way; the feet planted (`StanceGoal.pose`, followed at `s` s). Then the stance's own goal.
+        const f = variant.path, top = legs.reference - LOWER;
+        if (!control.path) {
+          const root = motor.root, turn = root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest)), up = new Vector3(0, 1, 0).applyRotationQuaternion(turn);
+          control.path = { at: t, from: channels.map((_, i) => own.muscles.angle(i)), c: [r.centre.x, r.centre.z], v: [r.velocity.x, r.velocity.z], h: r.centre.y - r.support.y, vy: r.velocity.y,
+            to: f.stay ? [r.centre.x, r.centre.z] : [r.support.x + (f.d ?? 0) * fx, r.support.z + (f.d ?? 0) * fz], pitch: Math.atan2(up.x * fx + up.z * fz, up.y) };
+        }
+        const P = control.path, tp = t - P.at;
+        if (tp < f.T) {
+          const u = tp / f.T, b = 16 * u * u * (1 - u) * (1 - u);
+          const k = jerk(Math.min(1, tp / (f.Tp ?? f.T))), pose = Object.fromEntries(channels.map((c, i) => [c.name, P.from[i] + ((kit.posture[c.name] ?? 0) - P.from[i]) * k]));
+          for (const c of channels) {
+            if (c.name === "lumbar flexion") pose[c.name] += (f.lean ?? 0) * b;
+            if (c.name === "thoracic flexion") pose[c.name] += .4 * (f.lean ?? 0) * b;
+            if (/^shoulder.(left|right) flexion$/.test(c.name)) pose[c.name] += (f.reach ?? 0) * b;
+            const d = c.dof.spec; pose[c.name] = Math.max(d.min.value, Math.min(d.max.value, pose[c.name]));
+          }
+          motor.setPosture(pose);
+          const x = quintic(P.c[0], P.v[0], P.to[0], f.T, tp)[0], z = quintic(P.c[1], P.v[1], P.to[1], f.T, tp)[0];
+          const y = quintic(P.h, P.vy, f.top ?? top, f.T, tp)[0], pitch = quintic(P.pitch, 0, f.keepPitch ? P.pitch : 0, f.T, tp)[0];
+          control.planned = [x, y, z];
+          goal = { feet: ["left", "right"], centre: [x, z], heading: h, height: y, pose: { pitch, seconds: f.s ?? .1 } };
+        } else {
+          if (!control.climbed) { control.climbed = true; motor.setPosture(kit.posture); }
+          goal = { ...goal, height: top };
+        }
       }
       if (variant.climb) {
         const f = variant.climb;
