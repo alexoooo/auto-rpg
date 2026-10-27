@@ -249,14 +249,31 @@ Both sides alike; a freedom a stage does not name goes to its zero. From the ana
 | Stage | Posture | Seconds |
 |---|---|---|
 | `fold` | `FOLD`: shoulder flexion 0.9, shoulder abduction 0.7, elbow flexion 2.4, ankle dorsiflexion -0.85 | 1 |
-| `tuck` | `TUCK`: as `FOLD`, and hip flexion 2.1, knee flexion 2.5, lumbar flexion 0.7, thoracic flexion 0.3 | 2 |
-| `prop` | `PROP`: as `TUCK`, but shoulder flexion 1.3, elbow flexion 1.0, lumbar flexion 0.4, and shoulder internal rotation -0.4, wrist flexion -1.2, ankle dorsiflexion 0.38 | 1.5 |
+| `tuck` | `TUCK`: as `FOLD`, but shoulder abduction 1.6, and hip flexion 2.1, knee flexion 2.5, lumbar flexion 0.7, thoracic flexion 0.3 | 2 |
+| `prop` | `PROP`: as `TUCK`, but shoulder flexion 1.3, shoulder abduction 0.7, elbow flexion 1.0, lumbar flexion 0.4, and shoulder internal rotation -0.4, wrist flexion -1.2, ankle dorsiflexion 0.38 | 1.5 |
 
 `fold` points the feet so the shins lie flat and asks the arms folded (lying on them, they fold as
-`tuck` lifts the body off them). `tuck` draws the knees under. `prop` reaches the arms ahead and
-straight, hands palm down, and tucks the toes under, so each shin is propped on its foot.
+`tuck` lifts the body off them). `tuck` draws the knees under with the arms out to the sides.
+`prop` brings the arms in and reaches them ahead and straight, hands palm down, and tucks the toes
+under, so each shin is propped on its foot.
 
-Fallen forward, at each stage's last step, the heights of the centre of mass and of the pelvis's,
+**The tuck's arms out** (shoulder abduction 1.6 in place of `FOLD`'s 0.7): with the arms folded,
+down from the front tips the body onto a side during `tuck` (three Rogue falls of three traced on
+the target), and on the falls of the target's bodies shoved 2.8125, 5.625, 8.4375 and 14.0625
+degrees off its directions (128 a body, the staged route; Node, core world, Rapier, 120 Hz) down is
+done about 48 % of the times begun against about 70 % with the arms out. Stood of 64 a group:
+
+| Arms in the tuck | Warrior empty | Warrior club | Rogue empty | Rogue club |
+|---|---:|---:|---:|---:|
+| folded (0.7) | 59 | 59 | 44 | 29 |
+| out (1.6) | 61 | 59 | 55 | 37 |
+
+At 5.625 alone the Rogue's down is done 50 % of the times begun at 1.0 and 66 to 74 % at 1.3 to 2.2;
+1.6 with `prop`'s arms out too stands the Rogue 2 fewer. On the owner's target, the staged route: 52 and 53 of 64 (a placebo, thoracic
+flexion 0.3000001) against 49 and 50; step-up 56 against 51; the fresh falls 54 and 55 against 50
+and 51. The Rogue with the club stands 9 to 13 of 16 either way.
+
+Fallen forward, at each stage's last step (read with the tuck's arms folded), the heights of the centre of mass and of the pelvis's,
 upper trunk's and head's centres of mass, m:
 
 | | Warrior | Rogue | skeleton |

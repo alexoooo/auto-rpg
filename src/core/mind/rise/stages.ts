@@ -235,15 +235,18 @@ export const rollOver = (over: Side): PoseStage[] => [
  * under the body (`docs/reference/rising.md#stages`).
  */
 const FOLD = { "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.7, "elbow.@ flexion": 2.4, "ankle.@ dorsiflexion": -0.85 };
-/** The knees drawn under the body, the trunk curled over them (`docs/reference/rising.md#stages`). */
-const TUCK = { ...FOLD, "hip.@ flexion": 2.1, "knee.@ flexion": 2.5, "lumbar flexion": 0.7, "thoracic flexion": 0.3 };
 /**
- * The arms reached ahead, the hands turned palm down, and the toes tucked under, so that each shin
- * is propped on its foot (`docs/reference/rising.md#stages`).
+ * The knees drawn under the body, the trunk curled over them, the arms out to the sides so that the
+ * body does not tip onto a side as it comes up (`docs/reference/rising.md#the-pose-stages`).
+ */
+const TUCK = { ...FOLD, "hip.@ flexion": 2.1, "knee.@ flexion": 2.5, "lumbar flexion": 0.7, "thoracic flexion": 0.3, "shoulder.@ abduction": 1.6 };
+/**
+ * The arms brought in and reached ahead, the hands turned palm down, and the toes tucked under, so
+ * that each shin is propped on its foot (`docs/reference/rising.md#stages`).
  */
 const PROP = {
   ...TUCK, "lumbar flexion": 0.4, "shoulder.@ flexion": 1.3, "shoulder.@ internal rotation": -0.4, "elbow.@ flexion": 1,
-  "wrist.@ flexion": -1.2, "ankle.@ dorsiflexion": 0.38,
+  "wrist.@ flexion": -1.2, "ankle.@ dorsiflexion": 0.38, "shoulder.@ abduction": 0.7,
 };
 /**
  * On knees and hands: the trunk near level, the arms near straight under the shoulders, the hips
