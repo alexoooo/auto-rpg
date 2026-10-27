@@ -175,7 +175,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const stanceState = run.body.state.mind.host.motor.stance, g = -stand.built.physics.gravity[1];
   const mass = [...stand.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0);
   const landings = [], velocities = [], friction = { one: [], two: [] };
-  const PHASES = ["stand", "shift", "early", "late", "flight"], PARTS = ["force", "pitch", "roll", "yaw"];
+  const PHASES = ["stand", "shift", "early", "late"], PARTS = ["force", "pitch", "roll", "yaw"];
   const missed = Object.fromEntries(PHASES.map((p) => [p, { steps: 0, ...Object.fromEntries(PARTS.map((c) => [c, 0])), size: Object.fromEntries(PARTS.map((c) => [c, 0])) }]));
   let swinging = null;
   // Each leg channel's saturation (activation full, by the way it pulled) while its leg bore or swung.

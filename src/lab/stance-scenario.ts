@@ -41,7 +41,7 @@ const TURN_KEYS: Readonly<Record<string, -1 | 1>> = { KeyQ: -1, KeyE: 1 };
 /** The letters among `codes`, as their keys are marked. */
 const letters = (codes: object): string[] => Object.keys(codes).filter((code) => code.startsWith("Key")).map((code) => code.slice(3));
 
-const PHASE: Readonly<Record<StanceFrame["phase"], string>> = { stand: "Standing", shift: "Shifting its weight", swing: "Swinging a foot", flight: "In flight" };
+const PHASE: Readonly<Record<StanceFrame["phase"], string>> = { stand: "Standing", shift: "Shifting its weight", swing: "Swinging a foot" };
 
 /** The shove's impulses on offer, N s. */
 const IMPULSES = [10, 20, 30, 40, 60];

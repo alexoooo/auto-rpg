@@ -51,7 +51,7 @@ export function walkAfterRecovery(stand) {
   const heading = fighter.minded.skills.report.heading, from = fighter.body.view.stance.centre.clone();
   duel.order("left", { move: { kind: "direct", direction: { x: Math.sin(heading), z: Math.cos(heading) } }, face: null });
   // A step is landed when the stance's swing, or a run's flight, gives way to bearing: whichever walk takes it.
-  const swinging = () => ["swing", "flight"].includes(fighter.body.view.stance.phase);
+  const swinging = () => fighter.body.view.stance.phase === "swing";
   let fell = false, steps = 0, was = swinging();
   for (let step = 0; step < 480 && !duel.verdict; step++) {
     if (step === 240) duel.order("left", STAND_ORDERS);

@@ -250,7 +250,7 @@ a stance goal) into muscle commands.
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
   give, plans each leg (`aimLimb`), publishes what the soles missed (`StanceReading.shortfall`),
   limits each ankle's load to what it holds lengthening (`ankleStrength`), places steps from the capture point (`catchStep`,
-  `landingHeading`) and flies a step on request (`SwingGoal.flight`).
+  `landingHeading`).
 - **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held
   item, from `assets/core/*-envelope.json`: each way's fastest is the fastest speed at which every
   trial held (`fastestEvery`), and `paceToward` picks the fastest pace that held a share of its

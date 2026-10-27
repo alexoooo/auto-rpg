@@ -69,11 +69,6 @@ interface StanceState {
     readonly shift: SwingShift;
   };
   /**
-   * A run's flight (`SwingGoal.flight`): whether one is under way, the centre of mass as the
-   * bearing foot left the ground, and that foot's sole's middle from it then, world.
-   */
-  readonly flight: { on: boolean; readonly left: Vector3; readonly from: Vector3 };
-  /**
    * The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance
    * began, and what the ground missed of the force the last command asked of it, N, less what the
    * assist gave (the last solve's shortfall and help): the plan goes on from what the body could get.
@@ -173,7 +168,6 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
     step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
-    flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),

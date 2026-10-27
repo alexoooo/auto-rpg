@@ -144,7 +144,7 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
       if (time >= from) kin.landings.push(Math.hypot(dx, dz));
       swinging = null;
     }
-    if (time < from || !prior || subject.down() || reading.phase === "flight") return;
+    if (time < from || !prior || subject.down()) return;
     const swung = reading.phase === "swing" && swing ? swing.foot : null;
     const bearers = ["left", "right"].filter((side) => side !== swung && reading.asked[side].force.y > 0);
     if (!bearers.length) return;

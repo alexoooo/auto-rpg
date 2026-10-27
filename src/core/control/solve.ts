@@ -225,7 +225,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   for (let i = 0; i < n; i++) known[6 + i] = inLimb[i] || work.fixed[i] ? NaN : work.accel[i]!;
   const base = baseRows(b, muscles, work, ask);
   const bearing = bearingLimbs(b, ask.limbs);
-  // Nothing bearing (a run's flight), the ground gives no wrench and the root goes as gravity
+  // Nothing bearing, the ground gives no wrench and the root goes as gravity
   // and the limbs have it: its rows are held to none from the first pass.
   let held = bearing.length === 0, asked = false;
   b.given.fill(0);

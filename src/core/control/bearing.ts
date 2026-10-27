@@ -509,7 +509,7 @@ function limitToPatches(b: Bearing, p0: readonly [number, number, number], lever
       solveLinearTo(b.scratch.linear, P, given, 6, root);
     }
   } else {
-    // Nothing bears (a run's flight): no wrench from the ground, so the root goes as gravity and
+    // Nothing bears: no wrench from the ground, so the root goes as gravity and
     // the limbs' motion have it, W = 0.
     shortfall.force.setAll(0);
     shortfall.moment.setAll(0);
