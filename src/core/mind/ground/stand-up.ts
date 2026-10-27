@@ -13,6 +13,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { awaits, choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
+import { edgeProfile } from "./profiles.ts";
 import { quietOnFeet, standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
 import type { Senses } from "../senses.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
@@ -63,8 +64,9 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, order.includes(name), kit); runs[name] = run;
     waits ||= spec.moving && order.includes(name);
-    graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, admits: (g, side) => run.admits(g, side) };
-    moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, admits: (g, side) => spec.moving && run.admits(g, side) };
+    const profile = edgeProfile(own.spec.model, name);
+    graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => run.admits(g, side) };
+    moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => spec.moving && run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);
   const drive = poseDrive(own.muscles), work = graphWork(), legs = locomotion(null);

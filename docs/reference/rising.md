@@ -1214,6 +1214,42 @@ Moving:
 - **The route's edges are entered nearly still**: no moving entry above 0.34 m/s; the down's and
   the step-through's slow hand-overs leave the next edge a body under 0.1 m/s.
 
+## Routes priced
+
+Stand up takes the route of least expected time to standing (`choose`, `src/core/mind/ground/graph.ts`)
+from each edge's profile on the body (`edgeProfile`, `profiles.ts`): the share of its drill's trials
+it was done, the mean seconds a trial ran, done or not, and the positions those not done came to
+rest in (`assets/core/edge-profiles.json`, `node research/edge-profiles.mjs --write`, from the
+latest record of each of the Rise drill's rungs).
+
+- **An edge's price** (`cost`): a trial's seconds, then each position's expected time to standing
+  in the share of trials that end there: its posture where done, where its failures rest where not.
+  A failure that rests where it began, or where no route is priced, is tried again: its share
+  divides the rest. An edge never done is priced at no time.
+- **Each position's time** (`price`) is the least price of the edges from it that have a profile and
+  a side not failed twice there, found again until none falls.
+- **The route** (`cheapest`) begins with the cheapest edge that admits the body as it is read, the
+  first in the config's order of equals, and goes on by the cheapest edge from each posture it
+  reaches. Where no profiled edge admits the body, or its route is not priced to standing, the first
+  admitting edge in order whose route reaches standing is taken, as before; a body keeps its route
+  while it holds.
+- **No profile, no price**: an edge its drill has not played on the body (step-up, any body but the
+  Warrior and the Rogue) prices nothing, so the game's Stand up chooses as before; the fingerprint
+  (`--experimental`) moves no case.
+
+The staged route has one edge from each position, so its prices choose what its order chose: the
+target is the same fall by fall as with the order (one run at `07d287b0`'s code with the profiles,
+against step 6's). The fresh falls on the staged route: 50 of 64 stood, the Warrior 13 and 13 of
+16, the Rogue 13 with the club and 11 empty-handed.
+
+| Body | Roll | Down | Kneel-up | Step-through | Lunge |
+|---|---|---|---|---|---|
+| Warrior: done, s a trial | 21 of 21, 2.60 | 12 of 12, 3.10 | 11 of 11, 2.50 | 9 of 10, 1.73 | 6 of 7, 2.12 |
+| Rogue: done, s a trial | 23 of 23, 4.72 | 12 of 12, 2.63 | 6 of 12, 1.53 | 11 of 12, 1.91 | 6 of 10, 1.83 |
+
+The Rogue's failures rest on its front (kneel-up, 6) and its back (step-through 1, lunge 3); the
+Warrior's step-through's on its front.
+
 ## Tried and not kept
 
 - **The fours cut at the end of the `fours` stage** (down from `fold` to the bearing stage, the

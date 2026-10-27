@@ -18,7 +18,7 @@ export const STAND_UP_PART: SubMindPart<StandUpConfig> = deepFreeze({
     if (new Set(order).size !== order.length) return ["a technique may appear only once"];
     const graph = Object.fromEntries(config.techniques.map((technique) => {
       const { sides, edges, moving } = parts.of("technique", technique);
-      return [technique.kind, { sides, edges, raw: moving, admits: () => true }];
+      return [technique.kind, { sides, edges, raw: moving, profile: null, admits: () => true }];
     }));
     return (["back", "front"] as const).filter(from => !reachable(order, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
   },

@@ -1,0 +1,86 @@
+{
+  "source": {
+    "script": "research/edge-profiles.mjs",
+    "records": [
+      "assets/evaluations/rise/2026-10-27-07d287b0-265419cb.jsonl",
+      "assets/evaluations/rise/2026-10-27-07d287b0-7cf5727d.jsonl"
+    ]
+  },
+  "profiles": {
+    "workshop-fighter": {
+      "staged-roll": {
+        "begun": 21,
+        "done": 21,
+        "seconds": 2.601,
+        "fails": {}
+      },
+      "staged-down": {
+        "begun": 12,
+        "done": 12,
+        "seconds": 3.104,
+        "fails": {}
+      },
+      "staged-kneel-up": {
+        "begun": 11,
+        "done": 11,
+        "seconds": 2.497,
+        "fails": {}
+      },
+      "staged-step-through": {
+        "begun": 10,
+        "done": 9,
+        "seconds": 1.734,
+        "fails": {
+          "front": 1
+        }
+      },
+      "staged-lunge": {
+        "begun": 7,
+        "done": 6,
+        "seconds": 2.119,
+        "fails": {
+          "between": 1
+        }
+      }
+    },
+    "workshop-rogue": {
+      "staged-roll": {
+        "begun": 23,
+        "done": 23,
+        "seconds": 4.722,
+        "fails": {}
+      },
+      "staged-down": {
+        "begun": 12,
+        "done": 12,
+        "seconds": 2.633,
+        "fails": {}
+      },
+      "staged-kneel-up": {
+        "begun": 12,
+        "done": 6,
+        "seconds": 1.529,
+        "fails": {
+          "front": 6
+        }
+      },
+      "staged-step-through": {
+        "begun": 12,
+        "done": 11,
+        "seconds": 1.906,
+        "fails": {
+          "back": 1
+        }
+      },
+      "staged-lunge": {
+        "begun": 10,
+        "done": 6,
+        "seconds": 1.828,
+        "fails": {
+          "back": 3,
+          "between": 1
+        }
+      }
+    }
+  }
+}
