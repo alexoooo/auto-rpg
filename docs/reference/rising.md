@@ -1085,50 +1085,80 @@ The climb's time and response (`research/climb.mjs`'s `path` with `gate`, the sa
 
 Step-up's route as five techniques, each an edge of Stand up's graph
 (`src/core/mind/ground/staged-edges.ts`), stands the same falls of the owner's target as step-up,
-within a placebo's spread; the Warrior empty-handed stands 0.25 s later at the median, the
-hand-overs' cost. Stand up lists them in route order, then step-up for what they do not take
-(sitting, between, a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`.
+within a placebo's spread. Each edge's entry reads the raw position and the body's motion
+(`stagedEntry`), so a part hands over to the next as soon as the next admits the body, moving or
+not. Stand up lists them in route order, then step-up for what they do not take (sitting, between,
+a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`.
 
-| Technique | From, to | Plays of step-up's route |
-|---|---|---|
-| `staged-roll` | back, either side; front | lying still, the roll (the retry over the other side), lying still |
-| `staged-down` | front; fours | lying still, `fold` to `sit` |
-| `staged-kneel-up` | fours; kneeling | `kneel 0` to `tall` |
-| `staged-step-through` | kneeling; half-kneel | `shift` to `onto the toes` |
-| `staged-lunge` | half-kneel; standing | `lunge 0` to `even`, then step-up's climb and steadying (`stanceSteady`) |
+| Technique | From, to | Entry | Plays of step-up's route |
+|---|---|---|---|
+| `staged-roll` | back, either side; front | still | the roll at once (the retry over the other side), lying slack until its front is read still |
+| `staged-down` | front; fours | still | `fold` to `sit` |
+| `staged-kneel-up` | fours; kneeling | moving | `kneel 0` to `tall` |
+| `staged-step-through` | kneeling; half-kneel | moving | `shift` to `onto the toes` |
+| `staged-lunge` | half-kneel; standing | moving | `lunge 0` to `even`, then step-up's climb and steadying (`stanceSteady`) |
 
+- **The entries** (`Part.entry`): `moving`, the centre of mass under 1 m/s and the pelvis turning
+  under 2 rad/s (`HAND_OVER`); `still`, under the speed the body's step-up lies still at before it
+  reads its lie (`STEP_UP`'s `settle`: the Warrior 0.372 m/s, the Rogue 0.060), turning under
+  2 rad/s. The roll and down begin still: begun moving, the roll takes longer and down fails more
+  often ([tried and not kept](#tried-and-not-kept)).
 - **The cuts are where the postures are read** (`CUTS`). On step-up's route over the target's 64
   falls, the position read at a stage's end: hands and knees at the end of `sit` 64 times of 81, and
   at the end of the `fours` stage 34 of 108 (that stage bears on the toes, the knees light);
   kneeling at the end of `tall` 64 of 69; half kneeling at the end of `onto the toes` 55 of 59, and
   at the end of `half kneel` 30 of 63.
 - **A part plays the route on from its first stage** and hands over at the first cut where its
-  posture has been read, not tumbling (`tumbling`), for 0.1 s (`REACHED_SECONDS`) from that stage's
-  start until the next cut's begins; read at none, it plays on to standing. Over the four runs below
-  a down hands over on hands and knees 23 to 34 times and kneeling 14 to 18; a step-through half
-  kneeling 26 to 34 times and standing 4 to 7.
+  posture has been read, slow enough for the part begun there, for 0.1 s (`REACHED_SECONDS`) from
+  that stage's start until the next cut's begins; read at none, it plays on to standing.
+- **Stand up braces only a body no edge takes** (`standUp`): a tumbling body (`tumbling`) is begun
+  on an edge whose entry reads motion (`TechniquePart.moving`) where one admits it, and braced
+  otherwise. Short of an admitting edge it chooses nothing until the position has been read
+  (`GroundReading.settled`), and, where it lists an edge that reads motion, holds a body still
+  landing with no support or one such an edge is begun from but is too fast for (`awaits`,
+  `graph.ts`), for no longer than a brace. On the target, 33 of 254 parts begun are begun on a
+  tumbling body, 25 of them rolls still turning; 32 falls begin on the roll and 31 on step-up, most
+  of those lying between positions with the trunk off the ground.
+- **Placed starts chain through the parts** (`research/rising-bed.mjs --starts placed`, empty-handed,
+  seeds 1 and 2): the Warrior stands 12 of 12 (half kneeling and squatting on seed 1 are rejected
+  placements), the Rogue 6 of 8, as many as when step-up took every placed start; before Stand up
+  waited for the position, a placed body read between positions as it dropped onto the ground and
+  step-up took it.
 - **Half kneeling is read on a foot ahead and upright** (`groundReading`, `reading.ts`): one shin
   and the other foot bear, the sole flat, or the foot ahead of that knee the way the pelvis faces
   and the trunk as upright as a kneel's (`KNEEL_UP`). The step's half kneel bears on the ball of the
   foot (`HALF_KNEEL`'s ankle -0.55 rad) and was read nowhere on the route; without the foot ahead,
   the `shift` read as half kneeling 61 times of 69, the back foot on its toes behind the knee.
-- **The fingerprint** (`scripts/fingerprint.mjs`) moves no pose, and step-up's target is the same
-  fall by fall: the game lists step-up alone.
+- **The fingerprint** (`scripts/fingerprint.mjs`) moves one case, `data: learned-rise`, whose Stand
+  up now waits for the position before its first choice; step-up's target is the same fall by fall.
 
 `npm run evaluate -- rising-target` (Node, core world, Rapier, 120 Hz), four runs each: the code
 as it is and the pose drive's `POSE_SECONDS` 0.2 s times 1 + 1e-9, 1 + 2e-9 and 1 - 1e-9, a
-placebo that moves no mechanism:
+placebo that moves no mechanism. Step-up and the parts handing over at rest are read at
+`2c946c86`:
 
-| Group | Step-up: stood, of 16 | Median, s | The staged route: stood, of 16 | Median, s |
-|---|---|---|---|---|
-| Warrior, club | 13 to 16 | 12.8 to 15.6 | 13 to 16 | 12.8 to 14.5 |
-| Warrior, empty | 14, 15 | 11.9 to 12.4 | 14 to 16 | 12.2 to 12.5 |
-| Rogue, club | 8 to 12 | 16.1 to 25.7 | 8 to 12 | 16.4 to 28.6 |
-| Rogue, empty | 11 to 15 | 15.6 to 18.9 | 10 to 13 | 15.9 to 17.5 |
-| All, of 64 | 50 to 54 | | 49 to 54 | |
+| Group | Step-up: stood, of 16 | Median, s | At rest: stood | Median, s | In motion: stood | Median, s |
+|---|---|---|---|---|---|---|
+| Warrior, club | 13 to 16 | 12.8 to 15.6 | 13 to 16 | 12.8 to 14.5 | 13 to 15 | 12.3 to 13.8 |
+| Warrior, empty | 14, 15 | 11.9 to 12.4 | 14 to 16 | 12.2 to 12.5 | 13 to 16 | 12.4 to 12.7 |
+| Rogue, club | 8 to 12 | 16.1 to 25.7 | 8 to 12 | 16.4 to 28.6 | 8 to 11 | 16.5 to 25.6 |
+| Rogue, empty | 11 to 15 | 15.6 to 18.9 | 10 to 13 | 15.9 to 17.5 | 11 to 14 | 15.6 to 18.9 |
+| All, of 64 | 50 to 54 | | 49 to 54 | | 49 to 54 | |
+
+The Warrior empty-handed is at the edge of the spread (13 of 16 once, the median 0.2 s later). A
+roll takes a mean 3.2 s against 4.0 s at rest; the Rogue's down fails 63 times of 167 against 12 of
+38.
 
 ## Tried and not kept
 
+- **The staged route's roll and down begun moving** (`HAND_OVER`, every part `moving`), on the
+  target: at 1 m/s and 2 rad/s, 52 of 64, down failing 29 of 76 against 22 of 70 at rest and the
+  Rogue empty-handed 19.8 s at the median; at 0.5 m/s and 1 rad/s, 46 to 51 of 64 over four runs,
+  the Rogue with the club 6 to 10 of 16. Down begun still and the roll moving at 1 m/s: 51 to 53, the
+  Warrior empty-handed 12.6 to 13.1 s at the median in all four, its roll a mean 3.05 s against 2.72.
+- **The staged roll and down from a body lying low between positions** (its lie theirs, under
+  step-up's `LOW`): 46 falls begin on the roll and 11 on down, 49 to 52 of 64 over four runs, the
+  Rogue empty-handed 17.1 to 26.3 s at the median; the Rogue's down failed 110 of 253 times.
 - **Parts that end at their own last stage**, played on there until their posture is read (at most
   1 s) and failed if it is not: 44, 51 and 44 of 64 (the code, and `POSE_SECONDS` times 1 + 1e-9 and
   1 + 2e-9), the Rogue 7 or 8

@@ -29,6 +29,8 @@ export interface GroundReading {
   spin: number;
   raw: Position;
   position: Position;
+  /** Whether `position` has been read since the reading was reset: `raw` the same `SETTLE_STEPS` readings running. */
+  settled: boolean;
   side: Side | null;
 }
 
@@ -59,7 +61,7 @@ export function groundReading(built: ReadBody, dt: number) {
   const reading: GroundReading = {
     load: new Float64Array(parts.length), sole: new Float64Array(2), flat: new Uint8Array(2), footLoad: new Float64Array(2),
     soles: feet.map(f => ({ corners: f.corners })), centre: new Vector3(), velocity: new Vector3(),
-    lie: "front", height: 0, upright: 0, spin: 0, raw: "between", position: "between", side: null,
+    lie: "front", height: 0, upright: 0, spin: 0, raw: "between", position: "between", settled: false, side: null,
   };
   const state = { reading, candidate: "between" as Position, steps: 0 };
   const work = { vector: new Vector3(), upper: new Vector3(), lower: new Vector3(), turn: new Quaternion(), way: new Vector3(), knee: new Vector3() };
@@ -111,7 +113,7 @@ export function groundReading(built: ReadBody, dt: number) {
   const fixed = (other: unknown) => other === null;
   return {
     state,
-    reset() { state.steps = 0; state.candidate = "between"; reading.position = "between"; },
+    reset() { state.steps = 0; state.candidate = "between"; reading.position = "between"; reading.settled = false; },
     read(): GroundReading {
       reading.load.fill(0);
       for (let i = 0; i < parts.length; i++) {
@@ -156,7 +158,7 @@ export function groundReading(built: ReadBody, dt: number) {
       reading.raw = classify();
       if (state.candidate === reading.raw) state.steps = Math.min(SETTLE_STEPS, state.steps + 1);
       else { state.candidate = reading.raw; state.steps = 1; }
-      if (state.steps >= SETTLE_STEPS) reading.position = reading.raw;
+      if (state.steps >= SETTLE_STEPS) { reading.position = reading.raw; reading.settled = true; }
       return reading;
     },
   };

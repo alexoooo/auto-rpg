@@ -12,8 +12,9 @@ import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
-import { choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
-import { quietOnFeet, standReady, tumbling, type Position } from "./reading.ts";
+import { awaits, choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
+import { quietOnFeet, standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
+import type { Senses } from "../senses.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
 import type { PartLookup } from "../lookup.ts";
 
@@ -34,7 +35,9 @@ const BRACE_LIMIT = 1, STEADY_LIMIT = 2, BACKOFF = 2, RETRIES = 2, LOG_SIZE = 32
 const CLIMB = deepFreeze({ seconds: .6, response: .08, below: .9 });
 /** Both feet. */
 const BOTH: readonly Side[] = deepFreeze(["left", "right"]);
-type Mode = "execute" | "brace" | "steady" | "reposition" | "stuck";
+type Mode = "execute" | "brace" | "land" | "steady" | "reposition" | "stuck";
+/** A body read with no support (`between`) is still landing while faster than this, m/s. */
+const LANDING = .1;
 interface Attempt { technique: string; side: Side; from: Position; to: Position; seconds: number }
 interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 
@@ -53,9 +56,15 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   given?: Readonly<Record<string, TechniquePart>>): SubMind {
   const registry = given ?? techniquesOf(kit.parts, config);
   const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {}, order: readonly string[] = config.techniques.map((technique) => technique.kind);
+  // `moving`: the graph a tumbling body is routed on, its first edge one whose entry reads motion (`TechniquePart.moving`).
+  const moving: Record<string, GraphTechnique> = {};
+  // `waits`: it routes through an edge whose entry reads motion, so a body still landing is held for one rather than routed.
+  let waits = false;
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, order.includes(name), kit); runs[name] = run;
-    graph[name] = { sides: spec.sides, edges: spec.edges, admits: (g, side) => run.admits(g, side) };
+    waits ||= spec.moving && order.includes(name);
+    graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, admits: (g, side) => run.admits(g, side) };
+    moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, admits: (g, side) => spec.moving && run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);
   const drive = poseDrive(own.muscles), work = graphWork(), legs = locomotion(null);
@@ -116,6 +125,12 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
     }
     state.current = null; state.braceUsed = false; state.time = 0;
   };
+  /** The first step of the attempt just begun. */
+  const first = (g: GroundReading, senses: Senses, dt: number) => {
+    const started = state.current!;
+    carry(); const end = runs[started.technique]!.step(g, senses, dt); started.seconds += dt; remember();
+    if (end) { finish(end); carry(); }
+  };
   const handBack = (end: "ready" | "steady-limit") => {
     log({ technique: "steady", side: view.ground?.side ?? "left", from: view.ground?.position ?? "between",
       to: "standing", seconds: state.time, end });
@@ -149,6 +164,9 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
       // A body steadying on its feet is the stance's to catch: bracing it would fold the legs under it.
       const onFeet = g.position === "standing" || g.position === "crouch";
       if (tumbling(g) && !state.braceUsed && !(onFeet && state.mode === "steady")) {
+        // A tumbling body is braced unless an edge whose entry reads motion admits it as it moves.
+        const route = g.settled ? choose(order, g, moving, state.failures, state.route, work, RETRIES) : null;
+        if (route) { state.route = route; begin(route[0]!, false); first(g, senses, dt); return; }
         if (state.mode !== "brace") mode("brace");
         drive(BRACE, .3, 2, .4); remember(); state.time += dt;
         if (state.time >= BRACE_LIMIT) state.braceUsed = true;
@@ -171,7 +189,19 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
         }
         return;
       }
-      const route = choose(order, g, graph, state.failures, state.route, work, RETRIES);
+      // An edge that reads motion and admits the body is taken first. Short of one, no edge is chosen
+      // on a body whose position has not been read yet, or, where one of them is listed, on a body
+      // still landing with no support or one it is begun from but too fast for: the commands carry
+      // on, once for no longer than a brace.
+      const ready = g.settled && waits ? choose(order, g, moving, state.failures, state.route, work, RETRIES) : null;
+      if (!ready && (!g.settled || waits && !state.braceUsed && (g.raw === "between" && g.velocity.lengthSquared() > LANDING * LANDING
+        || awaits(order, g, moving, state.failures, RETRIES)))) {
+        if (state.mode !== "land") mode("land");
+        carry(); state.time += dt;
+        if (state.time >= BRACE_LIMIT) state.braceUsed = true;
+        return;
+      }
+      const route = ready ?? choose(order, g, graph, state.failures, state.route, work, RETRIES);
       if (route) { state.route = route; begin(route[0]!, false); }
       else {
         const candidates = ["flatten", g.lie === "front" ? "roll-back" : "roll"];
@@ -184,11 +214,8 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
           if (side) { begin({ technique: name, side, from: g.position, to: name === "flatten" ? g.lie : name === "roll" ? "front" : "back" }, true); break; }
         }
       }
-      const started = state.current as Attempt | null;
-      if (started) {
-        carry(); const end = runs[started.technique]!.step(g, senses, dt); started.seconds += dt; remember();
-        if (end) { finish(end); carry(); }
-      } else { mode("stuck"); drive(BRACE, .4, 1, .2); remember(); }
+      if (state.current as Attempt | null) first(g, senses, dt);
+      else { mode("stuck"); drive(BRACE, .4, 1, .2); remember(); }
     },
   };
 }

@@ -563,7 +563,7 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed in rank order, rolling to reposition (`techniquesOf`); `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), and the learned rise (`ground/learned-rise.ts`) are experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed in rank order, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), and the learned rise (`ground/learned-rise.ts`) are experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
 **Mind data loads per use** (`src/core/data/store.ts`). The learned run's, the learned rise's and

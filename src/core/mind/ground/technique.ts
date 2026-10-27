@@ -34,6 +34,8 @@ export interface TechniquePart<C extends PartConfig = PartConfig> extends Part<C
   readonly keys: KeysOf<C>;
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
+  /** Its entry (`TechniqueRun.admits`) reads the body's motion and its raw position (`GroundReading.raw`): a stand-up begins it on a body still tumbling where it admits it, and braces one only where none does. */
+  readonly moving: boolean;
   /** A run of it on the body, driving it with the mind's motor and guard (`kit`); `listed`, its stand-up's config names it, and a technique that reads mind data reads it only then (the supervisor routes only through those named). */
   make(own: OwnBody, view: BodyView, clock: Clock, listed: boolean, kit: MindKit): TechniqueRun;
 }
@@ -108,8 +110,8 @@ export function mirrorLimbs(limbs: Recipe["limbs"]): Recipe["limbs"] {
 export const fitsHumanoid = (spec: BodySpec): string | null => commandRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own. */
-export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"] }): TechniquePart<{ readonly kind: K }> =>
-  Object.freeze({ ...part, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [], fits: fitsHumanoid, faults: () => [] });
+export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean }): TechniquePart<{ readonly kind: K }> =>
+  Object.freeze({ moving: false, ...part, role: "technique", defaults: Object.freeze({ kind }), keys: Object.freeze({ kind: true }), fields: [], slots: [], fits: fitsHumanoid, faults: () => [] });
 
 /** The positions a body stands up from: every edge from them goes to standing. */
 export const TO_STANDING = Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)

@@ -127,6 +127,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   beginSupported(): boolean;
   /** Join the rise at its first stage now, the body as it is. */
   beginRising(): void;
+  /** Play the roll of the lie the body is in now, the body as it is, then lie slack and read again; on its front, the rise. */
+  beginRolling(): void;
 } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
@@ -362,6 +364,11 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       return true;
     },
     beginRising: rising,
+    beginRolling() {
+      state.lie = lieOf(root, lying);
+      state.tries = 1; state.furthest = -1; state.raised = false;
+      enter(state.lie === "front" ? "rise" : "roll", 0);
+    },
     end() { state.phase = "idle"; },
     step(_senses, dt) {
       switch (state.phase) {

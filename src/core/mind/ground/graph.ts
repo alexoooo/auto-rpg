@@ -5,6 +5,8 @@ import type { GroundReading, Position } from "./reading.ts";
 export interface GraphTechnique {
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
+  /** Its entry reads the raw position (`GroundReading.raw`), not the settled one. */
+  readonly raw: boolean;
   admits(reading: GroundReading, side: Side): boolean;
 }
 export interface GraphFailure { readonly technique: string; readonly side: Side; readonly from: Position; count: number }
@@ -36,21 +38,26 @@ function search(order: readonly string[], from: Position, techniques: Registry, 
   work.visited.push(from);
   for (const name of order) {
     const technique = techniques[name];
-    if (!technique || !technique.edges.some(edge => edge.from === from)) continue;
-    const side = sideOf(technique, name, from, failures, retries, reading);
+    if (!technique) continue;
+    // The first edge is begun from where its entry reads the body: raw or settled.
+    const at: Position = reading && technique.raw ? reading.raw : from;
+    if (!technique.edges.some(edge => edge.from === at) || at !== from && work.visited.includes(at)) continue;
+    const side = sideOf(technique, name, at, failures, retries, reading);
     if (side === null) continue;
+    if (at !== from) work.visited.push(at);
     for (const edge of technique.edges) {
-      if (edge.from !== from || work.visited.includes(edge.to)) continue;
-      work.route.push({ technique: name, side, from, to: edge.to });
+      if (edge.from !== at || work.visited.includes(edge.to)) continue;
+      work.route.push({ technique: name, side, from: at, to: edge.to });
       if (search(order, edge.to, techniques, failures, retries, work)) return true;
       work.route.pop();
     }
+    if (at !== from) work.visited.pop();
   }
   work.visited.pop();
   return false;
 }
 
-/** The first admitting edge in player order wins when its simple route reaches standing. */
+/** The first admitting edge in player order wins when its simple route reaches standing; it is begun from the position its entry reads (`GraphTechnique.raw`). */
 export function choose(order: readonly string[], reading: GroundReading, techniques: Registry, failures: readonly GraphFailure[],
   intention: readonly RouteStep[], work: Work, retries = 2): RouteStep[] | null {
   work.visited.length = 0; work.route.length = 0;
@@ -59,15 +66,29 @@ export function choose(order: readonly string[], reading: GroundReading, techniq
   let retained = intention.length > 0;
   for (let index = 0; index < intention.length && retained; index++) {
     const step = intention[index]!, technique = techniques[step.technique];
-    if (!technique || !order.includes(step.technique) || step.from !== from || work.visited.includes(from)
-      || !technique.edges.some(edge => edge.from === from && edge.to === step.to)) { retained = false; break; }
-    const side = sideOf(technique, step.technique, from, failures, retries, index === 0 ? reading : undefined);
+    const here = index === 0 && technique?.raw ? reading.raw : from;
+    if (!technique || !order.includes(step.technique) || step.from !== here || work.visited.includes(here)
+      || !technique.edges.some(edge => edge.from === here && edge.to === step.to)) { retained = false; break; }
+    const side = sideOf(technique, step.technique, here, failures, retries, index === 0 ? reading : undefined);
     if (side === null || work.visited.includes(step.to)) { retained = false; break; }
-    work.visited.push(from); work.route.push({ ...step, side }); from = step.to;
+    work.visited.push(here); work.route.push({ ...step, side }); from = step.to;
   }
   if (retained && from === "standing") return work.route.slice();
   work.visited.length = 0; work.route.length = 0;
   return search(order, reading.position, techniques, failures, retries, work, reading) ? work.route.slice() : null;
+}
+
+/**
+ * Whether an edge whose entry reads the raw position (`GraphTechnique.raw`) is begun from where the
+ * body is read, on a side whose failures there are short of `retries`, whatever its entry says of
+ * the body's motion.
+ */
+export function awaits(order: readonly string[], reading: GroundReading, techniques: Registry, failures: readonly GraphFailure[], retries: number): boolean {
+  return order.some(name => {
+    const technique = techniques[name];
+    return technique !== undefined && technique.raw && technique.edges.some(edge => edge.from === reading.raw)
+      && technique.sides.some(side => !failed(failures, name, side, reading.raw, retries));
+  });
 }
 
 /** Configuration reachability uses declared edges, without assuming future admission readings. */
