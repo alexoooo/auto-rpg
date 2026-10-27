@@ -67,8 +67,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 2. **Now, beside the punch:** Recovery, the rise as a graph of posture skills: steps 1 to 7
    landed (the budget, the witnesses, the steady's climb, step-up's route in parts, hand-overs in
    motion, a drill for each edge, routes priced); step 8 found no fast edge; step 9 landed short
-   (the Rogue with the club 9 of 16); next step 10 (the game's Stand up). Until step 10 the game
-   keeps today's Stand up. And
+   (the Rogue with the club 9 of 16); step 10 waits: the graph stands the Rogue with the club
+   fewer falls than step-up, and the game keeps step-up. And
    Mind data step 2 (the packed format, lossless), then step 3 (precision per kind).
 3. **When each one's condition holds:**
    - Ratings step 10 (a skill's battery beside its ablations on the Ratings screen) when a skill's
@@ -205,7 +205,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   from hands and knees the bearing solve holds a pike on the toes, the hands bearing, and does not
   balance on the feet alone; a fast rise waits on a controller that brings the weight onto flat feet.
   Step 9 (landed short): the tuck's arms out stand the Rogue empty-handed 13 of 16, with the club 9
-  ([the pose stages](reference/rising.md#the-pose-stages)). Next, step 10.
+  ([the pose stages](reference/rising.md#the-pose-stages)). Step 10 waits: the staged route stands
+  52 and 53 of 64 on the target against step-up's 56 and 53, the Rogue with the club 9 and 10 of 16
+  against 11 and 12; no fall of either stands within 6 s.
   A policy acting on observations also runs the sixteen-fall screen
   (`research/stand-up-acceptance.mjs`), which does not establish the target.
 - **Strikes.** A driven strike that sequences arm, trunk and ground reaction, returns under control
