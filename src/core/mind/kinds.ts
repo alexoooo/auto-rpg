@@ -2,7 +2,6 @@ import type { Controller } from "./controller.ts";
 import { FIGHTER_MIND } from "./fighter-kind.ts";
 import { OPTIONS_MIND } from "./options/kind.ts";
 import { QUADRUPED_MIND } from "../reptile/kind.ts";
-import { DIRECT_MIND } from "../entrants/direct/mind.ts";
 import { TEMPO_MIND } from "../entrants/tempo/mind.ts";
 import { VANGUARD_MIND } from "../entrants/vanguard/mind.ts";
 
@@ -11,4 +10,4 @@ import { VANGUARD_MIND } from "../entrants/vanguard/mind.ts";
  * (`CONTROLLERS`). This module holds its imports and this list and nothing else: a case's code
  * reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const MIND_KINDS: readonly Controller[] = [OPTIONS_MIND, FIGHTER_MIND, QUADRUPED_MIND, DIRECT_MIND, TEMPO_MIND, VANGUARD_MIND];
+export const MIND_KINDS: readonly Controller[] = [OPTIONS_MIND, FIGHTER_MIND, QUADRUPED_MIND, TEMPO_MIND, VANGUARD_MIND];

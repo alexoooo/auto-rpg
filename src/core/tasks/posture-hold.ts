@@ -5,8 +5,7 @@ import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
-import { createPolicyBody } from "../mind/direct.ts";
-import { directPolicy } from "../entrants/direct/mind.ts";
+import { createPolicyBody, type ActuatorModel, type Policy } from "../mind/direct.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 
@@ -16,6 +15,39 @@ const SETTINGS = deepFreeze({ seconds: 10, tolerance: .02, effortTolerance: .000
 
 type Placement = Parameters<typeof buildBody>[2];
 const anatomyOf = (spec: BodySpec) => JSON.parse(JSON.stringify(spec, (key, value) => key === "provenance" ? undefined : value)) as object;
+
+/** Joint feedback's settings: targets in radians by channel, and its time, speed and activation bounds. */
+interface JointFeedback {
+  readonly targets: Readonly<Record<string, number>>;
+  readonly seconds: number;
+  readonly speed: number;
+  readonly activation: number;
+}
+
+/**
+ * **Joint feedback**, the task's reference policy with every gain supplied by its experiment: each
+ * channel driven toward its target (zero within its range where none is named) at a speed of its
+ * error over `seconds`, at most `speed`, at a fixed activation. A target outside its channel's range
+ * is refused.
+ */
+function directPolicy(settings: JointFeedback): (model: ActuatorModel) => Policy {
+  return (model) => {
+    for (const [name, target] of Object.entries(settings.targets)) {
+      const channel = model.channels.find((c) => c.name === name);
+      if (!channel || !Number.isFinite(target) || target < channel.min || target > channel.max) throw new Error(`invalid joint target ${name}`);
+    }
+    const state = { steps: 0, idles: 0 };
+    const activation = model.channels.map(() => settings.activation), velocity = model.channels.map(() => 0);
+    return { name: "direct", state, idle() { state.idles++; }, step(observation) {
+      state.steps++;
+      for (let i = 0; i < velocity.length; i++) {
+        const channel = model.channels[i]!, target = settings.targets[channel.name] ?? Math.max(channel.min, Math.min(channel.max, 0));
+        velocity[i] = Math.max(-settings.speed, Math.min(settings.speed, (target - observation.joints[i]!.angle) / settings.seconds));
+      }
+      return { kind: "velocity", activation, velocity };
+    } };
+  };
+}
 
 /**
  * Hold a declared physical start through the independent observation/action controller. `spec`
@@ -53,7 +85,7 @@ export function createPostureHoldProbe(scene: Scene, engine: PhysicsEngine, conf
   let actuators: Parameters<Parameters<typeof createPolicyBody>[2]>[0] | null = null;
   const body = (() => {
     switch (controller) {
-      case "direct": return createPolicyBody(built, world, directPolicy({ kind: "direct", targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation }));
+      case "direct": return createPolicyBody(built, world, directPolicy({ targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation }));
       case "actuator": return createPolicyBody(built, world, (model) => {
         actuators = model;
         return { name: "external-posture", state: command, step: () => command.action };

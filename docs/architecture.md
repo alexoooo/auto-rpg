@@ -471,7 +471,6 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | options fighter | `createOptionsFighter`, `src/core/mind/options/` | a meta-controller over options, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
@@ -657,8 +656,8 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
-A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`. The
-joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`. Tempo
+(`entrants/tempo/mind.ts`), the shared skills under tactics of its own, is the smallest example.
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
    faults and its maker, written as one controller (`controller<C>({ ... })`).

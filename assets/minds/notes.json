@@ -286,37 +286,5 @@
         }
       }
     }
-  },
-  "direct": {
-    "note": "1162 2026-10-21",
-    "loadouts": {
-      "empty,empty": "1162 2026-10-21"
-    },
-    "bodies": {
-      "crypt-skeleton": {
-        "note": "1323 2026-10-21",
-        "loadouts": {
-          "empty,empty": "1323 2026-10-21"
-        }
-      },
-      "reptile": {
-        "note": "1289 2026-10-21",
-        "loadouts": {
-          "empty,empty": "1289 2026-10-21"
-        }
-      },
-      "workshop-fighter": {
-        "note": "1133 2026-10-21",
-        "loadouts": {
-          "empty,empty": "1133 2026-10-21"
-        }
-      },
-      "workshop-rogue": {
-        "note": "902 2026-10-21",
-        "loadouts": {
-          "empty,empty": "902 2026-10-21"
-        }
-      }
-    }
   }
 }
