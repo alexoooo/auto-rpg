@@ -2,8 +2,8 @@
   "source": {
     "script": "research/edge-profiles.mjs",
     "records": [
-      "assets/evaluations/rise/2026-10-27-07d287b0-265419cb.jsonl",
-      "assets/evaluations/rise/2026-10-27-07d287b0-7cf5727d.jsonl"
+      "assets/evaluations/rise/2026-10-27-4d8f12c1-177a2639.jsonl",
+      "assets/evaluations/rise/2026-10-27-4d8f12c1-c971f11b.jsonl"
     ]
   },
   "profiles": {
@@ -16,30 +16,32 @@
       },
       "staged-down": {
         "begun": 12,
-        "done": 12,
-        "seconds": 3.104,
-        "fails": {}
+        "done": 11,
+        "seconds": 2.921,
+        "fails": {
+          "between": 1
+        }
       },
       "staged-kneel-up": {
-        "begun": 11,
-        "done": 11,
-        "seconds": 2.497,
+        "begun": 9,
+        "done": 9,
+        "seconds": 2.678,
         "fails": {}
       },
       "staged-step-through": {
-        "begun": 10,
-        "done": 9,
-        "seconds": 1.734,
+        "begun": 8,
+        "done": 7,
+        "seconds": 1.77,
         "fails": {
           "front": 1
         }
       },
       "staged-lunge": {
-        "begun": 7,
-        "done": 6,
-        "seconds": 2.119,
+        "begun": 5,
+        "done": 4,
+        "seconds": 2.232,
         "fails": {
-          "between": 1
+          "back": 1
         }
       }
     },
@@ -58,26 +60,26 @@
       },
       "staged-kneel-up": {
         "begun": 12,
-        "done": 6,
-        "seconds": 1.529,
+        "done": 4,
+        "seconds": 1.426,
         "fails": {
-          "front": 6
+          "front": 8
         }
       },
       "staged-step-through": {
-        "begun": 12,
-        "done": 11,
-        "seconds": 1.906,
+        "begun": 10,
+        "done": 9,
+        "seconds": 2.035,
         "fails": {
           "back": 1
         }
       },
       "staged-lunge": {
-        "begun": 10,
-        "done": 6,
-        "seconds": 1.828,
+        "begun": 8,
+        "done": 5,
+        "seconds": 1.79,
         "fails": {
-          "back": 3,
+          "back": 2,
           "between": 1
         }
       }

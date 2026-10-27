@@ -1256,16 +1256,21 @@ latest record of each of the Rise drill's rungs).
 
 The staged route has one edge from each position, so its prices choose what its order chose: the
 target is the same fall by fall as with the order (one run at `07d287b0`'s code with the profiles,
-against step 6's). The fresh falls on the staged route: 50 of 64 stood, the Warrior 13 and 13 of
-16, the Rogue 13 with the club and 11 empty-handed.
+against step 6's). The fresh falls on the staged route: 54 of 64 stood with the tuck's arms out
+([the pose stages](#the-pose-stages)), the Warrior 16 and 16 of 16, the Rogue 9 with the club and 13
+empty-handed.
+
+The profiles, from the drill's records at `4d8f12c1`:
 
 | Body | Roll | Down | Kneel-up | Step-through | Lunge |
 |---|---|---|---|---|---|
-| Warrior: done, s a trial | 21 of 21, 2.60 | 12 of 12, 3.10 | 11 of 11, 2.50 | 9 of 10, 1.73 | 6 of 7, 2.12 |
-| Rogue: done, s a trial | 23 of 23, 4.72 | 12 of 12, 2.63 | 6 of 12, 1.53 | 11 of 12, 1.91 | 6 of 10, 1.83 |
+| Warrior: done, s a trial | 21 of 21, 2.60 | 11 of 12, 2.92 | 9 of 9, 2.68 | 7 of 8, 1.77 | 4 of 5, 2.23 |
+| Rogue: done, s a trial | 23 of 23, 4.72 | 12 of 12, 2.63 | 4 of 12, 1.43 | 9 of 10, 2.04 | 5 of 8, 1.79 |
 
-The Rogue's failures rest on its front (kneel-up, 6) and its back (step-through 1, lunge 3); the
-Warrior's step-through's on its front.
+The Rogue's failures rest on its front (kneel-up, 8) and its back (step-through 1, lunge 2), one
+lunge between positions; the Warrior's down's between positions, its step-through's on its front
+and its lunge's on its back. The Rogue's kneel-up after down is done 4 of 6 (6 of 6 with the tuck's
+arms folded); placed at rest it is done in none.
 
 ## Tried and not kept
 
