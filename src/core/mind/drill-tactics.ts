@@ -1,8 +1,8 @@
-import { atan2 } from "../math/real.ts";
+import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { ActionAround, ActionRequest, Readiness, Window } from "../skills/action.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
-import { approachActionWindow } from "./action-window.ts";
+import { approachActionWindow, withinActionWindow } from "./action-window.ts";
 import { NO_COVER, type Intent } from "./intent.ts";
 import { anyBody, slotOne, type PartConfig } from "./parts.ts";
 import type { BodySense } from "./senses.ts";
@@ -13,7 +13,9 @@ import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "./tactics-par
  * **A drill's tactics**: one action with one effector at one mark of the nearest foe, asked once.
  * It turns to the target, or to the middle of the action's window where its readiness names one,
  * walking there no faster than its `pace` (with none, it never walks), and requests the action the
- * first step it is ready; a request the skills
+ * first step it is ready. A body that walked goes on to the window's middle, as it will see the
+ * window standing, stops there facing the target, and asks once it stands settled (`SETTLED`): an
+ * action is not thrown off a walk's last steps. A request the skills
  * refuse at its start is asked again. Once an action it asked has run and ended it asks nothing
  * more. A drill reads the action's own motion from where the body stands. With `fight`, it fights
  * by those tactics until they ask their `moment`th action, and asks its own in that one's place
@@ -46,8 +48,35 @@ function middleOf(window: Window): Window {
   return { ...window, along: [along - MIDDLE, along + MIDDLE], across: [across - MIDDLE, across + MIDDLE] };
 }
 
+/**
+ * How far past an action's window a body that stopped inside it may sway and still stand there, m:
+ * the window moves with the head, which bobs that much as a walk's last steps land.
+ */
+const SWAY = .03;
+
+/** The most speed over the ground a standing body has once a walk's sway has died out, m/s. */
+const SETTLED = .06;
+
+/** `window` widened by `by` m along and across. */
+function widened(window: Window, by: number): Window {
+  return { ...window, along: [window.along[0] - by, window.along[1] + by], across: [window.across[0] - by, window.across[1] + by] };
+}
+
+/** `window` as a body standing where it is would have it: less `lean`, the head's lead over the centre of mass along the heading while it walks. */
+function standing(window: Window, lean: number): Window {
+  return { ...window, along: [window.along[0] - lean, window.along[1] - lean] };
+}
+
 function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactics<Sight, Intent> {
   const state = { phase: (fight ? "fighting" : "lost") as DrillPhase, reason: "", focus: null as string | null, request: null as ActionRequest | null, started: false, since: null as number | null,
+    /**
+     * The action's window its readiness last named, and whether it has walked toward it: a body that
+     * walked is brought to the window's middle and settled there before it asks, though it reads
+     * ready on the way.
+     */
+    window: null as Window | null, walked: false,
+    /** Whether it stands where its walk stopped, for the body to settle there; and, once it has, the way it faces, which it keeps until it asks. */
+    held: false, set: null as number | null,
     /** The actions its fight asked, by id, and how many. */
     asked: [] as number[], fight: fight?.state ?? null };
   /** The fight's intent this step, or null from the step it asks its `moment`th action. */
@@ -108,9 +137,22 @@ function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactic
       const readiness = sight.readiness(view, config.action, config.effector, target, around);
       state.phase = readiness.kind;
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
-      const legs = readiness.kind === "position" ? approachActionWindow(view, middleOf(readiness.window), report.heading, config.pace ?? 0) : null;
-      const face = legs ? legs.face : atan2(foe.centre.x - view.stance.centre.x, foe.centre.z - view.stance.centre.z);
-      if (readiness.kind !== "ready") return { ...(legs && config.pace !== undefined ? legs : { move: null }), face, guard: NO_COVER, actions: [] };
+      const h = report.heading, toward = atan2(foe.centre.x - view.stance.centre.x, foe.centre.z - view.stance.centre.z);
+      const settled = view.stance.phase === "stand" && hypot(view.stance.velocity.x, view.stance.velocity.z) <= SETTLED;
+      if (readiness.kind === "position") state.window = { ...readiness.window, at: [...readiness.window.at] as Window["at"] };
+      const window = state.window;
+      if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held)) {
+        const lean = (view.head.x - view.stance.centre.x) * sin(h) + (view.head.z - view.stance.centre.z) * cos(h), middle = middleOf(standing(window, lean));
+        state.held = state.held ? withinActionWindow(view, widened(window, SWAY), h) && !(settled && !withinActionWindow(view, window, h))
+          : withinActionWindow(view, middle, h);
+        if (state.held) state.set ??= toward;
+        const legs = approachActionWindow(view, middle, h, config.pace ?? 0, Infinity, MIDDLE);
+        if (config.pace === undefined || state.held || !legs.movement) return { move: null, face: state.set ?? legs.face, guard: NO_COVER, actions: [] };
+        state.walked = true;
+        return { ...legs, guard: NO_COVER, actions: [] };
+      }
+      const face = state.set ?? toward;
+      if (readiness.kind !== "ready" || state.walked && !settled) return { move: null, face, guard: NO_COVER, actions: [] };
       state.request = { id: sight.instance(), action: config.action, effector: config.effector, target };
       state.phase = "striking";
       return { move: null, face, guard: NO_COVER, actions: [state.request] };
