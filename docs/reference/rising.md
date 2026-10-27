@@ -1109,7 +1109,9 @@ Step-up's route as five techniques, each an edge of Stand up's graph
 within a placebo's spread. Each edge's entry reads the raw position and the body's motion
 (`stagedEntry`), so a part hands over to the next as soon as the next admits the body, moving or
 not. Stand up lists them in route order, then step-up for what they do not take (sitting, between,
-a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`.
+a part failed twice): `STAGED_ROUTE`, `npm run evaluate -- rising-target staged`. The Lab's
+Stand-up scenario plays it ("Gets up by": the staged route, `groundRise=staged`), a round of the
+target's falls included.
 
 | Technique | From, to | Entry | Plays of step-up's route |
 |---|---|---|---|
@@ -1201,7 +1203,8 @@ rest (settled and under 0.1 m/s, for up to 2 s), and the trial reads the positio
   after a shove from standing toward six directions. An edge is entered as the route hands the
   body over; a trial whose edge is never begun is no reading of it.
 - **The reel cannot be watched**: the Ratings reel plays bout cases, and a technique case is
-  shown as not opened.
+  shown as not opened. The route's edges are seen in play in the Lab's Stand-up scenario on the
+  staged route ([the staged route](#the-staged-route)).
 
 Placed, at the commit the record names (begun, done of those begun, the median time to done):
 

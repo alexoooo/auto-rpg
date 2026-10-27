@@ -130,7 +130,7 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
-export const GROUND_RISES = ["step-up", "learned-rise", "support-recovery", "mind"] as const;
+export const GROUND_RISES = ["step-up", "staged", "learned-rise", "support-recovery", "mind"] as const;
 export type GroundRise = (typeof GROUND_RISES)[number];
 
 /** The Attack field's target count and random seed unless the address supplies them. */

@@ -6,6 +6,7 @@ import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mod
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
+import { STAGED_ROUTE } from "../core/mind/ground/staged-edges.ts";
 import type { TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
 import { partLookup } from "../core/mind/catalog.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
@@ -26,13 +27,14 @@ import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 /** What each way of getting up is called in the menu. */
-const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step up, as the game", "learned-rise": "Stand up: learned rise (experimental)",
+const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step up, as the game", staged: "Stand up: the staged route", "learned-rise": "Stand up: learned rise (experimental)",
   "support-recovery": "Support recovery (experimental)", mind: "As its mind says" };
 
-/** The mind `chosen` with its sub-minds those `rise` names: the game's Stand up by one technique, support recovery, or its own. */
+/** The mind `chosen` with its sub-minds those `rise` names: the game's Stand up by one technique or on the staged route, support recovery, or its own. */
 function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
   switch (rise) {
     case "step-up": return { ...chosen, subs: [STAND_UP] };
+    case "staged": { const staged: StandUpConfig = { ...STAND_UP, techniques: STAGED_ROUTE.map((kind) => ({ kind })) }; return { ...chosen, subs: [staged] }; }
     case "learned-rise": { const learned: StandUpConfig = { ...STAND_UP, techniques: [{ kind: "learned-rise" }] }; return { ...chosen, subs: [learned] }; }
     case "support-recovery": return { ...chosen, subs: [{ kind: "support-recovery" }] };
     case "mind": return chosen;

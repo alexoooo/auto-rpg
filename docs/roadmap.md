@@ -199,7 +199,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   the Rise drill gives each edge's profile placed and in motion
   ([the Rise drill](reference/rising.md#the-rise-drill)); every edge is done from its own posture
   placed but the Rogue's kneel-up (0 of 6, for step 9). Its reel waits on a page that plays a
-  technique case (open item, Framework). Step 7 (landed): Stand up prices routes by the edges'
+  technique case (open item, Framework); the Lab's Stand-up scenario plays the staged route. Step 7 (landed): Stand up prices routes by the edges'
   profiles ([routes priced](reference/rising.md#routes-priced)); the fresh falls are a case set of
   the target. Step 8 found no fast edge ([tried and not kept](reference/rising.md#tried-and-not-kept)):
   from hands and knees the bearing solve holds a pike on the toes, the hands bearing, and does not
