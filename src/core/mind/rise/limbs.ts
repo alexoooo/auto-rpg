@@ -314,7 +314,7 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
 function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
   const chain = chainOf(own, spec), at = new Vector3();
   const limb: Limb = {
-    segment: foot.segment, memory: { channels: chain.channels }, stem: chain.stem, reach: foot.reach, task: taskOf(chain.channels.length),
+    segment: foot.segment, memory: { channels: chain.channels }, stem: chain.stem, get reach() { return foot.reach; }, task: taskOf(chain.channels.length),
     work: { at, rows: null, ahead: chain.ahead, toward: chain.toward, patch: null, share: 1 },
   };
   return {

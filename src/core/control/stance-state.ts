@@ -188,7 +188,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     feet: feet.map((foot) => foot.memory),
   };
   const limbs = feet.map((foot, f): Limb => ({
-    segment: foot.segment, memory: foot.memory, reach: foot.reach, task: state.tasks[f]!,
+    segment: foot.segment, memory: foot.memory, get reach() { return foot.reach; }, task: state.tasks[f]!,
     stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   return {
