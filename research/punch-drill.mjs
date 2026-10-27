@@ -88,7 +88,8 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
 
 /**
  * A trial's score: a landed blow above 9 by how far inside each of the bar's tests it is, each
- * margin a share of its limit's room and capped, so a search moves off the tests' edges; else up to 8 by how
+ * margin a share of its limit's room and capped, so a search moves off the tests' edges, but for
+ * the cone's, which counts all the way to square, as a blow's path scatters most across it; else up to 8 by how
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin, the mass counted `heavier` times within those 8; -1 nothing on the mark; -3 a fall.
  */
@@ -101,7 +102,7 @@ export function scoreOf(reading, hand, heavier = 1) {
   if (reading.outcome === "landed") {
     const room = (value, limit, best) => Math.min(MARGIN, Math.max(0, (value - limit) / (best - limit)));
     const along = Math.cos(BAR.along * Math.PI / 180), rad = Math.PI / 180;
-    return 9 + room(speed, 1, 1.5) + room(mass, 1, 2) + room(hit.straight, cone, 1) + room(hit.along, along, 1)
+    return 9 + room(speed, 1, 1.5) + room(mass, 1, 2) + Math.max(0, (hit.straight - cone) / (1 - cone)) + room(hit.along, along, 1)
       + room(-hit.bend, -BAR.bend * rad, 0) + room(-hit.lean, -BAR.lean * rad, 0) + room(-(hit.time - reading.began), -BAR.within, 0);
   }
   const towards = (cosine) => cosine === null ? 0 : unit((cosine - wide) / (cone - wide));
