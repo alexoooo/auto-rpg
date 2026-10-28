@@ -74,6 +74,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Reaction time, judged in play: Arena bouts at a delay of 0 and of about 0.2 s, watched side by
   side; decided before the punch is trained on fight moments
   ([Options](plans/2026-10-24-options.md), step 2).
+- How the legs serve the learned punch, whose leg pushes the bearing solve overrides: the punch
+  asks the stance for its weight shift, or its leg pushes wait until both feet bear
+  ([Punch](plans/2026-10-24-punch.md), step 4a); until then the pushes stay, and move nothing.
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
