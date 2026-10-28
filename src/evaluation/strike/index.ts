@@ -1,7 +1,8 @@
 /**
  * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
- * 0, `still`: a still target; rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
+ * 0, `still`: a still target; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
+ * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`puncher/strike`); the drill puts its own tactics in
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
@@ -70,6 +71,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
     { name: "energy", unit: "J on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
     { name: "return", unit: "s from the release, the median", kind: "median", better: "lower", of: (r) => r.released !== null && r.ended !== null ? r.ended - r.released : null },
     { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
+    { name: "taken", unit: "hit points the striker lost in its contacts with the target, the mean", kind: "mean", better: "lower", of: (r) => r.taken ?? null },
   ],
   /** Each subject's trials as a table, in the conditions' order. */
   summary({ subjects, cases }) {

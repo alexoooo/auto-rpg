@@ -523,6 +523,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
@@ -1023,7 +1024,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
   its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, under
   drill tactics: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
-  hand, offset and range; rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
+  hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
+  0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
+  `still`), with the hit points the striker lost in its contacts (`taken`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near

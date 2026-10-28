@@ -103,6 +103,8 @@ export type StrikeReading = {
   readonly hit: StrikeHit | null;
   /** Every touch of the striker's on the target. */
   readonly contacts: readonly StrikeContact[];
+  /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
+  readonly taken: number;
   readonly down: boolean;
   readonly seconds: number;
 };
@@ -207,6 +209,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
     },
     reading() {
+      let taken = 0;
+      for (const blow of duel.blows) for (const side of blow.sides)
+        if (side.fighter === "left" && blow.sides.some((other) => other.fighter === "right")) taken += side.damage;
       const touches = duel.blows.flatMap((blow) => {
         if (blow.kind !== "impact") return [];
         const k = blow.sides.findIndex((side) => side.fighter === "left"), by = blow.sides[k], on = blow.sides[1 - k];
@@ -233,7 +238,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
-      return { outcome, phase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
+      return { outcome, phase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken, down, seconds: world.time };
     },
   };
 }

@@ -10,13 +10,11 @@
  * blow. The subject is the striker's executor tuning, over the executor's defaults.
  */
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BEHAVIOURS, CLASSIC, FIGHTING } from "../../core/mind/config.ts";
+import { BEHAVIOURS, FIGHTING } from "../../core/mind/config.ts";
+import { STANDS } from "../../core/entrants/drill-opponent/mind.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json } from "../evaluation.ts";
-
-/** Who is struck: a Warrior with empty hands that stands in guard and throws nothing. */
-export const STANDS: MindConfig = deepFreeze({ ...CLASSIC, tactics: { kind: "stand" }, actions: [], executors: [] });
 
 /** The executor each style is thrown by. */
 const KINDS = Object.freeze({ cut: "blade-cut", thrust: "blade-thrust", swing: "recipe-strike" });

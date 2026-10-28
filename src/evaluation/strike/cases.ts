@@ -1,9 +1,11 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`), at one
- * walked to from farther (`walk`), or in a fight's moment (`fight`). The striker is the subject's mind with its tactics a drill
- * (`DRILL_TACTICS`): it turns to the target, at a still one walks into its action's window, and asks
- * the one action at one mark with one hand, once, the first step its readiness says ready. The target is a Warrior with empty hands that stands in
- * guard and throws nothing (`STANDS`), set the condition's gap ahead and offset across, the two on
+ * walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
+ * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the subject's mind with its tactics a drill
+ * (`DRILL_TACTICS`): it turns to the target, walks into its action's window, and asks
+ * the one action at one mark with one hand, once, the first step its readiness says ready. The
+ * target is a Warrior with empty hands under the rung's opponent, a mind's configuration
+ * (`DRILL_OPPONENT_MIND`'s presets; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
@@ -23,7 +25,6 @@ import type { BodyModel } from "../../core/models.ts";
 import { modelHolding } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
-import { STANDS } from "../blade/cases.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readStrike, type Hand, type Mark, type StrikeReading } from "./read.ts";
 
@@ -77,6 +78,18 @@ const WALK = deepFreeze({ ...STILL,
   starts: ["settled", "walking"] as Start[],
 });
 
+/**
+ * Rungs 2 to 4, a drill opponent: the still rung's trials on the Warrior's body, from the near half
+ * of its gaps, at an opponent stepping in and out (`drill-step`), covering a threat with its hands
+ * (`drill-guard`) or closing to punch on a rhythm (`drill-punch`).
+ */
+const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
+/** The target's mind, a preset (`MINDS`), where a protocol names one: `drill-stand` where it does not. */
+const STANDING = "drill-stand";
+const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
+const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
+const PUNCHING = deepFreeze({ ...OPPONENT, opponent: "drill-punch" });
+
 /** How a walk-rung trial asks: once settled in its window's middle, or the first step it is ready, still walking. */
 export type Start = "settled" | "walking";
 
@@ -113,7 +126,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
-function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[] }): Cases<StrikeCondition, StrikeReading> {
+function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string }): Cases<StrikeCondition, StrikeReading> {
   const conditions: StillCondition[] = [];
   for (const model of protocol.models) for (const mark of protocol.marks) for (const hand of protocol.hands)
     for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined])
@@ -131,7 +144,7 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
-        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking" }), right: STANDS } } };
+        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking" }), right: MINDS[protocol.opponent ?? STANDING]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };
@@ -160,4 +173,5 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
 }
 
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
-export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), walk: stillCases(WALK), fight: fightCases(FIGHT) });
+export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), walk: stillCases(WALK),
+  stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT) });

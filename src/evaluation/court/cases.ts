@@ -18,7 +18,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
-import { STANDS } from "../blade/cases.ts";
+import { STANDS } from "../../core/entrants/drill-opponent/mind.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 
 /** The moving target: Behaviours' body of parts, doing only as it is ordered. */

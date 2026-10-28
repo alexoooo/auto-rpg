@@ -60,8 +60,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 6 and 7 in order:
    the baseline evaluation, read under the owner's verdict and
-   naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
-   both landing before it, and the trainer, its speed measured and its largest cost cut first,
+   naming opponents as a rung does, and the trainer, its speed measured and its largest cost cut first,
    with the bare entrant.
 2. **Then Kinetic's design**, steps 8 to 14 in order, before any training run: worth in life
    (step 8), measured profiles indexed by the foe's phase (step 9), the value of a position
