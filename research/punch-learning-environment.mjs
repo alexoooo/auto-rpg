@@ -159,7 +159,8 @@ export async function punchEnvironment(configuration = {}) {
     const meets = !!hit && hit.fast && hit.heavy && hit.square && hit.soon && hit.lined && hit.extended && hit.upright;
     const score = scoreOf(meets ? { ...reading, outcome: 'landed' } : reading, ep.condition.hand);
     reward += score - (hit ? 0 : o.near * Math.min(ep.nearest, 0.5));
-    const info = { landed: meets ? 1 : 0, score, speed: hit?.speed ?? null, kg: hit?.kg ?? null, gap: ep.condition.gap ?? null, fight: ep.condition.foe ? 1 : 0, hz: ep.hz, decisions: ep.decisions, nearest: ep.nearest };
+    const walking = ep.condition.start === 'walking';
+    const info = { landed: meets ? 1 : 0, walked: walking ? (meets ? 1 : 0) : null, settled: walking ? null : meets ? 1 : 0, score, speed: hit?.speed ?? null, kg: hit?.kg ?? null, gap: ep.condition.gap ?? null, fight: ep.condition.foe ? 1 : 0, hz: ep.hz, decisions: ep.decisions, nearest: ep.nearest };
     return { observation, reward, terminated: true, truncated: false, info };
   };
   return { reset, step, idle, observationSize: PUNCH_FEATURES, actionSize: actions, dispose: () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); }, inside: () => ep };
