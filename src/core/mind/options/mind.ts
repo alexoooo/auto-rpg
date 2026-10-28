@@ -61,7 +61,7 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, p
 export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wiring: MindWiring) {
   // Its blows are those its body throws as armed.
   const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
-  const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses));
+  const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses), config.subs.map((sub) => host.parts.of("sub-mind", sub).down!));
   let sight: Sight | null = null, choosing: Chooser | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
   let read: Situation | null = null;

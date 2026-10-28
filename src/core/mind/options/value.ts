@@ -1,4 +1,5 @@
 import { impactEnergy } from "../../rules/impact.ts";
+import { blowDamage, rulebook } from "../../rules/rulebook.ts";
 import { landed } from "../../skills/action-instances.ts";
 import type { Ended } from "../../skills/action.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
@@ -6,9 +7,11 @@ import { deepFreeze } from "../../state.ts";
 import type { Situation } from "./option.ts";
 
 /**
- * **What running an option from now is expected to bring**, over its run: how long it runs, s;
- * the energy its blows put into the focus, J; the cost of the blows it takes (`cost`); its
- * progress on the orders (`ORDERED`); and the chance it ends with the body down.
+ * **What running an option from now is expected to bring**, over its run, in life (a share of a
+ * body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's life
+ * its blows take; its own life the blows it takes take; its progress on the orders, a metre walked
+ * as ordered (`ORDERED`); and the chance it ends with the body down, which costs what a fall costs
+ * (the `downCost` percept).
  */
 export interface Terms {
   readonly duration: number;
@@ -18,46 +21,35 @@ export interface Terms {
   readonly fall: number;
 }
 
-/** What each term is worth (`worth`): a joule dealt, a unit of cost taken, a unit of progress on orders, a fall. */
-export interface Weights {
-  readonly dealt: number;
-  readonly taken: number;
-  readonly orders: number;
-  readonly fall: number;
-}
-
 /**
- * The options fighter's weights: a blow taken weighs as a blow dealt; a metre walked as ordered
- * weighs as 45 J dealt, so that orders are obeyed past a one-two at hand and a weak blow coming,
- * and not into a heavy one; a fall as a 55 J blow taken.
- */
-export const WEIGHTS: Weights = deepFreeze({ dealt: 1, taken: 1, orders: 45, fall: 100 });
-
-/**
- * **How far a person's orders are carried out through blows coming**, a player's choice: the weight
- * of the orders (`Weights.orders`) at each level, by its value and name. Walking as told, its own
- * judgement steps aside from a blow of about 30 J coming (most punches), steady from about 60 J (a
- * full punch) and orders first from about 120 J (a club's heavy blow). Without orders it changes
- * nothing.
+ * **How far a person's orders are carried out through blows coming**, a player's choice and the
+ * one weight of an option's worth: what a metre walked as ordered is worth, in life, at each level,
+ * by its value and name: as much as a blow on the Warrior (6 hit points of 100 J) of 10 J (its own
+ * judgement), 45 J (steady: orders obeyed past a one-two at hand and a weak blow coming, not into
+ * a heavy one) and 200 J (orders first). Without orders it changes nothing.
  */
 export const OBEDIENCE: readonly (readonly [value: string, name: string, orders: number])[] = deepFreeze([
-  ["own", "Own judgement", 10], ["steady", "Steady", WEIGHTS.orders], ["orders", "Orders first", 200]]);
+  ["own", "Own judgement", 1 / 60], ["steady", "Steady", .075], ["orders", "Orders first", 1 / 3]]);
 
-/** The terms of every weight, in the order a config's faults name them. */
-export const TERMS: readonly (keyof Weights)[] = Object.freeze(["dealt", "taken", "orders", "fall"]);
+/** The steady level's worth of a metre walked as ordered, life: the valued chooser's own. */
+export const STEADY = OBEDIENCE[1]![2];
 
 /** The time beyond an option's run over which its terms are spread (`worth`), s: an option's worth is a rate, but a short run does not magnify a cost it cannot avoid. */
 const HORIZON = 1;
 
-/** An option's worth: its weighted terms, a second of its run and `HORIZON`. */
-export const worth = (terms: Terms, weights: Weights): number =>
-  (weights.dealt * terms.dealt - weights.taken * terms.taken + weights.orders * terms.orders - weights.fall * terms.fall) / (terms.duration + HORIZON);
+/**
+ * **An option's worth**, life a second: the focus's life it takes less its own it loses, a fall's
+ * chance at what a fall costs (`downCost`, life), its progress on the orders at `obedience` (life a
+ * metre), over a second of its run and `HORIZON`.
+ */
+export const worth = (terms: Terms, obedience: number, downCost: number): number =>
+  (terms.dealt - terms.taken + obedience * terms.orders - downCost * terms.fall) / (terms.duration + HORIZON);
 
-/** The blow, J, below which a blow taken costs less than its energy and above which more. */
-const HEAVY = 30;
+/** The rules a fight is played by, whose arithmetic prices a blow (`blowDamage`). */
+const RULES = rulebook("arena");
 
-/** **The cost of a blow taken** of `energy` J: growing as its square, so a jab costs little and a heavy blow a lot. */
-export const cost = (energy: number): number => energy * energy / HEAVY;
+/** **The life a blunt blow of `energy` J takes from `struck`**: its damage by the rules (`blowDamage`) over its full hit points. */
+export const lifeOf = (energy: number, struck: BodySpec): number => blowDamage(RULES, "blunt", energy) / struck.wounds.hp.value;
 
 /** How fast a hand closes on a head in a blow not under way to measure, m/s. */
 const BLOW_SPEED = 5;
@@ -112,10 +104,10 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
   return { lands: (hits + PRIOR.lands * PRIOR.weight) / (committed + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (committed + PRIOR.weight) };
 }
 
-/** Joules dealt to a foe the orders name that count as a unit of progress on them. */
-const ORDERED = 30;
+/** The focus's life dealt to a foe the orders name that counts as a metre on them: a 30 J blow on the Warrior. */
+const ORDERED = .05;
 
-/** The progress on the orders of dealing `dealt` J to the focus: some only where the orders name it. */
+/** The progress on the orders of taking `dealt` of the focus's life: some only where the orders name it. */
 export const orderedDealt = (now: Situation, dealt: number): number => now.orders?.foe !== undefined && now.orders.foe === now.focus?.id ? dealt / ORDERED : 0;
 
 /** The cost of `seconds` s within the focus's reach, at most, from `apart` m head to head. */

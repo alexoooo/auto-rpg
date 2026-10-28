@@ -591,9 +591,13 @@ hands the body over).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
   worth, keeping the running one within its keep, deciding afresh on a cue's change or every
-  `rethink` s. Valued worth: each option's `Terms` (duration, energy dealt, cost of blows taken,
-  progress on orders, chance of going down) weighed by `WEIGHTS` over the config's own; orders are
-  a term whose weight is the person's `OBEDIENCE`. Ranked worth is the options' order.
+  `rethink` s. Valued worth (`worth`, `value.ts`), life a second: each option's `Terms` in life,
+  a share of a body's full life, the verdict's unit: the focus's life its blows take less its own
+  the blows it takes take, each blow's energy priced by the rules' `blowDamage` over the struck
+  body's hit points (`lifeOf`); its chance of going down at what a fall costs (`downCost`: the
+  focus's blows over the cheapest way up its sub-minds' prices give, at most the life the senses
+  say it has); and its progress on orders, a metre at the person's `OBEDIENCE`, the one weight.
+  Ranked worth is the options' order.
 - **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
   and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
   of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers

@@ -5,7 +5,7 @@ import type { PartLookup } from "../lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts.ts";
 import { onOffer, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
-import { OBEDIENCE, TERMS, WEIGHTS, worth, type Terms, type Weights } from "./value.ts";
+import { OBEDIENCE, STEADY, worth, type Terms } from "./value.ts";
 
 /**
  * When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`); the
@@ -24,8 +24,8 @@ export interface Chance { readonly margin: number; readonly seed: number }
 /** How a ranked chooser decides (`Deciding`). */
 const RANKED_DECIDING: Deciding = Object.freeze({ rethink: .2, keep: .5 });
 
-/** How a valued chooser decides: a running option kept a second's worth (`worth`) above its rivals. */
-const VALUED_DECIDING: Deciding = Object.freeze({ rethink: RANKED_DECIDING.rethink, keep: 1 });
+/** How a valued chooser decides: a running option kept above its rivals by as much as a joule a second on the Warrior (6 hit points of 100 J), life a second (`worth`). */
+const VALUED_DECIDING: Deciding = Object.freeze({ rethink: RANKED_DECIDING.rethink, keep: 1 / 600 });
 
 /** An option's worth at a decision, and the terms it was weighed from; none for a fixed worth. */
 export interface Offer {
@@ -139,39 +139,39 @@ const DEPTH = 1;
 const depthFaults = (config: { readonly depth: number }): readonly string[] => config.depth === DEPTH ? [] : [`depth: ${DEPTH}`];
 
 /**
- * **The valued chooser's config**: its depth, what it weighs each term by over the fighter's own
- * (`WEIGHTS`), and the margin of worth within which it chooses by chance (`Chance`), none unless given.
+ * **The valued chooser's config**: its depth, what a metre walked as ordered is worth, life
+ * (`obedience`, `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life a
+ * second, within which it chooses by chance (`Chance`), none unless given.
  */
-interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly weights?: Readonly<Partial<Weights>>; readonly margin?: number }
+interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: number; readonly margin?: number }
 
 /**
- * The valued chooser's obedience (`OBEDIENCE`): a choice written as the weight of its orders, the
- * steady level as no weight written, so the preset is unchanged; a weight that is no level reads
- * as none of them.
+ * The valued chooser's obedience (`OBEDIENCE`): a choice written as the worth of its orders, the
+ * steady level as none written, so the preset is unchanged; a worth that is no level reads as none
+ * of them.
  */
 const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
-  kind: "choice", key: "weights", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),
-  read: (config) => OBEDIENCE.find(([, , orders]) => orders === (config.weights?.orders ?? WEIGHTS.orders))?.[0] ?? "",
+  kind: "choice", key: "obedience", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),
+  read: (config) => OBEDIENCE.find(([, , orders]) => orders === (config.obedience ?? STEADY))?.[0] ?? "",
   write: (config, text) => {
     const level = OBEDIENCE.find(([value]) => value === text);
     if (!level) return null;
-    const { orders: _, ...others } = config.weights ?? {}, weights = level[2] === WEIGHTS.orders ? others : { ...others, orders: level[2] };
-    const { weights: __, ...rest } = config;
-    return Object.keys(weights).length > 0 ? { ...rest, weights } : rest;
+    const { obedience: _, ...rest } = config;
+    return level[2] === STEADY ? rest : { ...rest, obedience: level[2] };
   },
 };
 
-/** **Valued**: each option worth its hand-built model's terms (`Terms`), weighed by the config's weights over `WEIGHTS` (`worth`). */
+/** **Valued**: each option worth its hand-built model's terms (`Terms`) in life (`worth`), its orders at its obedience. */
 export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
-  keys: { kind: true, depth: true, weights: true, margin: true }, fits: anyBody,
+  keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
-    ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`])],
+    ...config.obedience === undefined || Number.isFinite(config.obedience) && config.obedience >= 0 ? [] : ["obedience: a finite worth of a metre ordered, not negative"]],
   make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
-    const weights = { ...WEIGHTS, ...config.weights };
+    const obedience = config.obedience ?? STEADY;
     return chooser(options, (option, _, now) => {
-      const terms = option.models["hand-built"](now), value = worth(terms, weights);
+      const terms = option.models["hand-built"](now), value = worth(terms, obedience, now.downCost);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms };
     }, VALUED_DECIDING, { margin: config.margin ?? 0, seed });

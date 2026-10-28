@@ -4,14 +4,16 @@ import type { Engagement } from "../core/mind/tactics.ts";
 
 /**
  * What a planner's report says (`Engagement`), a line each: its focus and phase, its own details
- * as it gives them, then the offers or candidates a stock planner chose among.
+ * as it gives them, then the offers or candidates a stock planner chose among: an offer valued in
+ * life (its terms) as per cent of a body's full life, its worth per cent a second.
  */
 export function engagementLines(engagement: Engagement): string[] {
   const lines = [`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`];
   for (const { label, value } of engagement.details ?? []) lines.push(`${label}: ${value}`);
   for (const offer of engagement.offers ?? []) {
-    const terms = offer.terms;
-    lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${offer.worth.toFixed(2)}${terms ? ` · ${terms.duration.toFixed(1)} s, dealt ${terms.dealt.toFixed(1)} J, taken ${terms.taken.toFixed(1)}, orders ${terms.orders.toFixed(2)}, falls ${terms.fall.toFixed(2)}` : ""}`);
+    const terms = offer.terms, percent = (life: number) => `${(life * 100).toFixed(1)} %`;
+    lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${terms ? `${(offer.worth * 100).toFixed(2)} %/s · ${terms.duration.toFixed(1)} s, dealt ${percent(terms.dealt)}, taken ${percent(terms.taken)}, orders ${terms.orders.toFixed(2)} m, falls ${terms.fall.toFixed(2)}`
+      : offer.worth.toFixed(2)}`);
   }
   for (const candidate of engagement.candidates ?? []) {
     const ready = candidate.readiness;

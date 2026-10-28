@@ -25,6 +25,8 @@ export interface Deciding {
   readonly chooser: PartConfig;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
+  /** Its ways up from the ground, which price a fall (`downCost`). */
+  readonly subs: readonly PartConfig[];
 }
 
 /**
@@ -59,7 +61,8 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
  * chose among, and what its controllers did not carry out as it last decided (`unmetDetail`).
  */
 export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number): Tactics {
-  const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
+  const downs = deciding.subs.flatMap((sub) => parts.of("sub-mind", sub).down ?? []);
+  const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses), downs);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const strikes = standing.map((action) => strike(action, walk, true, blowsOf(parts, deciding.executors, action)));
   const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes];

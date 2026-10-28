@@ -13,12 +13,13 @@ import type { Orders } from "../orders.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
 import { READINGS, type threatReader } from "../threat.ts";
-import { blowEnergy, cost, record } from "./value.ts";
+import type { DownModel } from "./down.ts";
+import { blowEnergy, lifeOf, record } from "./value.ts";
 
 /**
  * What every percept reads from, once a step: the body's sight and spec, its orders, the foe it
  * fights (its focus, `situationReader`), the blow predicted to reach its head and the threat
- * reader that predicted it.
+ * reader that predicted it, and how its ways up from the ground are priced (`DownModel`).
  */
 export interface Seen {
   readonly sight: Sight;
@@ -27,6 +28,7 @@ export interface Seen {
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
   readonly threats: Threats;
+  readonly downs: readonly DownModel[];
 }
 
 type Threats = ReturnType<typeof threatReader>;
@@ -110,15 +112,31 @@ function guardAhead(spec: BodySpec): number {
 /** The heavier of `striker`'s two hands' blows on `struck`'s head, J. */
 const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEnergy(striker, "left", struck), blowEnergy(striker, "right", struck));
 
+/** The own life a second within a standing focus's reach is expected to cost (`LANDS`, `RATE`); 0 with none. */
+const exposureOf = ({ focus, sight, spec }: Seen): number => focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(focus.spec, spec), spec) : 0;
+
+/**
+ * **What a fall is expected to cost**, own life: the focus's blows while the body is down, at its
+ * exposure (`exposureOf`), over the cheapest of its ways up that stands (its time down, less the
+ * share of blows it keeps off, over its chance of standing); all the life it has where none stands.
+ */
+function downCostOf(seen: Seen): number {
+  const exposure = exposureOf(seen);
+  let least = seen.sight.view.senses.life;
+  for (const down of seen.downs) if (down.stands > 0) least = Math.min(least, exposure * down.seconds * (1 - down.shelter) / down.stands);
+  return least;
+}
+
 /**
  * **Every percept the options fighter reads**, by name, in the order they are read: whether the
  * body is down; its orders; its focus; how far off the focus is, centre to centre across the
  * ground (Infinity with none); a foe's blow closing on the head (`READINGS.threat`) and one
- * predicted to reach it (`READINGS.predicted`); the expected cost of that blow (`cost`, at the
+ * predicted to reach it (`READINGS.predicted`); the own life that blow is expected to take (at the
  * speed it closes and the chance it lands, `LANDS`), 0 with none; the reach head to head (`Reach`:
- * Infinity and noughts with no focus); the expected cost of a second within a standing focus's reach
- * (`LANDS`, `RATE`), 0 with none; and the energy of a blow of each hand at the focus's head, J
- * (`blowEnergy`), 0 with no focus. The gait's: where the stance is in a step (`StanceReading.phase`),
+ * Infinity and noughts with no focus); the own life a second within a standing focus's reach is
+ * expected to cost (`exposureOf`), 0 with none; what a fall would cost (`downCostOf`), own life;
+ * and the focus's life a blow of each hand at its head takes (`blowEnergy`, `lifeOf`), 0 with no
+ * focus. The gait's: where the stance is in a step (`StanceReading.phase`),
  * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
  * the controllers did not carry out: the legs' (`SkillReport.legs`) and the motor's
  * (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the blow it
@@ -132,15 +150,17 @@ export const PERCEPTS = Object.freeze({
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   threat: { read: (seen) => seen.threats.threatOf(seen.sight.view, READINGS.threat), cue: (threat) => threat !== null } as Percept<Cover | null>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
-  danger: { read: ({ blow, spec }) => blow ? LANDS * cost(blowEnergy(blow.foe.spec, blow.hand, spec, blow.closing)) : 0 } as Percept<number>,
+  danger: { read: ({ blow, spec }) => blow ? LANDS * lifeOf(blowEnergy(blow.foe.spec, blow.hand, spec, blow.closing), spec) : 0 } as Percept<number>,
   reach: { read: ({ focus, sight, spec }): Reach => {
     if (!focus) return { apart: Infinity, theirs: 0, mine: 0, guards: 0 };
     const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
     return { apart: hypot(theirs.x - mine.x, theirs.z - mine.z), theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0,
       mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0, guards: guardAhead(spec) + guardAhead(focus.spec) };
   } } as Percept<Reach>,
-  exposure: { read: ({ focus, sight, spec }) => focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * cost(heavier(focus.spec, spec)) : 0 } as Percept<number>,
-  blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? blowEnergy(spec, "left", focus.spec) : 0, right: focus ? blowEnergy(spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
+  exposure: { read: exposureOf } as Percept<number>,
+  downCost: { read: downCostOf } as Percept<number>,
+  blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? lifeOf(blowEnergy(spec, "left", focus.spec), focus.spec) : 0,
+    right: focus ? lifeOf(blowEnergy(spec, "right", focus.spec), focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
   bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
   speed: { read: ({ sight }) => hypot(sight.view.stance.velocity.x, sight.view.stance.velocity.z) } as Percept<number>,

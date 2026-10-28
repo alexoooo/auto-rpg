@@ -53,13 +53,13 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit, measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: Kinetic's design**, steps 8 to 14 in order, before any training run: worth in life
-   (step 8), measured profiles indexed by the foe's phase (step 9), the value of a position
+1. **Now: Kinetic's design**, steps 9 to 14 in order, before any training run (worth in life is
+   built): measured profiles indexed by the foe's phase (step 9), the value of a position
    (step 10), exits and letting go (step 11), the stand-up as a chain with no sub-mind (step 12),
    footwork and the guard (step 13), the options fighter as a preset (step 14). Each step is
    checked on the drills it touches, the Cover drill (Drills step 8) landing before step 13; the
@@ -160,7 +160,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
     `loadData`), once the screen is in use and a live run would save a trip to the command line;
   - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
     a chooser scored by regret, when a tactics question needs one; its value unit is life
-    ([Kinetic](plans/2026-10-27-kinetic.md), step 8), and it waits on how a chooser ranks responses.
+    (`worth`, `src/core/mind/options/value.ts`), and it waits on how a chooser ranks responses.
 
 ### Body and motor control
 
