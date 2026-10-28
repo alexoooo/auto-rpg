@@ -123,6 +123,19 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
   assert.equal(replay.end.physics, first.end.physics);
 });
 
+test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
+  // Kinetic with a punch of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
+  const { config, character } = CONTROLLERS.kinetic.presets.kinetic, [strike] = config.actions;
+  const hands = ["hand.right", "hand.left"].map((hand) => ({ ...strike, name: hand, effectors: [hand] }));
+  const mind = (margin) => ({ ...config, actions: hands, chooser: { ...config.chooser, margin } });
+  const recipe = (margin, seed) => ({ left: "workshop-fighter", right: "workshop-fighter", gap: GAP, seed, minds: { left: mind(margin), right: config }, entry: [], ...bothAs(character) });
+  const [one, two] = [await played(recipe(1000, 1), {}, true), await played(recipe(1000, 2), {}, false)];
+  assert.notEqual(two.end.digest, one.end.digest, "two seeds play apart: with a margin, a draw changed a choice");
+  assert.equal(one.resumed, one.end.tail, "a seed's bout forked and resumed is the bout, step by step, its stream's word in its state");
+  // The control: with no margin nothing is drawn, so the seed changes nothing.
+  assert.equal((await played(recipe(0, 2), {}, false)).end.digest, (await played(recipe(0, 1), {}, false)).end.digest, "with no margin the seed plays no part");
+});
+
 test("a body is down by the fight's rule of the body alone, whatever height its mind asks it to hold", async () => {
   // The Warrior on its back, its mind asking its stance for a centre of mass 2 cm over its soles:
   // under that ask its own view reads it not down, and the fight reads it down all the same.

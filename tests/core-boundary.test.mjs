@@ -444,11 +444,16 @@ function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS
       if (barred.some((one) => target === one || one.endsWith("/") && target.startsWith(one))) crossings.push(`${file} imports ${target}`);
     }
     if (/\bglobalThis\b/.test(source)) crossings.push(`${file} reads globalThis`);
+    for (const [pattern, what] of CHANCES) if (pattern.test(source)) crossings.push(`${file} reads ${what}`);
   }
   return crossings;
 }
 
-test("a mind and its toolkit reach no engine, world, builder or global: only the report and the order sheet", () => {
+/** What a mind may not draw from beside its host's seed (`BodyHost.seed`): the machine's chance and its clocks. */
+const CHANCES = [[/\bMath\s*\.\s*random\b/, "Math.random"], [/\bcrypto\s*\.\s*getRandomValues\b/, "crypto.getRandomValues"],
+  [/\bDate\s*\.\s*now\b|\bnew\s+Date\b/, "the date"], [/\bperformance\s*\.\s*now\b/, "performance.now"]];
+
+test("a mind and its toolkit reach no engine, world, builder, global or chance but its seed: only the report and the order sheet", () => {
   const files = MIND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 50, "no mind's source, so this test would pass on nothing");
   for (const adapter of MIND_ADAPTERS) assert.ok(fs.existsSync(path.join(ROOT, adapter)), `${adapter} is no file: an adapter exempted that is not there`);
@@ -458,12 +463,16 @@ test("a mind and its toolkit reach no engine, world, builder or global: only the
     ["src/core/entrants/sly/mind.ts", `import type { World } from "../../world.ts";\nimport { readView } from "../../build/read-view.ts";\nexport const w = globalThis;\n`],
     ["src/core/skills/sly.ts", `import type { SegmentBody } from "../engine/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
     ["src/core/mind/host.ts", `import type { World } from "../world.ts";\n`],
+    ["src/core/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
   ]), [
     "src/core/entrants/sly/mind.ts imports src/core/world.ts",
     "src/core/entrants/sly/mind.ts imports src/core/build/read-view.ts",
     "src/core/entrants/sly/mind.ts reads globalThis",
     "src/core/skills/sly.ts imports src/core/engine/engine.ts",
     `src/core/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+    "src/core/entrants/lucky/mind.ts reads Math.random",
+    "src/core/entrants/lucky/mind.ts reads the date",
+    "src/core/entrants/lucky/mind.ts reads performance.now",
   ]);
 });
 

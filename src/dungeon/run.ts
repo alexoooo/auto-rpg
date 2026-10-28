@@ -12,6 +12,7 @@ import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/levels.ts";
 import { reactionSteps, rulebook } from "../core/rules/rulebook.ts";
+import { seedOf } from "../core/math/random.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
@@ -306,7 +307,7 @@ export class DungeonRun {
       id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
-      mind: this.options.mind?.(actor) ?? info.mind, name: `crypt ${actor.side}`,
+      mind: this.options.mind?.(actor) ?? info.mind, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

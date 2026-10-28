@@ -6,7 +6,7 @@
 import type { EngineName } from "../core/engine/engines.ts";
 import { recordingKey } from "../core/recording.ts";
 import type { Side } from "../core/spec/body.ts";
-import { senseDelayOf } from "../arena/duel.ts";
+import { boutSeedOf, senseDelayOf } from "../arena/duel.ts";
 import type { CaseWorld, Evaluation, Json, Subject, Table } from "./evaluation.ts";
 import { runLanes, type Spawn } from "./lanes.ts";
 import { pairsOf, type Schedule } from "./schedule.ts";
@@ -52,10 +52,14 @@ interface CaseJob {
 const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number; code: string }): string =>
   sha256Text(recordingKey(fields)).slice(0, 32);
 
-/** `world` with a bout's reaction time written in its recipe (`senseDelayOf`), so its key and record name it. */
+/** `world` with a bout's reaction time and seed written in its recipe (`senseDelayOf`, `boutSeedOf`), so its key and record name them. */
 function named(world: CaseWorld): CaseWorld {
-  return world.kind === "bout" ? { ...world, recipe: { ...world.recipe, senseDelay: senseDelayOf(world.recipe) } } : world;
+  return world.kind === "bout" ? { ...world, recipe: { ...world.recipe, senseDelay: senseDelayOf(world.recipe), seed: boutSeedOf(world.recipe) } } : world;
 }
+
+/** The seeds `units`' bouts are played with, each once, in the order met. */
+export const boutSeedsOf = (units: readonly Unit[]): number[] =>
+  [...new Set(units.flat().flatMap((one) => one.world.kind === "bout" ? [boutSeedOf(one.world.recipe)] : []))];
 
 /** The reaction times, s, `units`' bouts are played under, each once, in the order met. */
 export const senseDelaysOf = (units: readonly Unit[]): number[] =>

@@ -28,6 +28,8 @@ export interface MindWiring {
   readonly senses?: () => Senses;
   /** The most its assist gives it; none unless given. */
   readonly assist?: AssistCeiling;
+  /** The seed its mind's chances are drawn from (`BodyHost.seed`): the fight's for this body (`seedOf`); 0 unless given. */
+  readonly seed?: number;
   /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
   readonly script?: Tactics;
 }

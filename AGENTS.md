@@ -132,7 +132,8 @@ it never imports them.
   geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
   mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), never the
   world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `entrants` import
-  no engine, world, builder or read-view maker and read no `globalThis`, beside the adapters the
+  no engine, world, builder or read-view maker and read no `globalThis`, `Math.random` or clock
+  (chance comes from the host's seed, `BodyHost.seed`), beside the adapters the
   boundary test names.
 - **A Commander reaches the world only through its team**: its members' pooled view (`TeamView`,
   `src/core/command/team.ts`) and the level its host answers (`TeamLevel`) in, its members' orders

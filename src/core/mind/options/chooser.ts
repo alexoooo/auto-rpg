@@ -1,3 +1,4 @@
+import { randomStream } from "../../math/random.ts";
 import { deepFreeze } from "../../state.ts";
 import type { PartField } from "../fields.ts";
 import type { PartLookup } from "../lookup.ts";
@@ -12,6 +13,13 @@ import { OBEDIENCE, TERMS, WEIGHTS, worth, type Terms, type Weights } from "./va
  * not trade places each decision.
  */
 export interface Deciding { readonly rethink: number; readonly keep: number }
+
+/**
+ * **Choosing by chance**: among the options worth more than the best less `margin`, one drawn in
+ * proportion to what each is worth above that floor, from a stream begun at `seed`. A margin of
+ * 0 draws nothing and takes the best.
+ */
+export interface Chance { readonly margin: number; readonly seed: number }
 
 /** How a ranked chooser decides (`Deciding`). */
 const RANKED_DECIDING: Deciding = Object.freeze({ rethink: .2, keep: .5 });
@@ -48,12 +56,16 @@ export interface Chooser {
  * **A chooser one option deep**: of `options`, the one the body runs, by its worth as `appraise`
  * prices it. Once a control step (`decide`), on an event, when the running option is over or out
  * of its entry, or `rethink` s on, it takes the option on offer (`onOffer`) of the highest worth,
- * the running one's raised by `keep`, the first of equals; a running option that does not yield
- * is kept while it goes on. Its memory is which option runs (its place in `options`, or -1), when
- * it decided, when it next rethinks, the event it decided on, and the offers it chose from.
+ * the running one's raised by `keep`, the first of equals, or one drawn by `chance` where it gives
+ * a margin; a running option that does not yield is kept while it goes on. Its memory is which
+ * option runs (its place in `options`, or -1), when it decided, when it next rethinks, the event it
+ * decided on, the offers it chose from, and, where it draws, its stream's word.
  */
-export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding): Chooser {
-  const state = { running: -1, decided: -Infinity, next: -Infinity, event: "", offers: [] as Offer[] };
+export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
+  if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
+  const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
+  const state = { running: -1, decided: -Infinity, next: -Infinity, event: "", offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
+  const values: number[] = [];
   const current = (): Option | null => state.running < 0 ? null : options[state.running]!;
   return {
     state,
@@ -71,12 +83,16 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
       if (running && over) { running.end(); state.running = -1; }
       let best = -1, top = -Infinity;
       state.offers = [];
+      values.length = 0;
       options.forEach((option, i) => {
+        values.push(-Infinity);
         if (!onOffer(option, now)) return;
         const offer = appraise(option, i, now), value = offer.worth + (i === state.running ? deciding.keep : 0);
         state.offers.push(offer);
+        values[i] = value;
         if (value > top) { best = i; top = value; }
       });
+      if (stream && best >= 0) best = drawn(values, top - chance.margin, best, stream.next);
       if (best !== state.running) {
         if (state.running >= 0) options[state.running]!.end();
         state.running = best;
@@ -87,15 +103,34 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
   };
 }
 
+/**
+ * Of `values` (each option's, -Infinity off offer), one worth more than `floor`, drawn by `next` in
+ * proportion to its worth above the floor; `best` alone where no other is, with nothing drawn.
+ */
+function drawn(values: readonly number[], floor: number, best: number, next: () => number): number {
+  let total = 0, count = 0;
+  for (const value of values) if (value > floor) { total += value - floor; count++; }
+  if (count < 2) return best;
+  let left = next() * total;
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i]!;
+    if (!(value > floor)) continue;
+    left -= value - floor;
+    if (left < 0) return i;
+  }
+  return best;
+}
+
 /** **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes the chooser over a body's options. */
 export interface ChooserPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "chooser";
   readonly keys: KeysOf<C>;
-  make(config: C, options: readonly Option[]): Chooser;
+  /** The chooser over `options`, its chances drawn from `seed` (`BodyHost.seed`). */
+  make(config: C, options: readonly Option[], seed: number): Chooser;
 }
 
-/** The chooser `config` names, as `parts` finds it, over `options`. */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[]): Chooser => parts.of("chooser", config).make(config, options);
+/** The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`. */
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser => parts.of("chooser", config).make(config, options, seed);
 
 /** How many options ahead a chooser looks: one, until its options' profiles are measured (the Options plan's depth 2). */
 const DEPTH = 1;
@@ -103,8 +138,11 @@ const DEPTH = 1;
 /** A depth other than the one a chooser looks (`DEPTH`), as a fault. */
 const depthFaults = (config: { readonly depth: number }): readonly string[] => config.depth === DEPTH ? [] : [`depth: ${DEPTH}`];
 
-/** **The valued chooser's config**: its depth, and what it weighs each term by over the fighter's own (`WEIGHTS`). */
-interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly weights?: Readonly<Partial<Weights>> }
+/**
+ * **The valued chooser's config**: its depth, what it weighs each term by over the fighter's own
+ * (`WEIGHTS`), and the margin of worth within which it chooses by chance (`Chance`), none unless given.
+ */
+interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly weights?: Readonly<Partial<Weights>>; readonly margin?: number }
 
 /**
  * The valued chooser's obedience (`OBEDIENCE`): a choice written as the weight of its orders, the
@@ -126,16 +164,17 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
 /** **Valued**: each option worth its hand-built model's terms (`Terms`), weighed by the config's weights over `WEIGHTS` (`worth`). */
 export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
-  keys: { kind: true, depth: true, weights: true }, fits: anyBody,
+  keys: { kind: true, depth: true, weights: true, margin: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config),
+    ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
     ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`])],
-  make: (config: ValuedConfig, options: readonly Option[]) => {
+  make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
     const weights = { ...WEIGHTS, ...config.weights };
     return chooser(options, (option, _, now) => {
       const terms = option.models["hand-built"](now), value = worth(terms, weights);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms };
-    }, VALUED_DECIDING);
+    }, VALUED_DECIDING, { margin: config.margin ?? 0, seed });
   },
 });
 

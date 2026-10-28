@@ -16,7 +16,7 @@ import { cos, sin } from "./math/real.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "./recording.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
-interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity"> {
+interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity" | "seed"> {
   readonly id: string;
   readonly side: string;
   /** Its body, with what it holds (`armedWith`). */
@@ -101,6 +101,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
+    ...(enlisting.seed !== undefined ? { seed: enlisting.seed } : {}),
   }, sheets ?? undefined);
   return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles, sheets };
 }

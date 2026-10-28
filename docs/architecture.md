@@ -477,8 +477,17 @@ fight reads. A fight passes the config through and reads nothing in it.
   actions). The command layers are the humanoid's: their view's fists, head and stance
   (`BodyView`) and the intent's guarding hands belong to them, beside the general body (segments,
   joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
-  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
+  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed); no maker
   can widen them.
+- **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
+  unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
+  report) and the body's side make each mind's (`seedOf`, `src/core/math/random.ts`), the crypt's
+  from its level's seed and the body's id, so the two sides draw apart and a case replays to the
+  bit. A mind draws from a `randomStream` whose word is in its `state`, so a fork copies it;
+  `Math.random`, `crypto.getRandomValues` and the clocks are refused in its folders
+  (`tests/core-boundary.test.mjs`). The valued chooser's `margin` draws among the options worth
+  within it of the best, in proportion to their worth above that floor; 0, the default, draws
+  nothing. A mind that draws is read over repeated trials.
 - A mind publishes what it is doing (`MindMade.report`, `MindReport`): what its planner reports
   (`Engagement`: its phase, focus, candidates or offers, and details of its own), its heading,
   its gait's limits and its navigation's report. A mind that runs the game's skills and gives

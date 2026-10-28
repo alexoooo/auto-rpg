@@ -58,12 +58,12 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
  * order to face is followed. What it reports doing is the running commitment's name, the offers it
  * chose among, and what its controllers did not carry out as it last decided (`unmetDetail`).
  */
-export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup): Tactics {
+export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number): Tactics {
   const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const strikes = standing.map((action) => strike(action, walk, true, blowsOf(parts, deciding.executors, action)));
   const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes];
-  const chosen = chooserOf(parts, deciding.chooser, options), hands = cover(spec);
+  const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
   let last: Sight | null = null;
   const engagement = {

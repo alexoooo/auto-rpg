@@ -39,7 +39,7 @@ import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
-import { casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
+import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
@@ -327,7 +327,7 @@ async function main() {
   const clean = complete.filter((unit) => unit.every((one) => !rows.get(one.key).fault)), { table } = tableOf(subjects, clean, rows);
   console.log(`protocol ${header.pool.protocol}`);
   const delays = senseDelaysOf(complete);
-  if (delays.length > 0) console.log(`reaction time ${delays.map((seconds) => `${seconds} s`).join(", ")}`);
+  if (delays.length > 0) console.log(`reaction time ${delays.map((seconds) => `${seconds} s`).join(", ")}; bout seeds ${boutSeedsOf(complete).join(", ")}`);
   for (const one of heads) console.log(`${one.id}: version ${one.version.version}${one.parent ? `, parent ${one.parent.id} ${one.parent.version.version} (${one.changes.join(", ") || "no change"})` : ""}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
   for (const f of figures) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);

@@ -90,7 +90,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     holdEdge(EDGE, walk, (now) => strikes.some((option) => option.entry(now).kind === "ready")),
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
-  const chosen = choosing = chooserOf(host.parts, config.chooser, options);
+  const chosen = choosing = chooserOf(host.parts, config.chooser, options, host.seed);
   const hands = cover(host.spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
   const engagement = { get phase() { return chosen.running?.name ?? "guard"; }, get offers() { return chosen.offers; } };

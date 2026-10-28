@@ -252,14 +252,20 @@ export const readRecovery = (search: string): number | null | undefined =>
 /** How old what each side sees of the other is, s: `&senseDelay=`, up to a second; undefined, and the rulebook's reaction time, for anything else. */
 export const readSenseDelay = (search: string): number | undefined => readWithin(search, "senseDelay", [0, 1]);
 
+/** The bout's seed: `&seed=`, a 32-bit word; undefined, and 0, for anything else. */
+export function readSeed(search: string): number | undefined {
+  const seed = readWithin(search, "seed", [0, 0xffffffff]);
+  return seed !== undefined && Number.isInteger(seed) ? seed : undefined;
+}
+
 /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
 export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
   const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search), controls = readControls(search);
-  const senseDelay = readSenseDelay(search);
+  const senseDelay = readSenseDelay(search), seed = readSeed(search);
   return {
     left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, level, minds: readMinds(search),
     attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
     ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),
-    ...(senseDelay !== undefined ? { senseDelay } : {}),
+    ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}),
   };
 }

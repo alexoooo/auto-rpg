@@ -11,6 +11,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
+import { seedOf } from "../core/math/random.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import { derive, type Vec3 } from "../core/spec/quantity.ts";
@@ -98,6 +99,8 @@ export interface DuelRecipe {
   readonly capSeconds?: number;
   /** How old what each side sees of the other is, s, in place of the rulebook's reaction time (`Rulebook.reaction`, `senseDelayOf`). */
   readonly senseDelay?: number;
+  /** The bout's seed, a 32-bit word, each side's mind drawing from its own (`seedOf` with the side); 0 unless given (`boutSeedOf`). */
+  readonly seed?: number;
   /** Each side's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
   readonly balance?: { readonly left: number; readonly right: number };
   /** Each side's haste, per cent over a person's, in place of its character's (`AttributeSpec.haste`), where its model takes one (`modelHastes`): an experiment's, or a link's. */
@@ -124,6 +127,9 @@ export interface DuelRecipe {
 
 /** How old what each side of a bout of `recipe` sees of the other is, s: the recipe's, or its rules' reaction time. */
 export const senseDelayOf = (recipe: Pick<DuelRecipe, "senseDelay" | "rules">): number => recipe.senseDelay ?? rulebook("arena", recipe.rules).reaction.value;
+
+/** The seed of a bout of `recipe`: the recipe's, or 0. */
+export const boutSeedOf = (recipe: Pick<DuelRecipe, "seed">): number => recipe.seed ?? 0;
 
 /** What a mind must do to enter a bout of `recipe` (`DuelRecipe.entry`): the recipe's rule, or a fight's; a page with no recipe yet plays a fight. */
 export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRule[] => recipe?.entry ?? FIGHT_ENTRY;
@@ -276,7 +282,7 @@ export class Duel {
     this.ends = (recipe.ends ?? GAME_ENDS).map((config) => [endRuleOf(config), config] as const);
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
-      senseDelay: senseDelayOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
+      senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: recipe.loadouts?.left ?? EMPTY_LOADOUT, right: recipe.loadouts?.right ?? EMPTY_LOADOUT },
       minds: { left: recipe.minds?.left ?? modelInfo(recipe.left).mind, right: recipe.minds?.right ?? modelInfo(recipe.right).mind },
     })) as unknown;
@@ -287,6 +293,7 @@ export class Duel {
       const model = recipe[side], loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? modelInfo(model).mind;
       const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
       const enlisting = { id: side, side, spec: withLoadout(original, loadout), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
+        seed: seedOf(boutSeedOf(recipe), side),
         ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
       };
