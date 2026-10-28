@@ -12,9 +12,9 @@
  * begun are not played. A trial is played once a run: the readings over every thing held read the
  * trials each thing's own played.
  *
- *   node research/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--out file]
+ *   node research/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--add] [--out file]
  *     [--models workshop-fighter,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
- *     [--physique '{"speed":1.25}']
+ *     [--physique '{"speed":1.25}'] [--toes]
  *
  * `--legs` names the walk measured: the stance's own (`stance`, the default), or the walk and run
  * free to run; `--write` writes `assets/core/<legs>-envelope.json`, `--out`
@@ -22,14 +22,20 @@
  * `--walks` measures the walks alone, with no turns. `--gusts rate:strength:seeds` walks each walk
  * calm and again in the lab's gusts (`startWind`) on each seed, and a speed holds only if every one
  * of them held: calm, as asked; in the gusts, standing. `--physique` builds each body of that
- * physique (`Physique`, `src/core/human/physique.ts`) in place of its own.
+ * physique (`Physique`, `src/core/human/physique.ts`) in place of its own, and `--toes` with toes
+ * (`src/core/human/toes.ts`). Each body's readings are kept under its key (`bodyKey`).
+ *
+ * `--add` writes the bodies measured into the asset as it stands, each with the day it was measured,
+ * and keeps the others: the asset's grid (speeds, ways, rates, holds and the rest) must be this run's.
  */
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { Worker } from "node:worker_threads";
 import { HELD } from "../src/core/items/held.ts";
 import { turnedAsAsked, wentAsAsked } from "../src/core/control/stance-envelope.ts";
+import { modelSpec } from "../src/core/models.ts";
+import { bodyKey } from "../src/core/spec/body.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
@@ -61,13 +67,18 @@ const SENSES = [1, -1];
  */
 const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
-const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, out: { type: "string" },
-  physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" }, models: { type: "string" }, holds: { type: "string" } } });
+const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, add: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" },
+  out: { type: "string" }, physique: { type: "string" }, toes: { type: "boolean", default: false }, walks: { type: "boolean", default: false }, gusts: { type: "string" },
+  models: { type: "string" }, holds: { type: "string" } } });
 const legs = values.legs ?? "stance";
 if (!Object.hasOwn(SPEEDS_OF, legs)) throw new Error(`no envelope is measured for legs ${legs}`);
 /** What each trial walks by: the legs' name, none for the stance's own. */
 const walker = legs === "stance" ? null : legs;
-const physique = values.physique ? JSON.parse(values.physique) : undefined;
+const given = values.physique ? JSON.parse(values.physique) : undefined;
+/** The character each trial's body is built with (`modelSpec`): the physique asked, and toes where asked. */
+const physique = values.toes ? { ...given, toes: true } : given;
+/** The key `model`'s readings are kept under: its body's (`bodyKey`). */
+const keyOf = (model) => bodyKey(modelSpec(model, physique));
 /** The winds each walk is walked in: calm, and the gusts on each seed asked. */
 const WINDS = [null, ...(() => {
   if (!values.gusts) return [];
@@ -166,9 +177,10 @@ const alone = Object.fromEntries(await Promise.all(models.map(async (model) => [
   const ways = await walksOf(model, [h]);
   return [h, reading(ways, await turnsOf(model, [h], ways[0].top), [h])];
 })))])));
+const today = new Date().toISOString().slice(0, 10);
 const all = Object.fromEntries(await Promise.all(models.map(async (model) => {
   const ways = await walksOf(model, holds);
-  return [model, { ...reading(ways, await turnsOf(model, holds, ways[0].top), holds), holds: alone[model] }];
+  return [keyOf(model), { ...(values.add ? { measured: today } : {}), ...reading(ways, await turnsOf(model, holds, ways[0].top), holds), holds: alone[model] }];
 })));
 clearInterval(progress);
 await Promise.all(pool.map((w) => w.terminate()));
@@ -176,11 +188,19 @@ await Promise.all(pool.map((w) => w.terminate()));
 const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand"
   + (walker ? `, walking by the ${legs}` : "") + (TIMES_OF[legs]?.setOff ? `, each walk set off ${TIMES_OF[legs].setOff} s before it is measured and resting ${TIMES_OF[legs].rest} s after` : "")
   + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : "") + "; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
-  ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: new Date().toISOString().slice(0, 10),
+  ...(walker ? { legs } : {}), ...TIMES_OF[legs], hz, measured: today,
   speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models: all };
+const asset = new URL(`../assets/core/${legs}-envelope.json`, import.meta.url);
+if (values.add) {
+  // The asset as it stands takes this run's bodies, its grid unchanged: a body measured on another grid is no body of it.
+  const kept = JSON.parse(await readFile(asset, "utf8"));
+  for (const field of ["legs", "setOff", "rest", "hz", "speeds", "ways", "rates", "senses", "holds", "afters", "winds"])
+    if (JSON.stringify(kept[field]) !== JSON.stringify(envelope[field])) throw new Error(`the asset's ${field} is not this run's: ${JSON.stringify(kept[field])} against ${JSON.stringify(envelope[field])}`);
+  Object.assign(envelope, { ...kept, models: { ...kept.models, ...all } });
+}
 console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${counts.played} trials played, ${counts.reused} kept, ${counts.skipped} not begun, in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 // Two-space JSON with each list of numbers on one line.
 const text = `${JSON.stringify(envelope, null, 2).replace(/\[[-\d.,\s(null)]*\]/g, (list) => list.replace(/\s+/g, "").replaceAll(",", ", "))}\n`;
 if (values.out) await writeFile(values.out, text);
-else if (values.write) await writeFile(new URL(`../assets/core/${legs}-envelope.json`, import.meta.url), text);
+else if (values.write || values.add) await writeFile(asset, text);
 else console.log(text);

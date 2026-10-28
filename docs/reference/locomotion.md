@@ -207,6 +207,10 @@ off 10 s and resting 10 s after.
 | Warrior | 4.5 | 0.7 | 1.0 |
 | Rogue | 0.7 (3.5 without the club) | 0.7 | 1.0 |
 | skeleton | 3.5 (4.0 without the club) | 0.5 (0.7) | 1.2 |
+| Warrior with toes | 0.7 | 0.7 | 1.5 |
+
+On toes the run does not hold forward ([toes](toes.md#on-the-game-bodies)); that body's entry
+measures its own turns, where the others read the run's.
 
 To a side the run turns to face the way and runs it: the Warrior held 16 of 20 to each side at every
 speed from 1 to 4.5 m/s.

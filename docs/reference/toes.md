@@ -88,7 +88,21 @@ stand-up `npm run evaluate -- rising-target step-up`.
   the foot without toes; with toes the toes' bends tried below do not rescue it.
 - **The learned punch** (`research/punch-policy-check.mjs`, seed 5001, 160 places): 141 of 160 at
   120 Hz and 128 at 480 Hz, against 155 and 140 without toes; none fell. The misses move from the
-  fist's mass to its speed and straightness.
+  fist's mass to its speed and straightness. The toed Warrior's entry in
+  `assets/core/learned-punch.json` keeps the Warrior's settings on this reading.
+- **The walk's envelopes** (`research/core-stance-envelope.mjs --toes`, at `2a7af07b`, the Warrior
+  with each thing held; the walk and run calm and in the lab's gusts, seeds 1 to 4), m/s forward,
+  right, back, left:
+
+  | Walk | Toes | Without |
+  | --- | --- | --- |
+  | The stance's | 1.7, 0.7, 1.4, 0.7 | 1.7, 0.7, 1.2, 0.7 |
+  | The walk and run | 0.7, 0.7, 1.5, 0.7 | 4.5, 0.7, 1.0, 0.7 |
+
+  On toes the run does not hold forward: asked 2 or 3 m/s in calm air it falls, and asked 1 m/s it
+  goes 1.8. A toed body's run is held to its envelope, so it gets about forward no faster than
+  0.7 m/s while it may run. Its turns are its own (`turns` in `walk-run-envelope.json`), where a
+  flat body reads the run's.
 - **Fights** (`npm run match -- duellist options`, the standard protocol): the Duellist scores
   0.671 over 120 bouts with toes (match `295cf7a438bb68ea`), against 0.788 over 118 without
   (`c1ec7b0cefd3f3c8`); the Rogue's side loses most (Rogue against Warrior 0.586 to 0.417).

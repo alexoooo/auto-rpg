@@ -358,6 +358,124 @@
           ]
         }
       }
+    },
+    "workshop-fighter+toes": {
+      "measured": "2026-10-28",
+      "byWay": [1.7, 0.7, 1.4, 0.7],
+      "wayTrials": 4,
+      "wayHeld": [
+        [null, null, null, null, null, null, null, null, null, 4, 0, 0],
+        [null, null, null, null, 4, 0, 0, 0, 0, 0, 0, 0],
+        [null, null, null, null, null, null, null, 4, 1, 0, 0, 0],
+        [null, null, null, null, 4, 0, 0, 0, 0, 0, 0, 0]
+      ],
+      "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+      "turnHeld": [
+        [null, null, 112, 0, 0],
+        [null, null, 112, null, null],
+        [null, null, 112, null, null],
+        [null, null, 112, null, null],
+        [null, null, 112, null, null],
+        [null, null, 52, 0, null],
+        [null, 73, null, null, null],
+        [62, null, null, null, null],
+        [54, null, null, null, null],
+        [44, 25, null, null, null]
+      ],
+      "holds": {
+        "empty": {
+          "byWay": [1.7, 0.7, 1.4, 0.7],
+          "wayTrials": 1,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, 1, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
+            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
+          ],
+          "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+          "turnHeld": [
+            [null, null, 28, 0, 0],
+            [null, null, 28, null, null],
+            [null, null, 28, 0, null],
+            [null, null, 28, null, null],
+            [null, null, 28, 0, null],
+            [25, 21, 15, 0, null],
+            [15, 15, null, null, null],
+            [16, null, 6, null, null],
+            [15, 8, null, null, null],
+            [11, 6, 9, 0, 0]
+          ]
+        },
+        "club": {
+          "byWay": [1.7, 0.7, 1.5, 0.7],
+          "wayTrials": 1,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, 1, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
+            [null, null, null, null, null, null, null, null, 1, 0, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
+          ],
+          "turns": [1, 1, 1, 1, 1, 0.5, 0.5, 0, 0, 0],
+          "turnHeld": [
+            [null, null, 28, null, null],
+            [null, null, 28, 0, null],
+            [null, null, 28, null, null],
+            [null, null, 28, 0, 0],
+            [null, null, 28, null, 0],
+            [null, 28, 7, 0, null],
+            [null, 28, 15, null, null],
+            [14, 14, null, null, 0],
+            [9, 12, null, null, null],
+            [11, 7, null, null, null]
+          ]
+        },
+        "buckler": {
+          "byWay": [1.7, 0.7, 1.4, 0.7],
+          "wayTrials": 1,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, 1, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
+            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
+          ],
+          "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+          "turnHeld": [
+            [null, null, 28, null, null],
+            [null, null, 28, null, null],
+            [null, null, 28, null, null],
+            [null, null, 28, 0, 0],
+            [null, null, 28, 0, 0],
+            [25, null, 15, 0, null],
+            [15, 15, 13, 0, 0],
+            [16, 7, 6, null, null],
+            [15, null, null, 0, null],
+            [11, 6, 9, null, null]
+          ]
+        },
+        "sword": {
+          "byWay": [1.7, 0.7, 1.4, 0.7],
+          "wayTrials": 1,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, 1, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0],
+            [null, null, null, null, null, null, null, 1, 0, 0, 0, 0],
+            [null, null, null, null, 1, 0, 0, 0, 0, 0, 0, 0]
+          ],
+          "turns": [1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+          "turnHeld": [
+            [null, null, 28, null, null],
+            [null, null, 28, 0, null],
+            [null, null, 28, null, null],
+            [null, null, 28, 0, null],
+            [null, null, 28, null, 0],
+            [25, null, 15, 0, 0],
+            [15, 15, 13, null, null],
+            [16, null, 6, 0, null],
+            [15, 8, null, null, null],
+            [11, 6, 9, null, null]
+          ]
+        }
+      }
     }
   }
 }

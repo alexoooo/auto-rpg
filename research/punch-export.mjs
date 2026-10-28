@@ -6,7 +6,8 @@
  * the punching shoulder's line, `squared`), and the
  * steer's trained network (`research/run-train.py`'s `policy.json`), written as the core reads them
  * (`PunchPolicy`, `src/core/skills/learned-punch.ts`): `<out>.json` (`assets/core/learned-punch` where
- * not given), and the bodies it has settings for in `<out>.meta.json`. With `--steered stance`,
+ * not given), and the bodies it has settings for in `<out>.meta.json`, each by its key (`bodyKey`:
+ * `workshop-fighter`, `workshop-fighter+toes`). With `--steered stance`,
  * the network's legs' outputs are asks of the stance (`PunchPolicy.steered`).
  *
  *   node research/punch-export.mjs --policy <policy.json> --made "<how it was made>" [--steered stance] [--out <path>] <model>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]

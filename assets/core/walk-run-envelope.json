@@ -225,6 +225,99 @@
           "turnHeld": []
         }
       }
+    },
+    "workshop-fighter+toes": {
+      "measured": "2026-10-28",
+      "byWay": [0.7, 0.7, 1.5, 0.7],
+      "wayTrials": 20,
+      "wayHeld": [
+        [null, null, null, null, 20, 8, 9, 4, 5, 7, 9, 0, 0, 0, 0, 0],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+        [null, null, null, null, null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
+      ],
+      "turns": [1.4, 1.4, 1, 1, 1],
+      "turnHeld": [
+        [null, null, null, null, null, 112, 0, 0],
+        [null, null, null, null, null, 112, 0, null],
+        [null, null, null, null, 112, 109, null, null],
+        [null, null, null, null, 112, null, null, null],
+        [null, null, null, null, 112, null, null, null]
+      ],
+      "holds": {
+        "empty": {
+          "byWay": [0.7, 0.7, 1.5, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, 5, 2, 2, 1, 1, 2, 3, 0, 0, 0, 0, 0],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [1.4, 1.4, 1.4, 1, 1],
+          "turnHeld": [
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, 28, 25, null, null],
+            [null, null, null, null, 28, null, 0, 0]
+          ]
+        },
+        "club": {
+          "byWay": [0.7, 0.7, 1.5, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, 5, 2, 3, 1, 2, 1, 0, 0, 0, 0, 0, 0],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [1.4, 1.4, 1, 1, 1],
+          "turnHeld": [
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, 0, null],
+            [null, null, null, null, 28, 25, null, null],
+            [null, null, null, null, 28, null, 0, null],
+            [null, null, null, null, 28, 8, null, 0]
+          ]
+        },
+        "buckler": {
+          "byWay": [0.7, 0.7, 1.5, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, 5, 2, 2, 1, 1, 2, 3, 0, 0, 0, 0, 0],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [1.4, 1.4, 1.4, 1, 1],
+          "turnHeld": [
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, 0, 0],
+            [null, null, null, null, 28, 25, null, null],
+            [null, null, null, null, 28, 3, 0, null]
+          ]
+        },
+        "sword": {
+          "byWay": [0.7, 0.7, 1.5, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, 5, 2, 2, 1, 1, 2, 3, 0, 0, 0, 0, 0],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [1.4, 1.4, 1.4, 1, 1],
+          "turnHeld": [
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, null, null],
+            [null, null, null, null, null, 28, 0, null],
+            [null, null, null, null, 28, 25, 0, null],
+            [null, null, null, null, 28, null, null, 0]
+          ]
+        }
+      }
     }
   }
 }
