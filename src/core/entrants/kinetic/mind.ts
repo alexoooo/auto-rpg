@@ -94,7 +94,7 @@ export const KINETIC_MIND = controller<KineticConfig>({
   fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: kineticFaults,
-  presets: deepFreeze({ kinetic: { label: "Kinetic", config: KINETIC, models: ["workshop-fighter"] } }),
+  presets: deepFreeze({ kinetic: { label: "Kinetic", config: KINETIC, models: ["workshop-fighter"], character: { toes: true } } }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createKinetic,
 });
