@@ -108,7 +108,7 @@ order: the guard's rest posture, its covers and holds, its hands' poses, the wal
 free arm without a cover. A posture under a goal or point is that chain's preferred angles, not a
 competing write: the guard's rest posture stays under its own covers.
 
-Open (step 6): a control an action holds and does not write is neutral (its reference angle) today,
+Open (step 7): a control an action holds and does not write is neutral (its reference angle) today,
 unless the action hands it back (`delegate`). Left to the defaults instead, an action that wants
 neutral writes it, and `delegate` goes.
 
@@ -134,13 +134,16 @@ does it within its task's units and limits, or reports it unmet. The probes run 
 and stance implementation the game builds and the swap test's stubs (`tests/swap.test.mjs`), so
 another walk or balance controller is swappable by passing them, not by a match.
 
-### A learned skill's outputs, as data
+### A learned skill's inputs and outputs, as data
 
-A learned skill's outputs are a layout file beside its network: each output names its claim term
-(a push on a named channel; the legs goal's `heading`; its `centre` ahead or across) and its full
+A learned skill's inputs and outputs are layout files beside its network. Each input names a
+percept of the registry ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), so a skill
+reads what the chooser and the drills read, and a new input is a name. Each output names its
+claim term (a push on a named channel; the legs goal's `heading`; its `centre` ahead or across) and its full
 scale in the body's units (a leg's length for a distance, its length a second for a speed), so a
 skill trained on one body asks in proportion on another. `punchChannels` and `STANCE_FULL` become
-that file's reader; a new layout is data, not code.
+the output file's reader; a new layout is data, not code. The general trainer
+([Kinetic](2026-10-27-kinetic.md#one-trainer-for-any-skill)) takes both.
 
 ### What each need becomes
 
@@ -148,25 +151,26 @@ that file's reader; a new layout is data, not code.
 | --- | --- |
 | Footwork, a walk | the intent's walk and facing, the route made a walk by the navigation (`navigated`) |
 | The straight punch | arm and trunk pushes; `legs` with `walk` none, `heading` for the hip turn, `centre` for the weight, `halt` to stop |
-| Timing by the gait | a percept of the stance's phase (`view.stance`: `touching`, `velocity`, `plan`); no new term |
+| Timing by the gait | a percept of the stance's phase in the registry (step 5); no new term |
 | A kick | `legs` with one foot in `feet`, its `centre`, `pose`; the other foot's effector goal |
 | Low support | `legs` with `height` and `pose`; the trunk's flexion by its owner |
 | Leaning past the support | the legs' report of the centre held short, read as a percept |
 | Another walk | another legs implementation: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
-| A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (step 9, a spike) |
-| Getting up | a sub-mind with the whole body (`hosting`) until bearing on hands and knees is in the legs goal (step 10, a spike) |
+| A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
+| Getting up | a sub-mind with the whole body (`hosting`) until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 8) |
 
 ## Changes to Kinetic
 
 - **Its composer goes.** Kinetic's skills are the toolkit's `skillSet` with no support part; its
   four parts, `refusalOf`, the owners table and its refusals are deleted. What it reported refused
   is the motor's and the legs' report.
-- **Its tactics and config stay**: Options' chooser over `followOrders` and `strike`, the default
-  footwork at the edge of reach, the covers, a drill's tactics in the chooser's place, the stand-up
+- **Its tactics and config stay**: the options fighter's chooser over `followOrders` and
+  `strike`, the default footwork at the edge of reach, the covers, a drill's tactics in the chooser's place, the stand-up
   in `subs`.
-- **What then sets it apart from Options** is its tactics alone (no reflexes, no low support, no
-  look past depth 1): a configuration, which a match against Options reads.
+- **What then sets it apart from the options fighter** is configuration alone (reflexes, low
+  support), so the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md)
+  step 12).
 
 ## Changes to the learned punch
 
@@ -229,7 +233,19 @@ and the swap test's stubs; fast (under about 10 s together), in the swap test's 
 Check: the gate; each probe fails on a stub that ignores its field (a positive control), and the
 game's own legs pass or report.
 
-### 5. Kinetic on the toolkit's body layer
+### 5. The percepts registry, and a learned skill's layouts
+
+One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the
+options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the gait's phase
+(`view.stance`: `touching`, `velocity`, `plan`) and the controllers' report beside the chooser's
+readings. A learned skill's input and output layout files and their reader: the punch's inputs
+(`PUNCH_FEATURES`, today a vector written by hand) named as percepts, its outputs as claim terms in
+the body's units (`punchChannels` and `STANCE_FULL` read from the file).
+
+Check: the gate; the walk rung's `asked` fields from the gait percept equal the drill's own; the
+learned punch through its layout files gives the same actions to the bit as through the code.
+
+### 6. Kinetic on the toolkit's body layer
 
 Kinetic's composer deleted; `kineticSkills` is `skillSet` with no support; its refusals detail
 reads the report.
@@ -237,7 +253,7 @@ reads the report.
 Check: the gate; Kinetic's still and walk rungs the same to the bit as before the step; in the
 Arena it faces, follows, punches and gets up, looked at.
 
-### 6. A held control left unwritten
+### 7. A held control left unwritten
 
 A control an action holds and does not write goes to the defaults, not to neutral; an action that
 wants neutral writes its reference; `delegate` goes.
@@ -245,51 +261,27 @@ wants neutral writes its reference; `delegate` goes.
 Check: the gate; the fingerprint names the cases that move; each moved case's own reading (the
 drill's rung, the kick's, the fold's) no worse, or the step is not kept and the reason recorded.
 
-### 7. The one learned punch
+### 8. The one learned punch
 
-On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the punch's layout file and its
-reader; the stance layout exported as the learned punch from the run's best checkpoint by the
-still and walk rungs; the push layout, `steered`'s variants and the second data key deleted once
-no body without toes throws it. Its retraining reads the report, its reward counting unmet asks.
+On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the stance layout exported as the
+learned punch from the run's best checkpoint by the still and walk rungs; the push layout,
+`steered`'s variants and the second data key deleted once no body without toes throws it. Its
+retraining ([Kinetic](2026-10-27-kinetic.md) step 6) reads the report, its reward counting unmet
+asks.
 
 Check: the gate; the Strike drill's still and walk rungs of the learned puncher and Kinetic,
 paired with the push layout on the same cases at 120 and 480 Hz
 (`research/punch-policy-check.mjs` for 480 Hz); kept where the walk lands more and the still rung
 no less.
 
-### 8. The gait as a percept
-
-The stance's phase in the situation (`PERCEPTS`), which the Kinetic plan's timing by the gait
-reads.
-
-Check: the gate; the walk rung's `asked` fields from the percept equal the drill's own.
-
-### 9. Spike: one item in two hands
-
-Question: can the step's solve and the effector tracker move two arms closing on one held item
-(a closed chain; `bodyEffectors` builds serial chains with no shared channel, and the solve's
-inverse dynamics ignore the grip's constraint), with a game fighter granted grips (no fighter has
-an equipment port; grips are fixed at build)? Answered on the shared strike's cells
-([shared-item strikes](../reference/shared-strike.md)) against the Lab's controller. Its own Done
-when: the cells' figures on the game's controller, and the answer recorded; the claim gains a
-grip term only with a reader.
-
-### 10. Spike: getting up in the legs goal
-
-Question: can `feet` name hands and knees as the ground techniques bear on them (`carryRoot`,
-`bearLimbs`, the plant's limb kinds), so a technique is a claim that leaves an arm it does not
-use to the guard, with no assist and no direct muscle writes (the stand-up writes the muscles'
-speed and activation itself, `stand-up.ts`; `poseDrive` reads `muscles.turning`, which no view
-shows)? Read on the owner's target ([rising](../reference/rising.md#the-owners-target)) at its
-rate, not as "the same": a different actuation stands different falls.
-
 ## Done when
 
 The toolkit has one body layer, which Kinetic and the arbiter's minds share; an action's legs are
 one goal, a stance goal in part, that only the legs complete and nothing edits after; the legs
 never write the trunk; the motor and the legs report what they did not carry out, read as a
-percept and by the punch's trainer; every legs and stance implementation passes the probes;
-Kinetic has no composer and no refusals of its own; the learned puncher's and Kinetic's still and
-walk rungs are unmoved by steps 1, 3 and 5; the kick and the fold read as before step 2 or as its
-commit names; step 6 is kept or its reason recorded; there is one learned punch, its outputs a
-layout file in the body's units; and the two spikes' answers are recorded.
+percept and by the punch's trainer; every legs and stance implementation passes the probes; one
+percepts registry holds the chooser's readings, the gait's phase and the report; a learned skill's
+inputs and outputs are layout files in the body's units; Kinetic has no composer and no refusals of
+its own; the learned puncher's and Kinetic's still and walk rungs are unmoved by steps 1, 3, 5 and
+6; the kick and the fold read as before step 2 or as its commit names; step 7 is kept or its
+reason recorded; and there is one learned punch.

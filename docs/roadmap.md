@@ -15,8 +15,8 @@ as it needs ([architecture](architecture.md#the-layers)).
 
 - **Skills, proficiency and use.** A body has an array of skills, each in one shape: a name and
   goal, an entry condition, the resources it holds, an exit and a profile
-  ([Options](plans/2026-10-24-options.md)). A skill is proved on drills, ladders of rungs the owner
-  watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
+  ([Kinetic](plans/2026-10-27-kinetic.md#the-shape-of-a-skill)). A skill is proved on drills,
+  ladders of rungs the owner watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
   Tactics choose skills by their entry conditions and profiles, never motion. The more general
   and robust, the better: a body that is resized or made stronger is measured again, not searched
   again.
@@ -48,30 +48,27 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Options](plans/2026-10-24-options.md) | Every skill in one shape (entry, resources, model, exit); one commitment and a default layer of footwork and cover; a chooser part role that looks ahead a set number of skills; reaction time as a rule |
-| [Kinetic](plans/2026-10-27-kinetic.md) | The general mind on the toed Warrior: a baseline record on the general body layer, then the punch walking or not, the stand-up as a chain of skills, the one-two chained, the guard, fights |
-| [Kinetic, general](plans/2026-10-28-kinetic-general.md) | One body layer for Kinetic and the arbiter's minds: a claim in the body's own terms, the legs asked in one goal nothing edits after, the controllers reporting what they did not carry out |
-| [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior: every skill in one shape, one percepts registry, a chooser that chains skills, reaction time as a rule, a baseline evaluation in one command, one trainer for any skill; then the punch at its bar walking or not and in fights, the stand-up as a chain, footwork and the guard, measured profiles, the options fighter as its preset |
+| [Kinetic, general](plans/2026-10-28-kinetic-general.md) | One body layer for every mind on the toolkit's skills: a claim in the body's own terms, the legs asked in one goal nothing edits after, the controllers reporting what they did not carry out, probes, the percepts registry and a learned skill's layouts |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
-| [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up: the Rogue with the club, then Kinetic's rise and toes as the game's Stand up, on the owner's 64-fall target |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now: Kinetic's general baseline.** Kinetic steps 1 to 3: the toed Warrior as a body of its own,
-   the general body layer ([Kinetic, general](plans/2026-10-28-kinetic-general.md) steps 1 to 5)
-   and the baseline record; then its punch and its stand-up on it (steps 4 and 5), and iterating.
-   The game's Warrior and Rogue take toes with Recovery step 3, the graph as the game's Stand up:
-   on them step-up stands none of the target's falls
-   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
-2. **The punch in fights.** Reaction time is judged by the owner in the Arena and decided
-   (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
-   trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
-   mark).
-3. **Beside them:** Drills step 2 (the moving target, overlays and side by side), which Punch
-   step 5 needs, and Drills step 7 (the owner's two-minute verdict), which Punch step 6 and every
-   rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
-   rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
-   and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
-   Kinetic steps 6 to 8 (the one-two chained, the guard, fights) once its baseline is recorded.
+1. **Now: Kinetic's baseline**, steps 1 to 4 in order: the toed foot, the general body layer
+   ([Kinetic, general](plans/2026-10-28-kinetic-general.md) steps 1 to 6), reaction time (the
+   owner's choice) and the baseline evaluation; then step 5, the trainer for any skill, before any
+   training run; then the punch walking or not (step 6) and the stand-up as a chain (step 8).
+2. **On the baseline**, each paired by its evaluation: the punch at its bar everywhere (Kinetic
+   step 7: fight moments, moving targets, the Rogue, the high mark), footwork and the guard
+   (step 9), measured profiles (step 10), the one-two and depth 2 (step 11), the options fighter as
+   a preset (step 12), the other skills (step 13).
+3. **Beside them:** Drills step 2 (the moving target, overlays and side by side), which Kinetic
+   step 7b needs; Drills step 7 (the owner's two-minute verdict), which Kinetic step 14 and every
+   rating wait on; Footwork's rungs (Drills step 4) after Kinetic step 9. Recovery step 1 (the
+   Rogue with the club), then step 2 once Kinetic's rise stands the target: the game's bodies take
+   toes with it, since on them step-up stands none of the target's falls
+   ([on the game bodies](reference/toes.md#on-the-game-bodies)). Mind data step 2 (the packed
+   format, lossless), then step 3.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -79,8 +76,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 **Choices**, each landed at its default:
 
 - Reaction time, judged in play: Arena bouts at a delay of 0 and of about 0.2 s, watched side by
-  side; decided before the punch is trained on fight moments
-  ([Options](plans/2026-10-24-options.md), step 2).
+  side; decided before Kinetic's baseline is read ([Kinetic](plans/2026-10-27-kinetic.md), step 3).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
@@ -92,21 +88,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **To watch:**
 
-- The Warrior's learned punch on the Strike drill's still rung
-  (`?play=ratings&evaluation=strike&subject=learned-puncher&version=24ccf7106e3471ef`): 30 of 32
-  land at the middle mark; the owner said "the punch actually looks not bad", not an acceptance.
-  After contact the striker bows forward at the hips and comes back up
-  ([learned punch](reference/learned-punch.md)).
-- The learned punch on the fight rung
-  (`?play=ratings&evaluation=strike&pool=4145285b&subject=learned-puncher&version=c0e976aff6125d66`):
-  3 of 56 middle-mark moments land; most are weak or meet the guard, 9 never come into its window,
-  and the striker sometimes waits half a second before it throws.
-- The Strike drill's other subjects (`?play=ratings&evaluation=strike`), the failures first: the
-  Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing; on
-  the fight rung no game mind's strike lands at the bar.
-- The options fighter in its one shape, a bout against the Duellist
-  (`?play=arena&left.mind=options&right.mind=duellist`): its paired match against the shape before
-  gains 12 bouts and loses 5 of 120 ([Options](plans/2026-10-24-options.md#where-it-starts)).
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).
@@ -114,7 +95,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
-- The Warrior and the Rogue on toes, once they land (Recovery step 3): walking and rising in the Lab.
+- Kinetic's toed Warrior, once it lands ([Kinetic](plans/2026-10-27-kinetic.md), step 1): walking,
+  punching and fighting in the Arena.
 - The skeleton's look in play.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
@@ -144,7 +126,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
-    ([Options](plans/2026-10-24-options.md), step 3);
+    ([Kinetic](plans/2026-10-27-kinetic.md), step 9);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -198,7 +180,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   cardinal direction in every group, a failure-inclusive median at most 4 s, unassisted. Step-up,
   the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
   edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
-  Rogue with the club (9 and 10 of 16 against 11 and 12). No fast edge yet: from hands and knees
+  Rogue with the club (9 and 10 of 16 against 11 and 12). No fast edge yet
+  ([Kinetic](plans/2026-10-27-kinetic.md), step 8): from hands and knees
   the bearing solve does not balance on the feet alone
   ([tried and not kept](reference/rising.md#tried-and-not-kept)); with toes and the ankle's stop
   at 0.8 rad a research stand-up from hands and knees stands 30 of 32 in a median of 3.98 s
@@ -207,12 +190,18 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 92 % of 320 held-out still trials and 3 of 56 fight moments; the Rogue has none at
   its bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
-  [Punch](plans/2026-10-24-punch.md)). Read on the Strike drill's rungs
+  [Kinetic](plans/2026-10-27-kinetic.md#the-punch)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)).
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
-  items and bows, with projectiles in the core.
+  items and bows, with projectiles in the core. Open before a weapon in both hands: whether the
+  step's solve and the effector tracker move two arms closing on one held item (a closed chain;
+  `bodyEffectors` builds serial chains with no shared channel, and the solve's inverse dynamics
+  ignore the grip's constraint), with a game fighter granted grips (no fighter has an equipment
+  port; grips are fixed at build), answered on the shared strike's cells
+  ([shared-item strikes](reference/shared-strike.md)) against the Lab's controller; the legs
+  goal's claim gains a grip term only with a reader.
 - **Assists.** Grit, a torque assist, is defined (limits, accounting, interaction with the muscles)
   before it is used; its objective is a median below 4 s under its declared configuration, apart
   from the unassisted target. A controller trained with an assist is read without it before an
@@ -253,10 +242,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - The fist's threshold against a head: at 36.8 J (`Rulebook.fist`) and a 62 % share the exchange
   stops paying at 59 J, and a boxer's blow costs the hand
   ([what a blow is worth](reference/learned-punch.md#what-a-blow-is-worth)); read again before a
-  punch is trained on the head ([Punch](plans/2026-10-24-punch.md), step 4d).
+  punch is trained on the head ([Kinetic](plans/2026-10-27-kinetic.md), step 7d).
 - The head behind the guard: the guard covers the face, and the open lane over it is the top of
   the head, which a straight punch cannot meet square; a punch at the head goes around or over the
-  guard, or waits for it to open (Punch, step 4d).
+  guard, or waits for it to open (Kinetic, step 7d).
 - Decided (the owner, 2026-10-01; `docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`): a fall
   takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
   verdict ([Drills](plans/2026-10-24-drills.md), step 7); a body that is down may be struck, to
@@ -280,7 +269,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is the
     legs' skills (`approach`, `keep-range`, `step-out`, `circle`;
-    [Options](plans/2026-10-24-options.md), step 3);
+    [Kinetic](plans/2026-10-27-kinetic.md), step 9);
   - an option's worth is its profile: attack value, incoming cost, travel time, falls and
     recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
@@ -297,7 +286,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
   by name ([oracle](reference/oracle.md)); two decisions over one, with strikes by name, gates the
-  chooser's depth 2 ([Options](plans/2026-10-24-options.md), step 5).
+  chooser's depth 2 ([Kinetic](plans/2026-10-27-kinetic.md), step 11).
 - A player's choices are the trade-offs a Mind's config exposes, offered once their effect is
   understood, with presets that round-trip through the editor, the link and a save.
 - The controls are to be worked over in play: the pointer does nothing while a person's body
