@@ -233,17 +233,21 @@ and the swap test's stubs; fast (under about 10 s together), in the swap test's 
 Check: the gate; each probe fails on a stub that ignores its field (a positive control), and the
 game's own legs pass or report.
 
-### 5. The percepts registry, and a learned skill's layouts
+### 5. The percepts registry, named goals, and a learned skill's layouts
 
 One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the
 options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the gait's phase
 (`view.stance`: `touching`, `velocity`, `plan`) and the controllers' report beside the chooser's
-readings. A learned skill's input and output layout files and their reader: the punch's inputs
-(`PUNCH_FEATURES`, today a vector written by hand) named as percepts, its outputs as claim terms in
-the body's units (`punchChannels` and `STANCE_FULL` read from the file).
+readings. A cue's limit a number or another percept, and the first named goals as cues over it
+(`close`, `at the edge`, `out of reach`, `guard to guard`); Kinetic's default footwork asks
+`at the edge` where it computes `toEdge` now. A learned skill's input and output layout files and
+their reader: the punch's inputs (`PUNCH_FEATURES`, today a vector written by hand) named as
+percepts, its outputs as claim terms in the body's units (`punchChannels` and `STANCE_FULL` read from the file).
 
 Check: the gate; the walk rung's `asked` fields from the gait percept equal the drill's own; the
-learned punch through its layout files gives the same actions to the bit as through the code.
+learned punch through its layout files gives the same actions to the bit as through the code;
+Kinetic's still and walk rungs the same to the bit with its footwork on `at the edge`; each named
+goal read on the Warrior and the Rogue gives each its own range, in proportion to its reach.
 
 ### 6. Kinetic on the toolkit's body layer
 
@@ -280,7 +284,8 @@ The toolkit has one body layer, which Kinetic and the arbiter's minds share; an 
 one goal, a stance goal in part, that only the legs complete and nothing edits after; the legs
 never write the trunk; the motor and the legs report what they did not carry out, read as a
 percept and by the punch's trainer; every legs and stance implementation passes the probes; one
-percepts registry holds the chooser's readings, the gait's phase and the report; a learned skill's
+percepts registry holds the chooser's readings, the gait's phase and the report, and goals are
+named cues over it; a learned skill's
 inputs and outputs are layout files in the body's units; Kinetic has no composer and no refusals of
 its own; the learned puncher's and Kinetic's still and walk rungs are unmoved by steps 1, 3, 5 and
 6; the kick and the fold read as before step 2 or as its commit names; step 7 is kept or its
