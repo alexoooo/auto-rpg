@@ -1,12 +1,19 @@
-# Kinetic, general: one body layer, one vocabulary
+# Body layer: the toolkit's baseline below the chooser
 
-The target below the chooser, for [Kinetic](2026-10-27-kinetic.md) and every mind built on the
+The toolkit's body layer, for [Kinetic](2026-10-27-kinetic.md) and every mind built on the
 toolkit's skills: **one body layer**, the arbiter's ownership of the body's controls (`skillSet`,
 `src/core/skills/arbiter.ts`); **one claim** in the body's own terms (`BodyCommand`), its legs asked
 in **one legs goal**, a stance goal in part, that only the legs complete; and **the body's
 controllers saying what they did not carry out**. Kinetic keeps its chooser, percepts and
 commitments and gives up its own composer: two body layers become one, and no mind needs to police
 what its skills write.
+
+**It is a baseline, not a rule.** A Mind's contract stays its boundary: its senses and its own body
+in, muscle commands and granted grip requests out
+([Kinetic](2026-10-27-kinetic.md#what-stays-free)). A mind uses this layer whole, uses a part of it,
+swaps a part by configuration, or drives the muscles its own way; nothing in the core requires it.
+The probes say whether an implementation honours the legs goal, so it can join the toolkit's
+registries; they bind no mind.
 
 ## Why
 
@@ -136,18 +143,18 @@ Kinetic's refusals and its `Refused` detail become this report.
 
 Each legs-goal field and claim term has a probe: ask it on a body standing or walking, and the body
 does it within its task's units and limits, or reports it unmet. The probes run against every legs
-and stance implementation the game builds and the swap test's stubs (`tests/swap.test.mjs`), so
+and stance implementation the toolkit offers and the swap test's stubs (`tests/swap.test.mjs`), so
 another walk or balance controller is swappable by passing them, not by a match.
 
 ### A learned skill's inputs and outputs, as data
 
-A learned skill's inputs and outputs are layout files beside its network. Each input names a
-percept of the registry ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), so a skill
-reads what the chooser and the drills read, and a new input is a name. Each output names its
-claim term (a push on a named channel; the legs goal's `heading`; its `centre` ahead or across) and its full
-scale in the body's units (a leg's length for a distance, its length a second for a speed), so a
-skill trained on one body asks in proportion on another. `punchChannels` and `STANCE_FULL` become
-the output file's reader; a new layout is data, not code. The general trainer
+A learned skill's inputs and outputs are layout files beside its network. Each input names a percept
+of the registry ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), so a skill reads what
+the chooser and the drills read, and a new input is a name. Each output names its claim term (a push
+on a named channel; the legs goal's `heading`; its `centre` ahead or across) and its full scale in
+the body's units (a leg's length for a distance, its length a second for a speed), so a skill
+trained on one body asks in proportion on another. `punchChannels` and `STANCE_FULL` become the
+output file's reader; a new layout is data, not code. The general trainer
 ([Kinetic](2026-10-27-kinetic.md#one-trainer-for-any-skill)) takes both.
 
 ### What each need becomes
@@ -171,9 +178,9 @@ the output file's reader; a new layout is data, not code. The general trainer
 - **Its composer goes.** Kinetic's skills are the toolkit's `skillSet` with no support part; its
   four parts, `refusalOf`, the owners table and its refusals are deleted. What it reported refused
   is the motor's and the legs' report.
-- **Its tactics and config stay**: the options fighter's chooser over `followOrders` and
-  `strike`, the default footwork at the edge of reach, the covers, a drill's tactics in the chooser's place, the stand-up
-  in `subs`.
+- **Its tactics and config stay**: the options fighter's chooser over `followOrders` and `strike`,
+  the default footwork at the edge of reach, the covers, a drill's tactics in the chooser's place,
+  the stand-up in `subs`.
 - **What then sets it apart from the options fighter** is configuration alone (reflexes, low
   support), so the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md)
   step 12).
@@ -264,7 +271,8 @@ readings. A cue's limit a number or another percept, and the first named goals a
 (`close`, `at the edge`, `out of reach`, `guard to guard`); Kinetic's default footwork asks
 `at the edge` where it computes `toEdge` now. A learned skill's input and output layout files and
 their reader: the punch's inputs (`PUNCH_FEATURES`, today a vector written by hand) named as
-percepts, its outputs as claim terms in the body's units (`punchChannels` and `STANCE_FULL` read from the file).
+percepts, its outputs as claim terms in the body's units (`punchChannels` and `STANCE_FULL` read
+from the file).
 
 Check: the gate; the walk rung's `asked` fields from the gait percept equal the drill's own; the
 learned punch through its layout files gives the same actions to the bit as through the code;
