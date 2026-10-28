@@ -171,7 +171,7 @@ output file's reader; a new layout is data, not code. The general trainer
 | Another gait: a faster run, a steadier walk, a learned one | another gait implementation, by name in the legs' set: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
 | A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
-| Getting up | a chain of ground skills, the chooser's as any other, each a commitment holding the whole body until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 10) |
+| Getting up | a chain of ground skills, the chooser's as any other, each a commitment holding the whole body until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 12) |
 
 ## Changes to Kinetic
 
@@ -183,7 +183,7 @@ output file's reader; a new layout is data, not code. The general trainer
   the stand-up in `subs`.
 - **What then sets it apart from the options fighter** is configuration alone (reflexes, low
   support), so the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md)
-  step 13).
+  step 15).
 
 ## Changes to the learned punch
 
@@ -234,16 +234,18 @@ before and after, named in the commit.
 
 A carriage is data in one registry (`CARRIAGES`): the feet relative to the heading (width,
 stagger, lead side), the height under standing, the trunk's lean and the arms' rest. The square
-stance the body is built in is the first; orthodox, southpaw and low are entries. A gait is an
-implementation in one registry (`GAITS`, grown from `src/core/skills/gaits.ts`): today's stance
-walk (its step pattern, `STANCE_GAIT`, made the gait's settings, not the balance controller's
-constants), the run (`walk-run`) and a shuffle that keeps the carriage's stagger. The legs slot
+stance the body is built in is its one entry; another (orthodox, southpaw, low) is added when a
+drill asks for it. A gait is an implementation in one registry (`GAITS`, grown from
+`src/core/skills/gaits.ts`): today's stance walk (its step pattern, `STANCE_GAIT`, made the gait's
+settings, not the balance controller's constants) and the run (`walk-run`); a shuffle that keeps a
+carriage's stagger joins when footwork asks for one. The legs slot
 holds a set of gaits and hands over between them at their exits (the run to the walk at a landing,
 as `walk-run` does now); the legs goal names a carriage and a gait, or leaves them to the set's
 choice. Move's gaits and rules become this set, its rules cues over named goals.
 
 Check: the gate; the fingerprint moves no case that asks the square carriage and today's gaits; a
-staggered carriage held standing and walked by the shuffle, looked at in the Lab.
+carriage given as data in a scratch configuration (a wider, staggered stance) held standing and
+walked by the stance walk, looked at in the Lab.
 
 ### 4. The controllers report what they did not carry out
 

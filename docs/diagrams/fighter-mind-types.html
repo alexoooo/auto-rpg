@@ -152,7 +152,7 @@ const BANDS = [
       "TargetRef { body, region }", "range { foe, near, far }", "~ near, far: m, or a name", "place { at }", "velocity { walk, face }", "~ footwork adds pace, height"] },
   ], [
     { id: "Situation", col: 0, kind: "interface", desc: "what a decision reads", lines: [
-      "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "foe phase: guard | winding up | …", "life: each side’s, the clock",
+      "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "foe phase: striking (s to contact) | down | rising | …", "life: each side’s, the clock",
       "reach { apart, theirs, mine }", "~ each a Percept, read once", "+ ended: Ended[]"] },
     { id: "Terms", col: 1, kind: "interface", desc: "what a choice is expected to bring", lines: [
       "duration: s", "dealt, taken: life", "orders: life a metre", "exit: Situation"] },

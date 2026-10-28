@@ -39,7 +39,8 @@ as it needs ([architecture](architecture.md#the-layers)).
   characters differ and skills are tested across them.
 - **Later**, other ideas on the same bodies, such as an end-to-end learned controller on the
   muscles, with the hand-built skills as its baseline
-  ([control foundation](reference/control-foundation.md)).
+  ([control foundation](reference/control-foundation.md)); the bare entrant is its route
+  ([Kinetic](plans/2026-10-27-kinetic.md), step 7).
 - **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
   A web app.
@@ -52,33 +53,32 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior: every skill in one shape, carriages and gaits by name, one percepts registry with goals by name, a chooser that chains skills within the step, reaction time as a rule, chance from a seed, a baseline evaluation in one command; then, before any training run, worth in the verdict's unit with life sensed, the foe's phase, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals, measured profiles, the options fighter as its preset, and one trainer for any skill, chooser or mind |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. First the baseline and the testbed's rules, which every mind meets: the toolkit's body layer, reaction time, chance from a seed, life in the senses, a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, its speed measured first, with a bare entrant from the senses to the muscles. Then Kinetic's own design, before any training run: worth in the verdict's unit, the foe's phase, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals, measured profiles, the options fighter as its preset |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Body layer](plans/2026-10-28-body-layer.md) | The toolkit's baseline body layer, which a mind uses whole, in part or not at all: a claim in the body's own terms, the legs asked in one goal nothing edits after, carriages and gaits by name, the controllers reporting what they did not carry out, probes, the percepts registry and a learned skill's layouts |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up: the Rogue with the club, the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, on the owner's 64-fall target |
-| [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: Kinetic's baseline**, steps 1 to 5 in order: the toed foot, the toolkit's body layer
-   ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 7), reaction time (0.15 s,
-   the owner's decision), chance from a seed, and the baseline evaluation, read under the owner's
-   verdict (Drills step 7), which lands before it.
-2. **Then Kinetic's generalization**, steps 6 to 14 in order, before any training run: worth in
-   life with life sensed (step 6), the foe's phase (step 7), the value of a position (step 8),
-   exits and letting go (step 9), the stand-up as a chain with no sub-mind (step 10), footwork and
-   the guard (step 11), measured profiles (step 12), the options fighter as a preset (step 13), the
-   trainer for any skill, chooser or mind (step 14).
-3. **Then training**, each paired by the baseline evaluation: the
+1. **Now: the baseline and the testbed's rules**, Kinetic steps 1 to 7 in order: the toed foot,
+   the toolkit's body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 7), reaction
+   time (0.15 s, the owner's decision), chance from a seed, life in the senses, the baseline
+   evaluation, read under the owner's verdict (Drills step 7), which lands before it, and the
+   trainer, its speed measured and its largest cost cut first, with the bare entrant.
+2. **Then Kinetic's design**, steps 8 to 15 in order, before any training run: worth in life
+   (step 8), the foe's phase (step 9), the value of a position (step 10), exits and letting go
+   (step 11), the stand-up as a chain with no sub-mind (step 12), footwork and the guard
+   (step 13), measured profiles (step 14), the options fighter as a preset (step 15).
+3. **Then training**, on the completed design, each paired by the baseline evaluation: the
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
    one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait and
    the other skills ([Body and motor control](#body-and-motor-control)).
-4. **Beside them:** Drills step 7 (the owner's two-minute verdict), which Kinetic step 5, the
+4. **Beside them:** Drills step 7 (the owner's two-minute verdict), which Kinetic step 6, the
    Punch's fights and every rating wait on; Drills step 2 (the moving target, overlays and side by
-   side), which Punch step 2b needs; Footwork's rungs (Drills step 4) after Kinetic step 11.
-   Recovery step 1 (the Rogue with the club), then step 3 once Kinetic's rise stands the target:
-   the game's bodies take toes with it, since on them step-up stands none of the target's falls
-   ([on the game bodies](reference/toes.md#on-the-game-bodies)). Mind data step 2 (the packed
-   format, lossless), then step 3.
+   side), which Punch step 2b needs; Footwork's rungs (Drills step 4) after Kinetic step 13.
+   Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
+   since on them step-up stands none of the target's falls
+   ([on the game bodies](reference/toes.md#on-the-game-bodies)). Tempo retired
+   ([The AI](#the-ai)).
 5. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -117,7 +117,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 - Headless runs build a Babylon scene (`buildBout`, `buildCrypt`): physics owning the transforms
   and no scene in Node comes with a client that needs it, keeping exact arithmetic and the engine
-  contract.
+  contract. Its cost is read with the trainer's speed ([Kinetic](plans/2026-10-27-kinetic.md),
+  step 7), which may be that client.
+- Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
+  ships data: one network does today, and the punch's retraining replaces it.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
   the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md)).
 - The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
@@ -130,7 +133,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
-    ([Kinetic](plans/2026-10-27-kinetic.md), step 11);
+    ([Kinetic](plans/2026-10-27-kinetic.md), step 13);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -153,7 +156,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
     `loadData`), once the screen is in use and a live run would save a trip to the command line;
   - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
     a chooser scored by regret, when a tactics question needs one; its value unit is life
-    ([Kinetic](plans/2026-10-27-kinetic.md), step 6), and it waits on how a chooser ranks responses.
+    ([Kinetic](plans/2026-10-27-kinetic.md), step 8), and it waits on how a chooser ranks responses.
 
 ### Body and motor control
 
@@ -271,16 +274,22 @@ screened small (one body, one loadout, one group of falls) before its full targe
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
-  qualified it against the field ([record](reference/vanguard.md)). The entrant stays; its
-  tactics move onto entry conditions and profiles ([Drills](plans/2026-10-24-drills.md), step 6).
-- Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
-  between); a library for a body of another shape behind the same seam.
+  qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
+  an opponent outside Kinetic that the baseline evaluation fights
+  ([Kinetic](plans/2026-10-27-kinetic.md), step 6); its tactics are not ported.
+- **Tempo** is legacy and retires: its kind, presets, records and the tests and scripts that name
+  it, each read for what still needs a mind in its place.
+- Not built: a learned mind (the bare entrant, [Kinetic](plans/2026-10-27-kinetic.md) step 7, is
+  its route, trained after Kinetic's design); sight that is blocked (the senses pass every body
+  whatever stands between); a library for a body of another shape behind the same seam.
+- **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
+  striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
   ([Drills](plans/2026-10-24-drills.md), step 6), each asked of a concrete failure, one decision at
   a time, and read by the paired report:
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
-    legs skill, `move(goal)` toward a named range ([Kinetic](plans/2026-10-27-kinetic.md), step 11);
+    legs skill, `move(goal)` toward a named range ([Kinetic](plans/2026-10-27-kinetic.md), step 13);
   - an option's worth is its profile: attack value, incoming cost, travel time, falls and
     recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
