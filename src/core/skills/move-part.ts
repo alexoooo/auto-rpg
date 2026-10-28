@@ -42,7 +42,7 @@ export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
       const of: PartConfig = GAITS[name].legs, runs = legs.runs(of);
       const key = JSON.stringify(runs === undefined ? of : { ...of, runs: undefined });
       if (!built.has(key)) built.set(key, legs.make(body, of));
-      return { legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
+      return { name, legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
     });
     return move(gaits, config.rules.map((r) => legs.parts.of("move-rule", r).make(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
   },

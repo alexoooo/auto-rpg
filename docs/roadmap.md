@@ -60,7 +60,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 2 to 7 in order: the toolkit's
-   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 3 to 9, the one
+   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 4 to 9, the one
    learned punch the last), reaction time (0.15 s, the owner's decision), chance from a seed,
    life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),

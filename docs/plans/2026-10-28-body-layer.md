@@ -86,17 +86,16 @@ action that holds a foot holds the legs, so the legs goal it writes decides whic
   to bear (a biped's two feet; hands and knees; a quadruped's four), not a side. Legs that cannot
   bear on an end asked report it unmet ([below](#what-the-controllers-did-not-carry-out)), so a
   ground technique and a quadruped's legs ask in the same goal. The game's legs bear on feet.
-- **A carriage and a gait, by name** (step 3): `carriage`, the fighting pose held standing and
-  kept while moving where the gait keeps it, and `gait`, how the legs move the body
+- **A carriage and a gait, by name**: `carriage`, the fighting pose held standing and kept while
+  moving where the gait keeps it (`CARRIAGES`), and `gait`, how the legs move the body (`GAITS`)
   ([Kinetic](2026-10-27-kinetic.md#carriages-and-gaits)). Left out, the legs keep the ones they
-  have.
+  have. A carriage's trunk lean and arms' rest are the trunk's and the arms' owners' posture, read
+  from the carriage the legs hold, added when a carriage asks for one; another carriage (orthodox,
+  southpaw, low) when a drill asks for it, and a shuffle gait that keeps a carriage's stagger when
+  footwork asks for one.
 
 One rule instead of a term a need: a field added to `StanceGoal` is askable by every action with
-no new claim term. Each field has one form, the stance's:
-
-| Today | In the legs goal |
-| --- | --- |
-| the square stance the body was built in, one step pattern (`STANCE_GAIT`) | `carriage` and `gait`, by name |
+no new claim term, in the stance's own form.
 
 The legs complete it in one method, `Locomotion.goal(view, goal, dt)`: a stance goal, or, for
 legs that drive themselves (a running gait, `LegsDrive`), the posture and pushes they write on the
@@ -194,23 +193,6 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
 
-### 3. Carriages and gaits by name
-
-Carriages are data (`CARRIAGES`, `Carriage`: width, stagger, lead side, lowering), held by the
-stance walk and named in the legs goal; a gait asks its step pattern of the stance
-(`StanceGoal.gait`). What remains: the trunk's lean and the arms' rest, as the trunk's and the
-arms' owners' posture read from the carriage the legs hold (the legs never write the trunk), added
-when a carriage asks for one; another carriage (orthodox, southpaw, low) when a drill asks for
-it. A gait is an implementation in one registry (`GAITS`, grown from `src/core/skills/gaits.ts`):
-today's stance walk and the run (`walk-run`); a shuffle that keeps a carriage's stagger joins when
-footwork asks for one. The legs slot holds a set of gaits and hands over between them at their
-exits (the run to the walk at a landing, as `walk-run` does now); the legs goal names a gait, or
-leaves it to the set's choice. Move's gaits and rules become this set, its rules cues over named
-goals.
-
-Check: the gate; the fingerprint moves no case that asks today's gaits; a scratch carriage looked
-at in the Lab.
-
 ### 4. The controllers report what they did not carry out
 
 The motor's and the legs' report, in their state, so a fork or replay carries it; the legs' unmet
@@ -236,7 +218,8 @@ options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the ga
 (its first phases those the threat readings and the down rule give) beside the chooser's
 readings. A cue's limit a number or another percept, and the first named goals as cues over it
 (`close`, `at the edge`, `out of reach`, `guard to guard`); Kinetic's default footwork asks
-`at the edge` where it computes `toEdge` now. A learned skill's input and output layout files and
+`at the edge` where it computes `toEdge` now, and Move's rules (`MoveRule`) become cues over named
+goals choosing its gait. A learned skill's input and output layout files and
 their reader: the punch's inputs (`PUNCH_FEATURES`, today a vector written by hand) named as
 percepts, its outputs as claim terms in the body's units (`punchChannels` and `STANCE_FULL` read
 from the file).
@@ -289,4 +272,4 @@ in the legs goal; every gait, carriage and stance implementation passes the prob
 registry holds the chooser's readings, the gait's phase and the report, and goals are named cues
 over it; a learned skill's inputs and outputs are layout files in the body's units; Kinetic has no
 composer and no refusals of its own; the learned puncher's and Kinetic's still and walk rungs are
-unmoved by steps 3, 4, 6 and 7; step 8 is kept or its reason recorded; and there is one learned punch.
+unmoved by steps 4, 6 and 7; step 8 is kept or its reason recorded; and there is one learned punch.

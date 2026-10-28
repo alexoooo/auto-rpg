@@ -2,6 +2,7 @@ import type { BodyView } from "../body.ts";
 import { hypot } from "../math/real.ts";
 import { nearestFoe } from "../mind/targets.ts";
 import { conditionMatches, type ConditionReading } from "../mind/conditions.ts";
+import type { GaitName } from "./gaits.ts";
 import type { Locomotion } from "./locomotion.ts";
 
 /**
@@ -45,10 +46,11 @@ function foeDistance(view: BodyView): number {
 }
 
 /**
- * **A gait of Move**: the walk it walks by, and for a walk that runs as well (`Locomotion.runs`),
- * whether it may run. Two gaits may share one walk.
+ * **A gait of Move**: its name (`GAITS`), the walk it walks by, and for a walk that runs as well
+ * (`Locomotion.runs`), whether it may run. Two gaits may share one walk.
  */
 export interface MoveGait {
+  readonly name: GaitName;
   readonly legs: Locomotion;
   readonly runs?: boolean;
 }
@@ -66,8 +68,9 @@ function allyDistance(view: BodyView): number {
 const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destination: Infinity, ally: Infinity });
 
 /**
- * **Move**: a locomotion skill (`Locomotion`) that walks by one of `gaits`, the first whose rule of
- * `rules` matches (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance
+ * **Move**: a locomotion skill (`Locomotion`) that walks by one of `gaits`: the one a legs goal
+ * names (`LegsGoal.gait`) where it has it, else the first whose rule of `rules` matches
+ * (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance
  * standing or shifting its weight, and taking no step of its own), and the one it changes to is
  * resumed from the body as it is (`Skill.resume`); the first is not, since none has driven the
  * body. A gait that drives the legs itself (`LegsDrive`) is asked to stand when another is
@@ -77,8 +80,10 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * envelope, which tactics plan by, and its arms are the gait's it walks by.
  */
 export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], otherwise: number): Locomotion {
-  const wanted = (reading: Reading, current: number | null): number =>
-    rules.find((rule) => rule.matches(reading, rule.gait === current))?.gait ?? otherwise;
+  const wanted = (reading: Reading, current: number | null, named?: GaitName): number => {
+    const asked = named === undefined ? -1 : gaits.findIndex((gait) => gait.name === named);
+    return asked >= 0 ? asked : rules.find((rule) => rule.matches(reading, rule.gait === current))?.gait ?? otherwise;
+  };
   const memory = { chosen: false, gait: wanted(STILL, null), driven: false };
   const walks = [...new Set(gaits.map((gait) => gait.legs))];
   const state = { gaits: walks.map((walk) => walk.state), choice: memory, rules: rules.map((rule) => rule.state ?? null) };
@@ -91,8 +96,8 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
   };
   told();
   /** Whether the gait now is the one wanted, changing to it between steps if not: false while a gait that drives the legs has them. */
-  const choose = (view: BodyView, walking: boolean, destination: number | undefined): boolean => {
-    const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait);
+  const choose = (view: BodyView, walking: boolean, destination: number | undefined, named?: GaitName): boolean => {
+    const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait, named);
     if (!memory.chosen) { memory.chosen = true; memory.gait = wants; return true; }
     if (wants === memory.gait) return true;
     if (gaits[wants]!.legs === now()) { memory.gait = wants; return true; }
@@ -117,12 +122,12 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     },
     goal(view, goal, dt) {
       if (goal.footing) {
-        choose(view, false, undefined);
+        choose(view, false, undefined, goal.gait);
         memory.driven = false;
         return told().goal(view, goal, dt);
       }
       // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
-      const chosen = choose(view, goal.walk !== null, goal.destination);
+      const chosen = choose(view, goal.walk !== null, goal.destination, goal.gait);
       const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt);
       memory.driven = drive.kind === "drive";
       return drive;
