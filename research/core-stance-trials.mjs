@@ -188,11 +188,11 @@ function skillOf(legs, b) {
 /**
  * The command of a body walking by the locomotion skill `skill`, asked `walk` facing `face`, its
  * posture `posture`: the stance's goal it gives (kept by `keep`, which answers the goal to stand
- * by), or the legs it drives itself (`Locomotion.drive`) with no stance, their posture laid over.
+ * by), or the legs it drives itself (`LegsDrive`) with no stance, their posture laid over.
  * The goal kept is what a fall is read against while the legs are driven.
  */
 function skillCommand(skill, view, walk, face, dt, posture, keep) {
-  const drive = skill.drive ? skill.drive(view, walk, face, dt) : { kind: "stance", goal: skill.goal(view, walk, face, dt) };
+  const drive = skill.goal(view, { walk, face }, dt);
   if (drive.kind === "drive") return { posture: { ...posture, ...drive.posture }, pushes: drive.pushes, stance: null };
   const goal = keep(drive.goal);
   return { posture, pushes: [], stance: view.time > 0 ? goal : null };

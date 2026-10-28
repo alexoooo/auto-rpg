@@ -301,8 +301,8 @@ no feet finds them standing.
 
 | Skill | File | What it is |
 |---|---|---|
-| Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`StanceWalk.place`) |
-| Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `Locomotion.drive`) when asked past its walk and allowed (`Locomotion.runs`) |
+| Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`LegsGoal.footing`) |
+| Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `LegsDrive`) when asked past its walk and allowed (`Locomotion.runs`) |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):

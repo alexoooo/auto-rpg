@@ -11,7 +11,6 @@ import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning, type Blo
 import { guardSkill } from "./guard.ts";
 import { supportFold, supportHeadDrop } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
-import type { LegsAsk } from "./skill.ts";
 import type { Skills } from "./skills.ts";
 import { placedHeightFits, placedReach } from "./strike.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
@@ -52,8 +51,6 @@ const smoothElbow = (from: number, to: number, u: number) => from + (to - from) 
 
 /** What a path strike's blows are carried out with; a setting left out is its default. */
 type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap">;
-
-const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
 
 /** The path strike's usual skills of `body`: the walk, the guard, the path strike, and the kick and the support fold it has. */
 export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
@@ -270,7 +267,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       if (live.supportPhase !== "ready") {
         const posture = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`shoulder.${hand} `) || name.startsWith(`elbow.${hand} `) || name.startsWith(`wrist.${hand} `)));
         const lower = live.supportPhase === "rise" ? STANCE_LOWER : live.lower;
-        return { posture, legs: HOLD, lower, support: lower, ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}) };
+        return { posture, legs: { walk: null, height: view.standing - lower }, support: lower, ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}) };
       }
       const phase = strike.state.phase, posture: Record<string, number> = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`wrist.${hand} `))), pushes: MusclePush[] = [];
       if (live.elbow) {
@@ -286,7 +283,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       const goal = strike.goal(course);
       return { posture, pushes, effectors: { [live.request.effector]: goal },
         ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}),
-        ...(owns.includes("legs") ? { legs: HOLD, lower: live.lower } : {}),
+        ...(owns.includes("legs") ? { legs: { walk: null, height: view.standing - live.lower } } : {}),
         ...(low !== undefined ? { support: live.lower } : {}) };
     },
   };

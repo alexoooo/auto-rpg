@@ -21,7 +21,9 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
   // Against a low foe, the highest surface of the target region.
   const resolve: TargetResolver = low ? (view, target, action, effector) => lowAim(view, target) ?? given(view, target, action, effector) : given;
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,
-    releasedAt: null as number | null, freeReturn: false };
+    releasedAt: null as number | null, freeReturn: false,
+    /** The lowering under standing the stroke was started at (`ActionAround.lower`), m: the punch's own. */
+    lower: STANCE_LOWER };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
   const follow: TargetResolver = (view, target, action, effector) => {
@@ -74,7 +76,7 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       const at = resolve(view, request.target, request.action, request.effector);
       if (!at) throw new Error("the committed aim has no target");
       remember(view, request, at);
-      try { base.start(view, request, around); state.id = request.id; state.returning = false; }
+      try { base.start(view, request, around); state.id = request.id; state.returning = false; state.lower = around.lower; }
       catch (error) { clear(); throw error; }
     },
     update(view, continued, around, dt) {
@@ -99,8 +101,8 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       if (state.freeReturn) return {};
       const ordinary = base.command(view, id, around);
       // A low punch keeps the planted fold while it owns the trunk and legs.
-      const claim = low && ordinary.lower !== undefined && ordinary.lower > STANCE_LOWER
-        ? { ...ordinary, support: ordinary.lower, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
+      const claim = low && state.lower > STANCE_LOWER
+        ? { ...ordinary, support: state.lower, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
       // The continuous guard brings the fist back and can cover with it during recovery.
       return state.returning ? { ...claim, posture: Object.fromEntries(Object.entries(claim.posture ?? {}).filter(([name]) => !arms.has(name))), handPoses: {} } : claim;
     },

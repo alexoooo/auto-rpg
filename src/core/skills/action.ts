@@ -2,7 +2,7 @@ import type { BodyCommand, BodyView } from "../body.ts";
 import type { Pose, MusclePush, EffectorGoal, PointTask } from "../control/motor.ts";
 import type { HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { Around, LegsAsk, Skill } from "./skill.ts";
+import type { Around, LegsGoal, Skill } from "./skill.ts";
 
 
 /** A sensed body's region, or a particular segment of that body. */
@@ -118,11 +118,8 @@ export interface ActionClaim {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Hand poses by the hand's segment (`BodyCommand.handPoses`). */
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
-  readonly legs?: LegsAsk;
-  readonly lower?: number;
-  readonly steer?: number;
-  /** With the legs held, the stance's centre of mass moved from where it holds it, world (x, z), m (`stanceAsked`). */
-  readonly shift?: readonly [number, number];
+  /** With the legs held, the legs goal (`LegsGoal`), which the legs complete. */
+  readonly legs?: LegsGoal;
   readonly delegate?: readonly Resource[];
   readonly support?: number;
 }

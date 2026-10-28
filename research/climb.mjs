@@ -7,7 +7,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { carrying } from "../src/core/control/motor.ts";
-import { locomotion } from "../src/core/skills/locomotion.ts";
+import { locomotion, stanceOf } from "../src/core/skills/locomotion.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
@@ -58,7 +58,7 @@ export function crouchSteady(own, view, variant = {}) {
       const r = motor.stance.reading, h = legs.heading, fx = Math.sin(h), fz = Math.cos(h);
       control.mid ??= [r.support.x, r.support.z];
       if (variant.ease) motor.setPosture(blend(smooth(Math.min(1, t / variant.ease))));
-      let goal = legs.goal({ ...view, stance: r }, null, h, dt);
+      let goal = stanceOf(legs.goal({ ...view, stance: r }, { walk: null, face: h }, dt));
       if (goal && variant.ahead && t < variant.ahead.T)
         goal = { ...goal, centre: [control.mid[0] + variant.ahead.d * fx, control.mid[1] + variant.ahead.d * fz] };
       if (goal && variant.fold) {
@@ -143,7 +143,7 @@ export function crouchSteady(own, view, variant = {}) {
           motor.setPosture(pose); goal = null;
         } else if (!control.climbed) {
           control.climbed = true; motor.setPosture(kit.posture); resume(); motor.stance.read();
-          goal = legs.goal({ ...view, stance: motor.stance.reading }, null, legs.heading, dt);
+          goal = stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
         }
       }
       control.lead = (r.centre.x - r.support.x) * fx + (r.centre.z - r.support.z) * fz; control.steps = r.recoveries + r.strides;

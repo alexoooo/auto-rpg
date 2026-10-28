@@ -5,7 +5,7 @@ import { turnOfToRef } from "../../control/support.ts";
 import { atan2, cos, sin } from "../../math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
-import { locomotion, STANCE_LOWER } from "../../skills/locomotion.ts";
+import { locomotion, STANCE_LOWER, stanceOf } from "../../skills/locomotion.ts";
 import { bodyKey, type Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
@@ -180,7 +180,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
           motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading });
         }
         motor.stance.read();
-        const goal = legs.goal({ ...view, stance: motor.stance.reading }, null, legs.heading, dt);
+        const goal = stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt));
         motor.setStance(goal && climbing(goal, dt));
         motor.control(own.muscles, dt); remember(); state.time += dt;
         if (state.climb.on) return;

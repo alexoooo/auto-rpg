@@ -23,7 +23,7 @@ export interface GroundFightConfig { readonly kind: "ground-fight"; readonly rea
 export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit, afterPhysics: Body["afterPhysics"]): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built), { fromActual: true, seedActual: true }), posture: Record<string, number> = {};
   const legs: Locomotion = { state: {}, heading: 0, stopping: 0,
-    resume() {}, goal() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
+    resume() {}, goal() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
   const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {}, {
     legs, navigation: null, guard: kit.guard(own.built), executors: [{ name: "ground", executor }],

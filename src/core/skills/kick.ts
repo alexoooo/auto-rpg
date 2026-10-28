@@ -197,10 +197,10 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       }
       return [{ id: live.request.id, phase: live.phase, stage: live.stage === "strike" ? strike.state.phase ?? "return" : live.stage, holds: footprints[live.foot] }];
     },
-    command(view, id) {
+    command(_view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
-      return { legs: { kind: "hold" }, lower: view.standing - live.height, delegate: ["trunk"] };
+      return { legs: { walk: null, height: live.height }, delegate: ["trunk"] };
     },
     overlay(view, id, _base) {
       const live = state.live;

@@ -14,6 +14,7 @@ import type { GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
 import type { NavigationSight, Navigator } from "../mind/navigator.ts";
+import type { LegsAsked, LegsGoal } from "./skill.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { directMovement } from "../mind/movement.ts";
 import { cos, hypot, sin } from "../math/real.ts";
@@ -111,7 +112,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         claims.push({ id: item.id, claim, controls, delegated });
       }
       const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
-      state.walkable = legsAsked ? legsAsked.kind === "free" : available("stance");
+      state.walkable = legsAsked ? legsAsked.walk === undefined && legsAsked.footing === undefined : available("stance");
       const posture: Record<string, number> = {}, pushes: MusclePush[] = [], points: PointTask[] = [], effectors: Record<string, EffectorGoal | null> = {};
       const handPoses: Partial<Record<string, HandPose>> = {};
       for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
@@ -127,23 +128,13 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const supportOwner = claims.find(item => item.claim.support !== undefined);
       const supportFree = supportControls.every(free);
       const supporting = support && (supportOwner || supportFree);
-      const ask = legOwner?.claim.legs ?? (available("stance") ? { kind: "free" as const } : null);
-      const lower = supporting ? STANCE_LOWER : legOwner?.claim.lower ?? intent.lower;
+      const asked = legOwner?.claim.legs ?? (available("stance") ? {} : null);
       let stance: StanceGoal | null = null;
-      let moving: { walk: readonly [number, number] | null; face: number } | null = null;
-      if (ask) switch (ask.kind) {
-        case "free": moving = { walk: intent.move, face: intent.face }; break;
-        case "hold": moving = { walk: null, face: intent.face }; break;
-        case "walk": moving = { walk: ask.walk, face: ask.face }; break;
-        case "place": stance = legs.place ? legs.place(view, ask.footing, lower) : legs.goal(view, null, legs.heading, dt, lower); break;
-        default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
-      }
-      // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
-      if (moving && support && !support.walks()) moving = { walk: null, face: moving.face };
       let driven = false;
-      if (moving) {
-        const drive = legs.drive?.(view, moving.walk, moving.face, dt, lower, intent.destination)
-          ?? { kind: "stance" as const, goal: legs.goal(view, moving.walk, moving.face, dt, lower, intent.destination) };
+      if (asked) {
+        // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
+        const goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks(), folding: !!supporting });
+        const drive = legs.goal(view, goal, dt);
         switch (drive.kind) {
           case "stance": stance = drive.goal; break;
           case "drive": {
@@ -159,7 +150,6 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
         }
       }
-      if (legOwner) stance = stanceAsked(stance, view, legOwner.claim);
       const swung = legs.arms?.(view);
       if (swung) for (const model of models) {
         if (!guard.hands.includes(model.segment) || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
@@ -213,17 +203,18 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
 }
 
 /**
- * **`stance` as the action that holds the legs asks it** (`claim`): its heading turned by
- * `steer`, its centre of mass moved by `shift` from where it holds it (the middle of the
- * stance soles where it names none, `view.stance.support`), and halted where its walk asks
- * (`LegsAsk`); as it is where the claim asks none of these.
+ * **The legs goal the legs are given** (`LegsAsked`): `asked`, its walk and facing the intent's
+ * where it leaves them out, and its height the intent's lowering under standing where it sets
+ * none. A footing asked stands, facing the legs' `heading`. While a support fold is under way
+ * (`waiting`) a walk waits for it to rise; while the fold lays the legs (`folding`,
+ * `SupportSkill.apply`) the legs hold their own height.
  */
-export function stanceAsked(stance: StanceGoal | null, view: BodyView, claim: Pick<ActionClaim, "steer" | "shift" | "legs">): StanceGoal | null {
-  const halt = claim.legs?.kind === "walk" && claim.legs.halt === true;
-  if (!stance || !claim.steer && !claim.shift && !halt) return stance;
-  const shift = claim.shift, support = view.stance.support;
-  return { ...stance, ...(halt ? { halt } : {}), ...(claim.steer ? { heading: stance.heading + claim.steer } : {}),
-    ...(shift ? { centre: [(stance.centre?.[0] ?? support.x) + shift[0], (stance.centre?.[1] ?? support.z) + shift[1]] as const } : {}) };
+export function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination">, view: Pick<BodyView, "standing">, heading: number,
+  fold: { readonly waiting: boolean; readonly folding: boolean }): LegsAsked {
+  const height = fold.folding ? undefined : asked.height ?? (intent.lower === undefined ? undefined : view.standing - intent.lower);
+  if (asked.footing) return { ...asked, walk: null, face: heading, height };
+  return { ...asked, walk: fold.waiting ? null : asked.walk !== undefined ? asked.walk : intent.move, face: asked.face ?? intent.face, height,
+    destination: asked.destination ?? intent.destination };
 }
 
 /**

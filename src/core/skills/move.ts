@@ -2,7 +2,7 @@ import type { BodyView } from "../body.ts";
 import { hypot } from "../math/real.ts";
 import { nearestFoe } from "../mind/targets.ts";
 import { conditionMatches, type ConditionReading } from "../mind/conditions.ts";
-import type { LegsDrive, Locomotion } from "./locomotion.ts";
+import type { Locomotion } from "./locomotion.ts";
 
 /**
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no
@@ -70,7 +70,7 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * `rules` matches (`MoveRule`), or `otherwise`. The gait changes only between steps (the stance
  * standing or shifting its weight, and taking no step of its own), and the one it changes to is
  * resumed from the body as it is (`Skill.resume`); the first is not, since none has driven the
- * body. A gait that drives the legs itself (`Locomotion.drive`) is asked to stand when another is
+ * body. A gait that drives the legs itself (`LegsDrive`) is asked to stand when another is
  * wanted, and the gait changes once it has given the legs back to the stance. Two gaits of one walk
  * change at once, the walk told whether it may run (`MoveGait.runs`). Before the body's first
  * step, and as it is resumed, it walks by the gait it would stand by with nothing near. Its
@@ -115,26 +115,18 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
       memory.driven = false;
       told().resume(view);
     },
-    place(view, footing, lower) {
-      choose(view, false, undefined);
-      memory.driven = false;
-      const legs = told();
-      return legs.place ? legs.place(view, footing, lower) : legs.goal(view, null, legs.heading, 0, lower);
+    goal(view, goal, dt) {
+      if (goal.footing) {
+        choose(view, false, undefined);
+        memory.driven = false;
+        return told().goal(view, goal, dt);
+      }
+      // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
+      const chosen = choose(view, goal.walk !== null, goal.destination);
+      const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt);
+      memory.driven = drive.kind === "drive";
+      return drive;
     },
-    goal(view, walk, face, dt, lower, destination) {
-      choose(view, walk !== null, destination);
-      memory.driven = false;
-      return told().goal(view, walk, face, dt, lower, destination);
-    },
-    ...(walks.some((walk) => walk.drive) ? {
-      drive(view: BodyView, walk: readonly [number, number] | null, face: number, dt: number, lower?: number, destination?: number): LegsDrive {
-        // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
-        const asked = choose(view, walk !== null, destination) ? walk : null, legs = told();
-        const drive: LegsDrive = legs.drive ? legs.drive(view, asked, face, dt, lower, destination) : { kind: "stance", goal: legs.goal(view, asked, face, dt, lower, destination) };
-        memory.driven = drive.kind === "drive";
-        return drive;
-      },
-    } : {}),
     ...(walks.some((walk) => walk.arms) ? { arms: (view: BodyView) => now().arms?.(view) ?? null } : {}),
   };
 }

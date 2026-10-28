@@ -136,7 +136,7 @@ interface WalkRunMemory {
 /**
  * **The walk and the run**: a locomotion skill (`Locomotion`) that walks by the stance's own walk
  * (`locomotion`: capture-point steps it plans itself) and runs by a run that tracks a person's
- * cycle (`runCycle`), driving the legs itself (`Locomotion.drive`).
+ * cycle (`runCycle`), driving the legs itself (`LegsDrive`).
  *
  * Asked past `run` a way near enough the face asked (`RUN_WAY`, and told it may run, `Locomotion.runs`),
  * the walk turns the body to face that way and goes it at what its legs and its envelope hold, and once
@@ -225,19 +225,15 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get reference() { return legs.reference; },
     get placed() { return !memory.running && legs.placed; },
     resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
-    place(view, footing, lower) {
-      if (memory.running) walkOn(view);
-      return legs.place(view, footing, lower);
-    },
-    goal(view, walk, face, dt, lower) {
-      if (memory.running) walkOn(view);
-      return legs.goal(view, walk, face, dt, lower);
-    },
-    drive(view, asked, face, dt, lower, destination): LegsDrive {
-      const s = view.stance, v = s.velocity;
+    goal(view, goal, dt): LegsDrive {
+      const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
+      if (goal.footing) {
+        if (memory.running) walkOn(view);
+        return legs.goal(view, goal, dt);
+      }
       if (view.down) {
         if (memory.running) walkOn(view);
-        return { kind: "stance", goal: legs.goal(view, null, face, dt, lower, destination) };
+        return legs.goal(view, { ...goal, walk: null }, dt);
       }
       if (!memory.running) {
         const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
@@ -252,7 +248,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
-        else return { kind: "stance", goal: legs.goal(view, walkable(memory.capped > 0 ? [speed, 0] : asked), way, dt, lower, destination) };
+        else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
@@ -269,7 +265,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
       if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && Math.sqrt(v.x * v.x + v.z * v.z) <= settings.run) {
         walkOn(view);
-        return { kind: "stance", goal: legs.goal(view, asked, face, dt, lower, destination) };
+        return legs.goal(view, goal, dt);
       }
       // What the body's balance gives the run (`gaitAssist`): its pelvis as its stance hip last held it.
       aim.heading = h;

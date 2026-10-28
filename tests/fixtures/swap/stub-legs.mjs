@@ -18,7 +18,6 @@ export const STUB_LEGS = Object.freeze({
       get stopping() { return walk.stopping; },
       resume: (view) => walk.resume(view),
       goal: (...asked) => { state.steps++; return walk.goal(...asked); },
-      ...walk.drive ? { drive: (...asked) => { state.steps++; return walk.drive(...asked); } } : {},
     };
   },
 });

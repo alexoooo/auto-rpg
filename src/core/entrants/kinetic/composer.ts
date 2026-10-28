@@ -11,10 +11,10 @@ import type { HandPose } from "../../spec/body.ts";
 import type { ActionAround, ActionClaim, Resource } from "../../skills/action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "../../skills/action-instances.ts";
 import { actionResources } from "../../skills/action-resources.ts";
-import { navigated, stanceAsked, type Holders } from "../../skills/arbiter.ts";
+import { legsGoal, navigated, type Holders } from "../../skills/arbiter.ts";
 import type { GuardSkill } from "../../skills/guard.ts";
 import { STANCE_LOWER, type Locomotion } from "../../skills/locomotion.ts";
-import type { LegsAsk } from "../../skills/skill.ts";
+import type { LegsGoal } from "../../skills/skill.ts";
 import type { Skills } from "../../skills/skills.ts";
 
 /**
@@ -64,16 +64,15 @@ function refusalOf(part: BodyPart, held: readonly BodyPart[]): string | null {
  *
  * - A live action holds the parts its executor needs; the rest are the defaults'. Two actions on
  *   one part is a defect.
- * - An action's claim writes only the parts it holds, and the legs only through the stance: its
- *   walk, its facing turned by its `steer`, how low it stands, a footing. A posture, push, point or
+ * - An action's claim writes only the parts it holds, and the legs only through its legs goal
+ *   (`LegsGoal`): its walk, facing, height, heading, centre, a footing. A posture, push, point or
  *   goal on a leg's channel or on a part it does not hold is refused, not written, and the
  *   refusal is reported (`refused`); so are a low support and a delegation, which it does not give.
  * - The defaults: the legs walk and face as the intent asks, its movement made a walk by the
  *   navigation (`navigated`); each free arm holds the guard, covers as the intent asks, takes its
  *   free hand's pose and hold, and swings with the walk where the walk swings it.
  *
- * The legs' walk is the stance's (`Locomotion.goal`): a gait that would drive the legs itself is
- * walked in the stance. Its report is the skills' (`SkillReport`), with each part's holder.
+ * The legs complete the goal (`Locomotion.goal`): a stance goal, or a gait's own drive of the legs. Its report is the skills' (`SkillReport`), with each part's holder.
  */
 export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, tactics: Pick<Tactics, "state" | "engagement">, parts: KineticParts) {
   const { legs, guard, navigation, executors, actions } = parts;
@@ -175,7 +174,7 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         for (const channel of model.channels) if (swung[channel] !== undefined) posture[channel] = swung[channel]!;
       }
       // The actions' claims, each on the parts it holds; the legs' only through the stance.
-      let legsAsk: LegsAsk | null = null, lower = intent.lower, asks: Pick<ActionClaim, "steer" | "shift" | "legs"> = {};
+      let legsAsked: LegsGoal = {};
       for (const { by, held, claim } of claims) {
         const take = (write: string, part: BodyPart): boolean => {
           const reason = refusalOf(part, held);
@@ -189,24 +188,18 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         for (const [segment, pose] of Object.entries(claim.handPoses ?? {})) if (take(`pose ${segment}`, partOfSegment(segment)) && pose) handPoses[segment] = pose;
         if (claim.support !== undefined) refuse(by, "support", "Kinetic gives no low support");
         if (claim.delegate?.length) refuse(by, "delegate", "Kinetic delegates nothing");
-        if (held.includes("legs")) {
-          legsAsk = claim.legs ?? { kind: "hold" };
-          lower = claim.lower ?? lower;
-          asks = claim;
-        } else if (claim.legs !== undefined || claim.lower !== undefined || claim.steer !== undefined || claim.shift !== undefined) refuse(by, "legs", "it does not hold the legs");
+        if (held.includes("legs")) legsAsked = claim.legs ?? { walk: null };
+        else if (claim.legs !== undefined) refuse(by, "legs", "it does not hold the legs");
       }
-      // The legs: the stance, as the action that holds them asks or the intent where none does.
-      const ask: LegsAsk = legsAsk ?? { kind: "free" };
-      let stance: StanceGoal | null;
-      switch (ask.kind) {
-        case "free": stance = legs.goal(view, intent.move, intent.face, dt, lower, intent.destination); break;
-        case "hold": stance = legs.goal(view, null, intent.face, dt, lower, intent.destination); break;
-        case "walk": stance = legs.goal(view, ask.walk, ask.face, dt, lower, intent.destination); break;
-        case "place": stance = legs.place ? legs.place(view, ask.footing, lower) : legs.goal(view, null, legs.heading, dt, lower); break;
-        default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
+      // The legs: their goal as the action that holds them asks it, or the intent's where none does; legs that drive themselves write the legs' channels.
+      const drive = legs.goal(view, legsGoal(legsAsked, intent, view, legs.heading, { waiting: false, folding: false }), dt);
+      let stance: StanceGoal | null = null;
+      switch (drive.kind) {
+        case "stance": stance = drive.goal; break;
+        case "drive": Object.assign(posture, drive.posture); pushes.push(...drive.pushes); break;
+        default: { const never: never = drive; throw new Error(`unknown legs command ${JSON.stringify(never)}`); }
       }
-      stance = stanceAsked(stance, view, asks);
-      state.walkable = ask.kind === "free";
+      state.walkable = legsAsked.walk === undefined && legsAsked.footing === undefined;
       const command: BodyCommand = { posture, pushes, points, effectors: goals, handPoses, stance };
       instances.snapshot();
       return command;

@@ -38,7 +38,7 @@ import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } f
  * to touch something, or `longest` s after it began; the arm comes back to the guard over
  * `recover` s. With `landed`, the drive also waits for both feet to bear: a step under way lands
  * first, as a boxer's lead foot lands with the jab. With `halts`, it stops a walk at once from its
- * start (`LegsAsk`'s `halt`, `StanceGoal.halt`): a step not yet lifted is not taken. With `driven`, the arm is not pushed joint by
+ * start (`LegsGoal.halt`, `StanceGoal.halt`): a step not yet lifted is not taken. With `driven`, the arm is not pushed joint by
  * joint: from `lead` its striking point is driven (`PointTask`) to where the contact pose puts it,
  * at the speed `accel` m/s^2 gives it over what is left of the way, and no less than it gives over
  * `arrive` m, so the fist meets the target moving and the arm's range stops it; the velocity that
@@ -54,7 +54,8 @@ import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } f
  * state's `features`) and adds its state's `steer` to the pushes of its trunk, legs and arm
  * (`steerPushes`); the steer is its trainer's to set, and none at the drive's start. With
  * `steered` `stance`, the steer's legs' outputs are asks of the stance instead (`stanceAsks`):
- * a turn added to its heading (`ActionClaim.steer`) and its centre's shift (`ActionClaim.shift`).
+ * a turn added to the legs' heading (`LegsGoal.heading`) and a shift of its centre from the support's
+ * middle (`LegsGoal.centre`).
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -537,7 +538,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: sides[live.hand] }];
       return updates;
     },
-    command(view, id) {
+    command(view, id, around) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`straight punch has no instance ${id}`);
       const pushes: MusclePush[] = [], points: PointTask[] = [];
@@ -545,9 +546,12 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.steer, motion.face, sense, shift) : 0;
+      // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
+      const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
       return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),
-        legs: { kind: "walk", walk: null, face: motion.face, ...(settings.halts ? { halt: true } : {}) }, lower: live.lower,
-        steer: live.phase === "commit" ? sense * settings.hips + turn : 0, ...(shift[0] === 0 && shift[1] === 0 ? {} : { shift }) };
+        legs: { walk: null, face: motion.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower,
+          ...(steer ? { heading: around.heading + steer } : {}),
+          ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };
     },
   };
 }

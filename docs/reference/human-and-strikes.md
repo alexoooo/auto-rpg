@@ -32,7 +32,7 @@ the controller of `e4ec0709`; Node core stand):
 
 A step into a staggered stance converges with the rate too (`node research/stance-stagger.mjs`):
 after 1.5 s in the guard, the right sole stepped 30 cm right of the left and 15 cm behind over
-0.3 s, lifted 5 cm, as `Locomotion.place` steps. Every body stayed up without a step of its own:
+0.3 s, lifted 5 cm, as a footing asked of the legs (`LegsGoal.footing`) steps. Every body stayed up without a step of its own:
 the bearing foot slid 0.0 to 0.2 cm, the centre of mass peaked at 0.19 to 0.25 m/s, and the sole
 landed 1.3 to 2.4 cm from its goal, at 120, 480 and 1920 Hz on the Warrior, the Rogue and the
 skeleton. Strikes are thrown from the square stance the body was built in, which every recipe was
@@ -43,7 +43,7 @@ searched from.
 `APPROACH` is `{ pace: 0.3, reach: 0.25 }`. `pace` (m/s) is the Routine's pace through its
 turns, which each human held: a recipe is admitted with the body moving no faster
 (`recipeExecutor`'s entry window), the tactics having brought it there, and its preparation then
-sets the feet at the blow's place (`Locomotion.place`). `reach` is set: a placed blow is thrown
+sets the feet at the blow's place (`LegsGoal.footing`). `reach` is set: a placed blow is thrown
 from within 0.25 m of its place each way.
 
 The figures below were read with the walking strike skill, which closed the distance itself at the
@@ -63,7 +63,7 @@ window, at 120 and 480 Hz, and none fell (`node research/core-routine-battery.mj
 ## Placing
 
 `PLACING.near` is 0.02 m: a foot further than that from its place steps there
-(`Locomotion.place`). Set, not measured. A recipe is kept only if its window is twice that wide
+(`LegsGoal.footing`). Set, not measured. A recipe is kept only if its window is twice that wide
 or more along the heading and across it
 ([A recipe the feet cannot be set to](#a-recipe-the-feet-cannot-be-set-to)); the Routine's
 strikes ([Approach](#approach)) stood inside their windows with it.

@@ -67,7 +67,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
     validate(resources, claim) {
       const held = controls(resources);
       writes(held, claim);
-      if ((claim.legs !== undefined || claim.lower !== undefined || claim.steer !== undefined) && !held.includes("stance")) throw new Error("action has no legs");
+      if (claim.legs !== undefined && !held.includes("stance")) throw new Error("action has no legs");
       if (claim.support !== undefined && (!resources.includes("legs") || !resources.includes("trunk"))) throw new Error("support needs legs and trunk");
       for (const control of controls(claim.delegate ?? [])) if (!held.includes(control)) throw new Error(`unowned delegation ${control}`);
       const delegated = controls(claim.delegate ?? []);

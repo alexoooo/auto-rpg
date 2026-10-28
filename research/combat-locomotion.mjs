@@ -2,7 +2,7 @@ import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
 import {createBody, SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
-import {locomotion,STANCE_LOWER} from '../src/core/skills/locomotion.ts';
+import {locomotion,STANCE_LOWER,stanceOf} from '../src/core/skills/locomotion.ts';
 import {GUARD} from '../src/core/skills/guard.ts';
 import {balanceCeiling,balancePercent,rulebook} from '../src/core/rules/rulebook.ts';
 
@@ -17,7 +17,7 @@ export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,m
  body.drive((view,dt)=>{
   if(view.time>=1+after&&turned<Math.PI){const d=Math.min(rate*dt,Math.PI-turned);turned+=d;heading+=sense*d;}
   const walk=view.time<1||view.time>=1+after+Math.PI/rate+3?null:[speed,0];
-  const stance=legs.goal(view,walk,heading,dt);
+  const stance=stanceOf(legs.goal(view,{walk,face:heading},dt));
   maximumTurn=Math.max(maximumTurn,Math.abs(legs.heading-askedHeading)/dt);askedHeading=legs.heading;
   reference=legs.reference;
   return {posture:GUARD,pushes:[],stance};

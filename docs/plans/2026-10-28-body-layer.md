@@ -17,13 +17,11 @@ registries; they bind no mind.
 
 ## Why
 
-- **The claim grows a field a symptom.** An action's claim (`ActionClaim`,
-  `src/core/skills/action.ts`) asks the legs in a `LegsAsk` of four kinds, plus `lower`, `steer`,
-  `shift`, a `halt` in the walk, `support` and `delegate`. `shift` and `halt` were added for one
-  punch symptom each. They are applied by editing the stance goal after the legs made it
-  (`stanceAsked`), and so are the support fold (`SupportSkill.apply`, `support-fold.ts`) and the
-  kick, whose `overlay` replaces the whole stance goal (`kick.ts`). Another legs implementation
-  would get its goal rewritten under it.
+- **The stance is edited after the legs.** An action's claim (`ActionClaim`,
+  `src/core/skills/action.ts`) asks the legs in one goal (`LegsGoal`), beside `support` and
+  `delegate`; but the support fold (`SupportSkill.apply`, `support-fold.ts`) rewrites the stance
+  goal the legs made, and the kick's `overlay` replaces it whole (`kick.ts`). Another legs
+  implementation would get its goal rewritten under it.
 - **A skill's variants multiply with it.** The learned punch has two layouts (`steered`: its leg
   outputs as pushes, or as asks of the stance), two data keys (`learned-punch`, `stance-punch`), and
   a `halts` setting in three parts' key lists; its outputs are a list written by hand
@@ -31,7 +29,7 @@ registries; they bind no mind.
 - **Two body layers do one job.** The arbiter owns the body by concrete control (each channel,
   effector, hand pose and the stance), fills the free ones with the defaults, and lets an action
   hand some back (`delegate`). Kinetic's composer (`src/core/entrants/kinetic/composer.ts`) does
-  the same with four coarser parts, and every change to the claim lands in both (`stanceAsked`).
+  the same with four coarser parts, and every change to the claim lands in both (`legsGoal`).
 - **Refusals police what the body already decides.** A push on a leg the stance drives is
   overwritten by the step's solve (`solveBody`, `src/core/control/solve.ts`), silently; Kinetic
   refuses such writes instead of the body saying it overrode them. A leg the stance does not drive
@@ -72,7 +70,7 @@ An action's claim is the body's command in its own terms, its legs as one goal:
 | `effectors` | where an effector's points go and when: a hand's, a foot's, a held item's | the same |
 | `points` | an effector's point accelerated or turned (`PointTask`) | the same |
 | `handPoses` | a hand's shape | the same |
-| `legs` | the legs goal (below) | `legs`, `lower`, `steer`, `shift`, `support`, `overlay`'s stance |
+| `legs` | the legs goal (below) | `legs`, `support`, `overlay`'s stance |
 
 The body's own rules stay the body's: one of a goal or a point an effector; no push on a point's
 chain; no goal or point on a foot the stance bears (`obey`, `src/core/body.ts`, which throws). An
@@ -83,7 +81,7 @@ action that holds a foot holds the legs, so the legs goal it writes decides whic
 `LegsGoal` is the stance goal's own fields, any of them left out, beside the walk:
 
 - **The walk**: `walk` (the centre of mass's velocity, or none to stand), `face` (the heading a
-  walk turns toward), `footing` (where each sole's middle is set, `Locomotion.place`), and
+  walk turns toward), `footing` (where each sole's middle is set), and
   `destination` (where a walk ends, for its stopping). Absent and a walk of none are distinct, as
   today.
 - **Any `StanceGoal` field**: `feet`, `centre`, `height`, `heading`, `pose` (its `anchors`
@@ -103,10 +101,6 @@ no new claim term. Each field has one form, the stance's:
 
 | Today | In the legs goal |
 | --- | --- |
-| `steer`, a turn added this step | `heading`, the legs' heading (`ActionAround.heading`) plus the turn; unstored, as the walk's stored heading is the legs' own |
-| `shift`, from the stance's support | `centre`, world: the support's middle (`view.stance.support`) plus the shift, computed in the action as `stanceAsked` computes it now |
-| `lower`, under standing | `height`: `view.standing` less the lowering |
-| the walk's `halt` | `halt` |
 | the kick's overlay | `feet`, `centre`, `height`, `heading`, `pose`, `swing`, written by the kick |
 | `support`, the fold | `height` and `pose`; its trunk flexion is the trunk's owner's (step 2) |
 | the square stance the body was built in, one step pattern (`STANCE_GAIT`) | `carriage` and `gait`, by name |
@@ -203,28 +197,15 @@ output file's reader; a new layout is data, not code. The general trainer
 ## Steps
 
 The toolkit steps are read with the fingerprint against the commit before, and name the cases
-that move. Each code step runs the gate and reads the step's cost before and after. All nine are
+that move. Each code step runs the gate and reads the step's cost before and after. All are
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
-
-### 1. The legs goal
-
-`LegsGoal` (the walk, and `StanceGoal`'s fields in part) and `Locomotion.goal(view, goal, dt)`,
-which completes it; `feet` typed by the spec's bearing ends, a human's two feet the ends its
-legs bear on (`Side` today); `ActionClaim.legs` the goal, its `lower`, `steer`, `shift` and the walk's
-`halt` moved into its `height`, `heading`, `centre` and `halt`, each computed in the action in the
-same operations as `stanceAsked` and the legs compute it now; `stanceAsked` deleted. Every legs
-implementation and caller (`locomotion.ts`, `move.ts`, `walk-run.ts`, the stand-up's and support
-recovery's uses, the swap test's stub legs) and every executor (the straight punch, the
-combination, the strike's place, the blade, the combat, the kick, the ground kick) moved to it.
-
-Check: the gate; the fingerprint moves no pose; the Strike drill's still and walk rungs of the
-learned puncher and Kinetic the same to the bit.
 
 ### 2. Nothing edits the stance after the legs
 
 The kick's `overlay` (and `CommandPatch`) become its legs goal (`feet`, `centre`, `height`,
-`heading`, `pose`, `swing`) and its foot's effector goal. The support fold becomes `height` and
+`heading`, `pose`, `swing`) and its foot's effector goal, `feet` typed by the spec's bearing ends (a
+human's two feet the ends its legs bear on, `Side` today). The support fold becomes `height` and
 `pose` in the legs goal of whatever holds the legs, or the defaults' while none does, and
 `ActionClaim.support` goes, Vanguard's committed aim with it (a mixed change: its part and the
 toolkit, `node scripts/entrant-check.mjs`). Its trunk flexion (`lumbar flexion`, `thoracic
@@ -332,5 +313,5 @@ in the legs goal; every gait, carriage and stance implementation passes the prob
 registry holds the chooser's readings, the gait's phase and the report, and goals are named cues
 over it; a learned skill's inputs and outputs are layout files in the body's units; Kinetic has no
 composer and no refusals of its own; the learned puncher's and Kinetic's still and walk rungs are
-unmoved by steps 1, 3, 4, 6 and 7; the kick and the fold read as before step 2 or as its commit
+unmoved by steps 3, 4, 6 and 7; the kick and the fold read as before step 2 or as its commit
 names; step 8 is kept or its reason recorded; and there is one learned punch.

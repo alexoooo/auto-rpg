@@ -103,7 +103,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
   const skill = walkRun(body, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
   let asked = null, goal = null, face = 0;
   body.drive((view, dt) => {
-    const d = skill.drive(view, asked, face, dt);
+    const d = skill.goal(view, { walk: asked, face }, dt);
     if (d.kind === "drive") return { posture: { ...guard, ...d.posture }, pushes: d.pushes, stance: null };
     goal = d.goal ?? goal;
     return { posture: guard, pushes: [], stance: view.time > 0 ? goal : null };

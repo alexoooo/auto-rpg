@@ -8,7 +8,7 @@ import type { Side } from "../spec/body.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import type { Skill } from "./skill.ts";
+import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height every table
@@ -30,17 +30,19 @@ export const RISING_SECONDS = 1.3;
 export const STANCE_STOPPING = 0.5;
 
 /**
- * **A body's legs, under the stance**: both feet bearing, the centre of mass held `lower` under
- * the height it stands at in the reference pose, the pelvis facing a heading, and walking at a
- * velocity or standing. What it remembers (`LegsMemory`) it keeps in the state it is made with.
+ * **A body's legs, under the stance**: both feet bearing, the centre of mass held at a height
+ * (`STANCE_LOWER` under the height it stands at in the reference pose, where none is asked), the
+ * pelvis facing a heading, and walking at a velocity or standing. What it remembers (`LegsMemory`)
+ * it keeps in the state it is made with.
  */
 interface StanceLegs {
   /**
    * The stance goal for this control step: facing `heading` (rad about up, 0 facing +z, growing to
    * the right), walking at `walk` (m/s, forward along the heading and to its right) or, null,
-   * standing. Null before the body's first step, when its reference height is read.
+   * standing, the centre of mass `height` over the soles. Null before the body's first step, when
+   * its reference height is read.
    */
-  goal(view: BodyView, heading: number, walk: readonly [forward: number, right: number] | null, lower?: number): StanceGoal | null;
+  goal(view: BodyView, heading: number, walk: readonly [forward: number, right: number] | null, height?: number): StanceGoal | null;
 }
 
 interface LegsMemory {
@@ -52,13 +54,13 @@ interface LegsMemory {
 
 function stanceLegs(state: LegsMemory): StanceLegs {
   return {
-    goal(view, heading, walk, lower = STANCE_LOWER) {
+    goal(view, heading, walk, asked) {
       // The reference height is the body's (`BodyView.standing`), taken at the first view after a step.
       if (state.reference === null) {
         if (view.time <= view.born) return null;
         state.reference = view.standing;
       }
-      let height = state.reference - lower;
+      let height = asked ?? state.reference - STANCE_LOWER;
       const rising = state.rising;
       if (rising) {
         const u = (view.time - rising.at) / RISING_SECONDS;
@@ -78,7 +80,7 @@ function stanceLegs(state: LegsMemory): StanceLegs {
 export type Footing = Readonly<Record<Side, readonly [number, number]>>;
 
 /**
- * **How the feet are placed** (`Locomotion.place`): a foot further than `near` (m) from its place
+ * **How the feet are placed** (`LegsGoal.footing`): a foot further than `near` (m) from its place
  * steps there, as a walk's step is taken (`STANCE_GAIT`'s swing time and lift, the weight shifted
  * off it first); one step a foot for each footing asked. `near` is set, not measured
  * (`docs/reference/human-and-strikes.md#placing`).
@@ -87,17 +89,18 @@ export const PLACING = { near: 0.02 } as const;
 
 /**
  * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
- * control step the legs make an intent's walk and facing the legs' command (`goal`, or `drive`
- * for legs that drive the muscles themselves), and say which way they face and how fast they
- * stop. What a walk under the stance says besides is its own (`StanceWalk`): the readers of it
- * ask whether the legs say it.
+ * control step the legs complete the legs goal (`goal`) as the legs' command, and say which way
+ * they face and how fast they stop. What a walk under the stance says besides is its own
+ * (`StanceWalk`): the readers of it ask whether the legs say it.
  */
 export interface Locomotion extends Skill {
   /**
-   * The stance goal for `walk` and `face` this control step (null before the body's first step),
-   * `destination` m from where the tactics are taking the body, absent where they take it nowhere.
+   * The legs goal `goal` completed this control step: the stance goal that carries out what it
+   * sets and fills what it leaves out from its walk (`completed`), null before the body's first
+   * step; or, for legs that drive themselves, their own drive (`LegsDrive`), which carries out
+   * none of the stance's fields. Asked a `footing`, legs that place no feet stand.
    */
-  goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): StanceGoal | null;
+  goal(view: BodyView, goal: LegsAsked, dt: number): LegsDrive;
   /** The heading the legs face, rad: the frame a walk is asked in. */
   readonly heading: number;
   /**
@@ -116,12 +119,7 @@ export interface Locomotion extends Skill {
    * turn and which tactics plan by (`Sight.envelope`); null or absent where they state none.
    */
   readonly envelope?: StanceEnvelope | null;
-  /**
-   * The stance goal that sets the feet at `footing` (`StanceWalk.place`); absent, legs that place no
-   * feet, which a skill that asks a footing finds standing (`goal` with no walk).
-   */
-  place?(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
-  /** Whether the feet have been placed at the footing last asked; absent with `place`. */
+  /** Whether the feet have been placed at the footing last asked; absent, legs that place no feet. */
   readonly placed?: boolean;
   /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
@@ -133,13 +131,20 @@ export interface Locomotion extends Skill {
    * its walk, and its envelope is its walk's. Absent, a walk that does not run.
    */
   runs?(may: boolean): void;
-  /**
-   * In place of `goal`, for a walk that may drive the legs itself: for `walk` and `face` this
-   * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
-   * a walk is the stance's, and the skill set asks `goal`.
-   */
-  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): LegsDrive;
 }
+
+/**
+ * **`stance` as the legs goal `goal` asks it**: its heading, centre and halt where the goal sets
+ * them; as it is where the goal sets none, or where there is no stance.
+ */
+export function completed(stance: StanceGoal | null, goal: LegsGoal): StanceGoal | null {
+  if (!stance || goal.heading === undefined && goal.centre === undefined && !goal.halt) return stance;
+  return { ...stance, ...(goal.halt ? { halt: true } : {}), ...(goal.heading === undefined ? {} : { heading: goal.heading }),
+    ...(goal.centre === undefined ? {} : { centre: goal.centre }) };
+}
+
+/** The stance goal a legs' command asks (`LegsDrive`), or none where the legs drive themselves. */
+export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === "stance" ? drive.goal : null;
 
 /**
  * **The stance walk** (`locomotion`): an intent's walk and facing made a stance goal, within what the stance
@@ -170,19 +175,18 @@ export interface StanceWalk extends Locomotion {
   /** The centre of mass's height over the soles in the reference pose (`BodyView.standing`), m; null before the body's first step. */
   readonly reference: number | null;
   /**
-   * The stance goal that sets the feet at `footing`, standing, facing the heading it has: once no
-   * step is under way, the foot further from its place steps there, then the other, each once for
-   * this footing; one within `PLACING.near` of its place stays. Null before the body's first step.
+   * Whether the feet have been placed at the footing last asked, and stand: set while a goal asks a
+   * footing, cleared by one that asks none. A footing is placed standing, facing the heading the
+   * legs have: once no step is under way, the foot further from its place steps there, then the
+   * other, each once for this footing; one within `PLACING.near` of its place stays.
    */
-  place(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
-  /** Whether the feet have been placed at the footing last asked, and stand: set by `place`, cleared by `goal`. */
   readonly placed: boolean;
   /** What this walk was measured to hold with the body (`StanceEnvelope`); null where the body has none. */
   readonly envelope: StanceEnvelope | null;
 }
 
 /**
- * **What a walk that drives the legs asks** (`Locomotion.drive`): the stance's goal, or the legs
+ * **What the legs ask** (`Locomotion.goal`): the stance's goal, or the legs
  * driven with no stance: some freedoms by their muscles alone, as pushes (`MusclePush`), and
  * the rest by the servo, toward the angles of `posture`, laid over the command's.
  */
@@ -239,12 +243,12 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   };
   /** Until its first step the stance faces as the body was built. */
   const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
-  const place = (view: BodyView, footing: Footing, lower?: number): StanceGoal | null => {
+  const place = (view: BodyView, footing: Footing, height?: number): StanceGoal | null => {
     born(view);
     state.pace = 0;
     state.going = 0;
     if (turnStartup) state.walkTime = 0;
-    const base = legs.goal(view, state.heading, null, lower);
+    const base = legs.goal(view, state.heading, null, height);
     if (!base) return null;
     const s = view.stance, was = state.placing;
     if (was && (apart(was.footing.left, footing.left) > PLACING.near || apart(was.footing.right, footing.right) > PLACING.near)) state.placing = null;
@@ -280,29 +284,34 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.placed = false;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
-    place,
-    goal(view, walk, face, dt, lower) {
-      born(view);
-      state.placing = null;
-      state.placed = false;
-      if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }
-      else if (view.time > view.born) {
-        const turn = wrap(face - state.heading);
-        const startupLimit = turnStartup && state.walkTime! < turnStartup.seconds ? turnStartup.limit : Infinity;
-        if (envelope || turnLimit !== undefined || turnStartup) {
-          const rate = Math.min(envelope ? turnAt(envelope, Math.max(state.pace, state.going)) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
-          state.heading += Math.max(-rate, Math.min(rate, turn));
-        } else state.heading += turn;
-        const speed = hypot(walk[0], walk[1]);
-        let most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
-        // A heading still to turn at a pace the envelope turns none at is walked at the fastest pace it turns at.
-        if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
-        if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
-        state.pace = Math.min(speed, most);
-        state.going = Math.max(state.pace, state.going - STANCE_STOPPING * dt);
-        if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;
-      } else state.pace = hypot(walk[0], walk[1]);
-      return legs.goal(view, state.heading, walk, lower);
+    goal(view, goal, dt) {
+      return { kind: "stance", goal: completed(goal.footing ? place(view, goal.footing, goal.height) : walking(view, goal.walk, goal.face, dt, goal.height), goal) };
     },
   };
+
+  /** The stance goal walking at `asked` toward `face`, or standing (`StanceWalk`). */
+  function walking(view: BodyView, asked: readonly [number, number] | null, face: number, dt: number, height?: number): StanceGoal | null {
+    let walk = asked;
+    born(view);
+    state.placing = null;
+    state.placed = false;
+    if (!walk) { state.pace = 0; state.going = Math.max(0, state.going - STANCE_STOPPING * dt); if (turnStartup) state.walkTime = 0; }
+    else if (view.time > view.born) {
+      const turn = wrap(face - state.heading);
+      const startupLimit = turnStartup && state.walkTime! < turnStartup.seconds ? turnStartup.limit : Infinity;
+      if (envelope || turnLimit !== undefined || turnStartup) {
+        const rate = Math.min(envelope ? turnAt(envelope, Math.max(state.pace, state.going)) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
+        state.heading += Math.max(-rate, Math.min(rate, turn));
+      } else state.heading += turn;
+      const speed = hypot(walk[0], walk[1]);
+      let most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
+      // A heading still to turn at a pace the envelope turns none at is walked at the fastest pace it turns at.
+      if (envelope && wrap(face - state.heading) !== 0 && turnAt(envelope, Math.min(speed, most)) === 0) most = Math.min(most, fastestTurning(envelope));
+      if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
+      state.pace = Math.min(speed, most);
+      state.going = Math.max(state.pace, state.going - STANCE_STOPPING * dt);
+      if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;
+    } else state.pace = hypot(walk[0], walk[1]);
+    return legs.goal(view, state.heading, walk, height);
+  }
 }

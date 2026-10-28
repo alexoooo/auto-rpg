@@ -34,7 +34,7 @@ export const STEER = 0.3;
 /**
  * **How a recipe's entry is met**: the tactics bring the body into its entry window
  * (`Readiness`), moving no faster than `pace` (m/s), and the preparation sets the feet at the
- * blow's place (`Locomotion.place`); a placed blow is thrown from within `reach` (m) of its place
+ * blow's place (`LegsGoal.footing`); a placed blow is thrown from within `reach` (m) of its place
  * each way. A walk alone does not stand a body where it stops, so the feet are set. The pace is
  * one each human holds while turning; `reach` is set. Evidence:
  * `docs/reference/human-and-strikes.md#approach`.
@@ -447,11 +447,12 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
       const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: hands[live.hand] }];
       return updates;
     },
-    command(view, id, _around: ActionAround) {
+    command(view, id, around: ActionAround) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`recipe executor has no instance ${id}`);
-      const common = { posture: guarding[live.hand], legs: live.footing ? { kind: "place" as const, footing: live.footing } : { kind: "walk" as const, walk: null, face: live.facing },
-        lower: live.lower, steer: live.steer, ...(closesToStrike(spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}) };
+      const turned = { height: view.standing - live.lower, ...(live.steer ? { heading: around.heading + live.steer } : {}) };
+      const common = { posture: guarding[live.hand], legs: live.footing ? { footing: live.footing, ...turned } : { walk: null, face: live.facing, ...turned },
+        ...(closesToStrike(spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}) };
       if (live.phase === "release") return { ...common, effectors: { [live.request.effector]: {
         places: [{ point: aimOf(spec, live.hand), position: live.home }], seconds: RECIPE_ACTION.return,
       } } };

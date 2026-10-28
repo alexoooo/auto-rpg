@@ -1,7 +1,7 @@
 /**
  * **A step into a staggered stance**, from the guard, standing square as built: the right sole's
  * middle carried to `--across` m right of the left's and `--back` m behind it, over `--seconds`,
- * lifted 5 cm, the weight shifted off it first, as `Locomotion.place` steps. Read at each of `--hz`:
+ * lifted 5 cm, the weight shifted off it first, as a footing asked of the legs (`LegsGoal.footing`) steps. Read at each of `--hz`:
  * how far the bearing (left) foot slid across the ground in the step and to 2 s after it, the
  * centre of mass's top speed, where the right sole landed against its goal, the stance's own
  * steps to catch the body, and whether it stayed up.

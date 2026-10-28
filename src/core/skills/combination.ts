@@ -165,7 +165,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: holding(live.stage, live.first) }];
       return updates;
     },
-    command(view, id) {
+    command(view, id, around) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`combination has no instance ${id}`);
       const pushes: MusclePush[] = [], points: PointTask[] = [], hand = live.phase === "commit" ? driving(live.stage, live.first) : null;
@@ -176,10 +176,12 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       if (free.length) {
         const own: Record<string, number> = { ...posture }, poses: Partial<Record<string, "fist">> = { ...fists };
         for (const side of free) { for (const channel of arms[side]) delete own[channel]; delete poses[`hand.${side}`]; }
-        return { posture: own, pushes, points, handPoses: poses, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower, steer: 0 };
+        return { posture: own, pushes, points, handPoses: poses, legs: { walk: null, face: motion.face, height: view.standing - live.lower } };
       }
-      return { posture, pushes, points, handPoses: fists, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
-        steer: hand !== null ? technique.sense[hand] * settings.hips : 0 };
+      // The hips turned from the legs' heading by the hand driven.
+      const steer = hand !== null ? technique.sense[hand] * settings.hips : 0;
+      return { posture, pushes, points, handPoses: fists,
+        legs: { walk: null, face: motion.face, height: view.standing - live.lower, ...(steer ? { heading: around.heading + steer } : {}) } };
     },
   };
 }

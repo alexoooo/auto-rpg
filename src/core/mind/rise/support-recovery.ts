@@ -7,7 +7,7 @@ import { supportEntry } from "../../control/support-entry.ts";
 import type { MindKit } from "../kit.ts";
 import { footStatesOf, readSupport } from "../../control/support.ts";
 import { recoveryReady } from "../../control/recovery-ready.ts";
-import { locomotion } from "../../skills/locomotion.ts";
+import { locomotion, stanceOf } from "../../skills/locomotion.ts";
 import { SERVO_SECONDS } from "../../body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
@@ -61,7 +61,7 @@ export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, kit:
   const beginRise = () => { rise.begin(); motor.reset(); state.phase = "rise"; state.time = 0; state.ready = 0; };
   return { get name() { return `recovery: ${state.phase}`; }, state,
     wants() {
-      if (legs.reference === null) legs.goal(view, null, 0, clock.dt);
+      if (legs.reference === null) legs.goal(view, { walk: null, face: 0 }, clock.dt);
       return state.phase !== "complete" || view.down;
     },
     begin() { beginRise(); state.retries = 0; },
@@ -80,7 +80,7 @@ export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, kit:
         corners: f.corners.filter((c) => c.y - Math.min(...f.corners.map((p) => p.y)) < DOWN).map((c): Vec3 => [c.x, c.y, c.z]) }));
       state.ready = recoveryReady(observe(), supports, RECOVERY_VERIFY) ? state.ready + dt : 0;
       motor.stance.read();
-      motor.setStance(legs.goal({ ...view, stance: motor.stance.reading }, null, legs.heading, dt));
+      motor.setStance(stanceOf(legs.goal({ ...view, stance: motor.stance.reading }, { walk: null, face: legs.heading }, dt)));
       motor.control(muscles, dt);
       if (state.ready >= RECOVERY_VERIFY.hold) { state.phase = "complete"; state.completed++; }
       else if (state.time >= RECOVERY_VERIFY.limit) { state.retries++; beginRise(); }
