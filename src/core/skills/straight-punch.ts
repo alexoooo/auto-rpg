@@ -52,11 +52,11 @@ import { legOf } from "./gait-scale.ts";
  * the arm's drive begins as soon as the striking point comes within `fire` of the arm's length of
  * the target, if that is before `lead`: the arm opens at the same distance whatever the range.
  * With `steered`, every `PUNCH_DECIDE` s of the drive it reads itself (`punchFeatures`, into its
- * state's `features`) and adds its state's `steer` to the pushes of its trunk, legs and arm
- * (`steerPushes`); the steer is its trainer's to set, and none at the drive's start. With
- * `steered` `stance`, the steer's legs' outputs are asks of the stance instead (`stanceAsks`):
- * a turn added to the legs' heading (`LegsGoal.heading`) and a shift of its centre from the support's
- * middle (`LegsGoal.centre`).
+ * state's `features`) and adds its state's `steer` to the pushes of its trunk and arm
+ * (`steerPushes`) and asks the stance with it (`stanceAsks`): a turn added to the legs' heading
+ * (`LegsGoal.heading`) and a shift of its centre from the support's middle (`LegsGoal.centre`),
+ * as its layout lays the steer out (`PUNCH_LAYOUT`); the steer is its trainer's to set, and none
+ * at the drive's start.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -82,7 +82,7 @@ export interface StraightPunch {
   readonly halts?: boolean;
   readonly fire?: number;
   readonly ease?: number;
-  readonly steered?: boolean | "stance";
+  readonly steered?: boolean;
   readonly driven?: { readonly accel: number; readonly steer: number; readonly arrive: number };
   readonly timed?: { readonly left: readonly TimedPush[]; readonly right: readonly TimedPush[] };
 }
@@ -129,7 +129,7 @@ export function validStraightPunch(settings: StraightPunch): boolean {
     && (settings.poised === undefined || typeof settings.poised === "boolean")
     && (settings.above === undefined || Number.isFinite(settings.above))
     && (settings.ease === undefined || Number.isFinite(settings.ease) && settings.ease > 0)
-    && (settings.steered === undefined || typeof settings.steered === "boolean" || settings.steered === "stance")
+    && (settings.steered === undefined || typeof settings.steered === "boolean")
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
     && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
 }
@@ -261,7 +261,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
   /** The channels each hand's schedule names, which are pushed only on it. */
-  const leg = legOf(body.built.spec), steeredChannels = { left: punchChannels("left", settings.steered ?? false, leg), right: punchChannels("right", settings.steered ?? false, leg) };
+  const leg = legOf(body.built.spec), steeredChannels = { left: punchChannels("left", leg), right: punchChannels("right", leg) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,

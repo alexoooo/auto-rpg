@@ -7,21 +7,20 @@
  * steer's trained network (`research/run-train.py`'s `policy.json`), written as the core reads them
  * (`PunchPolicy`, `src/core/skills/learned-punch.ts`): `<out>.json` (`assets/core/learned-punch` where
  * not given), and the bodies it has settings for in `<out>.meta.json`, each by its key (`bodyKey`:
- * `workshop-fighter`, `workshop-fighter+toes`). With `--steered stance`,
- * the network's legs' outputs are asks of the stance (`PunchPolicy.steered`).
+ * `workshop-fighter+toes`). With `--halts`, the punch stops a walk at once as it commits
+ * (`StraightPunch.halts`), as it was trained.
  *
- *   node research/punch-export.mjs --policy <policy.json> --made "<how it was made>" [--steered stance] [--out <path>] <model>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]
+ *   node research/punch-export.mjs --policy <policy.json> --made "<how it was made>" [--halts] [--out <path>] <model>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { punchActions } from '../src/core/skills/learned-punch.ts';
+import { PUNCH_ACTIONS } from '../src/core/skills/learned-punch.ts';
 import { AROUND, decode, mirrored } from './punch-drill.mjs';
 
 /** The longest a drive runs, s: a still blow touches by 0.19 s, and a drive that chases a foe stepping back for longer carries its body over. */
 const LONGEST = 0.3;
 
-const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, steered: { type: 'string' }, out: { type: 'string' } }, allowPositionals: true });
-if (values.steered !== undefined && values.steered !== 'stance') throw new Error('--steered is stance or not given');
+const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
 const out = values.out ?? 'assets/core/learned-punch';
 if (!values.policy || !values.made || !positionals.length) throw new Error('usage: --policy <policy.json> --made <text> <model>=<schedule.json>@<reach>,<band>,<aside>,<above> ...');
 const policy = JSON.parse(readFileSync(values.policy, 'utf8'));
@@ -38,10 +37,10 @@ for (const pair of positionals) {
   const right = sided('right'), left = sided('left');
   if (right.driven) throw new Error(`${file}: a learned punch's schedule drives no point`);
   bodies[model] = { ...AROUND, longest: LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
-    ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }),
+    ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }), ...(values.halts ? { halts: true } : {}),
     timed: { left: left.pushes, right: right.pushes } };
 }
-if (policy.actions !== punchActions(values.steered ?? true)) throw new Error(`${values.policy}: ${policy.actions} outputs, not a steer laid out ${values.steered ?? 'by channel'}`);
-writeFileSync(`${out}.json`, JSON.stringify({ made: values.made, bodies, ...(values.steered ? { steered: values.steered } : {}), actions: policy.actions, layers: policy.layers }) + '\n');
+if (policy.actions !== PUNCH_ACTIONS) throw new Error(`${values.policy}: ${policy.actions} outputs, not the layout's ${PUNCH_ACTIONS}`);
+writeFileSync(`${out}.json`, JSON.stringify({ made: values.made, bodies, actions: policy.actions, layers: policy.layers }) + '\n');
 writeFileSync(`${out}.meta.json`, JSON.stringify({ bodies: Object.keys(bodies) }) + '\n');
 console.log(`bodies ${Object.keys(bodies).join(', ')}; ${policy.layers.length} layers`);

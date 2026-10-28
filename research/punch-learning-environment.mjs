@@ -22,15 +22,17 @@
  * steer's mean square at each decision, and, where the fist met nothing on the mark, less `near`
  * for each metre the fist came no nearer the target than over the drive (to 0.5 m).
  *
- * Its steer has `punchActions` outputs, as the punch's `steered` (of `punch`) lays them out.
+ * Its steer has `PUNCH_ACTIONS` outputs, as the punch's layout lays them out (`PUNCH_LAYOUT`).
  *
  * Each body's punch is admitted where `windows` says (`[reach, band, aside, above]`, by model), else
  * anywhere past `AROUND`'s reach.
  *
+ * The striker is `character` (`{ "toes": true }`: the toed foot).
+ *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
 import { readFileSync } from 'node:fs';
-import { punchActions, PUNCH_FEATURES } from '../src/core/skills/learned-punch.ts';
+import { PUNCH_ACTIONS, PUNCH_FEATURES } from '../src/core/skills/learned-punch.ts';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { STRIKE_CASES } from '../src/evaluation/strike/cases.ts';
 import { CHEST, decode, mirrored, scoreOf, timedPuncher } from './punch-drill.mjs';
@@ -74,27 +76,27 @@ export function drawn(place, pick, between, o) {
     : { ...common, across: between(place.across), gap: between(place.gaps), ...(place.starts ? { start: pick(place.starts) } : {}) };
 }
 
-/** The Strike drill's rung a place's trials are: a fight's, the walk's where it names its starts, else the still one's. */
-const rungOf = (place) => STRIKE_CASES[place.foes ? 'fight' : place.starts ? 'walk' : 'still'];
+/** The Strike drill's rung a trial's condition is: a fight's, the walk's where it names its start, else the still one's. */
+export const rungOf = (condition) => STRIKE_CASES[condition.foe ? 'fight' : condition.start ? 'walk' : 'still'];
 
 export async function punchEnvironment(configuration = {}) {
   const o = { schedule: 'docs/reference/punch-body.json', places: [{ model: 'workshop-fighter', gaps: [0.9, 1], across: [0, 0.1] }], hands: ['right'], marks: ['middle'],
-    rates: [120], seed: 1, effort: 0.02, near: 4, pool: 12, refresh: 8, slice: 4, ...configuration };
+    rates: [120], character: {}, seed: 1, effort: 0.02, near: 4, pool: 12, refresh: 8, slice: 4, ...configuration };
   if (o.pool < 2) throw new Error('a punch environment pools at least two starts, so that one can be replaced while another plays');
   /** A generator on `seed`: the episodes' draws on one, the fresh starts' places on another, so that when the idle time plays them moves neither. */
   const generator = (seed) => { let word = (seed * 2654435761) >>> 0; return () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296); };
   const random = generator(o.seed), drawing = generator(o.seed + 7919);
   const pick = (list) => list[Math.floor(drawing() * list.length)];
-  const subjects = steeredSubjects(o), actions = punchActions(o.punch?.steered ?? true);
+  const subjects = steeredSubjects(o), actions = PUNCH_ACTIONS;
   const motionOf = (built) => built.duel.duelists.left.minded.skills.state.actions.executors[0].motion;
   /** Whether the drill's own punch drives: the drill has the body (a fight's punches before its moment are the fight's) and the drive has read its first features. */
   const drilled = (built, motion) => built.duel.duelists.left.minded.skills.report.engagement?.phase !== 'fighting' && motion.phase === 'swing' && motion.features.length > 0;
   /** A bout at a fresh place, built and its tape begun; null where the place is a fight's moment held out. */
   const begin = async () => {
     const place = pick(o.places), between = ([lo, hi]) => lo + (hi - lo) * drawing(), hz = pick(o.rates);
-    const condition = drawn(place, pick, between, o), cases = rungOf(place);
+    const condition = drawn(place, pick, between, o), cases = rungOf(condition);
     if (place.foes && heldOut(condition)) return null;
-    const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [{}]), built = await buildBout(world.recipe, { hz });
+    const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [o.character]), built = await buildBout(world.recipe, { hz });
     const reader = cases.read(built, condition), motion = motionOf(built);
     built.duel.play(world.tape);
     return { built, cases, condition, hz, reader, motion };

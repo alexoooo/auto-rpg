@@ -1,7 +1,7 @@
 /**
  * **What every registered Mind keeps to** (Node, core world, vendored Rapier, 120 Hz): for each
  * controller's presets, or its defaults where it names none, a short Arena bout of that Mind
- * against itself on the first allowed body it fits runs and stays finite, flings nobody, forks
+ * against itself on the first allowed body it fits, as its preset's character, runs and stays finite, flings nobody, forks
  * and resumes to the bit, and plays again to the bit from its recipe and its recorded order sheets with no
  * Mind made (`replayedBody`). How well a Mind fights is measured apart.
  */
@@ -40,9 +40,12 @@ const MINDS = Object.entries(CONTROLLERS).flatMap(([kind, controller]) => {
   return presets.length > 0 ? presets : [[kind, { config: controller.defaults }]];
 });
 
-/** The first body a preset both allows and physically fits; an uncalibrated mind allows every model. */
+/** The first body a preset both allows and physically fits, as its character; an uncalibrated mind allows every model. */
 const modelFor = (preset) => BODY_MODELS.find((candidate) => presetFitsModel(preset, candidate)
-  && modelRefusal(candidate, preset.config, EMPTY_LOADOUT, []) === null);
+  && modelRefusal(candidate, preset.config, EMPTY_LOADOUT, [], preset.character) === null);
+
+/** A recipe's attributes for both sides as `character`, or none. */
+const bothAs = (character) => character ? { attributes: { left: character, right: character } } : {};
 
 /** Step `duel` to `until` bout steps, taking each of `traces` and the peaks after each. */
 function stepTo(world, duel, until, traces, peak) {
@@ -93,7 +96,7 @@ for (const [id, preset] of MINDS) {
   test(`${id} on ${model ?? "no allowed body"}: a short bout runs, stays finite, flings nobody, forks and resumes, and replays from its order sheets`, async () => {
     assert.ok(model, `${id} fits no body allowed by its calibration`);
     assert.ok(presetFitsModel(preset, model), "the replay fixture uses an allowed body");
-    const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [] };
+    const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [], ...bothAs(preset.character) };
     const first = await played(recipe, { record: true }, true);
     assert.deepEqual(first.peak.unfinite, [], "every pose and velocity is finite");
     assert.ok(first.peak.segment < FLUNG.segment && first.peak.body < FLUNG.body, `the fastest segment ${first.peak.segment} m/s, body ${first.peak.body} m/s`);
@@ -139,7 +142,7 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
 test("a replay refuses a step with no order sheet, so a record that is short is found", async () => {
   const [, preset] = MINDS[0], { config } = preset, model = modelFor(preset);
   assert.ok(model, "the replay fixture has an allowed body it fits");
-  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [] };
+  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [], ...bothAs(preset.character) };
   const first = await played(recipe, { record: true }, false);
   const short = Object.fromEntries(SIDES.map((side) => [side, { ...first.sheets[side], sheets: first.sheets[side].sheets.slice(0, FORK) }]));
   await assert.rejects(played(recipe, { replay: short }, false), /no order sheet for step/);
@@ -162,14 +165,17 @@ test("both-hand loadouts fork and replay their physical commands", async () => {
 
 test("every registered Mind is built on each character and catalog loadout it fits", async () => {
   // Fitting is the promise that a mind can be built and fight there: two cases a bout, one a side.
-  const cases = MINDS.flatMap(([id, { config }]) => BODY_MODELS.flatMap((model) => LOADOUTS
-    .filter((loadout) => modelRefusal(model, config, loadout, FIGHT_ENTRY) === null).map((loadout) => ({ id, config, model, loadout }))));
+  // A preset that names its character is built as it on the bodies it allows.
+  const cases = MINDS.flatMap(([id, preset]) => BODY_MODELS.filter((model) => !preset.character || presetFitsModel(preset, model)).flatMap((model) => LOADOUTS
+    .filter((loadout) => modelRefusal(model, preset.config, loadout, FIGHT_ENTRY, preset.character) === null)
+    .map((loadout) => ({ id, config: preset.config, character: preset.character, model, loadout }))));
   assert.ok(cases.some(({ loadout }) => loadout.left === "buckler" && loadout.right === "sword"), "the fixture reaches sword and buckler");
   const failed = [];
   for (let k = 0; k < cases.length; k += 2) {
     const left = cases[k], right = cases[k + 1] ?? cases[k];
     try {
-      const { dispose } = await buildBout({ left: left.model, right: right.model, gap: 4, loadouts: { left: left.loadout, right: right.loadout }, minds: { left: left.config, right: right.config } }, { engine: BOUT_ENGINE });
+      const { dispose } = await buildBout({ left: left.model, right: right.model, gap: 4, loadouts: { left: left.loadout, right: right.loadout }, minds: { left: left.config, right: right.config },
+        attributes: { left: left.character ?? {}, right: right.character ?? {} } }, { engine: BOUT_ENGINE });
       dispose();
     } catch (error) { failed.push(`${left.id}/${left.model}/${loadoutKey(left.loadout)} or ${right.id}/${right.model}/${loadoutKey(right.loadout)}: ${error.message}`); }
   }

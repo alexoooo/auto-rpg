@@ -6,6 +6,7 @@
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
  */
+import type { AttributeOverrides } from "../../core/character-attributes.ts";
 import { MINDS } from "../../core/mind/controllers.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject } from "../evaluation.ts";
@@ -19,6 +20,15 @@ import type { StrikeReading } from "./read.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
 const DRILLED = ["puncher/strike", "duellist/swing high", "vanguard-warrior/strike"];
+
+/**
+ * A subject given whole (a file or JSON): its mind and action, and the character its bodies take
+ * where it names one (`character`, as a preset's).
+ */
+function givenSubject(one: { readonly id: string; readonly label: string; readonly value: Json }): Subject {
+  const character = (one.value as { readonly character?: AttributeOverrides } | null)?.character;
+  return { id: one.id, label: one.label, parts: [{ id: `strike:${one.id}`, value: one.value }], value: one.value, ...(character === undefined ? {} : { character }) };
+}
 
 /** A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's name. */
 function actionSubject(name: string): Subject {
@@ -45,8 +55,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   schedule: "all",
   analysis: {},
   subjects(choice) {
-    return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string" ? { id: one.id, label: one.label, parts: [{ id: `strike:${one.id}`, value: one.value }], value: one.value }
-      : actionSubject(one));
+    return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
   },
   outcome: strikeOutcome,
   figures: [

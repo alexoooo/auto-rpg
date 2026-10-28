@@ -38,7 +38,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   make({ body, guard, aim }, config, actions) {
     const { kind: _, name: __, learned, ...own } = config;
     if (!learned) return straightPunchExecutor(body, guard, actions.map(a => a.name), own, aimedPoint(aim));
-    const policy = dataOf("learned-punch"), settings = { ...own, ...policy.bodies[bodyKey(body.built.spec)], steered: policy.steered ?? true };
+    const policy = dataOf("learned-punch"), settings = { ...own, ...policy.bodies[bodyKey(body.built.spec)], steered: true };
     return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), { policy: recoveryNetwork(policy) });
   },
 };

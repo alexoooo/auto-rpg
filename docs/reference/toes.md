@@ -89,8 +89,9 @@ stand-up `npm run evaluate -- rising-target step-up`.
   the foot without toes; with toes the toes' bends tried below do not rescue it.
 - **The learned punch** (`research/punch-policy-check.mjs`, seed 5001, 160 places): 141 of 160 at
   120 Hz and 128 at 480 Hz, against 155 and 140 without toes; none fell. The misses move from the
-  fist's mass to its speed and straightness. The toed Warrior's entry in
-  `assets/core/learned-punch.json` keeps the Warrior's settings on this reading.
+  fist's mass to its speed and straightness. That network was trained on the flat foot
+  (`assets/core/learned-punch.json@f59b8a75`); the learned punch is now trained on the toed
+  Warrior alone ([learned punch](learned-punch.md)).
 - **The walk's envelopes** (`research/core-stance-envelope.mjs --toes`, at `2a7af07b`, the Warrior
   with each thing held; the walk and run calm and in the lab's gusts, seeds 1 to 4), m/s forward,
   right, back, left:

@@ -12,14 +12,12 @@ import type { StraightPunch } from "./straight-punch.ts";
 /**
  * **A learned punch** (`dataOf("learned-punch")`): for each body it was trained on, the straight
  * punch's settings it was trained with (its schedule, `StraightPunch.timed`, and its drive), and
- * the network that steers it (`punchFeatures` in, `punchActions(steered)` steer out, as
- * `recoveryNetwork` evaluates it); `made` says how. `steered` names its outputs' layout
- * (`PUNCH_LAYOUT`): with `stance` its legs' outputs ask the legs goal, else they push.
+ * the network that steers it (`punchFeatures` in, `PUNCH_ACTIONS` steer out, as `PUNCH_LAYOUT`
+ * lays them out and `recoveryNetwork` evaluates it); `made` says how.
  */
 export interface PunchPolicy {
   readonly made: string;
   readonly bodies: Readonly<Record<string, Partial<StraightPunch>>>;
-  readonly steered?: "stance";
   readonly actions: number;
   readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
 }
@@ -60,13 +58,12 @@ export type PunchOutput =
 /**
  * **A learned punch's layout** (`assets/core/learned-punch.layout.json`): its inputs by name, each a
  * reading (`READINGS`) or `angle <channel>` and `speed <channel>`, rad and rad/s, for the right
- * hand's punch; the leg its distances' full scales are for, m (`legOf`); and its outputs by
- * `PunchPolicy.steered`, `stance` its legs asked and `pushes` its legs pushed.
+ * hand's punch; the leg its distances' full scales are for, m (`legOf`); and its outputs.
  */
 export interface PunchLayout {
   readonly inputs: readonly string[];
   readonly leg: number;
-  readonly outputs: Readonly<Record<"pushes" | "stance", readonly PunchOutput[]>>;
+  readonly outputs: readonly PunchOutput[];
 }
 
 /** The learned punch's layout, its names checked as it loads. */
@@ -76,20 +73,15 @@ function checked(layout: PunchLayout): PunchLayout {
   for (const name of layout.inputs) {
     if (!READINGS.includes(name) && !/^(angle|speed) \S/.test(name)) throw new Error(`the learned punch reads no ${name}`);
   }
-  for (const outputs of Object.values(layout.outputs)) for (const output of outputs) {
+  for (const output of layout.outputs) {
     const term: string = output.term;
     if (term !== "pushes" && term !== "heading" && term !== "centre") throw new Error(`the learned punch steers no ${term}`);
   }
   return layout;
 }
 
-/** The layout's outputs a punch `steered` so steers by (`PunchLayout.outputs`). */
-const outputsOf = (steered: boolean | "stance"): readonly PunchOutput[] => PUNCH_LAYOUT.outputs[steered === "stance" ? "stance" : "pushes"];
-
-/** How many outputs a punch's steer has (`PUNCH_LAYOUT`'s outputs for `steered`). */
-export function punchActions(steered: boolean | "stance"): number {
-  return outputsOf(steered).length;
-}
+/** How many outputs a steered punch's steer has (`PUNCH_LAYOUT`'s outputs). */
+export const PUNCH_ACTIONS = PUNCH_LAYOUT.outputs.length;
 
 /** How many features a steered punch reads (`PUNCH_LAYOUT`'s inputs). */
 export const PUNCH_FEATURES = PUNCH_LAYOUT.inputs.length;
@@ -99,11 +91,11 @@ export const PUNCH_FEATURES = PUNCH_LAYOUT.inputs.length;
  * hand's is the right's with the sides swapped and a turn of the trunk reversed, so one steer
  * serves both.
  */
-export function punchChannels(hand: Side, steered: boolean | "stance", leg: number): PunchChannels {
+export function punchChannels(hand: Side, leg: number): PunchChannels {
   const swap = (name: string) => hand === "right" ? name : name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
   const sense = (name: string) => hand === "left" && / rotation right$/.test(name) && !name.includes(".") ? -1 : 1;
   const channelOf = (name: string) => /^(angle|speed) /.test(name) ? name.slice(6) : null;
-  const inputs = PUNCH_LAYOUT.inputs, outputs = outputsOf(steered), scale = leg / PUNCH_LAYOUT.leg;
+  const inputs = PUNCH_LAYOUT.inputs, outputs = PUNCH_LAYOUT.outputs, scale = leg / PUNCH_LAYOUT.leg;
   return {
     readings: inputs.map((name) => READINGS.indexOf(name)),
     inputs: inputs.map((name) => { const c = channelOf(name); return c === null ? null : swap(c); }),

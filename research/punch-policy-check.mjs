@@ -9,6 +9,9 @@
  *
  *   node research/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
  *
+ * The body is the configuration's `character` (`{ "toes": true }`: the toed foot), as its
+ * environment's.
+ *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
 import { readFileSync } from 'node:fs';
@@ -18,13 +21,12 @@ import { parseArgs } from 'node:util';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { recoveryNetwork } from '../src/core/control/recovery-network.ts';
 import { buildBout } from '../src/evaluation/bout.ts';
-import { STRIKE_CASES } from '../src/evaluation/strike/cases.ts';
 import { scoreOf } from './punch-drill.mjs';
-import { drawn, heldOut, steeredSubjects } from './punch-learning-environment.mjs';
+import { drawn, heldOut, rungOf, steeredSubjects } from './punch-learning-environment.mjs';
 
 /** One trial of `condition` at `hz`, steered by `act` (null: none): its reading's outcome and hit. */
-async function trial(subjects, act, condition, hz) {
-  const cases = STRIKE_CASES[condition.foe ? 'fight' : 'still'], world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [{}]), built = await buildBout(world.recipe, { hz });
+async function trial(subjects, act, character, condition, hz) {
+  const cases = rungOf(condition), world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [character]), built = await buildBout(world.recipe, { hz });
   try {
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[0].motion;
     built.duel.play(world.tape);
@@ -46,7 +48,7 @@ async function trial(subjects, act, condition, hz) {
 if (!isMainThread) {
   const subjects = steeredSubjects(workerData), act = workerData.policy ? recoveryNetwork(workerData.policy) : null;
   parentPort.on('message', async ({ id, condition, hz }) => {
-    try { parentPort.postMessage({ id, r: await trial(subjects, act, condition, hz) }); } catch (error) { parentPort.postMessage({ id, error: String(error?.stack ?? error) }); }
+    try { parentPort.postMessage({ id, r: await trial(subjects, act, workerData.character, condition, hz) }); } catch (error) { parentPort.postMessage({ id, error: String(error?.stack ?? error) }); }
   });
 } else {
   const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, trials: { type: 'string' }, seed: { type: 'string' }, rates: { type: 'string' }, workers: { type: 'string' } } });
@@ -69,7 +71,7 @@ if (!isMainThread) {
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   let next = 0;
   await Promise.all(Array.from({ length: count }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { schedule: o.schedule, schedules: o.schedules ?? {}, windows: o.windows ?? {}, aim: o.aim ?? null, punch: o.punch ?? {}, policy } });
+    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { schedule: o.schedule, schedules: o.schedules ?? {}, windows: o.windows ?? {}, aim: o.aim ?? null, punch: o.punch ?? {}, character: o.character ?? {}, policy } });
     const give = () => { if (next >= jobs.length) { worker.terminate(); resolve(); return; } worker.postMessage(jobs[next++]); };
     worker.on('message', ({ id, r, error }) => { if (error) { reject(new Error(error)); return; } results[id] = r; give(); });
     worker.on('error', reject);

@@ -1,16 +1,17 @@
 # The learned punch
 
-**The Warrior's learned punch lands 92 % of 320 held-out still trials, and 3 of 56 fight
-moments.** It is a timed straight punch steered by a network, trained on the Strike drill's still
-rung for the Warrior alone (`assets/core/learned-punch.json` at `35b6998e`, 44.4 M decisions).
+**The toed Warrior's learned punch lands 30 of 32 on the Strike drill's still rung and 47 of 64
+from a walk, at 120 Hz.** It is a timed straight punch steered by a network that pushes the trunk
+and the arm and asks the legs goal for the hip's turn and the weight's shift, trained on the toed
+Warrior from still and walking starts (`assets/core/learned-punch.json`, 50.9 M decisions).
 
-- **Still, held out** (`research/punch-policy-check.mjs`, seed 5001): left hand 99 % and right 96 %
-  at 120 Hz, left 89 % and right 86 % at 480 Hz; none fell. The failures are mostly the fist's
-  mass, then the elbow's bend and its speed. The bar's 90 % holds at 120 Hz, not at 480 Hz.
-- **On the Strike drill's still rung**: 30 of 32 at the middle mark, 2 weak; the high mark is
-  refused, since it aims at the middle only.
-- **On the fight rung**: 3 of the 56 middle-mark moments land. Of the 23 blows that meet the foe
-  past its arms, 3 meet the bar; 9 moments never come into its window.
+- **Against the network before it** (its legs' outputs pushes, trained on flat feet), on the toed
+  Warrior: the walk rung 47 of 64 against 31, the still rung 30 of 32 against 26; held out at
+  480 Hz, still 37 of 45 against 30 and from a walk 21 of 35 against 1
+  ([the one punch](#the-one-punch)). None fell.
+- **On the Strike drill's still rung** the high mark is refused, since it aims at the middle only.
+- **On the fight rung** the network before it landed 3 of 56 middle-mark moments; of the 23 blows
+  that met the foe past its arms, 3 met the bar, and 9 moments never came into its window.
 - **The body is not the limit.** With the arms and trunk at 2.5 times the curves read
   ([the punch's body](punch-body.md)), the punch's bar is reachable; at the curves read no straight
   punch reaches it ([a timed punch on the drill](#a-timed-punch-on-the-drill)).
@@ -26,29 +27,61 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
 
 - **The punch**: the straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) on a
   schedule (`StraightPunch.timed`: the trunk's, both legs' and the striking arm's 18 channels, each
-  a level, a start and a length), its drive braked onto its goals (`brake`), steered with `learned`
-  (`src/core/skills/learned-punch.ts`).
-- **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 55-256-256-18, reads the
+  a level, a start and a length), its drive braked onto its goals (`brake`), a walk halted as it
+  commits (`halts`), steered with `learned` (`src/core/skills/learned-punch.ts`).
+- **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 55-256-256-11, reads the
   drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
-  mass's velocity, whether the hand touches, and the steered channels' angles and speeds
-  (`punchFeatures`). It adds a level to each of the 18 channels' pushes: the trunk's turn and
-  lean, both legs and the punching arm. Inputs and outputs are named in its layout file
-  (`assets/core/learned-punch.layout.json`, `PUNCH_LAYOUT`). The left hand's are the right's
-  mirrored (`punchChannels`). A channel not being pushed stays with the posture or the stance.
+  mass's velocity, whether the hand touches, and the trunk's, legs' and arm's angles and speeds
+  (`punchFeatures`). It adds a level to the pushes of the trunk's turn and lean and the punching
+  arm's four channels (`steerPushes`), and asks the legs goal for a heading turned up to 0.5 rad
+  and a centre moved up to 0.15 m ahead and across on the Warrior's leg (`stanceAsks`). Inputs and
+  outputs are named in its layout file (`assets/core/learned-punch.layout.json`, `PUNCH_LAYOUT`).
+  The left hand's are the right's mirrored (`punchChannels`).
 - **The window**: admitted 0.89 to 1.01 m from the target, within 0.17 m (`aside`) of the line the
   striking shoulder faces along at contact (`squared`), no higher than 0.1 m over the shoulder
   (`above`); the aim is the trunk's surface square to that shoulder (`square`,
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
-- **Its bodies**: the Warrior only (`PUNCH_POLICY`, `assets/core/learned-punch.meta.json`).
+- **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_POLICY`,
+  `assets/core/learned-punch.meta.json`): Kinetic's preset.
 - **How it was made**: PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`)
   from the schedule `research/punch-drill.mjs` searched, on the Warrior's two hands at 120 and
   480 Hz, the target up to 0.15 m across the body and 0.3 m to the hand's side; each episode a
-  still-rung trial loaded at the drive's first step, its last 4.1 M decisions scored by each of the
-  bar's margins to its best. Exported by `research/punch-export.mjs`.
+  trial loaded at the drive's first step. 44.4 M decisions on the flat-footed Warrior's still rung
+  with its legs' outputs as pushes, the last 4.1 M scored by each of the bar's margins to its best;
+  then its outputs reshaped to the legs goal's asks (`research/punch-reshape.py@f59b8a75`: the
+  trunk's and arm's kept, the asks starting at zero) and 6.5 M more on the toed Warrior
+  (`research/runs/kinetic-punch`), its places the still rung's 0.6 to 1.3 m and walks in from 1.6
+  to 3 m, halting the walk as it commits from 45.8 M. The checkpoint is the run's best on the
+  drill's still and walk rungs of the 21 from 46.0 M on (the last; the others 25 to 31 of 32 and
+  33 to 41 of 64). Exported by `research/punch-export.mjs`.
 - **Its drill subject**: `research/learned-puncher.json`, the Puncher with the learned punch as its
-  strike.
+  strike, on the toed Warrior (`character`). On the drill it plays Kinetic's bouts to the bit.
 
 ## Measurement
+
+### The one punch
+
+Paired with the network before it (`assets/core/learned-punch.json@f59b8a75`: its legs' 10
+outputs pushes, trained on flat feet, the toed Warrior's settings the flat one's) on the toed
+Warrior. The drill: Node, the bout world on Rapier, 120 Hz, the middle mark, both hands, Kinetic
+(`kinetic/strike`) and the learned puncher alike. Held out: `research/punch-policy-check.mjs`,
+seed 1001, 80 trials drawn as training draws them, each at 120 and 480 Hz.
+
+| Reading | Before | Now |
+|---|---|---|
+| drill, still rung (0.6 to 1.3 m) | 26/32 | 30/32 |
+| drill, walk rung (1.6 to 3 m) | 31/64 | 47/64 |
+| held out, still, 120 Hz | 42/45 | 38/45 |
+| held out, still, 480 Hz | 30/45 | 37/45 |
+| held out, walking in, 120 Hz | 0/35 | 23/35 |
+| held out, walking in, 480 Hz | 1/35 | 21/35 |
+
+None fell. The drill's walk rung's misses are weak, none missed. Held out at 120 Hz, still, the
+two part on 8 trials, 6 the network before's: 3 of those are refused 1.25 to 1.28 m off, the
+window's far edge, and 3 weak at 6.5 to 7.7 m/s.
+
+The sections below read the network before it on the flat-footed Warrior (at `35b6998e`),
+except where they say.
 
 ### Held out
 
@@ -281,6 +314,10 @@ watched it: too close, awkward, not landing.
   5.4 m/s 0.08 s into the drive, then slows as the elbow straightens, and the trunk never turns
   early. The solve costs 2.2 to 2.8 ms a body a step
   ([whole-body spike](whole-body-spike.md)).
+- **Its legs' outputs as pushes** (the 18-output layout, `assets/core/learned-punch.json@f59b8a75`):
+  while the legs bear, a push on a bearing leg moves nothing
+  ([without its leg pushes](#without-its-leg-pushes-and-from-a-walk)), and from a walk it lands 0
+  or 1 of 35 held out ([the one punch](#the-one-punch)).
 - **A faster elbow** (curvature 0.1, or unloaded at 32.9 rad/s, in a scratch worktree): the search
   finds an overhead chop, landed at 7.86 m/s at 120 Hz and weak at 480 Hz (6.19 m/s), the shoulder
   flexed to 2.17 rad and the fist coming down onto the chest.

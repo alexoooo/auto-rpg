@@ -57,39 +57,17 @@
     "speed elbow.right flexion"
   ],
   "leg": 0.8815024260685317,
-  "outputs": {
-    "pushes": [
-      {"term": "pushes", "channel": "thoracic rotation right"},
-      {"term": "pushes", "channel": "lumbar rotation right"},
-      {"term": "pushes", "channel": "thoracic flexion"},
-      {"term": "pushes", "channel": "lumbar flexion"},
-      {"term": "pushes", "channel": "hip.left flexion"},
-      {"term": "pushes", "channel": "hip.left abduction"},
-      {"term": "pushes", "channel": "hip.left internal rotation"},
-      {"term": "pushes", "channel": "knee.left flexion"},
-      {"term": "pushes", "channel": "ankle.left dorsiflexion"},
-      {"term": "pushes", "channel": "hip.right flexion"},
-      {"term": "pushes", "channel": "hip.right abduction"},
-      {"term": "pushes", "channel": "hip.right internal rotation"},
-      {"term": "pushes", "channel": "knee.right flexion"},
-      {"term": "pushes", "channel": "ankle.right dorsiflexion"},
-      {"term": "pushes", "channel": "shoulder.right flexion"},
-      {"term": "pushes", "channel": "shoulder.right abduction"},
-      {"term": "pushes", "channel": "shoulder.right internal rotation"},
-      {"term": "pushes", "channel": "elbow.right flexion"}
-    ],
-    "stance": [
-      {"term": "pushes", "channel": "thoracic rotation right"},
-      {"term": "pushes", "channel": "lumbar rotation right"},
-      {"term": "pushes", "channel": "thoracic flexion"},
-      {"term": "pushes", "channel": "lumbar flexion"},
-      {"term": "heading", "full": 0.5},
-      {"term": "centre", "along": "ahead", "full": 0.15},
-      {"term": "centre", "along": "across", "full": 0.15},
-      {"term": "pushes", "channel": "shoulder.right flexion"},
-      {"term": "pushes", "channel": "shoulder.right abduction"},
-      {"term": "pushes", "channel": "shoulder.right internal rotation"},
-      {"term": "pushes", "channel": "elbow.right flexion"}
-    ]
-  }
+  "outputs": [
+    {"term": "pushes", "channel": "thoracic rotation right"},
+    {"term": "pushes", "channel": "lumbar rotation right"},
+    {"term": "pushes", "channel": "thoracic flexion"},
+    {"term": "pushes", "channel": "lumbar flexion"},
+    {"term": "heading", "full": 0.5},
+    {"term": "centre", "along": "ahead", "full": 0.15},
+    {"term": "centre", "along": "across", "full": 0.15},
+    {"term": "pushes", "channel": "shoulder.right flexion"},
+    {"term": "pushes", "channel": "shoulder.right abduction"},
+    {"term": "pushes", "channel": "shoulder.right internal rotation"},
+    {"term": "pushes", "channel": "elbow.right flexion"}
+  ]
 }

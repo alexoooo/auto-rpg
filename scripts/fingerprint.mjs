@@ -37,7 +37,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/index.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
-import { controlsFor, readMinds } from "../src/arena/matchup.ts";
+import { controlCharacter, controlsFor, readControls, readMinds } from "../src/arena/matchup.ts";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { loadoutKey } from "../src/core/items/held.ts";
@@ -362,11 +362,17 @@ function sight(seed) {
 
 const range = (n) => Array.from({ length: n }, (_, i) => i);
 const loadoutName = (loadout) => loadout.left === "empty" ? loadout.right : loadoutKey(loadout);
-/** An arena bout of `left` and `right` under the controllers and per-hand loadouts a link names. */
-const controlled = (left, right, controls, loadouts) => ({
-  name: `arena ${left} v ${right}, ${controls}, ${loadoutKey(loadouts.left) === loadoutKey(loadouts.right) ? loadoutName(loadouts.left) : `${loadoutName(loadouts.left)} v ${loadoutName(loadouts.right)}`}`,
-  run: () => arena({ left, right, loadouts, minds: readMinds(`?matchup=${left},${right}&control=${controls}&left.loadout=${loadoutKey(loadouts.left)}&right.loadout=${loadoutKey(loadouts.right)}`) }),
-});
+/** A recipe's attributes where a side's preset names its character (`controlCharacter`), as the Arena builds it; else none. */
+const characters = (left, right) => {
+  const sides = { left: controlCharacter(left), right: controlCharacter(right) };
+  return Object.keys(sides.left).length + Object.keys(sides.right).length > 0 ? { attributes: sides } : {};
+};
+/** An arena bout of `left` and `right` under the controllers and per-hand loadouts a link names, each side as the link reads it. */
+const controlled = (left, right, controls, loadouts) => {
+  const search = `?matchup=${left},${right}&control=${controls}&left.loadout=${loadoutKey(loadouts.left)}&right.loadout=${loadoutKey(loadouts.right)}`, read = readControls(search);
+  return { name: `arena ${left} v ${right}, ${controls}, ${loadoutKey(loadouts.left) === loadoutKey(loadouts.right) ? loadoutName(loadouts.left) : `${loadoutName(loadouts.left)} v ${loadoutName(loadouts.right)}`}`,
+    run: () => arena({ left, right, loadouts, minds: readMinds(search), ...characters(read.left, read.right) }) };
+};
 const rightHand = (right) => ({ left: "empty", right });
 const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
@@ -385,17 +391,17 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
   if (!model) return [];
   const loadouts = both(controlsFor(model, rightHand("club")).includes(id) ? "club" : "empty");
   return [{ name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
-    run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) }];
+    run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config }, ...characters(id, id) }) }];
 });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: the learned punch, the Puncher throwing it at the chest on both sides of a Warriors' bout.
+ * read by a case that plays it: the learned punch, the Puncher throwing it at the chest on both sides of a bout of toed Warriors, the body it has settings for.
  */
 const DATA_CASES = [
   { name: "data: learned-punch", run: () => {
     const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };
-    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
+    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind }, attributes: { left: { toes: true }, right: { toes: true } } });
   } },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */

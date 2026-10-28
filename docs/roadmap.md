@@ -53,15 +53,13 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. First the baseline and the testbed's rules, which every mind meets: the toolkit's body layer, reaction time, chance from a seed, life in the senses, a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, its speed measured first, with a bare entrant from the senses to the muscles. Then Kinetic's own design, before any training run: worth in the verdict's unit, measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. First the baseline and the testbed's rules, which every mind meets: reaction time, chance from a seed, life in the senses, a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, its speed measured first, with a bare entrant from the senses to the muscles. Then Kinetic's own design, before any training run: worth in the verdict's unit, measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
-| [Body layer](plans/2026-10-28-body-layer.md) | The toolkit's baseline body layer, which a mind uses whole, in part or not at all: a claim in the body's own terms, the legs asked in one goal nothing edits after, its bearing ends the body's, carriages and gaits by name, the controllers reporting what they did not carry out, probes, the percepts registry, a learned skill's layouts and the one learned punch |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant); the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: the baseline and the testbed's rules**, Kinetic steps 2 to 7 in order: the toolkit's
-   body layer ([Body layer](plans/2026-10-28-body-layer.md) step 9, the one
-   learned punch), reaction time (0.15 s, the owner's decision), chance from a seed,
+1. **Now: the baseline and the testbed's rules**, Kinetic steps 3 to 7 in order: reaction time
+   (0.15 s, the owner's decision), chance from a seed,
    life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
    both landing before it, and the trainer, its speed measured and its largest cost cut first,
@@ -370,7 +368,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   unheard; [look](reference/look.md#sound)).
 - **New bodies:** the reptile ([reptile](reference/reptile.md),
   [bites](reference/reptile-bites.md)): its legs completing the toolkit's legs goal over its four
-  bearing ends ([Body layer](plans/2026-10-28-body-layer.md)); richer surface response, broader
+  bearing ends ([skills](architecture.md#skills)); richer surface response, broader
   recovery, combat against the humans, injury wins across more opponents.
 - **Another engine** (Box3D, Jolt or another): a bench adapter in `src/physics-bench/engines/`
   first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm test`.
