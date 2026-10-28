@@ -159,7 +159,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
         }
       }
-      if (stance && legOwner?.claim.steer) stance = { ...stance, heading: stance.heading + legOwner.claim.steer };
+      if (legOwner) stance = stanceAsked(stance, view, legOwner.claim);
       const swung = legs.arms?.(view);
       if (swung) for (const model of models) {
         if (!guard.hands.includes(model.segment) || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
@@ -210,6 +210,18 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       return state.command;
     },
   };
+}
+
+/**
+ * **`stance` as the action that holds the legs asks it** (`claim`): its heading turned by
+ * `steer`, and its centre of mass moved by `shift` from where it holds it (the middle of the
+ * stance soles where it names none, `view.stance.support`); as it is where the claim asks neither.
+ */
+export function stanceAsked(stance: StanceGoal | null, view: BodyView, claim: Pick<ActionClaim, "steer" | "shift">): StanceGoal | null {
+  if (!stance || !claim.steer && !claim.shift) return stance;
+  const shift = claim.shift, support = view.stance.support;
+  return { ...stance, ...(claim.steer ? { heading: stance.heading + claim.steer } : {}),
+    ...(shift ? { centre: [(stance.centre?.[0] ?? support.x) + shift[0], (stance.centre?.[1] ?? support.z) + shift[1]] as const } : {}) };
 }
 
 /**

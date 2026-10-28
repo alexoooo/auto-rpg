@@ -1,13 +1,15 @@
 /**
  * The steered punch's training environment: a trial of the Strike drill's still rung
- * (`STRIKE_CASES.still`: its world and its reader) a episode, the Puncher's straight punch on a
+ * (`STRIKE_CASES.still`: its world and its reader), or of its walk rung where a place names its
+ * `starts` (`STRIKE_CASES.walk`: walked in and settled, or struck the first step ready), a episode, the Puncher's straight punch on a
  * found schedule (its body's of `schedules`, else `schedule`: a `research/punch-drill.mjs` result,
  * mirrored for the left hand) with
  * `steered` on, its steer set from here at each of its decisions (`PUNCH_DECIDE`) through the drive,
  * its features read as the punch reads them (`punchFeatures`).
  *
  * It keeps `pool` starts, each a bout at a place drawn on `seed` (one of `places`: a body, its
- * gaps and its offsets across, m, each drawn evenly between its two ends; or a body, its `foes`
+ * gaps and its offsets across, m, each drawn evenly between its two ends, and the walk rung's
+ * `starts` it draws from where it names them; or a body, its `foes`
  * and its `moments`, a fight's moment of the drill's `fight` rung, one of the half of them
  * `heldOut` leaves to training; a hand of `hands`, a mark of `marks`, a rate of `rates`), played
  * to its drive's first step and saved (`Duel.save`).
@@ -20,13 +22,15 @@
  * steer's mean square at each decision, and, where the fist met nothing on the mark, less `near`
  * for each metre the fist came no nearer the target than over the drive (to 0.5 m).
  *
+ * Its steer has `punchActions` outputs, as the punch's `steered` (of `punch`) lays them out.
+ *
  * Each body's punch is admitted where `windows` says (`[reach, band, aside, above]`, by model), else
  * anywhere past `AROUND`'s reach.
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
 import { readFileSync } from 'node:fs';
-import { PUNCH_ACTIONS, PUNCH_FEATURES } from '../src/core/skills/learned-punch.ts';
+import { punchActions, PUNCH_FEATURES } from '../src/core/skills/learned-punch.ts';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { STRIKE_CASES } from '../src/evaluation/strike/cases.ts';
 import { CHEST, decode, mirrored, scoreOf, timedPuncher } from './punch-drill.mjs';
@@ -63,11 +67,15 @@ export function steeredSubjects({ schedule, schedules = {}, windows = {}, aim = 
   };
 }
 
-/** A trial's condition at `place`: a still target's gap and offset drawn, or a fight's foe and moment picked. */
+/** A trial's condition at `place`: a still target's gap, offset and start drawn, or a fight's foe and moment picked. */
 export function drawn(place, pick, between, o) {
   const common = { model: place.model, mark: pick(o.marks), hand: pick(o.hands) };
-  return place.foes ? { ...common, foe: pick(place.foes), moment: pick(place.moments) } : { ...common, across: between(place.across), gap: between(place.gaps) };
+  return place.foes ? { ...common, foe: pick(place.foes), moment: pick(place.moments) }
+    : { ...common, across: between(place.across), gap: between(place.gaps), ...(place.starts ? { start: pick(place.starts) } : {}) };
 }
+
+/** The Strike drill's rung a place's trials are: a fight's, the walk's where it names its starts, else the still one's. */
+const rungOf = (place) => STRIKE_CASES[place.foes ? 'fight' : place.starts ? 'walk' : 'still'];
 
 export async function punchEnvironment(configuration = {}) {
   const o = { schedule: 'docs/reference/punch-body.json', places: [{ model: 'workshop-fighter', gaps: [0.9, 1], across: [0, 0.1] }], hands: ['right'], marks: ['middle'],
@@ -77,14 +85,14 @@ export async function punchEnvironment(configuration = {}) {
   const generator = (seed) => { let word = (seed * 2654435761) >>> 0; return () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296); };
   const random = generator(o.seed), drawing = generator(o.seed + 7919);
   const pick = (list) => list[Math.floor(drawing() * list.length)];
-  const subjects = steeredSubjects(o);
+  const subjects = steeredSubjects(o), actions = punchActions(o.punch?.steered ?? true);
   const motionOf = (built) => built.duel.duelists.left.minded.skills.state.actions.executors[0].motion;
   /** Whether the drill's own punch drives: the drill has the body (a fight's punches before its moment are the fight's) and the drive has read its first features. */
   const drilled = (built, motion) => built.duel.duelists.left.minded.skills.report.engagement?.phase !== 'fighting' && motion.phase === 'swing' && motion.features.length > 0;
   /** A bout at a fresh place, built and its tape begun; null where the place is a fight's moment held out. */
   const begin = async () => {
     const place = pick(o.places), between = ([lo, hi]) => lo + (hi - lo) * drawing(), hz = pick(o.rates);
-    const condition = drawn(place, pick, between, o), cases = STRIKE_CASES[place.foes ? 'fight' : 'still'];
+    const condition = drawn(place, pick, between, o), cases = rungOf(place);
     if (place.foes && heldOut(condition)) return null;
     const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined), built = await buildBout(world.recipe, { hz });
     const reader = cases.read(built, condition), motion = motionOf(built);
@@ -134,7 +142,7 @@ export async function punchEnvironment(configuration = {}) {
     return s.features.slice();
   };
   const step = (action) => {
-    if (!Array.isArray(action) || action.length !== PUNCH_ACTIONS || !action.every(Number.isFinite)) throw new Error('invalid punch action');
+    if (!Array.isArray(action) || action.length !== actions || !action.every(Number.isFinite)) throw new Error('invalid punch action');
     const { built, reader, motion } = ep, steer = action.map(Math.tanh);
     motion.steer.length = 0; motion.steer.push(...steer);
     ep.decisions++;
@@ -154,5 +162,5 @@ export async function punchEnvironment(configuration = {}) {
     const info = { landed: meets ? 1 : 0, score, speed: hit?.speed ?? null, kg: hit?.kg ?? null, gap: ep.condition.gap ?? null, fight: ep.condition.foe ? 1 : 0, hz: ep.hz, decisions: ep.decisions, nearest: ep.nearest };
     return { observation, reward, terminated: true, truncated: false, info };
   };
-  return { reset, step, idle, observationSize: PUNCH_FEATURES, actionSize: PUNCH_ACTIONS, dispose: () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); }, inside: () => ep };
+  return { reset, step, idle, observationSize: PUNCH_FEATURES, actionSize: actions, dispose: () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); }, inside: () => ep };
 }

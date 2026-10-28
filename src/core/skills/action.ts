@@ -121,6 +121,8 @@ export interface ActionClaim {
   readonly legs?: LegsAsk;
   readonly lower?: number;
   readonly steer?: number;
+  /** With the legs held, the stance's centre of mass moved from where it holds it, world (x, z), m (`stanceAsked`). */
+  readonly shift?: readonly [number, number];
   readonly delegate?: readonly Resource[];
   readonly support?: number;
 }
