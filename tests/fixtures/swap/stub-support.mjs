@@ -9,12 +9,12 @@ export const STUB_SUPPORT = Object.freeze({
   defaults: Object.freeze({ kind: "stub-support" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make() {
-    const state = { stub: "stub-support", steps: 0, stage: "stand", ready: false };
+    const state = { stub: "stub-support", steps: 0, stage: "stand", ready: false, posture: {} };
     return {
       state, report: state, walks: () => true,
       resume() { state.stage = "stand"; state.ready = false; },
       tick() { state.steps++; },
-      apply: (stance, posture) => ({ stance, posture }),
+      lay: (_view, goal) => goal,
     };
   },
 });

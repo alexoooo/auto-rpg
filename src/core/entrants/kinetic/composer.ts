@@ -67,7 +67,7 @@ function refusalOf(part: BodyPart, held: readonly BodyPart[]): string | null {
  * - An action's claim writes only the parts it holds, and the legs only through its legs goal
  *   (`LegsGoal`): its walk, facing, height, heading, centre, a footing. A posture, push, point or
  *   goal on a leg's channel or on a part it does not hold is refused, not written, and the
- *   refusal is reported (`refused`); so are a low support and a delegation, which it does not give.
+ *   refusal is reported (`refused`); so is a delegation, which it does not give.
  * - The defaults: the legs walk and face as the intent asks, its movement made a walk by the
  *   navigation (`navigated`); each free arm holds the guard, covers as the intent asks, takes its
  *   free hand's pose and hold, and swings with the walk where the walk swings it.
@@ -186,13 +186,12 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         for (const task of claim.points ?? []) if (take(`point ${task.segment}`, partOfSegment(task.segment))) points.push(task);
         for (const [segment, goal] of Object.entries(claim.effectors ?? {})) if (take(`goal ${segment}`, partOfSegment(segment))) goals[segment] = goal;
         for (const [segment, pose] of Object.entries(claim.handPoses ?? {})) if (take(`pose ${segment}`, partOfSegment(segment)) && pose) handPoses[segment] = pose;
-        if (claim.support !== undefined) refuse(by, "support", "Kinetic gives no low support");
         if (claim.delegate?.length) refuse(by, "delegate", "Kinetic delegates nothing");
         if (held.includes("legs")) legsAsked = claim.legs ?? { walk: null };
         else if (claim.legs !== undefined) refuse(by, "legs", "it does not hold the legs");
       }
       // The legs: their goal as the action that holds them asks it, or the intent's where none does; legs that drive themselves write the legs' channels.
-      const drive = legs.goal(view, legsGoal(legsAsked, intent, view, legs.heading, { waiting: false, folding: false }), dt);
+      const drive = legs.goal(view, legsGoal(legsAsked, intent, view, legs.heading, { waiting: false }), dt);
       let stance: StanceGoal | null = null;
       switch (drive.kind) {
         case "stance": stance = drive.goal; break;

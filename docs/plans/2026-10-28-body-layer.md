@@ -17,10 +17,6 @@ registries; they bind no mind.
 
 ## Why
 
-- **The stance is edited after the legs.** An action's claim (`ActionClaim`,
-  `src/core/skills/action.ts`) asks the legs in one goal (`LegsGoal`), beside `support` and
-  `delegate`; but the support fold (`SupportSkill.apply`, `support-fold.ts`) rewrites the stance
-  goal the legs made. Another legs implementation would get its goal rewritten under it.
 - **A skill's variants multiply with it.** The learned punch has two layouts (`steered`: its leg
   outputs as pushes, or as asks of the stance), two data keys (`learned-punch`, `stance-punch`), and
   a `halts` setting in three parts' key lists; its outputs are a list written by hand
@@ -69,7 +65,7 @@ An action's claim is the body's command in its own terms, its legs as one goal:
 | `effectors` | where an effector's points go and when: a hand's, a foot's, a held item's | the same |
 | `points` | an effector's point accelerated or turned (`PointTask`) | the same |
 | `handPoses` | a hand's shape | the same |
-| `legs` | the legs goal (below) | `legs`, `support` |
+| `legs` | the legs goal (below) | the same |
 
 The body's own rules stay the body's: one of a goal or a point an effector; no push on a point's
 chain; no goal or point on a foot the stance bears (`obey`, `src/core/body.ts`, which throws). An
@@ -100,7 +96,6 @@ no new claim term. Each field has one form, the stance's:
 
 | Today | In the legs goal |
 | --- | --- |
-| `support`, the fold | `height` and `pose`; its trunk flexion is the trunk's owner's (step 2) |
 | the square stance the body was built in, one step pattern (`STANCE_GAIT`) | `carriage` and `gait`, by name |
 
 The legs complete it in one method, `Locomotion.goal(view, goal, dt)`: a stance goal, or, for
@@ -199,22 +194,6 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
 
-### 2. Nothing edits the stance after the legs
-
-The legs goal's `feet` typed by the spec's bearing ends (a human's two feet the ends its legs bear
-on, `Side` today). The support fold becomes `height` and
-`pose` in the legs goal of whatever holds the legs, or the defaults' while none does, and
-`ActionClaim.support` goes, Vanguard's committed aim with it (a mixed change: its part and the
-toolkit, `node scripts/entrant-check.mjs`). Its trunk flexion (`lumbar flexion`, `thoracic
-flexion`) is the trunk's owner's: the defaults' posture while low, which an action holding the
-trunk writes over. The question is whether the fold holds a low stance with a punch's trunk over it:
-it is read before and after on the fold's own readings (the head's drop, the falls), and where the
-punch's trunk loses the low stance, the fold becomes an action holding those two channels instead.
-The legs never write the trunk.
-
-Check: the gate; the fingerprint, or where a case moves, the fold's own readings before and after,
-named in the commit.
-
 ### 3. Carriages and gaits by name
 
 A carriage is data in one registry (`CARRIAGES`): the feet relative to the heading (width,
@@ -310,5 +289,4 @@ in the legs goal; every gait, carriage and stance implementation passes the prob
 registry holds the chooser's readings, the gait's phase and the report, and goals are named cues
 over it; a learned skill's inputs and outputs are layout files in the body's units; Kinetic has no
 composer and no refusals of its own; the learned puncher's and Kinetic's still and walk rungs are
-unmoved by steps 3, 4, 6 and 7; the kick and the fold read as before step 2 or as its commit
-names; step 8 is kept or its reason recorded; and there is one learned punch.
+unmoved by steps 3, 4, 6 and 7; step 8 is kept or its reason recorded; and there is one learned punch.

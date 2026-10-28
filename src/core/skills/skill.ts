@@ -1,6 +1,6 @@
 import type { BodyView } from "../body.ts";
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
-import type { Side } from "../spec/body.ts";
+import type { BearingEnd } from "../spec/body.ts";
 import type { Footing } from "./locomotion.ts";
 import type { SupportReport } from "./support-fold.ts";
 
@@ -32,7 +32,7 @@ export interface LegsGoal {
   readonly face?: number;
   readonly footing?: Footing;
   readonly destination?: number;
-  readonly feet?: readonly Side[];
+  readonly feet?: readonly BearingEnd[];
   readonly height?: number;
   readonly heading?: number;
   readonly centre?: readonly [number, number] | null;

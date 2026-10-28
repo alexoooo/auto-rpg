@@ -100,9 +100,9 @@ export function committedAim(body: Body, guard: Pose, actions: readonly string[]
       // An independently recovering hand leaves the next punch's body and arm controls free.
       if (state.freeReturn) return {};
       const ordinary = base.command(view, id, around);
-      // A low punch keeps the planted fold while it owns the trunk and legs.
+      // A low punch keeps the planted fold while it owns the trunk and legs: its trunk as the fold asks it.
       const claim = low && state.lower > STANCE_LOWER
-        ? { ...ordinary, support: state.lower, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
+        ? { ...ordinary, posture: { ...ordinary.posture, ...around.support?.posture }, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
       // The continuous guard brings the fist back and can cover with it during recovery.
       return state.returning ? { ...claim, posture: Object.fromEntries(Object.entries(claim.posture ?? {}).filter(([name]) => !arms.has(name))), handPoses: {} } : claim;
     },

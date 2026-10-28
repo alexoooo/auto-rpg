@@ -121,7 +121,6 @@ export interface ActionClaim {
   /** With the legs held, the legs goal (`LegsGoal`), which the legs complete. */
   readonly legs?: LegsGoal;
   readonly delegate?: readonly Resource[];
-  readonly support?: number;
 }
 
 /** Continuous context at the start of a control step. */

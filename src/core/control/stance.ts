@@ -11,7 +11,7 @@ import { aimRecovery, catchStep, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import { type FootState, type SoleEnd, angularMomentumToRef, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, massCentreToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, turnOfToRef, withinSupport } from "./support.ts";
 import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
-import type { Side } from "../spec/body.ts";
+import type { BearingEnd, Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "./swing-path.ts";
@@ -23,8 +23,8 @@ import type { BuiltDof, ReadBody } from "../read-body.ts";
  * way its pelvis faces.
  */
 export interface StanceGoal {
-  /** The feet bearing weight; the other leg is left to the posture. */
-  readonly feet: readonly Side[];
+  /** The ends bearing weight; the other leg is left to the posture. */
+  readonly feet: readonly BearingEnd[];
   /** The centre of mass's place over the ground, world (x, z), m; null for the middle of the stance feet. */
   readonly centre: readonly [number, number] | null;
   /** The centre of mass's height over the stance feet's soles, m. */

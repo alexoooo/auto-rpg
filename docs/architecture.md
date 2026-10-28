@@ -293,8 +293,14 @@ actions over it.
 - Every skill answers `Skill.resume` (`src/core/skills/skill.ts`) and is in the one list its skill
   set resumes; the arbiter releases every instance on host takeover or idling.
 
-**Locomotion skills** (`Locomotion`): every legs give their state, a resume, the legs' command
-for a walk and a facing (`goal`, or `drive`), their heading and how fast they stop. What a walk
+**Locomotion skills** (`Locomotion`): every legs give their state, a resume, the completion of a
+legs goal (`goal`: a stance goal, or a gait's own drive of the legs), their heading and how fast
+they stop. An action holding the legs asks them in one legs goal (`LegsGoal`, its `legs`): a walk,
+and the stance goal's fields it sets; nothing edits the stance goal after the legs complete it.
+The low support fold (`SupportSkill`, `src/core/skills/support-fold.ts`) carries a goal that leaves
+the stance's shape to the legs (`foldCarries`) down to the height it asks, before the legs complete
+it, and asks its trunk flexion of whatever holds the trunk (`SupportReport.posture`): the defaults
+on a free trunk, a low action on its own. What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
 feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place
 no feet finds them standing.

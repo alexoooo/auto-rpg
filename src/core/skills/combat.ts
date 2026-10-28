@@ -260,14 +260,15 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       }
       return updates;
     },
-    command(view, id) {
+    command(view, id, around) {
       const hand = state.lives.left?.request.id === id ? "left" : state.lives.right?.request.id === id ? "right" : null;
       if (!hand) throw new Error(`path executor has no instance ${id}`);
       const live = state.lives[hand]!, strike = strikes[hand], { path, course } = courseOf(view, hand, live);
       if (live.supportPhase !== "ready") {
         const posture = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`shoulder.${hand} `) || name.startsWith(`elbow.${hand} `) || name.startsWith(`wrist.${hand} `)));
         const lower = live.supportPhase === "rise" ? STANCE_LOWER : live.lower;
-        return { posture, legs: { walk: null, height: view.standing - lower }, support: lower, ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}) };
+        return { posture: { ...posture, ...around.support?.posture }, legs: { walk: null, height: view.standing - lower },
+          ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}) };
       }
       const phase = strike.state.phase, posture: Record<string, number> = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`wrist.${hand} `))), pushes: MusclePush[] = [];
       if (live.elbow) {
@@ -281,10 +282,10 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       }
       const owns = held(hand, live), low = find(live.request.action).lower;
       const goal = strike.goal(course);
-      return { posture, pushes, effectors: { [live.request.effector]: goal },
+      // A low blow is thrown with the trunk as the fold asks it.
+      return { posture: low === undefined ? posture : { ...posture, ...around.support?.posture }, pushes, effectors: { [live.request.effector]: goal },
         ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}),
-        ...(owns.includes("legs") ? { legs: { walk: null, height: view.standing - live.lower } } : {}),
-        ...(low !== undefined ? { support: live.lower } : {}) };
+        ...(owns.includes("legs") ? { legs: { walk: null, height: view.standing - live.lower } } : {}) };
     },
   };
 }
