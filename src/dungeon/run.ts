@@ -11,7 +11,7 @@ import { MODEL_DISPLAY } from "../render/models.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/levels.ts";
-import { rulebook } from "../core/rules/rulebook.ts";
+import { reactionSteps, rulebook } from "../core/rules/rulebook.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
@@ -249,7 +249,7 @@ export class DungeonRun {
     this.map = runMap(options);
     const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
     this.world = createWorld(scene, options.engine);
-    this.senses = createSenses(this.world);
+    this.senses = createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz));
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
     this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
     this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);

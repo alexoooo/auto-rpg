@@ -6,6 +6,7 @@
 import type { EngineName } from "../core/engine/engines.ts";
 import { recordingKey } from "../core/recording.ts";
 import type { Side } from "../core/spec/body.ts";
+import { senseDelayOf } from "../arena/duel.ts";
 import type { CaseWorld, Evaluation, Json, Subject, Table } from "./evaluation.ts";
 import { runLanes, type Spawn } from "./lanes.ts";
 import { pairsOf, type Schedule } from "./schedule.ts";
@@ -51,6 +52,15 @@ interface CaseJob {
 const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; world: CaseWorld; seconds: number; code: string }): string =>
   sha256Text(recordingKey(fields)).slice(0, 32);
 
+/** `world` with a bout's reaction time written in its recipe (`senseDelayOf`), so its key and record name it. */
+function named(world: CaseWorld): CaseWorld {
+  return world.kind === "bout" ? { ...world, recipe: { ...world.recipe, senseDelay: senseDelayOf(world.recipe) } } : world;
+}
+
+/** The reaction times, s, `units`' bouts are played under, each once, in the order met. */
+export const senseDelaysOf = (units: readonly Unit[]): number[] =>
+  [...new Set(units.flat().flatMap((one) => one.world.kind === "bout" ? [senseDelayOf(one.world.recipe)] : []))];
+
 /**
  * The cases of `evaluation` on `protocol` for `subjects`, unit by unit, in the definition's order:
  * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair `schedule` makes
@@ -63,7 +73,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
   const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   const make = (seated: readonly Subject[], condition: Json): Case => {
-    const world = cases.world(seated.map((subject) => subject.value), condition, engine, seated.map((subject) => subject.character ?? {})), code = codeOf(world);
+    const world = named(cases.world(seated.map((subject) => subject.value), condition, engine, seated.map((subject) => subject.character ?? {}))), code = codeOf(world);
     return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds, code,
       key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds, code }) };
   };

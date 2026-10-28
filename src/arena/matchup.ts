@@ -249,12 +249,17 @@ export function controllerLabel(search: string, side: Side): string {
 export const readRecovery = (search: string): number | null | undefined =>
   new URLSearchParams(search).get("recovery") === "continue" ? null : readWithin(search, "recovery", [0, 60]);
 
+/** How old what each side sees of the other is, s: `&senseDelay=`, up to a second; undefined, and the rulebook's reaction time, for anything else. */
+export const readSenseDelay = (search: string): number | undefined => readWithin(search, "senseDelay", [0, 1]);
+
 /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
 export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
   const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search), controls = readControls(search);
+  const senseDelay = readSenseDelay(search);
   return {
     left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, level, minds: readMinds(search),
     attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
     ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),
+    ...(senseDelay !== undefined ? { senseDelay } : {}),
   };
 }

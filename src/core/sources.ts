@@ -209,6 +209,12 @@ export const SOURCES = Object.freeze({
       + "s_expm1.c, e_sinh.c, e_cosh.c, s_cbrt.c and s_scalbn.c. Its notice stands in src/core/math/real.ts.",
     link: "https://github.com/freebsd/freebsd-src/tree/main/lib/msun/src",
   },
+  "owner-reaction-time": {
+    kind: "decision", date: "2026-10-27",
+    decided: "A mind sees every other body 0.15 s late, the quick end of a person's response to a seen cue (about "
+      + "0.15 to 0.2 s); its own body at once. One rule for both sides, in seconds, converted to steps at the world's rate.",
+    record: "docs/reference/play.md#reaction-time",
+  },
   "owner-balance": {
     kind: "decision", date: "2026-09-30",
     decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "

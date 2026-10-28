@@ -37,7 +37,7 @@ const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */
 async function play(left, right, gap, covers) {
   const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover", tuning: { threat } } : behaviour) } }) : RECIPE_FIGHTER;
-  const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay, minds: { left: mind("left"), right: mind("right") } }, { engine: BOUT_ENGINE });
+  const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay / 120, minds: { left: mind("left"), right: mind("right") } }, { engine: BOUT_ENGINE });
   try {
     const me = duel.duelists[covers], { view } = me.body;
     const toWorld = (p) => p.clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position);

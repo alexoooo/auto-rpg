@@ -53,6 +53,11 @@ export interface Rulebook {
    * each does to how bouts end: `docs/reference/assist.md`.
    */
   readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
+  /**
+   * **Reaction time**, s: how late a mind sees every other body (`createSenses`); its own body at
+   * once. The same for both sides, converted to steps at the world's rate (`reactionSteps`).
+   */
+  readonly reaction: Quantity<number>;
 }
 
 /** What an experiment may set in place of a mode's rules. */
@@ -93,7 +98,14 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
     force: sourced(0.01, "1", "owner-balance", "a per cent of the body's weight"),
     moment: sourced(0.0026, "m", "owner-balance", "and 0.0026 weight-metres with each per cent"),
   }),
+  reaction: sourced(0.15, "s", "owner-reaction-time", "every other body seen 0.15 s late"),
 });
+
+/** A reaction time of `seconds` in whole steps of a world stepping `hz` times a second, the nearest. */
+export function reactionSteps(seconds: number, hz: number): number {
+  if (!(seconds >= 0) || !Number.isFinite(seconds)) throw new Error(`a reaction time is finite seconds >= 0, not ${seconds}`);
+  return Math.round(seconds * hz);
+}
 
 /**
  * **What a blow is worth**, hit points: its energy (`impactEnergy` in `src/core/rules/impact.ts`)

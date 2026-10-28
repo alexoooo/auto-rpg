@@ -11,7 +11,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
-import { rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
+import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import { derive, type Vec3 } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
@@ -36,7 +36,8 @@ import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } f
  * - **Each side, left to itself**, does as its mind decides: a planner picks its foe from the
  *   bodies it senses (`targets.ts`) and closes on it, strikes or holds off as its parts choose.
  *   What each sees of the other is the bout's senses'
- *   (`createSenses`): both see the same step, `DuelRecipe.senseDelay` steps old.
+ *   (`createSenses`): both see the same moment, `DuelRecipe.senseDelay` old, the rulebook's
+ *   reaction time unless the recipe gives its own.
  * - **A side given orders** (`Duel.order`) does what it is ordered and nothing else, until it is
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
@@ -95,7 +96,7 @@ export interface DuelRecipe {
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
-  /** How many steps old what each side sees of the other is; none unless given (`createSenses`). */
+  /** How old what each side sees of the other is, s, in place of the rulebook's reaction time (`Rulebook.reaction`, `senseDelayOf`). */
   readonly senseDelay?: number;
   /** Each side's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
   readonly balance?: { readonly left: number; readonly right: number };
@@ -120,6 +121,9 @@ export interface DuelRecipe {
   /** Where a side stands at the start, on the floor (x, z, m), and which way it faces (rad, zero facing +z), in place of its level's spawn (`levelSpawn`): a scenario's arrangement. */
   readonly start?: Readonly<Partial<Record<Side, { readonly at?: readonly [number, number]; readonly heading?: number }>>>;
 }
+
+/** How old what each side of a bout of `recipe` sees of the other is, s: the recipe's, or its rules' reaction time. */
+export const senseDelayOf = (recipe: Pick<DuelRecipe, "senseDelay" | "rules">): number => recipe.senseDelay ?? rulebook("arena", recipe.rules).reaction.value;
 
 /** What a mind must do to enter a bout of `recipe` (`DuelRecipe.entry`): the recipe's rule, or a fight's; a page with no recipe yet plays a fight. */
 export const entryRules = (recipe?: Pick<DuelRecipe, "entry">): readonly EntryRule[] => recipe?.entry ?? FIGHT_ENTRY;
@@ -272,7 +276,7 @@ export class Duel {
     this.ends = (recipe.ends ?? GAME_ENDS).map((config) => [endRuleOf(config), config] as const);
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
-      senseDelay: recipe.senseDelay ?? 0, recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
+      senseDelay: senseDelayOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: recipe.loadouts?.left ?? EMPTY_LOADOUT, right: recipe.loadouts?.right ?? EMPTY_LOADOUT },
       minds: { left: recipe.minds?.left ?? modelInfo(recipe.left).mind, right: recipe.minds?.right ?? modelInfo(recipe.right).mind },
     })) as unknown;
@@ -294,7 +298,7 @@ export class Duel {
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
-    this.senses = createSenses(world, recipe.senseDelay ?? 0);
+    this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz));
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
     this.feeding = world.sense(() => {

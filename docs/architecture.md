@@ -436,7 +436,8 @@ step, after the muscles read the joints.
 body (`BodySense`): side, spec with what it holds, out, down by its spec's rule, centre of mass and
 its velocity, each segment's pose and motion. Never hit points or another mind. A fight's one
 sensing layer (`createSenses`) reads every body in the step's sensing phase, before any mind, so
-all minds see one moment, each body shown `DuelRecipe.senseDelay` steps late. A lone body senses
+all minds see one moment, every other body shown late by the reaction time (`Rulebook.reaction`,
+0.15 s, [play](reference/play.md#reaction-time)) and a mind's own at once. A lone body senses
 the clock (`clockSenses`).
 
 **Down.** When a body is down is its spec's rule (`BodySpec.down`, read by `uprightness`; a human

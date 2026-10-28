@@ -191,7 +191,7 @@ export function combatPairs({ candidate, opponent, count = 100, split = 'heldout
   for (let pair = 0; pair < count; pair++) {
     const gap = 1.2 + 4.8 * random(), senseDelay = Math.floor(random() * 13), release = 12 + Math.floor(random() * 109);
     const angle = random() * Math.PI * 2, heading = { x: Math.sin(angle), z: Math.cos(angle) };
-    const recipe = { gap, senseDelay, capSeconds };
+    const recipe = { gap, senseDelay: senseDelay / 120, capSeconds };
     for (const mirror of [false, true]) {
       const side = mirror ? 'right' : 'left';
       const tape = [{ step: 0, side, orders: { ...STAND_ORDERS, face: heading } }, { step: release, side, orders: null }];

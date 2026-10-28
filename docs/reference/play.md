@@ -18,6 +18,20 @@ measurement backs it.
   14 s on average, and with a balance of 25 % 55 s ([assist](assist.md)), so the cap decides few
   bouts without balance and more with it.
 
+## Reaction time
+
+`Rulebook.reaction` (`src/core/rules/rulebook.ts`), 0.15 s, the owner's decision
+(`owner-reaction-time`): a mind sees every other body that late and its own at once, so its balance
+and motor control are not slowed. One rule for both sides, in the arena's bouts and the crypt's
+runs, in whole steps at the world's rate (`reactionSteps`: 18 at 120 Hz).
+
+- **A recipe may give its own** (`DuelRecipe.senseDelay`, s; `&senseDelay=` on the page, up to
+  1 s). Each evaluation's bout cases write it in their recipe, so their keys and records carry it,
+  and the report names it. At 0 a bout plays as it did before the rule.
+- **Expected in play**: a cover that waits to see a 0.2 to 0.3 s punch catches only its end, so
+  reading the foe's preparation pays. People start a response to a seen cue in about 0.15 to
+  0.2 s.
+
 ## Sight
 
 `src/dungeon/run.ts`, `src/core/command/`. Every sight line is `canSee`'s (`TeamLevel.sees`): a clear line on the map, no farther than
