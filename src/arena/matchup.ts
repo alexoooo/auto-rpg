@@ -170,13 +170,18 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
   return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }
 
+/** A side's character under `control`: the preset's (`MindPreset.character`), and over it the attributes a person or a link sets. */
+export const controlCharacter = (control: Control, attributes: AttributeOverrides = {}): AttributeOverrides =>
+  ({ ...MINDS[control]?.character, ...attributes });
+
 /**
- * Pickers and links accept the same choices: the minds a body of `model` carrying `loadout` can carry
- * out (`modelRefusal`, a fight's entry rules), so a mind that works with one loadout is offered with no other.
+ * Pickers and links accept the same choices: the minds a body of `model` carrying `loadout`, its
+ * character as each mind would play it (`controlCharacter`), can carry out (`modelRefusal`, a
+ * fight's entry rules), so a mind that works with one loadout is offered with no other.
  */
 export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): readonly Control[] {
   return Object.keys(MINDS).filter((control) => presetFitsModel(MINDS[control]!, model)
-    && modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, attributes) === null);
+    && modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, controlCharacter(control, attributes)) === null);
 }
 
 /** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
@@ -193,11 +198,11 @@ const mindKey = (side: Side): string => `${side}.mind`;
  * preset `control=` names, unless the link carries the side's own tree.
  */
 export function linkedMind(search: string, side: Side): LinkedMind {
-  const preset = MINDS[readControls(search)[side]]!.config;
+  const control = readControls(search)[side], preset = MINDS[control]!.config;
   const model = readMatchup(search)[side], loadout = loadoutsOf(search)[side];
   let spec;
-  try { spec = modelHolding(model, loadout, arenaAttributes(search)[side]); }
-  catch { spec = modelHolding(model, loadout); }
+  try { spec = modelHolding(model, loadout, controlCharacter(control, arenaAttributes(search)[side])); }
+  catch { spec = modelHolding(model, loadout, controlCharacter(control)); }
   return parseMind(new URLSearchParams(search).get(mindKey(side)), spec, FIGHT_ENTRY) ?? { config: preset, faults: [] };
 }
 
@@ -244,11 +249,12 @@ export function controllerLabel(search: string, side: Side): string {
 export const readRecovery = (search: string): number | null | undefined =>
   new URLSearchParams(search).get("recovery") === "continue" ? null : readWithin(search, "recovery", [0, 60]);
 
-/** The bout `search` asks for on `level`, each side's attributes as the page holds them. */
+/** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
 export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
-  const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search);
+  const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search), controls = readControls(search);
   return {
-    left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, attributes, level, minds: readMinds(search),
+    left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, level, minds: readMinds(search),
+    attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
     ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),
   };
 }

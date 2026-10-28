@@ -8,7 +8,7 @@
  */
 import { MINDS } from "../../core/mind/controllers.ts";
 import { recordingKey } from "../../core/recording.ts";
-import type { Evaluation, Json, Subject } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Json, type Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { STRIKE_CASES, type StrikeCondition } from "./cases.ts";
 
@@ -28,8 +28,8 @@ function actionSubject(name: string): Subject {
   const action = slash < 0 ? actions[0] : name.slice(slash + 1);
   if (action === undefined || !actions.includes(action)) throw new Error(`${id} has no action ${action ?? ""}: one of ${actions.join(", ") || "none"}`);
   const value = { mind: preset.config as unknown as Json, action };
-  return { id: `${id}/${action}`, label: `${preset.label}: ${action}`, parts: [{ id: `mind:${id}`, value: value.mind }, { id: "action", value: action }], value,
-    ...(preset.models === undefined ? {} : { models: preset.models }) };
+  const subject = mindSubject(id, preset.label, value.mind, preset);
+  return { ...subject, id: `${id}/${action}`, label: `${preset.label}: ${action}`, parts: [...subject.parts, { id: "action", value: action }], value };
 }
 
 /** What the strip shows a trial as: its outcome, and whether it passed (landed, the striker on its feet). */

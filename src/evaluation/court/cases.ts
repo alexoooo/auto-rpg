@@ -19,7 +19,7 @@ import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { STANDS } from "../blade/cases.ts";
-import type { Cases, Json, Subject } from "../evaluation.ts";
+import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 
 /** The moving target: Behaviours' body of parts, doing only as it is ordered. */
 const WALKS: MindConfig = deepFreeze({ ...BEHAVIOURS, tactics: { ...BEHAVIOURS.tactics, list: [{ kind: "follow-orders" }] }, executors: [], actions: [] });
@@ -54,7 +54,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model))
     return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
+  return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
 }
 
 function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading> {
@@ -69,11 +69,11 @@ function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading>
     conditions,
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([mind], { model, gap, side, target }, engine) => {
+    world: ([mind], { model, gap, side, target }, engine, [character]) => {
       const foe = other(side);
       return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],
         // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
-        recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [],
+        recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
           loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
           minds: { [side]: mind as unknown as MindConfig, [foe]: target === "moving" ? WALKS : STANDS } as Record<Side, MindConfig> } };
     },

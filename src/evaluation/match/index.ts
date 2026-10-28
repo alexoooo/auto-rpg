@@ -6,16 +6,12 @@ import { loadoutKey } from "../../core/items/held.ts";
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { Side } from "../../core/spec/body.ts";
-import type { Evaluation, Json, Subject, Table } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Json, type Table } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
 import { MATCH_CASES, type MatchCondition } from "./cases.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
-
-/** A mind as a subject: its id, the label shown, and its config whole. */
-const mindSubject = (id: string, label: string, value: Json, models?: readonly string[]): Subject =>
-  ({ id, label, parts: [{ id: `mind:${id}`, value }], value, ...(models === undefined ? {} : { models }) });
 
 type Bout = Table<MatchCondition, BoutReading>["cases"][number];
 
@@ -38,7 +34,7 @@ export const MATCH: Evaluation<MatchCondition, BoutReading> = {
   subjects(choice) {
     if (choice.length !== 2) throw new Error("a match is of two minds");
     return choice.map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
-      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one].models)
+      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one])
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());
   },

@@ -6,11 +6,8 @@
 import { loadoutKey } from "../../core/items/held.ts";
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import { partOf } from "../../core/mind/catalog.ts";
-import type { Evaluation, Json, Subject } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { UNSEEN_CASES, type UnseenCondition, type UnseenReading } from "./cases.ts";
-
-/** A mind as a subject. */
-const mindSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
 
 export const UNSEEN: Evaluation<UnseenCondition, UnseenReading> = {
   id: "unseen",
@@ -24,11 +21,11 @@ export const UNSEEN: Evaluation<UnseenCondition, UnseenReading> = {
   /** The minds named, or every game mind a person may pick (`Part.stage`) that fits an unrated loadout on some character. */
   subjects(choice) {
     const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
-      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json)
+      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, { character: MINDS[one].character })
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind`); })());
     const cases = UNSEEN_CASES.standard;
-    return choice.length > 0 ? subjects : subjects.filter((subject) => cases.conditions.some((condition) => cases.faults!(subject.value, condition).length === 0));
+    return choice.length > 0 ? subjects : subjects.filter((subject) => cases.conditions.some((condition) => cases.faults!(subject.value, condition, subject).length === 0));
   },
   figures: [
     { name: "won", unit: "share of bouts", kind: "rate", better: "higher", of: (r) => r.winner === r.side },

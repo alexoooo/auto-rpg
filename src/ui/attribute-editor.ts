@@ -7,14 +7,19 @@ interface AttributeEditor extends Control {
   read(): AttributeOverrides;
   /** Show another model or setup; explicit overrides belong to the supplied configuration. */
   set(character: CharacterConfig): void;
+  /** Show the draft over `base`, the attributes it inherits before the model's own (a mind's, `MindPreset.character`). */
+  setBase(base: AttributeOverrides): void;
 }
 
-/** The same compact draft attribute editor for every character. Reset restores inheritance. */
+/**
+ * The same compact draft attribute editor for every character. Reset restores inheritance: the
+ * base's value (`setBase`), else the model's.
+ */
 export function attributeEditor(character: CharacterConfig, options: {
   change?: (attributes: AttributeOverrides, resolved: ResolvedCharacter | null) => void;
   apply?: (attributes: AttributeOverrides) => void;
 } = {}): AttributeEditor {
-  let model = character.model, draft: AttributeOverrides = { ...character.attributes };
+  let model = character.model, draft: AttributeOverrides = { ...character.attributes }, base: AttributeOverrides = {};
   const element = document.createElement("details"), summary = document.createElement("summary");
   element.className = "attribute-editor"; summary.textContent = "Attributes"; element.append(summary);
   const fields = document.createElement("div"), error = document.createElement("p");
@@ -27,7 +32,7 @@ export function attributeEditor(character: CharacterConfig, options: {
   let apply: HTMLButtonElement | undefined;
   const validate = (): ResolvedCharacter | null => {
     try {
-      const resolved = resolveCharacter({ model, attributes: draft });
+      const resolved = resolveCharacter({ model, attributes: { ...base, ...draft } });
       error.textContent = ""; error.hidden = true;
       if (apply) apply.disabled = false;
       return resolved;
@@ -40,7 +45,7 @@ export function attributeEditor(character: CharacterConfig, options: {
   const refresh = () => {
     const defaults = characterDefaults(model);
     for (const [name, row] of rows) {
-      const value = draft[name] ?? defaults[name];
+      const value = draft[name] ?? base[name] ?? defaults[name];
       if (typeof value === "boolean") row.input.checked = value;
       else if (document.activeElement !== row.input) row.input.value = Number.isFinite(value) ? String(value) : "";
       row.reset.disabled = draft[name] === undefined;
@@ -68,7 +73,7 @@ export function attributeEditor(character: CharacterConfig, options: {
     reset.setAttribute("aria-label", `Reset ${info.label}`);
     label.append(text, input);
     if (info.kind === "number") {
-      const value = () => (draft[name] ?? characterDefaults(model)[name]) as number;
+      const value = () => (draft[name] ?? base[name] ?? characterDefaults(model)[name]) as number;
       const increment = (sign: number) => update(name, Number((value() + sign * info.step).toPrecision(12)));
       row.append(label, button("−", () => increment(-1)), button("+", () => increment(1)), reset);
     } else row.append(label, reset);
@@ -87,5 +92,6 @@ export function attributeEditor(character: CharacterConfig, options: {
   refresh();
   return { element, read, refresh,
     set(character) { model = character.model; draft = { ...character.attributes }; refresh(); },
+    setBase(next) { base = { ...next }; refresh(); },
   };
 }

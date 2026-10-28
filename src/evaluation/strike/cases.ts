@@ -24,7 +24,7 @@ import { modelHolding } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { STANDS } from "../blade/cases.ts";
-import type { Cases, Json, Subject } from "../evaluation.ts";
+import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readStrike, type Hand, type Mark, type StrikeReading } from "./read.ts";
 
 /** A subject's value: a mind given whole, and the name of the action it drills. */
@@ -110,7 +110,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
   if (!("tactics" in given.mind!)) return [`a ${kind} mind has no tactics slot to drill its skills in`];
-  return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }), { entry: [] }).map((fault) => `${model}: ${fault}`);
+  return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
 function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[] }): Cases<StrikeCondition, StrikeReading> {
@@ -124,11 +124,11 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
     conditions,
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], condition, engine) => {
+    world: ([value], condition, engine, [character]) => {
       const { model, gap, across, mark, hand, start } = condition as StillCondition;
       return { kind: "bout", engine, tape: [],
       // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
-      recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
+      recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
         minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking" }), right: STANDS } } };
@@ -147,11 +147,12 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
     conditions,
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], condition, engine) => {
+    world: ([value], condition, engine, [character]) => {
       const { model, foe, mark, hand, moment } = condition as FightCondition;
       // A fight on the open stage from its spawns, nothing ending it but the reader.
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
+          ...sideAttributes({ left: character, right: MINDS[foe]!.character }),
           minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { after: 0, pace: protocol.pace, moment }), right: MINDS[foe]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),

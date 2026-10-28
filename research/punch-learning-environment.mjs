@@ -94,7 +94,7 @@ export async function punchEnvironment(configuration = {}) {
     const place = pick(o.places), between = ([lo, hi]) => lo + (hi - lo) * drawing(), hz = pick(o.rates);
     const condition = drawn(place, pick, between, o), cases = rungOf(place);
     if (place.foes && heldOut(condition)) return null;
-    const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined), built = await buildBout(world.recipe, { hz });
+    const world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [{}]), built = await buildBout(world.recipe, { hz });
     const reader = cases.read(built, condition), motion = motionOf(built);
     built.duel.play(world.tape);
     return { built, cases, condition, hz, reader, motion };

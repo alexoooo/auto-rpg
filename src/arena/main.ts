@@ -32,7 +32,7 @@ import { boutStart, Duel, entryRules, SIDES, type Verdict } from "./duel.ts";
 import { endingText } from "./end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { offered } from "../core/mind/controller.ts";
 import { partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
@@ -187,7 +187,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         attributes[side] = draft;
         if (resolved) {
           refreshChoices[side]?.();
-          void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: draft }, appearances[side]);
+          void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, draft) }, appearances[side]);
         }
       },
     });
@@ -229,13 +229,24 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       notes.hidden = all.length === 0;
     };
     const editorSpec = () => {
-      try { return modelHolding(select.value as BodyModel, loadout(), attributes[side]); }
+      try { return modelHolding(select.value as BodyModel, loadout(), controlCharacter(control.value, attributes[side])); }
       catch { return modelHolding(select.value as BodyModel, loadout()); }
     };
     // The minds are checked by the entry rule of the bout the page opens with: a trial's own, or a fight's.
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: entryRules(trials?.[at]!.world.recipe), onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
+    // The chosen mind's character is the attributes' base (`controlCharacter`): the panel shows it, and a person's draft goes over it.
+    let shownBase = "{}";
+    const based = () => {
+      const base = MINDS[control.value]!.character ?? {}, key = JSON.stringify(base);
+      if (key === shownBase) return;
+      shownBase = key; attributePanel.setBase(base);
+      let drafted = true;
+      try { attributePanel.read(); } catch { drafted = false; /* The editor displays its draft's error. */ }
+      if (drafted) void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
+    };
     const showSettings = (config: MindConfig) => {
+      based();
       editor.set(config, editorSpec());
       settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
       nameControl();
@@ -275,13 +286,13 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       let drafted = true;
       try { attributePanel.read(); } catch { drafted = false; /* The editor displays its draft's error. */ }
-      if (drafted) await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]).catch(previewFailed);
+      if (drafted) await view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }, appearances[side]).catch(previewFailed);
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
         attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
         refresh();
         select.blur();
-        void view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }).catch(previewFailed);
+        void view.setCharacter(0, { model: select.value as BodyModel, attributes: controlCharacter(control.value, attributes[side]) }).catch(previewFailed);
       }, { signal: lifetime.signal });
       appearancePicker.addEventListener("change", () => {
         const appearance = appearanceFor(select.value as BodyModel, appearancePicker.value);
@@ -448,7 +459,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
       let drafted = true;
       try { attributeEditors[side].read(); } catch { drafted = false; /* Invalid drafts stay in the editor. */ }
-      if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: attributes[side] }, appearances[side]).catch(previewFailed);
+      if (drafted) void previews[side].setCharacter(0, { model: matchup[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) }, appearances[side]).catch(previewFailed);
     }
   };
   /** Begins a bout of `next`: the reel's trial `given`, as recorded, or the one the pickers make. */
@@ -457,7 +468,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (!given) try {
       for (const side of SIDES) {
         attributes[side] = attributeEditors[side].read();
-        resolveCharacter({ model: next[side], attributes: attributes[side] });
+        resolveCharacter({ model: next[side], attributes: controlCharacter(controlPickers[side].value, attributes[side]) });
       }
       // A mind with a fault is not played, nor another in its place.
       const faults = SIDES.flatMap((side) => mindFaultsOf[side]().map((fault) => `${ARENA_SIDES[side].label}: ${fault}`));

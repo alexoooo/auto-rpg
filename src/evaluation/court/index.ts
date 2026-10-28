@@ -6,13 +6,9 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import { recordingKey } from "../../core/recording.ts";
-import type { Evaluation, Json, Subject } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { COURT_CASES, type CourtCondition, type CourtReading } from "./cases.ts";
-
-/** A mind as a subject. */
-const mindSubject = (id: string, label: string, value: Json, models?: readonly string[]): Subject =>
-  ({ id, label, parts: [{ id: `mind:${id}`, value }], value, ...(models === undefined ? {} : { models }) });
 
 export const COURT: Evaluation<CourtCondition, CourtReading> = {
   id: "court",
@@ -26,7 +22,7 @@ export const COURT: Evaluation<CourtCondition, CourtReading> = {
   /** The minds named, by id or kind or given whole. None names the Duellist. */
   subjects(choice) {
     return (choice.length > 0 ? choice : ["duellist"]).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
-      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one].models)
+      : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one])
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind, or a config`); })());
   },

@@ -299,7 +299,7 @@ test("an evaluation registered from outside src/ plays its lone-body case throug
   const evaluation = EVALUATIONS["stub-stand"];
   assert.ok(evaluation, "the hook put the stub's line in the evaluations list");
   const [subject] = evaluation.subjects([{ id: "swap-stub", label: "Swap stubs", value: SWAP_DEFAULTS }]);
-  const cases = evaluation.protocols.standard, [condition] = cases.conditions, world = cases.world([subject.value], condition, BOUT_ENGINE);
+  const cases = evaluation.protocols.standard, [condition] = cases.conditions, world = cases.world([subject.value], condition, BOUT_ENGINE, [subject.character ?? {}]);
   const row = await playRow("stub", world, cases.seconds, (built) => cases.read(built, condition));
   assert.equal(row.fault, null, `the case played: ${row.fault?.message}`);
   assert.deepEqual(row.reading, { down: false, seconds: 1 }, "the fixture fighter stands alone a second");

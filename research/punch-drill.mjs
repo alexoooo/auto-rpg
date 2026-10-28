@@ -151,7 +151,7 @@ function spreadOf(text, offsets) {
 
 /** One drill trial of `subject` on `condition` at `hz`: its reading, and the nearest its fist came to the punch's target through the drive, m. */
 export async function drillTrial(subject, condition, hz) {
-  const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined);
+  const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined, [{}]);
   const built = await buildBout(world.recipe, { hz });
   try {
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[0].motion, body = built.duel.duelists.left.body;

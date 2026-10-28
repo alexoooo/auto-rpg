@@ -63,7 +63,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
   const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   const make = (seated: readonly Subject[], condition: Json): Case => {
-    const world = cases.world(seated.map((subject) => subject.value), condition, engine), code = codeOf(world);
+    const world = cases.world(seated.map((subject) => subject.value), condition, engine, seated.map((subject) => subject.character ?? {})), code = codeOf(world);
     return { subjects: seated.map((subject) => subject.id), condition, world, seconds: cases.seconds, code,
       key: keyOf({ evaluation: evaluation.id, play: cases.play, engine, world, seconds: cases.seconds, code }) };
   };

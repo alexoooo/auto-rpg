@@ -24,7 +24,7 @@ import { drawn, heldOut, steeredSubjects } from './punch-learning-environment.mj
 
 /** One trial of `condition` at `hz`, steered by `act` (null: none): its reading's outcome and hit. */
 async function trial(subjects, act, condition, hz) {
-  const cases = STRIKE_CASES[condition.foe ? 'fight' : 'still'], world = cases.world([subjects(condition.model, condition.hand)], condition, undefined), built = await buildBout(world.recipe, { hz });
+  const cases = STRIKE_CASES[condition.foe ? 'fight' : 'still'], world = cases.world([subjects(condition.model, condition.hand)], condition, undefined, [{}]), built = await buildBout(world.recipe, { hz });
   try {
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[0].motion;
     built.duel.play(world.tape);

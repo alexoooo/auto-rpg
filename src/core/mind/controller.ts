@@ -1,3 +1,4 @@
+import type { AttributeOverrides } from "../character-attributes.ts";
 import type { Body, BodyOptions } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { Pose } from "../control/motor.ts";
@@ -10,11 +11,16 @@ import type { KeysOf, Part } from "./parts.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Tactics } from "./tactics.ts";
 
-/** A named configuration, optionally calibrated for particular body models. */
+/**
+ * A named configuration, optionally calibrated for particular body models and played on a
+ * character it chooses: `character` the attributes its bodies take (`toes`), beneath any a person
+ * or a link sets.
+ */
 export interface MindPreset<C extends MindConfig = MindConfig> {
   readonly label: string;
   readonly config: C;
   readonly models?: readonly BodySpec["model"][];
+  readonly character?: AttributeOverrides;
   /** False: kept off the Arena's and the Crypt's menus (`offered`), which a link, an evaluation or a test may still name. */
   readonly offered?: false;
 }

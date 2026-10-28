@@ -13,7 +13,7 @@ import type { Side } from "../../core/spec/body.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { readBout, type BoutReading } from "../contest.ts";
-import type { Cases, Json, Subject } from "../evaluation.ts";
+import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and
@@ -47,7 +47,7 @@ function faultsOf(value: Json, condition: MatchCondition, subject?: Subject): re
   const { loadout } = condition;
   return [...new Set([condition.left, condition.right])].flatMap((body) => !presetFitsModel(subject ?? {}, body)
     ? [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${body} is unavailable`]
-    : mindFaults(value as unknown as MindConfig, modelHolding(body, loadout), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
+    : mindFaults(value as unknown as MindConfig, modelHolding(body, loadout, subject?.character), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
 }
 
 /** The match on `protocol`: its conditions in the order each left body, right body, loadout, level, gap. */
@@ -61,11 +61,11 @@ function matchCases(protocol: Protocol): Cases<MatchCondition, BoutReading> {
     conditions,
     seconds: protocol.capSeconds,
     faults: faultsOf,
-    world: (values, { left, right, loadout, level, gap }, engine) => ({
+    world: (values, { left, right, loadout, level, gap }, engine, characters) => ({
       kind: "bout", engine, tape: [],
       recipe: { level, left, right, gap, loadouts: { left: loadout, right: loadout },
         minds: Object.fromEntries(SIDES.map((side, k) => [side, values[k] as unknown as MindConfig])) as Record<Side, MindConfig>,
-        capSeconds: protocol.capSeconds, recoverySeconds: protocol.recoverySeconds },
+        capSeconds: protocol.capSeconds, recoverySeconds: protocol.recoverySeconds, ...sideAttributes({ left: characters[0], right: characters[1] }) },
     }),
     read: readBout,
   };

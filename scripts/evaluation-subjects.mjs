@@ -1,4 +1,4 @@
-/** Resolve CLI subject names and configs, keeping an ablation within its source's entrants. */
+/** Resolve CLI subject names and configs, keeping an ablation within its source's entrants, calibration and character. */
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
@@ -50,7 +50,8 @@ export function resolveSubjects(evaluation, names, previous, ablations) {
   const subjects = evaluation.subjects(choice).flatMap(one => {
     if (!belongsTo(one.id, subject.id)) return [one];
     const before = inherited.get(one.id.slice(subject.id.length));
-    return !before ? [] : [{ ...one, ...(before.models === undefined ? {} : { models: before.models }) }];
+    return !before ? [] : [{ ...one, ...(before.models === undefined ? {} : { models: before.models }),
+      ...(before.character === undefined ? {} : { character: before.character, parts: [...one.parts, ...before.parts.filter(part => part.id.startsWith("character:"))] }) }];
   });
   return { choice, subjects };
 }

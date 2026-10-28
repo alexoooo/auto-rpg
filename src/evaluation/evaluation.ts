@@ -12,7 +12,9 @@ import type { BuiltFall, FallCase } from "./fall.ts";
 import type { BuiltLone, LoneCase } from "./lone.ts";
 import type { BuiltTechnique, TechniqueCase } from "./technique.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
+import type { MindPreset } from "../core/mind/controller.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
@@ -27,9 +29,31 @@ export interface Subject {
   readonly label: string;
   /** Named body calibration, where the case's admission reads it; absent for an independent configuration. */
   readonly models?: readonly string[];
+  /** The attributes its bodies take (`MindPreset.character`); absent for none. */
+  readonly character?: AttributeOverrides;
   readonly parts: readonly { readonly id: string; readonly value: Json }[];
   readonly value: Json;
 }
+
+/**
+ * A mind as a subject: its id, the label shown, its config whole, and a preset's named
+ * calibration and character, each a part where it has one.
+ */
+export const mindSubject = (id: string, label: string, value: Json, preset: Pick<MindPreset, "models" | "character"> = {}): Subject => ({
+  id, label, value,
+  parts: [{ id: `mind:${id}`, value }, ...(preset.character === undefined ? [] : [{ id: `character:${id}`, value: preset.character as Json }])],
+  ...(preset.models === undefined ? {} : { models: preset.models }),
+  ...(preset.character === undefined ? {} : { character: preset.character }),
+});
+
+/**
+ * A bout recipe's `attributes` for each side's character, or none where neither side has one, so
+ * a case on the bodies' own characters keeps its world.
+ */
+export const sideAttributes = (sides: Readonly<Partial<Record<Side, AttributeOverrides>>>): { readonly attributes?: Readonly<Record<Side, AttributeOverrides>> } => {
+  const left = sides.left ?? {}, right = sides.right ?? {};
+  return Object.keys(left).length + Object.keys(right).length === 0 ? {} : { attributes: { left, right } };
+};
 
 /**
  * What a case plays, as plain data: one kind of world each (`WorldKind`, listed in `WORLD_BUILDERS`,
@@ -81,7 +105,8 @@ export interface Cases<C extends Json = Json, R extends Json = Json, B extends B
   readonly seconds: number;
   /** Why a subject cannot play `condition`; its scheduling metadata is available where admission needs it. */
   faults?(value: Json, condition: C, subject?: Subject): readonly string[];
-  world(values: readonly Json[], condition: C, engine: EngineName): CaseWorld;
+  /** `characters` each seated subject's (`Subject.character`), `{}` for none. */
+  world(values: readonly Json[], condition: C, engine: EngineName, characters: readonly AttributeOverrides[]): CaseWorld;
   read(built: B, condition: C): Reader<R>;
 }
 
