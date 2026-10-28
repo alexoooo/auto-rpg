@@ -50,6 +50,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Options](plans/2026-10-24-options.md) | Every skill in one shape (entry, resources, model, exit); one commitment and a default layer of footwork and cover; a chooser part role that looks ahead a set number of skills; reaction time as a rule |
 | [Kinetic](plans/2026-10-27-kinetic.md) | A mind beside Options on its chooser and percepts whose options ask the body for results by part, the legs only through the stance, a strike timed by the gait |
+| [Kinetic, general](plans/2026-10-28-kinetic-general.md) | One body layer for Kinetic and the arbiter's minds: a claim in the body's own terms, the legs asked in one goal nothing edits after, the controllers reporting what they did not carry out |
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
