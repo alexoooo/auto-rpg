@@ -310,7 +310,7 @@ drill's rung, the kick's, the fold's) no worse, or the step is not kept and the 
 
 ### 9. The one learned punch
 
-On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the stance layout exported as the
+On the toed Warrior (Kinetic's preset, [toes](../reference/toes.md)): the stance layout exported as the
 learned punch from the run's best checkpoint by the still and walk rungs; the push layout,
 `steered`'s variants and the second data key deleted once no body without toes throws it. Its
 retraining ([Punch](2026-10-28-punch.md) step 1) reads the report, its reward counting unmet

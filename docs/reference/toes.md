@@ -10,8 +10,9 @@ With the ankle's dorsiflexion stop at 0.8 rad, this is what lets the Warrior sta
 and knees on its toes. Toes are a setting of a human character (the `toes` attribute,
 `toedFigure`, `src/core/human/toes.ts`): 0.06 m long at size 1, scaled with size, 0.025 m thick,
 ending at the boot's toe, the foot's box cut short by them, and the toed ankle's stop at 0.8 rad
-past the reference pose (`owner-toes`). No game character takes them yet: on the Warrior and the
-Rogue the game's step-up stands none of the target's 64 falls, against 56 without them, so they go
+past the reference pose (`owner-toes`). Kinetic's preset takes them (`MindPreset.character`). No
+game character does yet: on the Warrior and the Rogue the game's step-up stands none of the
+target's 64 falls, against 56 without them, and the run does not hold forward on them, so they go
 on with the stand-up the Recovery plan builds on them ([below](#on-the-game-bodies)).
 
 What depends on the foot is read under the body's key (`bodyKey`, `src/core/spec/body.ts`), the

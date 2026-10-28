@@ -77,7 +77,12 @@ anatomy with the same meanings. One URL codec reads and writes attributes per sc
 `right.*` in the Arena, `body.*` in the Lab, `hero.*`, `ally-0.*` to `ally-2.*`, `enemy.<model>.*` in the Crypt).
 What is measured on a body (a walk's envelope, a technique's profile, a learned skill's settings,
 the searched strikes) is read under its key (`bodyKey`, `src/core/spec/body.ts`): its model, and
-`+toes` where its feet have toes.
+`+toes` where its feet have toes. A mind's preset may choose its bodies' character
+(`MindPreset.character`; Kinetic's takes toes): the Arena puts a person's attributes over it
+(`controlCharacter`, `src/arena/matchup.ts`, the attribute panel showing it as the base), and an
+evaluation plays a preset's subject on it (`Subject.character`, a part of its own, each case's
+world given its seated subjects' characters). The Crypt plays its minds on its participants' own
+attributes.
 
 **Items and loadouts.** What a hand may hold is one list (`HELD`, `src/core/items/held.ts`: empty,
 the club, the buckler, the short sword). `armedWith` puts an item in a hand and refuses a hand that
@@ -468,7 +473,7 @@ code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) key
 config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`), its own
 parts (`parts`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
 by its defaults. A preset may name the body models it is calibrated for (`MindPreset.models`,
-`presetFitsModel`). Arena, Lab and named evaluation entries use that availability as well as
+`presetFitsModel`) and the character it plays them on (`MindPreset.character`, above). Arena, Lab and named evaluation entries use that availability as well as
 physical fit; a custom configuration still fits by its parts. The Lab discovers script-compatible
 presets from this registry, with its Script and Guard scenario defaults added.
 

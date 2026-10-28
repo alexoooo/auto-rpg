@@ -59,8 +59,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant); the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: the baseline and the testbed's rules**, Kinetic steps 1 to 7 in order: the toed foot,
-   the toolkit's body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 9, the one
+1. **Now: the baseline and the testbed's rules**, Kinetic steps 2 to 7 in order: the toolkit's
+   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 9, the one
    learned punch the last), reaction time (0.15 s, the owner's decision), chance from a seed,
    life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
@@ -109,8 +109,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
-- Kinetic's toed Warrior, once it lands ([Kinetic](plans/2026-10-27-kinetic.md), step 1): walking,
-  punching and fighting in the Arena.
+- Kinetic's toed Warrior (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`):
+  walking, punching and fighting; its run held to 0.7 m/s forward on toes
+  ([on the game bodies](reference/toes.md#on-the-game-bodies)).
 - The skeleton's look in play.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
