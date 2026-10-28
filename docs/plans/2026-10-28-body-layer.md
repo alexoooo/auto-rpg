@@ -203,7 +203,9 @@ output file's reader; a new layout is data, not code. The general trainer
 ## Steps
 
 The toolkit steps are read with the fingerprint against the commit before, and name the cases
-that move. Each code step runs the gate and reads the step's cost before and after.
+that move. Each code step runs the gate and reads the step's cost before and after. All nine are
+Kinetic's step 2 and land before its baseline evaluation reads the layer
+([Kinetic](2026-10-27-kinetic.md) step 6).
 
 ### 1. The legs goal
 

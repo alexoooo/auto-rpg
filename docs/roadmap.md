@@ -55,27 +55,32 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. First the baseline and the testbed's rules, which every mind meets: the toolkit's body layer, reaction time, chance from a seed, life in the senses, a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, its speed measured first, with a bare entrant from the senses to the muscles. Then Kinetic's own design, before any training run: worth in the verdict's unit, the foe's phase, measured profiles that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
-| [Body layer](plans/2026-10-28-body-layer.md) | The toolkit's baseline body layer, which a mind uses whole, in part or not at all: a claim in the body's own terms, the legs asked in one goal nothing edits after, its bearing ends the body's, carriages and gaits by name, the controllers reporting what they did not carry out, probes, the percepts registry and a learned skill's layouts |
-| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant); profiles that tactics read; the owner's two-minute verdict |
+| [Body layer](plans/2026-10-28-body-layer.md) | The toolkit's baseline body layer, which a mind uses whole, in part or not at all: a claim in the body's own terms, the legs asked in one goal nothing edits after, its bearing ends the body's, carriages and gaits by name, the controllers reporting what they did not carry out, probes, the percepts registry, a learned skill's layouts and the one learned punch |
+| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant); the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 1 to 7 in order: the toed foot,
-   the toolkit's body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 7), reaction
-   time (0.15 s, the owner's decision), chance from a seed, life in the senses, the baseline
-   evaluation, read under the owner's verdict (Drills step 7), which lands before it, and the
-   trainer, its speed measured and its largest cost cut first, with the bare entrant.
+   the toolkit's body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 1 to 9, the one
+   learned punch the last), reaction time (0.15 s, the owner's decision), chance from a seed,
+   life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
+   naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
+   both landing before it, and the trainer, its speed measured and its largest cost cut first,
+   with the bare entrant.
 2. **Then Kinetic's design**, steps 8 to 15 in order, before any training run: worth in life
    (step 8), the foe's phase (step 9), measured profiles (step 10), the value of a position
    (step 11), exits and letting go (step 12), the stand-up as a chain with no sub-mind (step 13),
    footwork and the guard (step 14), the options fighter as a preset (step 15). Each step is
-   checked on the drills it touches; the fights are read once, at step 15.
+   checked on the drills it touches, the Cover drill (Drills step 8) landing before step 14; the
+   fights are read once, at step 15.
 3. **Then training**, on the completed design, each paired by the baseline evaluation: the
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
-   one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait and
-   the other skills ([Body and motor control](#body-and-motor-control)).
+   one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait,
+   the Stand drill (Drills step 8) landing before it, and the other skills
+   ([Body and motor control](#body-and-motor-control)).
 4. **Beside them:** Drills step 7 (the owner's two-minute verdict), which Kinetic step 6, the
    Punch's fights and every rating wait on; Drills step 2 (the moving target, overlays and side by
-   side), which Punch step 2b needs; Footwork's rungs (Drills step 4) after Kinetic step 14.
+   side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Kinetic
+   step 14.
    Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
    since on them step-up stands none of the target's falls
    ([on the game bodies](reference/toes.md#on-the-game-bodies)). Tempo retired
@@ -287,8 +292,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
   striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
-  ([Drills](plans/2026-10-24-drills.md), step 6), each asked of a concrete failure, one decision at
-  a time, and read by the paired report:
+  ([Kinetic](plans/2026-10-27-kinetic.md#the-profile), step 10), each asked of a concrete
+  failure, one decision at a time, and read by the paired report:
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
     legs skill, `move(goal)` toward a named range ([Kinetic](plans/2026-10-27-kinetic.md), step 14);
