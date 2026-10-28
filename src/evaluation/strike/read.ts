@@ -92,6 +92,10 @@ export type StrikeReading = {
   readonly reason: string;
   /** When the drill had the body, s: the bout's start, or the moment its fight was handed to it; null where it never was. */
   readonly handed: number | null;
+  /** When the drill was first ready to ask (its readiness said ready, or it asked), s; null where it never was. */
+  readonly ready: number | null;
+  /** At the action's start: which feet bore on the ground, and the centre of mass's speed over it, m/s; null where it did not start. */
+  readonly asked: { readonly bearing: readonly Hand[]; readonly speed: number } | null;
   /** When the action began, committed, released and ended, s; null where it did not. */
   readonly began: number | null; readonly committed: number | null; readonly released: number | null; readonly ended: number | null;
   readonly ending: string | null;
@@ -133,7 +137,17 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const STRIDE = 9;
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
-  let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false;
+  let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
+  let asked: StrikeReading["asked"] = null;
+  const velocity = new Vector3(), segments = [...left.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
+  /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
+  const footing = (): NonNullable<StrikeReading["asked"]> => {
+    let x = 0, z = 0;
+    for (const segment of segments) { segment.body.linearVelocityToRef(velocity); x += segment.rigid.mass * velocity.x; z += segment.rigid.mass * velocity.z; }
+    const contacts = left.body.observe().contacts;
+    const bearing = (["left", "right"] as const).filter((side) => contacts.some((contact) => contact.segment === `foot.${side}` && contact.fixed !== null && contact.impulse > 0));
+    return { bearing, speed: Math.sqrt(x * x + z * z) / mass };
+  };
   /** The actions the fight asked before the drill had the body. */
   const before = new Set<number>();
   /** The last step before `time`'s place in `path`, or -1. */
@@ -167,7 +181,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       }
       handed ??= fought ? world.time : 0;
       const action = skills.report.actions.find((one) => !before.has(one.id));
-      if (action && id === null) { id = action.id; times.began = world.time; }
+      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
         if (action.phase === "release" && times.released === null) times.released = world.time;
@@ -176,6 +190,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       if (id === null) {
         const engagement = skills.report.engagement;
         phase = (engagement?.phase ?? "lost") as DrillPhase;
+        if (phase === "ready" || phase === "striking") ready ??= world.time;
         reason = engagement?.details?.find((detail) => detail.label === "readiness")?.value ?? "";
       }
       if (id !== null && times.ended === null) {
@@ -218,7 +233,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
-      return { outcome, phase, reason, handed, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
+      return { outcome, phase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), down, seconds: world.time };
     },
   };
 }

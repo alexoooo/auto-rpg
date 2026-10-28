@@ -1,7 +1,7 @@
 /**
  * **The Strike drill**: does a strike skill, thrown once, land on
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
- * 0, `still`: a still target), its trials laid out by body, mark, hand, offset and range. The
+ * 0, `still`: a still target; rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`puncher/strike`); the drill puts its own tactics in
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
@@ -13,7 +13,8 @@ import { sha256Text } from "../sha256.ts";
 import { STRIKE_CASES, type StrikeCondition } from "./cases.ts";
 
 /** Where a trial was thrown: the still rung's offset and gap, or a fight's foe and moment. */
-const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}` : `across ${condition.across} m, gap ${condition.gap} m`;
+const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}`
+  : `across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
 import type { StrikeReading } from "./read.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
@@ -54,6 +55,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
       of: (r) => r.outcome === "landed" || r.outcome === "weak" || r.outcome === "elsewhere" ? r.outcome === "landed" : null },
     { name: "admitted", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.began !== null },
     { name: "to contact", unit: "s from the action's start to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.began !== null ? r.hit.time - r.began : null },
+    { name: "from ready", unit: "s from the first step the drill was ready to the mark, the median", kind: "median", better: "lower", of: (r) => r.hit && r.ready !== null ? r.hit.time - r.ready : null },
     { name: "speed", unit: "m/s over the fist's last 0.1 m to the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.speed ?? null },
     { name: "mass", unit: "kg the fist met on its own side, the median", kind: "median", better: "higher", of: (r) => r.hit?.kg ?? null },
     { name: "energy", unit: "J on the mark, the median", kind: "median", better: "higher", of: (r) => r.hit?.energy ?? null },
