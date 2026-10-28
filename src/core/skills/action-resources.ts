@@ -1,7 +1,7 @@
 import type { BodyCommand } from "../body.ts";
 import type { EffectorModel } from "../control/effectors.ts";
 import { deepFreeze } from "../state.ts";
-import type { ActionClaim, CommandPatch, Resource } from "./action.ts";
+import type { ActionClaim, Resource } from "./action.ts";
 
 /** One compiled map serves both admission conflicts and command-write validation. */
 export interface ResourceMap {
@@ -9,7 +9,7 @@ export interface ResourceMap {
   overlap(a: readonly Resource[], b: readonly Resource[]): boolean;
   controls(resources: readonly Resource[]): readonly string[];
   validate(resources: readonly Resource[], claim: ActionClaim): void;
-  validatePatch(resources: readonly Resource[], patch: CommandPatch): void;
+  validatePatch(resources: readonly Resource[], patch: Partial<BodyCommand>): void;
 }
 
 /** Compile anatomical chains, the posable hands (by segment) and the stance's support limbs into concrete control slots. */

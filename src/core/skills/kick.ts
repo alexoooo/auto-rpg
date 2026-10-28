@@ -2,7 +2,6 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { EffectorGoal } from "../control/motor.ts";
-import type { StanceGoal } from "../control/stance.ts";
 import { footStatesOf, readSupport, withinSupport } from "../control/support.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { supportReadiness, plantedSupport } from "../control/support-readiness.ts";
@@ -13,6 +12,7 @@ import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
+import type { LegsGoal } from "./skill.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
@@ -197,18 +197,13 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       }
       return [{ id: live.request.id, phase: live.phase, stage: live.stage === "strike" ? strike.state.phase ?? "return" : live.stage, holds: footprints[live.foot] }];
     },
-    command(_view, id) {
-      const live = state.live;
-      if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
-      return { legs: { walk: null, height: live.height }, delegate: ["trunk"] };
-    },
-    overlay(view, id, _base) {
+    command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
       const foot = live.foot, other = foot === "left" ? "right" : "left", strike = strikes[foot];
       const centred = live.stage === "admitting" || live.stage === "setup" || live.stage === "recenter";
       const both = centred || live.stage === "transfer";
-      const standing: StanceGoal = { feet: both ? ["left", "right"] : [other], centre: centred ? null : [live.bearing[0], live.bearing[2]],
+      const standing: LegsGoal = { walk: null, feet: both ? ["left", "right"] : [other], centre: centred ? null : [live.bearing[0], live.bearing[2]],
         height: live.height + (centred || live.stage === "place" || strike.state.phase === "return" ? tuning.lower : 0), heading: live.heading,
         ...(live.stage === "setup" && live.setting ? {} : { pose: { pitch: centred || live.stage === "place" ? 0 : tuning.lean, seconds: tuning.transferSeconds,
           ...(both ? {} : { anchors: { [other]: { position: live.bearing, rotation: live.bearingRotation } } }) },
@@ -227,7 +222,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         const over = hypot(sole[0] - live.initial.sole[0], sole[2] - live.initial.sole[2]) <= tuning.placement;
         goal = place(view, live, over ? live.initial.sole : [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);
       }
-      return { stance: standing, ...(goal ? { effectors: { [live.request.effector]: goal } } : {}) };
+      return { legs: standing, ...(goal ? { effectors: { [live.request.effector]: goal } } : {}), delegate: ["trunk"] };
     },
   };
 }

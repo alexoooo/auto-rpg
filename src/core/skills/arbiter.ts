@@ -7,7 +7,7 @@ import type { EffectorGoal, MusclePush, PointTask } from "../control/motor.ts";
 import type { StanceGoal } from "../control/stance.ts";
 import { footStatesOf } from "../control/support.ts";
 import type { HandPose } from "../spec/body.ts";
-import type { ActionAround, ActionClaim, CommandPatch } from "./action.ts";
+import type { ActionAround, ActionClaim } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
@@ -170,29 +170,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         resources.validatePatch(["legs", "trunk"], laid);
         stance = laid.stance; Object.assign(posture, laid.posture);
       }
-      let base: Readonly<BodyCommand> | null = null;
-      const overlays: { id: number; patch: CommandPatch }[] = [];
-      for (const item of instances.live) {
-        const executor = instances.executor(item.id);
-        if (!executor.overlay) continue;
-        base ??= immutableCommand({ posture, pushes, points, effectors, handPoses, stance });
-        const patch = executor.overlay(view, item.id, base, near);
-        if (patch) { resources.validatePatch(item.holds, patch); overlays.push({ id: item.id, patch }); }
-      }
       const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance };
-      for (const { id, patch } of overlays) {
-        Object.assign(command.posture, patch.posture); Object.assign(command.effectors!, patch.effectors); Object.assign(command.handPoses!, patch.handPoses);
-        if (patch.pushes) {
-          const replaced = new Set(patch.pushes.map(p => p.channel));
-          (command as { pushes: readonly MusclePush[] }).pushes = [...command.pushes.filter(p => !replaced.has(p.channel)), ...patch.pushes];
-        }
-        if (patch.points) {
-          const replaced = new Set(patch.points.map(p => p.segment));
-          (command as { points: readonly PointTask[] }).points = [...(command.points ?? []).filter(p => !replaced.has(p.segment)), ...patch.points];
-        }
-        if (patch.stance !== undefined) (command as { stance: StanceGoal | null }).stance = patch.stance;
-        if (!instances.live.some(item => item.id === id)) throw new Error("composition ended an action");
-      }
       if (command.stance) for (const side of command.stance.feet) if (command.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
       for (const control of allControls) if (available(control)) state.owners[control] = "default";
       state.command = immutableCommand(command);
@@ -239,7 +217,7 @@ export function navigated(navigation: Navigator | null, sight: NavigationSight, 
   return requested;
 }
 
-/** Overlay readers share immutable values without freezing an executor's own motion state. */
+/** The step's command frozen through: its readers share it without freezing an executor's own motion state. */
 function immutableCommand(command: BodyCommand): Readonly<BodyCommand> {
   const copy = <T>(value: T): T => {
     if (typeof value === "number" && !Number.isFinite(value)) throw new Error("an action command needs finite numbers");

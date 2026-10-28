@@ -134,13 +134,15 @@ export interface Locomotion extends Skill {
 }
 
 /**
- * **`stance` as the legs goal `goal` asks it**: its heading, centre and halt where the goal sets
- * them; as it is where the goal sets none, or where there is no stance.
+ * **`stance` as the legs goal `goal` asks it**: its bearing feet, heading, centre, pose, swing and
+ * halt where the goal sets them; as it is where the goal sets none, or where there is no stance.
  */
 export function completed(stance: StanceGoal | null, goal: LegsGoal): StanceGoal | null {
-  if (!stance || goal.heading === undefined && goal.centre === undefined && !goal.halt) return stance;
-  return { ...stance, ...(goal.halt ? { halt: true } : {}), ...(goal.heading === undefined ? {} : { heading: goal.heading }),
-    ...(goal.centre === undefined ? {} : { centre: goal.centre }) };
+  if (!stance || goal.feet === undefined && goal.heading === undefined && goal.centre === undefined && goal.pose === undefined
+    && goal.swing === undefined && !goal.halt) return stance;
+  return { ...stance, ...(goal.feet === undefined ? {} : { feet: goal.feet }), ...(goal.halt ? { halt: true } : {}),
+    ...(goal.heading === undefined ? {} : { heading: goal.heading }), ...(goal.centre === undefined ? {} : { centre: goal.centre }),
+    ...(goal.pose === undefined ? {} : { pose: goal.pose }), ...(goal.swing === undefined ? {} : { swing: goal.swing }) };
 }
 
 /** The stance goal a legs' command asks (`LegsDrive`), or none where the legs drive themselves. */

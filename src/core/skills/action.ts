@@ -1,4 +1,4 @@
-import type { BodyCommand, BodyView } from "../body.ts";
+import type { BodyView } from "../body.ts";
 import type { Pose, MusclePush, EffectorGoal, PointTask } from "../control/motor.ts";
 import type { HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -124,9 +124,6 @@ export interface ActionClaim {
   readonly support?: number;
 }
 
-/** Final sparse writes, evaluated against the same composed base for every instance. */
-export type CommandPatch = Partial<BodyCommand>;
-
 /** Continuous context at the start of a control step. */
 export interface ActionAround extends Around {
   readonly walk: readonly [number, number] | null;
@@ -140,7 +137,6 @@ export interface Executor extends Skill {
   update(view: BodyView, continued: readonly ActionRequest[], around: ActionAround, dt: number): readonly LifecycleUpdate[];
   start(view: BodyView, request: ActionRequest, around: ActionAround): void;
   command(view: BodyView, id: number, around: ActionAround): ActionClaim;
-  overlay?(view: BodyView, id: number, base: Readonly<BodyCommand>, around: ActionAround): CommandPatch | null;
   /** Forget instance `id` at once, what it held going back to the defaults; an executor without it lets its actions run their course. */
   interrupt?(view: BodyView, id: number): void;
   readonly state: object;

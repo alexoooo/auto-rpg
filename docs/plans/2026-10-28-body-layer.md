@@ -20,8 +20,7 @@ registries; they bind no mind.
 - **The stance is edited after the legs.** An action's claim (`ActionClaim`,
   `src/core/skills/action.ts`) asks the legs in one goal (`LegsGoal`), beside `support` and
   `delegate`; but the support fold (`SupportSkill.apply`, `support-fold.ts`) rewrites the stance
-  goal the legs made, and the kick's `overlay` replaces it whole (`kick.ts`). Another legs
-  implementation would get its goal rewritten under it.
+  goal the legs made. Another legs implementation would get its goal rewritten under it.
 - **A skill's variants multiply with it.** The learned punch has two layouts (`steered`: its leg
   outputs as pushes, or as asks of the stance), two data keys (`learned-punch`, `stance-punch`), and
   a `halts` setting in three parts' key lists; its outputs are a list written by hand
@@ -70,7 +69,7 @@ An action's claim is the body's command in its own terms, its legs as one goal:
 | `effectors` | where an effector's points go and when: a hand's, a foot's, a held item's | the same |
 | `points` | an effector's point accelerated or turned (`PointTask`) | the same |
 | `handPoses` | a hand's shape | the same |
-| `legs` | the legs goal (below) | `legs`, `support`, `overlay`'s stance |
+| `legs` | the legs goal (below) | `legs`, `support` |
 
 The body's own rules stay the body's: one of a goal or a point an effector; no push on a point's
 chain; no goal or point on a foot the stance bears (`obey`, `src/core/body.ts`, which throws). An
@@ -101,7 +100,6 @@ no new claim term. Each field has one form, the stance's:
 
 | Today | In the legs goal |
 | --- | --- |
-| the kick's overlay | `feet`, `centre`, `height`, `heading`, `pose`, `swing`, written by the kick |
 | `support`, the fold | `height` and `pose`; its trunk flexion is the trunk's owner's (step 2) |
 | the square stance the body was built in, one step pattern (`STANCE_GAIT`) | `carriage` and `gait`, by name |
 
@@ -203,9 +201,8 @@ Kinetic's step 2 and land before its baseline evaluation reads the layer
 
 ### 2. Nothing edits the stance after the legs
 
-The kick's `overlay` (and `CommandPatch`) become its legs goal (`feet`, `centre`, `height`,
-`heading`, `pose`, `swing`) and its foot's effector goal, `feet` typed by the spec's bearing ends (a
-human's two feet the ends its legs bear on, `Side` today). The support fold becomes `height` and
+The legs goal's `feet` typed by the spec's bearing ends (a human's two feet the ends its legs bear
+on, `Side` today). The support fold becomes `height` and
 `pose` in the legs goal of whatever holds the legs, or the defaults' while none does, and
 `ActionClaim.support` goes, Vanguard's committed aim with it (a mixed change: its part and the
 toolkit, `node scripts/entrant-check.mjs`). Its trunk flexion (`lumbar flexion`, `thoracic
@@ -215,8 +212,8 @@ it is read before and after on the fold's own readings (the head's drop, the fal
 punch's trunk loses the low stance, the fold becomes an action holding those two channels instead.
 The legs never write the trunk.
 
-Check: the gate; the fingerprint, or where a case moves, the kick's and the fold's own readings
-before and after, named in the commit.
+Check: the gate; the fingerprint, or where a case moves, the fold's own readings before and after,
+named in the commit.
 
 ### 3. Carriages and gaits by name
 
