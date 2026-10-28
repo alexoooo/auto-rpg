@@ -9,7 +9,7 @@ import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
-import { resolveStance, SUPPORT_INSET, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
+import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
@@ -34,6 +34,8 @@ interface StanceState {
   owned: Uint8Array;
   /** The feet the last command had bear the body; null if it asked for no stance. */
   last: readonly Side[] | null;
+  /** The step pattern of the goal last commanded (`StanceGoal.gait`), or the stance's own. */
+  gait: GaitTuning;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
   readonly pace: [number, number];
   /** How far below the goal's height the walk holds the plan, m, so that its legs reach the steps its pace takes (`paceToward`); 0 standing. */
@@ -163,9 +165,9 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   const segments = [...built.segments.values()], total = massOf(segments);
   const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total
     - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
-  const pace: [number, number] = [0, 0];
+  const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
   const state: StanceState = {
-    pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
+    gait: resolved.gait, pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
     step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, facing: null, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
@@ -186,7 +188,7 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
     stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   return {
-    built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
+    built, assist, tuning: resolved, pelvis: feet[0]!.chain[0]!.parent, segments,
     total,
     feet, rest: restWidth(feet), rise, limbs,
     ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,

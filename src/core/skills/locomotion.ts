@@ -5,9 +5,10 @@ import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../cont
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
-import { STANCE_GAIT } from "../control/stance-tuning.ts";
+import { STANCE_GAIT, type GaitTuning } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
+import { deepFreeze } from "../state.ts";
 import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
 
 /**
@@ -17,6 +18,45 @@ import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
  * and falls walking or stopping from there.
  */
 export const STANCE_LOWER = 0.03;
+
+/**
+ * **A carriage**: a fighting pose the legs hold standing, as data. `width`, the soles' middles'
+ * distance apart across the heading, m, which a walk keeps as its steps' width (`GaitTuning.width`);
+ * null for the feet where they stand and the walk's own width (the square stance the body is built
+ * in). `stagger`, how far the `lead` foot's sole stands ahead of the other's along the heading, m,
+ * which a walk does not keep. `lower`, the centre of mass's lowering under its reference height, m.
+ */
+export interface Carriage {
+  readonly width: number | null;
+  readonly stagger: number;
+  readonly lead: Side;
+  readonly lower: number;
+}
+
+/** **The carriages**, by name: the square stance the body is built in. Another is one entry here. */
+export const CARRIAGES = deepFreeze({
+  square: { width: null, stagger: 0, lead: "left", lower: STANCE_LOWER },
+} satisfies Readonly<Record<string, Carriage>>);
+
+/** A carriage's name (`CARRIAGES`). */
+export type CarriageName = keyof typeof CARRIAGES;
+
+/** Whether `carriage` can be held: a positive width, or none and no stagger; a stagger and lowering finite and not negative. */
+export const validCarriage = (carriage: Carriage): boolean =>
+  (carriage.width === null ? carriage.stagger === 0 : Number.isFinite(carriage.width) && carriage.width > 0)
+  && Number.isFinite(carriage.stagger) && carriage.stagger >= 0 && Number.isFinite(carriage.lower) && carriage.lower >= 0
+  && (carriage.lead === "left" || carriage.lead === "right");
+
+/** The speed of the centre of mass across the ground under which a stopped walk takes its carriage's footing, m/s. */
+export const CARRIAGE_STILL = 0.1;
+
+/** A carriage's walk: the stance's steps (`STANCE_GAIT`) at its width; made once a carriage. */
+const carriageSteps = new WeakMap<Carriage, GaitTuning>();
+const stepsOf = (carriage: Carriage, width: number): GaitTuning => {
+  let steps = carriageSteps.get(carriage);
+  if (!steps) carriageSteps.set(carriage, steps = deepFreeze({ ...STANCE_GAIT, width }));
+  return steps;
+};
 
 /**
  * How long a resumed body's asked height takes to rise from where its centre of mass is to the
@@ -31,7 +71,7 @@ export const STANCE_STOPPING = 0.5;
 
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held at a height
- * (`STANCE_LOWER` under the height it stands at in the reference pose, where none is asked), the
+ * (its carriage's `lower` under the height it stands at in the reference pose, where none is asked), the
  * pelvis facing a heading, and walking at a velocity or standing. What it remembers (`LegsMemory`)
  * it keeps in the state it is made with.
  */
@@ -50,6 +90,8 @@ interface LegsMemory {
   reference: number | null;
   /** Rising: the height over the soles it was resumed at, m, and when, s of the world's clock; null at its height. */
   rising: { from: number; at: number } | null;
+  /** The carriage held (`CARRIAGES`, or a configuration's). */
+  carriage: Carriage;
 }
 
 function stanceLegs(state: LegsMemory): StanceLegs {
@@ -60,7 +102,7 @@ function stanceLegs(state: LegsMemory): StanceLegs {
         if (view.time <= view.born) return null;
         state.reference = view.standing;
       }
-      let height = asked ?? state.reference - STANCE_LOWER;
+      let height = asked ?? state.reference - state.carriage.lower;
       const rising = state.rising;
       if (rising) {
         const u = (view.time - rising.at) / RISING_SECONDS;
@@ -206,6 +248,8 @@ interface LocomotionState extends LegsMemory {
   walkTime?: number;
   placing: Placing | null;
   placed: boolean;
+  /** Where the carriage's feet stand, taken where the walk last stopped; null walking, or in a carriage of no width. */
+  stood: Footing | null;
 }
 
 /** The footing being placed, the feet that have stepped to it, and the step under way. */
@@ -230,10 +274,11 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): StanceWalk {
+export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup, carriage: Carriage = CARRIAGES.square): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
-  const state: LocomotionState = { reference: null, rising: null, heading: 0, pace: 0, going: 0, placing: null, placed: false,
+  if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
+  const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null,
     ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
@@ -284,12 +329,38 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       if (turnStartup) state.walkTime = 0;
       state.placing = null;
       state.placed = false;
+      state.stood = null;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
     goal(view, goal, dt) {
-      return { kind: "stance", goal: completed(goal.footing ? place(view, goal.footing, goal.height) : walking(view, goal.walk, goal.face, dt, goal.height), goal) };
+      if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; }
+      const held = state.carriage;
+      let stance: StanceGoal | null;
+      if (goal.footing) { state.stood = null; stance = place(view, goal.footing, goal.height); }
+      else if (goal.walk === null && held.width !== null && (state.stood || still(view))) {
+        // Stopped, the feet are set where the carriage stands them; no footing was asked.
+        state.stood ??= footingOf(view, held, held.width);
+        stance = place(view, state.stood, goal.height);
+        state.placed = false;
+      } else { state.stood = null; stance = walking(view, goal.walk, goal.face, dt, goal.height); }
+      if (stance && held.width !== null) stance = { ...stance, gait: stepsOf(held, held.width) };
+      return { kind: "stance", goal: completed(stance, goal) };
     },
   };
+
+  /** Whether the body stands still enough to take its carriage's footing: no step under way, and slower than `CARRIAGE_STILL`. */
+  function still(view: BodyView): boolean {
+    const s = view.stance;
+    return view.time > view.born && s.phase === "stand" && hypot(s.velocity.x, s.velocity.z) < CARRIAGE_STILL;
+  }
+
+  /** Where `held` stands the soles' middles about the centre of mass across the ground, facing the legs' heading. */
+  function footingOf(view: BodyView, held: Carriage, width: number): Footing {
+    const c = view.stance.centre, h = state.heading, fx = sin(h), fz = cos(h), rx = cos(h), rz = -sin(h);
+    const ahead = (side: Side) => (side === held.lead ? held.stagger : -held.stagger) / 2, across = (side: Side) => side === "left" ? -width / 2 : width / 2;
+    const at = (side: Side): readonly [number, number] => [c.x + rx * across(side) + fx * ahead(side), c.z + rz * across(side) + fz * ahead(side)];
+    return { left: at("left"), right: at("right") };
+  }
 
   /** The stance goal walking at `asked` toward `face`, or standing (`StanceWalk`). */
   function walking(view: BodyView, asked: readonly [number, number] | null, face: number, dt: number, height?: number): StanceGoal | null {

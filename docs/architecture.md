@@ -300,7 +300,10 @@ and the stance goal's fields it sets; nothing edits the stance goal after the le
 The low support fold (`SupportSkill`, `src/core/skills/support-fold.ts`) carries a goal that leaves
 the stance's shape to the legs (`foldCarries`) down to the height it asks, before the legs complete
 it, and asks its trunk flexion of whatever holds the trunk (`SupportReport.posture`): the defaults
-on a free trunk, a low action on its own. What a walk
+on a free trunk, a low action on its own. The stance walk holds a carriage, a fighting pose as
+data (`Carriage`, `CARRIAGES`, the square stance the body is built in its one entry; a stance
+walk's configuration may give another): stopped, its feet are set where it stands them; walking,
+its width is the steps' (`StanceGoal.gait`, the step pattern the gait asks of the stance). What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
 feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place
 no feet finds them standing.

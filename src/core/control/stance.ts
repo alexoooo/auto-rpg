@@ -6,7 +6,7 @@ import type { Assist } from "./assist.ts";
 import type { Limb } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import { rotationAtToRef } from "./kinematics.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
+import type { GaitTuning, StanceTuning } from "./stance-tuning.ts";
 import { aimRecovery, catchStep, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import { type FootState, type SoleEnd, angularMomentumToRef, bearingEdge, bearingEnd, bearingOf, bearingSole, clearAcross, clearAlong, endPast, groundContact, heldBy, landingHeading, landingHeight, legLength, lowestCorner, pivotWithin, massCentreToRef, motionAtToRef, pointOfToRef, readSupport, rolledRows, soleFlatTurn, soleHeight, soleMiddleToRef, turnOfToRef, withinSupport } from "./support.ts";
@@ -43,6 +43,11 @@ export interface StanceGoal {
    * nowhere, it steps only to catch a push (`STANCE_RECOVERY`).
    */
   readonly walk?: readonly [number, number] | null;
+  /**
+   * The step pattern of the stance's own steps, a walk's and those that catch the body: the gait's
+   * that asks the goal; the stance's own (`StanceTuning.gait`, `STANCE_GAIT`) where it names none.
+   */
+  readonly gait?: GaitTuning;
   /**
    * Stop at once: the walk's pace is nought from this step, not slowed at the gait's acceleration,
    * and a step of the stance's own walk not yet lifted is not taken; it steps only to catch the
@@ -289,7 +294,7 @@ const PIVOT_FLOOR = 1e-3;
  */
 function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,
   pendulum: number): [number, number] {
-  const { plan, reading, step } = s.state, { seconds, gait } = s.tuning, { hipAt, progress, shiftWork, bow, path, along, accel } = s.scratch;
+  const { plan, reading, step, gait } = s.state, { seconds } = s.tuning, { hipAt, progress, shiftWork, bow, path, along, accel } = s.scratch;
   const r = plan.at, u = plan.velocity, n = 1 / seconds.across;
   if (reading.phase === "swing") {
     // On one foot the plan falls as an inverted pendulum of its height about a point of the
@@ -424,7 +429,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
  * backward.
  */
 function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | null, floors: readonly [FootState, number, SoleEnd][], high: number): void {
-  const { feet } = s, { plan, reading } = s.state, { heelOff, gait } = s.tuning;
+  const { feet } = s, { plan, reading, gait } = s.state, { heelOff } = s.tuning;
   const r = plan.at, u = plan.velocity;
   for (const foot of feet) if (!stance.includes(foot)) foot.memory.rolled = null;
   for (const [foot, floor, end] of floors) {
@@ -551,7 +556,7 @@ function soleDrop(foot: FootState, turn: Quaternion, work: Vector3): number {
  * the one it left the ground with to flat and facing `heading` as it lands; the step ends as it lands.
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
-  const { feet } = s, { step, tasks, reading } = s.state, { seconds, gait, spare } = s.tuning;
+  const { feet } = s, { step, tasks, reading, gait } = s.state, { seconds, spare } = s.tuning;
   const { sole, level, path, along, accel, turn, wholeAxis, progress, v, bow } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!, bearer = feet.find((f) => f.side !== swing.foot)!;
   soleMiddleToRef(foot, sole);
@@ -765,7 +770,7 @@ function leverOf(s: Stance, height: number): number {
  * other end comes down.
  */
 function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver): void {
-  const { reading, step } = s.state, { bend, spare, gait, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
+  const { reading, step, gait } = s.state, { bend, spare, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;
   // The point: bearing, where the foot bears, as last read; swinging, its sole's middle, now.
   if (task.bearing) work.at.copyFrom(bearingEdge(foot)?.middle ?? foot.middle);
   else soleMiddleToRef(foot, work.at);
@@ -916,6 +921,7 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       const { feet, state } = s, { reading, plan } = state;
       bindChannels(s, muscles);
       askNothing(s);
+      state.gait = goal?.gait ?? s.tuning.gait;
       state.pose = goal?.pose ?? null;
       if (goal?.pose) {
         if (!Number.isFinite(goal.pose.pitch) || !(goal.pose.seconds > 0) || !Number.isFinite(goal.pose.seconds)

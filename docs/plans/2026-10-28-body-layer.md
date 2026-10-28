@@ -196,20 +196,20 @@ Kinetic's step 2 and land before its baseline evaluation reads the layer
 
 ### 3. Carriages and gaits by name
 
-A carriage is data in one registry (`CARRIAGES`): the feet relative to the heading (width,
-stagger, lead side), the height under standing, the trunk's lean and the arms' rest. The square
-stance the body is built in is its one entry; another (orthodox, southpaw, low) is added when a
-drill asks for it. A gait is an implementation in one registry (`GAITS`, grown from
-`src/core/skills/gaits.ts`): today's stance walk (its step pattern, `STANCE_GAIT`, made the gait's
-settings, not the balance controller's constants) and the run (`walk-run`); a shuffle that keeps a
-carriage's stagger joins when footwork asks for one. The legs slot
-holds a set of gaits and hands over between them at their exits (the run to the walk at a landing,
-as `walk-run` does now); the legs goal names a carriage and a gait, or leaves them to the set's
-choice. Move's gaits and rules become this set, its rules cues over named goals.
+Carriages are data (`CARRIAGES`, `Carriage`: width, stagger, lead side, lowering), held by the
+stance walk and named in the legs goal; a gait asks its step pattern of the stance
+(`StanceGoal.gait`). What remains: the trunk's lean and the arms' rest, as the trunk's and the
+arms' owners' posture read from the carriage the legs hold (the legs never write the trunk), added
+when a carriage asks for one; another carriage (orthodox, southpaw, low) when a drill asks for
+it. A gait is an implementation in one registry (`GAITS`, grown from `src/core/skills/gaits.ts`):
+today's stance walk and the run (`walk-run`); a shuffle that keeps a carriage's stagger joins when
+footwork asks for one. The legs slot holds a set of gaits and hands over between them at their
+exits (the run to the walk at a landing, as `walk-run` does now); the legs goal names a gait, or
+leaves it to the set's choice. Move's gaits and rules become this set, its rules cues over named
+goals.
 
-Check: the gate; the fingerprint moves no case that asks the square carriage and today's gaits; a
-carriage given as data in a scratch configuration (a wider, staggered stance) held standing and
-walked by the stance walk, looked at in the Lab.
+Check: the gate; the fingerprint moves no case that asks today's gaits; a scratch carriage looked
+at in the Lab.
 
 ### 4. The controllers report what they did not carry out
 

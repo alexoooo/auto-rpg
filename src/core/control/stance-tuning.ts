@@ -154,8 +154,8 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
  * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
-  preswing: { knee: 0.61, seconds: 0.04 } };
+export const STANCE_GAIT: GaitTuning = Object.freeze({ seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.9, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
+  preswing: Object.freeze({ knee: 0.61, seconds: 0.04 }) });
 
 /**
  * The time constant, s, critically damped, at which the centre of mass's errors from its plan are

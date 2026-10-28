@@ -560,7 +560,7 @@ function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Ve
  * a lower hip, and a walk crouches for its pace, not for the pace asked.
  */
 export function paceToward(s: Stance, walk: readonly [number, number] | null | undefined, heading: number, hip: number, dt: number): void {
-  const { state } = s, { pace } = state, { gait, bend } = s.tuning;
+  const { state } = s, { pace, gait } = state, { bend } = s.tuning;
   const wx = walk?.[0] || 0, wz = walk?.[1] || 0, dx = wx - pace[0], dz = wz - pace[1];
   const most = gait.accel * dt, d = hypot(dx, dz), k = d > most ? most / d : 1;
   pace[0] += dx * k;
@@ -587,7 +587,7 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
  * other foot next.
  */
 export function catchStep(s: Stance): boolean {
-  const { feet, state } = s, { reading, step } = state, { recovery, gait } = s.tuning, swing = step.swing;
+  const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning, swing = step.swing;
   if (!recovery || reading.phase !== "shift" || !swing || swing.transfer) return false;
   const g = gravityOf(s), bearer = feet.find((f) => f.side !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, [bearer]);
   const away = off > step.off;
@@ -607,7 +607,7 @@ export function catchStep(s: Stance): boolean {
  * a weight shift (`catchStep`) among them, which runs to its landing before any step the goal asks.
  */
 export function aimRecovery(s: Stance): void {
-  const { feet, state } = s, { reading, step } = state, { recovery, gait } = s.tuning;
+  const { feet, state } = s, { reading, step, gait } = state, { recovery } = s.tuning;
   if (!recovery || !reading.own || !step.recovering || reading.phase !== "swing" || !step.lifted || step.swing !== reading.own) return;
   const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
   const aimed = recoveryStep(feet, feet, reading.centre, carriedVelocity(s), gravityOf(s), recovery, gait, reading.facing, hipHeight(s) - gait.crouch, 0, under)!;
@@ -627,7 +627,7 @@ export function aimRecovery(s: Stance): void {
  * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
 export function ownStep(s: Stance, heading: number, hip: number, halted: boolean): void {
-  const { feet, rest, state } = s, { reading, pace, step } = state, { recovery, gait, bend } = s.tuning, hips = hip - state.crouch;
+  const { feet, rest, state } = s, { reading, pace, step, gait } = state, { recovery, bend } = s.tuning, hips = hip - state.crouch;
   if (halted && reading.own && !step.recovering && reading.phase === "shift") {
     reading.own = null;
     reading.phase = "stand";
