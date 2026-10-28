@@ -49,6 +49,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Options](plans/2026-10-24-options.md) | Every skill in one shape (entry, resources, model, exit); one commitment and a default layer of footwork and cover; a chooser part role that looks ahead a set number of skills; reaction time as a rule |
+| [Kinetic](plans/2026-10-27-kinetic.md) | A mind beside Options on its chooser and percepts whose options ask the body for results by part, the legs only through the stance, a strike timed by the gait |
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
@@ -65,6 +66,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
    rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
    and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
+   Kinetic steps 1 to 3 (the entrant, the Strike drill from a walk, the punch by parts).
 3. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -77,6 +79,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - How the legs serve the learned punch, whose leg pushes the bearing solve overrides: the punch
   asks the stance for its weight shift, or its leg pushes wait until both feet bear
   ([Punch](plans/2026-10-24-punch.md), step 4a); until then the pushes stay, and move nothing.
+  The first is tried in its own mind ([Kinetic](plans/2026-10-27-kinetic.md), steps 3 and 4).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`

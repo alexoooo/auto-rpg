@@ -97,6 +97,38 @@ On the fight's held-out moments (an earlier network, `33f70997`, 120 Hz):
 - **Near, the fist is on the foe as the drive begins**: at moments the tactics ask from 0.35 to
   0.5 m apart; where both close at 1.4 m/s the blow comes 0.4 s later on the thigh or the belly.
 
+### Without its leg pushes, and from a walk
+
+The Strike drill's still cases played whole (Node, the bout world on Rapier, 120 Hz; the Warrior,
+`research/learned-puncher.json`, the middle mark, both hands; at `8bb48c30`), each with a variant
+the drill does not have, made for the reading and not kept.
+
+**Without its leg pushes** (gaps 0.6 to 1.3 m by 0.1, across 0, 0.1, 0.2 and 0.3 m): the schedule's
+pushes on the hips, knees and ankles left off.
+
+| Punch | Landed |
+|---|---|
+| as it is | 56/64 |
+| its leg pushes left off | 56/64, every trial the same to the bit |
+| its leg and trunk pushes left off | 0/64: 52 missed |
+
+While the legs bear, the bearing solve gives every channel of a bearing leg its own torque, over a
+push (`solveBody`, `src/core/control/solve.ts`), so the leg pushes and the steer's leg outputs move
+nothing; the trunk's and the arm's carry the punch.
+
+**From a walk** (gaps 1.6 to 3.0 m by 0.2, across 0 and 0.2 m): the drill's striker walks into the
+window and asks once settled; the variant asks at the first step its readiness says ready, still
+walking. Asked at a median 0.28 m/s, 27 of 32 with a foot in its swing and 5 in a weight shift.
+
+| Start | Landed | Weak | Fist speed, median | Mass met, median |
+|---|---|---|---|---|
+| walked in, settled | 21/32 | 11 | 7.2 m/s | 3.9 kg |
+| still walking | 0/32 | 30 (2 missed) | 8.1 m/s | 1.15 kg |
+
+Thrown from a walk the fist is fast and meets half the bar's mass (2.12 and 2.34 kg): the body is
+not behind it. Walking on to where the walk was going while the punch is thrown plays as stopping
+(24 of 32 trials the same), since the walk has all but ended at the window. None fell.
+
 ### The landing band
 
 **A punch at the bar lands over a few centimetres of range.** With the elbow within 30° of straight
