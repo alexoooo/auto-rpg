@@ -7,7 +7,9 @@ it lies along the ground. The foot's box never changes. The toes are a contact r
 and carry no mass.
 
 With the ankle's dorsiflexion stop at 0.8 rad, this is what lets the Warrior stand up from hands
-and knees on its toes. No body in the game has toes yet.
+and knees on its toes. No body in the game has toes yet: on the Warrior and the Rogue the game's
+step-up stands none of the target's 64 falls, against 56 without them, so they go on with the
+stand-up the Recovery plan builds on them ([below](#on-the-game-bodies)).
 
 ## What is used
 
@@ -59,7 +61,44 @@ shoved at 20 N s (seeds 1 to 40).
 | Toes, the stance reading them while within `DOWN` | 172/176 | 30 | 1/40 | 1.82 |
 | The same, and the dorsiflexion stop 0.8 rad | 176/176 | 60 | 0/40 | 2.58 |
 
+### On the game bodies
+
+The Warrior and the Rogue with toes 0.06 m long, ending at the boot's toe, the box cut short by
+them, 0.025 m thick, and toed ankles dorsiflexing to 0.8 rad past the reference pose; Node,
+`rapier`, 120 Hz, at `5e7b28d0`. The shoves and shoved walks are `research/core-stance-sweep.mjs`
+(`--batteries shove`; `--batteries orders --orders 0.5:1-120 --shoves 20`, the club in hand), the
+stand-up `npm run evaluate -- rising-target step-up`.
+
+| Foot | Shoves held, Warrior / Rogue, of 176 | Shoved walks fell, Warrior / Rogue, of 120 | Step-up stood, of 64 |
+| --- | --- | --- | --- |
+| The game's (no toes) | 173 / 160 | 0 / 4 | 56 |
+| Toes | 176 / 159 | 1 / 5 | 0 |
+| Toes to the rig's ball (0.074 m) | 175 / 154 | 1 / 9 | – |
+
+- **Step-up**: a foot it swings forward hangs its toes up at a right angle and lands on end on
+  them, and its half kneel never gets the body over that foot. Its stages are timed by a search on
+  the foot without toes; with toes the toes' bends tried below do not rescue it.
+- **The learned punch** (`research/punch-policy-check.mjs`, seed 5001, 160 places): 141 of 160 at
+  120 Hz and 128 at 480 Hz, against 155 and 140 without toes; none fell. The misses move from the
+  fist's mass to its speed and straightness.
+- **Fights** (`npm run match -- duellist options`, the standard protocol): the Duellist scores
+  0.671 over 120 bouts with toes (match `295cf7a438bb68ea`), against 0.788 over 118 without
+  (`c1ec7b0cefd3f3c8`); the Rogue's side loses most (Rogue against Warrior 0.586 to 0.417).
+- **The Vanguard's support fold** sinks to 0.41 m under standing on the toed ankle, against 0.30 m
+  on the 0.36 rad stop, where its low guard's hands rest on the thighs and settle anywhere within
+  10 cm; asked for 0.30 m (`COMBAT_FOLD.lower`) it holds as before.
+- **A limp body** stands on the 0.36 rad stop for a second and sags through the toed ankle's
+  range in about two thirds of one.
+
 ## Tried and not kept
+
+- **Toes that bend only as the ground pushes them**, rigid with the foot until their tips meet the
+  floor (`b = max(0, tip - asin(h / L))`, h the hinge's height): a swinging foot hangs them
+  straight, and step-up stands 13 of 64 on the game bodies. A foot coming down rests on the tips
+  of its straight toes, its ball 6.6 cm up: the Recovery stand-up stands none of its 32 starts.
+  Shoves held 176 / 166, shoved walks fell 0 / 8.
+- **The same, yielding until the tips are 1 cm clear** (`b = min(tip, max(0, tip - asin((h -
+  0.01) / L)))`): the Recovery stand-up 27 of 32 (median 4.00 s), step-up 1 of 64.
 
 - **A passive toe joint**: fails on the solver under load ([passive toes](man-passive-toes.md)).
 - **Toes that switch on only when the foot tips** (from 0.6 to 1.0 rad), so a flat foot is the old

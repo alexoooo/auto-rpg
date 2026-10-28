@@ -54,10 +54,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now: toes, then the options fighter's shape.** Toes go on the Warrior and the Rogue, with the
-   ankle's dorsiflexion stop at 0.8 rad, read before and after on walking, shoves, fights, the
-   stand-up and the learned punch ([toes](reference/toes.md)). Then the options fighter takes the
-   shape at depth 1 (Options step 1).
+1. **Now: the options fighter's shape** at depth 1 (Options step 1). Toes on the Warrior and the
+   Rogue wait for Recovery step 3, the graph as the game's Stand up: on them step-up stands none of
+   the target's falls ([on the game bodies](reference/toes.md#on-the-game-bodies)).
 2. **Next: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
    (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
    trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
@@ -106,7 +105,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
-- The Warrior and the Rogue on toes: walking and rising in the Lab.
+- The Warrior and the Rogue on toes, once they land (Recovery step 3): walking and rising in the Lab.
 - The skeleton's look in play.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
