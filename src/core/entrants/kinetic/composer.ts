@@ -175,7 +175,7 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         for (const channel of model.channels) if (swung[channel] !== undefined) posture[channel] = swung[channel]!;
       }
       // The actions' claims, each on the parts it holds; the legs' only through the stance.
-      let legsAsk: LegsAsk | null = null, lower = intent.lower, asks: Pick<ActionClaim, "steer" | "shift"> = {};
+      let legsAsk: LegsAsk | null = null, lower = intent.lower, asks: Pick<ActionClaim, "steer" | "shift" | "legs"> = {};
       for (const { by, held, claim } of claims) {
         const take = (write: string, part: BodyPart): boolean => {
           const reason = refusalOf(part, held);
