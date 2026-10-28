@@ -16,6 +16,21 @@ interface Edge {
 export const EDGE: Edge = Object.freeze({ band: .25, patience: 120 });
 
 /**
+ * **The walk to the edge** of the focus's reach (`Reach`), facing it: in from farther than `band` m
+ * past its outer bound, head to head, back from inside it, and standing between.
+ */
+export function toEdge(now: Situation, band: number, walk: Walker): ReturnType<Walker["toward"]> {
+  const face = walk.facing(now), { theirs: outside, apart } = now.reach, focus = now.focus!, centre = now.sight.view.stance.centre;
+  const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z;
+  if (apart > outside + band) {
+    const near = Math.max(0, outside + now.apart - apart);
+    return walk.range(now, near, near + band, face);
+  }
+  if (apart < outside) return walk.toward(now, -x, -z, face);
+  return { move: null, face };
+}
+
+/**
  * **Hold at the edge**: stand just outside a standing, two-handed foe's reach, from its outer
  * bound to `band` m past it, head to head, walking in from farther and back from nearer, facing
  * it. On offer with no blow of its own under way, until it has waited `patience` s at the edge for
@@ -50,16 +65,10 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
       return { duration, dealt: 0, taken: now.danger + exposed(now, duration), orders: 0, fall: clinched(now, duration) };
     } },
     step(now) {
-      const face = walk.facing(now), { outside, apart } = reach(now), focus = now.focus!, centre = now.sight.view.stance.centre;
+      const { outside, apart } = reach(now);
       if (apart >= outside && apart <= outside + edge.band) state.since ??= now.time;
       else if (!spent(now)) state.since = null;
-      const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z;
-      if (apart > outside + edge.band) {
-        const near = Math.max(0, outside + now.apart - apart);
-        return { ...walk.range(now, near, near + edge.band, face), actions: [] };
-      }
-      if (apart < outside) return { ...walk.toward(now, -x, -z, face), actions: [] };
-      return { move: null, face, actions: [] };
+      return { ...toEdge(now, edge.band, walk), actions: [] };
     },
   };
 }

@@ -13,7 +13,8 @@ import { actionResources } from "./action-resources.ts";
 import type { GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
-import type { Navigator } from "../mind/navigator.ts";
+import type { NavigationSight, Navigator } from "../mind/navigator.ts";
+import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { directMovement } from "../mind/movement.ts";
 import { cos, hypot, sin } from "../math/real.ts";
 
@@ -90,19 +91,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       state.walkable = true;
     },
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
-      const h = legs.heading, velocity = requested.move;
-      const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
-      // The goal's ceiling: its own, or a walk's speed where the tactics asked a walk; asked to walk, no faster than the plain walk forward.
-      const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
-        requested.walk && body.envelope ? body.envelope.ways.forward.value : Infinity);
-      const supportAllowsWalk = !support || support.walks();
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
-      const result = navigation?.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk) ?? null;
-      let intent = requested;
-      if (requested.movement && result) intent = { ...requested, move: result.move,
-        face: requested.travelFacing ? result.face ?? requested.face : requested.face,
-        ...(result.destination === undefined ? {} : { destination: result.destination }) };
-      else if (navigation && view.senses.solids?.length && velocity) intent = { ...requested, move: navigation.steer(view, h, velocity) };
+      const intent = navigated(navigation, { view, report }, legs, body.envelope, requested, dt, state.walkable && (!support || support.walks()));
       const near = context(intent);
       if (intent.interrupt?.length) instances.stop(view, intent.interrupt, "its mind took what it held");
       instances.step(view, intent.actions, near, dt);
@@ -220,6 +210,28 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       return state.command;
     },
   };
+}
+
+/**
+ * **`requested` with its movement made a walk**: the walk `navigation` takes toward the movement
+ * asked, or the walk asked as a movement along its way, at the speed rule's speed under the goal's
+ * ceiling (its own pace, or the walk's speed; asked to walk, no faster than the plain walk forward
+ * of `envelope`), facing as asked or along the route where it asks to; a walk asked with no
+ * movement kept clear of the solids sensed. Nothing walks where the legs are not `available`, and
+ * with no navigation the walk goes as asked.
+ */
+export function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping">, envelope: StanceEnvelope | null,
+  requested: Intent, dt: number, available: boolean): Intent {
+  const { view } = sight, h = legs.heading, velocity = requested.move;
+  const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
+  const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
+    requested.walk && envelope ? envelope.ways.forward.value : Infinity);
+  const result = navigation?.step(sight, request, legs, ceiling, dt, available) ?? null;
+  if (requested.movement && result) return { ...requested, move: result.move,
+    face: requested.travelFacing ? result.face ?? requested.face : requested.face,
+    ...(result.destination === undefined ? {} : { destination: result.destination }) };
+  if (navigation && view.senses.solids?.length && velocity) return { ...requested, move: navigation.steer(view, h, velocity) };
+  return requested;
 }
 
 /** Overlay readers share immutable values without freezing an executor's own motion state. */
