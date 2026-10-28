@@ -53,14 +53,13 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: Kinetic's design**, steps 9 to 14 in order, before any training run (worth in life is
-   built): measured profiles indexed by the foe's phase (step 9), the value of a position
-   (step 10), exits and letting go (step 11), the stand-up as a chain with no sub-mind (step 12),
+1. **Now: Kinetic's design**, steps 10 to 14 in order, before any training run (worth in life and
+   measured profiles are built): the value of a position (step 10), exits and letting go (step 11), the stand-up as a chain with no sub-mind (step 12),
    footwork and the guard (step 13), the options fighter as a preset (step 14). Each step is
    checked on the drills it touches, the Cover drill (Drills step 8) landing before step 13; the
    fights are read once, at step 14.
@@ -296,13 +295,14 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   0.9 s after the pelvis's lowest point, but only 6 % of the steps from that point to standing
   did. Of 1,321 commits, 88 % read `striking` (about 11 steps into the commit), with 0.4 % of
   clear steps read `striking`. On the Strike drill's still and fight rungs no body fell. Read
-  again when a profile indexed by the phase is measured ([Kinetic](plans/2026-10-27-kinetic.md)
-  step 9).
+  again when a profile has a cell at a rising foe ([the profile](plans/2026-10-27-kinetic.md#the-profile)).
 - **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
   striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
-  ([Kinetic](plans/2026-10-27-kinetic.md#the-profile), step 9), each asked of a concrete
+  ([the profile](plans/2026-10-27-kinetic.md#the-profile)), each asked of a concrete
   failure, one decision at a time, and read by the paired report:
+  - the behaviour tactics' recipe estimate (`ActionEstimate`) becomes the recipe strikes' profiles
+    once they are drilled;
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
     legs skill, `move(goal)` toward a named range ([Kinetic](plans/2026-10-27-kinetic.md), step 13);

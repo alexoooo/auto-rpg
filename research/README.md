@@ -17,6 +17,7 @@ reads by.
 | `physiques.mjs` | the physique grid (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | the jobs of `--grid` |
 | `competency-passes.mjs` | whether each competency passes at every rate of `RATES` | JSON on stdout |
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
+| `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground edge's from the Rise drill's, naming what they were measured on | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
 | `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
 | `core-routine-battery.mjs` | the Lab's Routine from seeded pushed starts, a tuning each: loops held, falls, each strike's peak | |
 | `reptile-bite.mjs` | the reptile's closing-jaw strikes against a fixed body | [reptile](../docs/reference/reptile.md) |
