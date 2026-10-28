@@ -1,7 +1,11 @@
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { rigidPoints } from "../../build/rigid.ts";
+import { pointAtToRef, poseAngles, specChainTo } from "../../control/kinematics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import type { StancePhase } from "../../control/stance.ts";
 import { hypot } from "../../math/real.ts";
 import type { LegsUnmet } from "../../skills/skill.ts";
+import { guardPosture } from "../../skills/guard.ts";
 import { rangeOf } from "../../skills/strike.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Cover } from "../intent.ts";
@@ -37,8 +41,12 @@ export interface Percept<V> {
   cue?(value: V): unknown;
 }
 
-/** Head to head across the ground to the focus, m, and the most at which its hands reach this body's head and this body's reach its. */
-export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number }
+/**
+ * Head to head across the ground to the focus, m; the most at which its hands reach this body's
+ * head and this body's reach its; and the range head to head at which the two guards' farthest
+ * points meet (`guardAhead`).
+ */
+export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number; readonly guards: number }
 
 /**
  * The chance a foe's blow predicted to reach the head lands; and how many blows a second a
@@ -77,6 +85,28 @@ const twoHanded = (spec: BodySpec): boolean => ["hand.left", "hand.right"].every
 /** How far a hand of `striker` reaches a head `up` m over its own, m head to head across the ground: its range's outer bound. */
 const outer = (striker: BodySpec, up: number): number => { const range = rangeOf(striker, "right", up); return range.reach + range.along[1]; };
 
+/** Each spec's guard's reach ahead of its head, found once: a spec is immutable, and so is what is read from it. */
+const GUARDS = new WeakMap<BodySpec, number>();
+
+/**
+ * **How far ahead of its head `spec`'s guard holds its farthest point**, m: of each hand's points
+ * and what it holds (`rigidPoints`), in the reference pose with the guard's angles
+ * (`guardPosture`), along the body frame's forward; 0 for a body with no hands.
+ */
+function guardAhead(spec: BodySpec): number {
+  let ahead = GUARDS.get(spec);
+  if (ahead !== undefined) return ahead;
+  const angles = poseAngles(spec, guardPosture(spec)), head = spec.segments.find((segment) => segment.name === "head")?.centreOfMass.value[2] ?? 0, at = new Vector3();
+  ahead = 0;
+  for (const segment of spec.segments) {
+    if (segment.name !== "hand.left" && segment.name !== "hand.right") continue;
+    const chain = specChainTo(spec, segment.name), turned = chain.map((joint) => angles[joint.spec.name] ?? joint.spec.dofs.map(() => 0));
+    for (const point of rigidPoints(spec, segment).values()) ahead = Math.max(ahead, pointAtToRef(chain, turned, point.value, at).z - head);
+  }
+  GUARDS.set(spec, ahead);
+  return ahead;
+}
+
 /** The heavier of `striker`'s two hands' blows on `struck`'s head, J. */
 const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEnergy(striker, "left", struck), blowEnergy(striker, "right", struck));
 
@@ -86,7 +116,7 @@ const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEn
  * ground (Infinity with none); a foe's blow closing on the head (`READINGS.threat`) and one
  * predicted to reach it (`READINGS.predicted`); the expected cost of that blow (`cost`, at the
  * speed it closes and the chance it lands, `LANDS`), 0 with none; the reach head to head (`Reach`:
- * Infinity, 0 and 0 with no focus); the expected cost of a second within a standing focus's reach
+ * Infinity and noughts with no focus); the expected cost of a second within a standing focus's reach
  * (`LANDS`, `RATE`), 0 with none; and the energy of a blow of each hand at the focus's head, J
  * (`blowEnergy`), 0 with no focus. The gait's: where the stance is in a step (`StanceReading.phase`),
  * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
@@ -104,10 +134,10 @@ export const PERCEPTS = Object.freeze({
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
   danger: { read: ({ blow, spec }) => blow ? LANDS * cost(blowEnergy(blow.foe.spec, blow.hand, spec, blow.closing)) : 0 } as Percept<number>,
   reach: { read: ({ focus, sight, spec }): Reach => {
-    if (!focus) return { apart: Infinity, theirs: 0, mine: 0 };
+    if (!focus) return { apart: Infinity, theirs: 0, mine: 0, guards: 0 };
     const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
     return { apart: hypot(theirs.x - mine.x, theirs.z - mine.z), theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0,
-      mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
+      mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0, guards: guardAhead(spec) + guardAhead(focus.spec) };
   } } as Percept<Reach>,
   exposure: { read: ({ focus, sight, spec }) => focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * cost(heavier(focus.spec, spec)) : 0 } as Percept<number>,
   blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? blowEnergy(spec, "left", focus.spec) : 0, right: focus ? blowEnergy(spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,

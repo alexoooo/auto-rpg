@@ -7,7 +7,7 @@ import type { MindWiring } from "../../mind/minds.ts";
 import { approach } from "../../mind/options/approach.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { cover } from "../../mind/options/cover.ts";
-import { EDGE, toEdge } from "../../mind/options/edge.ts";
+import { GOALS, toGoal } from "../../mind/options/goals.ts";
 import type { Asked, Situation, StandingOption } from "../../mind/options/option.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
@@ -27,13 +27,13 @@ export interface Deciding {
 }
 
 /**
- * **The default footwork**: at the edge of a standing, two-handed focus's reach (`toEdge`, `EDGE`'s
- * band), facing it; with no such focus, standing, facing the focus or the way it faces.
+ * **The default footwork**: `at the edge` of a standing, two-handed focus's reach (`GOALS`),
+ * facing it; with no such focus, standing, facing the focus or the way it faces.
  */
 function footwork(now: Situation, walk: Walker): Omit<Asked, "actions"> {
   const focus = now.focus;
   if (!focus || focus.down || now.reach.theirs === 0) return { move: null, face: walk.facing(now) };
-  return toEdge(now, EDGE.band, walk);
+  return toGoal(now, GOALS["at the edge"], walk);
 }
 
 /** The refusals' report as an engagement's detail: how many, and the first's what and why. */

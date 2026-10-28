@@ -195,23 +195,15 @@ Kinetic's step 2 and land before its baseline evaluation reads the layer
 
 ### 6. The percepts registry, named goals, and a learned skill's layouts
 
-One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the
-options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the gait's phase
-(`view.stance`: `touching`, `velocity`, `plan`), the controllers' report and the foe's phase
-(its first phases those the threat readings and the down rule give) beside the chooser's
-readings. A cue's limit a number or another percept, and the first named goals as cues over it
-(`close`, `at the edge`, `out of reach`, `guard to guard`); Kinetic's default footwork asks
-`at the edge` where it computes `toEdge` now, and Move's rules (`MoveRule`) become cues over named
-goals choosing its gait. A learned skill's input and output layout files and
-their reader: the punch's inputs (`PUNCH_FEATURES`, today a vector written by hand) named as
-percepts, its outputs as claim terms in the body's units (`punchChannels` and `STANCE_FULL` read
-from the file).
+The registry (`PERCEPTS`, `src/core/mind/options/percepts.ts`) reads the gait, the controllers'
+report and the foe's phase, and the named goals (`GOALS`, `src/core/mind/options/goals.ts`) are
+bands over its reach readings, Kinetic's default footwork on `at the edge`. Left: a learned
+skill's input and output layout files and their reader: the punch's inputs (`PUNCH_FEATURES`,
+today a vector written by hand) named as percepts, its outputs as claim terms in the body's units
+(`punchChannels` and `STANCE_FULL` read from the file).
 
-Check: the gate; the walk rung's `asked` fields from the gait percept equal the drill's own; the
-learned punch through its layout files gives the same actions to the bit as through the code;
-Kinetic's still and walk rungs the same to the bit with its footwork on `at the edge`; each named
-goal read on the Warrior and the Rogue gives each its own range, in proportion to its reach; on
-the Strike drill's still and fight rungs, the foe's phase read against what the target's body was
+Check: the gate; the learned punch through its layout files gives the same actions to the bit as
+through the code; on the Strike drill's still and fight rungs, the foe's phase read against what the target's body was
 doing (its strike's contact, its fall, its rise), step by step, its misreadings counted by
 phase.
 

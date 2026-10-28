@@ -560,7 +560,13 @@ hands the body over).
   orders, focus, distance, threat, the blow coming and its cost, reach, exposure, each hand's blow;
   the gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the
   focus's phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue
-  is what a chooser watches (`eventOf`).
+  is what a chooser watches (`eventOf`). Reach is read head to head: the focus's, this body's,
+  and where the two guards meet (`guardAhead`).
+- **Named goals** (`GOALS`, `goals.ts`): a band of the range to the focus whose limits are reach
+  readings read each step, never metres written down: `close`, inside this body's reach; `at the
+  edge`, just outside the focus's (`EDGE`); `out of reach`, past that; `guard to guard`. `toGoal`
+  walks to one, facing the focus; Kinetic's default footwork asks `at the edge`, and the edge-hold
+  holds the same band.
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
   worth, keeping the running one within its keep, deciding afresh on a cue's change or every
