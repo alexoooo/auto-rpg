@@ -1,4 +1,4 @@
-import type { Side, Substance } from "../spec/body.ts";
+import type { Side, Substance, ToesSpec } from "../spec/body.ts";
 import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
@@ -32,6 +32,8 @@ export interface HumanFigure {
   readonly hulls: Readonly<Record<TrunkSegment, readonly Quantity<Vec3>[]>>;
   /** Each foot's extents, body frame. */
   readonly feet: Readonly<Record<Side, Extents>>;
+  /** Each foot's toes, in metres of the body as built (`toes.ts`); absent, each foot is its box whole. */
+  readonly toes?: ToesSpec;
   /** Each hand's measured contact geometry; absent, a hand's poses are capsules (`segments.ts`). */
   readonly hands?: Readonly<Record<Side, HandFigure>>;
   /**

@@ -350,6 +350,14 @@ export interface SegmentFrame {
 const BODY_RIGHT: Vec3 = [1, 0, 0];
 
 /**
+ * **The key a body's measured data is read under** (a walk's envelope, a technique's profile, a
+ * learned skill's settings): its model, and `+toes` where its feet have toes (`ToesSpec`), since
+ * what depends on the foot is measured on each foot apart.
+ */
+export const bodyKey = (spec: Pick<BodySpec, "model" | "segments">): string =>
+  spec.segments.some((segment) => segment.toes !== undefined) ? `${spec.model}+toes` : spec.model;
+
+/**
  * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x `right` made square
  * to y, and z = x cross y. A segment that runs along its right has no such frame, and is refused
  * rather than given another.

@@ -34,9 +34,15 @@ import { acos } from "../math/real.ts";
  * nothing gives the bind (neck, spine, hip rotation, foot roll), it is taken as neutral, and that
  * is a stated assumption (`reference-pose-assumptions`). Each figure reads its own sex's ranges.
  *
+ * A toed foot's ankle (`SegmentSpec.toes`) dorsiflexes to `TOED_DORSIFLEXION` past the reference
+ * pose instead: its reach is that stop plus the bind.
+ *
  * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`), and `speed` how that
  * torque falls with speed (`speed.ts`).
  */
+/** How far a toed foot's ankle dorsiflexes past the reference pose, rad (`owner-toes`). */
+const TOED_DORSIFLEXION = sourced(0.8, "rad", "owner-toes", "a toed foot's dorsiflexion stop past the reference pose");
+
 type Strength = (exertion: Exertion) => Quantity<number>;
 type Speed = (exertion: Exertion) => ForceVelocitySpec;
 
@@ -135,6 +141,8 @@ export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[
     const upperArm = get(segmentName("upperArm", side)), forearm = get(segmentName("forearm", side)), hand = get(segmentName("hand", side));
     const thigh = get(segmentName("thigh", side)), shank = get(segmentName("shank", side)), foot = get(segmentName("foot", side));
     const A = frame(upperArm), F = frame(forearm), Th = frame(thigh), S = frame(shank), Fo = frame(foot);
+    const dorsiflexed = derive("rad", "dorsiflexion in the reference pose: the foot's upward normal from the shank's upward line, about the foot's -x",
+      [Fo.x, S.y, Fo.z], (x, y, z) => angleAbout(scale(x, -1), scale(y, -1), scale(z, -1)));
     const handRight = hand.right;
     if (!handRight) throw new Error(`${model}'s ${hand.name} has no right of its own`);
 
@@ -210,10 +218,9 @@ export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[
           reach: [rom("kneeFlexion"), rom("kneeHyperextension")], exertions: ["kneeFlexion", "kneeExtension"] },
       ]),
       joint(`ankle.${side}`, shank.name, foot.name, shank.distal, [
-        { positive: "dorsiflexion", negative: "plantar flexion", axis: negated(Fo.x, "the foot's frame x"),
-          bind: derive("rad", "dorsiflexion in the reference pose: the foot's upward normal from the shank's upward line, about the foot's -x",
-            [Fo.x, S.y, Fo.z], (x, y, z) => angleAbout(scale(x, -1), scale(y, -1), scale(z, -1))),
-          reach: [rom("ankleDorsiflexion"), rom("anklePlantarflexion")], exertions: ["ankleDorsiflexion", "anklePlantarflexion"] },
+        { positive: "dorsiflexion", negative: "plantar flexion", axis: negated(Fo.x, "the foot's frame x"), bind: dorsiflexed,
+          reach: [foot.toes ? derive("rad", "the toed stop past the reference pose, from the anatomical position", [TOED_DORSIFLEXION, dorsiflexed], (stop, b) => stop + b)
+            : rom("ankleDorsiflexion"), rom("anklePlantarflexion")], exertions: ["ankleDorsiflexion", "anklePlantarflexion"] },
         { positive: "inversion", negative: "eversion", axis: mirrored(negated(Fo.y, "the foot's frame y"), "the foot's -y", side),
           bind: neutral("foot roll"),
           reach: [rom("footInversion"), rom("footEversion")], exertions: ["footInversion", "footEversion"] },

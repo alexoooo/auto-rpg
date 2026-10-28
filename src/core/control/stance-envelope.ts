@@ -3,7 +3,7 @@ import runTurnsMeasured from "../../../assets/core/simbicon-run-envelope.json" w
 import walkRunMeasured from "../../../assets/core/walk-run-envelope.json" with { type: "json" };
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
-import type { BodySpec } from "../spec/body.ts";
+import { bodyKey, type BodySpec } from "../spec/body.ts";
 import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
@@ -195,15 +195,15 @@ interface EnvelopeTable {
 const CARDINAL = { forward: 0, right: 90, back: 180, left: 270 } as const;
 
 /**
- * The envelope of `spec`'s model in `table`, the asset `source` names, with what its right hand
- * holds (`heldBy`) where the asset measured that apart, and over everything it measured held where
- * not: `what` walks, for an error.
+ * The envelope of `spec`'s body (`bodyKey`) in `table`, the asset `source` names, with what its right
+ * hand holds (`heldBy`) where the asset measured that apart, and over everything it measured held
+ * where not: `what` walks, for an error.
  */
 function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, what: string): StanceEnvelope {
-  const model = table.models[spec.model];
-  if (!model) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
+  const key = bodyKey(spec), model = table.models[key];
+  if (!model) throw new Error(`${what}'s envelope was not measured on ${key}`);
   const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
-  const entry = own ?? model, at = own ? `/models/${spec.model}/holds/${held}` : `/models/${spec.model}`;
+  const entry = own ?? model, at = own ? `/models/${key}/holds/${held}` : `/models/${key}`;
   const { wayTrials, wayHeld } = entry, turnsRead = entry.turns.map((turn, i) => sourced(turn, "rad/s", source, `${at}/turns/${i}`));
   const speeds = table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`));
   const trials = wayTrials === undefined ? null : sourced(wayTrials, "1", source, `${at}/wayTrials`);
@@ -251,13 +251,13 @@ export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelo
   };
 }
 
-/** The measured envelope of `spec`'s model, walking by the stance's own walk (`stance-walk`). */
+/** The measured envelope of `spec`'s body (`bodyKey`), walking by the stance's own walk (`stance-walk`). */
 export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
   return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
 }
 
 /**
- * The measured envelope of `spec`'s model walking by the walk and run (`src/core/skills/walk-run.ts`)
+ * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/walk-run.ts`)
  * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
  * (`research/core-stance-envelope.mjs --legs walk-run --walks`). It measured no turns: its turns are
  * those a run on the same run cycle held (`assets/core/simbicon-run-envelope.json`).

@@ -9,7 +9,7 @@ import { SIDES } from "./landmarks.ts";
  * changes, absent where it changes nothing. Each changes one thing, so a skill that fails on one
  * says which change failed it:
  *
- * - `size`: every length, and the mass at the same density. The muscle is a share of that mass,
+ * - `size`: every length (a foot's toes among them), and the mass at the same density. The muscle is a share of that mass,
  *   so torque goes as size cubed with it (`peakTorque`); joint speeds are unchanged (`jointSpeed`).
  * - `weight`: the mass alone, a load the same muscles carry. Every segment is as long and as dense
  *   as before, and broader across its long axis by the factor's square root.
@@ -75,6 +75,9 @@ export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanF
     ...(size && { scale: figure.scale ? derive("1", "the fit scale times the size", [figure.scale, size], (f, s) => f * s) : size,
       stature: derive("m", "the stature times the size", [figure.stature, size], (h, s) => h * s) }),
     mass, ...((size || weight) && { muscled }),
+    ...(size && figure.toes && { toes: {
+      length: derive("m", "the toes' length times the size", [figure.toes.length, size], (l, s) => l * s),
+      thickness: derive("m", "the toes' thickness times the size", [figure.toes.thickness, size], (t, s) => t * s) } }),
     ...(breadth && {
       breadth: figure.breadth ? derive("1", "the breadth times the weight's", [figure.breadth, breadth], (a, b) => a * b) : breadth,
       hulls,

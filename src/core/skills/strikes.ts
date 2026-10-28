@@ -1,7 +1,7 @@
 import measured from "../../../assets/core/strikes.json" with { type: "json" };
 import { effectorAim } from "../control/effectors.ts";
 import type { Pose } from "../control/motor.ts";
-import type { Side, BodySpec } from "../spec/body.ts";
+import { bodyKey, type Side, type BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 
 /**
@@ -110,11 +110,11 @@ export interface Chosen {
 
 /**
  * Every recipe `spec`'s `hand` may throw with what it holds, as that hand throws it: those
- * searched on its body with that held, in the repertoire's order.
+ * searched on its body (`bodyKey`) with that held, in the repertoire's order.
  */
 export function recipesFor(repertoire: Repertoire, spec: BodySpec, hand: Side): Chosen[] {
-  const held = heldIn(spec, hand);
-  return repertoire.filter((r) => r.held === held && r.model === spec.model).map((recipe) => {
+  const held = heldIn(spec, hand), key = bodyKey(spec);
+  return repertoire.filter((r) => r.held === held && r.model === key).map((recipe) => {
     const own = hand === recipe.strike.hand;
     return { recipe, strike: own ? recipe.strike : mirrored(recipe.strike), window: own ? recipe.window : mirroredWindow(recipe.window) };
   });

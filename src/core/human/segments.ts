@@ -38,7 +38,8 @@ export const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room bet
  *   Dempster's density, a thigh's no wider than leaves the stride's room between the two
  *   (`STRIDE_ROOM`), and a limb no wider than its figure leaves it (`HumanFigure.widest`). A trunk segment is the convex hull of its stretch of the figure (a workshop
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
- *   a driven upper arm passes. A foot is a box on its extents (the boot). A shape carries no mass
+ *   a driven upper arm passes. A foot is a box on its extents (the boot), short of the toe by its
+ *   toes where the figure has them (`HumanFigure.toes`), which bend ahead of it. A shape carries no mass
  *   (`SegmentSpec.shape`).
  * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`),
  *   and a foot's grip on what it stands on (`FOOT_FRICTION`).
@@ -125,6 +126,11 @@ function plans(figure: HumanFigure): Plan[] {
   ];
   for (const side of SIDES) {
     const { SJC, EJC, WJC, DAC3, MET3, HJC, KJC, AJC, HEEL, TTIP, handRight, little } = figure.limbs[side], hand = figure.hands?.[side];
+    // A toed foot's box ends where its toes begin, back from the boot's toe along the body's forward axis, which the foot's frame lies along.
+    const boot = figure.feet[side], toes = figure.toes;
+    const foot: Extents = !toes ? boot : { ...boot, z: { min: boot.z.min, max: figure.scale
+      ? derive("m", "the boot's toe less the toes, at the figure's authored size", [boot.z.max, toes.length, figure.scale], (front, length, s) => front - length / s)
+      : derive("m", "the boot's toe less the toes", [boot.z.max, toes.length], (front, length) => front - length) } };
     out.push(
       plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
       plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
@@ -133,7 +139,7 @@ function plans(figure: HumanFigure): Plan[] {
           : little ? { knuckles: MET3, little } : { knuckles: MET3 }, hand),
       plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
       plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
-      plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: figure.feet[side] }),
+      plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: foot }),
     );
   }
   return out;
@@ -212,7 +218,8 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
         return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
       });
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass, widestOf(plan)),
-      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) } };
+      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) },
+      ...(plan.row === "foot" && figure.toes && { toes: figure.toes }) };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     if (plan.row === "foot" && segment.shape.kind === "box") {
       const { centre, size } = segment.shape;

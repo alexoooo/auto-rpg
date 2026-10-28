@@ -63,15 +63,21 @@ model's default mind and what its right hand holds.
 `figureSpec` takes a `HumanFigure` and lays out 16 segments and 15 joints from published tables
 (de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness
 (`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)). A humanoid's feet may wear a shoe's
-sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it.
+sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it. They may have
+toes (`toedFigure`, `src/core/human/toes.ts`), a character's setting: a slab ahead of the foot's box,
+cut short by it, and a toed ankle's stop at 0.8 rad ([toes](reference/toes.md)).
 
 **Characters.** A game character is a `CharacterConfig` (`src/core/models.ts`): a model plus
-overrides of Size, Weight, Strength, Speed, HP, Balance and Haste. `resolveCharacter` validates
-them, fills defaults (multipliers 1, the model's HP, Balance and Haste 0) and returns an immutable
-resolved config and sourced spec; geometric overrides are checked for nonadjacent intersection
+overrides of Size, Weight, Strength, Speed, HP, Balance and Haste, numbers, and Toes, on or off
+(`CHARACTER_ATTRIBUTES`, `src/core/character-attributes.ts`). `resolveCharacter` validates them,
+fills defaults (multipliers 1, the model's HP, Balance and Haste 0, flat feet; the reptile takes no
+toes) and returns an immutable resolved config and sourced spec; geometric overrides are checked for nonadjacent intersection
 before a world is built. The humanoid adapter is `physiqueFigure`; the reptile adapts its own
 anatomy with the same meanings. One URL codec reads and writes attributes per scope (`left.*`,
 `right.*` in the Arena, `body.*` in the Lab, `hero.*`, `ally-0.*` to `ally-2.*`, `enemy.<model>.*` in the Crypt).
+What is measured on a body (a walk's envelope, a technique's profile, a learned skill's settings,
+the searched strikes) is read under its key (`bodyKey`, `src/core/spec/body.ts`): its model, and
+`+toes` where its feet have toes.
 
 **Items and loadouts.** What a hand may hold is one list (`HELD`, `src/core/items/held.ts`: empty,
 the club, the buckler, the short sword). `armedWith` puts an item in a hand and refuses a hand that
@@ -251,7 +257,7 @@ a stance goal) into muscle commands.
   give, plans each leg (`aimLimb`), publishes what the soles missed (`StanceReading.shortfall`),
   limits each ankle's load to what it holds lengthening (`ankleStrength`), places steps from the capture point (`catchStep`,
   `landingHeading`).
-- **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held
+- **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `walkRunEnvelope`) read what each body (`bodyKey`) was measured to hold, per held
   item, from `assets/core/*-envelope.json`: each way's fastest is the fastest speed at which every
   trial held (`fastestEvery`), and `paceToward` picks the fastest pace that held a share of its
   trials.

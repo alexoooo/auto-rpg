@@ -143,7 +143,11 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
   },
 });
 
-/** The step-up's tuning for `model`; a model it has none for cannot play it. */
+/**
+ * The step-up's tuning for `model`; a model it has none for cannot play it. It is the model's
+ * whatever its feet: a toed body plays the flat foot's stages, which stand none of its falls
+ * (`docs/reference/toes.md#on-the-game-bodies`).
+ */
 export function stepUpTuning(model: string): StepUpTuning {
   if (!Object.hasOwn(STEP_UP, model)) throw new Error(`the step-up has no tuning for ${model}`);
   return STEP_UP[model as HumanoidModel];

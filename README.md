@@ -39,7 +39,7 @@ two-minute bell the fuller health bar wins.
 
 | Panel | Chooses |
 | --- | --- |
-| Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
+| Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted), Haste (leg speed) and Toes |
 | Controller | the mind: Duellist (the default), Options fighter, Puncher, Tempo fighter, Vanguard, Kinetic; the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |

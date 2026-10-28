@@ -6,7 +6,7 @@ import { atan2, cos, sin } from "../../math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
 import { locomotion, STANCE_LOWER } from "../../skills/locomotion.ts";
-import type { Side } from "../../spec/body.ts";
+import { bodyKey, type Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
@@ -64,7 +64,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, kit); runs[name] = run;
     waits ||= spec.moving && order.includes(name);
-    const profile = edgeProfile(own.spec.model, name);
+    const profile = edgeProfile(bodyKey(own.spec), name);
     graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => run.admits(g, side) };
     moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => spec.moving && run.admits(g, side) };
   }

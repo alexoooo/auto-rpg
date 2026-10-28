@@ -231,6 +231,15 @@ export const SOURCES = Object.freeze({
       + "applies the percentage to each model's own baseline, including all four reptile leg chains.",
     record: "docs/reference/assist.md#haste",
   },
+  "owner-toes": {
+    kind: "decision", date: "2026-10-27",
+    decided: "A human figure's feet may have toes, a setting of its character: the last 0.06 m of the foot at x1, to "
+      + "the boot's toe, a slab 0.025 m thick, the foot's box running from the heel to them; and the ankle of a toed "
+      + "foot dorsiflexes to 0.8 rad past the reference pose, beside the 43 degrees of a weight-bearing lunge (Konor "
+      + "et al. 2012, Int J Sports Phys Ther 7(3):279-287, Table 2). Toes and the stop are what let the Warrior stand "
+      + "up from hands and knees; Kinetic's fighter takes them now, the game's characters with the new stand-up.",
+    record: "docs/reference/toes.md",
+  },
   "owner-physique": {
     kind: "decision", date: "2026-10-08",
     decided: "A body may differ from its model by a physique of four attributes, each a factor that "

@@ -6,6 +6,7 @@ import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-p
 import { STRAIGHT_PUNCH, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./strikes.ts";
 import { PUNCH_POLICY } from "./learned-punch.ts";
+import { bodyKey } from "../spec/body.ts";
 
 /**
  * **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact
@@ -28,7 +29,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
     recover: true, landed: true, halts: true, fire: true, ease: true, steered: true, driven: true, timed: true, learned: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
-    timedChannelFault, (spec, config: Config) => !config.learned || PUNCH_POLICY.bodies.includes(spec.model) ? null : `the learned punch has no settings for ${spec.model}`),
+    timedChannelFault, (spec, config: Config) => !config.learned || PUNCH_POLICY.bodies.includes(bodyKey(spec)) ? null : `the learned punch has no settings for ${bodyKey(spec)}`),
   faults: config => [...validStraightPunch(config) ? [] : ["invalid straight punch settings"],
     ...config.learned === undefined || typeof config.learned === "boolean" ? [] : ["a straight punch is learned or not"]],
   reads: (config) => config.learned ? ["learned-punch"] : [], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
@@ -37,7 +38,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   make({ body, guard, aim }, config, actions) {
     const { kind: _, name: __, learned, ...own } = config;
     if (!learned) return straightPunchExecutor(body, guard, actions.map(a => a.name), own, aimedPoint(aim));
-    const policy = dataOf("learned-punch"), settings = { ...own, ...policy.bodies[body.built.spec.model], steered: policy.steered ?? true };
+    const policy = dataOf("learned-punch"), settings = { ...own, ...policy.bodies[bodyKey(body.built.spec)], steered: policy.steered ?? true };
     return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), { policy: recoveryNetwork(policy) });
   },
 };

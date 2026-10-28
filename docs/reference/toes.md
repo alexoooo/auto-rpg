@@ -7,9 +7,17 @@ it lies along the ground. The foot's box never changes. The toes are a contact r
 and carry no mass.
 
 With the ankle's dorsiflexion stop at 0.8 rad, this is what lets the Warrior stand up from hands
-and knees on its toes. No body in the game has toes yet: on the Warrior and the Rogue the game's
-step-up stands none of the target's 64 falls, against 56 without them, so they go on with the
-stand-up the Recovery plan builds on them ([below](#on-the-game-bodies)).
+and knees on its toes. Toes are a setting of a human character (the `toes` attribute,
+`toedFigure`, `src/core/human/toes.ts`): 0.06 m long at size 1, scaled with size, 0.025 m thick,
+ending at the boot's toe, the foot's box cut short by them, and the toed ankle's stop at 0.8 rad
+past the reference pose (`owner-toes`). No game character takes them yet: on the Warrior and the
+Rogue the game's step-up stands none of the target's 64 falls, against 56 without them, so they go
+on with the stand-up the Recovery plan builds on them ([below](#on-the-game-bodies)).
+
+What depends on the foot is read under the body's key (`bodyKey`, `src/core/spec/body.ts`), the
+model and `+toes`: the walk's envelopes, the ground techniques' profiles, the learned punch's
+settings and the searched strikes. The game's step-up is tuned by model alone, so a toed body plays
+the flat foot's stages.
 
 ## What is used
 
