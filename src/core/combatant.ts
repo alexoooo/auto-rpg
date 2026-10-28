@@ -7,7 +7,7 @@ import type { Senses, SensesHub } from "./mind/senses.ts";
 import { replayedBody, sheetLog, type SheetLog } from "./mind/sheets.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { Fighter } from "./rules/blows.ts";
-import { createPool } from "./rules/pool.ts";
+import { createPool, type Pool } from "./rules/pool.ts";
 import { balanceCeiling, balancePercent, type Rulebook } from "./rules/rulebook.ts";
 import type { BodySpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
@@ -43,6 +43,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly recording?: { readonly build: string; readonly context: unknown };
   /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
   readonly percent?: AssistCeiling;
+  /** Its life as the fight counts it, from its pool, as the senses show it: its pool's bar (`Pool.bar`) unless given. */
+  life?(pool: Pool): number;
 }
 
 /** A body in a fight under its mind: what the blows read (`Fighter`), the mind, the config it was made from, and the body it drives. */
@@ -89,7 +91,8 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;
-  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false, life: () => pool.bar() };
+  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false,
+    life: enlisting.life ? () => enlisting.life!(pool) : () => pool.bar() };
   let source: readonly SolidSense[] | undefined, granted: readonly SolidSense[] | undefined;
   if (enlisting.solids) Object.defineProperty(sensed, "solids", { enumerable: true, get() {
     const current = typeof enlisting.solids === "function" ? enlisting.solids() : enlisting.solids;

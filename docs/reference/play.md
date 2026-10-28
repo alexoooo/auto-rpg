@@ -8,15 +8,20 @@ measurement backs it.
 
 ## The bout
 
-`src/arena/duel.ts`. A recipe may give its own of either (`?gap=`, `&cap=` on the page).
+`src/arena/duel.ts`, `src/arena/ends/drain.ts`. A recipe may give its own gap or cap (`?gap=`,
+`&cap=` on the page) and its own end rules.
+
+- **The verdict**, the owner's (`GAME_ENDS`): a side is out when its pool ends (a fatal, severing
+  or exhausting wound) or its life reaches none. From the first minute each side loses a
+  sixtieth of its full life a second (`DRAIN_END`: `from` 60 s, `over` 60 s), so by two minutes
+  every life is drained; both out on one step is a draw. A fall ends nothing.
 
 - **The gap**: a level's default (`src/arena/levels.ts`), 4 m on the open stage and 6 m on the
   obstacle court. Both are beyond the 1.8 m a fighter attacks from (`ATTACK_METRES`,
   [human and strikes](human-and-strikes.md#attack-distance)), so each walks in before the first
   blow.
-- `CAP_SECONDS`: a bout runs 120 s before the fuller bar decides it. With no balance a bout lasts
-  14 s on average, and with a balance of 25 % 55 s ([assist](assist.md)), so the cap decides few
-  bouts without balance and more with it.
+- `CAP_SECONDS`: a bout runs 120 s at most; at the cap the fuller life wins, which decides only a
+  recipe of its own end rules, since the drain has ended every other by then.
 
 ## Reaction time
 

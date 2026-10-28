@@ -11,6 +11,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
+import type { Pool } from "../core/rules/pool.ts";
 import { seedOf } from "../core/math/random.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
@@ -43,10 +44,13 @@ import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } f
  *   handed back to itself or is out of the fight. Every order is kept with the step it was given
  *   before (`Duel.tape`), so the recipe and the tape are the whole of what made a bout, and
  *   `Duel.play` gives a tape again as the bout steps.
- * - **A side is out** once its pool has ended or its continuous-down allowance expires.
- *   With unlimited recovery it remains a sensed opponent while its mind attempts to rise.
- *   The other side wins; both out on one step is a draw.
- * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
+ * - **A side is out** by the recipe's end rules, the game's unless it names its own (`GAME_ENDS`:
+ *   its pool ended, or its life drained, `DRAIN_END`); a side down stays in the fight while its
+ *   mind tries to rise. The other side wins; both out on one step is a draw.
+ * - **Its life** (`Duel.life`) is its bar less what the end rules have drained: what the page's
+ *   bar, the senses and the verdict read.
+ * - **At the cap** (`CAP_SECONDS`) the fuller life wins, and equal lives draw; under the game's
+ *   rules the drain has ended the bout by then.
  * - **Each side's assist** (`Assist`) has the ceiling its balance is: its character's per cent of
  *   its weight (`AttributeSpec.balance`), or the recipe's, at what the rulebook's per cent is, or the recipe's.
  *   It is withdrawn at the verdict.
@@ -279,7 +283,7 @@ export class Duel {
       return [side, { position: given?.at ? [given.at[0], spawn.position[1], given.at[1]] as Vec3 : spawn.position, heading: given?.heading ?? spawn.heading }];
     })) as Record<Side, { position: Vec3; heading: number }>;
     if (spawns.left.position.every((v, k) => v === spawns.right.position[k])) throw new Error("the two start on one spot");
-    this.ends = (recipe.ends ?? GAME_ENDS).map((config) => [endRuleOf(config), config] as const);
+    this.ends = (recipe.ends ?? GAME_ENDS).map((config) => { const rule = endRuleOf(config); return [rule, { ...rule.defaults, ...config }] as const; });
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
       senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
@@ -293,7 +297,7 @@ export class Duel {
       const model = recipe[side], loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? modelInfo(model).mind;
       const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
       const enlisting = { id: side, side, spec: withLoadout(original, loadout), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
-        seed: seedOf(boutSeedOf(recipe), side),
+        seed: seedOf(boutSeedOf(recipe), side), life: (pool: Pool) => this.lifeOf(pool),
         ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
       };
@@ -421,6 +425,18 @@ export class Duel {
     return this.verdict;
   }
 
+  /** The side's life, a fraction of its full life: its bar less what the end rules have drained by now, never below none. */
+  life(side: Side): number { return this.lifeOf(this.duelists[side].pool); }
+
+  /** The life of a side of `pool`: what `life` reads, from the bout's first step, when its sides are not yet built. */
+  private lifeOf(pool: Pool): number {
+    // The state is made after the sides, whose senses read their life as they are carried: then nothing is drained.
+    const seconds = this.state ? this.clock : 0;
+    let drained = 0;
+    for (const [rule, config] of this.ends) drained += rule.drained?.(seconds, config) ?? 0;
+    return Math.max(0, pool.bar() - drained);
+  }
+
   /** Whether the side is out under this bout's end rules (`DuelRecipe.ends`). */
   eliminated(side: Side): boolean {
     return this.outBy(side) !== null;
@@ -428,7 +444,7 @@ export class Duel {
 
   /** How the side is out: the ending of the first of the bout's end rules that puts it out, or null. */
   private outBy(side: Side): DuelEnding | null {
-    const { pool, body, built } = this.duelists[side], one = { pool, body, built, downFor: this.state.recovery?.[side] ?? 0 };
+    const { pool, body, built } = this.duelists[side], one = { pool, life: this.lifeOf(pool), body, built, downFor: this.state.recovery?.[side] ?? 0 };
     for (const [rule, config] of this.ends) {
       const ending = rule.out(one, config, this.recipe);
       if (ending !== null) return ending;
@@ -454,7 +470,7 @@ export class Duel {
       return Object.freeze({ winner: loser === "left" ? "right" : "left", ending: this.outBy(loser)!, time: this.clock });
     }
     if (this.clock < this.cap) return null;
-    const left = this.duelists.left.pool.bar(), right = this.duelists.right.pool.bar();
+    const left = this.life("left"), right = this.life("right");
     return Object.freeze({ winner: left > right ? "left" : right > left ? "right" : null, ending: "time", time: this.clock });
   }
 

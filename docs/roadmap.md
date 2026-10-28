@@ -55,11 +55,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. First the baseline and the testbed's rules, which every mind meets: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, its speed measured first, with a bare entrant from the senses to the muscles. Then Kinetic's own design, before any training run: worth in the verdict's unit, measured profiles indexed by the foe's phase that name what they were measured on, the value of a position and the rate of play, exits and letting go, the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the options fighter as its preset; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
-| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant); the owner's two-minute verdict |
+| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 6 and 7 in order:
-   the baseline evaluation, read under the owner's verdict (Drills step 7) and
+   the baseline evaluation, read under the owner's verdict and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
    both landing before it, and the trainer, its speed measured and its largest cost cut first,
    with the bare entrant.
@@ -74,8 +74,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait,
    the Stand drill (Drills step 8) landing before it, and the other skills
    ([Body and motor control](#body-and-motor-control)).
-4. **Beside them:** Drills step 7 (the owner's two-minute verdict), which Kinetic step 6, the
-   Punch's fights and every rating wait on; Drills step 2 (the moving target, overlays and side by
+4. **Beside them:** Drills step 2 (the moving target, overlays and side by
    side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Kinetic
    step 13.
    Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
@@ -108,6 +107,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Kinetic's toed Warrior (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`):
   walking, punching and fighting; its run held to 0.7 m/s forward on toes
   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+- The verdict ([play](reference/play.md#the-bout)): a bout in the Arena, life draining from the
+  first minute, ended by two minutes, a fall ending nothing; records read under the old verdict
+  are read again before any comparison.
 - The reaction time, 0.15 s ([play](reference/play.md#reaction-time)): a bout under it
   (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`) beside one
   at 0 (`&senseDelay=0`); one that plays wrong changes the one number.
@@ -274,7 +276,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   guard, or waits for it to open (Punch, step 2d).
 - Decided (the owner, 2026-10-01; `docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`): a fall
   takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
-  verdict ([Drills](plans/2026-10-24-drills.md), step 7); a body that is down may be struck, to
+  verdict ([play](reference/play.md#the-bout)); a body that is down may be struck, to
   apply once a rise meets its bar.
 - Known and kept for now: a part with no hit points left moves as it did; the Crypt forgets
   touches when it makes its watch again; two parts meeting at once are two blows; a blow lasts

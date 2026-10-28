@@ -44,7 +44,7 @@ export function readReel(hash: string): LinkedReel | null {
 }
 
 /** The recipe's fields the pickers show (`caseSearch`). */
-const SHOWN: ReadonlySet<string> = new Set(["left", "right", "level", "gap", "capSeconds", "recoverySeconds", "loadouts", "attributes", "minds"] satisfies (keyof DuelRecipe)[]);
+const SHOWN: ReadonlySet<string> = new Set(["left", "right", "level", "gap", "capSeconds", "loadouts", "attributes", "minds"] satisfies (keyof DuelRecipe)[]);
 
 /** What `recipe` sets that the pickers do not show, by its field's name: every field but those they show. */
 export const unshown = (recipe: DuelRecipe): string[] =>
@@ -52,14 +52,13 @@ export const unshown = (recipe: DuelRecipe): string[] =>
 
 /**
  * The Arena address that shows `recipe`'s choices in the pickers: characters, level, gap, cap,
- * recovery, loadouts, attributes, and each side's mind as its preset, or its whole tree where no
+ * loadouts, attributes, and each side's mind as its preset, or its whole tree where no
  * preset is it.
  */
 export function caseSearch(recipe: DuelRecipe): string {
   const query = new URLSearchParams({ play: "arena", level: recipe.level ?? "open" });
   if (recipe.gap !== undefined) query.set("gap", String(recipe.gap));
   if (recipe.capSeconds !== undefined) query.set("cap", String(recipe.capSeconds));
-  query.set("recovery", recipe.recoverySeconds === null ? "continue" : String(recipe.recoverySeconds ?? 0));
   for (const side of SIDES) {
     const loadout = recipe.loadouts?.[side];
     if (loadout) query.set(`${side}.loadout`, `${loadout.left},${loadout.right}`);

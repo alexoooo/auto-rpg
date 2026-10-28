@@ -17,8 +17,8 @@ import { sideAttributes, type Cases, type Json, type Subject } from "../evaluati
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and
- * each level at each of its starting gaps, by the arena's rules as its page plays them (no limit on
- * time down, its cap). The standard plays the representative loadouts (`REPRESENTATIVE`) on the
+ * each level at each of its starting gaps, by the arena's rules as its page plays them (the game's
+ * end rules, its cap). The standard plays the representative loadouts (`REPRESENTATIVE`) on the
  * open stage. A change here is a new protocol: its cases' keys change.
  */
 const MATCH = Object.freeze({
@@ -26,7 +26,6 @@ const MATCH = Object.freeze({
   bodies: Object.freeze(["workshop-fighter", "workshop-rogue"] as BodyModel[]),
   loadouts: REPRESENTATIVE,
   capSeconds: CAP_SECONDS,
-  recoverySeconds: null,
 });
 
 /** Sword and buckler on both levels, the court round its columns at its nearer and farther gaps. */
@@ -65,7 +64,7 @@ function matchCases(protocol: Protocol): Cases<MatchCondition, BoutReading> {
       kind: "bout", engine, tape: [],
       recipe: { level, left, right, gap, loadouts: { left: loadout, right: loadout },
         minds: Object.fromEntries(SIDES.map((side, k) => [side, values[k] as unknown as MindConfig])) as Record<Side, MindConfig>,
-        capSeconds: protocol.capSeconds, recoverySeconds: protocol.recoverySeconds, ...sideAttributes({ left: characters[0], right: characters[1] }) },
+        capSeconds: protocol.capSeconds, ...sideAttributes({ left: characters[0], right: characters[1] }) },
     }),
     read: readBout,
   };

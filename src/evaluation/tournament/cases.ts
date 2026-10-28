@@ -15,7 +15,7 @@ import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
  * lying down; the field's loadouts are the representative ones (`REPRESENTATIVE`).
  */
 export const TOURNAMENT = Object.freeze({
-  level: "open" as ArenaLevel, loadouts: REPRESENTATIVE, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null,
+  level: "open" as ArenaLevel, loadouts: REPRESENTATIVE, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS,
 });
 
 /** An entrant as a case's subject: its mind's config, its character and what each hand holds. */
@@ -36,7 +36,7 @@ function tournamentCases(protocol: typeof TOURNAMENT): Cases<TournamentCondition
       return { kind: "bout", engine, tape: [], recipe: {
         level: protocol.level, left: left.model, right: right.model, gap, loadouts: { left: left.loadout, right: right.loadout },
         minds: { left: left.mind as unknown as MindConfig, right: right.mind as unknown as MindConfig },
-        capSeconds: protocol.capSeconds, recoverySeconds: protocol.recoverySeconds, ...sideAttributes({ left: characters[0], right: characters[1] }),
+        capSeconds: protocol.capSeconds, ...sideAttributes({ left: characters[0], right: characters[1] }),
       } };
     },
     read: readBout,

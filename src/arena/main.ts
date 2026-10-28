@@ -32,7 +32,7 @@ import { boutStart, Duel, entryRules, SIDES, type Verdict } from "./duel.ts";
 import { endingText } from "./end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { offered } from "../core/mind/controller.ts";
 import { partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
@@ -146,7 +146,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   // Each side's mind as its panel shows it (`mindEditor`).
   const mindOf = {} as Record<Side, () => MindConfig>, mindFaultsOf = {} as Record<Side, () => readonly string[]>;
   const controls = readControls(location.search), loadoutChoices = readLoadouts(location.search);
-  const linkedRecovery = readRecovery(location.search);
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>, renameControl = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
@@ -303,17 +302,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     }));
   }
 
-  const recoveryField = document.createElement("label"), recoveryPicker = document.createElement("select");
-  recoveryField.className = "field recovery"; recoveryField.textContent = "After a fall";
-  recoveryPicker.setAttribute("aria-label", "Recovery window");
-  recoveryPicker.append(Object.assign(document.createElement("option"), { value: "continue", textContent: "Continue fighting and attempt recovery" }));
-  for (const seconds of new Set([0, 20, 30, 60, linkedRecovery ?? 60])) recoveryPicker.append(Object.assign(document.createElement("option"),
-    { value: String(seconds), textContent: seconds === 0 ? "Fall ends bout" : `${seconds} seconds down before defeat` }));
-  recoveryPicker.value = linkedRecovery == null ? "continue" : String(linkedRecovery); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
-  recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);
-
   const levelField = document.createElement("label"), levelPicker = document.createElement("select");
-  levelField.className = "field"; levelField.textContent = "Level"; levelPicker.setAttribute("aria-label", "Arena level");
+  levelField.className = "field bout-choice"; levelField.textContent = "Level"; levelPicker.setAttribute("aria-label", "Arena level");
   for (const [value, definition] of Object.entries(LEVELS)) levelPicker.append(Object.assign(document.createElement("option"), { value, textContent: definition.label }));
   levelPicker.value = level;
   levelPicker.addEventListener("change", () => {
@@ -325,14 +315,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (!query.has("gap")) draft.searchParams.delete("gap");
     context.navigate(draft.href, { setup: true });
   });
-  levelField.append(levelPicker); recoveryField.before(levelField);
+  levelField.append(levelPicker); need("matchup").after(levelField);
 
   function setupAddress(): string {
     const models = { left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel };
     const query = new URLSearchParams(location.search);
     query.delete("balance"); query.delete("haste"); query.delete("held");
     query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
-    query.set("level", levelPicker.value); query.set("recovery", recoveryPicker.value);
+    query.set("level", levelPicker.value); query.delete("recovery");
     for (const side of SIDES) {
       try { writeAttributes(query, side, attributeEditors[side].read()); } catch { /* The link retains its last valid attributes. */ }
       query.set(`${side}.loadout`, SIDES.map(hand => loadoutPickers[side][hand].value).join(","));
@@ -488,7 +478,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
           query.delete("held");
           for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
-          query.set("recovery", recoveryPicker.value);
+          query.delete("recovery");
           const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
         }
@@ -691,7 +681,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (!duel) return;
     for (const row of rows) {
       const fighter = duel.duelists[row.side];
-      row.bar.value = fighter.pool.bar();
+      row.bar.value = duel.life(row.side);
       row.condition.render(duel.state.start + (duel.verdict?.time ?? duel.clock));
       const mind = fighter.minded, controller = controllers[row.side];
       const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
@@ -699,7 +689,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       row.status.textContent = duel.verdict
         ? duel.verdict.winner === null ? "Draw" : duel.verdict.winner === row.side ? "Winner" : "Defeated"
         : fighter.body.down
-        ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
+        ? `${fighter.body.has}${down !== undefined && duel.recipe.recoverySeconds ? ` - ${Math.max(0, duel.recipe.recoverySeconds - down).toFixed(1)} s recovery left` : " - getting up"}`
         : `${controller} - ${phase}`;
       if (row.mind.open) row.inspector?.refresh();
     }

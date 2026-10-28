@@ -34,8 +34,9 @@ The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and 
 
 Pick a character for each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**. You
 watch, or take a side under **Play as**: your side then does what you order and nothing else.
-A side is out when its wounds end it, or when it stays down past the chosen recovery window. At the
-two-minute bell the fuller health bar wins.
+A side is out when its wounds end it or its health runs out. From the first minute each side
+loses a sixtieth of its full health a second, so every bout ends by two minutes; a fall ends
+nothing, and a fallen fighter tries to rise.
 
 | Panel | Chooses |
 | --- | --- |
@@ -44,7 +45,6 @@ two-minute bell the fuller health bar wins.
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
-| After a fall | keep fighting while fallen fighters try to rise (default), or defeat after 15, 30 or 60 s down, or at the first fall |
 | Appearance | the Warrior's skin: Original, Industrial, Steampunk or Futuristic (same body) |
 | View | World or Tactical (collision shapes); Free, Isometric or Chase camera; focus |
 
@@ -70,7 +70,8 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | `control` | `&control=puncher,duellist` |
 | `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
 | `you` | `&you=left` |
-| `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |
+| `level`, `gap`, `cap` | `&level=obstacle-court&gap=3&cap=30` |
+| `senseDelay` (reaction time, s), `seed` | `&senseDelay=0&seed=7` |
 | `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
 | `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
 | `#case=` | a recorded case from the Ratings: its recipe and orders, with its choices in the pickers |

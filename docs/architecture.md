@@ -905,8 +905,8 @@ A bout or a body forks by copying its state. A Crypt run does not save.
 ## Bouts, tapes and replay
 
 A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, cap, level, each
-side's mind (`minds`), loadouts, attributes, recovery allowance (`recoverySeconds`), end rules
-(`ends`) and, where a scenario arranges it, each side's place and heading (`start`) in place of
+side's mind (`minds`), loadouts, attributes, reaction time (`senseDelay`), seed (`seed`), end
+rules (`ends`) with the down rule's allowance (`recoverySeconds`) and, where a scenario arranges it, each side's place and heading (`start`) in place of
 the level's spawn, as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
@@ -914,8 +914,10 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 
 - **Verdict** (`Duel.judge`): a side is out by the first of the recipe's end rules that puts it out
   (`EndRule`, `src/arena/end-rule.ts`; each a part of the list `END_RULES`, `ends.ts`), which
-  names the ending a person is told (`endingText`); the game's (`GAME_ENDS`) are its pool's ending,
-  then its down allowance. Both on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
+  names the ending a person is told (`endingText`); the game's (`GAME_ENDS`, the owner's verdict)
+  are its pool's ending, then the drain (`DRAIN_END`, [play](reference/play.md#the-bout)). A
+  side's life (`Duel.life`) is its bar less what the drain has taken: the page's bar, the senses'
+  and the verdict's. Both on one step is a draw; at the cap the fuller life wins. The page plays three seconds of aftermath
   (`arenaPlayback`, `src/arena/playback.ts`).
 - **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
   whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A case's world

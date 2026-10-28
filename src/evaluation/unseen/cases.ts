@@ -53,7 +53,7 @@ export const UNSEEN_CASES: Readonly<Record<string, Cases<UnseenCondition, Unseen
         level: UNSEEN.level, left: model, right: model, gap,
         loadouts: { [side]: loadout, [other(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
         minds: { [side]: mind as unknown as MindConfig, [other(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
-        capSeconds: UNSEEN.capSeconds, recoverySeconds: UNSEEN.recoverySeconds,
+        capSeconds: UNSEEN.capSeconds,
         ...sideAttributes({ [side]: character, [other(side)]: MINDS[OPPONENT.mind].character }),
       },
     }),

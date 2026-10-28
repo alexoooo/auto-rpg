@@ -25,7 +25,7 @@ export const SERIES_SECONDS = 10;
 /** A bout's reader: its bars every `SERIES_SECONDS` and at the verdict. */
 export function readBout(built: BuiltBout): Reader<BoutReading> {
   const { duel } = built, every = SERIES_SECONDS * built.world.hz, series: (readonly [number, number])[] = [];
-  const bars = (): readonly [number, number] => [duel.duelists.left.pool.bar(), duel.duelists.right.pool.bar()];
+  const bars = (): readonly [number, number] => [duel.life("left"), duel.life("right")];
   let steps = 0, last = -1;
   return {
     afterStep() { if (++steps % every === 0) { series.push(bars()); last = steps; } },

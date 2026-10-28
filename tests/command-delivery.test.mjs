@@ -28,9 +28,9 @@ test("combat approach delivery releases only the ordered foe's reached range and
 test("a team's retained approach releases and resumes even when its Commander emits no new orders, and forks", () => {
   const centres = { left: { x: 0, y: 0, z: 0 }, right: { x: 0, y: 0, z: 3 } }, delivered = [];
   let decide;
-  const duel = { clock: 0, eliminated: () => false, world: { sense(fn) { decide = fn; return { dispose() {} }; } },
+  const duel = { clock: 0, eliminated: () => false, life: () => 1, world: { sense(fn) { decide = fn; return { dispose() {} }; } },
     duelists: Object.fromEntries(["left", "right"].map(side => [side, { model: "workshop-fighter", body: { physical: { centre: centres[side] } },
-      pool: { bar: () => 1 }, minded: { report: null } }])),
+      minded: { report: null } }])),
     order(side, orders) { delivered.push({ side, orders: structuredClone(orders) }); } };
   const team = teamOfOne(duel, "left", { kind: "stub-approach" });
   try {
