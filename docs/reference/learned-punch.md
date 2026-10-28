@@ -76,7 +76,14 @@ seed 1001, 80 trials drawn as training draws them, each at 120 and 480 Hz.
 | held out, walking in, 120 Hz | 0/35 | 23/35 |
 | held out, walking in, 480 Hz | 1/35 | 21/35 |
 
-None fell. The drill's walk rung's misses are weak, none missed. Held out at 120 Hz, still, the
+None fell. The drill's walk rung's misses are weak, none missed. Records
+`2026-10-28-1754938b-593e2ab7` (still,
+`?play=ratings&evaluation=strike&pool=72c48f7f&subject=kinetic/strike&version=825089e6846a22c1`) and
+`2026-10-28-1754938b-7bea47b4` (walk,
+`?play=ratings&evaluation=strike&pool=6ceb4f94&subject=kinetic/strike&version=94422b9c03f183cb`). In
+the walk rung's worst trial (the left hand, 2.8 m, walking) the striker walks in at about 0.75 m/s
+and throws without stopping 0.9 m off; the fist meets the target between its raised hands, 0.59 kg,
+and the striker stays up. Held out at 120 Hz, still, the
 two part on 8 trials, 6 the network before's: 3 of those are refused 1.25 to 1.28 m off, the
 window's far edge, and 3 weak at 6.5 to 7.7 m/s.
 
