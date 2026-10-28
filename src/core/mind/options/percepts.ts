@@ -1,4 +1,7 @@
+import type { MotorUnmet } from "../../control/motor.ts";
+import type { StancePhase } from "../../control/stance.ts";
 import { hypot } from "../../math/real.ts";
+import type { LegsUnmet } from "../../skills/skill.ts";
 import { rangeOf } from "../../skills/strike.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Cover } from "../intent.ts";
@@ -44,6 +47,30 @@ export interface Reach { readonly apart: number; readonly theirs: number; readon
  */
 const LANDS = .3, RATE = 1;
 
+/** Which feet the ground bears (`StanceReading.touching`): both, one, or none. */
+type Bearing = "both" | "left" | "right" | "none";
+
+/** The feet `touching` says the ground bears. */
+const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
+  touching.left ? touching.right ? "both" : "left" : touching.right ? "right" : "none";
+
+/**
+ * **What a foe's body is doing**, read from what is sensed of it: striking, a blow of its predicted
+ * to reach the head (`READINGS.predicted`); down by its spec's rule (`BodySense.down`), and rising,
+ * down with its centre of mass going up faster than `RISING`; else clear.
+ */
+type FoePhase = "striking" | "down" | "rising" | "clear";
+
+/** How fast a fallen body's centre of mass goes up for it to read as rising, m/s. */
+const RISING = 0.2;
+
+/** The phase (`FoePhase`) of `focus`, `blow` the blow predicted to reach the head; clear with no focus. */
+function foePhase(focus: BodySense | null, blow: Seen["blow"]): FoePhase {
+  if (!focus) return "clear";
+  if (focus.down) return focus.velocity.y > RISING ? "rising" : "down";
+  return blow?.foe.id === focus.id ? "striking" : "clear";
+}
+
 /** Whether `spec` has both hands to strike with: what the reach readings measure. */
 const twoHanded = (spec: BodySpec): boolean => ["hand.left", "hand.right"].every((hand) => spec.effectors?.some((effector) => effector.segment === hand) ?? false);
 
@@ -61,9 +88,12 @@ const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEn
  * speed it closes and the chance it lands, `LANDS`), 0 with none; the reach head to head (`Reach`:
  * Infinity, 0 and 0 with no focus); the expected cost of a second within a standing focus's reach
  * (`LANDS`, `RATE`), 0 with none; and the energy of a blow of each hand at the focus's head, J
- * (`blowEnergy`), 0 with no focus; and how far short of the centre asked the legs held the centre
- * of mass, m (`SkillReport.legs`). Its cues: going down or getting up, other orders, another focus,
- * a threat or a blow coming.
+ * (`blowEnergy`), 0 with no focus. The gait's: where the stance is in a step (`StanceReading.phase`),
+ * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
+ * the controllers did not carry out: the legs' (`SkillReport.legs`) and the motor's
+ * (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the blow it
+ * strikes with, s (Infinity with none). Its cues: going down or getting up, other orders, another
+ * focus, a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
@@ -81,7 +111,13 @@ export const PERCEPTS = Object.freeze({
   } } as Percept<Reach>,
   exposure: { read: ({ focus, sight, spec }) => focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * cost(heavier(focus.spec, spec)) : 0 } as Percept<number>,
   blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? blowEnergy(spec, "left", focus.spec) : 0, right: focus ? blowEnergy(spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
-  short: { read: ({ sight }) => sight.report.legs.centre } as Percept<number>,
+  stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
+  bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
+  speed: { read: ({ sight }) => hypot(sight.view.stance.velocity.x, sight.view.stance.velocity.z) } as Percept<number>,
+  legsUnmet: { read: ({ sight }) => sight.report.legs } as Percept<LegsUnmet>,
+  motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
+  phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
+  contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
 });
 
 /** What each percept reads, by its name. */

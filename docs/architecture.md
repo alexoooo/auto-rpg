@@ -555,10 +555,12 @@ carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, price
 sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
 hands the body over).
 
-- **Percepts** (`PERCEPTS`, `percepts.ts`): each step `situationReader` (`situation.ts`) reads
-  every named percept once into the `Situation` (down, orders, focus, distance, threat, the blow
-  coming and its cost, reach, exposure, each hand's blow, the centre held short); a percept's cue is what a chooser
-  watches (`eventOf`).
+- **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
+  `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
+  orders, focus, distance, threat, the blow coming and its cost, reach, exposure, each hand's blow;
+  the gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the
+  focus's phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue
+  is what a chooser watches (`eventOf`).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
   worth, keeping the running one within its keep, deciding afresh on a cue's change or every

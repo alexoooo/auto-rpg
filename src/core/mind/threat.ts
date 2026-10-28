@@ -79,7 +79,7 @@ export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
     threatOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading)?.cover ?? null,
-    /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, and whose hand it is. */
+    /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, its time to contact, s, and whose hand it is. */
     blowOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
   };
@@ -96,12 +96,13 @@ export function threatReader() {
  * the plane is covered immediately. No crossing in the horizon means no candidate. With `body`, what
  * is guarded against each point is not the head but the point of the body's axis, from its centre
  * of mass to its head, nearest it, so a blow at the trunk or an arm is read as one at the head is.
- * With `hold`, a point the prediction finds no crossing for is covered where it is.
+ * With `hold`, a point the prediction finds no crossing for is covered where it is. Its time to
+ * contact is the crossing's, or with none its distance at its closing speed.
  */
 function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork,
-  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
+  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; hand: Side } | null {
   const { senses, head } = view;
-  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, by: { foe: BodySense; hand: Side } | null = null;
+  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, by: { foe: BodySense; hand: Side } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
@@ -118,19 +119,19 @@ function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork,
       if (far > counts.within || far === 0) continue;
       const closing = -(dx * velocity.x + dy * velocity.y + dz * velocity.z) / far;
       if (closing <= fastest) continue;
-      let candidate: Vec3 = [point.x, point.y, point.z];
+      let candidate: Vec3 = [point.x, point.y, point.z], seconds = far / closing;
       if (prediction && far > prediction.out) {
         const normal: Vec3 = [dx / far, dy / far, dz / far];
         const crossing = predictIntercept({ time: senses.time, position: candidate, velocity: [velocity.x, velocity.y, velocity.z] },
           [0, 0, 0], { normal, point: [at[0] + normal[0] * prediction.out, at[1] + normal[1] * prediction.out,
             at[2] + normal[2] * prediction.out] }, senses.time, prediction.horizon);
-        if (crossing) candidate = crossing.position;
+        if (crossing) { candidate = crossing.position; seconds = crossing.seconds; }
         else if (!hold) continue;
       }
-      fastest = closing; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, hand };
+      fastest = closing; soon = seconds; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, hand };
     }
   }
-  return threat && guarded && by && { cover: { threat, guarded }, closing: fastest, ...by };
+  return threat && guarded && by && { cover: { threat, guarded }, closing: fastest, seconds: soon, ...by };
 }
 
 /** The point of the segment from `from` to `to` nearest `point`. */
