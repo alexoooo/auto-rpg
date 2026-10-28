@@ -250,7 +250,9 @@ a stance goal) into muscle commands.
   goals beyond them it says it carries (`MotorControl.carries`, `MotorGoal`: effectors' places,
   driven points, a stance), and what drives it asks for those it needs where it is made
   (`carrying`): the command layers for all three, each recovery technique for a stance, so a
-  motor without one is refused there with the reason.
+  motor without one is refused there with the reason. The whole-body solve reports, in its state,
+  what of its last command it did not carry out (`MotorControl.unmet`, `MotorUnmet`): each push on
+  a channel its stance's legs drove, and the driven points no stance's solve drove.
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
@@ -306,7 +308,9 @@ walk's configuration may give another): stopped, its feet are set where it stand
 its width is the steps' (`StanceGoal.gait`, the step pattern the gait asks of the stance). What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
 feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place
-no feet finds them standing.
+no feet finds them standing. Legs that hold a centre say how far short of the one last asked the
+stance held the centre of mass (`Locomotion.centreShort`), which the skills' report carries
+(`SkillReport.centreShort`).
 
 | Skill | File | What it is |
 |---|---|---|
@@ -546,7 +550,7 @@ hands the body over).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`): each step `situationReader` (`situation.ts`) reads
   every named percept once into the `Situation` (down, orders, focus, distance, threat, the blow
-  coming and its cost, reach, exposure, each hand's blow); a percept's cue is what a chooser
+  coming and its cost, reach, exposure, each hand's blow, the centre held short); a percept's cue is what a chooser
   watches (`eventOf`).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest

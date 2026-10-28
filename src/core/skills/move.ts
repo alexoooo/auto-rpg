@@ -114,6 +114,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     get pace() { return now().pace; },
     get reference() { return now().reference; },
     get placed() { return now().placed; },
+    get centreShort() { return now().centreShort; },
     resume(view) {
       memory.chosen = true;
       memory.gait = wanted(STILL, null);

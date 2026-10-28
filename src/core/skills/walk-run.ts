@@ -224,6 +224,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },
     get placed() { return !memory.running && legs.placed; },
+    get centreShort() { return memory.running ? 0 : legs.centreShort; },
     resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
     goal(view, goal, dt): LegsDrive {
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;

@@ -38,6 +38,8 @@ export interface SkillReport {
   readonly pace?: number;
   /** The height the legs hold the centre of mass at, m (`Locomotion.reference`); null before the first step or where the legs hold none. */
   readonly reference: number | null;
+  /** How far short of the centre asked the legs held the centre of mass, m (`Locomotion.centreShort`); 0 where the legs say none. */
+  readonly centreShort: number;
   readonly actions: readonly ActionStatus[];
   readonly ledger: readonly Ended[];
   readonly engagement?: Tactics["engagement"];

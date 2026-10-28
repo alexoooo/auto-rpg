@@ -118,9 +118,9 @@ neutral writes it, and `delegate` goes.
 
 Each controller reports, in its state, what of the last command it did not carry out:
 
-- **the motor** (`MotorControl`, whichever the mind's `motor` slot names): a push or posture on a
-  channel its stance drove (a bearing leg, or a foot it swings), a point it could not drive (no
-  stance, no solve asked);
+- **the motor** (`MotorControl`, whichever the mind's `motor` slot names): a push on a channel its
+  stance drove (a bearing leg, or a foot it swings), a point it could not drive (no stance, no
+  solve asked); a posture is a preference under every leg, not a write, and is not reported;
 - **the legs**: a field of the legs goal they did not honour, and by how much where it has a size
   (a centre held short of the one asked).
 
@@ -193,14 +193,6 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
 
-### 4. The controllers report what they did not carry out
-
-The motor's and the legs' report, in their state, so a fork or replay carries it; the legs' unmet
-centre in the situation as a percept (`PERCEPTS`).
-
-Check: the gate; on the still rung, the learned puncher's push layout through the arbiter reports
-its leg pushes unmet on every step the stance drives the leg, and its stance layout none.
-
 ### 5. The probes
 
 A probe for each legs-goal field and claim term, run against each gait, carriage and stance
@@ -272,4 +264,4 @@ in the legs goal; every gait, carriage and stance implementation passes the prob
 registry holds the chooser's readings, the gait's phase and the report, and goals are named cues
 over it; a learned skill's inputs and outputs are layout files in the body's units; Kinetic has no
 composer and no refusals of its own; the learned puncher's and Kinetic's still and walk rungs are
-unmoved by steps 4, 6 and 7; step 8 is kept or its reason recorded; and there is one learned punch.
+unmoved by steps 6 and 7; step 8 is kept or its reason recorded; and there is one learned punch.

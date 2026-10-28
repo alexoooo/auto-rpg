@@ -70,6 +70,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   });
   const report = {
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
+    get centreShort() { return legs.centreShort ?? 0; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
     ...(navigation ? { navigation: navigation.report } : {}),

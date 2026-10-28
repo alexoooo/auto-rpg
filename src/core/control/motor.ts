@@ -85,8 +85,20 @@ export interface MotorControl {
   reset(): void;
   /** The segment whose frame the body frame is carried by. */
   readonly root: ReadSegment;
+  /** What of its last step's command it did not carry out (`MotorUnmet`), in its state. */
+  readonly unmet: MotorUnmet;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
+}
+
+/**
+ * **What a motor did not carry out** of its last step's command: by channel (the muscles' order),
+ * 1 where a push was overridden, its freedom driven by the stance's legs instead; and how many
+ * driven points (`PointTask`) went undriven, no stance having asked for the solve that drives them.
+ */
+export interface MotorUnmet {
+  readonly pushes: Uint8Array;
+  points: number;
 }
 
 /**
@@ -164,18 +176,23 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
   const points = pointLimbs(built);
-  const whole = makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2, points.length);
+  const freedoms = [...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0);
+  const whole = makeWholeBody(freedoms, 2, points.length);
   let driven: WholeBodyAsk | null = null;
+  const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
   const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
-    effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state };
+    effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
     const { pose, pushes, standing } = state;
     const owned = tracker.step(driver, pose, dt, !!standing?.pose);
     stance.command(driver, standing, dt);
+    unmet.pushes.fill(0);
     const work = servoAsk(driver, (i) => {
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
       if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
+      // The stance's solve gives a freedom its legs drive its own torque, over the push.
+      if (standing && stance.owned[i]) unmet.pushes[i] = 1;
       driver.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
       driver.activation[i] = push.level;
       return undefined;
@@ -189,6 +206,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
     const ask = standing ? stance.ask(driver) : null;
+    unmet.points = ask ? 0 : state.points.length;
     if (ask) {
       let asked = ask;
       if (state.points.length) {
@@ -227,7 +245,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
       tracker.reset();
       stance.reset();
     },
-    stance, state,
+    stance, state, unmet,
     path: tracker.path,
     pointToRef: tracker.pointToRef,
     root,

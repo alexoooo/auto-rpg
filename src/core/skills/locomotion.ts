@@ -164,6 +164,12 @@ export interface Locomotion extends Skill {
   /** Whether the feet have been placed at the footing last asked; absent, legs that place no feet. */
   readonly placed?: boolean;
   /**
+   * How far short of the centre its last goal asked the stance held the centre of mass, m: the
+   * asked place to the one the bearing soles hold (`StanceReading.place`), read standing; 0 with
+   * no centre asked, or while a step is under way. Absent, legs that hold no centre.
+   */
+  readonly centreShort?: number;
+  /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
    * absent or null, a walk that leaves them in the guard.
    */
@@ -250,6 +256,10 @@ interface LocomotionState extends LegsMemory {
   placed: boolean;
   /** Where the carriage's feet stand, taken where the walk last stopped; null walking, or in a carriage of no width. */
   stood: Footing | null;
+  /** The centre its last stance goal asked, world (x, z), m; null where it asked none. */
+  asked: readonly [number, number] | null;
+  /** How far short of `asked` the stance held the centre of mass, m (`Locomotion.centreShort`). */
+  short: number;
 }
 
 /** The footing being placed, the feet that have stepped to it, and the step under way. */
@@ -279,7 +289,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
   const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null,
-    ...(turnStartup ? { walkTime: 0 } : {}) };
+    asked: null, short: 0, ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
@@ -322,6 +332,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     get pace() { return state.pace; },
     get reference() { return state.reference; },
     get placed() { return state.placed; },
+    get centreShort() { return state.short; },
     resume(view) {
       state.heading = facing(view);
       state.pace = 0;
@@ -330,9 +341,13 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.placing = null;
       state.placed = false;
       state.stood = null;
+      state.asked = null;
+      state.short = 0;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
     goal(view, goal, dt) {
+      const s = view.stance, asked = state.asked;
+      state.short = asked && s.phase === "stand" ? hypot(asked[0] - s.place.x, asked[1] - s.place.z) : 0;
       if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
@@ -344,7 +359,9 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
         state.placed = false;
       } else { state.stood = null; stance = walking(view, goal.walk, goal.face, dt, goal.height); }
       if (stance && held.width !== null) stance = { ...stance, gait: stepsOf(held, held.width) };
-      return { kind: "stance", goal: completed(stance, goal) };
+      const done = completed(stance, goal);
+      state.asked = done?.centre ?? null;
+      return { kind: "stance", goal: done };
     },
   };
 
