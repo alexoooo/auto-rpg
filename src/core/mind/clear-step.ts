@@ -1,9 +1,11 @@
-import { cos, sin } from "../math/real.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { SolidSense } from "./object-senses.ts";
 import type { BodyView } from "../body.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
+import type { Intent } from "./intent.ts";
+import { directMovement } from "./movement.ts";
 
 /**
  * **Keeping clear of the solids sensed**, as a planner asks it of its body's navigator
@@ -27,6 +29,40 @@ export function stockClearance(spec: BodySpec): Clearance {
     keepClear: (view, heading, move) => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, KEEP_CLEAR.ahead),
     exit: (view) => { const centre = view.stance.centre; return clearanceExit([centre.x, centre.y, centre.z], radius, view.senses.solids ?? []); },
   };
+}
+
+/** How far a walk kept out (`keepOut`) keeps the body's centre from every segment of a fallen body, m. */
+const FALLEN = .9;
+
+/** What a walk asks of the legs: a movement goal under a ceiling, and a facing. */
+type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">;
+
+/**
+ * **A walk kept out of what the body must keep clear of**: where the body stands in a solid's
+ * clearance, as `clearance` finds it (`Clearance.exit`), or within `FALLEN` m of a segment of a
+ * fallen body other than `exempt` (the body it means to be near), the walk out of it, facing as
+ * `asked` faces, at `pace` where one is given; else `asked`.
+ */
+export function keepOut<A extends Walk>(view: BodyView, clearance: Clearance, asked: A, exempt: string | null, pace?: number): A {
+  const out = clearance.exit(view) ?? awayFromFallen(view, exempt);
+  if (!out) return asked;
+  const { movement: _, pace: __, travelFacing: ___, ...rest } = asked;
+  const walk = hypot(out[0], out[1]) > 0 ? { move: null, face: asked.face, movement: directMovement(out[0], out[1]), ...pace === undefined ? {} : { pace } } : { move: null, face: asked.face };
+  return { ...rest, ...walk } as A;
+}
+
+/** The ground direction away from the nearest segment within `FALLEN` m of a fallen body other than `exempt`; null with none. */
+function awayFromFallen(view: BodyView, exempt: string | null): readonly [number, number] | null {
+  const { centre } = view.stance;
+  let near = FALLEN, from: { readonly x: number; readonly z: number } | null = null;
+  for (const other of view.senses.others) {
+    if (!other.down || other.id === exempt) continue;
+    for (const segment of other.segments.values()) {
+      const distance = hypot(segment.centre.x - centre.x, segment.centre.z - centre.z);
+      if (distance < near) { near = distance; from = segment.centre; }
+    }
+  }
+  return from ? [centre.x - from.x, centre.z - from.z] : null;
 }
 
 /**

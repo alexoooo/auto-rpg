@@ -1,6 +1,6 @@
 import { NO_COVER } from "../intent.ts";
 import { orderedIntent } from "../ordered.ts";
-import type { StandingOption } from "./option.ts";
+import { asking, blocked, READY, type StandingOption } from "./option.ts";
 import { exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { ActionConfig } from "../config.ts";
@@ -15,15 +15,19 @@ const AHEAD = 1;
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing admitted blows
  * and asking for a ready standing action against the explicitly selected foe. On offer while
- * the body stands and has an explicit movement or stop order. It always yields. Its model: a walk ordered
+ * the body stands and has an explicit movement or stop order. A commitment, it holds the legs and
+ * what its blows hold; it always yields. Its model: a walk ordered
  * goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is told to go, and a stand
  * ordered, or a place or range it is already in, is kept for as long, worth as much; through the
  * blow coming and the focus's reach where it stands in it.
  */
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
+  const UNORDERED = blocked("no orders to move or stand"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
   return {
-    name: "follow orders", posture: "standing", state: {},
-    available: (now) => !now.down && now.orders?.move !== undefined,
+    name: "follow orders", posture: "standing", layer: "commitment", state: {},
+    entry: (now) => !now.down && now.orders?.move !== undefined ? READY : UNORDERED,
+    exit: () => null,
+    holds: (now, asked) => [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")],
     yields: () => true,
     ended: () => false,
     begin() {},

@@ -1,56 +1,47 @@
-import type { Cover, Intent } from "../intent.ts";
-import type { Orders } from "../orders.ts";
-import type { BodySense } from "../senses.ts";
+import type { Readiness, Resource, Window } from "../../skills/action.ts";
+import type { Intent } from "../intent.ts";
 import type { SubMind } from "../sub-mind.ts";
 import type { Sight } from "../tactics.ts";
-import type { Side } from "../../spec/body.ts";
+import type { Percepts } from "./percepts.ts";
 import type { Terms } from "./value.ts";
 
-/**
- * **What a decision reads**, once a control step: the body and its skills as the last step left
- * them, whether it is down, its orders, the foe it fights (its focus) and how far off that foe is,
- * a foe's blow closing on its head or predicted to reach it, and what an option's model prices
- * from: what the blow coming costs, how far each reaches, what standing in the focus's reach
- * costs, and what each hand's blow at the focus is worth.
- */
-export interface Situation {
+/** **What a decision reads**, once a control step: the body and its skills as the last step left them, and each percept (`PERCEPTS`). */
+export interface Situation extends Percepts {
   readonly sight: Sight;
   readonly time: number;
-  readonly down: boolean;
-  readonly orders: Orders | null;
-  readonly focus: BodySense | null;
-  /** Across the ground between the centres of mass, m; Infinity with no focus. */
-  readonly apart: number;
-  readonly threat: Cover | null;
-  /** A foe's blow predicted to reach the head (`PREDICTION`). */
-  readonly incoming: Cover | null;
-  /** The expected cost (`cost`) of the blow predicted to reach the head, at the speed it closes and the chance it lands (`LANDS`); 0 with none. */
-  readonly danger: number;
-  /**
-   * Head to head across the ground to the focus, m, and the most at which its hands reach this
-   * body's head and this body's reach its: Infinity, 0 and 0 with no focus.
-   */
-  readonly reach: { readonly apart: number; readonly theirs: number; readonly mine: number };
-  /** The expected cost of a second within a standing focus's reach (`LANDS`, `RATE`); 0 with none. */
-  readonly exposure: number;
-  /** The energy of a blow of each hand at the focus's head, J (`blowEnergy`); 0 with no focus. */
-  readonly blows: Readonly<Record<Side, number>>;
 }
 
 /** The models an option may be valued by, by kind: its own, built by hand. */
 export type ModelKind = "hand-built";
 
 /**
- * **An option**: what a body does over time, chosen by its meta-controller (`metaController`):
- * whether it can begin or go on, whether it may give way, and whether it has run its course.
- * Begun, it runs until it is over, unavailable, or given up for a better one where it yields.
+ * Where an option runs in the intent (`layered`): a **commitment** holds the whole body or several
+ * of its parts (a strike, the low strike, orders carried out, a down option), and **footwork**
+ * holds the legs alone. A free hand is the hand layer's (`cover`).
+ */
+export type Layer = "commitment" | "footwork";
+
+/**
+ * **An option**: a skill of the options fighter, chosen by its chooser (`Chooser`), in one shape:
+ * its entry (where it can begin, or, running, go on), the resources it holds, its model (what
+ * running it from now is expected to bring) and its exit (where it can hand the body over).
+ * Begun, it runs until it is over, out of its entry, or given up for a better one where it yields.
  */
 interface OptionBase {
   readonly name: string;
   /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
-  /** Whether it can begin now, or, running, go on. */
-  available(now: Situation): boolean;
+  readonly layer: Layer;
+  /**
+   * Its entry, now: `ready` to begin or go on; `position` where it begins once its legs are
+   * brought into the window (`approach`); else `waiting` or `blocked`, and why.
+   */
+  entry(now: Situation): Readiness;
+  /**
+   * Its exit, now: `ready` where the body can be handed to another option here, else why not; null
+   * where it names none. What a chooser looking past it reads (the Options plan's depth 2).
+   */
+  exit(now: Situation): Readiness | null;
   /** Whether, running, it may give way to another now. */
   yields(now: Situation): boolean;
   /** Whether, running, it has run its course: it is over, and may only be begun afresh. */
@@ -62,18 +53,48 @@ interface OptionBase {
   readonly models: Readonly<Record<ModelKind, (now: Situation) => Terms>>;
 }
 
-/** An option the body carries out standing, through its skills: what it asks of them each step, the hands' cover aside. */
+/**
+ * What a standing option asks of the skills in a step, the hands' cover aside; with the window its
+ * legs are to be brought to (`approach`) where its entry says `position`.
+ */
+export type Asked = Omit<Intent, "guard"> & { readonly approach?: Window };
+
+/** An option the body carries out standing, through its skills. */
 export interface StandingOption extends OptionBase {
   readonly posture: "standing";
-  step(now: Situation, dt: number): Omit<Intent, "guard">;
-  /** The body it means to be near, whose reach its walk need not keep out of (`Walker.constrain`); none where absent. */
+  step(now: Situation, dt: number): Asked;
+  /** What it holds in a step it asked `asked` (`Sight.needs`), by resource. */
+  holds(now: Situation, asked: Asked): readonly Resource[];
+  /** The body it means to be near, whose reach its walk need not keep out of (`keepOut`); none where absent. */
   near?(now: Situation): string | null;
 }
 
-/** An option a body carries out down, by the sub-mind it hands its body to. */
+/** An option a body carries out down, by the sub-mind it hands its body to: a commitment of the whole body. */
 export interface DownOption extends OptionBase {
   readonly posture: "down";
   readonly mind: SubMind;
 }
 
 export type Option = StandingOption | DownOption;
+
+/** An entry or exit that admits. */
+export const READY: Readiness = Object.freeze({ kind: "ready" });
+
+/** An entry or exit that does not admit, for `reason`: made once, as the options are. */
+export const blocked = (reason: string): Readiness => Object.freeze({ kind: "blocked", reason });
+
+/** Whether `option` is on offer now: its entry admits, at once or from a window its legs are brought to. */
+export const onOffer = (option: Option, now: Situation): boolean => { const kind = option.entry(now).kind; return kind === "ready" || kind === "position"; };
+
+/** What a step's asks hold (`Sight.needs`): each blow continued, what it holds; each asked anew, what it will. */
+export function asking(now: Situation, asked: Asked): readonly Resource[] {
+  const held: Resource[] = [];
+  for (const request of asked.actions) {
+    const live = now.sight.report.actions.find((action) => action.id === request.id);
+    for (const resource of live ? live.holds : now.sight.needs(request.action, request.effector)) if (!held.includes(resource)) held.push(resource);
+  }
+  return held;
+}
+
+/** What footwork holds: the legs. */
+export const LEGS: readonly Resource[] = Object.freeze(["legs"]);

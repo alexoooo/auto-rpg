@@ -14,7 +14,8 @@
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
  * planner's own report reaches the readout a person reads. The quadruped fixture holds a stub of
- * each of the quadruped's roles (motor, gait, bite, planner), and the options fixture one aim.
+ * each of the quadruped's roles (motor, gait, bite, planner), and the options fixture one aim and
+ * one chooser.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";

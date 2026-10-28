@@ -22,7 +22,7 @@ import type { GAITS } from "../reptile/gaits.ts";
 import type { BITES } from "../reptile/bites.ts";
 import type { QUADRUPED_PLANNERS } from "../reptile/planners.ts";
 import type { Region } from "../skills/action.ts";
-import type { Weights } from "./options/value.ts";
+import type { CHOOSERS } from "./options/choosers.ts";
 
 /** **A stock sub-mind's config**, by kind (`SUB_MINDS`). */
 export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
@@ -85,10 +85,11 @@ export interface ActionConfig {
   readonly lower?: number;
 }
 
-/** **Cover** (`cover`, `options/reflex.ts`): a free hand put between a blow coming at the head and the head. */
-
 /** **A reflex's config**, by kind (`REFLEXES`). */
 export type ReflexConfig = ConfigOf<typeof REFLEXES>;
+
+/** **A chooser's config**, by kind (`CHOOSERS`). */
+export type ChooserConfig = ConfigOf<typeof CHOOSERS>;
 
 /** **A stock guard's config**, by kind (`GUARDS`). */
 export type GuardConfig = ConfigOf<typeof GUARDS>;
@@ -126,17 +127,15 @@ export type SkillKit = Pick<FighterConfig, "locomotion" | "navigation" | "guard"
 export interface MindConfig { readonly kind: string }
 
 /**
- * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over
- * options, carried out through its skills (`SkillKit`), under its reflexes. A person sets its
- * obedience (`OBEDIENCE`, the weight of its orders) and its parts.
+ * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a chooser over options,
+ * carried out through its skills (`SkillKit`), under its reflexes. A person sets its chooser (by
+ * worth, with the obedience `OBEDIENCE`, or by rank) and its parts.
  */
 export interface OptionsConfig extends SkillKit {
   readonly kind: "options";
-  /** How it chooses among its options: by what each is expected to bring, weighed (`valued`, unless absent), or by a fixed rank. */
-  readonly meta?: "valued" | "ranked";
-  /** What its valued choice weighs each term by, over the fighter's own (`WEIGHTS`). */
-  readonly weights?: Readonly<Partial<Weights>>;
-  /** Its reflexes, in rank order (`reflexLayer`). */
+  /** How it chooses among its options (`Chooser`). */
+  readonly chooser: ChooserConfig | PartConfig;
+  /** Its reflexes, in rank order (`reflexLayer`), over the cover its free hands take (`cover`). */
   readonly reflexes: readonly ReflexConfig[];
   /** What it does down, by rank: each a sub-mind it prices as a down option (`SubMindPart.down`). */
   readonly subs: readonly SubMindConfig[];
@@ -264,14 +263,15 @@ const ONE_TWO: ActionConfig = (() => {
  * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); for a low foe, the
  * path strikes' low blow and the support fold it is thrown from (`PATH_STRIKES`); and Classic's gaits (`MOVE`):
  * braced near, and farther the walk that runs where it asks a run's pace. Its standing blows aim
- * at an opening in the foe's guard (`surface`), and its one reflex is cover.
+ * at an opening in the foe's guard (`surface`). It chooses by worth (`VALUED_CHOOSER`), and has no
+ * reflex: its free hands cover (`cover`).
  */
 export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
   executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
     { name: "combination", kind: "combination" as const, ...COMBINATION },
     ...PATH_STRIKES.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: PATH_STRIKES.support, reflexes: [{ kind: "cover-reflex" }],
+  support: PATH_STRIKES.support, chooser: { kind: "valued", depth: 1 }, reflexes: [],
   subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */

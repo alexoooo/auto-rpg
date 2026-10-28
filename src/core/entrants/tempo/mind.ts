@@ -60,9 +60,9 @@ const ACTIONS: readonly ActionConfig[] = [
   optionsOwn(OPTIONS.actions, "downward"),
 ];
 
-/** As it starts: its blows, the options fighter's walk, guard, low support and cover, the game's stand-up, two blows, a short rest. */
+/** As it starts: its blows, the options fighter's walk, guard and low support, the cover reflex, the game's stand-up, two blows, a short rest. */
 const TEMPO: TempoConfig = deepFreeze({ kind: "tempo", locomotion: OPTIONS.locomotion, guard: OPTIONS.guard, executors: EXECUTORS,
-  actions: ACTIONS, support: OPTIONS.support, reflexes: OPTIONS.reflexes, subs: [STAND_UP], burst: 2, rest: .8, margin: .2, commit: 1.5 });
+  actions: ACTIONS, support: OPTIONS.support, reflexes: [{ kind: "cover-reflex" }], subs: [STAND_UP], burst: 2, rest: .8, margin: .2, commit: 1.5 });
 
 /** What is wrong with `config`, each a sentence: its kit's faults, a setting out of its bounds, no way up, or no blow standing. */
 function tempoFaults(config: TempoConfig, parts: PartLookup): readonly string[] {

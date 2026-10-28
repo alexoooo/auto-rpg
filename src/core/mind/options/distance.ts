@@ -1,5 +1,5 @@
 import { atan2, cos, hypot, sin } from "../../math/real.ts";
-import type { Situation, StandingOption } from "./option.ts";
+import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
 import { CLINCH, clinched, exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
@@ -60,7 +60,7 @@ function facing(how: Goal["facing"], x: number, z: number): number {
 /**
  * **Set distance**: keep from the focus as `goal` says, facing it or away: backing off while nearer than
  * its near bound (at its slant, `slanted`), closing while farther than its far one (a correction, until `BAND` m inside
- * them), standing still between. It always yields, and asks for no blow. Its model: a correction
+ * them), standing still between. It is footwork, always yields, and asks for no blow. Its model: a correction
  * walks to `BAND` m inside its bounds, a keeping goes on `AHEAD` s, through the blow coming and
  * the focus's reach while it stands in it; a correction that ends out of a clinch (`CLINCH`) leaves
  * its chance of going down behind.
@@ -77,9 +77,12 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
   };
   const kept = (now: Situation): boolean => !!now.focus && (goal.foe === "any" || (goal.foe === "down") === now.focus.down);
   const outside = (now: Situation, margin: number): boolean => { const d = apart(now); return d < goal.near + margin || d > goal.far - margin; };
+  const UNKEPT = blocked(`no ${goal.foe === "any" ? "" : `${goal.foe} `}focus`), WITHIN = blocked("within its bounds");
   return {
-    name: goal.name, posture: "standing", state,
-    available: (now) => !now.down && kept(now) && (!goal.correcting || outside(now, 0)),
+    name: goal.name, posture: "standing", layer: "footwork", state,
+    entry: (now) => now.down || !kept(now) ? UNKEPT : goal.correcting && !outside(now, 0) ? WITHIN : READY,
+    exit: () => null,
+    holds: () => LEGS,
     yields: () => true,
     ended: (now) => goal.correcting && !outside(now, BAND),
     begin() {},

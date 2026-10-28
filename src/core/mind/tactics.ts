@@ -1,6 +1,6 @@
 import type { Clearance } from "./clear-step.ts";
 import type { Body, BodyView } from "../body.ts";
-import type { Offer } from "./options/meta.ts";
+import type { Offer } from "./options/chooser.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
@@ -79,6 +79,7 @@ export function engagementWithDetails(base: () => Engagement | undefined, detail
 export interface Sight {
   readonly instance: Skills["instance"];
   readonly readiness: Skills["readiness"];
+  readonly needs: Skills["needs"];
   readonly view: BodyView;
   /** How the skills are going, as the last step left them. */
   readonly report: SkillReport;
@@ -97,7 +98,7 @@ export interface Sight {
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
   const skills = make(body, tactics);
-  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, clearance: skills.clearance };
+  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);

@@ -469,13 +469,13 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | Kind | Maker | What it composes |
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
-| options fighter | `createOptionsFighter`, `src/core/mind/options/` | a meta-controller over options, valued by worth |
+| options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
-`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
+`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, `chooser`, or a skill's:
 `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
@@ -513,25 +513,33 @@ or a test may still name it. An arena recipe may name each side's mind (`DuelRec
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
 
-**The options fighter** (`metaController`, `options/meta.ts`). An `Option` (`option.ts`) says
-whether it is `available`, whether it `yields`, whether it has `ended`, and what it asks of the
-skills; a down option is carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`,
-priced by the sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the
-`downHalf` sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
-situation, and the meta-controller takes the available option of highest worth, keeping the
-running one within its keep and deciding afresh every `DECIDING.rethink` s or on an event.
+**The options fighter** (`createOptionsFighter`, `options/mind.ts`). An `Option` (`option.ts`) is a
+skill in one shape: its entry (`Readiness`: ready, `position` with the window its legs are brought
+to, else waiting or blocked and why), what it holds in a step (`holds`, the asks' `Sight.needs`),
+its model (`Terms`) and its exit (a strike's stroke's end, the edge-hold's band; null elsewhere,
+read by no chooser yet). Each is a commitment (follow orders, a strike, the low strike, a down
+option) or footwork (break a clinch, evade, hold at the edge, hold) (`Layer`). A down option is
+carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
+sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
+hands the body over).
 
-- Worth is valued (`valued`, `value.ts`): each option's model gives `Terms` (duration, energy
-  dealt, cost of blows taken, progress on orders, chance of going down), weighed by the config's
-  `WEIGHTS`; orders are a term whose weight is the person's `OBEDIENCE`. Ranked worth is the
-  alternative.
-- Options: down (get up, roll away, fight from the ground, lie still), follow orders, break a
-  clinch, strike, strike low, evade, hold at the edge, close and strike, hold. Its walk (`walker`,
-  `walk.ts`) keeps clear of solids and fallen bodies.
+- **Percepts** (`PERCEPTS`, `percepts.ts`): each step `situationReader` (`situation.ts`) reads
+  every named percept once into the `Situation` (down, orders, focus, distance, threat, the blow
+  coming and its cost, reach, exposure, each hand's blow); a percept's cue is what a chooser
+  watches (`eventOf`).
+- **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
+  (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
+  worth, keeping the running one within its keep, deciding afresh on a cue's change or every
+  `rethink` s. Valued worth: each option's `Terms` (duration, energy dealt, cost of blows taken,
+  progress on orders, chance of going down) weighed by `WEIGHTS` over the config's own; orders are
+  a term whose weight is the person's `OBEDIENCE`. Ranked worth is the options' order.
+- **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
+  and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
+  of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers
+  (`cover`, `cover.ts`: the hand on the blow's side, at most a second a run of blows); then its
+  reflexes (`reflexLayer`, `reflex.ts`; each a `ReflexPart` in `REFLEXES`, made by `reflexOf`)
+  patch the intent in rank order: none by default; Tempo holds the cover reflex (`cover-reflex`).
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
-- Reflexes (`reflexLayer`, `reflex.ts`; each a `ReflexPart` in `REFLEXES`, made by `reflexOf`
-  through the lookup) patch the intent each control step in rank order; the one reflex is cover
-  (`cover-reflex`).
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
@@ -578,7 +586,7 @@ pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`)
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).
 
-**Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, envelope) and
+**Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, what an action holds, envelope) and
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
 posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
 (`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
@@ -626,7 +634,8 @@ inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
 `clear-step.ts`): how a step keeps clear of the solids sensed (`keepClear`) and where a body
 inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
-(`stockClearance`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+(`stockClearance`). A planner's walk is kept out of a solid's clearance and a fallen body's reach
+by `keepOut` (`clear-step.ts`), which the options and tempo fighters apply to what they ask. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
 or a goal that moves is

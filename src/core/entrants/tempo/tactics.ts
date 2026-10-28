@@ -5,7 +5,8 @@ import { NO_COVER, type Intent } from "../../mind/intent.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
-import type { Situation, StandingOption } from "../../mind/options/option.ts";
+import { onOffer, type Situation, type StandingOption } from "../../mind/options/option.ts";
+import { approach } from "../../mind/options/approach.ts";
 import { strikeLow } from "../../mind/options/low.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { reflexLayer, reflexOf } from "../../mind/options/reflex.ts";
@@ -14,6 +15,7 @@ import { strike } from "../../mind/options/strike.ts";
 import { CLINCH, record } from "../../mind/options/value.ts";
 import { walker } from "../../mind/options/walk.ts";
 import type { Tactics } from "../../mind/tactics.ts";
+import { keepOut } from "../../mind/clear-step.ts";
 import type { TempoConfig } from "./mind.ts";
 
 /**
@@ -82,7 +84,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const best = (list: readonly StandingOption[], now: Situation): StandingOption | null => {
     let chosen: StandingOption | null = null, top = -Infinity;
     for (let k = 0; k < list.length; k++) {
-      if (!list[k]!.available(now)) continue;
+      if (!onOffer(list[k]!, now)) continue;
       const value = rate(now, k);
       if (value > top) { top = value; chosen = list[k]!; }
     }
@@ -108,12 +110,12 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   /** Its burst: the running strike while it goes on, else the first ready, else the first that closes, else a walk in. */
   const attack = (now: Situation, dt: number): Asked => {
     const running = current();
-    if (running && (running.ended(now) || !running.available(now))) run(null, now);
+    if (running && (running.ended(now) || !onOffer(running, now))) run(null, now);
     if (state.running < 0 && state.thrown >= config.burst) { to("exit", now); return still(now); }
     if (state.running < 0) run(best(ready, now) ?? best(closing, now), now);
     const chosen = current();
     if (!chosen) return along(now, 1);
-    const asking = threw(chosen), asked = chosen.step(now, dt);
+    const asking = threw(chosen), asked = approach(now, chosen.step(now, dt));
     if (asked.actions.length > 0) state.phase = "burst";
     // Asking for a blow starts its time in reach again: a blow slow to set up is given it whole.
     if (!asking && threw(chosen)) state.since = now.time;
@@ -123,8 +125,8 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const decide = (now: Situation, dt: number): Asked => {
     if (now.down) { run(null, now); to("wait", now); return still(now); }
     if (!committed(now)) {
-      if (orders.available(now)) { run(orders, now); state.phase = "orders"; return orders.step(now, dt); }
-      if (low?.available(now)) { run(low, now); state.phase = "low"; return low.step(now, dt); }
+      if (onOffer(orders, now)) { run(orders, now); state.phase = "orders"; return orders.step(now, dt); }
+      if (low && onOffer(low, now)) { run(low, now); state.phase = "low"; return low.step(now, dt); }
       if (current() === orders || current() === low) run(null, now);
     }
     if (!now.focus) { run(null, now); return still(now); }
@@ -142,7 +144,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
         return attack(now, dt);
       }
       case "exit": {
-        if (committed(now)) return current()!.step(now, dt);
+        if (committed(now)) return approach(now, current()!.step(now, dt));
         run(null, now);
         if (now.reach.apart >= edge(now) || now.time - state.since >= EXIT_LONGEST) { to("wait", now); return keepEdge(now); }
         return along(now, -1);
@@ -156,7 +158,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
     decide(sight, dt) {
       const now = reader.read(sight), asked = decide(now, dt), near = current()?.near?.(now) ?? null;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
-      return reflexes.apply(now, { ...walk.constrain(now, asked, near), ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
+      return reflexes.apply(now, { ...keepOut(sight.view, sight.clearance, asked, near, now.orders?.pace), ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     },
   };
 }

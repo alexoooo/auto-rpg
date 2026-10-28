@@ -6,7 +6,7 @@ import { regionSegments } from "../action-aim.ts";
 import type { ActionConfig } from "../config.ts";
 import { groundPosition } from "../ground-position.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
-import type { Situation, StandingOption } from "./option.ts";
+import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { around } from "./strike.ts";
 import { orderedDealt, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
@@ -18,7 +18,8 @@ const FOLD_FALLS = .05;
  * **Strike a low foe**: `action`, a blow from low support, at the focus while it is down or low,
  * from beside it (`groundPosition`): walking there, lowering through the support fold and striking
  * once placed, then rising. It is on offer while the focus is low or the placement is under way,
- * and yields only before the placement begins; its walk need not keep out of the focus's reach.
+ * and yields only before the placement begins; its walk need not keep out of the focus's reach. A
+ * commitment, it holds the legs and the trunk, and what its blow holds.
  * Its model: walking beside the focus, then a blow of its record (`record`) from its stronger hand,
  * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming.
  */
@@ -34,9 +35,12 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     const focus = now.focus!, region = action.regions?.find((r: Region) => regionSegments(focus.spec, r).length > 0);
     return region ? { kind: "body", body: focus.id, region } : null;
   };
+  const HIGH = blocked("no low focus"), PLACING: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
-    name: "strike a low foe", posture: "standing", state,
-    available: low,
+    name: "strike a low foe", posture: "standing", layer: "commitment", state,
+    entry: (now) => low(now) ? READY : HIGH,
+    exit: () => null,
+    holds: (now, asked) => [...PLACING, ...asking(now, asked).filter((resource) => !PLACING.includes(resource))],
     yields: () => !placing(),
     ended: (now) => !low(now),
     begin() { state.id = null; },

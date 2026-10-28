@@ -1,5 +1,5 @@
 import type { SubMind } from "../sub-mind.ts";
-import type { DownOption, Situation } from "./option.ts";
+import { blocked, READY, type DownOption, type Situation } from "./option.ts";
 import type { Terms } from "./value.ts";
 
 /** Near enough that a standing focus strikes a body that is down, m, centre to centre. */
@@ -33,9 +33,11 @@ export function downOption(name: string, mind: SubMind, half: Half, model: DownM
   const state = { begun: false, mind: mind.state };
   const start = (): void => { if (!state.begun) { mind.begin(); state.begun = true; } };
   const stop = (): void => { if (state.begun) { mind.end(); state.begun = false; } };
+  const UNWANTED = blocked(`${name}: its sub-mind does not want the body`);
   return {
-    name, posture: "down", mind, state,
-    available: (now) => mind.wants(now.sight.view.senses),
+    name, posture: "down", layer: "commitment", mind, state,
+    entry: (now) => mind.wants(now.sight.view.senses) ? READY : UNWANTED,
+    exit: () => null,
     yields: () => !(mind.holds?.() ?? false),
     ended: () => false,
     begin() { if (half.current) start(); },
@@ -47,7 +49,7 @@ export function downOption(name: string, mind: SubMind, half: Half, model: DownM
 }
 
 /**
- * **The down half**: the one sub-mind of a body under a meta-controller, which hands the body to
+ * **The down half**: the one sub-mind of a body under a chooser (`Chooser`), which hands the body to
  * the down option `running` names (`downOption`). It wants the body while the decision, `decide`,
  * is a down option, holds it while that option's sub-mind does, and steps that sub-mind.
  */

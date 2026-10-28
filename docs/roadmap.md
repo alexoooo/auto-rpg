@@ -54,19 +54,18 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now: the options fighter's shape** at depth 1 (Options step 1). Toes on the Warrior and the
-   Rogue wait for Recovery step 3, the graph as the game's Stand up: on them step-up stands none of
-   the target's falls ([on the game bodies](reference/toes.md#on-the-game-bodies)).
-2. **Next: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
+1. **Now: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
    (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
    trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
-   mark).
-3. **Beside the punch:** Drills step 2 (the moving target, overlays and side by side), which Punch
+   mark). Toes on the Warrior and the Rogue wait for Recovery step 3, the graph as the game's Stand
+   up: on them step-up stands none of the target's falls
+   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+2. **Beside the punch:** Drills step 2 (the moving target, overlays and side by side), which Punch
    step 5 needs, and Drills step 7 (the owner's two-minute verdict), which Punch step 6 and every
    rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
    rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
    and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
-4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
+3. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
 
@@ -98,6 +97,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The Strike drill's other subjects (`?play=ratings&evaluation=strike`), the failures first: the
   Puncher's and the Duellist's were watched and not accepted: too close, awkward, not landing; on
   the fight rung no game mind's strike lands at the bar.
+- The options fighter in its one shape, a bout against the Duellist
+  (`?play=arena&left.mind=options&right.mind=duellist`): its paired match against the shape before
+  gains 12 bouts and loses 5 of 120 ([Options](plans/2026-10-24-options.md#where-it-starts)).
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`).

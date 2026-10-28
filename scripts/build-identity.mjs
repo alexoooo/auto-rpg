@@ -115,7 +115,7 @@ export function importsOf(file, text) {
  */
 export const CUTS = Object.freeze({
   kinds: "src/core/mind/kinds.ts", worlds: "src/evaluation/worlds.ts", identity: "src/build-identity.ts", store: "src/core/data/store.ts",
-  roles: Object.freeze(["src/core/mind/navigations.ts", "src/core/mind/executors.ts", "src/core/mind/guards.ts", "src/core/mind/supports.ts", "src/core/mind/sub-minds.ts", "src/core/mind/ground/techniques.ts", "src/core/mind/locomotions.ts", "src/core/mind/planners.ts", "src/core/mind/behaviours.ts", "src/core/mind/options/reflexes.ts", "src/core/skills/move-rules.ts", "src/core/control/motors.ts", "src/core/control/balances.ts", "src/core/reptile/support-motors.ts", "src/core/reptile/gaits.ts", "src/core/reptile/bites.ts", "src/core/reptile/planners.ts", "src/core/command/commanders.ts", "src/arena/ends.ts"]),
+  roles: Object.freeze(["src/core/mind/navigations.ts", "src/core/mind/executors.ts", "src/core/mind/guards.ts", "src/core/mind/supports.ts", "src/core/mind/sub-minds.ts", "src/core/mind/ground/techniques.ts", "src/core/mind/locomotions.ts", "src/core/mind/planners.ts", "src/core/mind/behaviours.ts", "src/core/mind/options/reflexes.ts", "src/core/mind/options/choosers.ts", "src/core/skills/move-rules.ts", "src/core/control/motors.ts", "src/core/control/balances.ts", "src/core/reptile/support-motors.ts", "src/core/reptile/gaits.ts", "src/core/reptile/bites.ts", "src/core/reptile/planners.ts", "src/core/command/commanders.ts", "src/arena/ends.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */

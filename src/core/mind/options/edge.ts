@@ -1,5 +1,6 @@
-import type { Situation, StandingOption } from "./option.ts";
+import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
 import { clinched, exposed, type Terms } from "./value.ts";
+import type { Readiness } from "../../skills/action.ts";
 import type { Walker } from "./walk.ts";
 
 /** How far ahead holding the edge is priced, s, short of its patience. */
@@ -11,12 +12,16 @@ interface Edge {
   readonly patience: number;
 }
 
+/** How the options fighter holds the edge: a quarter metre past the foe's reach, waiting there up to two minutes. */
+export const EDGE: Edge = Object.freeze({ band: .25, patience: 120 });
+
 /**
  * **Hold at the edge**: stand just outside a standing, two-handed foe's reach, from its outer
  * bound to `band` m past it, head to head, walking in from farther and back from nearer, facing
  * it. On offer with no blow of its own under way, until it has waited `patience` s at the edge for
- * the same foe; it has run its course once a blow is `ready`, so that the meta-controller decides
- * again at once, or once its patience is spent. It always yields, and asks for no blow. Its model:
+ * the same foe; it has run its course once a blow is `ready`, so that the chooser decides
+ * again at once, or once its patience is spent. It is footwork, always yields, and asks for no blow;
+ * its exit is the band, where it stands at the edge. Its model:
  * the rest of its patience, at most `AHEAD` s, through the blow coming, and the focus's reach
  * where it stands in it: a foe within reach strikes while it backs away.
  */
@@ -24,13 +29,18 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
   const state = { focus: null as string | null, since: null as number | null };
   const reach = (now: Situation) => ({ outside: now.reach.theirs, apart: now.reach.apart });
   const spent = (now: Situation): boolean => state.focus === now.focus?.id && state.since !== null && now.time - state.since >= edge.patience;
+  const UNFIT = blocked("no standing, two-handed focus without a blow under way"), SPENT = blocked("its patience is spent");
+  const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not at the edge" });
   return {
-    name: "hold at the edge", posture: "standing", state,
-    available(now) {
+    name: "hold at the edge", posture: "standing", layer: "footwork", state,
+    entry(now) {
       const focus = now.focus;
-      return !now.down && !!focus && !focus.down && !now.sight.report.actions.length && !spent(now)
+      const fits = !now.down && !!focus && !focus.down && !now.sight.report.actions.length
         && !!focus.spec.effectors?.some((effector) => effector.segment === "hand.left") && !!focus.spec.effectors.some((effector) => effector.segment === "hand.right");
+      return !fits ? UNFIT : spent(now) ? SPENT : READY;
     },
+    exit(now) { const { outside, apart } = reach(now); return apart >= outside && apart <= outside + edge.band ? READY : AWAY; },
+    holds: () => LEGS,
     yields: () => true,
     ended: (now) => spent(now) || ready(now),
     begin(now) { if (state.focus !== now.focus?.id) { state.focus = now.focus?.id ?? null; state.since = null; } },

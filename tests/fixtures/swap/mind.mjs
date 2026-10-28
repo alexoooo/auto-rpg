@@ -19,6 +19,7 @@ import { STUB_RULE } from "./stub-rule.mjs";
 import { STUB_TACTICS } from "./stub-tactics.mjs";
 import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 import { STUB_REFLEX } from "./stub-reflex.mjs";
+import { STUB_CHOOSER } from "./stub-chooser.mjs";
 import { STUB_SUB } from "./stub-sub.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
 import { STUB_TAKEOVER } from "./stub-takeover.mjs";
@@ -55,6 +56,7 @@ export const STUBS = Object.freeze([
   { part: STUB_SUB, mind: "swap-options", at: `subs.${OPTIONS.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_SUB.defaults] }),
     read: (state) => state.tactics.options[OPTIONS.subs.length].mind },
   { part: STUB_REFLEX, mind: "swap-options", at: "reflexes.0", place: (config) => ({ ...config, reflexes: [STUB_REFLEX.defaults] }), read: (state) => state.tactics.reflexes.own[0] },
+  { part: STUB_CHOOSER, mind: "swap-options", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
   { part: STUB_BALANCE, mind: "swap-options", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
   { part: STUB_AIM, mind: "swap-options", at: `actions.${AIM_AT}.aim`,
@@ -74,7 +76,7 @@ export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 
-/** The options fixture: the options fighter with its reflex, down, balance and aim stubs. */
+/** The options fixture: the options fighter with its reflex, chooser, down, balance and aim stubs. */
 export const SWAP_OPTIONS_DEFAULTS = withStubs("swap-options", OPTIONS, {});
 
 /** The quadruped fixture: its motor, trot, bite and planner each a stub. */

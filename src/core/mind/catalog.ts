@@ -2,7 +2,7 @@ import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOURS } from "./behaviours.ts";
 import type { FighterConfig, MindConfig } from "./config.ts";
-import type { AimConfig, BiteConfig, GaitConfig, QuadrupedTacticsConfig, SupportMotorConfig, BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
+import type { AimConfig, BiteConfig, GaitConfig, QuadrupedTacticsConfig, SupportMotorConfig, BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, ChooserConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
 import type { Scripted } from "./controller.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
@@ -14,6 +14,7 @@ import { MOVE_RULES } from "../skills/move-rules.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MINDS } from "./sub-minds.ts";
 import { REFLEXES } from "./options/reflexes.ts";
+import { CHOOSERS } from "./options/choosers.ts";
 import { TECHNIQUES } from "./ground/techniques.ts";
 import type { TechniqueConfig } from "./ground/technique.ts";
 import { MOTORS } from "../control/motors.ts";
@@ -29,7 +30,7 @@ import type { PartLookup, RoleParts } from "./lookup.ts";
 import type { NavigationConfig } from "./navigator.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | SupportMotorConfig | GaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = AimConfig | SupportMotorConfig | GaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | MotorConfig | ReflexConfig | ChooserConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A role's list by kind (`NAVIGATIONS`), each entry's kind its defaults': a thrown error for one that is not. */
 function listed<L extends Readonly<Record<string, Part>>>(list: L): L {
@@ -53,7 +54,7 @@ let registry: Registry | null = null;
 function registered(): Registry {
   if (registry) return registry;
   const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(TECHNIQUES), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
-    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(BALANCES), ...listed(NAVIGATIONS), ...listed(AIMS),
+    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(CHOOSERS), ...listed(MOTORS), ...listed(BALANCES), ...listed(NAVIGATIONS), ...listed(AIMS),
     ...listed(SUPPORT_MOTORS), ...listed(GAITS), ...listed(BITES), ...listed(QUADRUPED_PLANNERS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {

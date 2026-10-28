@@ -3,7 +3,7 @@ import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Readiness, type TargetRef } from "./action.ts";
+import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
 import { guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
@@ -26,6 +26,8 @@ export interface Skills extends Skill {
   readonly state: object;
   instance(): number;
   readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;
+  /** What `action` holds with `effector` once admitted (`Executor.needs`): none for one it does not bind. */
+  needs(action: string, effector: string): readonly Resource[];
   release(view: BodyView, reason?: "takeover" | "idle" | "replaced"): void;
 }
 

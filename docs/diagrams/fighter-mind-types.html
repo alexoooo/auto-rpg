@@ -143,7 +143,7 @@ const BANDS = [
     { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the chooser lets a player set", lines: [
       "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "depth: number", "~ whatever the chooser reads"] },
     { id: "Chooser", col: 1, kind: "part role", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
-      "choose(now, running): Intent", "~ reference: best(now, depth),", "~ worth plus the best follow-up", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on an event or 0.2 s"] },
+      "choose(now, running): Intent", "~ code: decide(now) → Option, depth 1", "~ reference: best(now, depth),", "~ worth plus the best follow-up", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on a cue or 0.2 s"] },
     { id: "Intent", col: 2, kind: "interface", tag: "reshaped", key: true, desc: "the skills selected now", lines: [
       "+ choices: SkillChoice[]", "~ no two share a Resource", "interrupt?: id[]", "~ a free part runs its default"] },
     { id: "SkillChoice", col: 3, kind: "interface", tag: "new", desc: "one skill and its goal", lines: [
@@ -153,9 +153,11 @@ const BANDS = [
   ], [
     { id: "Situation", col: 0, kind: "interface", desc: "what a decision reads", lines: [
       "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "danger, exposure: cost",
-      "reach { apart, theirs, mine }", "+ ended: Ended[]"] },
+      "reach { apart, theirs, mine }", "~ each a Percept, read once", "+ ended: Ended[]"] },
     { id: "Terms", col: 1, kind: "interface", desc: "what a choice is expected to bring", lines: [
       "duration: s", "dealt: J", "taken: cost", "orders: progress", "fall: chance"] },
+    { id: "Percept", col: 2, kind: "interface", desc: "one named reading of the senses", lines: [
+      "read(seen): value", "cue?(value): event", "~ PERCEPTS: the registry", "~ a cue changing: decide now"] },
     { id: "Profile", col: 3, kind: "interface", tag: "new", desc: "a skill’s measured model", lines: [
       "skill: SkillName", "over: its entry variables", "lands, time to contact", "recovery, falls", "exit: where it hands over", "model(now): Terms"] },
     { id: "Drill", col: 4, kind: "battery", desc: "one skill, rung by rung", lines: [
@@ -205,6 +207,7 @@ const EDGES = [
   ["Senses", "r", "BodySense", "l", "others", .3, .3],
   ["Settings", "r", "Chooser", "l", "settings", .35, .35],
   ["Situation", "t", "Chooser", "b", "now", .85, .15],
+  ["Percept", "t", "Chooser", "b", "cues", .5, .85],
   ["Terms", "t", "Chooser", "b", "worth", .5, .62],
   ["Profile", "l", "Terms", "r", "model(now)"],
   ["Drill", "l", "Profile", "r", "measures"],

@@ -114,6 +114,11 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     get ledger(): readonly Ended[] { return state.ledger; },
     instance(): number { if (!Number.isSafeInteger(state.issued + 1)) throw new Error("action ids exhausted"); return ++state.issued; },
     readiness,
+    /** What `action` holds with `effector` (`Executor.needs`): none for an action or effector it does not bind. */
+    needs(action: string, effector: string): readonly Resource[] {
+      const binding = bindings.get(action);
+      return binding?.effectors.includes(effector) ? needsOf(executors[registered.get(binding.executor)!]!.executor, action, effector) : [];
+    },
     executor(id: number): Executor { const item = find(id); if (!item) throw new Error(`no live instance ${id}`); return executors[item.executor]!.executor; },
     step(view: BodyView, requests: readonly ActionRequest[], around: ActionAround, dt: number): void {
       const ids = new Set<number>(); let latest = state.seen;
