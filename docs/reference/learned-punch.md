@@ -43,7 +43,8 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
 - **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_POLICY`,
   `assets/core/learned-punch.meta.json`): Kinetic's preset.
-- **How it was made**: PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`)
+- **How it was made**: PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`,
+  its settings now the environment file `research/environments/punch.json`)
   from the schedule `research/punch-drill.mjs` searched, on the Warrior's two hands at 120 and
   480 Hz, the target up to 0.15 m across the body and 0.3 m to the hand's side; each episode a
   trial loaded at the drive's first step. 44.4 M decisions on the flat-footed Warrior's still rung
@@ -312,8 +313,8 @@ watched it: too close, awkward, not landing.
 ### The trainer's speed
 
 `research/learning-speed.mjs` on `research/run-learning-server.mjs`: the punch's environment on the
-toed Warrior (`{"environment":"punch","character":{"toes":true}}`, its other settings the
-environment's), random steers, 30 s a reading; Node 24.19, Rapier, 120 Hz, the development host
+toed Warrior with its own defaults (`punchEnvironment`, `{"kind":"punch","character":{"toes":true}}`:
+the still rung's 0.9 to 1 m, the right hand, 120 Hz), random steers, 30 s a reading; Node 24.19, Rapier, 120 Hz, the development host
 (16 cores). Decisions a second, before and after the opening search's hull entry was written in
 numbers (`hullEntry`, `src/core/mind/hull-entry.ts`; the facing plane in `openingSelector`):
 
@@ -339,6 +340,10 @@ numbers (`hullEntry`, `src/core/mind/hull-entry.ts`; the facing plane in `openin
 - **The lockstep waits on the slowest**: every message waits for its slowest environment (the
   median 13.6 ms at 8 workers before the cut), so several environments a worker even out the wait;
   8 workers of 4 each are the fastest read.
+- **The other kinds** (`case-learning-environment.mjs`, one thread, the bare entrant under random
+  pulls): the gait's (`environments/gait.json`) about 450 to 520 decisions a second once built, an
+  episode over as the body falls at about 1 s; the bout's (`environments/bout.json`) about 300,
+  the Duellist striking no fallen body, so each bout a draw at its cap.
 
 ## Tried and not kept
 

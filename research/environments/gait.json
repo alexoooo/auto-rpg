@@ -1,0 +1,9 @@
+{
+  "kind": "cases",
+  "evaluation": "locomotion",
+  "protocol": "screen",
+  "where": { "model": "workshop-fighter" },
+  "subject": { "kind": "bare", "network": null, "every": 2 },
+  "character": { "toes": true },
+  "reward": { "progress": 1, "halt": 0.5, "upright": 0.2, "effort": 0.01, "down": -10 }
+}

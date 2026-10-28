@@ -1,5 +1,5 @@
 /**
- * A learned skill's environments on worker threads, `each` to a thread, served to a trainer over
+ * A learning environment's copies on worker threads, `each` to a thread, served to a trainer over
  * stdin and stdout as JSON lines (`research/run-train.py`): `{"op":"reset"}` answers every
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
@@ -9,21 +9,30 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration is the environment's (the steered punch's `punchEnvironment`) with `workers`, `each`, and `models`, `holds`
- * and `hastes`, whose every combination the environments take in turn; environment i is seeded
- * `seed + i`.
+ * The configuration names its environment's file (`environment`, `research/environments/`: its
+ * `kind`, one of `KINDS`, and the kind's settings) and gives `workers`, `each` and `seed`; its other
+ * keys override the file's settings. Environment i is seeded `seed + i`.
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';
 import { readFileSync } from 'node:fs';
 
+/**
+ * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
+ * settings fill in. `punch`: the steered punch from its drive's first step
+ * (`punch-learning-environment.mjs`); `cases`: an evaluation's cases played by a bare mind
+ * (`case-learning-environment.mjs`).
+ */
+const KINDS = {
+  punch: async () => (await import('./punch-learning-environment.mjs')).punchEnvironment,
+  cases: async () => (await import('./case-learning-environment.mjs')).caseEnvironment,
+};
+
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
-  const kind = workerData[0].environment;
-  if (kind !== 'punch') throw new Error(`no learning environment ${kind}`);
-  const { punchEnvironment: make } = await import('./punch-learning-environment.mjs');
+  const make = await KINDS[workerData[0].kind]();
   const envs = [];
-  for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
+  for (const { kind: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
   /** The idle work: each environment's next slice in turn, until none has any; `working` while a round is under way, `busy` while a message is. */
   let working = false, busy = false, turn = 0;
@@ -58,11 +67,12 @@ if (!isMainThread) {
     } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
   });
 } else {
-  const configuration = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-  const { workers: count = 8, each = 1, hastes = [0], environment = 'punch', models = ['workshop-fighter'], holds = ['empty'], seed = 1, ...rest } = configuration;
-  const kinds = models.flatMap((model) => holds.flatMap((held) => hastes.map((haste) => ({ model, held, haste }))));
+  const { environment, workers: count = 8, each = 1, seed = 1, ...overrides } = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+  if (typeof environment !== 'string') throw new Error("a configuration names its environment's file");
+  const settings = { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides };
+  if (!Object.hasOwn(KINDS, settings.kind)) throw new Error(`no kind of learning environment ${settings.kind}: ${Object.keys(KINDS).join(', ')}`);
   const workers = Array.from({ length: count }, (_, w) => {
-    const configurations = Array.from({ length: each }, (_, k) => { const i = w * each + k; return { ...rest, environment, seed: seed + i, ...kinds[i % kinds.length] }; });
+    const configurations = Array.from({ length: each }, (_, k) => ({ ...settings, seed: seed + w * each + k }));
     const worker = new Worker(new URL(import.meta.url), { workerData: configurations });
     let waiting = null;
     worker.on('message', (m) => { const w = waiting; waiting = null; w?.(m); });

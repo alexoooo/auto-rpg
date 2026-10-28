@@ -1,7 +1,8 @@
-"""Train a learned skill's policy with PPO (Stable-Baselines3) against its environments on Node
-worker threads (research/run-learning-server.mjs: the steered punch's), and export it as the core
-reads it (src/core/skills/learned-punch.ts, PunchPolicy): ReLU layers, the observation's
-normalisation folded into the first, tanh on the outputs. Each line of train.log has the mean of
+"""Train a policy with PPO (Stable-Baselines3) against an environment file's copies on Node worker
+threads (research/run-learning-server.mjs, research/environments/), and export it as the core
+reads a network (src/core/control/recovery-network.ts, Network: the learned punch's PunchPolicy,
+a bare mind's `network`): ReLU layers, the observation's normalisation folded into the first,
+tanh on the outputs. Each line of train.log has the mean of
 each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is
 policy.json, and every `--keep` steps a copy stays as policy-<steps>.json: the training return
 does not choose a policy (a run's return can go on rising as its battery falls), its battery does.

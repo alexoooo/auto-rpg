@@ -1,0 +1,8 @@
+{
+  "kind": "cases",
+  "evaluation": "baseline",
+  "protocol": "fight",
+  "subject": { "kind": "bare", "network": null, "every": 2 },
+  "character": { "toes": true },
+  "reward": { "effort": 0.001, "end": { "score": 1, "margin": 1 } }
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "punch",
+  "schedules": { "workshop-fighter": "research/environments/punch-schedule.json" },
+  "places": [
+    { "model": "workshop-fighter", "gaps": [0.6, 1.3], "across": [-0.15, 0.3] },
+    { "model": "workshop-fighter", "gaps": [1.6, 3], "across": [-0.15, 0.3], "starts": ["walking"] }
+  ],
+  "hands": ["right", "left"],
+  "marks": ["middle"],
+  "rates": [120, 480],
+  "character": { "toes": true },
+  "pool": 4,
+  "refresh": 16,
+  "aim": { "kind": "surface", "tuning": { "upperTrunk": 1, "middleTrunk": -1, "square": 4 } },
+  "windows": { "workshop-fighter": [0.8, 0.03, 0.17, 0.1] },
+  "punch": { "squared": true, "longest": 0.3, "halts": true }
+}
