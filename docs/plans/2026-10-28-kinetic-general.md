@@ -82,6 +82,10 @@ action that holds a foot holds the legs, so the legs goal it writes decides whic
 - **Any `StanceGoal` field**: `feet`, `centre`, `height`, `heading`, `pose` (its `anchors`
   included), `swing`, `halt`. What the action sets, the legs carry out; what it leaves out, the
   legs fill from the walk as they do today; what they cannot honour, they report (below).
+- **A carriage and a gait, by name** (step 3): `carriage`, the fighting pose held standing and
+  kept while moving where the gait keeps it, and `gait`, how the legs move the body
+  ([Kinetic](2026-10-27-kinetic.md#carriages-and-gaits)). Left out, the legs keep the ones they
+  have.
 
 One rule instead of a term a need: a field added to `StanceGoal` is askable by every action with
 no new claim term. Each field has one form, the stance's:
@@ -94,6 +98,7 @@ no new claim term. Each field has one form, the stance's:
 | the walk's `halt` | `halt` |
 | the kick's overlay | `feet`, `centre`, `height`, `heading`, `pose`, `swing`, written by the kick |
 | `support`, the fold | `height` and `pose`; its trunk flexion is the trunk's owner's (step 2) |
+| the square stance the body was built in, one step pattern (`STANCE_GAIT`) | `carriage` and `gait`, by name |
 
 The legs complete it in one method, `Locomotion.goal(view, goal, dt)`: a stance goal, or, for
 legs that drive themselves (a running gait, `LegsDrive`), the posture and pushes they write on the
@@ -108,7 +113,7 @@ order: the guard's rest posture, its covers and holds, its hands' poses, the wal
 free arm without a cover. A posture under a goal or point is that chain's preferred angles, not a
 competing write: the guard's rest posture stays under its own covers.
 
-Open (step 7): a control an action holds and does not write is neutral (its reference angle) today,
+Open (step 8): a control an action holds and does not write is neutral (its reference angle) today,
 unless the action hands it back (`delegate`). Left to the defaults instead, an action that wants
 neutral writes it, and `delegate` goes.
 
@@ -151,11 +156,12 @@ the output file's reader; a new layout is data, not code. The general trainer
 | --- | --- |
 | Footwork, a walk | the intent's walk and facing, the route made a walk by the navigation (`navigated`) |
 | The straight punch | arm and trunk pushes; `legs` with `walk` none, `heading` for the hip turn, `centre` for the weight, `halt` to stop |
-| Timing by the gait | a percept of the stance's phase in the registry (step 5); no new term |
+| Timing by the gait | a percept of the stance's phase in the registry (step 6); no new term |
+| A fighting pose | a `carriage` by name: data, kept by every gait that keeps it |
 | A kick | `legs` with one foot in `feet`, its `centre`, `pose`; the other foot's effector goal |
 | Low support | `legs` with `height` and `pose`; the trunk's flexion by its owner |
 | Leaning past the support | the legs' report of the centre held short, read as a percept |
-| Another walk | another legs implementation: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
+| Another gait: a faster run, a steadier walk, a learned one | another gait implementation, by name in the legs' set: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
 | A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
 | Getting up | a sub-mind with the whole body (`hosting`) until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 8) |
@@ -217,7 +223,22 @@ The legs never write the trunk.
 Check: the gate; the fingerprint, or where a case moves, the kick's and the fold's own readings
 before and after, named in the commit.
 
-### 3. The controllers report what they did not carry out
+### 3. Carriages and gaits by name
+
+A carriage is data in one registry (`CARRIAGES`): the feet relative to the heading (width,
+stagger, lead side), the height under standing, the trunk's lean and the arms' rest. The square
+stance the body is built in is the first; orthodox, southpaw and low are entries. A gait is an
+implementation in one registry (`GAITS`, grown from `src/core/skills/gaits.ts`): today's stance
+walk (its step pattern, `STANCE_GAIT`, made the gait's settings, not the balance controller's
+constants), the run (`walk-run`) and a shuffle that keeps the carriage's stagger. The legs slot
+holds a set of gaits and hands over between them at their exits (the run to the walk at a landing,
+as `walk-run` does now); the legs goal names a carriage and a gait, or leaves them to the set's
+choice. Move's gaits and rules become this set, its rules cues over named goals.
+
+Check: the gate; the fingerprint moves no case that asks the square carriage and today's gaits; a
+staggered carriage held standing and walked by the shuffle, looked at in the Lab.
+
+### 4. The controllers report what they did not carry out
 
 The motor's and the legs' report, in their state, so a fork or replay carries it; the legs' unmet
 centre in the situation as a percept (`PERCEPTS`).
@@ -225,15 +246,16 @@ centre in the situation as a percept (`PERCEPTS`).
 Check: the gate; on the still rung, the learned puncher's push layout through the arbiter reports
 its leg pushes unmet on every step the stance drives the leg, and its stance layout none.
 
-### 4. The probes
+### 5. The probes
 
-A probe for each legs-goal field and claim term, run against each legs and stance implementation
-and the swap test's stubs; fast (under about 10 s together), in the swap test's contract.
+A probe for each legs-goal field and claim term, run against each gait, carriage and stance
+implementation and the swap test's stubs; fast (under about 10 s together), in the swap test's
+contract.
 
 Check: the gate; each probe fails on a stub that ignores its field (a positive control), and the
 game's own legs pass or report.
 
-### 5. The percepts registry, named goals, and a learned skill's layouts
+### 6. The percepts registry, named goals, and a learned skill's layouts
 
 One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the
 options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the gait's phase
@@ -249,7 +271,7 @@ learned punch through its layout files gives the same actions to the bit as thro
 Kinetic's still and walk rungs the same to the bit with its footwork on `at the edge`; each named
 goal read on the Warrior and the Rogue gives each its own range, in proportion to its reach.
 
-### 6. Kinetic on the toolkit's body layer
+### 7. Kinetic on the toolkit's body layer
 
 Kinetic's composer deleted; `kineticSkills` is `skillSet` with no support; its refusals detail
 reads the report.
@@ -257,7 +279,7 @@ reads the report.
 Check: the gate; Kinetic's still and walk rungs the same to the bit as before the step; in the
 Arena it faces, follows, punches and gets up, looked at.
 
-### 7. A held control left unwritten
+### 8. A held control left unwritten
 
 A control an action holds and does not write goes to the defaults, not to neutral; an action that
 wants neutral writes its reference; `delegate` goes.
@@ -265,7 +287,7 @@ wants neutral writes its reference; `delegate` goes.
 Check: the gate; the fingerprint names the cases that move; each moved case's own reading (the
 drill's rung, the kick's, the fold's) no worse, or the step is not kept and the reason recorded.
 
-### 8. The one learned punch
+### 9. The one learned punch
 
 On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the stance layout exported as the
 learned punch from the run's best checkpoint by the still and walk rungs; the push layout,
@@ -283,10 +305,10 @@ no less.
 The toolkit has one body layer, which Kinetic and the arbiter's minds share; an action's legs are
 one goal, a stance goal in part, that only the legs complete and nothing edits after; the legs
 never write the trunk; the motor and the legs report what they did not carry out, read as a
-percept and by the punch's trainer; every legs and stance implementation passes the probes; one
-percepts registry holds the chooser's readings, the gait's phase and the report, and goals are
-named cues over it; a learned skill's
-inputs and outputs are layout files in the body's units; Kinetic has no composer and no refusals of
-its own; the learned puncher's and Kinetic's still and walk rungs are unmoved by steps 1, 3, 5 and
-6; the kick and the fold read as before step 2 or as its commit names; step 7 is kept or its
-reason recorded; and there is one learned punch.
+percept and by the punch's trainer; carriages are data and gaits implementations, each by name
+in the legs goal; every gait, carriage and stance implementation passes the probes; one percepts
+registry holds the chooser's readings, the gait's phase and the report, and goals are named cues
+over it; a learned skill's inputs and outputs are layout files in the body's units; Kinetic has no
+composer and no refusals of its own; the learned puncher's and Kinetic's still and walk rungs are
+unmoved by steps 1, 3, 4, 6 and 7; the kick and the fold read as before step 2 or as its commit
+names; step 8 is kept or its reason recorded; and there is one learned punch.
