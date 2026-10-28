@@ -58,10 +58,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
-1. **Now: the baseline and the testbed's rules**, Kinetic steps 6 and 7 in order:
-   the baseline evaluation, read under the owner's verdict and
-   naming opponents as a rung does, and the trainer, its speed measured and its largest cost cut first,
-   with the bare entrant.
+1. **Now: the testbed's rules**, Kinetic step 7: the trainer, its speed measured and its largest
+   cost cut first, with the bare entrant. The baseline evaluation is built, Kinetic's reference
+   record in [the baseline](reference/baseline.md).
 2. **Then Kinetic's design**, steps 8 to 14 in order, before any training run: worth in life
    (step 8), measured profiles indexed by the foe's phase (step 9), the value of a position
    (step 10), exits and letting go (step 11), the stand-up as a chain with no sub-mind (step 12),
@@ -288,7 +287,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
   an opponent outside Kinetic that the baseline evaluation fights
-  ([Kinetic](plans/2026-10-27-kinetic.md), step 6); its tactics are not ported.
+  ([the baseline](reference/baseline.md)); its tactics are not ported.
 - Not built: a learned mind (the bare entrant, [Kinetic](plans/2026-10-27-kinetic.md) step 7, is
   its route, trained after Kinetic's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
