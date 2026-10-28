@@ -89,6 +89,10 @@ action that holds a foot holds the legs, so the legs goal it writes decides whic
 - **Any `StanceGoal` field**: `feet`, `centre`, `height`, `heading`, `pose` (its `anchors`
   included), `swing`, `halt`. What the action sets, the legs carry out; what it leaves out, the
   legs fill from the walk as they do today; what they cannot honour, they report (below).
+- **What bears is the body's to name**: `feet` names bearing ends the body's spec marks as able
+  to bear (a biped's two feet; hands and knees; a quadruped's four), not a side. Legs that cannot
+  bear on an end asked report it unmet ([below](#what-the-controllers-did-not-carry-out)), so a
+  ground technique and a quadruped's legs ask in the same goal. The game's legs bear on feet.
 - **A carriage and a gait, by name** (step 3): `carriage`, the fighting pose held standing and
   kept while moving where the gait keeps it, and `gait`, how the legs move the body
   ([Kinetic](2026-10-27-kinetic.md#carriages-and-gaits)). Left out, the legs keep the ones they
@@ -171,7 +175,8 @@ output file's reader; a new layout is data, not code. The general trainer
 | Another gait: a faster run, a steadier walk, a learned one | another gait implementation, by name in the legs' set: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
 | A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
-| Getting up | a chain of ground skills, the chooser's as any other, each a commitment holding the whole body until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 12) |
+| Getting up | a chain of ground skills, the chooser's as any other, its hands and knees asked as bearing ends in `feet`; each a commitment holding the whole body until legs bear on them ([Kinetic](2026-10-27-kinetic.md) step 13) |
+| A quadruped's legs | the same legs goal over its four bearing ends |
 
 ## Changes to Kinetic
 
@@ -181,9 +186,8 @@ output file's reader; a new layout is data, not code. The general trainer
 - **Its tactics and config stay**: the options fighter's chooser over `followOrders` and `strike`,
   the default footwork at the edge of reach, the covers, a drill's tactics in the chooser's place,
   the stand-up in `subs`.
-- **What then sets it apart from the options fighter** is configuration alone (reflexes, low
-  support), so the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md)
-  step 15).
+- **What then sets it apart from the options fighter** is configuration alone (low support), so
+  the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md) step 15).
 
 ## Changes to the learned punch
 
@@ -204,7 +208,8 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 ### 1. The legs goal
 
 `LegsGoal` (the walk, and `StanceGoal`'s fields in part) and `Locomotion.goal(view, goal, dt)`,
-which completes it; `ActionClaim.legs` the goal, its `lower`, `steer`, `shift` and the walk's
+which completes it; `feet` typed by the spec's bearing ends, a human's two feet the ends its
+legs bear on (`Side` today); `ActionClaim.legs` the goal, its `lower`, `steer`, `shift` and the walk's
 `halt` moved into its `height`, `heading`, `centre` and `halt`, each computed in the action in the
 same operations as `stanceAsked` and the legs compute it now; `stanceAsked` deleted. Every legs
 implementation and caller (`locomotion.ts`, `move.ts`, `walk-run.ts`, the stand-up's and support
@@ -313,7 +318,8 @@ no less.
 ## Done when
 
 The toolkit has one body layer, which Kinetic and the arbiter's minds share; an action's legs are
-one goal, a stance goal in part, that only the legs complete and nothing edits after; the legs
+one goal, a stance goal in part, that only the legs complete and nothing edits after, its `feet`
+the body's bearing ends; the legs
 never write the trunk; the motor and the legs report what they did not carry out, read as a
 percept and by the punch's trainer; carriages are data and gaits implementations, each by name
 in the legs goal; every gait, carriage and stance implementation passes the probes; one percepts
