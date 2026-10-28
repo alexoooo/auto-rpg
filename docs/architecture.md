@@ -364,6 +364,10 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   `src/core/skills/learned-punch.ts`: the target from the shoulder and its velocity, the fist, the
   trunk's, legs' and arm's angles and speeds, the left hand mirrored) and adds a learned steer to each push it is
   making (`steerPushes`); a channel it is not pushing stays with the posture or the stance. Its
+  inputs and outputs are a layout file (`PUNCH_LAYOUT`, `assets/core/learned-punch.layout.json`):
+  each input a named reading of the drive or a channel's `angle` or `speed`, each output a push on
+  a named channel or an ask of the legs goal (`heading`, `centre` ahead or across) at a full scale,
+  a distance's in proportion to the body's leg (`legOf`); `steered` picks its outputs' layout. Its
   window may be narrower across the line it faces than along it (`aside`), centred with
   `squared` on the line the punching shoulder faces along at contact rather than the head's, and
   refuse a target higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and

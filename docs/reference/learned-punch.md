@@ -31,9 +31,10 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
 - **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 55-256-256-18, reads the
   drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
   mass's velocity, whether the hand touches, and the steered channels' angles and speeds
-  (`punchFeatures`). It adds a level to each of the 18 channels' pushes (`PUNCH_ACTIONS`): the
-  trunk's turn and lean, both legs and the punching arm. The left hand's are the right's mirrored
-  (`punchChannels`). A channel not being pushed stays with the posture or the stance.
+  (`punchFeatures`). It adds a level to each of the 18 channels' pushes: the trunk's turn and
+  lean, both legs and the punching arm. Inputs and outputs are named in its layout file
+  (`assets/core/learned-punch.layout.json`, `PUNCH_LAYOUT`). The left hand's are the right's
+  mirrored (`punchChannels`). A channel not being pushed stays with the posture or the stance.
 - **The window**: admitted 0.89 to 1.01 m from the target, within 0.17 m (`aside`) of the line the
   striking shoulder faces along at contact (`squared`), no higher than 0.1 m over the shoulder
   (`above`); the aim is the trunk's surface square to that shoulder (`square`,

@@ -1,3 +1,4 @@
+import layoutFile from "../../../assets/core/learned-punch.layout.json" with { type: "json" };
 import meta from "../../../assets/core/learned-punch.meta.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
@@ -12,8 +13,8 @@ import type { StraightPunch } from "./straight-punch.ts";
  * **A learned punch** (`dataOf("learned-punch")`): for each body it was trained on, the straight
  * punch's settings it was trained with (its schedule, `StraightPunch.timed`, and its drive), and
  * the network that steers it (`punchFeatures` in, `punchActions(steered)` steer out, as
- * `recoveryNetwork` evaluates it); `made` says how. With `steered` `stance`, its legs' outputs
- * are asks of the stance (`STANCE_ASKS`).
+ * `recoveryNetwork` evaluates it); `made` says how. `steered` names its outputs' layout
+ * (`PUNCH_LAYOUT`): with `stance` its legs' outputs ask the legs goal, else they push.
  */
 export interface PunchPolicy {
   readonly made: string;
@@ -29,69 +30,118 @@ export const PUNCH_POLICY: { readonly bodies: readonly string[] } = deepFreeze(m
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
 export const PUNCH_DECIDE = 1 / 60;
 
-const TRUNK = ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "lumbar flexion"];
-const LEGS = ["left", "right"].flatMap((side) => [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`, `ankle.${side} dorsiflexion`]);
-const ARM = ["shoulder.right flexion", "shoulder.right abduction", "shoulder.right internal rotation", "elbow.right flexion"];
+/**
+ * **What a steered punch reads before its channels**, each a number the drive reads of itself
+ * (`punchFeatures`), named as a layout's inputs name them, for the right hand's punch: the drive's
+ * age, s; the target from the punching shoulder and the fist from the target, in the body frame,
+ * m; the fist's velocity and the centre of mass's in the body frame, m/s; whether the hand
+ * touches; the arm's straight length, shoulder to knuckles, and the height the body stands at
+ * (`BodyView.standing`), m, which tell one body from another; the target's velocity in the body
+ * frame, m/s (`aimed`, a foe coming on or going off). `across` is toward the punching hand's side.
+ */
+const READINGS: readonly string[] = ["drive age", ...["target from shoulder", "fist from target", "fist velocity", "centre velocity"].flatMap(axes),
+  "touching", "arm length", "standing height", ...axes("target velocity")];
+
+function axes(name: string): string[] {
+  return [`${name} across`, `${name} up`, `${name} ahead`];
+}
 
 /**
- * The channels a steered punch reads, and its steer adds to, as the right hand's punch names them:
- * the trunk's turn and lean, both legs, and the punching arm. The left hand's are these mirrored
- * (`punchChannels`).
+ * One output of a learned punch's steer (`PunchLayout`): a push on a named channel (the right
+ * hand's punch's), the legs goal's heading turned the punching shoulder forward, rad, or its
+ * centre of mass moved ahead along the way the punch faces or across it toward the punching hand's
+ * side, m; each its output times its full scale, a distance's in proportion to the body's leg.
  */
-const CHANNELS = [...TRUNK, ...LEGS, ...ARM];
+export type PunchOutput =
+  | { readonly term: "pushes"; readonly channel: string }
+  | { readonly term: "heading"; readonly full: number }
+  | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number };
 
 /**
- * What a stance-steered punch asks of the stance in its legs' place, each an output: its heading
- * turned the punching shoulder forward, rad, and its centre of mass moved ahead along the way the
- * punch faces and across it toward the punching hand's side, m, from where the stance holds it.
- * Each is its output times its full scale (`STANCE_FULL`).
+ * **A learned punch's layout** (`assets/core/learned-punch.layout.json`): its inputs by name, each a
+ * reading (`READINGS`) or `angle <channel>` and `speed <channel>`, rad and rad/s, for the right
+ * hand's punch; the leg its distances' full scales are for, m (`legOf`); and its outputs by
+ * `PunchPolicy.steered`, `stance` its legs asked and `pushes` its legs pushed.
  */
-export const STANCE_ASKS = Object.freeze(["turn", "ahead", "across"] as const);
+export interface PunchLayout {
+  readonly inputs: readonly string[];
+  readonly leg: number;
+  readonly outputs: Readonly<Record<"pushes" | "stance", readonly PunchOutput[]>>;
+}
 
-/**
- * Each stance ask's full scale (`STANCE_ASKS`): a turn of 0.5 rad, and a shift of 0.15 m, about
- * the sole's half length; the stance holds the centre within its support whatever is asked
- * (`withinSupport`).
- */
-const STANCE_FULL = [0.5, 0.15, 0.15] as const;
+/** The learned punch's layout, its names checked as it loads. */
+export const PUNCH_LAYOUT: PunchLayout = deepFreeze(checked(layoutFile as PunchLayout));
 
-/** How many outputs a punch's steer has (`punchChannels`): one a channel, or with `stance`, one a trunk's or arm's channel and one a stance ask. */
+function checked(layout: PunchLayout): PunchLayout {
+  for (const name of layout.inputs) {
+    if (!READINGS.includes(name) && !/^(angle|speed) \S/.test(name)) throw new Error(`the learned punch reads no ${name}`);
+  }
+  for (const outputs of Object.values(layout.outputs)) for (const output of outputs) {
+    const term: string = output.term;
+    if (term !== "pushes" && term !== "heading" && term !== "centre") throw new Error(`the learned punch steers no ${term}`);
+  }
+  return layout;
+}
+
+/** The layout's outputs a punch `steered` so steers by (`PunchLayout.outputs`). */
+const outputsOf = (steered: boolean | "stance"): readonly PunchOutput[] => PUNCH_LAYOUT.outputs[steered === "stance" ? "stance" : "pushes"];
+
+/** How many outputs a punch's steer has (`PUNCH_LAYOUT`'s outputs for `steered`). */
 export function punchActions(steered: boolean | "stance"): number {
-  return steered === "stance" ? TRUNK.length + STANCE_ASKS.length + ARM.length : CHANNELS.length;
+  return outputsOf(steered).length;
 }
 
-/** How many features a steered punch reads (`punchFeatures`). */
-export const PUNCH_FEATURES = 19 + 2 * CHANNELS.length;
+/** How many features a steered punch reads (`PUNCH_LAYOUT`'s inputs). */
+export const PUNCH_FEATURES = PUNCH_LAYOUT.inputs.length;
 
 /**
- * `hand`'s punch's channels, in `CHANNELS`' order, and each one's sense: the left hand's are the
- * right's with the sides swapped, a turn of the trunk reversed, so one steer serves both; and what
- * each of its outputs steers (`punchActions`): a channel, by its place among them, or with
- * `stance`, in the legs' place, the stance's asks.
+ * `hand`'s punch as its layout lays it out for a body whose leg is `leg` m (`legOf`): the left
+ * hand's is the right's with the sides swapped and a turn of the trunk reversed, so one steer
+ * serves both.
  */
-export function punchChannels(hand: Side, steered: boolean | "stance"): PunchChannels {
-  const swap = (name: string) => name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
-  const arm = ARM.map((_, k) => TRUNK.length + LEGS.length + k);
-  return { names: CHANNELS.map((name) => hand === "right" ? name : swap(name)),
-    senses: CHANNELS.map((name) => hand === "left" && / rotation right$/.test(name) && !name.includes(".") ? -1 : 1),
-    outputs: steered === "stance" ? [...TRUNK.keys(), ...STANCE_ASKS.map(() => -1), ...arm] : [...CHANNELS.keys()],
-    stance: steered === "stance" ? TRUNK.length : -1, side: hand === "right" ? 1 : -1 };
+export function punchChannels(hand: Side, steered: boolean | "stance", leg: number): PunchChannels {
+  const swap = (name: string) => hand === "right" ? name : name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
+  const sense = (name: string) => hand === "left" && / rotation right$/.test(name) && !name.includes(".") ? -1 : 1;
+  const channelOf = (name: string) => /^(angle|speed) /.test(name) ? name.slice(6) : null;
+  const inputs = PUNCH_LAYOUT.inputs, outputs = outputsOf(steered), scale = leg / PUNCH_LAYOUT.leg;
+  return {
+    readings: inputs.map((name) => READINGS.indexOf(name)),
+    inputs: inputs.map((name) => { const c = channelOf(name); return c === null ? null : swap(c); }),
+    inputSenses: inputs.map((name) => { const c = channelOf(name); return c === null ? 1 : sense(c); }),
+    speeds: inputs.map((name) => name.startsWith("speed ")),
+    pushes: outputs.map((o) => o.term === "pushes" ? swap(o.channel) : null),
+    senses: outputs.map((o) => o.term === "pushes" ? sense(o.channel) : 1),
+    full: outputs.map((o) => o.term === "heading" ? o.full : o.term === "centre" ? o.full * scale : 1),
+    heading: outputs.findIndex((o) => o.term === "heading"),
+    ahead: outputs.findIndex((o) => o.term === "centre" && o.along === "ahead"),
+    across: outputs.findIndex((o) => o.term === "centre" && o.along === "across"),
+    side: hand === "right" ? 1 : -1,
+  };
 }
 
 /**
- * A hand's punch's channels and their senses, what each output steers (a channel's place in
- * `names`, or -1 for a stance ask), where the stance's asks begin among the outputs (-1 with none),
- * and the hand's side, 1 right and -1 left (`punchChannels`).
+ * A hand's punch as its layout lays it out (`punchChannels`). Each input: its reading's place in
+ * `READINGS` (-1 for a channel's), its channel, the hand's (null for a reading), its sense, and
+ * whether it reads the channel's speed. Each output: the channel it pushes (null for an ask of the
+ * legs), its sense, and its full scale on this body. Where among the outputs the legs goal's
+ * heading, centre ahead and centre across are (-1 with none), and the hand's side, 1 right and -1
+ * left.
  */
 export interface PunchChannels {
-  readonly names: readonly string[];
+  readonly readings: readonly number[];
+  readonly inputs: readonly (string | null)[];
+  readonly inputSenses: readonly number[];
+  readonly speeds: readonly boolean[];
+  readonly pushes: readonly (string | null)[];
   readonly senses: readonly number[];
-  readonly outputs: readonly number[];
-  readonly stance: number;
+  readonly full: readonly number[];
+  readonly heading: number;
+  readonly ahead: number;
+  readonly across: number;
   readonly side: number;
 }
 
-const point = new Vector3(), moved = new Vector3(), at: [number, number, number] = [0, 0, 0];
+const point = new Vector3(), moved = new Vector3(), at: [number, number, number] = [0, 0, 0], read: number[] = [];
 
 /** `x, y, z` (world) into the body frame, into `out`. */
 const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): Vector3 => {
@@ -100,73 +150,76 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
 };
 
 /**
- * **What a steered punch reads**, into `out`, the hand's side mirrored away (across negated for
- * the left hand): the drive's age, s; the target from the punching shoulder and the fist from the
- * target, in the body frame, m; the fist's velocity and the centre of mass's in the body frame,
- * m/s; whether the hand touches; the arm's straight length, shoulder to knuckles, and the height
- * the body stands at (`BodyView.standing`), m, which tell one body from another; the target's
- * velocity in the body frame, m/s (`aimed`, a foe coming on or going off); then each steered
- * channel's angle and speed (`punchChannels`), rad and rad/s, each in its channel's sense.
- * `fromShoulder` is the target less the shoulder, body frame; `channels` are `hand`'s (`punchChannels`).
+ * **What a steered punch reads**, into `out`, as `channels` lay its inputs out: the readings
+ * (`READINGS`), the hand's side mirrored away (across negated for the left hand), and each named
+ * channel's angle or speed, rad or rad/s, in its sense. `fromShoulder` is the target less the
+ * shoulder, body frame; `channels` are `hand`'s (`punchChannels`).
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
   aimed: readonly number[], touching: boolean, arm: number, out: number[]): number[] {
-  const side = hand === "right" ? 1 : -1, fist = view.fists[hand], { names, senses } = channels, muscles = body.muscles;
+  const side = hand === "right" ? 1 : -1, fist = view.fists[hand], muscles = body.muscles;
   let k = 0;
-  out[k++] = since;
-  out[k++] = fromShoulder.x * side; out[k++] = fromShoulder.y; out[k++] = fromShoulder.z;
+  read[k++] = since;
+  read[k++] = fromShoulder.x * side; read[k++] = fromShoulder.y; read[k++] = fromShoulder.z;
   framed(view, fist.position.x, fist.position.y, fist.position.z, point);
   framed(view, target[0]!, target[1]!, target[2]!, moved);
-  out[k++] = (point.x - moved.x) * side; out[k++] = point.y - moved.y; out[k++] = point.z - moved.z;
+  read[k++] = (point.x - moved.x) * side; read[k++] = point.y - moved.y; read[k++] = point.z - moved.z;
   framed(view, fist.position.x + fist.velocity.x, fist.position.y + fist.velocity.y, fist.position.z + fist.velocity.z, moved);
-  out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
+  read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
   const c = view.stance.centre, v = view.stance.velocity;
   framed(view, c.x, c.y, c.z, point);
   framed(view, c.x + v.x, c.y + v.y, c.z + v.z, moved);
-  out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
-  out[k++] = touching ? 1 : 0;
-  out[k++] = arm; out[k++] = view.standing;
+  read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
+  read[k++] = touching ? 1 : 0;
+  read[k++] = arm; read[k++] = view.standing;
   framed(view, target[0]!, target[1]!, target[2]!, point);
   framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
-  out[k++] = (moved.x - point.x) * side; out[k++] = moved.y - point.y; out[k++] = moved.z - point.z;
-  for (let i = 0; i < names.length; i++) out[k++] = muscles.angle(muscles.channel(names[i]!)) * senses[i]!;
-  for (let i = 0; i < names.length; i++) out[k++] = muscles.speed(muscles.channel(names[i]!)) * senses[i]!;
-  out.length = k;
+  read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
+  const { readings, inputs, inputSenses, speeds } = channels;
+  for (let i = 0; i < readings.length; i++) {
+    const name = inputs[i];
+    if (name === null || name === undefined) { out[i] = read[readings[i]!]!; continue; }
+    const channel = muscles.channel(name);
+    out[i] = (speeds[i] ? muscles.speed(channel) : muscles.angle(channel)) * inputSenses[i]!;
+  }
+  out.length = readings.length;
   return out;
 }
 
 /**
  * `steer` (`punchActions` levels, -1 to 1, in `channels`' outputs and senses) added to the pushes
- * the drive asks of those channels, in place: each pushed channel's net level, its sign the sense,
- * no more than flat out. A channel the drive does not push is left to what holds it (the posture,
- * the stance): a push of any level takes a channel from them.
+ * the drive asks of the channels its outputs push, in place: each pushed channel's net level, its
+ * sign the sense, no more than flat out. A channel the drive does not push is left to what holds it
+ * (the posture, the stance): a push of any level takes a channel from them.
  */
 export function steerPushes(pushes: MusclePush[], channels: PunchChannels, steer: readonly number[]): void {
   if (steer.length === 0) return;
-  const { names, senses, outputs } = channels;
-  for (let i = 0; i < outputs.length; i++) {
-    const c = outputs[i]!;
-    if (c < 0) continue;
-    const add = (steer[i] ?? 0) * senses[c]!;
+  const { pushes: names, senses } = channels;
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    if (name === null || name === undefined) continue;
+    const add = (steer[i] ?? 0) * senses[i]!;
     if (add === 0) continue;
-    const j = pushes.findIndex((push) => push.channel === names[c]);
+    const j = pushes.findIndex((push) => push.channel === name);
     if (j < 0) continue;
     const net = Math.max(-1, Math.min(1, pushes[j]!.sense * pushes[j]!.level + add));
-    pushes[j] = { channel: names[c]!, sense: net >= 0 ? 1 : -1, level: Math.abs(net) };
+    pushes[j] = { channel: name, sense: net >= 0 ? 1 : -1, level: Math.abs(net) };
   }
 }
 
 /**
- * What `steer` asks of the stance (`STANCE_ASKS`, at `STANCE_FULL`), for a punch facing
- * `face` rad whose hips turn its shoulder forward in `sense`: the heading's turn, rad, returned,
- * and the centre of mass's shift, world (x, z), m, into `shift`; no turn and no shift where
- * `channels` has no stance asks or the steer is not yet set.
+ * What `steer` asks of the legs goal (`channels`' heading and centre outputs, at their full
+ * scales), for a punch facing `face` rad whose hips turn its shoulder forward in `sense`: the
+ * heading's turn, rad, returned, and the centre of mass's shift, world (x, z), m, into `shift`;
+ * nothing asked that `channels` have no output for, or before the steer is set.
  */
 export function stanceAsks(channels: PunchChannels, steer: readonly number[], face: number, sense: number, shift: [number, number]): number {
   shift[0] = 0; shift[1] = 0;
-  const k = channels.stance;
-  if (k < 0 || steer.length <= k + 2) return 0;
-  const ahead = steer[k + 1]! * STANCE_FULL[1], across = steer[k + 2]! * STANCE_FULL[2] * channels.side, s = sin(face), c = cos(face);
-  shift[0] = ahead * s + across * c; shift[1] = ahead * c - across * s;
-  return steer[k]! * STANCE_FULL[0] * sense;
+  const { heading, ahead: a, across: x, full } = channels;
+  if (steer.length < full.length) return 0;
+  if (a >= 0 || x >= 0) {
+    const ahead = a < 0 ? 0 : steer[a]! * full[a]!, across = x < 0 ? 0 : steer[x]! * full[x]! * channels.side, s = sin(face), c = cos(face);
+    shift[0] = ahead * s + across * c; shift[1] = ahead * c - across * s;
+  }
+  return heading < 0 ? 0 : steer[heading]! * full[heading]! * sense;
 }

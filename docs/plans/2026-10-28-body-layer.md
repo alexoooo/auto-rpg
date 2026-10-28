@@ -19,8 +19,7 @@ registries; they bind no mind.
 
 - **A skill's variants multiply with it.** The learned punch has two layouts (`steered`: its leg
   outputs as pushes, or as asks of the stance), two data keys (`learned-punch`, `stance-punch`), and
-  a `halts` setting in three parts' key lists; its outputs are a list written by hand
-  (`punchChannels`, `src/core/skills/learned-punch.ts`) in metres (`STANCE_FULL`).
+  a `halts` setting in three parts' key lists.
 - **Two body layers do one job.** The arbiter owns the body by concrete control (each channel,
   effector, hand pose and the stance), fills the free ones with the defaults, and lets an action
   hand some back (`delegate`). Kinetic's composer (`src/core/entrants/kinetic/composer.ts`) does
@@ -138,13 +137,15 @@ another walk or balance controller is swappable by passing them, not by a match.
 
 ### A learned skill's inputs and outputs, as data
 
-A learned skill's inputs and outputs are layout files beside its network. Each input names a percept
-of the registry ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), so a skill reads what
-the chooser and the drills read, and a new input is a name. Each output names its claim term (a push
-on a named channel; the legs goal's `heading`; its `centre` ahead or across) and its full scale in
-the body's units (a leg's length for a distance, its length a second for a speed), so a skill
-trained on one body asks in proportion on another. `punchChannels` and `STANCE_FULL` become the
-output file's reader; a new layout is data, not code. The general trainer
+A learned skill's inputs and outputs are layout files beside its network
+(`assets/core/learned-punch.layout.json`, read by `PUNCH_LAYOUT`). Each input is a name: a reading
+of the skill's own (the punch's drive: its age, the target from the shoulder, the fist from the
+target), which only the skill knows, or a channel's angle or speed; a percept of the registry
+([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)) joins them as a name when a skill
+reads one. Each output names its claim term (a push on a named channel; the legs goal's `heading`;
+its `centre` ahead or across) and its full scale on the leg the file names, scaled by the body's
+leg (`legOf`), so a skill trained on one body asks in proportion on another and exactly as trained
+on its own. A new layout is data, not code. The general trainer
 ([Kinetic](2026-10-27-kinetic.md#one-trainer-for-any-skill)) takes both.
 
 ### What each need becomes
@@ -197,10 +198,9 @@ Kinetic's step 2 and land before its baseline evaluation reads the layer
 
 The registry (`PERCEPTS`, `src/core/mind/options/percepts.ts`) reads the gait, the controllers'
 report and the foe's phase, and the named goals (`GOALS`, `src/core/mind/options/goals.ts`) are
-bands over its reach readings, Kinetic's default footwork on `at the edge`. Left: a learned
-skill's input and output layout files and their reader: the punch's inputs (`PUNCH_FEATURES`,
-today a vector written by hand) named as percepts, its outputs as claim terms in the body's units
-(`punchChannels` and `STANCE_FULL` read from the file).
+bands over its reach readings, Kinetic's default footwork on `at the edge`, and the learned
+punch's inputs and outputs are its layout file. Left: the foe's phase read against the target's
+body.
 
 Check: the gate; the learned punch through its layout files gives the same actions to the bit as
 through the code; on the Strike drill's still and fight rungs, the foe's phase read against what the target's body was

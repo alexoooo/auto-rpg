@@ -14,6 +14,7 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness,
 import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
 import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
+import { legOf } from "./gait-scale.ts";
 
 /**
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
@@ -260,7 +261,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
   /** The channels each hand's schedule names, which are pushed only on it. */
-  const steeredChannels = { left: punchChannels("left", settings.steered ?? false), right: punchChannels("right", settings.steered ?? false) };
+  const leg = legOf(body.built.spec), steeredChannels = { left: punchChannels("left", settings.steered ?? false, leg), right: punchChannels("right", settings.steered ?? false, leg) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
   const state = {
     hand: null as Side | null, phase: null as Phase | null,
