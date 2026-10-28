@@ -99,12 +99,12 @@ On the fight's held-out moments (an earlier network, `33f70997`, 120 Hz):
 
 ### Without its leg pushes, and from a walk
 
-The Strike drill's still cases played whole (Node, the bout world on Rapier, 120 Hz; the Warrior,
-`research/learned-puncher.json`, the middle mark, both hands; at `8bb48c30`), each with a variant
-the drill does not have, made for the reading and not kept.
+Played as the Strike drill plays a trial (Node, the bout world on Rapier, 120 Hz; the Warrior,
+`research/learned-puncher.json`, the middle mark, both hands).
 
-**Without its leg pushes** (gaps 0.6 to 1.3 m by 0.1, across 0, 0.1, 0.2 and 0.3 m): the schedule's
-pushes on the hips, knees and ankles left off.
+**Without its leg pushes** (a variant made for the reading and not kept, at `8bb48c30`: gaps 0.6 to
+1.3 m by 0.1, across 0, 0.1, 0.2 and 0.3 m): the schedule's pushes on the hips, knees and ankles left
+off.
 
 | Punch | Landed |
 |---|---|
@@ -116,18 +116,20 @@ While the legs bear, the bearing solve gives every channel of a bearing leg its 
 push (`solveBody`, `src/core/control/solve.ts`), so the leg pushes and the steer's leg outputs move
 nothing; the trunk's and the arm's carry the punch.
 
-**From a walk** (gaps 1.6 to 3.0 m by 0.2, across 0 and 0.2 m): the drill's striker walks into the
-window and asks once settled; the variant asks at the first step its readiness says ready, still
-walking. Asked at a median 0.28 m/s, 27 of 32 with a foot in its swing and 5 in a weight shift.
+**From a walk** (the drill's `walk` rung, record `2026-10-28-17581557-b5a333fa`: gaps 1.6 to
+3.0 m by 0.2, across 0 and 0.2 m): the striker walks into the window and asks once settled in its
+middle, or the first step its readiness says ready, still walking, at a median 0.27 m/s, 18 of 32
+on one foot. From ready is from the first step its readiness said ready to the mark.
 
-| Start | Landed | Weak | Fist speed, median | Mass met, median |
-|---|---|---|---|---|
-| walked in, settled | 21/32 | 11 | 7.2 m/s | 3.9 kg |
-| still walking | 0/32 | 30 (2 missed) | 8.1 m/s | 1.15 kg |
+| Start | Landed | Weak | Fist speed, median | Mass met, median | From ready, median |
+|---|---|---|---|---|---|
+| walked in, settled | 21/32 | 11 | 7.19 m/s | 3.83 kg | 1.75 s |
+| still walking | 0/32 | 30 (2 missed) | 8.05 m/s | 1.11 kg | 0.35 s |
 
 Thrown from a walk the fist is fast and meets half the bar's mass (2.12 and 2.34 kg): the body is
-not behind it. Walking on to where the walk was going while the punch is thrown plays as stopping
-(24 of 32 trials the same), since the walk has all but ended at the window. None fell.
+not behind it. Settling first costs 1.4 s. Walking on to where the walk was going while the punch
+is thrown plays as stopping (a variant at `8bb48c30`: 24 of 32 trials the same), since the walk
+has all but ended at the window. None fell.
 
 ### The landing band
 

@@ -66,7 +66,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
    rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
    and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
-   Kinetic steps 2 and 3 (the Strike drill from a walk, the punch by parts).
+   Kinetic step 3 (the punch by parts, retrained).
 3. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
