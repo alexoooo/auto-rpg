@@ -135,7 +135,10 @@ export async function bootRatings(context: ScreenContext): Promise<void> {
     return;
   }
 
-  const poolList = poolsView(pools, pool, newestPool, (one) => ratingsHref({ evaluation: id, ...(one !== newestPool ? { pool: poolId(one) } : {}), ...(address.subject ? { subject: address.subject } : {}) }));
+  // An evaluation of every protocol has a newest pool for each: each protocol's own is current.
+  const newestOf = (one: Pool): Pool => !evaluation.every ? newestPool
+    : pools.find((other) => other.records.includes(records.filter(({ header }) => header.protocol === one.records[0]!.header.protocol).at(-1)!))!;
+  const poolList = poolsView(pools, pool, newestOf, (one) => ratingsHref({ evaluation: id, ...(one !== newestPool ? { pool: poolId(one) } : {}), ...(address.subject ? { subject: address.subject } : {}) }));
   if (address.subject !== undefined) {
     const subject = address.subject;
     crumbs.push(el("span", { textContent: subject }));
@@ -158,11 +161,12 @@ export async function bootRatings(context: ScreenContext): Promise<void> {
   } else show(heading, poolList, batteryView(evaluation, pool, address.by ?? null, here, labelOf));
 }
 
-/** The evaluation's pools, the one shown marked, each older one with what differs from the newest. */
-function poolsView(pools: readonly Pool[], shown: Pool, newest: Pool, href: (pool: Pool) => string): HTMLElement {
+/** The evaluation's pools, the one shown marked, each older one with what differs from the newest of its kind (`newestOf`). */
+function poolsView(pools: readonly Pool[], shown: Pool, newestOf: (pool: Pool) => Pool, href: (pool: Pool) => string): HTMLElement {
   const describe = (pool: Pool) => {
-    const header = pool.records[0]!.header, differs = [pool.protocol !== newest.protocol && "protocol", pool.environment !== newest.environment && "environment"].filter(Boolean);
-    return `${pool.records.length} record${pool.records.length > 1 ? "s" : ""} (${pool.records.map(({ name }) => recordLabel(name)).join(", ")}); protocol ${pool.protocol}, ${header.harness}`
+    const header = pool.records[0]!.header, newest = newestOf(pool);
+    const differs = [pool.protocol !== newest.protocol && "protocol", pool.environment !== newest.environment && "environment"].filter(Boolean);
+    return `${pool.records.length} record${pool.records.length > 1 ? "s" : ""} (${pool.records.map(({ name }) => recordLabel(name)).join(", ")}); protocol ${header.protocol} ${pool.protocol}, ${header.harness}`
       + (pool === newest ? "; the newest" : `; older: its ${differs.join(" and ")} differs from the newest`);
   };
   return el("section", { className: "pools" }, el("h3", { textContent: pools.length > 1 ? "Pools" : "Pool" }),
@@ -209,15 +213,17 @@ function contestView(pool: Pool, standings: readonly Standing[], here: (address:
 function batteryView(evaluation: Evaluation, pool: Pool, by: string | null, here: (address: Address) => string, labelOf: (name: string) => string): HTMLElement {
   const fields = conditionFields(pool), field = by !== null && fields.includes(by) ? by : null;
   const rows = batteryRows(evaluation, pool, field);
+  // An evaluation of every protocol shows the figures of the pool's own protocol: the others read none of its cases.
+  const shown = evaluation.figures.flatMap((figure, k) => !evaluation.every || rows.some((row) => row.figures[k] !== null) ? [{ figure, k }] : []);
   const choose = el("p", { className: "by" }, "By: ", ...[null, ...fields].flatMap((one, k) => [k ? " · " : "",
     one === field ? el("strong", { textContent: one ?? "subject" }) : link(here(one === null ? {} : { by: one }), one ?? "subject")]));
   return el("section", { className: "battery" }, el("h3", { textContent: "Figures" }), choose,
-    el("p", { className: "note", textContent: evaluation.figures.map((figure) => `${figure.name}: ${figure.unit}, ${figure.better} is better`).join("; ") + ". 95 % intervals: Wilson for a rate, cases resampled for a mean or median." }),
-    el("div", { className: "scroll" }, table(["Subject", "Version", ...(field ? [field] : []), "Cases", ...evaluation.figures.map((figure) => figure.name), "Last record"],
+    el("p", { className: "note", textContent: shown.map(({ figure }) => `${figure.name}: ${figure.unit}, ${figure.better} is better`).join("; ") + ". 95 % intervals: Wilson for a rate, cases resampled for a mean or median." }),
+    el("div", { className: "scroll" }, table(["Subject", "Version", ...(field ? [field] : []), "Cases", ...shown.map(({ figure }) => figure.name), "Last record"],
       rows.map((row) => {
         const id = row.name.includes(" ") ? row.name.slice(0, row.name.lastIndexOf(" ")) : row.name;
         return [link(here({ subject: id }), id), labelOf(row.name).slice(id.length + 1), ...(field ? [row.value ?? ""] : []), String(row.cases),
-          ...row.figures.map((estimate) => estimateText(estimate)), recordLabel(row.last)];
+          ...shown.map(({ k }) => estimateText(row.figures[k] ?? null)), recordLabel(row.last)];
       }), "figures")));
 }
 
