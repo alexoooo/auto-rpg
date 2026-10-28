@@ -171,7 +171,7 @@ output file's reader; a new layout is data, not code. The general trainer
 | Another gait: a faster run, a steadier walk, a learned one | another gait implementation, by name in the legs' set: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
 | A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
-| Getting up | a sub-mind with the whole body (`hosting`) until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 8) |
+| Getting up | a chain of ground skills, the chooser's as any other, each a commitment holding the whole body until bearing on hands and knees is in the legs goal ([Kinetic](2026-10-27-kinetic.md) step 9) |
 
 ## Changes to Kinetic
 
@@ -300,7 +300,7 @@ drill's rung, the kick's, the fold's) no worse, or the step is not kept and the 
 On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the stance layout exported as the
 learned punch from the run's best checkpoint by the still and walk rungs; the push layout,
 `steered`'s variants and the second data key deleted once no body without toes throws it. Its
-retraining ([Kinetic](2026-10-27-kinetic.md) step 6) reads the report, its reward counting unmet
+retraining ([Kinetic](2026-10-27-kinetic.md) step 14) reads the report, its reward counting unmet
 asks.
 
 Check: the gate; the Strike drill's still and walk rungs of the learned puncher and Kinetic,
