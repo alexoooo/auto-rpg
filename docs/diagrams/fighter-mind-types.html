@@ -137,13 +137,13 @@ const BANDS = [
     { id: "Senses", col: 3, kind: "interface", desc: "the world, each control step", lines: [
       "time: s", "side: string", "out: boolean", "others: BodySense[]", "objects?: ObjectSense[]", "solids?: SolidSense[]"] },
     { id: "BodySense", col: 4, kind: "interface", desc: "another body, as sensed", lines: [
-      "id, side: string", "spec: BodySpec", "out, down: boolean", "centre, velocity: Vector3", "segments: Map<name, SegmentSense>", "~ no hit points, no orders, no mind"] },
+      "id, side: string", "spec: BodySpec", "out, down: boolean", "centre, velocity: Vector3", "segments: Map<name, SegmentSense>", "life: fraction of full", "~ no part’s hit points, no orders, no mind"] },
   ]] },
   { title: "Choosing", cap: "Inside the reference Mind: the situation, the player’s settings and the skills’ profiles become the Intent. The chooser is a part, so another can be swapped in.", path: "src/core/mind/options/", rows: [[
     { id: "Settings", col: 0, kind: "interface", tag: "new", you: true, desc: "what the chooser lets a player set", lines: [
-      "deck: SkillName[]", "rewards: Weights", "~ { dealt, taken, orders, fall }", "depth: number", "~ whatever the chooser reads"] },
-    { id: "Chooser", col: 1, kind: "part role", tag: "reshaped", key: true, desc: "one skill per body part", lines: [
-      "choose(now, running): Intent", "~ code: decide(now) → Option, depth 1", "~ reference: best(now, depth),", "~ worth plus the best follow-up", "~ rewards · terms / (s + 1)", "~ commitment, then legs, then cover", "~ rethinks on a cue or 0.2 s"] },
+      "deck: SkillName[]", "obedience: life a metre", "margin: life (chance)", "~ whatever the chooser reads"] },
+    { id: "Chooser", col: 1, kind: "part role", tag: "reshaped", key: true, desc: "a commitment, then the default layer", lines: [
+      "choose(now, running): Intent", "~ worth, in life: payoff", "~   + position(exit) − position(now)", "~   − rate of play · time", "~ within the step: no search ahead", "~ commitment, then legs, then cover", "~ rethinks at an exit, a let-go point,", "~ a cue, or every 0.2 s"] },
     { id: "Intent", col: 2, kind: "interface", tag: "reshaped", key: true, desc: "the skills selected now", lines: [
       "+ choices: SkillChoice[]", "~ no two share a Resource", "interrupt?: id[]", "~ a free part runs its default"] },
     { id: "SkillChoice", col: 3, kind: "interface", tag: "new", desc: "one skill and its goal", lines: [
@@ -152,14 +152,14 @@ const BANDS = [
       "TargetRef { body, region }", "range { foe, near, far }", "~ near, far: m, or a name", "place { at }", "velocity { walk, face }", "~ footwork adds pace, height"] },
   ], [
     { id: "Situation", col: 0, kind: "interface", desc: "what a decision reads", lines: [
-      "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "danger, exposure: cost",
+      "time: s", "down: boolean", "orders: Orders | null", "focus: BodySense | null", "apart: m", "incoming: Cover | null", "foe phase: guard | winding up | …", "life: each side’s, the clock",
       "reach { apart, theirs, mine }", "~ each a Percept, read once", "+ ended: Ended[]"] },
     { id: "Terms", col: 1, kind: "interface", desc: "what a choice is expected to bring", lines: [
-      "duration: s", "dealt: J", "taken: cost", "orders: progress", "fall: chance"] },
+      "duration: s", "dealt, taken: life", "orders: life a metre", "exit: Situation"] },
     { id: "Percept", col: 2, kind: "interface", desc: "one named reading of the senses", lines: [
       "read(seen): value", "cue?(value): event", "~ PERCEPTS: the registry", "~ a cue changing: decide now"] },
     { id: "Profile", col: 3, kind: "interface", tag: "new", desc: "a skill’s measured model", lines: [
-      "skill: SkillName", "over: its entry variables", "lands, time to contact", "recovery, falls", "exit: where it hands over", "model(now): Terms"] },
+      "skill: SkillName", "over: range, closing, foe phase", "payoff: life, time to contact", "let go: its cost", "exit: where it hands over", "expect(now, goal): Terms"] },
     { id: "Drill", col: 4, kind: "battery", desc: "one skill, rung by rung", lines: [
       "subject: mind/skill @ version", "rungs: still pad → opponent", "record: trials", "~ the owner accepts a rung"] },
   ]] },
@@ -168,11 +168,11 @@ const BANDS = [
       "footprints: Resource → controls", "overlap(a, b): boolean", "~ a humanoid: legs, trunk,", "~ hand.left, hand.right"] },
     { id: "Skill", col: 1, kind: "interface", tag: "reshaped", key: true, desc: "an option (the Executor, widened)", lines: [
       "needs(goal): Resource[]", "readiness(view, goal): Readiness", "start(view, choice)", "update(…): phase, holds", "command(view, id): ActionClaim",
-      "interrupt?(view, id)", "+ exit: Window", "~ a caller may take over there", "state: object", "~ holds only ever shrink"] },
+      "interrupt?(view, id)", "+ exit: Window", "~ a caller may take over there", "+ letGo: until no return", "state: object", "~ holds only ever shrink"] },
     { id: "SkillSet", col: 2, kind: "function", key: true, desc: "runs the Intent on the body", lines: [
       "~ each step: start, update, command", "~ claims first, then the defaults:", "~ legs stand, trunk holds the guard,", "~ hands hold the guard pose", "→ BodyCommand"] },
     { id: "ActionClaim", col: 3, kind: "interface", desc: "one skill’s writes this step", lines: [
-      "posture?: Pose", "pushes?: MusclePush[]", "effectors?: by segment", "handPoses?: by hand", "legs?: LegsAsk", "lower?, steer?, support?", "delegate?: Resource[]"] },
+      "posture?: Pose", "pushes?: MusclePush[]", "effectors?: by segment", "handPoses?: by hand", "legs?: LegsGoal", "~ a stance goal in part, and the walk"] },
   ], [
     { id: "Readiness", col: 0, kind: "union", desc: "can it start here?", lines: [
       "ready", "position { window: Window }", "~ Window { at, along, across,", "~   facing, speed }", "waiting | blocked { reason }"] },

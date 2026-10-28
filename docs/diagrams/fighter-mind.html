@@ -258,12 +258,12 @@ const intent = mind[2];
   el("rect", { x: intent.cx - 35 + i * 18, y: intent.cy + 8, width: 15, height: 7, rx: 2, style: `fill: var(--${k})` }, intent.g));
 
 txt(gC, 92, 548, "IT READS", "smallcaps", "start");
-const reads = ["a foe and its distance", "a blow coming", "who is down", "orders"].map((s, i) => tag(90, 578 + i * 38, s));
+const reads = ["a foe and its distance", "the foe’s phase", "life and the clock", "orders"].map((s, i) => tag(90, 578 + i * 38, s));
 link(`M${Math.max(...reads.map(r => r.right)) + 6},${reads[0].cy} C330,${reads[0].cy} 340,${mind[0].cy} 420,${mind[0].cy} L${mind[0].left - 4},${mind[0].cy}`);
 
 const inputs = [
   badge(880, 580, "Skill deck", "what it can use", { tip: "The skills this fighter has." }),
-  badge(880, 632, "Rewards", "what it values", { tip: "What a blow dealt, a blow taken, a fall and obeying are worth." }),
+  badge(880, 632, "Obedience", "orders, in life", { tip: "Every worth is life, the verdict’s unit; obeying an order is the one weight a player sets." }),
   badge(880, 700, "Profiles", "measured on drills", { neutral: true, tip: "How well each skill does where it can start: the game measures it." }),
 ];
 const chooser = mind[1];
@@ -295,14 +295,14 @@ LANES.forEach(([k, name], i) => {
   txt(gC, 340, laneY(i) + 28, name, "lane-name", "start");
 });
 const skills = [
-  { rows: [3], t: [0, .54], label: "keep-range", sub: "foe, jab’s range" },
+  { rows: [3], t: [0, .54], label: "move", sub: "at the edge" },
   { rows: [0], t: [0, .30], label: "cover", sub: "head" },
   { rows: [1, 2], t: [.08, .24], label: "jab", sub: "head", focus: true },
-  { rows: [0, 1, 2], t: [.32, .50], label: "one-two", sub: "holds three parts" },
+  { rows: [1, 2], t: [.32, .50], label: "jab", sub: "again, at its exit" },
   { rows: [2, 3], t: [.555, .82], label: "fold", sub: "legs + trunk" },
   { rows: [0], t: [.555, .82], label: "cover", sub: "head" },
   { rows: [1], t: [.60, .74], label: "low jab", sub: "from the fold" },
-  { rows: [3], t: [.84, 1], label: "step-out", sub: "" },
+  { rows: [3], t: [.84, 1], label: "move", sub: "out of reach" },
 ];
 function chip(s) {
   const r0 = Math.min(...s.rows), r1 = Math.max(...s.rows);

@@ -20,7 +20,7 @@ rung for the Warrior alone (`assets/core/learned-punch.json` at `35b6998e`, 44.4
 
 Harness throughout: Node, the core's world on Rapier. Right is the guard's rear hand, left its
 lead. Speeds are over the fist's last 0.1 m. The bar is `BAR` (`src/evaluation/strike/read.ts`);
-the [Kinetic](../plans/2026-10-27-kinetic.md#the-bar) plan states it.
+the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
 
 ## What is used
 
