@@ -11,7 +11,7 @@ import type { HandPose } from "../../spec/body.ts";
 import type { ActionAround, ActionClaim, Resource } from "../../skills/action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "../../skills/action-instances.ts";
 import { actionResources } from "../../skills/action-resources.ts";
-import { navigated, type Holders } from "../../skills/arbiter.ts";
+import { navigated, stanceAsked, type Holders } from "../../skills/arbiter.ts";
 import type { GuardSkill } from "../../skills/guard.ts";
 import { STANCE_LOWER, type Locomotion } from "../../skills/locomotion.ts";
 import type { LegsAsk } from "../../skills/skill.ts";
@@ -175,7 +175,7 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         for (const channel of model.channels) if (swung[channel] !== undefined) posture[channel] = swung[channel]!;
       }
       // The actions' claims, each on the parts it holds; the legs' only through the stance.
-      let legsAsk: LegsAsk | null = null, lower = intent.lower, steer = 0;
+      let legsAsk: LegsAsk | null = null, lower = intent.lower, asks: Pick<ActionClaim, "steer" | "shift"> = {};
       for (const { by, held, claim } of claims) {
         const take = (write: string, part: BodyPart): boolean => {
           const reason = refusalOf(part, held);
@@ -192,8 +192,8 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         if (held.includes("legs")) {
           legsAsk = claim.legs ?? { kind: "hold" };
           lower = claim.lower ?? lower;
-          steer = claim.steer ?? 0;
-        } else if (claim.legs !== undefined || claim.lower !== undefined || claim.steer !== undefined) refuse(by, "legs", "it does not hold the legs");
+          asks = claim;
+        } else if (claim.legs !== undefined || claim.lower !== undefined || claim.steer !== undefined || claim.shift !== undefined) refuse(by, "legs", "it does not hold the legs");
       }
       // The legs: the stance, as the action that holds them asks or the intent where none does.
       const ask: LegsAsk = legsAsk ?? { kind: "free" };
@@ -205,7 +205,7 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
         case "place": stance = legs.place ? legs.place(view, ask.footing, lower) : legs.goal(view, null, legs.heading, dt, lower); break;
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
-      if (stance && steer !== 0) stance = { ...stance, heading: stance.heading + steer };
+      stance = stanceAsked(stance, view, asks);
       state.walkable = ask.kind === "free";
       const command: BodyCommand = { posture, pushes, points, effectors: goals, handPoses, stance };
       instances.snapshot();
