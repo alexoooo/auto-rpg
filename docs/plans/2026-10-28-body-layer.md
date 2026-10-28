@@ -175,7 +175,7 @@ output file's reader; a new layout is data, not code. The general trainer
 | Another gait: a faster run, a steadier walk, a learned one | another gait implementation, by name in the legs' set: a `LegsGoal` in, a stance goal or its own drive out; passes the probes |
 | Another balance controller | another stance: a `StanceGoal` in, the driven legs' torques and `StanceReading` out; passes the probes |
 | A weapon in both hands | goals on the item's points, once the controller can move two arms closing on one item (open, [roadmap](../roadmap.md#body-and-motor-control)) |
-| Getting up | a chain of ground skills, the chooser's as any other, its hands and knees asked as bearing ends in `feet`; each a commitment holding the whole body until legs bear on them ([Kinetic](2026-10-27-kinetic.md) step 13) |
+| Getting up | a chain of ground skills, the chooser's as any other, its hands and knees asked as bearing ends in `feet`; each a commitment holding the whole body until legs bear on them ([Kinetic](2026-10-27-kinetic.md) step 12) |
 | A quadruped's legs | the same legs goal over its four bearing ends |
 
 ## Changes to Kinetic
@@ -187,7 +187,7 @@ output file's reader; a new layout is data, not code. The general trainer
   the default footwork at the edge of reach, the covers, a drill's tactics in the chooser's place,
   the stand-up in `subs`.
 - **What then sets it apart from the options fighter** is configuration alone (low support), so
-  the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md) step 15).
+  the options fighter becomes a Kinetic preset ([Kinetic](2026-10-27-kinetic.md) step 14).
 
 ## Changes to the learned punch
 
@@ -275,7 +275,8 @@ game's own legs pass or report.
 
 One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the
 options fighter's (`PERCEPTS`, `src/core/mind/options/percepts.ts`), with the gait's phase
-(`view.stance`: `touching`, `velocity`, `plan`) and the controllers' report beside the chooser's
+(`view.stance`: `touching`, `velocity`, `plan`), the controllers' report and the foe's phase
+(its first phases those the threat readings and the down rule give) beside the chooser's
 readings. A cue's limit a number or another percept, and the first named goals as cues over it
 (`close`, `at the edge`, `out of reach`, `guard to guard`); Kinetic's default footwork asks
 `at the edge` where it computes `toEdge` now. A learned skill's input and output layout files and
@@ -286,7 +287,10 @@ from the file).
 Check: the gate; the walk rung's `asked` fields from the gait percept equal the drill's own; the
 learned punch through its layout files gives the same actions to the bit as through the code;
 Kinetic's still and walk rungs the same to the bit with its footwork on `at the edge`; each named
-goal read on the Warrior and the Rogue gives each its own range, in proportion to its reach.
+goal read on the Warrior and the Rogue gives each its own range, in proportion to its reach; on
+the Strike drill's still and fight rungs, the foe's phase read against what the target's body was
+doing (its strike's contact, its fall, its rise), step by step, its misreadings counted by
+phase.
 
 ### 7. Kinetic on the toolkit's body layer
 
