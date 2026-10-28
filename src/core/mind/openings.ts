@@ -460,7 +460,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
           if(entry){
             pointToRef(sensed,entry,front);
             let facing=poly.planes[0]!, nearest=-Infinity;
-            for(const plane of poly.planes){const d=dot(plane.normal,entry)-plane.offset;if(d>nearest){nearest=d;facing=plane;}}
+            for(const plane of poly.planes){const n=plane.normal,d=(n[0]*entry[0]+n[1]*entry[1]+n[2]*entry[2])-plane.offset;if(d>nearest){nearest=d;facing=plane;}}
             scratch.set(...facing.normal).applyRotationQuaternionToRef(sensed.rotation,scratch);normal[0]=scratch.x;normal[1]=scratch.y;normal[2]=scratch.z;
             consider(front,"side",normal);
           }

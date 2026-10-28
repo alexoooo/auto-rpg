@@ -309,6 +309,37 @@ drill stepped in) it starts 0.6 to 0.7 m from the target, its guard hand meets t
 into the drive, and the fist meets the target from rest, half open, at 1.4 to 4.4 m/s. The owner
 watched it: too close, awkward, not landing.
 
+### The trainer's speed
+
+`research/learning-speed.mjs` on `research/run-learning-server.mjs`: the punch's environment on the
+toed Warrior (`{"environment":"punch","character":{"toes":true}}`, its other settings the
+environment's), random steers, 30 s a reading; Node 24.19, Rapier, 120 Hz, the development host
+(16 cores). Decisions a second, before and after the opening search's hull entry was written in
+numbers (`hullEntry`, `src/core/mind/hull-entry.ts`; the facing plane in `openingSelector`):
+
+| Workers | Environments each | Before | After |
+|---:|---:|---:|---:|
+| 1 | 1 | 133 | 196 |
+| 8 | 1 | 513 | 649 |
+| 16 | 1 | 568 | 725 |
+| 8 | 4 | 635 | 897 |
+| 16 | 2 | 590 | - |
+| 16 | 4 | 684 | 758 |
+| 28 | 2 | 434 | - |
+
+- **The step is the cost.** Under V8's CPU profiler, one environment on one thread with no server:
+  the world's step 85 % of the time, Rapier's wasm 23 %. Before the cut, the straight punch's
+  surface aim (`aims.ts`) searched the target's openings each control step, 25 % of the time, the
+  hull entry alone 13 %; after it, about 3 %. One thread went from 139 decisions a second to 210.
+- **The cut is exact**: every fingerprint case's pose is unchanged, and a bout's step
+  (`research/step-time.mjs`) is within its noise ([what a step costs](step-cost.md#a-bouts-step)).
+- **Threads share the machine poorly**: eight lone environments in eight processes make about
+  100 a second each against 139 alone, 28 % lost to contention, so 16 workers make less than twice
+  what 8 do, and 28 make less than 16.
+- **The lockstep waits on the slowest**: every message waits for its slowest environment (the
+  median 13.6 ms at 8 workers before the cut), so several environments a worker even out the wait;
+  8 workers of 4 each are the fastest read.
+
 ## Tried and not kept
 
 - **A layer on the tracked arm** (`drive`, on the planted cross, `research/punch-calibration.mjs`):

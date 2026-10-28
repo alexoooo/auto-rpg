@@ -103,6 +103,12 @@ wasm); the two bodies' muscle hooks 35.0, 34.6; the minds' steps 25.4, 25.7, of 
 root solve (`carryRoot`) 7.7, 8.0; the stance's limbs 5.0, 4.6; `bodyDynamics.update` 4.9, 4.9. The
 senses, tactics and skills are each under 1 %: deciding costs nothing next to carrying it out.
 
+The opening search's hull entry (`hullEntry`, `src/core/mind/hull-entry.ts`) and its facing plane
+work in numbers, not vectors, the same sums in the same order: the punch's trainer went from 133 to
+196 decisions a second on one environment ([the trainer's speed](learned-punch.md#the-trainers-speed)),
+and a longer bout (the Warrior against the Rogue, 3934 steps, `step-time.mjs`) from a least mean of
+2.371 ms and median 1.888 to 2.346 and 1.873, within its noise, every fingerprint case unchanged.
+
 ### The reach solver at its cap
 
 A hand sent to a place (`motor.ts`'s `solveAt`) is solved three times a step (the path's point a step
