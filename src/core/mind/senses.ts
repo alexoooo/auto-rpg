@@ -19,6 +19,8 @@ export interface Senses {
   readonly side: string;
   /** Whether this body is out of the fight. Its own, so it knows at once, whatever the delay. */
   readonly out: boolean;
+  /** Its own life, a fraction of its full life (`Pool.bar`), at once: whole where nothing keeps its life. */
+  readonly life: number;
   /** Every other body the senses carry, as they pass it (`createSenses`): in the order added. */
   readonly others: readonly BodySense[];
   /** Explicitly permitted external objects, including separate equipment and research targets. */
@@ -28,8 +30,8 @@ export interface Senses {
 }
 
 /**
- * **Another body, as sensed**: everything physical of it, and whether it is still in the fight.
- * Not its hit points. A planner's choice of foe reads `side`, `out` and `centre`
+ * **Another body, as sensed**: everything physical of it, whether it is still in the fight, and
+ * its life as a whole, never a part's hit points. A planner's choice of foe reads `side`, `out` and `centre`
  * (`nearestFoe`, `targets.ts`), and the edge of a foe's reach the spec with what the body holds
  * (`rangeOf`); the segments' poses, velocities and spins are what a mind that attacks a moving
  * body, blocks or parries reads (`docs/roadmap.md`, The AI).
@@ -44,6 +46,8 @@ export interface BodySense {
   readonly out: boolean;
   /** Whether it is down by its own body's rule (`PhysicalBody.down`): what anyone who sees it lying sees. */
   readonly down: boolean;
+  /** Its life, a fraction of its full life (`Pool.bar`), as late as every reading of it. */
+  readonly life: number;
   /** Its centre of mass and that centre's velocity, world. */
   readonly centre: Vector3;
   readonly velocity: Vector3;
@@ -62,7 +66,7 @@ interface SegmentSense {
   readonly spin: Vector3;
 }
 
-/** A body the senses carry: who it is, whether it is out of the fight and whether it is down, each asked once a step, and the fixed geometry it is granted. */
+/** A body the senses carry: who it is, whether it is out of the fight, whether it is down and its life, each asked once a step, and the fixed geometry it is granted. */
 interface Sensed {
   readonly id: string;
   readonly side: string;
@@ -70,6 +74,8 @@ interface Sensed {
   out(): boolean;
   /** Whether it is down; never, unless given. */
   down?(): boolean;
+  /** Its life, a fraction of its full life (`Pool.bar`); whole, unless given. */
+  life?(): number;
   readonly solids?: readonly SolidSense[];
 }
 
@@ -92,8 +98,8 @@ export interface SensesHub {
   dispose(): void;
 }
 
-/** What a body senses before anything has been read for it: no time, no side, nobody. */
-export const NOTHING_SENSED: Senses = Object.freeze({ time: 0, side: "", out: false, others: Object.freeze([]) });
+/** What a body senses before anything has been read for it: no time, no side, its life whole, nobody. */
+export const NOTHING_SENSED: Senses = Object.freeze({ time: 0, side: "", out: false, life: 1, others: Object.freeze([]) });
 
 /** Senses that tell the time and nothing else: a body alone on a stand. */
 export function clockSenses(world: World): () => Senses {
@@ -104,9 +110,9 @@ export function clockSenses(world: World): () => Senses {
 /**
  * How many numbers one reading of a body of `segments` holds, in the order `read` writes them and
  * `show` takes them: each segment's position, turn, centre, velocity and spin, then the whole
- * body's centre, its velocity, whether it is out, whether it is down and its observation time.
+ * body's centre, its velocity, whether it is out, whether it is down, its life and its observation time.
  */
-function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) * segments + 3 + 3 + 1 + 1 + 1; }
+function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) * segments + 3 + 3 + 1 + 1 + 1 + 1; }
 
 /**
  * **The one layer between the world and every mind's `Senses`.** In the step's sensing phase
@@ -123,8 +129,8 @@ export function createSenses(world: World, delay = 0): SensesHub {
   const state: Record<string, Remembered> = {};
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
 
-  /** `entry`'s body as it stands, into `frame`: each segment, then the whole body's centre, its velocity, whether it is out, whether it is down and its observation time. */
-  const read = (entry: Carried, frame: Float64Array, out: boolean, down: boolean): void => {
+  /** `entry`'s body as it stands, into `frame`: each segment, then the whole body's centre, its velocity, whether it is out, whether it is down, its life and its observation time. */
+  const read = (entry: Carried, frame: Float64Array, out: boolean, down: boolean, life: number): void => {
     let k = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
     for (const segment of entry.segments) {
       const at = segment.node.position, q = segment.node.rotationQuaternion!, m = segment.rigid.mass;
@@ -151,6 +157,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
     frame[k++] = vx / mass; frame[k++] = vy / mass; frame[k++] = vz / mass;
     frame[k++] = out ? 1 : 0;
     frame[k++] = down ? 1 : 0;
+    frame[k++] = life;
     frame[k++] = world.time;
   };
   /** `frame` into what the others are shown of `entry`. */
@@ -169,6 +176,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
     entry.shown.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
     entry.shown.out = frame[k++] === 1;
     entry.shown.down = frame[k++] === 1;
+    entry.shown.life = frame[k++]!;
     entry.shown.time = frame[k++]!;
   };
 
@@ -176,7 +184,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
     for (const entry of carried) {
       // The newest frame goes where the oldest was; the one after it is now `delay` steps old.
       const memory = state[entry.sensed.id]!;
-      read(entry, memory.frames[memory.at]!, entry.sensed.out(), entry.sensed.down?.() ?? false);
+      read(entry, memory.frames[memory.at]!, entry.sensed.out(), entry.sensed.down?.() ?? false, entry.sensed.life?.() ?? 1);
       memory.at = (memory.at + 1) % memory.frames.length;
       show(entry, memory.frames[memory.at]!);
     }
@@ -204,7 +212,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
       if (sensed.id in state) throw new Error(`the senses carry a body called ${sensed.id} already`);
       const segments = [...sensed.built.segments.values()];
       const shown = {
-        id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false, down: false, time: world.time,
+        id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false, down: false, life: 1, time: world.time,
         centre: new Vector3(), velocity: new Vector3(),
         segments: new Map([...sensed.built.segments.keys()].map((name) => [name,
           { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])),
@@ -213,9 +221,9 @@ export function createSenses(world: World, delay = 0): SensesHub {
         sensed, segments, shown, others: [],
         mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0),
       };
-      // Every frame starts as the body stands, in the fight and up: `out` and `down` are first asked at the next step.
+      // Every frame starts as the body stands, in the fight, up and with the life it has: `out` and `down` are first asked at the next step.
       const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
-      read(entry, standing, false, false);
+      read(entry, standing, false, false, sensed.life?.() ?? 1);
       for (let i = 0; i <= delay; i++) memory.frames.push(standing.slice());
       state[sensed.id] = memory;
       show(entry, standing);
@@ -225,6 +233,7 @@ export function createSenses(world: World, delay = 0): SensesHub {
         get time() { return world.time; },
         side: sensed.side,
         get out() { return sensed.out(); },
+        get life() { return sensed.life?.() ?? 1; },
         others: entry.others,
       };
       if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });

@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
-import { SIDES } from "../src/arena/duel.ts";
+import { SIDES, senseDelayOf } from "../src/arena/duel.ts";
+import { reactionSteps } from "../src/core/rules/rulebook.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelRefusal } from "../src/core/models.ts";
@@ -134,6 +135,31 @@ test("a mind that draws by chance plays apart on two bout seeds, and a seed's bo
   assert.equal(one.resumed, one.end.tail, "a seed's bout forked and resumed is the bout, step by step, its stream's word in its state");
   // The control: with no margin nothing is drawn, so the seed changes nothing.
   assert.equal((await played(recipe(0, 2), {}, false)).end.digest, (await played(recipe(0, 1), {}, false)).end.digest, "with no margin the seed plays no part");
+});
+
+test("a mind senses its own life at once and another's as late as the rest of it, a fraction of the whole, never a part's hit points", async () => {
+  // The options fighters at arm's reach, each with a quarter of its weight to ask, wound each other within the bout.
+  const config = CONTROLLERS.options.presets.options.config;
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config } };
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  try {
+    duel.play([]);
+    // The senses read each body as the step before left it, blows included, and show it the reaction time later.
+    const late = reactionSteps(senseDelayOf(recipe), world.hz) + 1, [left, right] = SIDES.map((side) => duel.duelists[side]);
+    const bars = [], own = [], seen = [];
+    while (duel.steps < STEPS * 2) {
+      world.step();
+      bars.push(left.pool.bar()); own.push(left.senses().life);
+      const sensed = right.senses().others.find((body) => body.id === left.id);
+      seen.push(sensed.life);
+      assert.deepEqual(Object.keys(sensed).filter((key) => /hp|hit|pool/i.test(key)), [], "no part's hit points among what is sensed of a body");
+    }
+    const wounded = bars.findIndex((bar) => bar < 1);
+    assert.ok(late > 1 && wounded >= 0 && wounded < bars.length - late, `the left is wounded ${late} steps or more before the end (first at step ${wounded})`);
+    assert.deepEqual(own, bars, "its own life is its bar, at once");
+    assert.deepEqual(seen.slice(late), bars.slice(0, bars.length - late), "the other sees its bar as the step before left it, the reaction time late");
+    assert.ok(seen.slice(0, late).every((life) => life === 1), "before then, as it stood");
+  } finally { dispose(); }
 });
 
 test("a body is down by the fight's rule of the body alone, whatever height its mind asks it to hold", async () => {

@@ -432,9 +432,10 @@ step, after the muscles read the joints.
 - That is all a mind does to the world. Camera state never reaches it; nothing else under `src/`
   drives muscles. Its memory is its `state` (`Mind.state`), saved with its body ([State](#state)).
 
-**Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, and every other
-body (`BodySense`): side, spec with what it holds, out, down by its spec's rule, centre of mass and
-its velocity, each segment's pose and motion. Never hit points or another mind. A fight's one
+**Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
+fraction of its full life, `Pool.bar`, at once), and every other body (`BodySense`): side, spec
+with what it holds, out, down by its spec's rule, its life, centre of mass and its velocity, each
+segment's pose and motion. Never a part's hit points or another mind. A fight's one
 sensing layer (`createSenses`) reads every body in the step's sensing phase, before any mind, so
 all minds see one moment, every other body shown late by the reaction time (`Rulebook.reaction`,
 0.15 s, [play](reference/play.md#reaction-time)) and a mind's own at once. A lone body senses

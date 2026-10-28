@@ -89,7 +89,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;
-  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false };
+  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false, life: () => pool.bar() };
   let source: readonly SolidSense[] | undefined, granted: readonly SolidSense[] | undefined;
   if (enlisting.solids) Object.defineProperty(sensed, "solids", { enumerable: true, get() {
     const current = typeof enlisting.solids === "function" ? enlisting.solids() : enlisting.solids;
