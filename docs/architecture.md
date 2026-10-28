@@ -291,6 +291,11 @@ actions over it.
 - An executor never closes distance: tactics approach its entry window; preparation may place the
   feet locally.
 - A mind may end a live action at once (`Intent.interrupt`, `Executor.interrupt`).
+- An action writes only the controls it holds, and a held control it leaves unwritten is the
+  defaults' (`skillSet`): the guard's posture, covers, holds and hand poses, the walk's arm swing,
+  the fold's trunk. Writing any channel of an effector's chain writes the effector, so no default
+  goal takes a chain an action drives; a legs goal writes the legs. An action that wants a
+  control neutral writes its reference.
 - Contacts are observed after physics from each action's admitted surfaces. Intended hits, blocks
   and incidental contacts are labels for tactics, never damage.
 - Every skill answers `Skill.resume` (`src/core/skills/skill.ts`) and is in the one list its skill

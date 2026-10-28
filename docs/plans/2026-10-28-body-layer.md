@@ -21,7 +21,7 @@ registries; they bind no mind.
   outputs as pushes, or as asks of the stance), two data keys (`learned-punch`, `stance-punch`), and
   a `halts` setting in three parts' key lists.
 - **Two body layers do one job.** The arbiter owns the body by concrete control (each channel,
-  effector, hand pose and the stance), fills the free ones with the defaults, and lets an action
+  effector, hand pose and the stance), fills the free ones with the defaults, and let an action
   hand some back (`delegate`). Kinetic's composer (`src/core/entrants/kinetic/composer.ts@6b7a7907`) did
   the same with four coarser parts, and every change to the claim landed in both (`legsGoal`).
 - **Refusals police what the body already decides.** A push on a leg the stance drives is
@@ -109,9 +109,9 @@ order: the guard's rest posture, its covers and holds, its hands' poses, the wal
 free arm without a cover. A posture under a goal or point is that chain's preferred angles, not a
 competing write: the guard's rest posture stays under its own covers.
 
-Open (step 8): a control an action holds and does not write is neutral (its reference angle) today,
-unless the action hands it back (`delegate`). Left to the defaults instead, an action that wants
-neutral writes it, and `delegate` goes.
+A control an action holds and does not write is the defaults'; an action that wants neutral
+writes its reference. Writing a channel of an effector's chain writes the effector; a legs goal
+writes the legs.
 
 ### What the controllers did not carry out
 
@@ -193,14 +193,6 @@ The toolkit steps are read with the fingerprint against the commit before, and n
 that move. Each code step runs the gate and reads the step's cost before and after. All are
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
-
-### 8. A held control left unwritten
-
-A control an action holds and does not write goes to the defaults, not to neutral; an action that
-wants neutral writes its reference; `delegate` goes.
-
-Check: the gate; the fingerprint names the cases that move; each moved case's own reading (the
-drill's rung, the kick's, the fold's) no worse, or the step is not kept and the reason recorded.
 
 ### 9. The one learned punch
 

@@ -45,20 +45,22 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints));
   const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
+  const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
     walkable: true };
-  const claims: { id: number; claim: ActionClaim; controls: readonly string[]; delegated: readonly string[] }[] = [];
+  const claims: { id: number; claim: ActionClaim; controls: readonly string[]; unwritten: readonly string[] }[] = [];
   const contacts: ActionContact[] = [];
   const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed ?? false; },
     support: support?.report ?? null, walk: null, lower: STANCE_LOWER };
   const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? STANCE_LOWER });
   const free = (slot: string): boolean => state.reservations[slot] === undefined;
+  /** Whether the defaults write `slot`: no action holds it, or the one that holds it leaves it unwritten. */
   const available = (slot: string): boolean => {
     if (free(slot)) return true;
-    for (const item of claims) if (item.id === state.reservations[slot] && item.delegated.includes(slot)) return true;
+    for (const item of claims) if (item.id === state.reservations[slot] && item.unwritten.includes(slot)) return true;
     return false;
   };
   const stopObserving = body.afterPhysics((step, time) => {
@@ -104,13 +106,13 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const item of instances.live) {
         const claim = instances.executor(item.id).command(view, item.id, near);
         resources.validate(item.holds, claim);
-        const controls = resources.controls(item.holds), delegated = resources.controls(claim.delegate ?? []);
+        const controls = resources.controls(item.holds), unwritten = controls.filter((control) => !writes(claim, control, resources.footprints.legs, chains));
         for (const control of controls) {
           if (!free(control)) throw new Error(`two instances own ${control}`);
           state.owners[control] = item.id;
           state.reservations[control] = item.id;
         }
-        claims.push({ id: item.id, claim, controls, delegated });
+        claims.push({ id: item.id, claim, controls, unwritten });
       }
       const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
       state.walkable = legsAsked ? legsAsked.walk === undefined && legsAsked.footing === undefined : available("stance");
@@ -172,6 +174,25 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       return state.command;
     },
   };
+}
+
+/**
+ * Whether `claim` writes `control`: a channel's posture or push; an effector's goal or point, or
+ * any channel of its chain (`chains`, by segment), which a goal of the defaults' would take from
+ * it; a hand's pose; a legs goal writes every control of the legs (`legs`, the stance and its
+ * feet's chains), which the legs complete.
+ */
+function writes(claim: ActionClaim, control: string, legs: readonly string[], chains: Readonly<Record<string, readonly string[]>>): boolean {
+  if (claim.legs !== undefined && legs.includes(control)) return true;
+  const colon = control.indexOf(":"), kind = colon < 0 ? control : control.slice(0, colon), name = control.slice(colon + 1);
+  switch (kind) {
+    case "channel": return claim.posture?.[name] !== undefined || (claim.pushes ?? []).some((push) => push.channel === name);
+    case "effector": return claim.effectors?.[name] !== undefined || (claim.points ?? []).some((task) => task.segment === name)
+      || (chains[name] ?? []).some((channel) => writes(claim, `channel:${channel}`, legs, chains));
+    case "pose": return claim.handPoses?.[name] !== undefined;
+    case "stance": return claim.legs !== undefined;
+    default: throw new Error(`no control ${control}`);
+  }
 }
 
 /**

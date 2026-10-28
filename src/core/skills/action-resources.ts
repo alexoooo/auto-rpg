@@ -68,9 +68,6 @@ export function actionResources(channels: readonly string[], effectors: readonly
       const held = controls(resources);
       writes(held, claim);
       if (claim.legs !== undefined && !held.includes("stance")) throw new Error("action has no legs");
-      for (const control of controls(claim.delegate ?? [])) if (!held.includes(control)) throw new Error(`unowned delegation ${control}`);
-      const delegated = controls(claim.delegate ?? []);
-      writes(held.filter(control => !delegated.includes(control)), claim);
       for (const effector of effectors) if (support.includes(effector.segment) && claim.effectors?.[effector.segment] && !resources.includes("legs")) throw new Error("a support effector needs legs");
     },
     validatePatch(resources, patch) { writes(controls(resources), patch); },

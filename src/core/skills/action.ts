@@ -110,7 +110,7 @@ export interface Ended extends ActionRequest {
 export type LifecycleUpdate = { readonly id: number; readonly phase: Phase; readonly stage: string; readonly holds: readonly Resource[] }
   | { readonly id: number; readonly ending: ActionEnding };
 
-/** Sparse writes owned by one instance; held controls are neutral unless explicitly delegated. */
+/** Sparse writes owned by one instance; a held control it leaves unwritten is the defaults' (`skillSet`). */
 export interface ActionClaim {
   readonly posture?: Pose;
   readonly pushes?: readonly MusclePush[];
@@ -120,7 +120,6 @@ export interface ActionClaim {
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
   /** With the legs held, the legs goal (`LegsGoal`), which the legs complete. */
   readonly legs?: LegsGoal;
-  readonly delegate?: readonly Resource[];
 }
 
 /** Continuous context at the start of a control step. */

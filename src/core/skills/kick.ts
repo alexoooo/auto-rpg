@@ -222,7 +222,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         const over = hypot(sole[0] - live.initial.sole[0], sole[2] - live.initial.sole[2]) <= tuning.placement;
         goal = place(view, live, over ? live.initial.sole : [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);
       }
-      return { legs: standing, ...(goal ? { effectors: { [live.request.effector]: goal } } : {}), delegate: ["trunk"] };
+      return { legs: standing, ...(goal ? { effectors: { [live.request.effector]: goal } } : {}) };
     },
   };
 }
