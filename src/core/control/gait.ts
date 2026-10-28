@@ -623,10 +623,15 @@ export function aimRecovery(s: Stance): void {
  * capture point within, is pressed back down where it stood (`holdStance`), not stepped. A catch is planned with the hips lowered by the gait's crouch,
  * as a walk's longest steps are (`paceToward`): a step that catches a body crouches for its reach.
  * A walk's or a recovery's step under way is re-aimed each step. Each step runs to its landing
- * unless the goal asks for one of its own.
+ * unless the goal asks for one of its own. `halted` (`StanceGoal.halt`), a walk's step not yet
+ * lifted is not taken, and no step settles the walk's end: it steps only to catch the body.
  */
-export function ownStep(s: Stance, heading: number, hip: number): void {
+export function ownStep(s: Stance, heading: number, hip: number, halted: boolean): void {
   const { feet, rest, state } = s, { reading, pace, step } = state, { recovery, gait, bend } = s.tuning, hips = hip - state.crouch;
+  if (halted && reading.own && !step.recovering && reading.phase === "shift") {
+    reading.own = null;
+    reading.phase = "stand";
+  }
   // The height the plan holds the hips at: its own less the centre of mass's rise over them, or the goal's before it has one.
   const hipHeld = state.plan.on ? state.plan.at.y - s.rise : hip;
   if (!reading.own && reading.phase === "stand") {
@@ -654,7 +659,7 @@ export function ownStep(s: Stance, heading: number, hip: number): void {
         step.recovering = false;
         reading.strides += 1;
       }
-    } else if (state.stride && across(feet, heading) < rest) {
+    } else if (!halted && state.stride && across(feet, heading) < rest) {
       // A walk has ended on the gait's width, narrower than the body's own stance: one step
       // puts the feet back at the width it was built standing at.
       state.striding = null;

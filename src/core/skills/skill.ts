@@ -16,8 +16,8 @@ export type LegsAsk =
   | { readonly kind: "free" }
   /** No walk: the body stands where it is. */
   | { readonly kind: "hold" }
-  /** Walk (forward, right, m/s), or stand, facing `face`. */
-  | { readonly kind: "walk"; readonly walk: readonly [number, number] | null; readonly face: number }
+  /** Walk (forward, right, m/s), or stand, facing `face`; with `halt`, stopped at once (`StanceGoal.halt`). */
+  | { readonly kind: "walk"; readonly walk: readonly [number, number] | null; readonly face: number; readonly halt?: boolean }
   /** Set the feet at `footing` (`Locomotion.place`). */
   | { readonly kind: "place"; readonly footing: Footing };
 

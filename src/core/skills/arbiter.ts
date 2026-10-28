@@ -214,13 +214,15 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
 
 /**
  * **`stance` as the action that holds the legs asks it** (`claim`): its heading turned by
- * `steer`, and its centre of mass moved by `shift` from where it holds it (the middle of the
- * stance soles where it names none, `view.stance.support`); as it is where the claim asks neither.
+ * `steer`, its centre of mass moved by `shift` from where it holds it (the middle of the
+ * stance soles where it names none, `view.stance.support`), and halted where its walk asks
+ * (`LegsAsk`); as it is where the claim asks none of these.
  */
-export function stanceAsked(stance: StanceGoal | null, view: BodyView, claim: Pick<ActionClaim, "steer" | "shift">): StanceGoal | null {
-  if (!stance || !claim.steer && !claim.shift) return stance;
+export function stanceAsked(stance: StanceGoal | null, view: BodyView, claim: Pick<ActionClaim, "steer" | "shift" | "legs">): StanceGoal | null {
+  const halt = claim.legs?.kind === "walk" && claim.legs.halt === true;
+  if (!stance || !claim.steer && !claim.shift && !halt) return stance;
   const shift = claim.shift, support = view.stance.support;
-  return { ...stance, ...(claim.steer ? { heading: stance.heading + claim.steer } : {}),
+  return { ...stance, ...(halt ? { halt } : {}), ...(claim.steer ? { heading: stance.heading + claim.steer } : {}),
     ...(shift ? { centre: [(stance.centre?.[0] ?? support.x) + shift[0], (stance.centre?.[1] ?? support.z) + shift[1]] as const } : {}) };
 }
 

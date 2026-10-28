@@ -43,6 +43,12 @@ export interface StanceGoal {
    * nowhere, it steps only to catch a push (`STANCE_RECOVERY`).
    */
   readonly walk?: readonly [number, number] | null;
+  /**
+   * Stop at once: the walk's pace is nought from this step, not slowed at the gait's acceleration,
+   * and a step of the stance's own walk not yet lifted is not taken; it steps only to catch the
+   * body (`ownStep`).
+   */
+  readonly halt?: boolean;
 }
 
 /**
@@ -645,7 +651,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   else if (!step.catching) step.catching = catchStep(s);
   // A catch runs to its landing, re-aimed on the way.
   if (step.catching) aimRecovery(s);
-  else if (stepsOfItself(goal)) ownStep(s, goal.heading, goal.height - s.rise);
+  else if (stepsOfItself(goal)) ownStep(s, goal.heading, goal.height - s.rise, goal.halt === true);
   else {
     reading.own = null;
     state.stride = null;
@@ -924,7 +930,8 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
         return;
       }
       for (const foot of feet) foot.memory.lifted = reading.touching[foot.side] ? 0 : foot.memory.lifted + dt;
-      paceToward(s, stepsOfItself(goal) ? goal.walk : null, goal?.heading ?? 0, (goal?.height ?? 0) - s.rise, dt);
+      // Halted, the pace reaches the walk asked (none) within the step, as if the gait's acceleration had no bound.
+      paceToward(s, stepsOfItself(goal) ? goal.walk : null, goal?.heading ?? 0, (goal?.height ?? 0) - s.rise, goal?.halt ? Infinity : dt);
       const swing = chooseStep(s, goal);
       const bearing = bearerOf(goal, reading.phase, swing);
       if (!goal || !state.last || bearing.length !== state.last.length || bearing.some((side) => !state.last!.includes(side))) {

@@ -25,7 +25,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, fire: true, ease: true, steered: true, driven: true, timed: true, learned: true,
+    recover: true, landed: true, halts: true, fire: true, ease: true, steered: true, driven: true, timed: true, learned: true,
   },
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
     timedChannelFault, (spec, config: Config) => !config.learned || PUNCH_POLICY.bodies.includes(spec.model) ? null : `the learned punch has no settings for ${spec.model}`),

@@ -37,7 +37,8 @@ import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } f
  * each step. The drive ends `follow` s after the hand begins
  * to touch something, or `longest` s after it began; the arm comes back to the guard over
  * `recover` s. With `landed`, the drive also waits for both feet to bear: a step under way lands
- * first, as a boxer's lead foot lands with the jab. With `driven`, the arm is not pushed joint by
+ * first, as a boxer's lead foot lands with the jab. With `halts`, it stops a walk at once from its
+ * start (`LegsAsk`'s `halt`, `StanceGoal.halt`): a step not yet lifted is not taken. With `driven`, the arm is not pushed joint by
  * joint: from `lead` its striking point is driven (`PointTask`) to where the contact pose puts it,
  * at the speed `accel` m/s^2 gives it over what is left of the way, and no less than it gives over
  * `arrive` m, so the fist meets the target moving and the arm's range stops it; the velocity that
@@ -76,6 +77,7 @@ export interface StraightPunch {
   readonly longest: number;
   readonly recover: number;
   readonly landed?: boolean;
+  readonly halts?: boolean;
   readonly fire?: number;
   readonly ease?: number;
   readonly steered?: boolean | "stance";
@@ -118,6 +120,7 @@ export function validStraightPunch(settings: StraightPunch): boolean {
     settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
     && (settings.landed === undefined || typeof settings.landed === "boolean")
+    && (settings.halts === undefined || typeof settings.halts === "boolean")
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
     && (settings.aside === undefined || Number.isFinite(settings.aside) && settings.aside > 0)
     && (settings.squared === undefined || typeof settings.squared === "boolean")
@@ -543,7 +546,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.steer, motion.face, sense, shift) : 0;
       return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),
-        legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
+        legs: { kind: "walk", walk: null, face: motion.face, ...(settings.halts ? { halt: true } : {}) }, lower: live.lower,
         steer: live.phase === "commit" ? sense * settings.hips + turn : 0, ...(shift[0] === 0 && shift[1] === 0 ? {} : { shift }) };
     },
   };
