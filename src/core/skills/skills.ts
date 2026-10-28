@@ -7,7 +7,7 @@ import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Rea
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
 import { guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
-import type { Skill } from "./skill.ts";
+import type { LegsUnmet, Skill } from "./skill.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
@@ -38,8 +38,8 @@ export interface SkillReport {
   readonly pace?: number;
   /** The height the legs hold the centre of mass at, m (`Locomotion.reference`); null before the first step or where the legs hold none. */
   readonly reference: number | null;
-  /** How far short of the centre asked the legs held the centre of mass, m (`Locomotion.centreShort`); 0 where the legs say none. */
-  readonly centreShort: number;
+  /** What the legs did not carry out of their last goal (`Locomotion.unmet`); all met where the legs say none. */
+  readonly legs: LegsUnmet;
   readonly actions: readonly ActionStatus[];
   readonly ledger: readonly Ended[];
   readonly engagement?: Tactics["engagement"];

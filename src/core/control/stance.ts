@@ -677,9 +677,15 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   return swing;
 }
 
-/** The feet that bear the body: the goal's, but for a foot that is swinging. */
+/** Both feet. */
+const BOTH: readonly Side[] = Object.freeze(["left", "right"]);
+
+/**
+ * The feet that bear the body: the goal's, but for a foot that is swinging; a foot to swing that
+ * has not yet lifted bears with them, since it shifts the weight off itself (`SwingGoal.shift`).
+ */
 function bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Side[] {
-  return !goal ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
+  return !goal ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : swing && !goal.feet.includes(swing.foot) ? BOTH : goal.feet;
 }
 
 /**
@@ -936,8 +942,8 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
         return;
       }
       for (const foot of feet) foot.memory.lifted = reading.touching[foot.side] ? 0 : foot.memory.lifted + dt;
-      // Halted, the pace reaches the walk asked (none) within the step, as if the gait's acceleration had no bound.
-      paceToward(s, stepsOfItself(goal) ? goal.walk : null, goal?.heading ?? 0, (goal?.height ?? 0) - s.rise, goal?.halt ? Infinity : dt);
+      // Halted, the pace is nought within the step, whatever walk is asked, as if the gait's acceleration had no bound.
+      paceToward(s, stepsOfItself(goal) && !goal!.halt ? goal!.walk : null, goal?.heading ?? 0, (goal?.height ?? 0) - s.rise, goal?.halt ? Infinity : dt);
       const swing = chooseStep(s, goal);
       const bearing = bearerOf(goal, reading.phase, swing);
       if (!goal || !state.last || bearing.length !== state.last.length || bearing.some((side) => !state.last!.includes(side))) {

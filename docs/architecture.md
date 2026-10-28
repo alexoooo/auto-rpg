@@ -252,7 +252,8 @@ a stance goal) into muscle commands.
   (`carrying`): the command layers for all three, each recovery technique for a stance, so a
   motor without one is refused there with the reason. The whole-body solve reports, in its state,
   what of its last command it did not carry out (`MotorControl.unmet`, `MotorUnmet`): each push on
-  a channel its stance's legs drove, and the driven points no stance's solve drove.
+  a channel its stance's legs drove, and the driven points no stance's solve drove; the body's view
+  shows it to whatever drives the body (`BodyView.unmet`).
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
@@ -308,9 +309,15 @@ walk's configuration may give another): stopped, its feet are set where it stand
 its width is the steps' (`StanceGoal.gait`, the step pattern the gait asks of the stance). What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
 feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place
-no feet finds them standing. Legs that hold a centre say how far short of the one last asked the
-stance held the centre of mass (`Locomotion.centreShort`), which the skills' report carries
-(`SkillReport.centreShort`).
+no feet finds them standing. Legs say what of their last goal they did not carry out
+(`Locomotion.unmet`, `LegsUnmet`): the fields they left undone (a gait by name the stance walk has
+none of, a heading asked beside a walk, the stance's fields while the run drives the legs), and
+how far the stance held the centre of mass and its plan's height from those asked; the skills'
+report carries it (`SkillReport.legs`). Legs that walk by gaits by name say which (`Locomotion.gait`).
+**The probes** (`tests/harness/probes.mjs`, run by `tests/probes.test.mjs`) ask each legs-goal
+field and claim term of a standing Warrior, through each gait, the stance walk, Move, each balance
+and motor and the swap stubs: each does it within its limit or reports it undone, and legs or a
+motor that ignore a term and say nothing fail its probe.
 
 | Skill | File | What it is |
 |---|---|---|

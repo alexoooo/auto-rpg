@@ -46,6 +46,55 @@ export interface LegsGoal {
   readonly halt?: boolean;
 }
 
+/** Every field of a legs goal, in `LegsGoal`'s order. */
+export const LEGS_FIELDS = Object.freeze(["walk", "face", "footing", "destination", "carriage", "gait", "feet", "height", "heading",
+  "centre", "pose", "swing", "halt"] as const satisfies readonly (keyof LegsGoal)[]);
+
+/** A legs goal's field's name (`LEGS_FIELDS`). */
+export type LegsField = typeof LEGS_FIELDS[number];
+
+/**
+ * **What the legs did not carry out** of their last goal (`Locomotion.unmet`): the fields they
+ * left undone, in `LEGS_FIELDS`' order; and of the centre and height they carried out, how far the
+ * stance held the centre of mass from the one asked (its place, `StanceReading.place`) and its
+ * plan from the height asked (`StanceReading.plan`), m, read standing, 0 where none was asked.
+ */
+export interface LegsUnmet {
+  readonly fields: readonly LegsField[];
+  readonly centre: number;
+  readonly height: number;
+}
+
+/** Legs that carried out the whole goal. */
+export const ALL_MET: LegsUnmet = Object.freeze({ fields: Object.freeze([]), centre: 0, height: 0 });
+
+/** Each field's bit in a mask of fields (`fieldsOf`). */
+export const FIELD_BIT: Readonly<Record<LegsField, number>> = Object.freeze(Object.fromEntries(LEGS_FIELDS.map((field, k) => [field, 1 << k])) as Record<LegsField, number>);
+
+/** A list of fields made once a mask: what the legs report, a cache of frozen data, not a bout's state. */
+const LISTS = new Map<number, readonly LegsField[]>();
+
+/** The fields whose bits `mask` sets (`FIELD_BIT`), as one frozen list a mask. */
+export function fieldsOf(mask: number): readonly LegsField[] {
+  let list = LISTS.get(mask);
+  if (!list) LISTS.set(mask, list = Object.freeze(LEGS_FIELDS.filter((field) => mask & FIELD_BIT[field])));
+  return list;
+}
+
+/** The mask of `fields` (`FIELD_BIT`). */
+export function maskOf(fields: readonly LegsField[]): number {
+  let mask = 0;
+  for (const field of fields) mask |= FIELD_BIT[field];
+  return mask;
+}
+
+/** The mask of the fields among `mask` that `goal` sets. */
+export function setIn(goal: LegsGoal, mask: number): number {
+  let set = 0;
+  for (const field of LEGS_FIELDS) if (mask & FIELD_BIT[field] && goal[field] !== undefined) set |= FIELD_BIT[field];
+  return set;
+}
+
 /** A legs goal with its walk and facing filled in: what the legs are given (`Locomotion.goal`). */
 export type LegsAsked = LegsGoal & { readonly walk: readonly [forward: number, right: number] | null; readonly face: number };
 

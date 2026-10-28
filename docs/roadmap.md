@@ -60,7 +60,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 2 to 7 in order: the toolkit's
-   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 5 to 9, the one
+   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 6 to 9, the one
    learned punch the last), reaction time (0.15 s, the owner's decision), chance from a seed,
    life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
@@ -176,6 +176,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
   ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
   wakes the enemy at 7 of seeds 1 to 60.
+- **The body layer's probes** ([architecture](architecture.md#skills)) found what the stance does
+  not carry out and does not report: legs asked to bear on one foot while the centre of mass is
+  not over it fall, the other leg left to the posture (an action shifts the weight first, as the
+  kick does); and a heading asked beside a walk swings the pelvis 0.5 rad either way, so the stance
+  walk reports it undone instead. The carriage's probe comes with the first carriage of a width.
 - **A learned gait**, trained by the general trainer on the walk's cases over the stance or over the
   legs' muscles, toward a faster or steadier walk or run than the hand-built one: it joins the
   legs' set by name, and the chooser takes it where its profile is better. Read by the probes and

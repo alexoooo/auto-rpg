@@ -14,7 +14,7 @@ import { actionResources } from "../../skills/action-resources.ts";
 import { legsGoal, navigated, type Holders } from "../../skills/arbiter.ts";
 import type { GuardSkill } from "../../skills/guard.ts";
 import { STANCE_LOWER, type Locomotion } from "../../skills/locomotion.ts";
-import type { LegsGoal } from "../../skills/skill.ts";
+import { ALL_MET, type LegsGoal } from "../../skills/skill.ts";
 import type { Skills } from "../../skills/skills.ts";
 
 /**
@@ -110,7 +110,7 @@ export function kineticSkills(body: Pick<Body, "built" | "muscles" | "view" | "e
   });
   const report = {
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
-    get centreShort() { return legs.centreShort ?? 0; },
+    get legs() { return legs.unmet ?? ALL_MET; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: {} as Record<string, number>,
     get engagement() { return tactics.engagement; },
     /** The writes the composer refused this step (`Refusal`). */

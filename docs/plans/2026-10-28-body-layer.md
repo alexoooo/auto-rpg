@@ -193,15 +193,6 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
 
-### 5. The probes
-
-A probe for each legs-goal field and claim term, run against each gait, carriage and stance
-implementation and the swap test's stubs; fast (under about 10 s together), in the swap test's
-contract.
-
-Check: the gate; each probe fails on a stub that ignores its field (a positive control), and the
-game's own legs pass or report.
-
 ### 6. The percepts registry, named goals, and a learned skill's layouts
 
 One registry of percepts ([Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), grown from the

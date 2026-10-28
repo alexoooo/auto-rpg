@@ -62,7 +62,7 @@ const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEn
  * Infinity, 0 and 0 with no focus); the expected cost of a second within a standing focus's reach
  * (`LANDS`, `RATE`), 0 with none; and the energy of a blow of each hand at the focus's head, J
  * (`blowEnergy`), 0 with no focus; and how far short of the centre asked the legs held the centre
- * of mass, m (`SkillReport.centreShort`). Its cues: going down or getting up, other orders, another focus,
+ * of mass, m (`SkillReport.legs`). Its cues: going down or getting up, other orders, another focus,
  * a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
@@ -81,7 +81,7 @@ export const PERCEPTS = Object.freeze({
   } } as Percept<Reach>,
   exposure: { read: ({ focus, sight, spec }) => focus && !focus.down ? RATE * record(sight.report.ledger, null).lands * cost(heavier(focus.spec, spec)) : 0 } as Percept<number>,
   blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? blowEnergy(spec, "left", focus.spec) : 0, right: focus ? blowEnergy(spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
-  short: { read: ({ sight }) => sight.report.centreShort } as Percept<number>,
+  short: { read: ({ sight }) => sight.report.legs.centre } as Percept<number>,
 });
 
 /** What each percept reads, by its name. */

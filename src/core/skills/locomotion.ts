@@ -9,7 +9,8 @@ import { STANCE_GAIT, type GaitTuning } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import { deepFreeze } from "../state.ts";
-import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, setIn, type LegsAsked, type LegsField, type LegsGoal, type LegsUnmet, type Skill } from "./skill.ts";
+import type { GaitName } from "./gaits.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height every table
@@ -163,12 +164,10 @@ export interface Locomotion extends Skill {
   readonly envelope?: StanceEnvelope | null;
   /** Whether the feet have been placed at the footing last asked; absent, legs that place no feet. */
   readonly placed?: boolean;
-  /**
-   * How far short of the centre its last goal asked the stance held the centre of mass, m: the
-   * asked place to the one the bearing soles hold (`StanceReading.place`), read standing; 0 with
-   * no centre asked, or while a step is under way. Absent, legs that hold no centre.
-   */
-  readonly centreShort?: number;
+  /** What of its last goal it did not carry out (`LegsUnmet`); absent, legs that say none. */
+  readonly unmet?: LegsUnmet;
+  /** The gait it walks by now, for legs that walk by gaits by name (`GAITS`); absent, legs that have none. */
+  readonly gait?: GaitName;
   /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
    * absent or null, a walk that leaves them in the guard.
@@ -256,10 +255,11 @@ interface LocomotionState extends LegsMemory {
   placed: boolean;
   /** Where the carriage's feet stand, taken where the walk last stopped; null walking, or in a carriage of no width. */
   stood: Footing | null;
-  /** The centre its last stance goal asked, world (x, z), m; null where it asked none. */
+  /** The centre and the height its last stance goal asked, world (x, z) and over the soles, m; null where it asked none. */
   asked: readonly [number, number] | null;
-  /** How far short of `asked` the stance held the centre of mass, m (`Locomotion.centreShort`). */
-  short: number;
+  askedHeight: number | null;
+  /** What of its last goal it did not carry out (`Locomotion.unmet`). */
+  unmet: { fields: readonly LegsField[]; centre: number; height: number };
 }
 
 /** The footing being placed, the feet that have stepped to it, and the step under way. */
@@ -289,7 +289,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
   const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null,
-    asked: null, short: 0, ...(turnStartup ? { walkTime: 0 } : {}) };
+    asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
@@ -332,7 +332,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     get pace() { return state.pace; },
     get reference() { return state.reference; },
     get placed() { return state.placed; },
-    get centreShort() { return state.short; },
+    get unmet() { return state.unmet; },
     resume(view) {
       state.heading = facing(view);
       state.pace = 0;
@@ -342,12 +342,18 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.placed = false;
       state.stood = null;
       state.asked = null;
-      state.short = 0;
+      state.askedHeight = null;
+      state.unmet.fields = ALL_MET.fields; state.unmet.centre = 0; state.unmet.height = 0;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
     goal(view, goal, dt) {
-      const s = view.stance, asked = state.asked;
-      state.short = asked && s.phase === "stand" ? hypot(asked[0] - s.place.x, asked[1] - s.place.z) : 0;
+      // What the last goal asked, as the stance held it standing; and the gait by name, which the stance walk has none of.
+      const s = view.stance, asked = state.asked, height = state.askedHeight, unmet = state.unmet, standing = s.phase === "stand";
+      unmet.centre = asked && standing ? hypot(asked[0] - s.place.x, asked[1] - s.place.z) : 0;
+      unmet.height = height !== null && standing ? Math.abs(height - s.plan.y) : 0;
+      // A heading asked beside a walk is not carried out: the walk's steps turn the stance to its own.
+      const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0));
+      unmet.fields = fieldsOf(leaves);
       if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
@@ -359,8 +365,9 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
         state.placed = false;
       } else { state.stood = null; stance = walking(view, goal.walk, goal.face, dt, goal.height); }
       if (stance && held.width !== null) stance = { ...stance, gait: stepsOf(held, held.width) };
-      const done = completed(stance, goal);
+      const done = completed(stance, leaves & FIELD_BIT.heading ? { ...goal, heading: undefined } : goal);
       state.asked = done?.centre ?? null;
+      state.askedHeight = done ? goal.height ?? null : null;
       return { kind: "stance", goal: done };
     },
   };

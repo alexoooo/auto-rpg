@@ -9,6 +9,7 @@ import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
+import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "./skill.ts";
 
 /** **The walk and run's settings** (`walkRun`): when it runs, and how its heading turns running. */
 export interface WalkRunSettings {
@@ -131,7 +132,12 @@ interface WalkRunMemory {
   pace: number;
   /** The pelvis's turn as the last step found it, for what the run asks of the body's assist (`gaitAssist`). */
   assisted: GaitAssistMemory;
+  /** What the run left undone of its last goal (`Locomotion.unmet`, `RUN_LEAVES`). */
+  unmet: { fields: readonly LegsField[]; centre: number; height: number };
 }
+
+/** The fields of a legs goal the run does not carry out: it holds no carriage, gait by name or stance of the stance's. */
+const RUN_LEAVES = maskOf(["carriage", "gait", "feet", "height", "heading", "centre", "pose", "swing", "halt"]);
 
 /**
  * **The walk and the run**: a locomotion skill (`Locomotion`) that walks by the stance's own walk
@@ -164,7 +170,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
-    assisted: { root: new Quaternion(), read: false } };
+    assisted: { root: new Quaternion(), read: false }, unmet: { ...ALL_MET } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
   /** The run gives the legs back to the stance's walk, which takes the body up as it is. */
@@ -224,7 +230,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },
     get placed() { return !memory.running && legs.placed; },
-    get centreShort() { return memory.running ? 0 : legs.centreShort; },
+    get unmet() { return memory.running ? memory.unmet : legs.unmet; },
     resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
     goal(view, goal, dt): LegsDrive {
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
@@ -262,6 +268,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       else memory.spin = 0;
       const h = memory.heading;
       const driven = cycle.drive(view, dt, h, memory.pace);
+      memory.unmet.fields = fieldsOf(setIn(goal, RUN_LEAVES));
       const landing = driven.landed !== null && driven.landed !== memory.landed;
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
       if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && Math.sqrt(v.x * v.x + v.z * v.z) <= settings.run) {

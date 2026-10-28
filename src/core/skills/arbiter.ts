@@ -14,7 +14,7 @@ import type { GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import { foldCarries, type SupportSkill } from "./support-fold.ts";
 import type { NavigationSight, Navigator } from "../mind/navigator.ts";
-import type { LegsAsked, LegsGoal } from "./skill.ts";
+import { ALL_MET, type LegsAsked, type LegsGoal } from "./skill.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { directMovement } from "../mind/movement.ts";
 import { cos, hypot, sin } from "../math/real.ts";
@@ -70,7 +70,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   });
   const report = {
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
-    get centreShort() { return legs.centreShort ?? 0; },
+    get legs() { return legs.unmet ?? ALL_MET; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
     ...(navigation ? { navigation: navigation.report } : {}),

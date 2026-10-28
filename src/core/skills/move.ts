@@ -3,7 +3,8 @@ import { hypot } from "../math/real.ts";
 import { nearestFoe } from "../mind/targets.ts";
 import { conditionMatches, type ConditionReading } from "../mind/conditions.ts";
 import type { GaitName } from "./gaits.ts";
-import type { Locomotion } from "./locomotion.ts";
+import type { LegsDrive, Locomotion } from "./locomotion.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, maskOf, type LegsGoal } from "./skill.ts";
 
 /**
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no
@@ -84,7 +85,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     const asked = named === undefined ? -1 : gaits.findIndex((gait) => gait.name === named);
     return asked >= 0 ? asked : rules.find((rule) => rule.matches(reading, rule.gait === current))?.gait ?? otherwise;
   };
-  const memory = { chosen: false, gait: wanted(STILL, null), driven: false };
+  const memory = { chosen: false, gait: wanted(STILL, null), driven: false, unmet: { ...ALL_MET } };
   const walks = [...new Set(gaits.map((gait) => gait.legs))];
   const state = { gaits: walks.map((walk) => walk.state), choice: memory, rules: rules.map((rule) => rule.state ?? null) };
   const now = (): Locomotion => gaits[memory.gait]!.legs;
@@ -106,6 +107,18 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     told().resume(view);
     return true;
   };
+  /**
+   * What of `goal` the gait walked by left undone, as `drive` it gave: its gait by name Move's to
+   * meet, a gait by name not the one walked by, and a walk not taken while the gait changes.
+   */
+  const report = (goal: LegsGoal, drive: LegsDrive, chosen: boolean): LegsDrive => {
+    const inner = now().unmet ?? ALL_MET, unmet = memory.unmet;
+    unmet.fields = fieldsOf(maskOf(inner.fields) & ~FIELD_BIT.gait
+      | (goal.gait !== undefined && gaits[memory.gait]!.name !== goal.gait ? FIELD_BIT.gait : 0)
+      | (!chosen && goal.walk ? FIELD_BIT.walk : 0));
+    unmet.centre = inner.centre; unmet.height = inner.height;
+    return drive;
+  };
   return {
     state,
     get envelope() { return now().envelope; },
@@ -114,24 +127,26 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     get pace() { return now().pace; },
     get reference() { return now().reference; },
     get placed() { return now().placed; },
-    get centreShort() { return now().centreShort; },
+    get unmet() { return memory.unmet; },
+    get gait() { return gaits[memory.gait]!.name; },
     resume(view) {
       memory.chosen = true;
       memory.gait = wanted(STILL, null);
       memory.driven = false;
+      memory.unmet.fields = ALL_MET.fields; memory.unmet.centre = 0; memory.unmet.height = 0;
       told().resume(view);
     },
     goal(view, goal, dt) {
       if (goal.footing) {
         choose(view, false, undefined, goal.gait);
         memory.driven = false;
-        return told().goal(view, goal, dt);
+        return report(goal, told().goal(view, goal, dt), true);
       }
       // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
       const chosen = choose(view, goal.walk !== null, goal.destination, goal.gait);
       const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt);
       memory.driven = drive.kind === "drive";
-      return drive;
+      return report(goal, drive, chosen);
     },
     ...(walks.some((walk) => walk.arms) ? { arms: (view: BodyView) => now().arms?.(view) ?? null } : {}),
   };

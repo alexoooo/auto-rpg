@@ -3,7 +3,7 @@ import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { carrying, motorControl, type EffectorGoal, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
+import { carrying, motorControl, type EffectorGoal, type MotorUnmet, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -164,6 +164,8 @@ export interface BodyView {
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;
+  /** What the motor did not carry out of the last step's command (`MotorUnmet`). */
+  readonly unmet: MotorUnmet;
   /**
    * The centre of mass's height over the soles' middle in the reference pose, m (`standingHeight`):
    * what the body stands at, whatever posture it was built in.
@@ -278,6 +280,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     root: state.root,
     head: head.centre,
     stance: motor.stance.reading,
+    unmet: motor.unmet,
     standing: standingHeight(built),
     get down() { return state.down; },
     get ground() { return state.groundActive ? ground.state.reading : null; },
