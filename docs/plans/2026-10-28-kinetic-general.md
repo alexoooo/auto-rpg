@@ -171,11 +171,11 @@ that file's reader; a new layout is data, not code.
 ## Changes to the learned punch
 
 - **One learned punch.** Its leg outputs are asks of the legs goal (`heading`, `centre`), retrained
-  on the toed Warrior with walking starts (Kinetic step 3). On the toed body it lands the Strike
+  on the toed Warrior with walking starts. On the toed body it lands the Strike
   drill's still rung no less often than the push layout (30 of 32 against 24) and from a walk
-  20 of 32 against 0 (`research/runs/kinetic-punch`, 50.7 M decisions, 120 Hz). Once the toes are
-  on main it replaces the push layout: `steered`'s variants, the 18-output layout and the second
-  data key go, and every mind that throws the learned punch throws it.
+  20 of 32 against 0 (`research/runs/kinetic-punch`, 50.7 M decisions, 120 Hz). It replaces the push
+  layout: `steered`'s variants, the 18-output layout and the second data key go once no body
+  without toes throws the learned punch.
 - **Its asks in the vocabulary**: `heading`, `centre` and `halt` of the legs goal, from its layout
   file, in the body's units.
 
@@ -247,10 +247,10 @@ drill's rung, the kick's, the fold's) no worse, or the step is not kept and the 
 
 ### 7. The one learned punch
 
-After the toes are on main: the punch's layout file and its reader; the stance layout exported
-as the learned punch from the run's best checkpoint by the still and walk rungs; the push layout,
-`steered`'s variants and the second data key deleted. Its retraining reads the report, its reward
-counting unmet asks.
+On the toed Warrior ([Kinetic](2026-10-27-kinetic.md) step 1): the punch's layout file and its
+reader; the stance layout exported as the learned punch from the run's best checkpoint by the
+still and walk rungs; the push layout, `steered`'s variants and the second data key deleted once
+no body without toes throws it. Its retraining reads the report, its reward counting unmet asks.
 
 Check: the gate; the Strike drill's still and walk rungs of the learned puncher and Kinetic,
 paired with the push layout on the same cases at 120 and 480 Hz

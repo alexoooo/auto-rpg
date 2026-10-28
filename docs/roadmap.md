@@ -49,26 +49,30 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Options](plans/2026-10-24-options.md) | Every skill in one shape (entry, resources, model, exit); one commitment and a default layer of footwork and cover; a chooser part role that looks ahead a set number of skills; reaction time as a rule |
-| [Kinetic](plans/2026-10-27-kinetic.md) | A mind beside Options on its chooser and percepts whose options ask the body for results by part, the legs only through the stance, a strike timed by the gait |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The general mind on the toed Warrior: a baseline record on the general body layer, then the punch walking or not, the stand-up as a chain of skills, the one-two chained, the guard, fights |
 | [Kinetic, general](plans/2026-10-28-kinetic-general.md) | One body layer for Kinetic and the arbiter's minds: a claim in the body's own terms, the legs asked in one goal nothing edits after, the controllers reporting what they did not carry out |
 | [Punch](plans/2026-10-24-punch.md) | Robust straight punches that land at human level, learned offline on the Strike drill and fight moments |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders; profiles that tactics read; the owner's two-minute verdict |
 | [Recovery](plans/2026-10-23-recovery.md) | The rise as a graph of posture skills, on the owner's 64-fall target |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
 
-1. **Now: the punch in fights.** Reaction time is judged by the owner in the Arena and decided
+1. **Now: Kinetic's general baseline.** Kinetic steps 1 to 3: the toed Warrior as a body of its own,
+   the general body layer ([Kinetic, general](plans/2026-10-28-kinetic-general.md) steps 1 to 5)
+   and the baseline record; then its punch and its stand-up on it (steps 4 and 5), and iterating.
+   The game's Warrior and Rogue take toes with Recovery step 3, the graph as the game's Stand up:
+   on them step-up stands none of the target's falls
+   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+2. **The punch in fights.** Reaction time is judged by the owner in the Arena and decided
    (Options step 2), then Punch 4a (480 Hz to 90 %) and 4b (fight moments and the close range,
    trained under that rule); then 4c (the bar scaled to the body, then the Rogue) and 4d (the high
-   mark). Toes on the Warrior and the Rogue wait for Recovery step 3, the graph as the game's Stand
-   up: on them step-up stands none of the target's falls
-   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
-2. **Beside the punch:** Drills step 2 (the moving target, overlays and side by side), which Punch
+   mark).
+3. **Beside them:** Drills step 2 (the moving target, overlays and side by side), which Punch
    step 5 needs, and Drills step 7 (the owner's two-minute verdict), which Punch step 6 and every
    rating after it wait on; Options step 3 (footwork, the guard and the intent) before Footwork's
    rungs (Drills step 4). Recovery steps 1 (the Rogue with the club) and 2 (a fast edge from hands
    and knees on the toed body). Mind data step 2 (the packed format, lossless), then step 3.
-   Kinetic step 3 (the punch by parts, retrained).
-3. **When each one's condition holds:** the Ratings items under [Framework](#framework).
+   Kinetic steps 6 to 8 (the one-two chained, the guard, fights) once its baseline is recorded.
+4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
 
@@ -77,10 +81,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Reaction time, judged in play: Arena bouts at a delay of 0 and of about 0.2 s, watched side by
   side; decided before the punch is trained on fight moments
   ([Options](plans/2026-10-24-options.md), step 2).
-- How the legs serve the learned punch, whose leg pushes the bearing solve overrides: the punch
-  asks the stance for its weight shift, or its leg pushes wait until both feet bear
-  ([Punch](plans/2026-10-24-punch.md), step 4a); until then the pushes stay, and move nothing.
-  The first is tried in its own mind ([Kinetic](plans/2026-10-27-kinetic.md), steps 3 and 4).
 - Haste's range and each character's value ([assist](reference/assist.md#haste)).
 - Whether the skeleton's sides and back are worth a search ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
