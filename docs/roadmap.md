@@ -68,7 +68,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    exits and letting go (step 9), the stand-up as a chain with no sub-mind (step 10), footwork and
    the guard (step 11), measured profiles (step 12), the options fighter as a preset (step 13), the
    trainer for any skill, chooser or mind (step 14).
-3. **Then training**, each paired by Kinetic's baseline evaluation: the
+3. **Then training**, each paired by the baseline evaluation: the
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
    one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait and
    the other skills ([Body and motor control](#body-and-motor-control)).
@@ -166,10 +166,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
   ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
   wakes the enemy at 7 of seeds 1 to 60.
-- **A learned gait**, trained by Kinetic's trainer on the walk's cases over the stance or over the
+- **A learned gait**, trained by the general trainer on the walk's cases over the stance or over the
   legs' muscles, toward a faster or steadier walk or run than the hand-built one: it joins the
   legs' set by name, and the chooser takes it where its profile is better. Read by the probes and
-  Kinetic's baseline evaluation's walk paired with the gait it would replace, at 120 and 480 Hz,
+  the baseline evaluation's walk paired with the gait it would replace, at 120 and 480 Hz,
   falling under shoves no more often; the owner watches it in the Lab and a bout.
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
@@ -203,8 +203,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
   and thrusts, held-item recipes, kicks and low support (a legs-and-trunk commitment that lends the
-  trunk to a low strike) come into Kinetic's shape after the punch, each a configuration of its
-  trainer where it is learned and drilled as the Strike drill drills the punch.
+  trunk to a low strike) come into Kinetic's shape after the punch, each a configuration of the
+  general trainer where it is learned and drilled as the Strike drill drills the punch.
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
   items and bows, with projectiles in the core. Open before a weapon in both hands: whether the
