@@ -60,7 +60,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: the baseline and the testbed's rules**, Kinetic steps 2 to 7 in order: the toolkit's
-   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 6 to 9, the one
+   body layer ([Body layer](plans/2026-10-28-body-layer.md) steps 7 to 9, the one
    learned punch the last), reaction time (0.15 s, the owner's decision), chance from a seed,
    life in the senses, the baseline evaluation, read under the owner's verdict (Drills step 7) and
    naming opponents as a rung does (Drills step 5: the drill opponent and Strike's rungs 2 to 4),
@@ -295,6 +295,15 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - Not built: a learned mind (the bare entrant, [Kinetic](plans/2026-10-27-kinetic.md) step 7, is
   its route, trained after Kinetic's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
+- **The foe's phase reads `rising` in bursts** (`PERCEPTS.phase`): only while the fallen body's
+  centre of mass climbs faster than 0.2 m/s. On Kinetic's matches (the Warrior, empty hands,
+  against six foes, 36 bouts; Node, the bout world, Rapier, 120 Hz, each side's view of the
+  other), all 22 falls read `down` from their first step and 19 of 21 rises read `rising`, about
+  0.9 s after the pelvis's lowest point, but only 6 % of the steps from that point to standing
+  did. Of 1,321 commits, 88 % read `striking` (about 11 steps into the commit), with 0.4 % of
+  clear steps read `striking`. On the Strike drill's still and fight rungs no body fell. Read
+  again when a profile indexed by the phase is measured ([Kinetic](plans/2026-10-27-kinetic.md)
+  step 9).
 - **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
   striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles

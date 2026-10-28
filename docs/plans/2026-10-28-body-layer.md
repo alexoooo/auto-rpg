@@ -194,19 +194,6 @@ that move. Each code step runs the gate and reads the step's cost before and aft
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
 
-### 6. The percepts registry, named goals, and a learned skill's layouts
-
-The registry (`PERCEPTS`, `src/core/mind/options/percepts.ts`) reads the gait, the controllers'
-report and the foe's phase, and the named goals (`GOALS`, `src/core/mind/options/goals.ts`) are
-bands over its reach readings, Kinetic's default footwork on `at the edge`, and the learned
-punch's inputs and outputs are its layout file. Left: the foe's phase read against the target's
-body.
-
-Check: the gate; the learned punch through its layout files gives the same actions to the bit as
-through the code; on the Strike drill's still and fight rungs, the foe's phase read against what the target's body was
-doing (its strike's contact, its fall, its rise), step by step, its misreadings counted by
-phase.
-
 ### 7. Kinetic on the toolkit's body layer
 
 Kinetic's composer deleted; `kineticSkills` is `skillSet` with no support; its refusals detail
