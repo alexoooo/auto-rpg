@@ -23,7 +23,7 @@ import { strikeLow } from "./low.ts";
 import { followOrders } from "./orders.ts";
 import { fitsAll, takesCommands } from "../parts.ts";
 import { situationReader } from "./situation.ts";
-import { strike } from "./strike.ts";
+import { measuredProfile, strike, strikeMeasure } from "./strike.ts";
 import { CLINCH } from "./value.ts";
 import { walker } from "./walk.ts";
 
@@ -61,7 +61,10 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, p
 export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wiring: MindWiring) {
   // Its blows are those its body throws as armed.
   const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
-  const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses), config.subs.map((sub) => host.parts.of("sub-mind", sub).down!));
+  const hz = Math.round(1 / host.clock.dt), walk = walker(host.spec), standing = config.actions.filter((action) => action.lower === undefined);
+  const measures = standing.map((action) => strikeMeasure(host.parts, host.spec, config.executors, action, hz));
+  const reader = situationReader(host.spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses),
+    config.subs.map((sub) => host.parts.of("sub-mind", sub).down!));
   let sight: Sight | null = null, choosing: Chooser | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
   let read: Situation | null = null;
@@ -78,8 +81,8 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== config.subs.length) throw new Error("the options fighter's body made no down half");
-  const standing = config.actions.filter((action) => action.lower === undefined), low = config.actions.find((action) => action.lower !== undefined);
-  const strikes = standing.map((action) => strike(action, walk, true, throws(host.parts, config, action)));
+  const low = config.actions.find((action) => action.lower !== undefined);
+  const strikes = standing.map((action, i) => strike(action, walk, true, throws(host.parts, config, action), measures[i]!));
   const options: readonly Option[] = [
     ...downs,
     followOrders(walk, standing),

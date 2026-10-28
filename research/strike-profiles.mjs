@@ -1,0 +1,88 @@
+/**
+ * **The strikes' profiles** (`src/core/mind/profile.ts`, `assets/core/strike-profiles.json`): from
+ * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
+ * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at. A
+ * profile a skill on a body: its measured-on read from each row's world (the left body's spec as the
+ * bout builds it, the skill's digest as the mind holds it, the harness's rate, the recipe's sense
+ * delay); a cell a gap and the foe's phase (`striking` on the `punching` rung, else `clear`),
+ * closing 0. The `walk` rung is left out: the range it was asked at is not recorded.
+ *
+ * A cell's trials: the share that landed; the hit points their blows took by the rules (`blowDamage`
+ * of each hit's energy, 0 for none) and those the striker lost; the seconds from the first step the
+ * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
+ * own length); and the share that ended down.
+ *
+ *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl> ...] [--write]
+ *
+ * With none named, the records the profiles name now.
+ */
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolveCharacter } from "../src/core/models.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
+import { armedActions } from "../src/core/mind/action-config.ts";
+import { measuredOn, skillDigest } from "../src/core/mind/profile.ts";
+import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
+
+const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
+const write = process.argv.includes("--write");
+const named = process.argv.slice(2).filter((arg) => arg !== "--write");
+const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
+const RULES = rulebook("arena");
+
+/** A record's header and rows. */
+const read = (path) => readFileSync(path, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+const round = (x) => Number(x.toFixed(4));
+
+/** Each left body's spec, by its recipe's model and attributes: as the bout resolves it (no loadout, surfaces, haste or balance in a drill's recipe). */
+const specs = new Map();
+function specOf(recipe) {
+  for (const key of ["loadouts", "surfaces", "haste", "balance"]) if (recipe[key] !== undefined) throw new Error(`a drill recipe with ${key} is not read here`);
+  const key = JSON.stringify([recipe.left, recipe.attributes?.left ?? {}]);
+  if (!specs.has(key)) specs.set(key, resolveCharacter({ model: recipe.left, attributes: recipe.attributes?.left ?? {} }).spec);
+  return specs.get(key);
+}
+
+/** The marks `action` aims at, or null where it aims at other regions too. */
+const marksOf = (action) => (action.regions ?? []).every((region) => region.kind === "mark") ? action.regions.map((region) => region.mark) : null;
+
+const profiles = new Map();
+for (const path of paths) {
+  const [header, ...rows] = read(path);
+  if (header.evaluation !== "strike" && header.evaluation !== "baseline") throw new Error(`${path} is no record of the Strike drill or the baseline`);
+  const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
+  if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  for (const row of rows) {
+    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = mind?.tactics;
+    if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
+    const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
+    if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
+    const marks = marksOf(action);
+    if (marks && !marks.includes(row.condition.mark)) continue;
+    const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
+    const measured = measuredOn(spec, skillDigest(partLookup, mind.executors, action), hz, reaction), key = JSON.stringify(measured);
+    const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.action}`, records: new Set(), cells: new Map() };
+    profiles.set(key, profile);
+    profile.records.add(path);
+    const phase = rung === "punching" ? "striking" : "clear", cellKey = JSON.stringify([row.condition.gap, phase]);
+    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, closing: 0, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0 };
+    profile.cells.set(cellKey, cell);
+    const r = row.reading;
+    cell.trials++;
+    if (r.outcome === "landed") cell.done++;
+    if (r.hit) cell.dealt += blowDamage(RULES, "blunt", r.hit.energy);
+    cell.taken += r.taken ?? 0;
+    if (r.down) cell.down++;
+    if (r.ready !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.ready; }
+    cell.length += (r.ended ?? r.seconds) - r.handed;
+  }
+}
+
+const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured,
+  cells: [...profile.cells.values()].sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
+    range: c.range, closing: c.closing, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
+    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [] })) })) };
+for (const [i, profile] of [...profiles.values()].entries()) {
+  console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz, senses ${profile.measured.reaction} s late)`);
+  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}`);
+}
+if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

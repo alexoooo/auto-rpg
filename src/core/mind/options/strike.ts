@@ -1,12 +1,15 @@
 import type { ActionAround, Readiness, Region, TargetRef } from "../../skills/action.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import { regionSegments } from "../action-aim.ts";
-import type { ActionConfig } from "../config.ts";
+import type { ActionConfig, ExecutorEntry } from "../config.ts";
+import type { PartLookup } from "../lookup.ts";
+import { expect, farthest, measuredOn, profileFor, skillDigest, staleness, STRIKE_PROFILES, type Measured, type Profile } from "../profile.ts";
 import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
-import { clinched, exposed, orderedDealt, record, type Terms } from "./value.ts";
+import { threatened } from "./percepts.ts";
+import { clinched, orderedDealt, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BodySpec, Side } from "../../spec/body.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
@@ -14,6 +17,28 @@ const PATIENCE = 2;
 /** What an action's executor reads of the skills beside it, as the last step left them. */
 export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
   support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
+
+/** What a strike's profile is looked up by: the body throwing it, and what a profile read by it must have been measured on (`measuredOn`, no reaction time: the senses give it at each decision). */
+export interface StrikeMeasure {
+  readonly spec: BodySpec;
+  readonly measured: Measured;
+}
+
+/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown by a body of `spec` at `hz`. */
+export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number): StrikeMeasure =>
+  ({ spec, measured: measuredOn(spec, skillDigest(parts, executors, action), hz, null) });
+
+/** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
+export function measuredProfile(measure: StrikeMeasure): Profile | null {
+  const found = profileFor(STRIKE_PROFILES, measure.measured);
+  return found && found.stale === null ? found.profile : null;
+}
+
+/** **A strike option** (`strike`), which says why its model is built by hand. */
+export interface StrikeOption extends StandingOption {
+  /** Why its model is built by hand now, a sentence: no drill measured it, or its profile is stale (`staleness`); null where it reads its profile. */
+  unmeasured(now: Situation): string | null;
+}
 
 /**
  * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready; or,
@@ -23,13 +48,24 @@ export const around = (sight: Sight): ActionAround => ({ heading: sight.report.h
  * of its entry, or `PATIENCE` s without a blow also end it. It yields until its blow is committed,
  * and holds what its blow holds (`asking`). Its exit is its stroke's end (the blow's `release`).
  * The region struck is what the orders name on the focus, else the first of the action's regions
- * the focus has. Its model: walking into the window, where its entry is one, until the focus is in
- * its reach, then `throws` blows from its stronger hand, each landing as often as its record says
- * (`record`, which is of the hand it is asked for), within the focus's reach from where it stands
- * or the focus would reach it, and through the blow coming.
+ * the focus has.
+ *
+ * Its model, where its drill measured it as it is read now (its profile among `STRIKE_PROFILES`,
+ * found by `measure`, read at the senses' reaction time): walking into the window, where its entry
+ * is one, then the profile's cell nearest the range (to its farthest measured), the closing speed
+ * and the focus's phase (`expect`): the focus's life its blows took, its own the drill took, how long
+ * it ran and its chance of ending down; through the blow coming, and the focus's pressure while it
+ * walks within the focus's reach and while it strikes (`threatened`). Else built by hand: walking
+ * into the window until the focus is in its reach, then `throws` blows from its stronger hand, each
+ * landing as often as its record says (`record`, which is of the hand it is asked for), within the
+ * focus's reach from where it stands or the focus would reach it, and through the blow coming.
  */
-export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws = 1): StandingOption {
+export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
+  const { measured } = measure, found = profileFor(STRIKE_PROFILES, measured);
+  /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
+  const profileNow = (now: Situation): Profile | null =>
+    found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
     if (!focus || !action.regions) return null;
@@ -68,13 +104,21 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     holds: asking,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
     end() { state.id = null; state.limb = null; state.target = null; },
+    unmeasured: (now) => !found ? "no drill measured it" : staleness(found.profile, { ...measured, reaction: now.reaction }),
     models: { "hand-built": (now): Terms => {
-      const { lands, seconds } = record(now.sight.report.ledger, action.name), { apart, theirs, mine } = now.reach, pace = walk.pace(now);
+      const { apart, theirs, mine } = now.reach, pace = walk.pace(now), walks = entry(now).kind === "position";
+      const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
+      const profile = profileNow(now), focus = now.focus;
+      const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), closing: now.closing, phase: now.phase }) : null;
+      if (e && focus) {
+        const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds;
+        return { duration, dealt, taken: now.danger + e.taken / measure.spec.wounds.hp.value + threatened(now, walkingInReach + e.seconds, Math.min(apart, mine)),
+          orders: orderedDealt(now, dealt), fall: Math.max(e.down, clinched(now, duration)) };
+      }
+      const { lands, seconds } = record(now.sight.report.ledger, action.name);
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
-      const walks = entry(now).kind === "position";
-      const walking = walks ? Math.max(0, apart - mine) / pace : 0, inReach = seconds + (walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0);
       const dealt = throws * lands * blow, duration = walking + seconds;
-      return { duration, dealt, taken: now.danger + exposed(now, inReach, Math.min(apart, mine)), orders: orderedDealt(now, dealt), fall: clinched(now, duration) };
+      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, Math.min(apart, mine)), orders: orderedDealt(now, dealt), fall: clinched(now, duration) };
     } },
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };

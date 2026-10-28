@@ -110,9 +110,6 @@ const ORDERED = .05;
 /** The progress on the orders of taking `dealt` of the focus's life: some only where the orders name it. */
 export const orderedDealt = (now: Situation, dealt: number): number => now.orders?.foe !== undefined && now.orders.foe === now.focus?.id ? dealt / ORDERED : 0;
 
-/** The cost of `seconds` s within the focus's reach, at most, from `apart` m head to head. */
-export const exposed = (now: Situation, seconds: number, apart = now.reach.apart): number => apart <= now.reach.theirs ? now.exposure * seconds : 0;
-
 /** A clinch: a standing focus within `within` m, centre to centre, where a body goes down `falls` times a second. */
 export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 

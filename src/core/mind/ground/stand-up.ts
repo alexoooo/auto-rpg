@@ -6,14 +6,14 @@ import { atan2, cos, sin } from "../../math/real.ts";
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
 import { locomotion, STANCE_LOWER, stanceOf } from "../../skills/locomotion.ts";
-import { bodyKey, type Side } from "../../spec/body.ts";
+import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { awaits, choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
-import { edgeProfile } from "./profiles.ts";
+import { EDGE_PROFILES, measuredOn, profileFor, techniqueDigest } from "../profile.ts";
 import { quietOnFeet, standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
 import type { Senses } from "../senses.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
@@ -61,10 +61,13 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   const moving: Record<string, GraphTechnique> = {};
   // `waits`: it routes through an edge whose entry reads motion, so a body still landing is held for one rather than routed.
   let waits = false;
+  // `hz`: the world's rate, which an edge's profile names (`Measured`).
+  const hz = Math.round(1 / clock.dt);
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, kit); runs[name] = run;
     waits ||= spec.moving && order.includes(name);
-    const profile = edgeProfile(bodyKey(own.spec), name);
+    const found = profileFor(EDGE_PROFILES, measuredOn(own.spec, techniqueDigest(config.techniques.find((technique) => technique.kind === name) ?? { kind: name }), hz, null));
+    const profile = found && found.stale === null ? found.profile.cells[0] ?? null : null;
     graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => run.admits(g, side) };
     moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => spec.moving && run.admits(g, side) };
   }

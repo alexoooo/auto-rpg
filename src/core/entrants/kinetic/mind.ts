@@ -78,7 +78,7 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
     const tactics = config.tactics;
     skills = driveBy(body, tacticsOf(making, tactics), (made, driving) => prepareTacticsSkills(making, tactics, make(made, driving), () => driving.decision));
   } else {
-    skills = driveBy(body, kineticTactics(host.spec, config, wiring, parts, host.seed), make);
+    skills = driveBy(body, kineticTactics(host.spec, Math.round(1 / host.clock.dt), config, wiring, parts, host.seed), make);
   }
   return { skills, state: skills.state };
 }

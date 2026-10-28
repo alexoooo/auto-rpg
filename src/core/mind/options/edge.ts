@@ -1,5 +1,6 @@
 import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
-import { clinched, exposed, type Terms } from "./value.ts";
+import { threatened } from "./percepts.ts";
+import { clinched, type Terms } from "./value.ts";
 import type { Readiness } from "../../skills/action.ts";
 import type { Walker } from "./walk.ts";
 import { toGoal, within, type Edge, type Goal } from "./goals.ts";
@@ -39,7 +40,7 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
     end() {},
     models: { "hand-built": (now): Terms => {
       const waited = state.focus === now.focus?.id && state.since !== null ? now.time - state.since : 0, duration = Math.min(AHEAD, Math.max(0, edge.patience - waited));
-      return { duration, dealt: 0, taken: now.danger + exposed(now, duration), orders: 0, fall: clinched(now, duration) };
+      return { duration, dealt: 0, taken: now.danger + threatened(now, duration), orders: 0, fall: clinched(now, duration) };
     } },
     step(now) {
       if (within(now, edging)) state.since ??= now.time;

@@ -1,7 +1,8 @@
 import { NO_COVER } from "../intent.ts";
 import { orderedIntent } from "../ordered.ts";
 import { asking, blocked, READY, type StandingOption } from "./option.ts";
-import { exposed, type Terms } from "./value.ts";
+import { threatened } from "./percepts.ts";
+import type { Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { ActionConfig } from "../config.ts";
 import { remainingOf } from "../movement.ts";
@@ -36,7 +37,7 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
       const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view;
       const left = orders.move ? remainingOf(orders.move, view.stance.centre, view.senses.others) : 0;
       const followed = left > 0 ? Math.min(kept, left) : kept;
-      return { duration: AHEAD, dealt: 0, taken: now.danger + exposed(now, AHEAD), orders: followed, fall: 0 };
+      return { duration: AHEAD, dealt: 0, taken: now.danger + threatened(now, AHEAD), orders: followed, fall: 0 };
     } },
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);

@@ -6,83 +6,270 @@
       "assets/evaluations/rise/2026-10-27-4d8f12c1-c971f11b.jsonl"
     ]
   },
-  "profiles": {
-    "workshop-fighter": {
-      "staged-roll": {
-        "begun": 21,
-        "done": 21,
-        "seconds": 2.601,
-        "fails": {}
+  "profiles": [
+    {
+      "measured": {
+        "body": "workshop-fighter",
+        "spec": "22ef4c792c4796af",
+        "skill": "20fe4dffef5c2edd",
+        "hz": 120,
+        "reaction": null
       },
-      "staged-down": {
-        "begun": 12,
-        "done": 11,
-        "seconds": 2.921,
-        "fails": {
-          "between": 1
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 21,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.601,
+          "down": 0,
+          "ends": []
         }
-      },
-      "staged-kneel-up": {
-        "begun": 9,
-        "done": 9,
-        "seconds": 2.678,
-        "fails": {}
-      },
-      "staged-step-through": {
-        "begun": 8,
-        "done": 7,
-        "seconds": 1.77,
-        "fails": {
-          "front": 1
-        }
-      },
-      "staged-lunge": {
-        "begun": 5,
-        "done": 4,
-        "seconds": 2.232,
-        "fails": {
-          "back": 1
-        }
-      }
+      ]
     },
-    "workshop-rogue": {
-      "staged-roll": {
-        "begun": 23,
-        "done": 23,
-        "seconds": 4.722,
-        "fails": {}
+    {
+      "measured": {
+        "body": "workshop-rogue",
+        "spec": "56c53c970e84d3d9",
+        "skill": "20fe4dffef5c2edd",
+        "hz": 120,
+        "reaction": null
       },
-      "staged-down": {
-        "begun": 12,
-        "done": 12,
-        "seconds": 2.633,
-        "fails": {}
-      },
-      "staged-kneel-up": {
-        "begun": 12,
-        "done": 4,
-        "seconds": 1.426,
-        "fails": {
-          "front": 8
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 23,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 4.722,
+          "down": 0,
+          "ends": []
         }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter",
+        "spec": "22ef4c792c4796af",
+        "skill": "96abc6c2092dcc94",
+        "hz": 120,
+        "reaction": null
       },
-      "staged-step-through": {
-        "begun": 10,
-        "done": 9,
-        "seconds": 2.035,
-        "fails": {
-          "back": 1
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 12,
+          "done": 0.9166666666666666,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.921,
+          "down": 0.08333333333333337,
+          "ends": [
+            {
+              "at": "between",
+              "share": 0.08333333333333333
+            }
+          ]
         }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-rogue",
+        "spec": "56c53c970e84d3d9",
+        "skill": "96abc6c2092dcc94",
+        "hz": 120,
+        "reaction": null
       },
-      "staged-lunge": {
-        "begun": 8,
-        "done": 5,
-        "seconds": 1.79,
-        "fails": {
-          "back": 2,
-          "between": 1
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 12,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.633,
+          "down": 0,
+          "ends": []
         }
-      }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter",
+        "spec": "22ef4c792c4796af",
+        "skill": "9ca3bb4120cb86df",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 9,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.678,
+          "down": 0,
+          "ends": []
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-rogue",
+        "spec": "56c53c970e84d3d9",
+        "skill": "9ca3bb4120cb86df",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 12,
+          "done": 0.3333333333333333,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.426,
+          "down": 0.6666666666666667,
+          "ends": [
+            {
+              "at": "front",
+              "share": 0.6666666666666666
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter",
+        "spec": "22ef4c792c4796af",
+        "skill": "14d0807c06566d32",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 8,
+          "done": 0.875,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.77,
+          "down": 0.125,
+          "ends": [
+            {
+              "at": "front",
+              "share": 0.125
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-rogue",
+        "spec": "56c53c970e84d3d9",
+        "skill": "14d0807c06566d32",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 10,
+          "done": 0.9,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.035,
+          "down": 0.09999999999999998,
+          "ends": [
+            {
+              "at": "back",
+              "share": 0.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter",
+        "spec": "22ef4c792c4796af",
+        "skill": "6b7a484da2ca224f",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 5,
+          "done": 0.8,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.232,
+          "down": 0.19999999999999996,
+          "ends": [
+            {
+              "at": "back",
+              "share": 0.2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-rogue",
+        "spec": "56c53c970e84d3d9",
+        "skill": "6b7a484da2ca224f",
+        "hz": 120,
+        "reaction": null
+      },
+      "cells": [
+        {
+          "range": 0,
+          "closing": 0,
+          "phase": "clear",
+          "trials": 8,
+          "done": 0.625,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.79,
+          "down": 0.375,
+          "ends": [
+            {
+              "at": "back",
+              "share": 0.25
+            },
+            {
+              "at": "between",
+              "share": 0.125
+            }
+          ]
+        }
+      ]
     }
-  }
+  ]
 }

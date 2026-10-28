@@ -11,7 +11,7 @@ import { GOALS, toGoal } from "../../mind/options/goals.ts";
 import type { Asked, Situation, StandingOption } from "../../mind/options/option.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
-import { strike } from "../../mind/options/strike.ts";
+import { measuredProfile, strike, strikeMeasure } from "../../mind/options/strike.ts";
 import { walker, type Walker } from "../../mind/options/walk.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
 import type { PartConfig } from "../../mind/parts.ts";
@@ -55,16 +55,18 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
 /**
  * **Kinetic's tactics**: the options fighter's chooser (`chooserOf`) over its commitments,
  * following orders and a strike of each blow thrown standing (`strike`, which closes into its
- * window, `approach`); with none running, the default footwork (`footwork`). A free hand covers
- * (`cover`); the walk keeps out of a fallen body's reach and a solid's clearance (`keepOut`); an
- * order to face is followed. What it reports doing is the running commitment's name, the offers it
- * chose among, and what its controllers did not carry out as it last decided (`unmetDetail`).
+ * window, `approach`, and is priced by its measured profile where it has one, `strikeMeasure`);
+ * with none running, the default footwork (`footwork`). A free hand covers (`cover`); the walk keeps
+ * out of a fallen body's reach and a solid's clearance (`keepOut`); an order to face is followed.
+ * What it reports doing is the running commitment's name, the offers it chose among, and what its
+ * controllers did not carry out as it last decided (`unmetDetail`).
  */
-export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number): Tactics {
+export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number): Tactics {
   const downs = deciding.subs.flatMap((sub) => parts.of("sub-mind", sub).down ?? []);
-  const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses), downs);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
-  const strikes = standing.map((action) => strike(action, walk, true, blowsOf(parts, deciding.executors, action)));
+  const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
+  const walk = walker(spec), reader = situationReader(spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses), downs);
+  const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };

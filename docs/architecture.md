@@ -578,11 +578,26 @@ hands the body over).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
   `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
-  orders, focus, distance, threat, the blow coming and its cost, reach, exposure, each hand's blow;
-  the gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the
-  focus's phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue
-  is what a chooser watches (`eventOf`). Reach is read head to head: the focus's, this body's,
-  and where the two guards meet (`guardAhead`).
+  orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure, what a
+  fall costs, how fast the two close, how late the senses show the focus, each hand's blow; the
+  gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the focus's
+  phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue is what a
+  chooser watches (`eventOf`). Reach is read head to head: the focus's, this body's, and where the
+  two guards meet (`guardAhead`). The pressure (`Pressure`) is what a standing focus is expected to
+  deal the body a second, over the range: measured from the strike profiles on the focus's body
+  where there are any (`profilesOn`), else by hand within its reach; an option is charged it for its
+  time near the focus (`threatened`).
+- **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
+  for every skill: cells over the range, the closing speed and the foe's phase, each the share done,
+  the hit points dealt and lost, the seconds and the share ending down, and where those not done
+  came to rest (`ProfileCell`, read through `expect`). Each names what it was measured on
+  (`Measured`: the body's key and spec digest, the skill's digest, the rate and the reaction time),
+  and one read on another is stale (`staleness`) and not read. Scripts write them from drill
+  records: the strikes' from the Strike drill (`research/strike-profiles.mjs`,
+  `assets/core/strike-profiles.json`), the ground edges' from the Rise drill
+  (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`). A strike (`strike`) reads its
+  own where it is fresh and is priced by hand where not; Kinetic reports which and why
+  (`Profiles`).
 - **Named goals** (`GOALS`, `goals.ts`): a band of the range to the focus whose limits are reach
   readings read each step, never metres written down: `close`, inside this body's reach; `at the
   edge`, just outside the focus's (`EDGE`); `out of reach`, past that; `guard to guard`. `toGoal`
@@ -630,7 +645,7 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have profiles (`ground/profiles.ts`, `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), is experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`EDGE_PROFILES`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), is experimental |
 
 **Mind data loads per use** (`src/core/data/store.ts`). The learned punch's network
 (`assets/core/learned-punch.json`) is a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
