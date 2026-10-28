@@ -16,8 +16,9 @@ import { walker, type Walker } from "../../mind/options/walk.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
 import type { PartConfig } from "../../mind/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
+import type { MotorUnmet } from "../../control/motor.ts";
+import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";
 import type { BodySpec } from "../../spec/body.ts";
-import type { Refusal } from "./composer.ts";
 
 /** What Kinetic decides with: its chooser, and the actions and executors its strikes are carried out by. */
 export interface Deciding {
@@ -36,10 +37,17 @@ function footwork(now: Situation, walk: Walker): Omit<Asked, "actions"> {
   return toGoal(now, GOALS["at the edge"], walk);
 }
 
-/** The refusals' report as an engagement's detail: how many, and the first's what and why. */
-function refusedDetail(refused: readonly Refusal[]): EngagementDetail {
-  const first = refused[0];
-  return { label: "Refused", value: first ? `${refused.length}: ${first.by}'s ${first.write}, as ${first.reason}` : "none" };
+/**
+ * What the controllers did not carry out last step, as an engagement's detail: the legs goal's
+ * fields the legs left undone (`SkillReport.legs`) and how many pushes and points the motor did
+ * not (`BodyView.unmet`).
+ */
+function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
+  let pushes = 0;
+  for (const pushed of motor.pushes) pushes += pushed;
+  const parts = [...legs.fields.length ? [`legs: ${LEGS_FIELDS.filter((field) => legs.fields.includes(field)).join(", ")}`] : [],
+    ...pushes ? [`${pushes} ${pushes === 1 ? "push" : "pushes"}`] : [], ...motor.points ? [`${motor.points} ${motor.points === 1 ? "point" : "points"}`] : []];
+  return { label: "Unmet", value: parts.length ? parts.join("; ") : "none" };
 }
 
 /**
@@ -48,23 +56,25 @@ function refusedDetail(refused: readonly Refusal[]): EngagementDetail {
  * window, `approach`); with none running, the default footwork (`footwork`). A free hand covers
  * (`cover`); the walk keeps out of a fallen body's reach and a solid's clearance (`keepOut`); an
  * order to face is followed. What it reports doing is the running commitment's name, the offers it
- * chose among, and the writes its body layer refused this step (`refused`).
+ * chose among, and what its controllers did not carry out as it last decided (`unmetDetail`).
  */
-export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup, refused: () => readonly Refusal[]): Tactics {
+export function kineticTactics(spec: BodySpec, deciding: Deciding, wiring: MindWiring, parts: PartLookup): Tactics {
   const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const strikes = standing.map((action) => strike(action, walk, true, blowsOf(parts, deciding.executors, action)));
   const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes];
   const chosen = chooserOf(parts, deciding.chooser, options), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
+  let last: Sight | null = null;
   const engagement = {
     get phase() { return chosen.running?.name ?? "guard"; },
     get offers() { return chosen.offers; },
-    get details() { return [refusedDetail(refused())]; },
+    get details() { return last ? [unmetDetail(last.report.legs, last.view.unmet)] : []; },
   };
   return {
     name: "kinetic", state, engagement,
     decide(seen: Sight, dt: number) {
+      last = seen;
       const now = reader.read(seen), option = chosen.decide(now);
       const running = option?.posture === "standing" ? option : null;
       const asked: Asked = running ? running.step(now, dt) : { ...footwork(now, walk), actions: [] };

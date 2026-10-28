@@ -180,7 +180,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
  * none. A footing asked stands, facing the legs' `heading`. While a support fold is under way
  * (`waiting`) a walk waits for it to rise.
  */
-export function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination">, view: Pick<BodyView, "standing">, heading: number,
+function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination">, view: Pick<BodyView, "standing">, heading: number,
   fold: { readonly waiting: boolean }): LegsAsked {
   const height = asked.height ?? (intent.lower === undefined ? undefined : view.standing - intent.lower);
   if (asked.footing) return { ...asked, walk: null, face: heading, height };
@@ -196,7 +196,7 @@ export function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" |
  * movement kept clear of the solids sensed. Nothing walks where the legs are not `available`, and
  * with no navigation the walk goes as asked.
  */
-export function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping">, envelope: StanceEnvelope | null,
+function navigated(navigation: Navigator | null, sight: NavigationSight, legs: Pick<Locomotion, "heading" | "envelope" | "stopping">, envelope: StanceEnvelope | null,
   requested: Intent, dt: number, available: boolean): Intent {
   const { view } = sight, h = legs.heading, velocity = requested.move;
   const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);

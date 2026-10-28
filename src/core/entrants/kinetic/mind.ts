@@ -1,20 +1,19 @@
 import type { Body } from "../../body.ts";
-import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "../../mind/action-config.ts";
+import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
 import { MOVE, STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
-import { fighterBody, kitFaults } from "../../mind/fighter.ts";
+import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import type { BodyHost } from "../../mind/host.ts";
-import { GAME_MOTOR, legsOf } from "../../mind/kit.ts";
+import { GAME_MOTOR } from "../../mind/kit.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
-import { GAME_NAVIGATION, navigatorOf } from "../../mind/navigator.ts";
+import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../../mind/parts.ts";
 import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
-import { kineticSkills, type Refusal } from "./composer.ts";
 import { kineticTactics } from "./tactics.ts";
 
 /**
@@ -63,31 +62,28 @@ function kineticFaults(config: KineticConfig, parts: PartLookup): readonly strin
 }
 
 /**
- * **A Kinetic fighter**: its body and sub-minds (`fighterBody`), its skills Kinetic's body layer
- * (`kineticSkills`), decided by its tactics (`kineticTactics`), or by the tactics its config names
- * in their place. Its blows are those its body throws as armed (`armedActions`).
+ * **A Kinetic fighter**: its body and sub-minds (`fighterBody`), its skills the toolkit's body
+ * layer with no low support (`fighterSkills`), decided by its tactics (`kineticTactics`), or by
+ * the tactics its config names in their place. Its blows are those its body throws as armed
+ * (`armedActions`).
  */
 function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody(config, wiring, parts));
-  let skills: Skills & { readonly report: { readonly refused: readonly Refusal[] } };
-  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => kineticSkills(made, driving, {
-    legs: legsOf(parts, made, config.locomotion), guard: parts.of("guard", config.guard).make(made.built, config.guard), navigation: navigatorOf(parts, made.built.spec, config.navigation),
-    executors: configuredExecutors(parts, made, host.clock, parts.of("guard", config.guard).posture(made.built.spec, config.guard), config.executors, config.actions, () => skills?.report.ledger ?? []),
-    actions: config.actions,
-  });
+  let skills: Skills;
+  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, { ...config, support: null }, driving, () => skills?.report.ledger ?? []);
   if (config.tactics) {
     const making: TacticsMaking = { spec: host.spec, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
       aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
     const tactics = config.tactics;
-    skills = driveBy(body, tacticsOf(making, tactics), (made, driving) => prepareTacticsSkills(making, tactics, make(made, driving), () => driving.decision)) as typeof skills;
+    skills = driveBy(body, tacticsOf(making, tactics), (made, driving) => prepareTacticsSkills(making, tactics, make(made, driving), () => driving.decision));
   } else {
-    skills = driveBy(body, kineticTactics(host.spec, config, wiring, parts, () => skills?.report.refused ?? []), make) as typeof skills;
+    skills = driveBy(body, kineticTactics(host.spec, config, wiring, parts), make);
   }
   return { skills, state: skills.state };
 }
 
-/** **Kinetic** as an entrant: Options' chooser and percepts over a body layer that asks the legs only through the stance. */
+/** **Kinetic** as an entrant: Options' chooser and percepts over the toolkit's body layer. */
 export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
   keys: { kind: true, chooser: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, subs: true, motor: true },

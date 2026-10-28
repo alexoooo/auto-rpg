@@ -22,8 +22,8 @@ registries; they bind no mind.
   a `halts` setting in three parts' key lists.
 - **Two body layers do one job.** The arbiter owns the body by concrete control (each channel,
   effector, hand pose and the stance), fills the free ones with the defaults, and lets an action
-  hand some back (`delegate`). Kinetic's composer (`src/core/entrants/kinetic/composer.ts`) does
-  the same with four coarser parts, and every change to the claim lands in both (`legsGoal`).
+  hand some back (`delegate`). Kinetic's composer (`src/core/entrants/kinetic/composer.ts@6b7a7907`) did
+  the same with four coarser parts, and every change to the claim landed in both (`legsGoal`).
 - **Refusals police what the body already decides.** A push on a leg the stance drives is
   overwritten by the step's solve (`solveBody`, `src/core/control/solve.ts`), silently; Kinetic
   refuses such writes instead of the body saying it overrode them. A leg the stance does not drive
@@ -126,7 +126,7 @@ Each controller reports, in its state, what of the last command it did not carry
 It is read as a percept, not only a log: a skill or the chooser that sees the legs hold the centre
 short can step instead of leaning harder. Every mind, the drills, the readouts and the trainers read
 it; a learned skill's reward counts what of its asks went unmet, so it learns what the body does.
-Kinetic's refusals and its `Refused` detail become this report.
+Kinetic shows it as its `Unmet` detail.
 
 ### Each vocabulary term, probed
 
@@ -193,14 +193,6 @@ The toolkit steps are read with the fingerprint against the commit before, and n
 that move. Each code step runs the gate and reads the step's cost before and after. All are
 Kinetic's step 2 and land before its baseline evaluation reads the layer
 ([Kinetic](2026-10-27-kinetic.md) step 6).
-
-### 7. Kinetic on the toolkit's body layer
-
-Kinetic's composer deleted; `kineticSkills` is `skillSet` with no support; its refusals detail
-reads the report.
-
-Check: the gate; Kinetic's still and walk rungs the same to the bit as before the step; in the
-Arena it faces, follows, punches and gets up, looked at.
 
 ### 8. A held control left unwritten
 
