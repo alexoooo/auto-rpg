@@ -16,6 +16,7 @@ import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";
 import { takesScript } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
 import { commandable } from "../core/body.ts";
 import { enlist } from "../core/combatant.ts";
@@ -41,6 +42,8 @@ import { cos, sin } from "../core/math/real.ts";
  */
 export interface FallCase {
   readonly model: BodyModel;
+  /** Its character's attributes but its balance, which the fall gives (`balance`); none for the body's own. */
+  readonly character?: AttributeOverrides;
   readonly held?: Held;
   readonly loadout?: Loadout;
   readonly seed: number;
@@ -100,12 +103,18 @@ export function checkFall(fall: Pick<FallCase, "target" | "loadout" | "grit" | "
   if (fall.target && fall.level && fall.level !== "open") throw new Error("the owner's target fixes the open floor");
 }
 
+/** The attributes `fall`'s body takes: its character's, less the balance the fall gives. */
+function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
+  const { balance: _, ...character } = fall.character ?? {};
+  return character;
+}
+
 /** Where a fall starts: its address in the Lab, its body and its placement, or why the bed refuses the start; throws for a fall the bed does not play (`checkFall`). */
 export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
   checkFall(fall);
   const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
   if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a fighter on a body the command layers read");
-  const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
+  const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
     ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
       impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
   const factor = fall.factor ?? 1;
@@ -202,7 +211,7 @@ export async function buildLoneFall(fall: FallCase, engine: EngineName): Promise
   if (refused) throw new Error(refused);
   const factor = fall.factor ?? 1;
   if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
-  const spec = strengthSpec(modelHolding(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }), factor);
+  const spec = strengthSpec(modelHolding(fall.model, fall.loadout ?? { left: "empty", right: fall.held ?? "empty" }, characterOf(fall)), factor);
   const babylon = new NullEngine(), scene = new Scene(babylon);
   const world = createWorld(scene, await loadEngine(engine));
   addArenaSolids(world.physics);

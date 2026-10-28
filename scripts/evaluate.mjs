@@ -22,6 +22,8 @@
  * or one named executor or action, `actions.<name>=null` to remove it.
  * Baseline configurations run on current code. Historical implementations are compared from
  * their saved records with `npm run compare`, without rebuilding them here.
+ * An evaluation that plays every protocol (`Evaluation.every`: the baseline) plays each in turn, a
+ * report and a record each, unless `--protocol` names one.
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
  * files of every case's code unchanged (`caseCoder`).
@@ -221,7 +223,13 @@ async function main() {
   }
   const evaluation = EVALUATIONS[id];
   if (!evaluation) throw new Error(`name an evaluation: ${Object.keys(EVALUATIONS).join(", ")}`);
-  const protocol = values.protocol ?? evaluation.defaultProtocol, cases = evaluation.protocols[protocol];
+  const protocols = values.protocol ? [values.protocol] : evaluation.every ? Object.keys(evaluation.protocols) : [evaluation.defaultProtocol];
+  for (const protocol of protocols) await runProtocol(evaluation, id, protocol, named, values);
+}
+
+/** Play `protocol` of `evaluation` (named `id`) for the subjects `named` and the command's options `values`: report it, and with `--write` record it. */
+async function runProtocol(evaluation, id, protocol, named, values) {
+  const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   if (cases.engine && values.engine && values.engine !== cases.engine) throw new Error(`${id} ${protocol} is played on ${cases.engine}`);
   const engine = cases.engine ?? values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
@@ -330,7 +338,8 @@ async function main() {
   if (delays.length > 0) console.log(`reaction time ${delays.map((seconds) => `${seconds} s`).join(", ")}; bout seeds ${boutSeedsOf(complete).join(", ")}`);
   for (const one of heads) console.log(`${one.id}: version ${one.version.version}${one.parent ? `, parent ${one.parent.id} ${one.parent.version.version} (${one.changes.join(", ") || "no change"})` : ""}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
-  for (const f of figures) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
+  // An evaluation of every protocol reads each figure on its own protocol's readings alone: the others' are empty there.
+  for (const f of figures) if (!evaluation.every || f.units > 0) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
   for (const fault of faults) console.log(`fault (${fault.fault.kind}) in ${fault.key}: ${fault.fault.message}`);
   for (const line of droppedLines(dropped)) console.log(line);
   const report = counterpart.size > 0 ? panelReport(slots, headToHead, rows, evaluation.figures, rule) : null;

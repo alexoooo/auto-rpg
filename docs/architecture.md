@@ -966,7 +966,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
   conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
-  fall, a Crypt run, a lone body, `lone.ts`, or techniques in turn, `technique.ts`; each kind built, stepped and traced by one loop,
+  fall, a Crypt run, a lone body, `lone.ts`, given orders and shoves at set times by its script
+  (`LoneCue`), or techniques in turn, `technique.ts`; each kind built, stepped and traced by one loop,
   `playCase`, from its `WorldKind`) and its reader, and the engine where the protocol fixes one (`Cases.engine`); A worker plays it as its description's `protocols` (`EVALUATIONS`), the one list. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
@@ -983,6 +984,13 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   lost worker or one past its minutes replaced and its case left without a row), until the budget
   (`--budget`, 10 min unless told) is spent; a table reads the complete units in their definition's order. Figures are a rate (Wilson) or a mean or median over units, a
   pair resampled whole (`stats.ts`).
+- **The baseline** (`baseline`): one mind's configuration on the Warrior, its preset's character
+  its body's, a protocol a competence and one command playing each in turn (`Evaluation.every`), a
+  record each: `walk`, the Locomotion drill; `punch`, the Strike drill's still and walk rungs by its
+  first action; `stand-up`, the owner's target's falls risen by its own sub-minds on the rising
+  bed's host; `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
+  side. A reading carries its competence (`part`) and each figure reads its own. A mind given whole
+  takes a character and bodies as a preset names them (`{ mind, character, models }`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
   commit, pool, each subject and part with its version and parent) and a line per case. A version is
@@ -1019,7 +1027,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   round the obstacle court's column into its window), `crowd` (a party's mind among its own side's
   bodies: a party reversed, a lone body and a following pair turned back, paths crossing, a gap that
   passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
-  apart) and `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
+  apart), `locomotion` (a mind's body told to walk four ways at two paces, to run, to turn and to
+  stop, and shoved standing and after a walk: held, on pace, stopped, top speed, shoves held) and
+  `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
   Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
   the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
   its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, under

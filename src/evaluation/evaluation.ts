@@ -148,6 +148,8 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   readonly question: string;
   readonly protocols: Readonly<Record<string, Cases<C, R, B>>>;
   readonly defaultProtocol: string;
+  /** Whether one command plays every protocol, each its own record, unless one is named; otherwise the default alone. */
+  readonly every?: true;
   /** Whom a contest's subjects meet unless told: every pair, or a panel (`schedule.ts`). */
   readonly schedule: "all" | "versus";
   readonly analysis: Json;
