@@ -27,10 +27,10 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
   analysis: {
     /**
      * The default panel: eight minds, each character and loadout of the field at least once, from
-     * the top of the 10-hour record (2056) to its lower middle (1385); chosen for variety, not strength.
+     * 1779 to the 10-hour record's lower middle (1385); chosen for variety, not strength.
      */
     panel: [
-      "tempo/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
+      "duellist/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
       "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/crypt-skeleton/empty,empty",
       "options/workshop-rogue/empty,club", "duellist/crypt-skeleton/empty,sword",
     ],

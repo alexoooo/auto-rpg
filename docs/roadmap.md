@@ -81,8 +81,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    step 13.
    Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
    since on them step-up stands none of the target's falls
-   ([on the game bodies](reference/toes.md#on-the-game-bodies)). Tempo retired
-   ([The AI](#the-ai)).
+   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
 5. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -287,9 +286,6 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
   an opponent outside Kinetic that the baseline evaluation fights
   ([Kinetic](plans/2026-10-27-kinetic.md), step 6); its tactics are not ported.
-- **Tempo** is legacy and retires: its kind, presets, records and the tests and scripts that name
-  it, each read for what still needs a mind in its place; the reflex role, which only Tempo uses,
-  goes with it.
 - Not built: a learned mind (the bare entrant, [Kinetic](plans/2026-10-27-kinetic.md) step 7, is
   its route, trained after Kinetic's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.

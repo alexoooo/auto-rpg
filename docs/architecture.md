@@ -511,12 +511,11 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
 | kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
-`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, `chooser`, or a skill's:
+`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `chooser`, or a skill's:
 `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
@@ -524,7 +523,7 @@ screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts be
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
-`src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` and `BALANCES` in `src/core/control/`; `MOVE_RULES` in
+`src/core/mind/`; `MOTORS` and `BALANCES` in `src/core/control/`; `MOVE_RULES` in
 `src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
@@ -585,9 +584,7 @@ hands the body over).
 - **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
   and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
   of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers
-  (`cover`, `cover.ts`: the hand on the blow's side, at most a second a run of blows); then its
-  reflexes (`reflexLayer`, `reflex.ts`; each a `ReflexPart` in `REFLEXES`, made by `reflexOf`)
-  patch the intent in rank order: none by default; Tempo holds the cover reflex (`cover-reflex`).
+  (`cover`, `cover.ts`: the hand on the blow's side, at most a second a run of blows).
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
@@ -685,7 +682,7 @@ inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
 inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
 (`stockClearance`). A planner's walk is kept out of a solid's clearance and a fallen body's reach
-by `keepOut` (`clear-step.ts`), which the options and tempo fighters apply to what they ask. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+by `keepOut` (`clear-step.ts`), which the options fighter applies to what it asks. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
 or a goal that moves is
@@ -718,8 +715,9 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
-A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`. Tempo
-(`entrants/tempo/mind.ts`), the shared skills under tactics of its own, is the smallest example.
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`.
+Kinetic (`entrants/kinetic/mind.ts`), the toolkit's skills under a chooser and tactics of its own,
+is the reference example.
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
    faults and its maker, written as one controller (`controller<C>({ ... })`).

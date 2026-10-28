@@ -22,7 +22,6 @@ import type { Asked, Option, Situation } from "./option.ts";
 import { strikeLow } from "./low.ts";
 import { followOrders } from "./orders.ts";
 import { fitsAll, takesCommands } from "../parts.ts";
-import { reflexLayer, reflexOf } from "./reflex.ts";
 import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
 import { CLINCH } from "./value.ts";
@@ -53,8 +52,7 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, p
  * Each control step the option chosen fills the intent's commitment or its footwork (`Layer`),
  * and the layers under it the rest: the legs approach a commitment's window where its entry says
  * `position` (`approach`); the walk keeps out of a fallen body's reach, but the one it means to
- * be near, and out of a solid's clearance (`keepOut`); a free hand covers (`cover`); and its
- * reflexes (`reflexOf`) patch what is asked, in rank order (`reflexLayer`).
+ * be near, and out of a solid's clearance (`keepOut`); and a free hand covers (`cover`).
  *
  * The chooser decides once a control step, at the first that asks: the down half, which the body
  * asks whether it wants the body each step once it has looked and before its command layers act
@@ -93,8 +91,8 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   const chosen = choosing = chooserOf(host.parts, config.chooser, options);
-  const hands = cover(host.spec), reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(host.parts, reflex, host.spec)));
-  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, reflexes: reflexes.state };
+  const hands = cover(host.spec);
+  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
   const engagement = { get phase() { return chosen.running?.name ?? "guard"; }, get offers() { return chosen.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,
     decide(seen, dt) {
@@ -104,8 +102,8 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       const near = option?.posture === "standing" ? option.near?.(now) ?? null : null;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
       const covered = hands.step(now, held);
-      return reflexes.apply(now, { ...keepOut(seen.view, seen.clearance, approach(now, asked), near, now.orders?.pace), ...(facing === null ? {} : { face: facing }),
-        guard: covered ? { ...NO_COVER, ...covered } : NO_COVER });
+      return { ...keepOut(seen.view, seen.clearance, approach(now, asked), near, now.orders?.pace), ...(facing === null ? {} : { face: facing }),
+        guard: covered ? { ...NO_COVER, ...covered } : NO_COVER };
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));

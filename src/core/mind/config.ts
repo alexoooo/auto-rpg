@@ -11,7 +11,6 @@ import { COMBINATION } from "../skills/combination.ts";
 import type { LOCOMOTIONS } from "./locomotions.ts";
 import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
 import type { PLANNERS } from "./planners.ts";
-import type { REFLEXES } from "./options/reflexes.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -85,8 +84,6 @@ export interface ActionConfig {
   readonly lower?: number;
 }
 
-/** **A reflex's config**, by kind (`REFLEXES`). */
-export type ReflexConfig = ConfigOf<typeof REFLEXES>;
 
 /** **A chooser's config**, by kind (`CHOOSERS`). */
 export type ChooserConfig = ConfigOf<typeof CHOOSERS>;
@@ -128,15 +125,13 @@ export interface MindConfig { readonly kind: string }
 
 /**
  * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a chooser over options,
- * carried out through its skills (`SkillKit`), under its reflexes. A person sets its chooser (by
+ * carried out through its skills (`SkillKit`). A person sets its chooser (by
  * worth, with the obedience `OBEDIENCE`, or by rank) and its parts.
  */
 export interface OptionsConfig extends SkillKit {
   readonly kind: "options";
   /** How it chooses among its options (`Chooser`). */
   readonly chooser: ChooserConfig | PartConfig;
-  /** Its reflexes, in rank order (`reflexLayer`), over the cover its free hands take (`cover`). */
-  readonly reflexes: readonly ReflexConfig[];
   /** What it does down, by rank: each a sub-mind it prices as a down option (`SubMindPart.down`). */
   readonly subs: readonly SubMindConfig[];
 }
@@ -263,15 +258,15 @@ const ONE_TWO: ActionConfig = (() => {
  * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); for a low foe, the
  * path strikes' low blow and the support fold it is thrown from (`PATH_STRIKES`); and Classic's gaits (`MOVE`):
  * braced near, and farther the walk that runs where it asks a run's pace. Its standing blows aim
- * at an opening in the foe's guard (`surface`). It chooses by worth (`VALUED_CHOOSER`), and has no
- * reflex: its free hands cover (`cover`).
+ * at an opening in the foe's guard (`surface`). It chooses by worth (`VALUED_CHOOSER`), and its
+ * free hands cover (`cover`).
  */
 export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
   executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
     { name: "combination", kind: "combination" as const, ...COMBINATION },
     ...PATH_STRIKES.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: PATH_STRIKES.support, chooser: { kind: "valued", depth: 1 }, reflexes: [],
+  support: PATH_STRIKES.support, chooser: { kind: "valued", depth: 1 },
   subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
