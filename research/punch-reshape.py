@@ -5,11 +5,12 @@ the arm's 4). The trunk's and arm's outputs keep their weights, their spread and
 moments; the stance's asks start at zero, so the reshaped policy steers as the old one did with its
 legs' outputs dropped (which moved nothing: the stance's solve overwrites a bearing leg's pushes),
 their spread `spread` (a standard deviation before the tanh; the kept outputs' mean where not
-given), so that they are explored. The observation and its normalisation are unchanged.
+given), so that they are explored. The observation and its normalisation are unchanged; the
+normalisation's record of the action space is the new one's.
 
   .tools/ai-lab-venv/Scripts/python.exe research/punch-reshape.py <run dir> <new run dir> [spread]
 """
-import shutil
+import pickle
 import sys
 from pathlib import Path
 
@@ -47,5 +48,9 @@ for index, name in enumerate(names):
         for key in ('exp_avg', 'exp_avg_sq'): state[key] = reshaped(state[key], 0.0)
 data['action_space'] = spaces.Box(float(old.low[0]), float(old.high[0]), (TRUNK + ASKS + ARM,), np.float32)
 save_to_zip_file(str(target / 'model.zip'), data=data, params=params, pytorch_variables=variables)
-shutil.copyfile(source / 'normalize.pkl', target / 'normalize.pkl')
+with (source / 'normalize.pkl').open('rb') as file: normalize = pickle.load(file)
+normalize.action_space = data['action_space']
+# Pickled as `VecNormalize.save` does: without the environment it wraps, which it drops.
+normalize.venv, normalize.class_attributes, normalize.returns = None, {}, None
+with (target / 'normalize.pkl').open('wb') as file: pickle.dump(normalize, file)
 print(f'{source} -> {target}: {old.shape[0]} outputs to {TRUNK + ASKS + ARM}, the asks\' log std {spread:.3f}')
