@@ -5,8 +5,9 @@ case each, beside a list or a copy. This plan makes each claim true as stated, m
 code. Kinetic decides by one mechanism: **options, and one policy that selects among those
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy
-(built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, and the rise as options,
-`groundOptions`, each edge priced by its expected time to standing).
+(built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, the rise as options,
+`groundOptions`, each edge priced by its expected time to standing, and each hand's cover,
+`covers`, priced by the share of the blow on the head it keeps off).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -40,8 +41,8 @@ after skills are trained against it.
   a target is a dimension of its profile. The gaits stay the two the legs have, braced and run.
 - **The policy selects a set**: the best option, then the best of the rest whose resources
   (`claims`) are still free, until every resource is held, a rest option taking a resource nothing
-  else is worth more on. A strike holding the legs, the trunk and a hand runs beside the other
-  hand's cover; between strikes, a gait toward a goal runs beside both hands' covers. By worth or
+  else is worth more on. A strike holding the legs and the trunk runs beside the hands' covers, a
+  cover giving way where the strike's blow holds its hand; between strikes, a gait toward a goal runs beside both hands' covers. By worth or
   by rank are two configurations of the one policy (`chooserOf`); by worth breaks a tie by rank,
   a rest option first, so options priced alike, the unmeasured, are taken in rank order.
 - **Below the options, not chosen**: what they read (the situation and its percepts); what prices
@@ -59,8 +60,7 @@ after skills are trained against it.
 ## Where it starts
 
 - **Decisions beside the policy.** Kinetic's strike walks to its window (`approach`) beside
-  `moveTo("close")`; its three goals are written by hand; a free hand covers after the choice
-  (`cover`) rather than as an option. A goal is only a band of `Reach.apart`
+  `moveTo("close")`; its three goals are written by hand. A goal is only a band of `Reach.apart`
   (`src/core/mind/options/goals.ts`), its width a fixed 0.25 m (`EDGE.band`), and `close` is this
   body's reach, not a strike's window. The gait is chosen by Move's rules (`MoveRule`,
   `src/core/skills/move.ts`): braced within 5 m of a foe or a destination, 8.5 m of an ally, else
@@ -85,15 +85,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 6. Covers as options
-
-Each cover is an option on its hand, its target the threat it covers from, priced by the blow it is
-expected to stop and where it leaves the body (its profile, the Cover drill's); `cover`'s hook
-after the choice goes. The Cover drill ([Drills](2026-10-24-drills.md) step 8) lands before it,
-reading Kinetic's covers as they are now, the reference this step is paired against.
-
-Check: the Cover drill's rungs paired with the step before; a bout looked at.
 
 ### 7. Goals from the skills
 

@@ -17,7 +17,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 | punch | admitted, of 128 | 96 |
 | punch | fell, of 128 | 0 |
 | stand-up | stood, of the target's 32 Warrior falls, all made | 0 (flat-footed: 31, median 12.2 s) |
-| fight | score against the Duellist and Vanguard, 36 bouts | 0.81 (Duellist 0.89, Vanguard 0.72) |
+| fight | score against the Duellist and Vanguard, 36 bouts | 0.83 (Duellist 0.94, Vanguard 0.72) |
 
 ## What is used
 
@@ -35,7 +35,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `567d8816`, options selected as a set): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `25ffff15`, options selected as a set, covers among them): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
@@ -46,7 +46,7 @@ The records:
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
 | stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-35faee00-24ddc3ca.jsonl` |
 | stand-up, step-up | `assets/evaluations/baseline/2026-10-29-35faee00-09ec36b3.jsonl` |
-| fight | `assets/evaluations/baseline/2026-10-29-567d8816-b709578f.jsonl` |
+| fight | `assets/evaluations/baseline/2026-10-29-25ffff15-44753ad9.jsonl` |
 
 The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the
 sword) at gaps 3, 4 and 5 m, on each side; with a buckler it strikes with nothing the body has, so

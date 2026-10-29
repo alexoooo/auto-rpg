@@ -656,7 +656,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   its claims; then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more. The set's step is its members' (`stepSet`): the walk and facing of the
-  one holding the legs, every member's actions. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
+  one holding the legs, every member's actions and covers (`Asked.guard`), less a cover of a hand
+  a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
   blow (the rules' damage of each contact the drill recorded) and built by hand from the fight's
@@ -672,8 +673,12 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   options' order.
 - **Under the set**, each step: where the legs' holder's entry says `position`, `approach` brings
   them into its window; the walk is kept out of fallen bodies and solids (`Walker.kept`, by
-  navigation's `keepOut`, `clear-step.ts`); a hand no member holds covers
-  (`cover`, `cover.ts`: the hand on the blow's side, at most a second a run of blows).
+  navigation's `keepOut`, `clear-step.ts`).
+- **The covers** (`covers`, `cover.ts`): an option a hand, on offer while it is the hand on the
+  side a blow closes on the head from and no action under way holds it, at most a second a run of
+  blows; it claims its hand, asks it between the blow and the head, and is worth the share of the
+  blow's life it keeps off (`STOPS` of `menace`, the life of the blow a threat reading predicts),
+  so it outbids the hand's guard while a blow closes.
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
