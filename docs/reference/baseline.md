@@ -16,7 +16,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 | punch | landed at the bar, of 128 still and walk trials | 74 (0.58) |
 | punch | admitted, of 128 | 96 |
 | punch | fell, of 128 | 0 |
-| stand-up | stood, of the target's 32 Warrior falls, all made | 0 (flat-footed: 31, median 12.2 s) |
+| stand-up | stood, of the target's 32 Warrior falls, all made | 0 |
 | fight | score against the Duellist and Vanguard, 36 bouts | 0.68 (Duellist 0.72, Vanguard 0.64) |
 
 ## What is used
@@ -27,11 +27,8 @@ reads what it touches by the same command and pairs it with `npm run compare`.
   (`src/evaluation/fall.ts`): the target's directions and loadouts, shoved by the target's impulse
   and again while it holds the shove, its stand verified. Every one of the 32 falls is made. On
   toes Kinetic stands none, so the reading is 0 until its rise stands them
-  ([Recovery](../plans/2026-10-23-recovery.md)). Flat-footed (the preset without its character,
-  the plain straight punch, since the learned one is set for toes alone) Kinetic's rise, its
-  ground options over the game's stand-up's techniques, stands 31 (16 empty-handed, median
-  11.9 s; 15 with the club, 13.1 s), as the game's Stand up (`step-up`) on its puncher host does,
-  31 at medians 11.9 and 13.1 s: the reading a change to the rise is paired on.
+  ([Recovery](../plans/2026-10-23-recovery.md)). Kinetic stands on toes: a flat-footed reading
+  is not taken.
 
 ## Measurement
 
@@ -44,8 +41,6 @@ The records:
 | walk | `assets/evaluations/baseline/2026-10-28-c43aa358-b68a3e72.jsonl` |
 | punch | `assets/evaluations/baseline/2026-10-29-3e6e204c-1be9aa1c.jsonl` |
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
-| stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-35faee00-24ddc3ca.jsonl` |
-| stand-up, step-up | `assets/evaluations/baseline/2026-10-29-35faee00-09ec36b3.jsonl` |
 | fight | `assets/evaluations/baseline/2026-10-29-cc339f53-da3510a2.jsonl` |
 
 The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the

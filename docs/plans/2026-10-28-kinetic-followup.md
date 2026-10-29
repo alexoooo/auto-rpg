@@ -109,9 +109,9 @@ ground technique then asks its bearing ends in its legs goal and holds only the 
 an arm it does not use is the policy's for a cover or the guard, and no technique writes the
 muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
 
-Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's
-flat-footed stand-up stands its 32 falls, in no longer a median, paired against its record; the
-owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
+Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's stand-up
+on toes, paired against its record (0 of 32); the owner looks at a rise in the Lab's Stand-up mode,
+its unused arm at the guard.
 
 ### 12. The option's shape
 
@@ -228,8 +228,8 @@ profile and the attempt's record, in place of `RETRIES` and the back-off; and an
 posture it leaves the body in by the position value (step 14), the lying postures among its places,
 in place of its search to standing. Stand up's supervisor goes from Kinetic's rise.
 
-Check: the gate; by rank, the baseline's flat-footed stand-up stands Stand up's falls fall for
-fall; by worth, paired against its record; the owner looks at a rise in the Lab's Stand-up mode.
+Check: the gate; the baseline's stand-up on toes, paired against its record; the owner looks at a
+rise in the Lab's Stand-up mode.
 
 ## Not here
 
