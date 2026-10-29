@@ -35,12 +35,12 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
     ended: () => false,
     begin() {},
     end() {},
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view;
       const left = orders.move ? remainingOf(orders.move, view.stance.centre, view.senses.others) : 0;
       const followed = left > 0 ? Math.min(kept, left) : kept;
       return { duration: AHEAD, dealt: 0, taken: now.danger + threatened(now, AHEAD), orders: followed, exit: here(now) };
-    } },
+    },
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
       const asks: ActionRequest[] = now.sight.report.actions.map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredClone(action.target) }));

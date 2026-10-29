@@ -11,9 +11,6 @@ export interface Situation extends Percepts {
   readonly time: number;
 }
 
-/** The models an option may be valued by, by kind: its own, built by hand. */
-export type ModelKind = "hand-built";
-
 /**
  * Where an option runs in the intent (`layered`): a **commitment** holds the whole body or several
  * of its parts (a strike, the low strike, orders carried out, a ground or down option), and **footwork**
@@ -24,7 +21,8 @@ export type Layer = "commitment" | "footwork";
 /**
  * **An option**: a skill of the options fighter, chosen by its chooser (`Chooser`), in one shape:
  * its entry (where it can begin, or, running, go on), the resources it holds, its model (what
- * running it from now is expected to bring) and its exit (where it can hand the body over).
+ * running it from now is expected to bring: measured where a profile prices it, else built by hand)
+ * and its exit (where it can hand the body over).
  * Begun, it runs until it is over, out of its entry, or given up for a better one where it yields.
  */
 interface OptionBase {
@@ -49,8 +47,8 @@ interface OptionBase {
   begin(now: Situation): void;
   /** It is over, run out or given up. */
   end(): void;
-  /** What running it from now is expected to bring, by each model it has (`Terms`). */
-  readonly models: Readonly<Record<ModelKind, (now: Situation) => Terms>>;
+  /** What running it from now is expected to bring (`Terms`). */
+  model(now: Situation): Terms;
 }
 
 /**

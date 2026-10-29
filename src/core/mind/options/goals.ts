@@ -78,13 +78,13 @@ export function moveTo(name: GoalName, walk: Walker): StandingOption {
     ended: (now) => within(now, goal),
     begin() {},
     end() {},
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const apart = now.reach.apart, near = limitOf(now, goal.near), far = near + limitOf(now, goal.width), pace = walk.pace(now);
       const to = apart < near ? near : apart > far ? far : apart, duration = Math.abs(to - apart) / pace;
       const nearer = Math.min(apart, to), inReach = Math.max(0, Math.min(Math.max(apart, to), now.reach.theirs) - nearer) / pace;
       const leaves = now.apart + to - apart >= CLINCH.within;
       return { duration, dealt: 0, taken: now.danger + threatened(now, inReach, nearer), orders: 0, exit: { apart: to, down: leaves ? 0 : clinched(now, duration) } };
-    } },
+    },
     step: (now) => ({ ...toGoal(now, goal, walk), actions: [] }),
   };
 }

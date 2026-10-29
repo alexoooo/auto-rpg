@@ -186,7 +186,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
       ended: (now) => live(now)?.stage.startsWith("ended:") ?? false,
       begin() { memory.id = null; },
       end() { memory.id = null; },
-      models: { "hand-built": terms },
+      model: terms,
       step(now) {
         const picked = plan(now)!;
         if (memory.id === null) {

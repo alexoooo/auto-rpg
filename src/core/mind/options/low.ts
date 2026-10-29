@@ -47,10 +47,10 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     begin() { state.id = null; },
     end() { ground.reset(); state.id = null; },
     near: (now) => now.focus?.id ?? null,
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const { lands, seconds } = record(now.sight.report.ledger, action.name), dealt = lands * Math.max(now.blows.left, now.blows.right);
       return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: 0, exit: { apart: now.reach.apart, down: FOLD_FALLS } };
-    } },
+    },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;
       clearance = now.sight.clearance;

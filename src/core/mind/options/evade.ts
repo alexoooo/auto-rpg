@@ -23,8 +23,8 @@ export function evade(walk: Walker): StandingOption {
     ended: (now) => !coming(now),
     begin() {},
     end() {},
-    models: { "hand-built": (now): Terms => ({ duration: STEP.seconds, dealt: 0, taken: now.danger * (1 - STEP.saves), orders: 0,
-      exit: { apart: now.reach.apart + walk.pace(now) * STEP.seconds, down: 0 } }) },
+    model: (now): Terms => ({ duration: STEP.seconds, dealt: 0, taken: now.danger * (1 - STEP.saves), orders: 0,
+      exit: { apart: now.reach.apart + walk.pace(now) * STEP.seconds, down: 0 } }),
     step(now) {
       const focus = now.focus!, centre = now.sight.view.stance.centre;
       return { ...walk.toward(now, centre.x - focus.centre.x, centre.z - focus.centre.z, walk.facing(now)), actions: [] };

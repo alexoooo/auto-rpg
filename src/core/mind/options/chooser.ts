@@ -170,7 +170,7 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   },
 };
 
-/** **Valued**: each option worth its hand-built model's terms (`Terms`) in life beside the position held (`worth`, by the few terms, `FEW_TERMS`), its orders at its obedience. */
+/** **Valued**: each option worth its model's terms (`Terms`) in life beside the position held (`worth`, by the few terms, `FEW_TERMS`), its orders at its obedience. */
 export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
   keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
@@ -180,7 +180,7 @@ export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
     const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY;
     return chooser(options, (option, _, now) => {
-      const terms = option.models["hand-built"](now), { worth: value, moves, letGo } = worth(terms, now, obedience, FEW_TERMS);
+      const terms = option.model(now), { worth: value, moves, letGo } = worth(terms, now, obedience, FEW_TERMS);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
     }, VALUED_DECIDING, { margin: config.margin ?? 0, seed });

@@ -40,7 +40,7 @@ export function downOption(name: string, mind: SubMind, half: Half, model: DownM
     ended: () => false,
     begin() { if (half.current) start(); },
     end: stop,
-    models: { "hand-built": downTerms(model) },
+    model: downTerms(model),
     start,
     stop,
   };

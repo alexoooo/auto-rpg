@@ -88,12 +88,12 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
     ended: (now) => goal.correcting && !outside(now, BAND),
     begin() {},
     end() {},
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const d = apart(now), to = d < goal.near + BAND ? goal.near + BAND : d > goal.far - BAND ? goal.far - BAND : d;
       const duration = goal.correcting ? Math.abs(to - d) / walk.pace(now) : AHEAD, after = now.reach.apart + to - d;
       const leaves = goal.correcting && goal.near >= CLINCH.within;
       return { duration, dealt: 0, taken: now.danger + threatened(now, duration, Math.min(now.reach.apart, after)), orders: 0, exit: { apart: after, down: leaves ? 0 : clinched(now, duration) } };
-    } },
+    },
     step(now) {
       const d = apart(now), focus = now.focus!, centre = now.sight.view.stance.centre;
       const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, margin = goal.correcting ? BAND : 0;

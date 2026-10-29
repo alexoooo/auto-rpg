@@ -111,7 +111,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
     end() { state.id = null; state.limb = null; state.target = null; },
     unmeasured: (now) => !found ? "no drill measured it" : staleness(found.profile, { ...measured, reaction: now.reaction }),
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const { apart, theirs, mine } = now.reach, pace = walk.pace(now), walks = entry(now).kind === "position";
       const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
       const profile = profileNow(now), focus = now.focus;
@@ -127,7 +127,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
       const dealt = throws * lands * blow, duration = walking + seconds;
       return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: clinched(now, duration) } };
-    } },
+    },
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
       const running = live(now);

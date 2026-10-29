@@ -39,11 +39,11 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
     ended: (now) => spent(now) || ready(now),
     begin(now) { if (state.focus !== now.focus?.id) { state.focus = now.focus?.id ?? null; state.since = null; } },
     end() {},
-    models: { "hand-built": (now): Terms => {
+    model: (now): Terms => {
       const waited = state.focus === now.focus?.id && state.since !== null ? now.time - state.since : 0, duration = Math.min(AHEAD, Math.max(0, edge.patience - waited));
       const near = now.reach.theirs, apart = Math.min(Math.max(now.reach.apart, near), near + edge.band);
       return { duration, dealt: 0, taken: now.danger + threatened(now, duration), orders: 0, exit: { apart, down: clinched(now, duration) } };
-    } },
+    },
     step(now) {
       if (within(now, edging)) state.since ??= now.time;
       else if (!spent(now)) state.since = null;
