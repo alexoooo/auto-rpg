@@ -36,14 +36,14 @@ const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 /**
  * **Brace**, down: the whole body, facing the way it faces, held by `by` (an action of the body's
  * and the effector it is asked on, which holds the whole body while it lies: the ground's brace)
- * where it has one, else asked for nothing; priced as a rise of `rise` that never stands
+ * where it has one, else asked for nothing; priced as the rise `rise` gives now that never stands
  * (`downTerms`), so that down and alive a way up is worth more. Its memory is the instance it asks.
  */
-export function brace(rise: DownModel, by: { readonly action: string; readonly effector: string } | null): GroundOption {
+export function brace(rise: (now: Situation) => DownModel, by: { readonly action: string; readonly effector: string } | null): GroundOption {
   const STANDING = blocked("standing"), state = { id: null as number | null };
   return { name: "brace", posture: "ground", claims: WHOLE, state, ...RESTING,
     begin() { state.id = null; }, end() { state.id = null; }, holds: asking,
-    entry: (now) => now.down ? READY : STANDING, model: downTerms({ ...rise, stands: 0 }),
+    entry: (now) => now.down ? READY : STANDING, model: (now) => downTerms({ ...rise(now), stands: 0 })(now),
     step(now) {
       if (!by) return { move: null, face: now.sight.report.heading, actions: [] };
       state.id ??= now.sight.instance();
