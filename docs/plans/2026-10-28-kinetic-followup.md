@@ -86,6 +86,16 @@ after skills are trained against it.
   `STEADY_LIMIT`, `BACKOFF`, `RETRIES`, `READY_HOLD`). An edge is priced by a search to standing
   (`toStanding`), not by the posture it leaves the body in; unmeasured on toes, every edge is
   priced alike and taken by rank.
+- **Entries and limits are flags.** An option's entry reads `now.down` and `focus.down` where its
+  skill's readiness already answers (the punch's: "body is down", "target is outside the arm's
+  height band"); a strike claims the legs and the trunk whatever its action needs; the walk into a
+  strike's reach is priced from the reach percept (`rangeOf`, a stock right-hand punch, 0 for a body
+  without both hands), not the strike's own window; a blow from low support is refused (the
+  `lower` filter in `kineticTactics`, a config fault). A downed foe is a flag where its models
+  should answer: no pressure or pressing (`NO_PRESSURE`), no exchange or rate (`FEW_TERMS`), no
+  clinch (`clinched`); the focus is the nearest standing foe by rule; and the walk is kept 0.9 m from
+  every fallen body after the choice (`walk.kept` over the set's intent), the focus included, unpriced.
+  So Kinetic stands over a fallen foe: nothing it has is on offer.
 
 ## Steps
 
@@ -231,6 +241,64 @@ in place of its search to standing. Stand up's supervisor goes from Kinetic's ri
 Check: the gate; the baseline's stand-up on toes, paired against its record; the owner looks at a
 rise in the Lab's Stand-up mode.
 
+### 17. Entries from the skills
+
+Left: an option is on offer where its skill's readiness admits it, with no flag beside it.
+
+- The strike's entry is its limbs' readiness alone (`strike.ts`, `unfit` loses `now.down` and
+  `focus.down`); the walk into its window is on offer where the strike has a window (`toWindow`
+  loses `now.down`).
+- The legs answer readiness as the executors do: a body down cannot walk. Footwork, hold the
+  position, follow orders and a hand at its guard ask it in place of `now.down`, and brace the
+  reverse.
+- A hand's cover is on offer down where no option holds the hand (`covers`); a ground technique holds
+  only the limbs it moves once step 11 is built.
+- A strike claims what its action needs (`Sight.needs`), not the legs and the trunk by name.
+- The walk into reach is priced from the strike's own window (`Readiness`'s `position`), not
+  `apart − reach.mine`; the reach percept goes where the windows and the pressure's reach
+  (`pressureEdge`) answer, else is read from the body's own actions.
+- A blow from low support is an option like any: the `lower` filter and its config fault go, and
+  the support fold (`support-fold.ts`) is among Kinetic's skills.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
+and Cover drills' rungs paired with the step before.
+
+### 18. A downed foe through its models
+
+Left: what a foe on the ground brings is read from its models, as a standing foe's is.
+
+- The pressure and the pressing are read from the foe's model and the body's own strikes at the
+  foe's posture (`PERCEPTS.posture`'s, a profile's index): a lying foe with no strike measured from
+  there puts none on the body, and the body's strikes press it as their profiles expect there.
+  `FEW_TERMS`'s exchange and rate read them, with no `focus.down` branch.
+- The clinch's fall prices a lying foe's limbs too: a walk across them trips the attacker
+  ([grounded combat](../reference/ground-combat.md#policy-settings)).
+- `keepOut` is a limit of the walk option, not applied after the choice: a walk into a window on the
+  focus exempts the focus's body (`keepOut`'s `exempt`), and the chance it trips is in its exit's
+  `down`.
+- The focus is a target of the options, priced by worth across the foes (the design's skills crossed
+  with the targets), not the nearest standing foe by rule (`situationReader`).
+- A blow's prior is priced at the region it aims (`blowLife` prices the head; the punch aims at the
+  middle).
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the drills
+paired with the step before.
+
+### 19. A blow at a foe on the ground
+
+Left: Kinetic strikes a foe lying within reach of a stomp, and of the downward blow from low support
+where its target is high enough (the grounded combat record lands almost nothing 0.27 m off the
+floor).
+
+- A stomp: the kick executor (`kick.ts`) driving the sole down onto a lying target, with the front
+  kick's support transfer, chamber and return; its readiness gives a window beside the lying body.
+- The downward blow (`PATH_STRIKES`' `downward`) among Kinetic's actions, from the support fold.
+- Each a strike option and a walk into its window, priced by hand, then by a drill: a rung on a
+  lying Warrior and a lying Skeleton.
+
+Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
+fallen Duellist Skeleton in the Arena.
+
 ## Not here
 
 - A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
@@ -258,4 +326,7 @@ asked of one interface whose prior is a profile, one branch each; an option's ex
 it leaves, which any position value reads; Kinetic's position value, predictions, options and
 added percepts are its config's, and a drill drives it by config, not by tactics in its policy's
 place; and the rise is chosen by the policy, each technique on offer by its own entry and worth
-the posture it leaves, with no supervisor.
+the posture it leaves, with no supervisor. Every option's entry is its skill's readiness, its
+claims what its action needs, and the walk into its reach priced from its window; a foe on the
+ground is priced by its models, the focus chosen by worth and the walk's limits priced in the walk;
+and Kinetic strikes a fallen foe.
