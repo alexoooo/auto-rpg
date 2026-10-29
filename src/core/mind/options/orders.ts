@@ -17,8 +17,9 @@ const AHEAD = 1;
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing admitted blows
  * and asking for a ready standing action against the explicitly selected foe. On offer while
- * the body stands and has an explicit movement, stop or facing order. It claims the legs, the
- * trunk and its actions' limbs, and holds the legs and what its blows hold; it always yields. Its
+ * the body stands and has an explicit movement, stop or facing order. It claims the legs and the
+ * trunk, and holds the legs and what its blows hold (a cover of a hand a blow holds dropped,
+ * `stepSet`); it always yields. Its
  * model: a walk ordered goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is
  * told to go, and a stand or a facing ordered, or a place or range it is already in, is kept for
  * as long, worth as much; through the
@@ -27,7 +28,7 @@ const AHEAD = 1;
  */
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
-  const claims: readonly string[] = Object.freeze(["legs", "trunk", ...new Set(actions.flatMap((action) => action.effectors))]);
+  const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
     name: "follow orders", posture: "standing", claims, state: {},
     entry: (now) => !now.down && now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED,

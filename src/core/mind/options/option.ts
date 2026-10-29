@@ -1,5 +1,5 @@
 import type { Readiness, Resource, Window } from "../../skills/action.ts";
-import type { Intent } from "../intent.ts";
+import type { Cover, Intent } from "../intent.ts";
 import type { SubMind } from "../sub-mind.ts";
 import type { Sight } from "../tactics.ts";
 import type { Percepts } from "./percepts.ts";
@@ -51,7 +51,7 @@ interface OptionBase {
  * What a standing option asks of the skills in a step, the hands' cover aside; with the window its
  * legs are to be brought to (`approach`) where its entry says `position`.
  */
-export type Asked = Omit<Intent, "guard"> & { readonly approach?: Window };
+export type Asked = Omit<Intent, "guard"> & { readonly approach?: Window; readonly guard?: Readonly<Record<string, Cover>> };
 
 /** An option the body carries out through its skills. */
 interface SkillOption extends OptionBase {
@@ -114,19 +114,21 @@ export const holdsLegs = (claims: readonly Resource[]): boolean => claims.includ
 
 /**
  * **What a set of options asks in a step**: the walk and facing of the one that holds the legs
- * (`holdsLegs`), else `idle`'s, and every one's actions (`Asked`); what they hold
- * (`SkillOption.holds`); and the body the legs' holder means to be near. A down option asks
- * nothing: its sub-mind has the body.
+ * (`holdsLegs`), else `idle`'s; every one's actions; every one's covers (`Asked.guard`) of a hand
+ * no one's asks hold (`SkillOption.holds`); and the body the legs' holder means to be near. A down
+ * option asks nothing: its sub-mind has the body.
  */
-export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Asked, "actions">): { asked: Asked; held: readonly Resource[]; near: string | null } {
+export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Asked, "actions">): { asked: Asked; near: string | null } {
   let legs: Asked | null = null, near: string | null = null;
-  const actions: Asked["actions"][number][] = [], held: Resource[] = [];
+  const actions: Asked["actions"][number][] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
   for (const option of set) {
     if (option.posture === "down") continue;
     const asked = option.step(now, dt);
     for (const action of asked.actions) actions.push(action);
     for (const resource of option.holds(now, asked)) if (!held.includes(resource)) held.push(resource);
+    if (asked.guard) Object.assign(guard, asked.guard);
     if (legs === null && holdsLegs(option.claims)) { legs = asked; near = option.near?.(now) ?? null; }
   }
-  return { asked: { ...(legs ?? idle()), actions }, held, near };
+  for (const hand of Object.keys(guard)) if (held.includes(hand)) delete guard[hand];
+  return { asked: { ...(legs ?? idle()), actions, guard }, near };
 }

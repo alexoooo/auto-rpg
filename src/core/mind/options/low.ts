@@ -19,7 +19,7 @@ const FOLD_FALLS = .05;
  * from beside it (`groundPosition`): walking there, lowering through the support fold and striking
  * once placed, then rising. It is on offer while the focus is low or the placement is under way,
  * and yields only before the placement begins; its walk need not keep out of the focus's reach. A
- * commitment, it holds the legs and the trunk, and what its blow holds.
+ * It claims the legs and the trunk, and holds them and what its blow holds.
  * Its model: walking beside the focus, then a blow of its record (`record`) from its stronger hand,
  * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming; a low focus's range is
  * not priced, so it is taken as leaving the body where it is.
@@ -38,7 +38,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
   };
   const HIGH = blocked("no low focus"), PLACING: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
-    name: "strike a low foe", posture: "standing", claims: Object.freeze([...PLACING, ...action.effectors]), state,
+    name: "strike a low foe", posture: "standing", claims: PLACING, state,
     entry: (now) => low(now) ? READY : HIGH,
     exit: () => null,
     holds: (now, asked) => [...PLACING, ...asking(now, asked).filter((resource) => !PLACING.includes(resource))],

@@ -53,8 +53,9 @@ export interface StrikeOption extends StandingOption {
  * of its entry, or `PATIENCE` s without a blow also end it. It yields until its blow is committed
  * (let go, the blow is dropped) and again from its exit, its stroke's end (the blow's `release`):
  * there, given up, it asks no more and its executor may hand the arm to the guard; kept, it strikes
- * again, its blow let go and the next asked of the first limb ready. It holds what its blow holds
- * (`asking`).
+ * again, its blow let go and the next asked of the first limb ready. It claims the legs and the
+ * trunk, and holds what its blow holds (`asking`): a limb is its blow's as it asks it, and a cover
+ * of it is dropped (`stepSet`).
  * The region struck is what the orders name on the focus, else the first of the action's regions
  * the focus has.
  *
@@ -114,7 +115,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     return limbFor(now, target)?.readiness ?? UNREADY;
   };
   return {
-    name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk", ...action.effectors]), state,
+    name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk"]), state,
     entry,
     exit: (now) => live(now)?.phase === "release" ? READY : STROKE,
     yields: (now) => (live(now)?.phase ?? "prepare") !== "commit",
