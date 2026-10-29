@@ -71,8 +71,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * and price a fall (`downCost`); and the rest options, worth nothing, which take what nothing else is worth more on:
  * hold the position, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`), which a
  * hand's cover outbids while a blow closes on the head (`covers`). The set's step is its members'
- * (`stepSet`); the walk keeps out of a fallen body's reach and a solid's clearance
- * (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
+ * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
+ * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
  * were priced (`profileDetail`); where the first chosen reports more than its name (a script,
  * `scripted`), what it reports and the context it publishes, in their place.
@@ -107,7 +107,7 @@ export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deci
     decide(seen: Sight, dt: number) {
       last = seen;
       const now = lastNow = reader.read(seen);
-      return walk.kept(now, stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) })));
+      return stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
     },
   };
 }

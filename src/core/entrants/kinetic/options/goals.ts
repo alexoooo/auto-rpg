@@ -51,7 +51,7 @@ const named = (name: string, going: Going): string => going.gait === "braced" ? 
 
 /**
  * **Move to a goal** (`Goal`) by `going`'s gait, facing the focus (`toGoal`): footwork, on
- * offer where the legs can carry the body (`legsReadiness`), at a focus out of the goal's band, run its course once in the band; it
+ * offer where the legs can carry the body (`legsReadiness`), at a focus out of the goal's band, run its course once in the band, kept out of every fallen body's reach (`Walker.kept`); it
  * always yields and asks for no blow. Its model: the walk to the band's nearer end at the gait's
  * pace, through the blow coming and the focus's pressure while it walks within the focus's reach
  * (`threatened`), leaving the body there as the gait leaves it (`Going`); a walk that ends out of a
@@ -74,7 +74,7 @@ export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Op
       const to = apart < near ? near : apart > far ? far : apart, pace = walk.pace(now, going.gait);
       return walkTo(now, to, Math.abs(to - apart) / pace, pace, going);
     },
-    step: (now) => ({ asked: { ...toGoal(now, goal, walk), actions: [], gait: going.gait }, holds: LEGS }),
+    step: (now) => ({ asked: walk.kept(now, { ...toGoal(now, goal, walk), actions: [], gait: going.gait }), holds: LEGS }),
   };
 }
 
@@ -114,7 +114,8 @@ function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["to
  * **Into a strike's window** (`StrikeOption.window`) by `going`'s gait: footwork, on offer while
  * the legs can carry the body (`legsReadiness`) and `strike` has a window its legs are to be brought to and no limb ready, run its course once a limb
  * is; it always yields and asks for no blow. It walks to the window's middle at the orders' pace,
- * turning to the target (`approachActionWindow`). It is worth the strike it brings
+ * turning to the target (`approachActionWindow`), kept out of every fallen body's reach but the
+ * focus's (`Walker.kept`). It is worth the strike it brings
  * (`StrikeOption.through`: the walk, braced, then the blow): between bodies alike the exchange at the window, its strikes' less the foe's
  * (`pressing`, `pressure`), comes to about nothing, so a walk priced by the place alone is never
  * worth taking.
@@ -136,7 +137,7 @@ export function toWindow(strike: StrikeOption, walk: Walker, going: Going): Opti
       const window = strike.window(now);
       const asked = window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
         : { move: null, face: walk.facing(now), actions: [], gait: going.gait };
-      return { asked, holds: LEGS };
+      return { asked: walk.kept(now, asked, now.focus?.id ?? null), holds: LEGS };
     },
   };
 }

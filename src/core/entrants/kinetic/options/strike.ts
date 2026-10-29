@@ -70,7 +70,7 @@ export interface StrikeOption extends Option {
  * the arm to the guard; kept, it strikes again, its blow let go and the next asked of the first
  * limb ready. It claims what its blow needs with the limb it strikes with (`Sight.needs`): its blow
  * under way's, else the limb ready's, else the first with a window's; and holds what its blow holds
- * (`asking`). The region struck is what the
+ * (`asking`). Its legs are kept out of every fallen body's reach but the focus's (`Walker.kept`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has.
  *
  * Its model, where its drill measured it as it is read now (its profile among its measure's,
@@ -156,7 +156,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
+      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration, now.apart - distance)) }), ...letGo };
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
@@ -194,7 +194,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     },
     model: (now) => priceOf(now, false),
     through: (now, going) => priceOf(now, true, going),
-    step(now) { const asked = ask(now); return { asked, holds: asking(now, asked) }; },
+    step(now) { const asked = walk.kept(now, ask(now), now.focus?.id ?? null); return { asked, holds: asking(now, asked) }; },
   };
   /** What it asks this step: its blow, asked once a limb is ready and continued until it is over. */
   function ask(now: Situation): Asked {
