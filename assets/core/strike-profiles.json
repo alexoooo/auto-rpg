@@ -7,7 +7,8 @@
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-55fc7c38.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-99b30cde.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-188d93e5.jsonl",
-      "assets/evaluations/strike/2026-10-29-c5c4bbb0-76592539.jsonl"
+      "assets/evaluations/strike/2026-10-29-c5c4bbb0-76592539.jsonl",
+      "assets/evaluations/strike/2026-10-29-8e6a1d26-efb0e795.jsonl"
     ]
   },
   "profiles": [
@@ -177,6 +178,197 @@
               "taken": 0
             }
           ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "abf7565249bb0500",
+        "skill": "b9a35e60f7b2de3e",
+        "hz": 120,
+        "reaction": 0.15
+      },
+      "target": {
+        "body": "workshop-fighter",
+        "spec": "960cf6765e82bf4c"
+      },
+      "cells": [
+        {
+          "range": 0.5,
+          "phase": "down",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0.1158,
+          "taken": 0.1553,
+          "seconds": 14,
+          "down": 1,
+          "ends": [],
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.6,
+          "phase": "down",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0.0011,
+          "taken": 0.0087,
+          "seconds": 14,
+          "down": 0,
+          "ends": [],
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.7,
+          "phase": "down",
+          "trials": 2,
+          "done": 1,
+          "dealt": 0.015,
+          "taken": 0.0049,
+          "seconds": 9.275,
+          "down": 0,
+          "ends": [],
+          "exit": {
+            "range": 0.7328
+          },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.8,
+          "phase": "down",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0.0038,
+          "taken": 0.0038,
+          "seconds": 14,
+          "down": 0,
+          "ends": [],
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.9,
+          "phase": "down",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0.0418,
+          "taken": 0.057,
+          "seconds": 25,
+          "down": 0,
+          "ends": [],
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "abf7565249bb0500",
+        "skill": "b9a35e60f7b2de3e",
+        "hz": 120,
+        "reaction": 0.15
+      },
+      "target": {
+        "body": "crypt-skeleton",
+        "spec": "38382b4739a353b1"
+      },
+      "cells": [
+        {
+          "range": 0.5,
+          "phase": "down",
+          "trials": 1,
+          "done": 1,
+          "dealt": 0.0346,
+          "taken": 0.048,
+          "seconds": 12.0917,
+          "down": 0,
+          "ends": [],
+          "exit": {
+            "range": 0.4993
+          },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.6,
+          "phase": "down",
+          "trials": 2,
+          "done": 0.5,
+          "dealt": 0.033,
+          "taken": 0.0141,
+          "seconds": 14.4167,
+          "down": 0,
+          "ends": [],
+          "exit": {
+            "range": 0.6531
+          },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.7,
+          "phase": "down",
+          "trials": 1,
+          "done": 1,
+          "dealt": 0.0719,
+          "taken": 0.0121,
+          "seconds": 10.5083,
+          "down": 0,
+          "ends": [],
+          "exit": {
+            "range": 0.3197
+          },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.8,
+          "phase": "down",
+          "trials": 1,
+          "done": 1,
+          "dealt": 0.0104,
+          "taken": 0.0105,
+          "seconds": 8.2,
+          "down": 0,
+          "ends": [],
+          "exit": {
+            "range": 0.4087
+          },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 1.2,
+          "phase": "clear",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 14,
+          "down": 0,
+          "ends": []
         }
       ]
     }
