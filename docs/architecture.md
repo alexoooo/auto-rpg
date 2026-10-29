@@ -523,7 +523,7 @@ fight reads. A fight passes the config through and reads nothing in it.
 - Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
 **Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
-(`fighter-kind.ts`, `options/kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
+(`fighter-kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
 line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and nothing else, so a case's
 code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
 config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`), its own
@@ -536,9 +536,8 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | Kind | Maker | What it composes |
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
-| options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| kinetic | `src/core/entrants/kinetic/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer with no low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -582,22 +581,20 @@ or a test may still name it. An arena recipe may name each side's mind (`DuelRec
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
 
-**The options fighter** (`createOptionsFighter`, `options/mind.ts`). An `Option` (`option.ts`) is a
-skill in one shape: its entry (`Readiness`: ready, `position` with the window its legs are brought
-to, else waiting or blocked and why), what it holds in a step (`holds`, the asks' `Sight.needs`),
-its model (`Terms`, with where it leaves the body, `Place`, and, where it may be let go now, what
-letting it go leaves), its exit (a strike's stroke's end, its blow's `release`; the edge-hold's
-band; null elsewhere) and whether, running, it yields (a strike before its blow's `commit`, its
-point of no return, and from its exit: kept there, it throws its next blow). Each claims resources
-while it runs (`claims`: a strike the legs, the trunk and its limbs; footwork, break a clinch, evade,
-hold at the edge, the legs; a ground or down option the whole body, `WHOLE`). The rest options
-(`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position facing the
-focus (`hold`, the legs), each hand at its guard (`guard`), and down, brace (`brace`, the whole
-body, priced as the rise that never stands; Kinetic's asks the ground's brace, `Ground.rest`). A down option is
-carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
-sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
-hands the body over). A ground option (`GroundOption`, `groundOptions`, `ground.ts`; Kinetic's)
-is carried out through the skills as an action of the ground executor (`groundExecutor`,
+**Kinetic's options** (`src/core/entrants/kinetic/options/`). An `Option` (`option.ts`) is a
+skill applied to a target in one shape: its entry (`Readiness`: ready, else waiting or blocked and
+why), its claims, its model (`Terms`, with where it leaves the body, `Place`, and, where it may be
+let go now, what letting it go leaves), its step (`Step`: what it asks and what its asks hold, the
+asks' `Sight.needs`) and one status (`Status`): committed, yielding, at its exit (a strike's
+stroke's end, its blow's `release`: kept there, it throws its next blow), or over. A strike yields
+before its blow's `commit`, its point of no return; a goal, a cover, the orders and a rest option
+always yield; a ground option where its run says it may. Each claims resources while it runs (`claims`: a strike the legs, the trunk and its
+limbs; a walk to a goal the legs; a ground option the whole body, `WHOLE`). A strike never walks: a
+walk into its window is a goal's (`toWindow`, below). The rest options (`rest.ts`), worth nothing,
+take what nothing else is worth more on: hold the position facing the focus (`hold`, the legs),
+each hand at its guard (`guard`), and down, brace (`brace`, the whole body, priced as the rise that
+never stands, `downTerms`, asking the ground's brace, `Ground.rest`). A ground option
+(`GroundOption`, `groundOptions`, `ground.ts`) is carried out through the skills as an action of the ground executor (`groundExecutor`,
 `ground/held.ts`): each technique of a list, flatten, and the modes brace, back off, land and
 steady (`GROUND_MODES`; brace and the steady with its climb in `ground/steady.ts`, shared with
 Stand up), each run on the body held whole, holding every resource, asking no stance and pushing
@@ -608,7 +605,7 @@ supervisor runs it, counting its time against its limit as it runs. A mode yield
 where its run says it may. An edge is priced as a fall (`downTerms`) at its expected seconds to
 standing through it, by its profile where measured, so the policy takes the cheapest; the rest at
 the rise's price (`Ground.down`: its route to standing from the back, `toStanding`, where its edges
-are measured, else Stand up's `SubMindPart.down`), so unmeasured they go by rank. On its feet
+are measured, else its price by hand, `BY_HAND`), so unmeasured they go by rank. On its feet
 while the rise runs, the body is counted down until the steady braces it (`Ground.unbraced`: the
 steady's seconds left, the percept `unbraced`; `here`), and a standing option leaves it counted
 down (`fromHere`), so only the rise stands it; the steady is priced at the seconds it has left.
@@ -622,7 +619,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   this body's on it, what a fall costs, how fast the two close, how late the senses show the focus,
   the lead and the time left before the clock's verdict, each hand's blow; the
   gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the focus's
-  phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue is what a
+  phase, striking, down, rising or clear, `foePhase` in `src/core/mind/threat.ts`, and its blow's
+  time to contact); a percept's cue is what a
   chooser watches (`eventOf`). Reach is read head to head: the focus's and this body's. The pressure (`Pressure`) is what a standing focus is expected to
   deal the body a second, over the range: measured from the strike profiles on the focus's body
   where there are any (`profilesOn`), else by hand within its reach, and says how it is priced
@@ -660,8 +658,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   strikes' reach, `pressureEdge`, by `closes`, how far it walks at its measured fastest walk in the
   reaction time). Each goes by each gait (`goings`, a `Going`): at the gait's pace, asking it
   (`Intent.gait`), and leaving the body unbraced for the seconds the Gait drill measured the gait
-  stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once). The options fighter's edge-hold holds the band from the focus's reach to `closes`
-  past it (`holdEdge`, `EDGE` its patience).
+  stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once).
 - **The value of a position** (`PositionValue`, `position.ts`): what a place (`Place`: the range
   head to head to the focus, the chance the body is down there, and the seconds until it is braced
   there, `braced`) is worth in life, the lead
@@ -673,16 +670,18 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
-- **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
-  (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
-  worth, keeping the running one by what letting it go costs (`Offer.letGo`),
+- **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
+  `src/core/mind/chooser-part.ts`) in Kinetic's `chooser` slot, its own parts (`valued`, `ranked`;
+  `depth` 1, `chooserOf`), takes the option on offer of highest
+  worth, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/tactics.ts`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
   its claims; then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
-  from rest only worth more. The set's step is its members' (`stepSet`): the walk and facing of the
-  one holding the legs, every member's actions and covers (`Asked.guard`), less a cover of a hand
-  a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
+  from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
+  The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
+  `SelectedAsk`, `src/core/mind/intent.ts`): the walk and facing of the one claiming the legs,
+  every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
   blow (the rules' damage of each contact the drill recorded) and built by hand from the fight's
@@ -692,19 +691,18 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   ordered, and a named foe's life worth more; the position where it leaves the body less the
   position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the blows of
   a foe standing over the body, the focus's, down or not, and with none one of its own kind, over
-  the cheapest way up its sub-minds' or its rise's prices give, at most the life the senses say it
-  has); its time at the rate of play; and, running, what letting it go costs: the life the body
+  its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
-- **Under the set**, each step: where the legs' holder's entry says `position`, `approach` brings
-  them into its window; the walk is kept out of fallen bodies and solids (`Walker.kept`, by
+- **Under the set**, each step: the walk is kept out of fallen bodies and solids (`Walker.kept`, by
   navigation's `keepOut`, `clear-step.ts`).
 - **The covers** (`covers`, `cover.ts`): an option a hand, on offer while it is the hand on the
   side a blow predicted to reach the head comes from (`incoming`, `READINGS.predicted`) and no
   action under way holds it, at most a second a run of blows; it claims its hand, asks it between
   the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS` of
   `danger`, that blow's life), so it outbids the hand's guard while a blow comes.
-- Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
+- Its defaults are `KINETIC` (`mind.ts`). The Cover drill's tactics (`drill-cover.ts`), a part of
+  its own, stand and cover by its covers, its chooser and its situation.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
@@ -801,7 +799,7 @@ inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
 inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
 (`stockClearance`). A planner's walk is kept out of a solid's clearance and a fallen body's reach
-by `keepOut` (`clear-step.ts`), which the options fighter's walk applies to what it asks (`Walker.kept`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+by `keepOut` (`clear-step.ts`), which Kinetic's walk applies to what it asks (`Walker.kept`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
 or a goal that moves is
@@ -852,10 +850,11 @@ is the reference example.
 5. A part of its own, of any role (any slot's, an action's aim, the quadruped's motor,
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`, layered planner, `vanguard-plan`, contact selector, `vanguard-exchange`, walk,
-   `vanguard-walk`, held-item recipe adapter, `vanguard-weapon`, and navigator, `vanguard-navigation`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
+   `vanguard-walk`, held-item recipe adapter, `vanguard-weapon`, and navigator, `vanguard-navigation`;
+   Kinetic's choosers, `valued` and `ranked`, and the Cover drill's tactics, `drill-cover`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
-   registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter, an
-   options fighter and a quadruped) and holds a stub of each role to it: chosen by config, run,
+   registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter,
+   Kinetic and a quadruped) and holds a stub of each role to it: chosen by config, run,
    forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and

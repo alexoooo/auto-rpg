@@ -55,7 +55,7 @@ after skills are trained against it.
   differ in worth, it is an option; how a chosen thing is done is below them.
 - **A gait's cost is its exit.** A run leaves the body unbraced until its next landing, so a strike
   or a cover from there waits; the place an option leaves the body names the seconds until it is
-  braced (`Place`, `src/core/mind/options/position.ts`), and the position's exchange there is
+  braced (`Place`, `src/core/entrants/kinetic/options/position.ts`), and the position's exchange there is
   discounted by them. A run is taken only where arriving sooner is worth more than arriving
   unready; no distance chooses it.
 
@@ -65,21 +65,20 @@ after skills are trained against it.
   (`BodySpec.ends`), but the legs bear only on its feet and report the rest unmet; a ground
   technique holds the whole body and pushes every muscle as its run drives it (`groundExecutor`),
   and whether the legs can bear on hands and knees is open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
-- **An option's shape is wide.** An option has `entry`, `exit`, `yields`, `ended`, `begin`, `end`,
-  `claims`, `holds`, `near`, `rest`, `posture`, `model` and `step` (`src/core/mind/options/option.ts`);
-  its `posture` names a sub-mind variant (`DownOption`) that only the options fighter makes. The
-  strike walks to its window where it `closes`, as `toWindow` does, and Kinetic turns that off.
+- **An option is narrow** (step 12, built): its entry, claims, model, step and one status
+  (`src/core/entrants/kinetic/options/option.ts`), and Kinetic's intent is the set it selected,
+  made one intent by the toolkit (`intentOfSet`).
 - **Percepts hold predictions.** Beside readings of the senses, `PERCEPTS`
-  (`src/core/mind/options/percepts.ts`) computes from the profiles and the rules every step:
+  (`src/core/entrants/kinetic/options/percepts.ts`) computes from the profiles and the rules every step:
   `danger`, `pressure` and `pressing` (which carry profile readings), `downCost`, `blows` and
   `closes`; and `unbraced` reads the rise's own state. Each of those, the strike's model and the
   gaits' has a measured branch and a hand-built one.
 - **A place is a range.** Where an option leaves the body (`Place`,
-  `src/core/mind/options/position.ts`) is the range head to head, the chance it is down and the
+  `src/core/entrants/kinetic/options/position.ts`) is the range head to head, the chance it is down and the
   seconds until braced, so no position value can price a bearing, a wall, a second foe or the
   posture lying.
 - **Kinetic's deciding parts are code.** The valued chooser prices by `FEW_TERMS` alone
-  (`src/core/mind/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
+  (`src/core/entrants/kinetic/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
   one frozen literal, and a profile is read only by `readProfile`. A drill drives Kinetic by
   swapping its whole policy for tactics (`KineticConfig.tactics`).
 - **The rise's options are offered by Stand up's supervisor.** `groundOptions` offers, in a fixed
@@ -117,15 +116,17 @@ owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
 
 ### 12. The option's shape
 
-An option is its entry, its claims, its model, its step and one status: committed, yields, at
-its exit, or over (for `exit`, `yields`, `ended`; `begin` and `end` stay its memory's). `rest` is
-its model's worth of nothing and its rank, `posture` its entry's; the sub-mind variant
-(`DownOption`) is the options fighter's own option, in its files, not a case of the shared shape.
-A strike never walks: its approach (`closes`, `approach`, `position` in its model) goes, and
-reaching a window is `toWindow`'s, the options fighter's included.
+Built: an option is its entry, its claims, its model, its step and one status (`Status`:
+committed, yields, at its exit, or over; `begin` and `end` stay its memory's). Its step returns what
+it asks and what that holds (`Step`), and Kinetic's intent is the set it selected, each member's
+claims, holds and asks (`SelectedAsk`), made one intent by the toolkit (`intentOfSet`,
+`src/core/mind/intent.ts`); other minds write the intent as before. `posture` and `near` went:
+nothing read them. A strike never walks: reaching a window is `toWindow`'s, and the sub-mind
+option went with the options fighter. `rest` stays the option's own mark: by rank the rest options
+are last, the floor, and by worth a rest option wins a tie, so neither its rank nor its model
+(brace is priced as a rise that never stands) can say it.
 
-Check: the gate; the fingerprint against the commit before, Kinetic's cases unmoved and the
-options fighter's moved cases named.
+Check: the gate; the fingerprint against the commit before, Kinetic's cases unmoved.
 
 ### 13. Percepts and predictions
 
@@ -144,7 +145,8 @@ focus closes while the senses show it late (`closes`). The hand-built models are
 profile like any measured one, so the strike, the pressure, the danger, the fall's cost and the
 gaits keep one branch each. `unbraced` goes: how long until braced is an exit's (`Place.braced`).
 An input layout may name a prediction as a derived input, read through the interface and stale
-with its profile. This is the registry Kinetic step 13's consumers move to.
+with its profile. The readers outside Kinetic (the executors' entry conditions, `CONDITIONS`, the
+threat readings) are other minds' too and keep their own readings.
 
 Check: the gate; the fingerprint against the commit before, its message naming the cases that
 move (a prior a profile rounds as the hand-built arithmetic did, or names the cell that moves);
@@ -191,9 +193,8 @@ fall; by worth, paired against its record; the owner looks at a rise in the Lab'
 
 - A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
   where a drill shows a place the two lose.
-- Other minds' deciding: the options fighter keeps its own parts (its hand-built strike prices, its
-  edge-hold) and other minds their Move rules and Stand up, changed only where they share the
-  toolkit.
+- Other minds' deciding: other minds keep their Move rules, Stand up, their conditions and the
+  intent they write, changed only where they share the toolkit.
 
 ## Done when
 
