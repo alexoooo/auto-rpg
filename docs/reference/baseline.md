@@ -17,7 +17,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 | punch | admitted, of 128 | 96 |
 | punch | fell, of 128 | 0 |
 | stand-up | stood, of the target's 32 Warrior falls, all made | 0 (flat-footed: 31, median 12.2 s) |
-| fight | score against the Duellist and Vanguard, 36 bouts | 0.61 (Duellist 0.44, Vanguard 0.78) |
+| fight | score against the Duellist and Vanguard, 36 bouts | 0.81 (Duellist 0.89, Vanguard 0.72) |
 
 ## What is used
 
@@ -35,7 +35,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `567d8816`, options selected as a set): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
@@ -46,12 +46,12 @@ The records:
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
 | stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-35faee00-24ddc3ca.jsonl` |
 | stand-up, step-up | `assets/evaluations/baseline/2026-10-29-35faee00-09ec36b3.jsonl` |
-| fight | `assets/evaluations/baseline/2026-10-28-c43aa358-05ee4b28.jsonl` |
+| fight | `assets/evaluations/baseline/2026-10-29-567d8816-b709578f.jsonl` |
 
 The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the
 sword) at gaps 3, 4 and 5 m, on each side; with a buckler it strikes with nothing the body has, so
-those 24 are dropped. By opponent and side: the Duellist 5 of 9 on the left, 3 of 9 on the right;
-Vanguard 7 of 9 each side. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
+those 24 are dropped. By opponent and side: the Duellist 8 of 9 each side; Vanguard 6 of 9 on the
+left, 7 of 9 on the right. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
 from a run it is still moving 4 s after the stop is asked. The whole command takes about 5 minutes
 on 12 workers, the fights 4 of them.
 

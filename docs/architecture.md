@@ -578,9 +578,12 @@ to, else waiting or blocked and why), what it holds in a step (`holds`, the asks
 its model (`Terms`, with where it leaves the body, `Place`, and, where it may be let go now, what
 letting it go leaves), its exit (a strike's stroke's end, its blow's `release`; the edge-hold's
 band; null elsewhere) and whether, running, it yields (a strike before its blow's `commit`, its
-point of no return, and from its exit: kept there, it throws its next blow). Each is a commitment (follow orders,
-a strike, the low strike, a ground or down option) or footwork (break a clinch, evade, hold at the edge)
-(`Layer`); with none worth more than the position held, it holds it, facing its focus. A down option is
+point of no return, and from its exit: kept there, it throws its next blow). Each claims resources
+while it runs (`claims`: a strike the legs, the trunk and its limbs; footwork, break a clinch, evade,
+hold at the edge, the legs; a ground or down option the whole body, `WHOLE`). The rest options
+(`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position facing the
+focus (`hold`, the legs), each hand at its guard (`guard`), and down, brace (`brace`, the whole
+body, priced as the rise that never stands; Kinetic's asks the ground's brace, `Ground.rest`). A down option is
 carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
 sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
 hands the body over). A ground option (`GroundOption`, `groundOptions`, `ground.ts`; Kinetic's)
@@ -644,8 +647,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
   worth, keeping the running one within its keep and what letting it go costs (`Offer.letGo`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
-  `rethink` s. Standing, it takes one only worth more than its defaults holding the position;
-  down, the best. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
+  `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
+  its claims; then the best on offer, then the best of the rest whose claims are still free, until
+  none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
+  from rest only worth more. The set's step is its members' (`stepSet`): the walk and facing of the
+  one holding the legs, every member's actions. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
   blow (the rules' damage of each contact the drill recorded) and built by hand from the fight's
@@ -653,14 +659,15 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
   ordered, and a named foe's life worth more; the position where it leaves the body less the
-  position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the focus's
-  blows over the cheapest way up its sub-minds' or its rise's prices give, at most the life the senses say it
+  position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the blows of
+  a foe standing over the body, the focus's, down or not, and with none one of its own kind, over
+  the cheapest way up its sub-minds' or its rise's prices give, at most the life the senses say it
   has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
-- **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
-  and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
-  of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers
+- **Under the set**, each step: where the legs' holder's entry says `position`, `approach` brings
+  them into its window; the walk is kept out of fallen bodies and solids (`Walker.kept`, by
+  navigation's `keepOut`, `clear-step.ts`); a hand no member holds covers
   (`cover`, `cover.ts`: the hand on the blow's side, at most a second a run of blows).
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
 
@@ -759,7 +766,7 @@ inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
 inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
 (`stockClearance`). A planner's walk is kept out of a solid's clearance and a fallen body's reach
-by `keepOut` (`clear-step.ts`), which the options fighter applies to what it asks. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+by `keepOut` (`clear-step.ts`), which the options fighter's walk applies to what it asks (`Walker.kept`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
 or a goal that moves is

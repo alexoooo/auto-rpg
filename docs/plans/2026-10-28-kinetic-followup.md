@@ -4,7 +4,8 @@
 case each, beside a list or a copy. This plan makes each claim true as stated, mostly by deleting
 code. Kinetic decides by one mechanism: **options, and one policy that selects among those
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
-to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy.
+to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy
+(built: the set by claims, `Chooser.decide`, and the rest options, `rest.ts`).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -37,11 +38,11 @@ after skills are trained against it.
   not listed. A skill whose behaviour differs (its profile, its entry, its exit) is its own option;
   a target is a dimension of its profile. The gaits stay the two the legs have, braced and run.
 - **The policy selects a set**: the best option, then the best of the rest whose resources
-  (`holds`) are still free, until every resource is held, a rest option taking a resource nothing
+  (`claims`) are still free, until every resource is held, a rest option taking a resource nothing
   else is worth more on. A strike holding the legs, the trunk and a hand runs beside the other
   hand's cover; between strikes, a gait toward a goal runs beside both hands' covers. By worth or
-  by rank are two configurations of the one policy (`chooserOf`); by worth breaks a tie by rank, so
-  options priced alike, the unmeasured, are taken in rank order.
+  by rank are two configurations of the one policy (`chooserOf`); by worth breaks a tie by rank,
+  a rest option first, so options priced alike, the unmeasured, are taken in rank order.
 - **Below the options, not chosen**: what they read (the situation and its percepts); what prices
   them (`worth`, the position's value); how a chosen option is carried out (the legs, the motor,
   balance, the executors and the arbiter, the run giving way to the walk at its next landing); and
@@ -56,16 +57,13 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Decisions beside the chooser.** Kinetic's step (`src/core/entrants/kinetic/tactics.ts`) falls
-  back to its own `footwork` when nothing runs; walks a strike to its window (`approach`) beside
-  `moveTo("close")`; offers three goals written by hand; covers a free hand after the choice
-  (`cover`); turns to an ordered facing over every option's (`orderedFacing`); and keeps the walk
-  out of reach (`keepOut`). The chooser picks one option and holds by an implicit 0 standing and
-  none down (`top`, `chooser.ts`); the hands and the legs beside it are layers (`Layer`, which no
-  code reads). A goal is only a band of `Reach.apart` (`src/core/mind/options/goals.ts`), its
-  width a fixed 0.25 m (`EDGE.band`), and `close` is this body's reach, not a strike's window. The
-  gait is chosen by Move's rules (`MoveRule`, `src/core/skills/move.ts`): braced within 5 m of a
-  foe or a destination, 8.5 m of an ally, else run, 0.5 m past a rule before it lets go (`LEAVING`).
+- **Decisions beside the policy.** Kinetic's strike walks to its window (`approach`) beside
+  `moveTo("close")`; its three goals are written by hand; a free hand covers after the choice
+  (`cover`) rather than as an option. A goal is only a band of `Reach.apart`
+  (`src/core/mind/options/goals.ts`), its width a fixed 0.25 m (`EDGE.band`), and `close` is this
+  body's reach, not a strike's window. The gait is chosen by Move's rules (`MoveRule`,
+  `src/core/skills/move.ts`): braced within 5 m of a foe or a destination, 8.5 m of an ally, else
+  run, 0.5 m past a rule before it lets go (`LEAVING`).
 - **The rise is offered one option at a time.** The ground options' plan (`planAt`,
   `groundOptions`, `ground.ts`) picks the single option on offer as Stand up's supervisor did, a
   copy of it; none yields; the fall is priced by hand (`BY_HAND`), no edge being measured on the
@@ -91,28 +89,14 @@ commit before, its message naming the cases that move; a run priced on the pool 
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
 
-### 4. One policy, selecting a set
-
-The policy selects a set of options by their resources ([the design](#the-design)), each resource
-nothing else is worth more on held by its rest option, worth nothing: hold the position (the legs,
-facing the focus), a hand at its guard, brace (down). The chooser's posture branch (`top`),
-Kinetic's `footwork` default, `Layer` and the commitment-and-default-layer split
-([Kinetic](2026-10-27-kinetic.md#one-commitment-and-a-default-layer)) go. An ordered facing is
-`followOrders`' own, weighed by obedience, and `orderedFacing`'s override goes; `keepOut` moves
-into the walk skill. The body counted down while its rise runs is the running option's exit, not a
-reading rewritten (`Ground.read`).
-
-Check: down and alive, a rise option outranks bracing (the position charges a fall, `downCost`);
-the fingerprint's moved cases each read on their drill against the baseline record; `npm run match`
-of Kinetic against itself at the commit before, a loss fixed or its reason recorded.
-
 ### 5. The rise as options
 
 Every ground option whose entry admits the body is on offer to the policy. Stand up's supervisor's
 branches are the options' entries (tumbling or no ground reading for brace, no route stood for
 back off, on its feet for steady), and its limits (`RETRIES`, `BRACE_LIMIT`, `STEADY_LIMIT`)
 entry conditions of the options they limit, their counts in the options' memory; its precedence is
-the options' rank. By worth, each is worth its own time and the expected time to standing from
+the options' rank. The body counted down while its rise runs is the running option's exit, not a
+reading rewritten (`Ground.read` goes). By worth, each is worth its own time and the expected time to standing from
 where it ends (`toStanding`, `src/core/mind/ground/graph.ts`) at the rate of play; unmeasured, as
 on toes, the tie goes by rank. `planAt` goes. An option yields before its point of no return as a
 strike does ([letting go](2026-10-27-kinetic.md#letting-go)).
