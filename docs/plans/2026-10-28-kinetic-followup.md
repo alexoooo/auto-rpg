@@ -7,7 +7,8 @@ available each step** ([the design](#the-design)). Everything it chooses (a stri
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy.
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
-orders one weight), through one profile interface; letting go is measured across the wind-up; every mind is felled on
+orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
+letting go is measured across the wind-up; every mind is felled on
 one stand-up bed; one trainer trains any part; and the legs bear on whichever ends the body has. It
 lands before Kinetic step 13, which builds on its options, and before any training run, which
 optimises against its values.
@@ -55,13 +56,6 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **A profile is read three ways.** `expect` (`src/core/mind/profile.ts`) returns a raw cell;
-  pressure and danger read their own (`cellAt`, `phaseIn`, `percepts.ts`); the rise reads
-  `cells[0]` and drops a stale profile silently, in both `src/core/mind/options/ground.ts` and
-  `src/core/mind/ground/stand-up.ts`. A cell's phase is a hand list of rung names (`PHASES`,
-  `strike-profiles.mjs`), not the `phase` percept; `closing` is 0 on every strike cell. A profile
-  names its striker, not its target, and loads only from `assets/core/`. The measured model sits
-  under `models["hand-built"]` (`ModelKind`, `src/core/mind/options/option.ts`).
 - **Decisions beside the chooser.** Kinetic's step (`src/core/entrants/kinetic/tactics.ts`) falls
   back to its own `footwork` when nothing runs; walks a strike to its window (`approach`) beside
   `moveTo("close")`; offers three goals written by hand; covers a free hand after the choice
@@ -101,25 +95,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 2. One profile interface
-
-A profile is read through one interface, `expect(place)`: payoff, duration, exit and the cost of
-letting go, at a place that includes the motion's progress (step 9 fills it); the drill table is
-its first implementation, and every option's skill (strike, gait, cover, ground edge) is priced
-through it. The strike's model, pressure, danger and the rise read it; `cellAt`, `phaseIn` and
-`cells[0]` go, and `models` becomes one `model(now)`. Every reader reports a stale profile where it
-loads it. A profile names its target (body key and spec digest) beside its striker; a foe other
-than its target scales its cells by the two bodies (mass, hit points), and the readout says so,
-rather than going stale. It reaches a mind through its kit from `assets/core/` and
-`assets/entrants/<name>/`, not a module import. A cell's phase is the `phase` percept read on the
-striker's senses at the strike's start, so `PHASES` goes; `closing` goes until a drill varies it.
-
-First read whether the strike records hold the foe's state the percept needs; where they do not,
-the rungs are played again, priced first.
-
-Check: Kinetic's strikes priced as before wherever the cell is unchanged; the readout says
-"measured" only where a cell priced it.
 
 ### 3. One stand-up bed
 
@@ -204,7 +179,7 @@ a loss fixed or its reason recorded; a bout looked at, the owner judging when it
 
 The Strike drill's letting-go rungs let go at several points of the wind-up, not only the first
 decision, and "ready again" is the hand back at its guard, a reading of the body. The profile's
-cost of letting go is indexed by the progress of the motion (step 2's place), and a running option
+cost of letting go is indexed by the progress of the motion (a field of the profile's place, `ProfilePlace`), and a running option
 is priced from where it is: its time and payoff left. `keep` stays only where two options alike
 still change places step to step without it.
 

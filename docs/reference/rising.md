@@ -1237,7 +1237,7 @@ Moving:
 ## Routes priced
 
 Stand up takes the route of least expected time to standing (`choose`, `src/core/mind/ground/graph.ts`)
-from each edge's profile on the body (`EDGE_PROFILES`, `src/core/mind/profile.ts`, one read only
+from each edge's profile on the body (`edgeExpected`, `src/core/mind/profile.ts`, one read only
 where it is fresh for the body, `staleness`): the share of its drill's trials it was done, the mean
 seconds a trial ran, done or not, and the positions those not done came to rest in
 (`assets/core/edge-profiles.json`, `node research/edge-profiles.mjs --write`, from the latest
