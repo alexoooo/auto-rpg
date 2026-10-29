@@ -59,6 +59,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Kinetic's shape, the Option Commander: team options claiming members, priced by the hero's life left at the Crypt's exit, its chooser configured over set selection shared with Kinetic; the Crypt's drain for AI experiments (none in the game by default), its length from the level's route; the player's side one unit |
+| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it: the skills free of the decider's memory and report, a neutral `Decider` seam, tactics a package with the fighter kind, each layer's config with its layer, drills driving any mind by a decider; one way into a body, the command layers a toolkit layer reading the body from its spec, no sub-minds in the body, the quadruped on the command layers |
 
 1. **Now: Kinetic's design**, before any training run (worth in life, measured profiles, the
    value of a position, exits and letting go, the stand-up as a chain are built): the
@@ -79,6 +80,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    ([on the game bodies](reference/toes.md#on-the-game-bodies)).
    The [Commander](plans/2026-10-29-commander.md) in order: the drain and the score (steps 1
    and 2) need nothing of Kinetic; the Option Commander (step 5) plays the Crypt with Kinetic as its hero.
+   [Layering](plans/2026-10-29-layering.md) in order, each step bit for bit on the fingerprint but
+   the quadruped's; its steps 1 to 5 land before the Commander's step 3, which lifts Kinetic's chooser.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
