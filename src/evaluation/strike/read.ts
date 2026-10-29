@@ -115,13 +115,20 @@ export type StrikeReading = {
   readonly taken: number;
   /**
    * Where the drill let its action go (`DrillTacticsConfig.letGo`): when it let it go and when the
-   * action was ready again, s (null where it was not by the trial's end), and the hit points the
-   * striker lost from the let-go until then; absent where it did not let one go.
+   * hand was back at its guard (`BACK`), s (null where it was not by the trial's end), and the hit
+   * points the striker lost from the let-go until then; absent where it did not let one go.
    */
   readonly letGo?: { readonly at: number; readonly again: number | null; readonly opening: number };
   readonly down: boolean;
   readonly seconds: number;
 };
+
+/**
+ * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
+ * it was, against the chest and turned with it, when its action began, and moving against the
+ * chest at no more than `still` m/s.
+ */
+export const BACK = Object.freeze({ within: .05, still: .3 });
 
 /** When a trial ends: the protocol's longest, how long it runs on after the action's end, and how long the striker may wait to be admitted `settled` s after the drill has the body. */
 export interface Ending { readonly seconds: number; readonly settle: number; readonly settled: number; readonly patience: number }
@@ -147,7 +154,14 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   if (!shoulderJoint || !upperArm || !chest || !elbowJoint) throw new Error(`the striker's ${effector} has no shoulder, elbow or chest to read a punch's form by`);
   const elbow = left.built.joints.get(elbowJoint.name), straightElbow = elbowJoint.dofs[0]!.min.value, angles: number[] = [];
   if (!elbow) throw new Error(`the striker has no built ${elbowJoint.name}`);
-  const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3();
+  const shoulder = new Vector3(), turn = new Quaternion(), up = new Vector3(), chestAt = new Vector3(), ORIGIN = [0, 0, 0] as const;
+  /** The strike point against the chest, turned with it, where its action began; and as the last step left it. */
+  const rest = new Vector3(), held = new Vector3(), was = new Vector3();
+  /** The strike point against the chest, in the chest's turn, into `out`. */
+  const againstChest = (out: Vector3): Vector3 => {
+    pointOfToRef(limb, aim, point); pointOfToRef(chest, ORIGIN, chestAt); turnOfToRef(chest, turn);
+    return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(turn.conjugateInPlace(), out);
+  };
   /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, the shoulder's x, y, z, the elbow's bend and the chest's lean, rad. */
   const path: number[] = [];
   const STRIDE = 9;
@@ -205,15 +219,20 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       }
       if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
       const action = skills.report.actions.find((one) => !before.has(one.id));
-      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foePhase ??= sensed(); }
+      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foePhase ??= sensed(); againstChest(rest); }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
         if (action.phase === "release" && times.released === null) times.released = world.time;
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
       const drill = skills.report.engagement?.phase;
-      if (drill === "let go") letAt ??= world.time;
-      else if (letAt !== null && drill === "done") again ??= world.time;
+      if (drill === "let go" && letAt === null) { letAt = world.time; againstChest(was); }
+      else if (letAt !== null && again === null) {
+        againstChest(held);
+        const moved = Vector3.Distance(held, was) / world.dt;
+        if (Vector3.Distance(held, rest) <= BACK.within && moved <= BACK.still) again = world.time;
+        was.copyFrom(held);
+      }
       if (id === null) {
         const engagement = skills.report.engagement;
         phase = (engagement?.phase ?? "lost") as DrillPhase;
@@ -230,7 +249,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       down ||= left.body.down;
     },
     get ended() {
-      return world.time >= ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle
+      return world.time >= ending.seconds || times.ended !== null && world.time >= times.ended + ending.settle && (letAt === null || again !== null)
         || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
     },
     reading() {

@@ -93,12 +93,13 @@ const PUNCHING = deepFreeze({ ...OPPONENT, opponent: "drill-punch" });
 
 /**
  * Letting go: the opponent rungs' trials at a target standing (`letgo`) and punching back
- * (`letgo-punched`), each strike let go at its first decision after it began (`letGo` 0 s),
- * before its point of no return: what letting it go costs, the time until it is ready again and
- * what the striker loses meanwhile (`StrikeReading.letGo`).
+ * (`letgo-punched`), each strike let go at each point of its wind-up, s after it began (`letGo`;
+ * at its first decision past each), where it is still before its point of no return: what letting
+ * it go there costs, the time until the hand is back at its guard and what the striker loses
+ * meanwhile (`StrikeReading.letGo`). A trial past its point of no return is not let go.
  */
-const LETTING_GO = deepFreeze({ ...OPPONENT, letGo: 0 });
-const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: 0 });
+const LETTING_GO = deepFreeze({ ...OPPONENT, letGo: [0, .05, .1, .15] });
+const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: [0, .05, .1, .15] });
 
 /** How a walk-rung trial asks: once settled in its window's middle, or the first step it is ready, still walking. */
 export type Start = "settled" | "walking";
@@ -121,7 +122,9 @@ const FIGHT = deepFreeze({
 });
 
 /** One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). */
-export type StillCondition = { readonly model: BodyModel; readonly mark: Mark; readonly hand: Hand; readonly across: number; readonly gap: number; readonly start?: Start };
+export type StillCondition = { readonly model: BodyModel; readonly mark: Mark; readonly hand: Hand; readonly across: number; readonly gap: number; readonly start?: Start;
+  /** Where the drill lets its strike go, s after it began; absent where it does not. */
+  readonly letGo?: number };
 export type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
 export type StrikeCondition = StillCondition | FightCondition;
 
@@ -136,11 +139,11 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
-function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: number }): Cases<StrikeCondition, StrikeReading> {
+function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[] }): Cases<StrikeCondition, StrikeReading> {
   const conditions: StillCondition[] = [];
   for (const model of protocol.models) for (const mark of protocol.marks) for (const hand of protocol.hands)
-    for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined])
-      conditions.push({ model, mark, hand, across, gap, ...(start === undefined ? {} : { start }) });
+    for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined]) for (const letGo of protocol.letGo ?? [undefined])
+      conditions.push({ model, mark, hand, across, gap, ...(start === undefined ? {} : { start }), ...(letGo === undefined ? {} : { letGo }) });
   return {
     arity: 1,
     play: protocol as unknown as Json,
@@ -148,13 +151,13 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
     world: ([value], condition, engine, [character]) => {
-      const { model, gap, across, mark, hand, start } = condition as StillCondition;
+      const { model, gap, across, mark, hand, start, letGo } = condition as StillCondition;
       return { kind: "bout", engine, tape: [],
       // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
-        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking", ...(protocol.letGo === undefined ? {} : { letGo: protocol.letGo }) }),
+        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking", ...(letGo === undefined ? {} : { letGo }) }),
           right: MINDS[protocol.opponent ?? STANDING]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
