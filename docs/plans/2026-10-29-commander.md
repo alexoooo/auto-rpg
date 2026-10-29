@@ -8,7 +8,7 @@ not general: `mob`, `independent`, `party` and `clearer` (`src/core/command/`) a
 written by hand, and `clearer`'s `POLICY` numbers are first guesses. None weighs one course
 against another.
 
-This plan builds one Commander in Kinetic's shape one level up, the **Strategist**: the members are
+This plan builds one Commander in Kinetic's shape one level up, the **Option Commander**: the members are
 its resources, a team option claims members, each option is priced by what it is expected to leave
 at the exit, and its chooser is configured. The four kinds stay, as opponents and baselines.
 
@@ -53,9 +53,9 @@ Arena's is (`Duel.life`). A run drained to nothing is lost by the drain.
   gives the senses no verdict time (`createSenses`' `ends`): its end is the exit or death, not a
   judgement of the lead.
 
-### The Strategist
+### The Option Commander
 
-| Kinetic (one body) | The Strategist (one team) |
+| Kinetic (one body) | The Option Commander (one team) |
 |---|---|
 | Resources: legs, trunk, each hand (`Resource`, a string) | Each member, by id |
 | An option: a skill applied to a target (`Option`) | A team option: a course applied to a target, its step the orders of the members it claims |
@@ -170,16 +170,16 @@ Kinetic with `valued`); one bout of Kinetic with `ranked`, its digest equal befo
   foe: the focus at each decision, and each of `others` where the chooser reads them, from its
   `pressing` and `pressure` at the range now. It reads nothing its valuation does not already, so
   the step costs no more, and a forked bout carries them. A foe it has not priced has none.
-- Where a member has no prospect of a foe, the Strategist prices the fight by the baseline's
+- Where a member has no prospect of a foe, the Option Commander prices the fight by the baseline's
   record: the mean life the hero lost a foe defeated (step 2's rows).
 
 Check: the gate; in a Node stand, Kinetic's prospects against a standing Warrior agree with its
 own `pressing` and `pressure` that decision (a printout, no test); a forked bout's prospects equal
 the original's.
 
-### 5. The Strategist
+### 5. The Option Commander
 
-`src/core/command/strategist.ts`, a line in `COMMANDERS`, sides `party`: its options (above), its
+`src/core/command/option.ts`, kind `option`, a line in `COMMANDERS`, sides `party`: its options (above), its
 place's value (`TeamValue`, its first implementation the terms above), its chooser named by its
 config (`chooser: "valued" | "ranked"`, its entry's `faults` checking it) over `selectSet` with no
 chance (a `TeamHost` has no seed), its memory in `state`. Its options' orders go through
@@ -193,15 +193,15 @@ one, sending its member at the foe, and replaying it from its orders.
 
 ### 6. Read against the clearer
 
-`npm run evaluate -- crypt-clear` with the Strategist (Kinetic the hero's mind), paired against
+`npm run evaluate -- crypt-clear` with the Option Commander (Kinetic the hero's mind), paired against
 step 2's `clearer` record (`npm run compare`); then Kinetic under `clearer` against Kinetic under
-the Strategist, so the mind is the same on both sides. The owner watches a run with
-`&party=strategist&drain=<perMetre>`. An iteration from here is one question on the Strategist,
+the Option Commander, so the mind is the same on both sides. The owner watches a run with
+`&party=option&drain=<perMetre>`. An iteration from here is one question on the Option Commander,
 one change, paired.
 
 ## Done when
 
 The Crypt's drain exists for experiments and the game's Crypt runs as before with none; the
-Crypt's score is the life left at the exit; the Strategist, a chooser over team options priced by
+Crypt's score is the life left at the exit; the Option Commander, a chooser over team options priced by
 that score, leaves the hero more life at the exit than `clearer` on `crypt-clear`'s drained
 protocol, paired, with the same hero mind; and the owner has watched it play a level.
