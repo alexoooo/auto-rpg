@@ -1122,7 +1122,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
   straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
-  refused or waiting, fell, or a fight that never came to its moment). `--previous` reads a battery's subject
+  refused or waiting, fell, or a fight that never came to its moment); and `cover` (a mind standing
+  and covering under the drill's tactics, `drill-cover`, against a drill opponent striking on its
+  script: rung `swung`, a club swung on a rhythm, `drill-swing`; rung `punched`, punches,
+  `drill-punch`; a Warrior empty-handed or with a club, by offset and range: each touch read by
+  where it met the subject, its head, its guard or the rest of it, the hit points it took and
+  whether the subject fell; covered, the guard alone met, `cover/read.ts`). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
