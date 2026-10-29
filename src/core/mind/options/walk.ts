@@ -1,6 +1,7 @@
 import { atan2, hypot } from "../../math/real.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { paceToward } from "../../control/stance-envelope.ts";
+import type { GaitName } from "../../skills/gaits.ts";
 import { keepOut } from "../clear-step.ts";
 import { directMovement } from "../movement.ts";
 import type { Situation } from "./option.ts";
@@ -19,10 +20,11 @@ export function walker(_spec: BodySpec) {
   const ceiling = (now: Situation): Pick<Intent, "pace"> => now.orders?.pace === undefined ? {} : { pace: now.orders.pace };
   /**
    * The speed the rule asks going forward with nothing ahead to stop for, m/s: what the gait holds
-   * forward (`paceToward`), under the orders' pace; what an option prices a walk by.
+   * forward (`paceToward`), `gait` where it names one the legs have (`Sight.envelopeOf`), else the
+   * one they go by, under the orders' pace; what an option prices a walk by.
    */
-  const pace = (now: Situation): number => {
-    const envelope = now.sight.envelope;
+  const pace = (now: Situation, gait?: GaitName): number => {
+    const envelope = (gait === undefined ? null : now.sight.envelopeOf(gait)) ?? now.sight.envelope;
     return Math.min(envelope ? paceToward(envelope, 1, 0) : Infinity, now.orders?.pace ?? Infinity);
   };
   /** Along the ground direction (`x`, `z`), facing `face`; standing for no direction. */

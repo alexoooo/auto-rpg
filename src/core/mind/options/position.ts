@@ -1,3 +1,4 @@
+import type { GaitName } from "../../skills/gaits.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Situation } from "./option.ts";
 import { dealtAt } from "./percepts.ts";
@@ -5,10 +6,23 @@ import { CLINCH } from "./value.ts";
 
 /**
  * **Where an option leaves the body**, as a position reads it: the range head to head to the focus,
- * m (`Reach.apart`'s; Infinity with no focus), and the chance it is down there.
+ * m (`Reach.apart`'s; Infinity with no focus), the chance it is down there, and the seconds until it
+ * is braced there, its strikes ready (a gait's, `Going`; absent, braced at once).
  */
 export interface Place {
   readonly apart: number;
+  readonly down: number;
+  readonly braced?: number;
+}
+
+/**
+ * **A gait an option goes by**: its name (`GAITS`), and what it leaves the body once stopped from
+ * its top speed: the seconds until it is braced, its strike ready, and the chance it fell (its
+ * profile, `dataOf("gait-profiles")`; unmeasured, braced at once and up).
+ */
+export interface Going {
+  readonly gait: GaitName;
+  readonly braced: number;
   readonly down: number;
 }
 
@@ -45,8 +59,8 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 /**
  * **The position's few terms**: the lead; a fall's cost (`downCost`) at the chance the body is
  * down there; and, standing at a standing focus, the range against both reaches: what its own
- * strikes deal the focus there over the time a place is held (`pressing`), less what the focus's
- * deal it (`pressure`), and late in the bout the lead at stake: a lead held within the focus's
+ * strikes deal the focus there over the time a place is held once it is braced (`pressing`), less
+ * what the focus's deal it over all of it (`pressure`), and late in the bout the lead at stake: a lead held within the focus's
  * reach, or a lead behind kept out of its own.
  *
  * Its rate of play is what holding the place costs a second: the focus's pressure where it stands,
@@ -59,7 +73,7 @@ export const FEW_TERMS: PositionValue = deepFreeze({
     const lead = now.lead, fallen = place.down * now.downCost, focus = now.focus;
     if (!focus || focus.down || !Number.isFinite(place.apart)) return lead - fallen;
     const { theirs, mine } = now.reach;
-    const exchange = dealtAt(now.pressing, now, place.apart, mine, TERMS.held) - dealtAt(now.pressure, now, place.apart, theirs, TERMS.held);
+    const exchange = dealtAt(now.pressing, now, place.apart, mine, Math.max(0, TERMS.held - (place.braced ?? 0))) - dealtAt(now.pressure, now, place.apart, theirs, TERMS.held);
     const stake = lead > 0 ? place.apart <= theirs ? lead : 0 : place.apart <= mine ? 0 : -lead;
     return lead - fallen + (1 - place.down) * (exchange - lateness(now, seconds) * stake);
   },

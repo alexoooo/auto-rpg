@@ -6,7 +6,7 @@ import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { covers } from "../../mind/options/cover.ts";
-import { moveTo, OUT_OF_PRESSURE, toWindow } from "../../mind/options/goals.ts";
+import { goings, moveTo, OUT_OF_PRESSURE, toWindow } from "../../mind/options/goals.ts";
 import { stepSet, type Option, type Situation } from "../../mind/options/option.ts";
 import { guard, hold } from "../../mind/options/rest.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
@@ -66,7 +66,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, from
  * a limb ready, priced by its measured profile where it has one, `strikeMeasure`), and the goals
  * made from them, each worth where it leaves the body: a walk into each strike's window
- * (`toWindow`), and one out of the foe's pressure (`moveTo`, `OUT_OF_PRESSURE`); and, down, the
+ * (`toWindow`), and one out of the foe's pressure (`moveTo`, `OUT_OF_PRESSURE`), each by each gait
+ * (`goings`: its pace, and the seconds it leaves the body unbraced); and, down, the
  * rise's options (`groundOptions`), the body down while its rise runs, which price a fall
  * (`downCost`); and the rest options, worth nothing, which take what nothing else is worth more on:
  * hold the position, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`), which a
@@ -83,8 +84,10 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
   const strikes = standing.map((action, i) => strike(action, walk, false, blowsOf(parts, deciding.executors, action), measures[i]!));
-  const hands = covers(spec);
-  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, ...strikes.map((one) => toWindow(one, walk)), moveTo("out of pressure", OUT_OF_PRESSURE, walk),
+  // Each gait as the drill measured it stopping to throw its first strike.
+  const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "");
+  const options: readonly Option[] = [followOrders(walk, standing), ...strikes,
+    ...gaits.flatMap((going) => [...strikes.map((one) => toWindow(one, walk, going)), moveTo("out of pressure", OUT_OF_PRESSURE, walk, going)]),
     ...ground.options,
     ...hands.options, hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), ground.rest];
   const chosen = chooserOf(parts, deciding.chooser, options, seed);

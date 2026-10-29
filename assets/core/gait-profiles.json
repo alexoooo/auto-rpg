@@ -1,7 +1,56 @@
 {
   "source": {
     "script": "research/gait-profiles.mjs",
-    "records": []
+    "records": [
+      "assets/evaluations/gait/2026-10-29-1a62d33c-086c9526.jsonl"
+    ]
   },
-  "profiles": []
+  "profiles": [
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "e26e779d65f77b3b",
+        "skill": "c118f234fff1cb7a",
+        "hz": 120,
+        "reaction": null
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 8,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0,
+          "down": 0,
+          "ends": []
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "e26e779d65f77b3b",
+        "skill": "da1de70df3dd6d37",
+        "hz": 120,
+        "reaction": null
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 8,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0,
+          "down": 0,
+          "ends": []
+        }
+      ]
+    }
+  ]
 }

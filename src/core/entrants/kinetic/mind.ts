@@ -1,6 +1,6 @@
 import type { Body } from "../../body.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
-import { MOVE, STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
+import { STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import { groundExecutor } from "../../mind/ground/held.ts";
@@ -45,8 +45,11 @@ const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch",
 const STRIKE: ActionConfig = deepFreeze({ name: "strike", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
-/** As it starts: by worth, the learned punch, Classic's gaits (`MOVE`) walked in the stance, the shield guard, and the game's stand-up's techniques. */
-const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, tactics: null, locomotion: MOVE, guard: { kind: "shield-guard" },
+/** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
+const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
+
+/** As it starts: by worth, the learned punch, the gaits its options name (`GOING`), the shield guard, and the game's stand-up's techniques. */
+const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, tactics: null, locomotion: GOING, guard: { kind: "shield-guard" },
   executors: [PUNCH], actions: [STRIKE], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, the tactics in its place, a skill of each role but low support, its techniques on the ground and its motor. */
@@ -96,7 +99,7 @@ export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
   keys: { kind: true, chooser: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
   uses: () => REPOSITION,
-  reads: () => ["strike-profiles", "edge-profiles"],
+  reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
   fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: kineticFaults,

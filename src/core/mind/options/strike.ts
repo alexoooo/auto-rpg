@@ -9,6 +9,7 @@ import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
+import type { Going } from "./position.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 
@@ -49,8 +50,8 @@ export interface StrikeOption extends StandingOption {
    * limb is ready, or none has a window. What a walk into it goes to (`toWindow`).
    */
   window(now: Situation): Window | null;
-  /** Its model walked into its window first, wherever the body stands: what a walk into it is worth (`toWindow`). */
-  through(now: Situation): Terms;
+  /** Its model walked into its window first by `going`, wherever the body stands, braced there before it strikes: what a walk into it is worth (`toWindow`). */
+  through(now: Situation, going: Going): Terms;
 }
 
 /**
@@ -136,22 +137,22 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     if (target === null) return UNAIMED;
     return (ready ?? (closes ? placed : null))?.readiness ?? UNREADY;
   };
-  /** Its model (`Terms`), walked into its window first where `walks`. */
-  const priceOf = (now: Situation, walks: boolean): Terms => {
-    const { apart, theirs, mine } = now.reach, pace = walk.pace(now);
-    const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
+  /** Its model (`Terms`), walked into its window first where `walks`, by `going` where it names a gait, and braced there. */
+  const priceOf = (now: Situation, walks: boolean, going?: Going): Terms => {
+    const { apart, theirs, mine } = now.reach, pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
+    const walking = walks ? Math.max(0, apart - mine) / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
     const e = expected(now);
     const from = walks ? Math.min(apart, mine) : apart;
     if (e) {
       const duration = walking + e.seconds;
       const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
       return { duration, dealt: e.dealt, taken: now.danger + e.taken + threatened(now, walkingInReach, from),
-        orders: 0, exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
+        orders: 0, exit: { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }, ...letGo };
     }
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
     const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
     const dealt = throws * lands * blow, duration = walking + seconds;
-    return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: clinched(now, duration) } };
+    return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: Math.max(fell, clinched(now, duration)) } };
   };
   return {
     name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk"]), state,
@@ -176,7 +177,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
     model: (now) => priceOf(now, entry(now).kind === "position"),
-    through: (now) => priceOf(now, true),
+    through: (now, going) => priceOf(now, true, going),
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
       const running = live(now);
