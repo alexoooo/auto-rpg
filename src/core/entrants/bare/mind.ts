@@ -10,8 +10,8 @@
  * its root's yaw), and decides each channel's pull, -1 to 1: a channel pulls at that share of its
  * strength toward its positive motion (above 0) or its negative one. A decision acts from the
  * control step after the one it reads. With a network (`BareConfig.network`), the network decides;
- * with none, the pulls its `state` holds stand (zero, limp, unless something writes them: a
- * trainer's driver, which reads `state.inputs` and writes `state.pulls`).
+ * with none, the pulls its learner holds stand (zero, limp, unless something writes them: a
+ * trainer, which reads its inputs and writes its outputs, `Learner`).
  */
 import { networkFaults, recoveryNetwork, type Network } from "../../control/recovery-network.ts";
 import type { BodyObservation } from "../../observation.ts";
@@ -21,6 +21,7 @@ import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../
 import type { BodyAction } from "../../mind/body-actions.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { NOTHING_SENSED } from "../../mind/senses.ts";
+import { learnerOf, type Learner } from "../../mind/learner.ts";
 
 /** **The bare mind's config**: its network, or none (its pulls written from outside), and how many control steps apart it decides. */
 export interface BareConfig {
@@ -29,11 +30,10 @@ export interface BareConfig {
   readonly every: number;
 }
 
-/** The bare mind's memory: control steps taken, the inputs it last read, and the pulls it holds. */
+/** The bare mind's memory: control steps taken, and its learner (`Learner`): the inputs it last read, and the pulls it holds, its outputs. */
 export interface BareState {
   steps: number;
-  readonly inputs: number[];
-  readonly pulls: number[];
+  readonly learner: Learner;
 }
 
 /** Each channel's name, `joint positive-motion`, in the order the muscle driver lays them (`channelName`). */
@@ -120,15 +120,16 @@ export const BARE_MIND: Controller = controller<BareConfig>({
     const layout = bareLayout(host.spec), rootName = rootOf(host.spec);
     let root = -1;
     const decide = config.network ? recoveryNetwork(config.network) : null, senses = wiring.senses ?? (() => NOTHING_SENSED);
-    const state: BareState = { steps: 0, inputs: [], pulls: layout.outputs.map(() => 0) };
+    const state: BareState = { steps: 0, learner: learnerOf(layout.outputs.length, true) };
     host.policy((model) => {
       if (model.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
       return { name: "bare", state, step(observation) {
-        const action = actionOf(state.pulls);
+        const { learner } = state, action = actionOf(learner.outputs);
         if (state.steps % config.every === 0) {
           if (root < 0) root = observation.segments.findIndex((segment) => segment.name === rootName);
-          read(state.inputs, observation, root, wiring.orders(senses()));
-          if (decide) { const pulls = decide(state.inputs); for (let i = 0; i < pulls.length; i++) state.pulls[i] = pulls[i]!; }
+          read(learner.inputs, observation, root, wiring.orders(senses()));
+          learner.decisions++;
+          if (decide) { const pulls = decide(learner.inputs); for (let i = 0; i < pulls.length; i++) learner.outputs[i] = pulls[i]!; }
         }
         state.steps++;
         return action;
