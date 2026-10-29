@@ -5,7 +5,6 @@ import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
-import type { Recipe } from "../rise/stages.ts";
 import type { GroundReading, Position } from "./reading.ts";
 import type { KeysOf, Part, PartConfig } from "../parts.ts";
 import type { TECHNIQUES } from "./techniques.ts";
@@ -91,19 +90,6 @@ const opposite = (name: string) => name.replace(/\.(left|right)\b/g, (_, side: s
 export function mirrorPosture(posture: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
   return Object.fromEntries(Object.entries(posture).map(([name, value]) => [opposite(name),
     / (lateral flexion right|rotation right)$/.test(name) ? -value : value]));
-}
-
-/** Every bearing chain and prop follows its mirrored segment, retaining its other inputs. */
-export function mirrorLimbs(limbs: Recipe["limbs"]): Recipe["limbs"] {
-  return limbs.map(limb => {
-    const common = { ...limb, name: opposite(limb.name), segment: opposite(limb.segment), from: opposite(limb.from) };
-    switch (limb.kind) {
-      case "foot": return common;
-      case "end": return { ...common, takes: limb.takes.map(opposite) };
-      case "propped": return { ...common, takes: limb.takes.map(opposite), prop: opposite(limb.prop) };
-      default: { const never: never = limb; throw new Error(`unknown bearing limb ${never}`); }
-    }
-  });
 }
 
 /** A technique's `fits`: a body the command layers read (`commandRefusal`), whose limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */

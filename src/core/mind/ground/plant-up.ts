@@ -15,7 +15,6 @@ import type { Clock } from "../../clock.ts";
 import { carrying, type Pose } from "../../control/motor.ts";
 import type { OwnBody } from "../mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
-import { RISE } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
@@ -57,7 +56,7 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKi
   const parts = own.spec.segments.map(s => s.name), index = (name: string) => parts.indexOf(name);
   const hand = [index("hand.left"), index("hand.right")], shin = [index("shank.left"), index("shank.right")];
   const root = muscles.dynamics.root.segment, low = uprightness(own.built);
-  const made: RiseLimbs = riseLimbs(own, RISE);
+  const made: RiseLimbs = riseLimbs(own), ends = own.spec.ends ?? [];
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the plant-up");
   const state = { phase: "brace" as Phase, ended: null as TechniqueEnd | null, begun: false, elapsed: 0, heading: 0,
     initial: Object.fromEntries(muscles.channels.map(c => [c.name, 0])),
@@ -71,9 +70,9 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKi
     yaw: new Quaternion(), pitch: new Quaternion(), across: new Vector3(), right: new Vector3(1, 0, 0), moved: new Uint8Array(muscles.channels.length),
     aim: { centre: new Vector3(), spin: new Vector3() } };
   const shares = {
-    plant: RISE.limbs.map(l => l.name === "shin.right" ? .5 : l.name.startsWith("hand.") ? .25 : 0),
-    transfer: RISE.limbs.map(l => l.name === "foot.left" ? .6 : l.name === "foot.right" ? .1 : l.name.startsWith("hand.") ? .15 : 0),
-    rise: RISE.limbs.map(l => l.name.startsWith("foot.") ? .5 : 0),
+    plant: ends.map(l => l.name === "shin.right" ? .5 : l.name.startsWith("hand.") ? .25 : 0),
+    transfer: ends.map(l => l.name === "foot.left" ? .6 : l.name === "foot.right" ? .1 : l.name.startsWith("hand.") ? .15 : 0),
+    rise: ends.map(l => l.name.startsWith("foot.") ? .5 : 0),
   };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   const bearing = (phase: "plant" | "transfer" | "rise", g: GroundReading, dt: number) => {

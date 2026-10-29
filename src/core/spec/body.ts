@@ -4,8 +4,61 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 /** One side of a bilateral body: a hand, a foot, a limb, a corner of a bout. */
 export type Side = "left" | "right";
 
-/** An end a body's legs bear its weight on, named as the body names it: a human's two feet, by their side. */
-export type BearingEnd = Side;
+/** An end a body bears its weight on, by its name among its spec's ends (`BodySpec.ends`): a human's `foot.left`, `hand.right`, `shin.left`. */
+export type BearingEnd = string;
+
+/**
+ * **A capsule segment, bearing where it touches the ground**: a point, a radius under its lower
+ * end's centre, or under its middle when it lies on both its ends.
+ */
+export interface EndLimb {
+  readonly kind: "end";
+  /** Its name, by which a legs goal or a rise's stage asks for it (`BearingEnd`). */
+  readonly name: string;
+  readonly segment: string;
+  /** The joint its own chain begins at; the joints before it, from the root, are its stem (`Limb.stem`). */
+  readonly from: string;
+  /**
+   * The channels of its chain that take its point's task, three or more: of the motions that give
+   * the task, theirs is the one nearest the stage's posture. The chain's others are driven toward
+   * the posture.
+   */
+  readonly takes: readonly string[];
+}
+
+/**
+ * **A capsule segment on one of its ends, propped at the other by a foot that hangs from it**: a
+ * shank on its knee, its ankle held up by the foot on its toes. It bears from the end's point to
+ * the foot's front edge, as a sole of no width.
+ */
+export interface ProppedLimb {
+  readonly kind: "propped";
+  readonly name: string;
+  readonly segment: string;
+  /** Which end it is on: the one nearer the joint that carries the segment, or the farther. */
+  readonly end: "near" | "far";
+  readonly from: string;
+  /** The channels of its chain that take its task, the point's and its tilt's, four or more; as an end's. */
+  readonly takes: readonly string[];
+  /** The foot that props it: a foot the stance stands on, hanging from `segment`. */
+  readonly prop: string;
+}
+
+/**
+ * **A foot, bearing on its sole, or on its sole's front edge once its heel is up**: a foot a stance
+ * stands on, as the stance bears on it (`bearingSole`, `src/core/control/support.ts`). Its whole
+ * chain from `from` takes its task: on its sole the foot is held flat, on its edge its turn about
+ * the edge is left free.
+ */
+export interface FootLimb {
+  readonly kind: "foot";
+  readonly name: string;
+  readonly segment: string;
+  readonly from: string;
+}
+
+/** **An end a body can bear its weight on**, by kind: a capsule's end, a capsule propped on a foot, a foot. */
+export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb;
 
 /**
  * **What a body is built from**, and nothing else: `buildBody` reads a
@@ -50,6 +103,11 @@ export interface BodySpec {
   readonly down: DownSpec;
   /** Where another body aims at it. */
   readonly marks: Marks;
+  /**
+   * The ends it can bear its weight on (`BearingEnd`): what its legs and a rise's stages bear it
+   * on. Absent, none named: a body whose legs are its own (a reptile's support endpoints).
+   */
+  readonly ends?: readonly BearingEndSpec[];
 }
 
 /**

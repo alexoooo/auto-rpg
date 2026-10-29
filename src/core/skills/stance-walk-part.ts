@@ -1,4 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
+import { stanceFeetOf } from "./skill.ts";
 import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { locomotion, validCarriage, validTurnLimit, validTurnStartup, type Carriage, type TurnStartup } from "./locomotion.ts";
@@ -25,5 +26,5 @@ export const STANCE_WALK_PART: LocomotionPart<StanceWalkConfig> = deepFreeze({
     ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
     ...(config.carriage === undefined || validCarriage(config.carriage) ? [] : ["a carriage needs a positive width or none, and a finite stagger and lowering"]),
   ],
-  make: (body, config) => locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup, config.carriage),
+  make: (body, config) => locomotion(stanceFeetOf(body.built.spec), body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup, config.carriage),
 });

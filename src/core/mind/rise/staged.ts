@@ -77,7 +77,7 @@ export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: n
  *
  * A pose stage drives every freedom toward its posture for its time, at its drive or the pose
  * drive (`POSE_SECONDS`, `POSE_SPEED`). A bearing stage is a step of
- * motor control's shape on the recipe's limbs (`riseLimbs`): the centre of mass asked toward the
+ * motor control's shape on the body's bearing ends (`riseLimbs`): the centre of mass asked toward the
  * place over the limbs it bears on, the pelvis toward its pitch, the bearing solve
  * (`src/core/control/bearing.ts`) for the root's acceleration and those limbs' torques, and the
  * servo for the rest of the body toward the stage's posture. A limb bears once it is down, where
@@ -112,7 +112,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const restSeconds = recipe.progress?.restSeconds ?? null, restWiden = recipe.progress?.restWiden ?? 1;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
-  const upright = uprightness(own.built), made = riseLimbs(own, recipe);
+  const upright = uprightness(own.built), made = riseLimbs(own), ends = own.spec.ends ?? [];
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() };
   /**
@@ -140,7 +140,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(muscles.channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
     if (stage.kind !== "bear") continue;
-    const shares = recipe.limbs.map((limb) => stage.on.find((on) => on.limb === limb.name)), leaves = recipe.limbs.map((limb) => stage.leave.includes(limb.name));
+    const shares = ends.map((limb) => stage.on.find((on) => on.limb === limb.name)), leaves = ends.map((limb) => stage.leave.includes(limb.name));
     bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves, keeps: stage.leave.length === 0 });
   }
 
@@ -299,7 +299,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     const first = recipe.rise[0];
     if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
     return upright.clearance(notTrunk) > DOWN && first.on.every(on => {
-      const name = recipe.limbs.find(limb => limb.name === on.limb)!.segment;
+      const name = ends.find(limb => limb.name === on.limb)!.segment;
       return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
         .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
     });

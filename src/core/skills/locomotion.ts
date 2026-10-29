@@ -9,7 +9,7 @@ import { STANCE_GAIT, type GaitTuning } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import { deepFreeze } from "../state.ts";
-import { ALL_MET, FIELD_BIT, fieldsOf, setIn, type LegsAsked, type LegsField, type LegsGoal, type LegsUnmet, type Skill } from "./skill.ts";
+import { ALL_MET, FIELD_BIT, fieldsOf, setIn, onStanceFeet, type LegsAsked, type LegsField, type LegsUnmet, type SidedAsk, type StanceFeet, type Skill } from "./skill.ts";
 import type { GaitName } from "./gaits.ts";
 
 /**
@@ -188,7 +188,7 @@ export interface Locomotion extends Skill {
  * **`stance` as the legs goal `goal` asks it**: its bearing feet, heading, centre, pose, swing and
  * halt where the goal sets them; as it is where the goal sets none, or where there is no stance.
  */
-export function completed(stance: StanceGoal | null, goal: LegsGoal): StanceGoal | null {
+export function completed(stance: StanceGoal | null, goal: SidedAsk): StanceGoal | null {
   if (!stance || goal.feet === undefined && goal.heading === undefined && goal.centre === undefined && goal.pose === undefined
     && goal.swing === undefined && !goal.halt) return stance;
   return { ...stance, ...(goal.feet === undefined ? {} : { feet: goal.feet }), ...(goal.halt ? { halt: true } : {}),
@@ -288,7 +288,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup, carriage: Carriage = CARRIAGES.square): StanceWalk {
+export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup, carriage: Carriage = CARRIAGES.square): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
@@ -350,14 +350,16 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.unmet.fields = ALL_MET.fields; state.unmet.centre = 0; state.unmet.height = 0;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
-    goal(view, goal, dt) {
+    goal(view, given, dt) {
+      // The goal's ends made the stance's feet; an end the stance does not stand on is unmet.
+      const { goal, refused } = onStanceFeet(given, feet);
       // What the last goal asked, as the stance held it standing; and the gait by name, which the stance walk has none of.
       const s = view.stance, asked = state.asked, height = state.askedHeight, unmet = state.unmet, standing = s.phase === "stand";
       unmet.centre = asked && standing ? hypot(asked[0] - s.place.x, asked[1] - s.place.z) : 0;
       unmet.height = height !== null && standing ? Math.abs(height - s.plan.y) : 0;
       // A heading asked beside a walk is not carried out: the walk's steps turn the stance to its own.
       const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0));
-      unmet.fields = fieldsOf(leaves);
+      unmet.fields = fieldsOf(leaves | refused);
       if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;

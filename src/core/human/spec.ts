@@ -1,4 +1,4 @@
-import type { BodySpec } from "../spec/body.ts";
+import type { BearingEndSpec, BodySpec } from "../spec/body.ts";
 import { sourced } from "../spec/quantity.ts";
 import { hastedFigure, humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
@@ -53,5 +53,15 @@ function figureSpec(figure: HumanFigure): BodySpec {
       within: sourced(0.03, "m", "touch-bar", "Touching") },
     marks: { high: "head", middle: ["upperTrunk", "middleTrunk"], base: "lowerTrunk", legs: ["shank.left", "shank.right"],
       guards: ["hand.left", "hand.right", "forearm.left", "forearm.right"] },
+    ends: (["left", "right"] as const).flatMap((side): BearingEndSpec[] => [
+      // A body on its knees: the shank on its upper end, the toes tucked under and holding the ankle up.
+      { kind: "propped", name: `shin.${side}`, segment: `shank.${side}`, end: "near", from: `hip.${side}`, prop: `foot.${side}`,
+        takes: [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`] },
+      // A hand hangs from the trunk, which both arms share: its stem. Its wrist is the posture's.
+      { kind: "end", name: `hand.${side}`, segment: `hand.${side}`, from: `shoulder.${side}`,
+        takes: [`shoulder.${side} flexion`, `shoulder.${side} abduction`, `shoulder.${side} internal rotation`] },
+      // A foot on its sole, as a stance stands on it.
+      { kind: "foot", name: `foot.${side}`, segment: `foot.${side}`, from: `hip.${side}` },
+    ]),
   };
 }

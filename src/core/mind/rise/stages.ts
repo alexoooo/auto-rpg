@@ -3,7 +3,7 @@
  * it bears on while it does. The player (`stagedRise`, `staged.ts`) knows the kinds of stage and of
  * limb, and no body; a recipe names the channels, segments and joints of the bodies it is for.
  */
-import type { BodySpec, JointSpec } from "../../spec/body.ts";
+import type { BearingEndSpec, BodySpec, JointSpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 
 /** How a body lies: on its front, its back, or a side (the side that is down). */
@@ -92,58 +92,6 @@ export interface BearStage {
 /** A stage of a rise, by kind. */
 export type Stage = PoseStage | BearStage;
 
-/**
- * **A capsule segment, bearing where it touches the ground**: a point, a radius under its lower
- * end's centre, or under its middle when it lies on both its ends.
- */
-export interface EndLimb {
-  readonly kind: "end";
-  /** What the stages call it. */
-  readonly name: string;
-  readonly segment: string;
-  /** The joint its own chain begins at; the joints before it, from the root, are its stem (`Limb.stem`). */
-  readonly from: string;
-  /**
-   * The channels of its chain that take its point's task, three or more: of the motions that give
-   * the task, theirs is the one nearest the stage's posture. The chain's others are driven toward
-   * the posture.
-   */
-  readonly takes: readonly string[];
-}
-
-/**
- * **A capsule segment on one of its ends, propped at the other by a foot that hangs from it**: a
- * shank on its knee, its ankle held up by the foot on its toes. It bears from the end's point to
- * the foot's front edge, as a sole of no width.
- */
-export interface ProppedLimb {
-  readonly kind: "propped";
-  readonly name: string;
-  readonly segment: string;
-  /** Which end it is on: the one nearer the joint that carries the segment, or the farther. */
-  readonly end: "near" | "far";
-  readonly from: string;
-  /** The channels of its chain that take its task, the point's and its tilt's, four or more; as an end's. */
-  readonly takes: readonly string[];
-  /** The foot that props it: a foot the stance stands on, hanging from `segment`. */
-  readonly prop: string;
-}
-
-/**
- * **A foot, bearing on its sole, or on its sole's front edge once its heel is up**: a foot a stance
- * stands on, as the stance bears on it (`bearingSole`, `src/core/control/support.ts`). Its whole
- * chain from `from` takes its task: on its sole the foot is held flat, on its edge its turn about
- * the edge is left free.
- */
-export interface FootLimb {
-  readonly kind: "foot";
-  readonly name: string;
-  readonly segment: string;
-  readonly from: string;
-}
-
-/** What a body may bear on, by kind. */
-type LimbSpec = EndLimb | ProppedLimb | FootLimb;
 
 /**
  * **A rise**: the limbs its bearing stages may name, the stages that turn the body onto its front
@@ -167,8 +115,6 @@ export interface Recipe {
     readonly restSeconds?: number;
     readonly restWiden?: number;
   };
-  /** In the order the riser's memory keeps them. */
-  readonly limbs: readonly LimbSpec[];
   /**
    * The segments of the trunk, by name: once the rise has had every one of them clear of the
    * ground, any one of them down again ends the attempt.
@@ -375,16 +321,6 @@ const BEAR_SECONDS = 0.35, BEAR_LIMIT = 4;
  * each).
  */
 export const RISE: Recipe = deepFreeze({
-  limbs: SIDES.flatMap((side): LimbSpec[] => [
-    // A body on its knees: the shank on its upper end, the toes tucked under and holding the ankle up.
-    { kind: "propped", name: `shin.${side}`, segment: `shank.${side}`, end: "near", from: `hip.${side}`, prop: `foot.${side}`,
-      takes: [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`, `knee.${side} flexion`] },
-    // A hand hangs from the trunk, which both arms share: its stem. Its wrist is the posture's.
-    { kind: "end", name: `hand.${side}`, segment: `hand.${side}`, from: `shoulder.${side}`,
-      takes: [`shoulder.${side} flexion`, `shoulder.${side} abduction`, `shoulder.${side} internal rotation`] },
-    // A foot on its sole, as a stance stands on it.
-    { kind: "foot", name: `foot.${side}`, segment: `foot.${side}`, from: `hip.${side}` },
-  ]),
   // From its back a body rolls over its right side; on a side, it goes on over that side.
   roll: { back: rollOver("right"), left: rollOver("left").slice(2), right: rollOver("right").slice(2) },
   rise: [
@@ -481,7 +417,7 @@ function chainOf(spec: BodySpec, segment: string): JointSpec[] {
  * The channels `limb`'s own chain has on `spec`, root outward, and its stem's; null if the body
  * has no such limb (`limbFaults` says why).
  */
-export function limbChannels(limb: LimbSpec, spec: BodySpec): { readonly chain: string[]; readonly stem: string[] } | null {
+export function limbChannels(limb: BearingEndSpec, spec: BodySpec): { readonly chain: string[]; readonly stem: string[] } | null {
   const joints = chainOf(spec, limb.segment);
   if (joints.length === 0) return null;
   switch (limb.kind) {
@@ -506,18 +442,18 @@ function unknownStage(stage: never): never {
 /** The segments a stance's feet are (`footStatesOf`). */
 const FEET: readonly string[] = SIDES.map((side) => `foot.${side}`);
 
-/** What is wrong with `recipe`'s limbs for `spec`, in words. */
-function limbFaults(recipe: Recipe, spec: BodySpec): string[] {
-  const faults: string[] = [];
-  recipe.limbs.forEach((limb, at) => {
-    if (recipe.limbs.findIndex((other) => other.name === limb.name) !== at) faults.push(`limb ${limb.name} is named twice`);
+/** What is wrong with `spec`'s bearing ends (`BodySpec.ends`) for a rise, in words. */
+function limbFaults(spec: BodySpec): string[] {
+  const faults: string[] = [], ends = spec.ends ?? [];
+  ends.forEach((limb, at) => {
+    if (ends.findIndex((other) => other.name === limb.name) !== at) faults.push(`limb ${limb.name} is named twice`);
     const segment = spec.segments.find((s) => s.name === limb.segment);
     if (!segment) {
       faults.push(`limb ${limb.name} is on ${limb.segment}, which ${spec.model} lacks`);
       return;
     }
     /** A limb on a capsule's end, or an end limb on a hand pose's hull: the shape, its chain, and the channels that take its task of `rows` rows, its chain's, each once. */
-    const onEnd = (on: EndLimb | ProppedLimb, rows: number): void => {
+    const onEnd = (on: Extract<BearingEndSpec, { readonly takes: unknown }>, rows: number): void => {
       if (segment.shape.kind !== "capsule") faults.push(`limb ${on.name} bears on an end of ${on.segment}, a ${segment.shape.kind}`);
       // An end limb bears on a hand pose's capsule ends or its hull's corners; a propped one on a capsule's end.
       for (const [pose, shape] of Object.entries(segment.handPoses ?? {})) {
@@ -558,7 +494,7 @@ const SHARES_SUM = 1e-9;
 
 /** What is wrong with `recipe` for `spec`, in words; none if it can be played. */
 export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
-  const faults = limbFaults(recipe, spec);
+  const faults = limbFaults(spec);
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
   }
@@ -601,9 +537,9 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
         // Each limb it drives, to bear on or to leave, with its channels where the body has it.
         const driven: { readonly name: string; readonly channels: readonly string[] }[] = [];
         const drive = (name: string, does: string): void => {
-          const limb = recipe.limbs.find((other) => other.name === name);
+          const limb = spec.ends?.find((other) => other.name === name);
           if (!limb) {
-            faults.push(`stage ${stage.name} ${does} ${name}, which the recipe lacks`);
+            faults.push(`stage ${stage.name} ${does} ${name}, which ${spec.model} cannot bear on`);
             return;
           }
           const channels = limbChannels(limb, spec);

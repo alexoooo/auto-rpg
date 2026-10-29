@@ -12,7 +12,7 @@ import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
-import type { LegsGoal } from "./skill.ts";
+import { footEnd, type LegsGoal } from "./skill.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
@@ -203,12 +203,12 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const foot = live.foot, other = foot === "left" ? "right" : "left", strike = strikes[foot];
       const centred = live.stage === "admitting" || live.stage === "setup" || live.stage === "recenter";
       const both = centred || live.stage === "transfer";
-      const standing: LegsGoal = { walk: null, feet: both ? ["left", "right"] : [other], centre: centred ? null : [live.bearing[0], live.bearing[2]],
+      const standing: LegsGoal = { walk: null, feet: both ? [footEnd("left"), footEnd("right")] : [footEnd(other)], centre: centred ? null : [live.bearing[0], live.bearing[2]],
         height: live.height + (centred || live.stage === "place" || strike.state.phase === "return" ? tuning.lower : 0), heading: live.heading,
         ...(live.stage === "setup" && live.setting ? {} : { pose: { pitch: centred || live.stage === "place" ? 0 : tuning.lean, seconds: tuning.transferSeconds,
-          ...(both ? {} : { anchors: { [other]: { position: live.bearing, rotation: live.bearingRotation } } }) },
+          ...(both ? {} : { anchors: { [footEnd(other)]: { position: live.bearing, rotation: live.bearingRotation } } }) },
         }),
-        ...(live.stage === "setup" && live.setting ? { swing: { foot: live.setting, to: live.footing[live.setting], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } : {}) };
+        ...(live.stage === "setup" && live.setting ? { swing: { foot: footEnd(live.setting), to: live.footing[live.setting], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } : {}) };
       let goal: EffectorGoal | null = null;
       // Held `hover` over where it stood: clear of the ground at the toes with the foot pitched as the trunk leans on one leg.
       if (live.stage === "unload") goal = place(view, live, [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);

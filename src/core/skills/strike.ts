@@ -8,6 +8,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
 import { deepFreeze } from "../state.ts";
 import type { Footing } from "./locomotion.ts";
+import { footingByEnd } from "./skill.ts";
 import { wrap } from "../math/turn.ts";
 import { aimOf, closesToStrike, holdsAt, recipeAt, recipesFor, REPERTOIRE, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
@@ -451,7 +452,7 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`recipe executor has no instance ${id}`);
       const turned = { height: view.standing - live.lower, ...(live.steer ? { heading: around.heading + live.steer } : {}) };
-      const common = { posture: guarding[live.hand], legs: live.footing ? { footing: live.footing, ...turned } : { walk: null, face: live.facing, ...turned },
+      const common = { posture: guarding[live.hand], legs: live.footing ? { footing: footingByEnd(live.footing), ...turned } : { walk: null, face: live.facing, ...turned },
         ...(closesToStrike(spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}) };
       if (live.phase === "release") return { ...common, effectors: { [live.request.effector]: {
         places: [{ point: aimOf(spec, live.hand), position: live.home }], seconds: RECIPE_ACTION.return,

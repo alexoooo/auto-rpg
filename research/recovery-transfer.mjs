@@ -32,7 +32,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
   const recipe = { ...RISE, rise: [...RISE.rise.slice(0, at), fours, stage] };
   const { world, built, body, dispose } = await toppled({ model: 'workshop-fighter', held: 'empty', degrees: 0 },
     [(own, view) => stagedRise(own, view, recipe)]);
-  const made = riseLimbs({ spec: built.spec, built, muscles: body.muscles, assist: body.assist }, recipe);
+  const made = riseLimbs({ spec: built.spec, built, muscles: body.muscles, assist: body.assist });
   const upright = uprightness(built), riser = riserOf(body), c = new Vector3(), p = new Vector3(), v = new Vector3();
   const segments = [...built.segments.values()], mass = segments.reduce((s, part) => s + part.rigid.mass, 0);
   const transfer = [];
@@ -43,7 +43,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
       if (transferring) {
         made.read(upright.lowest(), false); c.setAll(0);
         for (const segment of segments) c.addInPlace(centreOfToRef(segment, p).scaleInPlace(segment.rigid.mass / mass));
-        const supports = made.limbs.filter((_, k) => stage.on.some(on => on.limb === recipe.limbs[k].name))
+        const supports = made.limbs.filter((_, k) => stage.on.some(on => on.limb === built.spec.ends[k].name))
           .map(limb => ({ corners: patchCorners(limb.work.patch) }));
         const [x, z] = withinSupport(supports, c.x, c.z);
         projection = Math.hypot(x - c.x, z - c.z);
@@ -59,7 +59,7 @@ export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE
           bearing: riser.bear.tasks.map(t => t.on && t.bearing) };
         if (released) {
           made.read(upright.lowest(), false);
-          clearance = made.limbs[recipe.limbs.findIndex(l => l.name === `hand.${hand}`)].work.at.y - upright.lowest();
+          clearance = made.limbs[built.spec.ends.findIndex(l => l.name === `hand.${hand}`)].work.at.y - upright.lowest();
         }
       }
       if (riser.furthest === at + 1 && riser.phase !== 'rise') break;

@@ -8,7 +8,7 @@ import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Rea
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
 import { guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
-import type { LegsUnmet, Skill } from "./skill.ts";
+import { stanceFeetOf, type LegsUnmet, type Skill } from "./skill.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
@@ -64,7 +64,7 @@ export interface RecipeOptions {
 function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
   const spec = body.built.spec;
   const guard = guardSkill(spec, cover);
-  return { legs: locomotion(body.envelope), navigation: null, guard,
+  return { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard,
     executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture, resolve: pointTarget }) }],
     actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
 }

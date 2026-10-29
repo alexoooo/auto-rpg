@@ -92,9 +92,9 @@ export const LEGS_PROBES = Object.freeze({
     return reading(off <= 0.15 && !rig.view.down, listed(rig, "face"), `faced ${round(off)} rad off the face asked, limit 0.15`);
   } },
   footing: { field: "footing", run: async (rig) => {
-    const h = rig.start.heading, footing = { left: ahead(rig.start.soles.left, h, 0.1), right: ahead(rig.start.soles.right, h, 0.1) };
+    const h = rig.start.heading, footing = { "foot.left": ahead(rig.start.soles.left, h, 0.1), "foot.right": ahead(rig.start.soles.right, h, 0.1) };
     rig.run(2, () => ({ legs: { footing } }));
-    const s = rig.view.stance, off = Math.max(apart([s.soles.left.x, s.soles.left.z], footing.left), apart([s.soles.right.x, s.soles.right.z], footing.right));
+    const s = rig.view.stance, off = Math.max(apart([s.soles.left.x, s.soles.left.z], footing["foot.left"]), apart([s.soles.right.x, s.soles.right.z], footing["foot.right"]));
     return reading(off <= 0.04 && !rig.view.down, listed(rig, "footing"), `the farther sole ${round(off)} m from its footing, limit 0.04`);
   } },
   gait: { field: "gait", run: async (rig) => {
@@ -109,7 +109,7 @@ export const LEGS_PROBES = Object.freeze({
     // The weight over the left sole first, both feet down; then on it alone, the right leg the posture's, which lifts it.
     const left = rig.start.soles.left, lifted = { "hip.right flexion": 0.5, "knee.right flexion": 0.9 };
     rig.run(1, () => ({ legs: { centre: left } }));
-    rig.run(1, () => ({ legs: { feet: ["left"], centre: left }, posture: lifted }));
+    rig.run(1, () => ({ legs: { feet: ["foot.left"], centre: left }, posture: lifted }));
     const s = rig.view.stance, up = s.soles.right.y - s.soles.left.y;
     return reading(up >= 0.025 && !rig.view.down, listed(rig, "feet"), `the free sole ${round(up)} m over the bearing one, limit 0.025`);
   } },
@@ -156,7 +156,7 @@ export const LEGS_PROBES = Object.freeze({
   } },
   swing: { field: "swing", run: async (rig) => {
     const to = ahead(rig.start.soles.right, rig.start.heading, 0.15);
-    rig.run(1.5, () => ({ legs: { feet: ["left"], swing: { foot: "right", to, seconds: 0.4, lift: 0.05, shift: true } } }));
+    rig.run(1.5, () => ({ legs: { feet: ["foot.left"], swing: { foot: "foot.right", to, seconds: 0.4, lift: 0.05, shift: true } } }));
     const r = rig.view.stance.soles.right, off = apart([r.x, r.z], to);
     return reading(off <= 0.03 && !rig.view.down, listed(rig, "swing"), `the right sole ${round(off)} m from its landing, limit 0.03`);
   } },

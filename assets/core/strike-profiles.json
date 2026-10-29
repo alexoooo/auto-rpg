@@ -14,14 +14,14 @@
     {
       "measured": {
         "body": "workshop-fighter+toes",
-        "spec": "e26e779d65f77b3b",
+        "spec": "abf7565249bb0500",
         "skill": "dbb71eb6c301c6c4",
         "hz": 120,
         "reaction": 0.15
       },
       "target": {
         "body": "workshop-fighter",
-        "spec": "22ef4c792c4796af"
+        "spec": "960cf6765e82bf4c"
       },
       "cells": [
         {

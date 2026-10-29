@@ -1,5 +1,5 @@
 /**
- * **A recipe's limbs, made of a body** (`riseLimbs`): each as the bearing solve takes it (`Limb`,
+ * **A body's bearing ends, made limbs** (`riseLimbs`): each as the bearing solve takes it (`Limb`,
  * `src/core/control/bearing.ts`), with its part of a step in which it bears. This module knows the
  * kinds of limb and no stage; the player (`staged.ts`) knows the stages and no limb's kind.
  */
@@ -14,7 +14,8 @@ import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
 import type { OwnBody } from "../mind.ts";
-import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
+import { limbChannels } from "./stages.ts";
+import type { EndLimb, FootLimb, ProppedLimb } from "../../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../../read-body.ts";
 
 
@@ -29,14 +30,14 @@ const TAKES_SECONDS = 0.1;
 /** A point's task: its velocity's three rows, which come after its segment's spin's three; the spin is left free. */
 const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]]);
 
-/** A recipe's limbs, made of a body. */
+/** A body's bearing ends, made limbs. */
 export interface RiseLimbs {
-  /** The limbs as the solve takes them, in the recipe's order. */
+  /** The limbs as the solve takes them, in the spec's order. */
   readonly limbs: readonly Limb[];
-  /** What they keep from step to step: each limb's task, in the recipe's order. */
+  /** What they keep from step to step: each limb's task, in the spec's order. */
   readonly tasks: readonly LimbTask[];
   /**
-   * Where the body is held over each limb while it bears, world, in the recipe's order, as last
+   * Where the body is held over each limb while it bears, world, in the spec's order, as last
    * read: its point, which for a limb propped on a foot is its patch's middle, or where the foot
    * stands. Forces shared as a stage's shares are then the forces that hold the body at the
    * stage's place.
@@ -73,12 +74,13 @@ interface Part {
   bear(goal: ArrayLike<number>, rate: number, ground: number, transfer: boolean): void;
 }
 
-/** `recipe`'s limbs made of `own`'s body, which can play it (`stageFaults`). */
-export function riseLimbs(own: OwnBody, recipe: Pick<Recipe, "limbs">): RiseLimbs {
-  const feet = recipe.limbs.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
+/** The bearing ends of `own`'s body (`BodySpec.ends`) as limbs, in its spec's order, which a rise can play (`stageFaults`). */
+export function riseLimbs(own: OwnBody): RiseLimbs {
+  const ends = own.spec.ends ?? [];
+  const feet = ends.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
   const footOf = (segment: string): FootState => feet.find((foot) => foot.segment.spec.name === segment)!;
   const support = new Vector3();
-  const parts = recipe.limbs.map((limb): Part => {
+  const parts = ends.map((limb): Part => {
     switch (limb.kind) {
       case "end": return endLimb(own, limb);
       case "propped": return proppedLimb(own, limb, footOf(limb.prop));

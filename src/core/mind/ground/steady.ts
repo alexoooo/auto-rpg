@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { stanceFeetOf } from "../../skills/skill.ts";
 import { carrying } from "../../control/motor.ts";
 import type { StanceGoal } from "../../control/stance.ts";
 import { turnOfToRef } from "../../control/support.ts";
@@ -46,7 +47,7 @@ const BOTH: readonly Side[] = deepFreeze(["left", "right"]);
  */
 export function steadying(own: OwnBody, view: BodyView, kit: MindKit) {
   const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the steady");
-  const legs = locomotion(null);
+  const legs = locomotion(stanceFeetOf(own.spec), null);
   const state = {
     climb: { on: false, done: false, time: 0, centre: [0, 0], velocity: [0, 0], to: [0, 0], height: 0, rise: 0, pitch: 0,
       from: new Float64Array(own.muscles.channels.length) },

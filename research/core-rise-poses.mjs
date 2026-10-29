@@ -27,11 +27,11 @@ export const SHOVE = Object.freeze({ front: 0, right: 90, back: 180, left: 270 }
 
 /**
  * `model` holding `held`, toppled by `degrees` (`SHOVE[lie]` unless given), then under a riser playing `stages`, on the
- * game's limbs and trunk, however it lies: a row a stage, read at its last step, with one before them for
+ * body's bearing ends and the game's trunk, however it lies: a row a stage, read at its last step, with one before them for
  * the body as it lay when the first began. Null if the shove did not fell it.
  */
 export async function posed({ model, held = "empty", lie, degrees = SHOVE[lie], stages }) {
-  const recipe = { limbs: RISE.limbs, trunk: RISE.trunk, roll: { back: stages, left: stages, right: stages }, rise: stages };
+  const recipe = { trunk: RISE.trunk, roll: { back: stages, left: stages, right: stages }, rise: stages };
   const { world, built, body, dispose } = await toppled({ model, held, degrees }, [(own, view) => stagedRise(own, view, recipe)]);
   try {
     if (!body.view.down) return null;

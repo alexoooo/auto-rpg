@@ -4,7 +4,7 @@ import type { Body, BodyView } from "../body.ts";
 import { uprightness } from "../control/ground.ts";
 import { footStatesOf, readSupport, withinSupport } from "../control/support.ts";
 import { STANCE_LOWER } from "./locomotion.ts";
-import type { LegsAsked, LegsGoal, Skill } from "./skill.ts";
+import { footEnd, type LegsAsked, type LegsGoal, type Skill } from "./skill.ts";
 
 /** Supported low-combat probes and physical gates: `docs/reference/supported-root-pose.md#combat-fold-settings`. */
 const COMBAT_FOLD = Object.freeze({ lower: .5, pitch: .9, response: .5, transition: 2,
@@ -95,7 +95,7 @@ export function supportFold(body: Body): SupportSkill {
     state.posture = state.active ? { "lumbar flexion": flexion["lumbar flexion"] * state.depth, "thoracic flexion": flexion["thoracic flexion"] * state.depth } : {};
   }, lay(view, goal) {
     if (!state.active) return { ...goal, height: undefined };
-    return { ...goal, feet: ["left", "right"], centre: null, heading: state.heading, halt: false,
+    return { ...goal, feet: [footEnd("left"), footEnd("right")], centre: null, heading: state.heading, halt: false,
       height: view.standing - STANCE_LOWER - (COMBAT_FOLD.lower - STANCE_LOWER) * state.depth,
       pose: { pitch: COMBAT_FOLD.pitch * state.depth, seconds: COMBAT_FOLD.response } };
   } };

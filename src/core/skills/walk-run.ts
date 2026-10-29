@@ -9,7 +9,7 @@ import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
-import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField } from "./skill.ts";
+import { ALL_MET, fieldsOf, maskOf, setIn, type LegsField, stanceFeetOf } from "./skill.ts";
 
 /** **The walk and run's settings** (`walkRun`): when it runs, and how its heading turns running. */
 export interface WalkRunSettings {
@@ -166,7 +166,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const legs = locomotion(body.envelope);
+  const legs = locomotion(stanceFeetOf(body.built.spec), body.envelope);
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,

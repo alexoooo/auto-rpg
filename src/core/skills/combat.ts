@@ -1,4 +1,5 @@
 import { kickExecutor, type KickTuning } from "./kick.ts";
+import { stanceFeetOf } from "./skill.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
@@ -57,7 +58,7 @@ export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnS
   const actions: PathAction[] = (["straight", "cross", "hook", "downward", "overhand", "uppercut"] as const).map(family => ({ name: family, family }));
   const guard = guardSkill(body.built.spec);
   return {
-    legs: locomotion(body.envelope, turnLimit, turnStartup), navigation: null, guard,
+    legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, turnLimit, turnStartup), navigation: null, guard,
     executors: [{ name: "paths", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) },
       ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick, pointTarget) }] : [])],
     actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),

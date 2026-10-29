@@ -1,4 +1,5 @@
 import { fitsSoles } from "../../control/stance-balance.ts";
+import { stanceFeetOf } from "../../skills/skill.ts";
 import { number } from "../../mind/fields.ts";
 import type { LocomotionPart } from "../../mind/locomotion-part.ts";
 import { locomotion, validTurnLimit, validTurnStartup } from "../../skills/locomotion.ts";
@@ -24,5 +25,5 @@ export const VANGUARD_WALK: LocomotionPart<VanguardWalkConfig> = deepFreeze({
     ...typeof config.turnLimit === "number" && validTurnLimit(config.turnLimit) ? [] : ["turnLimit: finite positive rad/s"],
     ...validTurnStartup({ seconds: config.turnStartupSeconds, limit: config.turnStartupLimit }) ? [] : ["turnStartupSeconds and turnStartupLimit: finite positive values"],
   ],
-  make: (body, config) => locomotion(body.envelope, config.turnLimit, { seconds: config.turnStartupSeconds, limit: config.turnStartupLimit }),
+  make: (body, config) => locomotion(stanceFeetOf(body.built.spec), body.envelope, config.turnLimit, { seconds: config.turnStartupSeconds, limit: config.turnStartupLimit }),
 });

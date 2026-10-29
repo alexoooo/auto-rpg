@@ -64,7 +64,6 @@ import { turnOfToRef } from "../src/core/control/support.ts";
 import { atan2 } from "../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../src/core/math/turn.ts";
 import { riseLimbs } from "../src/core/mind/rise/limbs.ts";
-import { RISE } from "../src/core/mind/rise/stages.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */
@@ -208,8 +207,8 @@ export function acceptedSeeds(move, spec, count) {
 
 /** A bear phase's runner on `own`: the bearing solve of `plantUp`, its aims the phase's. */
 function bearer(own, view) {
-  const muscles = own.muscles, root = muscles.dynamics.root.segment, low = uprightness(own.built), made = riseLimbs(own, RISE);
-  const kinds = RISE.limbs.map(limb => limb.name.split(".")[0]);
+  const muscles = own.muscles, root = muscles.dynamics.root.segment, low = uprightness(own.built), made = riseLimbs(own);
+  const kinds = own.spec.ends.map(limb => limb.name.split(".")[0]);
   const memory = { tasks: made.tasks, memory: made.limbs.map(limb => limb.memory), root: new Float64Array(6),
     helped: { force: new Vector3(), moment: new Vector3() }, held: { channels: [], z0: [], Z: [] },
     shortfall: { force: new Vector3(), moment: new Vector3() } };
