@@ -72,7 +72,22 @@ export interface ProfileCell {
    * The postures an edge leaves are its `ends`.
    */
   readonly exit?: Readonly<Record<string, number>>;
+  /** How the two bodies stood as its trials began (`Postures`); absent, both standing. */
+  readonly postures?: Postures;
 }
+
+/**
+ * **How the bodies stood as a trial began**, each a posture's name (`Position`'s): the body whose
+ * skill it is, `own`, and the body it struck, `target`. A profile is read at a pair of them
+ * (`readProfile`), so a skill measured standing says nothing of a striker lying or a target down.
+ */
+export interface Postures {
+  readonly own: string;
+  readonly target: string;
+}
+
+/** Both bodies standing: what a cell that names no postures was measured at, and what a profile is read at unless asked otherwise. */
+export const STANDING: Postures = Object.freeze({ own: "standing", target: "standing" });
 
 export interface Profile {
   readonly measured: Measured;
@@ -127,21 +142,27 @@ export interface ProfileReading {
   scaled(struck: BodySpec | null): string | null;
 }
 
-/** Each profile's readings, by the striker's spec: a profile and a spec are immutable. */
-const READINGS = new WeakMap<Profile, WeakMap<BodySpec, ProfileReading>>();
+/** Each profile's readings, by the striker's spec and the postures read at: a profile and a spec are immutable. */
+const READINGS = new WeakMap<Profile, WeakMap<BodySpec, Map<string, ProfileReading>>>();
 
-/** **`profile` read for a skill of a body of `striker`** (`ProfileReading`), made once for the two. */
-export function readProfile(profile: Profile, striker: BodySpec): ProfileReading {
+/**
+ * **`profile` read for a skill of a body of `striker`** (`ProfileReading`) at `postures`: its cells
+ * measured there alone (`ProfileCell.postures`), none where none was; made once for the three.
+ */
+export function readProfile(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   let bySpec = READINGS.get(profile);
   if (!bySpec) READINGS.set(profile, bySpec = new WeakMap());
-  const known = bySpec.get(striker);
+  let byPostures = bySpec.get(striker);
+  if (!byPostures) bySpec.set(striker, byPostures = new Map());
+  const key = `${postures.own} ${postures.target}`, known = byPostures.get(key);
   if (known) return known;
   const own = striker.wounds.hp.value;
-  const phaseOf = (phase: string): string => profile.cells.some((cell) => cell.phase === phase) ? phase : "clear";
+  const cells = profile.cells.filter((cell) => (cell.postures ?? STANDING).own === postures.own && (cell.postures ?? STANDING).target === postures.target);
+  const phaseOf = (phase: string): string => cells.some((cell) => cell.phase === phase) ? phase : "clear";
   const reach = (phase: string): number => {
     const at = phaseOf(phase);
     let far = -Infinity, next = -Infinity;
-    for (const cell of profile.cells) {
+    for (const cell of cells) {
       if (cell.phase !== at) continue;
       if (cell.range > far) { next = far; far = cell.range; } else if (cell.range > next && cell.range < far) next = cell.range;
     }
@@ -153,7 +174,7 @@ export function readProfile(profile: Profile, striker: BodySpec): ProfileReading
       const phase = phaseOf(at.phase);
       if (at.range > reach(phase)) return null;
       let best: ProfileCell | null = null, distance = Infinity;
-      for (const cell of profile.cells) {
+      for (const cell of cells) {
         if (cell.phase !== phase) continue;
         const d = Math.abs(cell.range - at.range);
         if (d < distance) { best = cell; distance = d; }
@@ -168,7 +189,7 @@ export function readProfile(profile: Profile, striker: BodySpec): ProfileReading
     peak(phase, struck) {
       const at = phaseOf(phase), hp = struck.wounds.hp.value;
       let most = 0;
-      for (const cell of profile.cells) if (cell.phase === at) most = Math.max(most, cell.dealt / hp / cell.seconds);
+      for (const cell of cells) if (cell.phase === at) most = Math.max(most, cell.dealt / hp / cell.seconds);
       return most;
     },
     scaled(struck) {
@@ -178,7 +199,7 @@ export function readProfile(profile: Profile, striker: BodySpec): ProfileReading
       return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
     },
   };
-  bySpec.set(striker, reading);
+  byPostures.set(key, reading);
   return reading;
 }
 

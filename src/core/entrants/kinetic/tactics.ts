@@ -61,7 +61,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 
 /**
  * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
- * the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
+ * at the foe it is worth most to act on (`Chooser.decide`, each foe's situation read by
+ * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and the goals
  * made from them, each worth where it leaves the body: a walk into each strike's window
@@ -71,8 +72,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * and price a fall (`downCost`); and the rest options, worth nothing, which take what nothing else is worth more on:
  * hold the position, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`), which a
  * hand's cover outbids while a blow closes on the head (`covers`). The set's step is its members'
- * (`stepSet`); the walk keeps out of a fallen body's reach and a solid's clearance
- * (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
+ * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
+ * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
  * were priced (`profileDetail`); where the first chosen reports more than its name (a script,
  * `scripted`), what it reports and the context it publishes, in their place.
@@ -106,8 +107,10 @@ export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deci
     get decision() { return chosen.running[0]?.decision; },
     decide(seen: Sight, dt: number) {
       last = seen;
-      const now = lastNow = reader.read(seen);
-      return walk.kept(now, stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) })));
+      const { set, at: now } = chosen.decide(reader.read(seen), reader.others);
+      lastNow = now;
+      reader.keep(now);
+      return stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));
     },
   };
 }

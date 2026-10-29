@@ -17,10 +17,10 @@ export const still = (now: Situation): Terms => ({ duration: 0, dealt: 0, taken:
 /** The parts of a rest option that do nothing: never over, always yielding. */
 const RESTING = { rest: true, status: (): Status => "yields", begin() {}, end() {} } as const;
 
-/** **Hold the position**, where the legs can carry the body (`legsReadiness`): the legs where they are, facing the focus or the way the body faces (`Walker.facing`). */
-export function hold(walk: Pick<Walker, "facing">): Option {
+/** **Hold the position**, where the legs can carry the body (`legsReadiness`): the legs where they are, kept out of a fallen body's reach (`Walker.kept`), facing the focus or the way the body faces (`Walker.facing`). */
+export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
   return { name: "hold", claims: Object.freeze(["legs"]), state: {}, ...RESTING,
-    entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: { move: null, face: walk.facing(now), actions: [] }, holds: NOTHING }) };
+    entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: walk.kept(now, { move: null, face: walk.facing(now), actions: [] }), holds: NOTHING }) };
 }
 
 /** **A hand at its guard**, where the legs can carry the body (`legsReadiness`): `hand` (an effector, `hand.left`) asked for nothing, its guard the body's. */

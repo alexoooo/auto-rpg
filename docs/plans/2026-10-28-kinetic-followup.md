@@ -94,8 +94,9 @@ after skills are trained against it.
   `lower` filter in `kineticTactics`, a config fault). A downed foe is a flag where its models
   should answer: no pressure or pressing (`NO_PRESSURE`), no exchange or rate (`FEW_TERMS`), no
   clinch (`clinched`); the focus is the nearest standing foe by rule; and the walk is kept 0.9 m from
-  every fallen body after the choice (`walk.kept` over the set's intent), the focus included, unpriced.
-  So Kinetic stands over a fallen foe: nothing it has is on offer.
+  every fallen body after the choice (`walk.kept` over the set's intent), the focus included, unpriced
+  (step 18, built: each read through its models, the focus chosen by worth). Kinetic has no blow
+  that reaches a lying foe (step 19).
 
 ## Steps
 
@@ -265,21 +266,25 @@ and Cover drills' rungs paired with the step before.
 
 ### 18. A downed foe through its models
 
-Left: what a foe on the ground brings is read from its models, as a standing foe's is.
-
-- The pressure and the pressing are read from the foe's model and the body's own strikes at the
-  foe's posture (`PERCEPTS.posture`'s, a profile's index): a lying foe with no strike measured from
-  there puts none on the body, and the body's strikes press it as their profiles expect there.
-  `FEW_TERMS`'s exchange and rate read them, with no `focus.down` branch.
-- The clinch's fall prices a lying foe's limbs too: a walk across them trips the attacker
-  ([grounded combat](../reference/ground-combat.md#policy-settings)).
-- `keepOut` is a limit of the walk option, not applied after the choice: a walk into a window on the
-  focus exempts the focus's body (`keepOut`'s `exempt`), and the chance it trips is in its exit's
-  `down`.
-- The focus is a target of the options, priced by worth across the foes (the design's skills crossed
-  with the targets), not the nearest standing foe by rule (`situationReader`).
-- A blow's prior is priced at the region it aims (`blowLife` prices the head; the punch aims at the
-  middle).
+Built: what a foe on the ground brings is read from its models, as a standing foe's is. A profile's
+cell names how the two bodies stood as its trials began (`Postures`, `src/core/mind/profile.ts`;
+both standing unless named), and `readProfile` reads it at a pair of them; the focus's posture is
+read from its sensed root (`sensedPosture`, `src/core/mind/threat.ts`, by `lieBy`, the rise's own
+rule) and is a percept (`foePosture`). The pressure reads the focus's strikes at its posture against
+the body standing, and the pressing the body's standing against the focus's posture; a prior is of
+two standing bodies, so a lying foe with no strike measured from there puts none on the body and
+the body's strikes press it only as a profile measured there expects. `FEW_TERMS`, the clinch and
+the walk to a goal have no `focus.down` branch: a clinch prices a lying foe's limbs underfoot
+([grounded combat](../reference/ground-combat.md#policy-settings)). Each option that asks the legs
+keeps its own walk (`Walker.kept`), the focus exempt where it walks to strike, and the strike's
+exit prices the clinch at the range it walks to. The focus is chosen by worth: the situation reader
+reads at the focus it kept, else the nearest foe, and at each other foe the orders leave open, and
+the chooser, with nothing committed, runs its set at the foe whose best option is worth most
+(`Chosen.at`). A blow's prior is priced at the segment it aims (`blowLife`'s `at`).
+At `b111a4c9` the fingerprint against the commit before each part moved only Kinetic against
+Kinetic with clubs (`e210c013`, `43d7cbb4`) and nothing at the focus's choice, every case giving
+Kinetic one foe or a Commander's; the Strike drill's five rungs and the Cover drill's two pair with
+step 17's records unchanged on every figure.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the drills
 paired with the step before.

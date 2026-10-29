@@ -1,5 +1,5 @@
 import { predictIntercept } from "../control/intercept.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, type Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { hypot } from "../math/real.ts";
@@ -9,6 +9,8 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "./intent.ts";
 import type { BodySense } from "./senses.ts";
+import type { Position } from "./ground/reading.ts";
+import { lieBy } from "./rise/staged.ts";
 import { distance } from "../spec/vec.ts";
 import { placedReach } from "../skills/strike.ts";
 
@@ -99,6 +101,24 @@ export function threatReader() {
  * indexed by (`ProfileCell.phase`).
  */
 export type FoePhase = "striking" | "down" | "rising" | "clear";
+
+/** Where `local` (a direction in a segment's own frame) points now, by its turn `rotation`, world: its y. */
+const upOf = (rotation: Quaternion, local: Vec3): number =>
+  new Vector3(local[0], local[1], local[2]).applyRotationQuaternionToRef(rotation, SCRATCH).y;
+const SCRATCH = new Vector3();
+
+/**
+ * **A sensed body's posture** (`Position`'s names): standing while it is not down; down, how it
+ * lies by its root (`marks.base`, `lieBy`): its reference forward and left carried into its root's
+ * frame (`frameOf`) and turned as the root is turned now; between where its root is not sensed.
+ */
+export function sensedPosture(other: BodySense): Position {
+  if (!other.down) return "standing";
+  const base = other.spec.segments.find((segment) => segment.name === other.spec.marks.base), rotation = other.segments.get(other.spec.marks.base)?.rotation;
+  if (!base || !rotation) return "between";
+  const { x, y, z } = frameOf(base);
+  return lieBy(upOf(rotation, [x[2], y[2], z[2]]), upOf(rotation, [-x[0], -y[0], -z[0]]));
+}
 
 /** How fast a fallen body's centre of mass goes up for it to read as rising, m/s. */
 const RISING = 0.2;

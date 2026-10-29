@@ -70,7 +70,7 @@ export interface StrikeOption extends Option {
  * the arm to the guard; kept, it strikes again, its blow let go and the next asked of the first
  * limb ready. It claims what its blow needs with the limb it strikes with (`Sight.needs`): its blow
  * under way's, else the limb ready's, else the first with a window's; and holds what its blow holds
- * (`asking`). The region struck is what the
+ * (`asking`). Its legs are kept out of every fallen body's reach but the focus's (`Walker.kept`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has.
  *
  * Its model, where its drill measured it as it is read now (its profile among its measure's,
@@ -93,7 +93,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const expected = (now: Situation, progress: number): Expected | null => {
     const profile = profileNow(now), focus = now.focus;
     if (!profile || !focus) return null;
-    const reading = readProfile(profile, measure.spec);
+    const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
     return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, progress }, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
@@ -156,17 +156,19 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
+      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration, now.apart - distance)) }), ...letGo };
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
-   * from its stronger hand, each landing as often as its record says (`record`, which is of the hand
+   * from its stronger hand at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the hand
    * it is asked for), as long as its record says it runs, under the focus's pressure from `from` m
    * head to head.
    */
   const priorOf = (now: Situation, from: number): Expected => {
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
-    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.predictions.blows[limb.slice(5) as Side] : 0));
+    const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
+    const blows = now.predictions.blows(segment ?? now.focus?.spec.marks.high ?? "");
+    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? blows[limb.slice(5) as Side] : 0));
     return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
   /** Its window now (`StrikeOption.window`). */
@@ -192,7 +194,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     },
     model: (now) => priceOf(now, false),
     through: (now, going) => priceOf(now, true, going),
-    step(now) { const asked = ask(now); return { asked, holds: asking(now, asked) }; },
+    step(now) { const asked = walk.kept(now, ask(now), now.focus?.id ?? null); return { asked, holds: asking(now, asked) }; },
   };
   /** What it asks this step: its blow, asked once a limb is ready and continued until it is over. */
   function ask(now: Situation): Asked {

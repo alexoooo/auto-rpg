@@ -70,7 +70,7 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 
 /**
  * **The position's few terms**: the lead; a fall's cost (`downCost`) at the chance the body is
- * down there; and, standing at a standing focus, the range against how far each side's strikes
+ * down there; and, at a focus, the range against how far each side's strikes
  * reach (`edgeOf`): what its own
  * strikes deal the focus there over the time a place is held once it is braced (`pressing`), less
  * what the focus's deal it over all of it (`pressure`), and late in the bout the lead at stake: a lead held within the focus's
@@ -84,7 +84,7 @@ export const FEW_TERMS: PositionValue = deepFreeze({
   name: "few terms",
   of(now: Situation, place: Place, seconds: number): number {
     const lead = now.lead, fallen = place.down * (place.posture ? now.predictions.downCostAt(place.posture) : now.predictions.downCost), focus = now.focus;
-    if (!focus || focus.down || !Number.isFinite(place.range)) return lead - fallen;
+    if (!focus || !Number.isFinite(place.range)) return lead - fallen;
     const theirs = edgeOf(now, now.predictions.pressure), mine = edgeOf(now, now.predictions.pressing);
     const exchange = dealtAt(now.predictions.pressing, now, place.range, Math.max(0, TERMS.held - atExit(now, place, "unbraced"))) - dealtAt(now.predictions.pressure, now, place.range, TERMS.held);
     const stake = lead > 0 ? place.range <= theirs ? lead : 0 : place.range <= mine ? 0 : -lead;
@@ -92,7 +92,7 @@ export const FEW_TERMS: PositionValue = deepFreeze({
   },
   rate(now: Situation): number {
     const focus = now.focus;
-    if (!focus || focus.down) return 0;
+    if (!focus) return 0;
     const clinch = !now.down && now.apart < CLINCH.within ? now.predictions.downCost * CLINCH.falls : 0;
     return -dealtAt(now.predictions.pressure, now, now.range, 1) - clinch;
   },

@@ -28,7 +28,7 @@ const AHEAD = 1;
  * it is priced as leaving the body where it is, and what it follows as the share of it the body is
  * up there (`here`): a body counted down while its rise runs follows none.
  */
-export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): Option {
+export function followOrders(walk: Pick<Walker, "pace" | "kept">, actions: readonly ActionConfig[] = []): Option {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
   const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
@@ -61,7 +61,7 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
           break outer;
         }
       }
-      const asked = { ...ordered, actions: asks };
+      const asked = walk.kept(now, { ...ordered, actions: asks });
       return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
     },
   };

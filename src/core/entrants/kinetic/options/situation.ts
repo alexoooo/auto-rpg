@@ -30,39 +30,60 @@ export interface Reading {
 }
 
 /**
- * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`) read once a step, and
- * the predictions (`predictor`) read as they are asked. The focus is the foe the orders name; else the one
- * it fought, while it is still in the fight; else the nearest, a standing one where any stands.
- * Its memory is the focus's id.
+ * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`)
+ * read once a step, and the predictions (`predictor`) read as they are asked, at a focus. The foes
+ * it may focus on are the one its orders name, else every foe in the fight; it reads at the one it
+ * kept (`keep`) while that one is in the fight, else the nearest, and at each other one as it is
+ * asked (`others`), so a chooser prices its options at every foe and keeps the situation it chose.
+ * Its memory is the kept focus's id.
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, rules, strikes, measured, ordersOf } = reading, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
   const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor();
+  /** Whether `other` is a foe in the fight that `orders` let the body focus on. */
+  const candidate = (sight: Sight, orders: Orders | null, other: BodySense): boolean =>
+    !other.out && other.side !== sight.view.senses.side && (orders?.foe === undefined || other.id === orders.foe);
   const focusOf = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { senses, stance } = sight.view;
-    const foe = (id: string | null) => id === null ? null : senses.others.find((other) => other.id === id && !other.out && other.side !== senses.side) ?? null;
-    if (orders?.foe !== undefined) return foe(orders.foe);
-    const current = foe(state.focus);
-    if (current) return current;
     let near: BodySense | null = null, distance = Infinity;
-    const standing = senses.others.some((other) => !other.out && other.side !== senses.side && !other.down);
     for (const other of senses.others) {
-      if (other.out || other.side === senses.side || standing && other.down) continue;
+      if (!candidate(sight, orders, other)) continue;
+      if (other.id === state.focus) return other;
       const apart = hypot(other.centre.x - stance.centre.x, other.centre.z - stance.centre.z);
       if (apart < distance) { near = other; distance = apart; }
     }
     return near;
   };
+  /** The situation at `focus`, its predictions read through `predicting`. */
+  const at = (sight: Sight, orders: Orders | null, focus: BodySense | null, blow: Seen["blow"], predicting: ReturnType<typeof predictor>): Situation => {
+    const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow, threats, riseFrom, unbraced };
+    predicting.reset(seen);
+    const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions };
+    for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
+    return read as unknown as Situation;
+  };
+  let last: { readonly sight: Sight; readonly orders: Orders | null; readonly focus: BodySense | null; readonly blow: Seen["blow"] } | null = null;
   return {
     state,
+    /** The situation at the focus (`focusOf`), now. */
     read(sight: Sight): Situation {
-      const orders = ordersOf(sight), focus = focusOf(sight, orders);
-      state.focus = focus?.id ?? null;
-      const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, riseFrom, unbraced };
-      predicting.reset(seen);
-      const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions };
-      for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
-      return read as unknown as Situation;
+      const orders = ordersOf(sight), focus = focusOf(sight, orders), blow = threats.blowOf(sight.view, READINGS.predicted);
+      last = { sight, orders, focus, blow };
+      return at(sight, orders, focus, blow, predicting);
     },
+    /** The situation at each other foe it may focus on, as the last `read` saw them: none where it may focus on one alone. */
+    others(): readonly Situation[] {
+      if (!last) return NONE;
+      const { sight, orders, focus, blow } = last;
+      let others: Situation[] | null = null;
+      for (const other of sight.view.senses.others)
+        if (other !== focus && candidate(sight, orders, other)) (others ??= []).push(at(sight, orders, other, blow, predictor()));
+      return others ?? NONE;
+    },
+    /** Keep `now`'s focus: the one it reads at while it is in the fight. */
+    keep(now: Situation): void { state.focus = now.focus?.id ?? null; },
   };
 }
+
+/** No other situation. */
+const NONE: readonly Situation[] = Object.freeze([]);
