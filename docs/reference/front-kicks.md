@@ -48,7 +48,6 @@ double support is required before preparation and after placement.
 | placement / placementSpeed | 0.02 m / 0.1 m/s | Actual landing error and speed |
 | rotationError | 0.001 | Maximum 1 minus absolute quaternion dot |
 | recenterLimit | 4 s | Quiet double-support deadline |
-| startup / cooldown | 2 / 1 s | Initial settling and inter-cycle rest |
 
 Withdrawal returns to a home `near` over the captured strike point and restores standing height.
 Placement carries the sole `hover` over its captured place while it is more than `placement`

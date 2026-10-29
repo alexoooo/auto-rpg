@@ -20,7 +20,7 @@ export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, tra
   prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
-  recenterLimit: 4, startup: 2, cooldown: 1, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
+  recenterLimit: 4, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
 export type KickTuning = {
   readonly [K in keyof typeof KICK_PATH]: number;
 };
@@ -32,7 +32,7 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && tuning.over <= 1 && tuning.top > 0 && tuning.top <= 1 && tuning.alongFar > tuning.alongNear && tuning.across > 0 && tuning.facing > 0;
 }
 type Rotation = readonly [number, number, number, number];
-/** One named kick executor shares its support transfer and cooldown between its actions. */
+/** One named kick executor shares its support transfer between its actions. */
 export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning,
   resolve: TargetResolver): Executor {
   if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
@@ -67,7 +67,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     phase: "prepare" | "commit" | "release"; time: number; held: number; heading: number; height: number; target: Vec3;
     initial: ReturnType<typeof capture>; back: Vec3 | null; withdrawn: boolean; ending: ActionEnding; bearing: Vec3;
     bearingRotation: Rotation; setting: Side | null; footing: Record<Side, readonly [number, number]> };
-  const state = { live: null as Motion | null, cooldown: tuning.cooldown, support: support.state,
+  const state = { live: null as Motion | null, support: support.state,
     cycles: { left: strikes.left.state, right: strikes.right.state } };
   const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
   const stage = (next: Motion["stage"]) => {
@@ -78,7 +78,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   };
   const finish = (ending: ActionEnding): LifecycleUpdate => {
     const live = state.live!, id = live.request.id;
-    strikes[live.foot].reset(); state.live = null; state.cooldown = 0;
+    strikes[live.foot].reset(); state.live = null;
     return { id, ending };
   };
   const courseOf = (view: BodyView, live: Motion): StrikeCourse => {
@@ -106,7 +106,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "foot.left" && effector !== "foot.right") return { kind: "blocked", reason: "unsupported effector" };
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (state.live || view.time - view.born < tuning.startup || state.cooldown < tuning.cooldown) return { kind: "waiting", reason: "kick startup, cooldown or return" };
+      if (state.live) return { kind: "waiting", reason: "a kick is under way" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const foot = sideOf(effector), hip = body.built.spec.joints.find(j => j.name === `hip.${foot}`)!.centre.value;
@@ -122,7 +122,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready" };
     },
-    resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); support.state.quiet = 0; state.cooldown = 0; },
+    resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); support.state.quiet = 0; },
     start(view, request, around) {
       if (state.live) throw new Error("kick executor already owns an instance");
       const foot = sideOf(request.effector), other = foot === "left" ? "right" : "left";
@@ -138,7 +138,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         footing: foot === "left" ? { left: [x, z], right: beside } : { left: beside, right: [x, z] } };
     },
     update(view, continued, _around, dt) {
-      support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle); state.cooldown += dt;
+      support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle);
       const live = state.live;
       if (!live) return [];
       if (view.down) return [finish({ kind: "interrupted", reason: "body is down" })];

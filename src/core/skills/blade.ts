@@ -13,7 +13,7 @@ import { withinActionWindow } from "../mind/action-window.ts";
 
 /** Freely tuned trajectory and lifecycle limits for physical blade actions, in metres and seconds. */
 export const BLADE_STRIKE = Object.freeze({ chamberSeconds: .4, swingSeconds: .45, returnSeconds: .5, contactSpeed: .8,
-  windup: .18, through: .04, near: .06, slow: .6, hold: .05, prepareLimit: 2, returnLimit: 2.5, followSeconds: .04, startup: 1 });
+  windup: .18, through: .04, near: .06, slow: .6, hold: .05, prepareLimit: 2, returnLimit: 2.5, followSeconds: .04 });
 export type BladeSettings = { readonly [K in keyof typeof BLADE_STRIKE]: number };
 
 /** Blade settings retain finite positive times, speeds and physical readiness tolerances. */
@@ -86,7 +86,7 @@ export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[
       const hand = handOf(effector), end = ends[hand];
       if (!end) return { kind: "blocked", reason: "no directed held region with a named aiming point" };
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (state.lives[hand] || view.time - view.born < settings.startup) return { kind: "waiting", reason: "blade is occupied or settling" };
+      if (state.lives[hand]) return { kind: "waiting", reason: "blade is occupied" };
       const at = resolve(view, requested, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const up = at[1] - view.head.y;

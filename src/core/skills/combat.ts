@@ -120,7 +120,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
   type Motion = { request: ActionRequest; target: Vec3; direction: Vec3 | null; home: Vec3; chamber: Vec3; lower: number;
     withdrawn: boolean; ending: ActionEnding; elapsed: number; supportPhase: "lower" | "ready" | "rise"; supportTime: number; elbow: number; initialElbow: number };
   const state = { lives: { left: null as Motion | null, right: null as Motion | null },
-    cycles: { left: strikes.left.state, right: strikes.right.state }, cooldown: 0,
+    cycles: { left: strikes.left.state, right: strikes.right.state },
     ...(foundation ? { foundation: foundation.state } : {}) };
   const target = new Vector3(), direction = new Vector3(), inverse = new Quaternion();
   const courseOf = (view: BodyView, hand: Side, live: Motion) => {
@@ -144,7 +144,6 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
       const hand = sideOf(effector), other = hand === "left" ? "right" : "left";
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (view.time - view.born < tuning.startup || state.cooldown < tuning.hold) return { kind: "waiting", reason: "startup or cooldown" };
       if (state.lives[hand] || state.lives[other] && (!overlap || state.cycles[other].phase !== "return"))
         return { kind: "waiting", reason: "shared executor is striking" };
       const at = resolve(view, requested, action, effector);
@@ -167,7 +166,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       for (const hand of ["left", "right"] as const) if (state.lives[hand]?.request.id === id) { state.lives[hand] = null; strikes[hand].reset(); }
     },
     resume() {
-      state.lives.left = null; state.lives.right = null; state.cooldown = 0;
+      state.lives.left = null; state.lives.right = null;
       strikes.left.reset(); strikes.right.reset();
       if (foundation) foundation.state.quiet = 0;
     },
@@ -186,7 +185,6 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       strike.state.previous = [...home]; strike.begin("chamber", [0, 0, 0]);
     },
     update(view, continued, around, dt) {
-      state.cooldown += dt;
       foundation?.read(view.stance.centre, view.stance.velocity, dt);
       const updates: LifecycleUpdate[] = [];
       for (const hand of ["left", "right"] as const) {
@@ -219,7 +217,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
           }
           if (live.supportPhase === "rise") {
             if (around.support?.stage === "stand") {
-              updates.push({ id: live.request.id, ending: live.ending }); state.lives[hand] = null; strike.reset(); state.cooldown = 0; continue;
+              updates.push({ id: live.request.id, ending: live.ending }); state.lives[hand] = null; strike.reset(); continue;
             }
             updates.push({ id: live.request.id, phase: "release", stage: "rise", holds: held(hand, live) }); continue;
           }
@@ -251,7 +249,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
             live.supportPhase = "rise"; live.supportTime = 0;
             updates.push({ id: live.request.id, phase: "release", stage: "rise", holds: held(hand, live) }); continue;
           }
-          updates.push({ id: live.request.id, ending: live.ending }); state.lives[hand] = null; state.cooldown = 0; continue;
+          updates.push({ id: live.request.id, ending: live.ending }); state.lives[hand] = null; continue;
         }
         const extension = action.armExtension ?? tuning.elbowExtension;
         live.elbow = smoothElbow(live.initialElbow, cycle.phase === "swing" ? extension : 0,
