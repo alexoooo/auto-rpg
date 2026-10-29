@@ -229,7 +229,10 @@ a stance goal) into muscle commands.
   (knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
   minimum-jerk paths to places in the body frame (`EffectorGoal`). One place puts a point there; two
   lay a line (`solveReach`); `EffectorGoal.orientation` aims a face. A path may
-  run past its place (`through`) or be the same path with its end moved (`follows`). The body frame
+  run past its place (`through`) or be the same path with its end moved (`follows`). A goal driven
+  `firm` gives its freedoms their muscles' full strength toward the speed the servo asks, so a limb
+  is braced through what it strikes; one that may `unbend` lets the solve take a chain straight at a
+  stop off it where its place is nearer (`ReachWays`). The body frame
   is the root's (`BodyView.root`; `intoFrameToRef` turns a world point into it).
 - **The bearing solve** (`bearing.ts`) carries a body on the ground through limbs (`Limb`: a chain
   from the root to a segment, bearing on a `Patch` or free). `carryRoot` asks the wrench the
