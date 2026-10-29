@@ -5,7 +5,6 @@ import { awaits, firstEdges, graphWork, toStanding, type GraphFailure, type Grap
 import { GROUND_MODES, sideEffector, type GroundExecutor, type GroundMode } from "../ground/held.ts";
 import type { GroundReading, Position } from "../ground/reading.ts";
 import { standReady, tumbling } from "../ground/reading.ts";
-import { STAND_UP_PART } from "../ground/stand-up-part.ts";
 import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../ground/stand-up.ts";
 import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
 import { edgeExpected } from "../profile.ts";
@@ -14,8 +13,8 @@ import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
 import type { Sight } from "../tactics.ts";
 
-/** What a rise is priced at where no route it takes is measured to standing: Stand up's own price (`SubMindPart.down`). */
-const { name: _, ...BY_HAND } = STAND_UP_PART.down!;
+/** What a rise is priced at where no route it takes is measured to standing: 5 s, standing at the end seven times in ten, keeping off none of a near focus's blows. */
+const BY_HAND: DownModel = deepFreeze({ seconds: 5, stands: .7, shelter: 0 });
 
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });

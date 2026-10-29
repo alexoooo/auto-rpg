@@ -1,5 +1,5 @@
 /**
- * **A stub chooser**: the options fighter's options by rank, the first on offer the most, built on
+ * **A stub chooser**: Kinetic's options by rank, the first on offer the most, built on
  * the shared chooser (`chooser`); it counts how often it priced an option. Its state names it, so a
  * test can read that the chooser a config names is the chooser the mind made through the lookup.
  */

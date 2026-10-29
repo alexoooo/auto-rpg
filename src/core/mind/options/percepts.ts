@@ -264,7 +264,7 @@ function downCostOf(seen: Seen): number {
 }
 
 /**
- * **Every percept the options fighter reads**, by name, in the order they are read: whether the
+ * **Every percept Kinetic reads**, by name, in the order they are read: whether the
  * body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its focus; how
  * far off the focus is, centre to centre across the ground (Infinity with none); a foe's blow
  * predicted to reach the head (`READINGS.predicted`); the own life that blow is expected to take

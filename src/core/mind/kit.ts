@@ -68,7 +68,7 @@ export function kitOf(parts: PartLookup, spec: BodySpec, mind: KitParts): MindKi
 export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
 
 /** The sub-mind `config` names, as `parts` finds it, made with `kit`. */
-export function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock, afterPhysics?: Body["afterPhysics"]): SubMind {
+function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock, afterPhysics?: Body["afterPhysics"]): SubMind {
   return parts.of("sub-mind", config).make(own, view, config, kit, clock, afterPhysics);
 }
 

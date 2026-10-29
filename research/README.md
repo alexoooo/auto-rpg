@@ -117,7 +117,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 | Held items | the blade, buckler and court tasks are evaluations (`src/evaluation/`) | [sword and buckler](../docs/reference/sword-and-buckler.md) |
 | Contact and the solver | `contact-*.mjs`, `rapier-effort-precision.mjs`, `posture-limits.mjs`, `control-foundation-joint-shapes.mjs`, `control-foundation-solvers.mjs` | [contact step](../docs/reference/contact-step.md), [friction](../docs/reference/contact-friction.md), [solver contract](../docs/reference/solver-contract.md) |
 | The reptile | `reptile-*.mjs`, `bite-load.mjs`, `body-plan-regression.mjs` | [reptile](../docs/reference/reptile.md), [bites](../docs/reference/reptile-bites.md) |
-| Minds and options | `options-readout.mjs` (where the options fighter's bouts go), `arena-control-trials.mjs`, `ground-combat.mjs`, `action-cycles.mjs` (their request ledger) | [ground combat](../docs/reference/ground-combat.md) |
+| Minds | `arena-control-trials.mjs`, `ground-combat.mjs`, `action-cycles.mjs` (their request ledger) | [ground combat](../docs/reference/ground-combat.md) |
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
 `cma.mjs` is the resumable CMA-ES the searches share; `core-club-unit.mjs` writes `core-club-unit.json` from a search's

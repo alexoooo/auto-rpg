@@ -1,6 +1,5 @@
-import type { Readiness, Resource, Window } from "../../skills/action.ts";
+import type { Readiness, Resource } from "../../skills/action.ts";
 import type { Cover, Intent } from "../intent.ts";
-import type { SubMind } from "../sub-mind.ts";
 import type { Sight } from "../tactics.ts";
 import type { Percepts } from "./percepts.ts";
 import type { Terms } from "./value.ts";
@@ -26,10 +25,7 @@ interface OptionBase {
   readonly claims: readonly Resource[];
   /** Whether it is a rest option (`hold`, `guard`, `brace`): one worth no more than it does not take its resource from it. */
   readonly rest?: true;
-  /**
-   * Its entry, now: `ready` to begin or go on; `position` where it begins once its legs are
-   * brought into the window (`approach`); else `waiting` or `blocked`, and why.
-   */
+  /** Its entry, now: `ready` to begin or go on, else `waiting` or `blocked`, and why. */
   entry(now: Situation): Readiness;
   /**
    * Its exit, now: `ready` where the body can be handed to another option here, else why not; null
@@ -47,11 +43,8 @@ interface OptionBase {
   model(now: Situation): Terms;
 }
 
-/**
- * What a standing option asks of the skills in a step, the hands' cover aside; with the window its
- * legs are to be brought to (`approach`) where its entry says `position`.
- */
-export type Asked = Omit<Intent, "guard"> & { readonly approach?: Window; readonly guard?: Readonly<Record<string, Cover>> };
+/** What an option asks of the skills in a step, the hands' cover aside. */
+export type Asked = Omit<Intent, "guard"> & { readonly guard?: Readonly<Record<string, Cover>> };
 
 /** An option the body carries out through its skills. */
 interface SkillOption extends OptionBase {
@@ -72,13 +65,7 @@ export interface GroundOption extends SkillOption {
   readonly posture: "ground";
 }
 
-/** An option a body carries out down, by the sub-mind it hands its body to: a commitment of the whole body. */
-export interface DownOption extends OptionBase {
-  readonly posture: "down";
-  readonly mind: SubMind;
-}
-
-export type Option = StandingOption | GroundOption | DownOption;
+export type Option = StandingOption | GroundOption;
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });
@@ -86,8 +73,8 @@ export const READY: Readiness = Object.freeze({ kind: "ready" });
 /** An entry or exit that does not admit, for `reason`: made once, as the options are. */
 export const blocked = (reason: string): Readiness => Object.freeze({ kind: "blocked", reason });
 
-/** Whether `option` is on offer now: its entry admits, at once or from a window its legs are brought to. */
-export const onOffer = (option: Option, now: Situation): boolean => { const kind = option.entry(now).kind; return kind === "ready" || kind === "position"; };
+/** Whether `option` is on offer now: its entry admits. */
+export const onOffer = (option: Option, now: Situation): boolean => option.entry(now).kind === "ready";
 
 /** What a step's asks hold (`Sight.needs`): each blow continued, what it holds; each asked anew, what it will. */
 export function asking(now: Situation, asked: Asked): readonly Resource[] {
@@ -115,14 +102,12 @@ export const holdsLegs = (claims: readonly Resource[]): boolean => claims.includ
 /**
  * **What a set of options asks in a step**: the walk and facing of the one that holds the legs
  * (`holdsLegs`), else `idle`'s; every one's actions; every one's covers (`Asked.guard`) of a hand
- * no one's asks hold (`SkillOption.holds`); and the body the legs' holder means to be near. A down
- * option asks nothing: its sub-mind has the body.
+ * no one's asks hold (`SkillOption.holds`); and the body the legs' holder means to be near.
  */
 export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Asked, "actions">): { asked: Asked; near: string | null } {
   let legs: Asked | null = null, near: string | null = null;
   const actions: Asked["actions"][number][] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
   for (const option of set) {
-    if (option.posture === "down") continue;
     const asked = option.step(now, dt);
     for (const action of asked.actions) actions.push(action);
     for (const resource of option.holds(now, asked)) if (!held.includes(resource)) held.push(resource);

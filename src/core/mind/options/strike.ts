@@ -55,34 +55,29 @@ export interface StrikeOption extends StandingOption {
 }
 
 /**
- * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready; or,
- * where it `closes`, else the first its executor would admit from a window, which its legs are
- * brought to first (`approach`). It asks for the blow once the limb is ready, and goes on asking
- * until the blow is over: then it has run its course. A blow asked for and refused, every limb out
- * of its entry, or `PATIENCE` s without a blow also end it. It yields until its blow is committed
- * (let go, the blow is dropped) and again from its exit, its stroke's end (the blow's `release`):
- * there, given up, it asks no more and its executor may hand the arm to the guard; kept, it strikes
- * again, its blow let go and the next asked of the first limb ready. It claims the legs and the
- * trunk, and holds what its blow holds (`asking`): a limb is its blow's as it asks it, and a cover
- * of it is dropped (`stepSet`).
- * The region struck is what the orders name on the focus, else the first of the action's regions
- * the focus has.
+ * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready. It
+ * never walks: a walk into its window is another option's (`toWindow`). It asks for the blow once
+ * the limb is ready, and goes on asking until the blow is over: then it has run its course. A blow
+ * asked for and refused, every limb out of its entry, or `PATIENCE` s without a blow also end it.
+ * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
+ * stroke's end (the blow's `release`): there, given up, it asks no more and its executor may hand
+ * the arm to the guard; kept, it strikes again, its blow let go and the next asked of the first
+ * limb ready. It claims the legs and the trunk, and holds what its blow holds (`asking`): a limb is
+ * its blow's as it asks it, and a cover of it is dropped (`stepSet`). The region struck is what the
+ * orders name on the focus, else the first of the action's regions the focus has.
  *
  * Its model, where its drill measured it as it is read now (its profile among `STRIKE_PROFILES`,
- * found by `measure`, read at the senses' reaction time): walking into the window, where its entry
- * is one, then what the profile expects at the range (to its reach) and the focus's phase
- * (`readProfile`): the focus's life its blows took, its own the drill took (the
- * foe's reply while it struck), how long it ran and its chance of ending down; through the blow
- * coming, and the focus's pressure while it walks within the focus's reach (`threatened`); and,
- * its blow begun and not yet committed, what letting it go cost there at its progress
- * (`Expected.letGo`). Else
- * built by hand: walking into the window until the focus is in its reach, then `throws` blows from
- * its stronger hand, each landing as often as its record says (`record`, which is of the hand it is
- * asked for), within the focus's reach from where it stands or the focus would reach it while it
- * strikes, and through the blow coming. Either leaves the body where it strikes from: its own reach,
- * or nearer where it stands nearer.
+ * found by `measure`, read at the senses' reaction time): what the profile expects at the range
+ * (to its reach) and the focus's phase (`readProfile`): the focus's life its blows took, its own
+ * the drill took (the foe's reply while it struck), how long it ran and its chance of ending down;
+ * through the blow coming, and the focus's pressure within its reach (`threatened`); and, its blow
+ * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
+ * Else built by hand: `throws` blows from its stronger hand, each landing as often as its record
+ * says (`record`, which is of the hand it is asked for), within the focus's reach from where it
+ * stands or the focus would reach it while it strikes, and through the blow coming. Either leaves
+ * the body where it strikes from. What a walk into its window first is worth is `through`'s.
  */
-export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws: number, measure: StrikeMeasure): StrikeOption {
+export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null };
   const { measured } = measure, found = profileFor(dataOf("strike-profiles"), measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
@@ -105,7 +100,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
     now.sight.readiness(now.sight.view, action.name, limb, target, around(now.sight));
   type Limb = { readonly limb: string; readonly readiness: Readiness };
-  /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is. */
+  /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is: what a walk into it goes to (`window`). */
   const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
     let placed: Limb | null = null;
     for (const limb of action.effectors) {
@@ -115,8 +110,6 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     }
     return { ready: null, placed };
   };
-  /** The first limb ready, else, where it closes, the first with a window to walk to; null with neither. */
-  const limbFor = (now: Situation, target: TargetRef): Limb | null => { const { ready, placed } = scan(now, target); return ready ?? (closes ? placed : null); };
   /** What its entry reads of its limbs at the target the situation names (`targetOf`), once a step. */
   const offered = { time: NaN, target: null as TargetRef | null, ready: null as Limb | null, placed: null as Limb | null };
   const offer = (now: Situation): typeof offered => {
@@ -134,9 +127,9 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
   const entry = (now: Situation): Readiness => {
     if (live(now)) return READY;
     if (unfit(now)) return UNFIT;
-    const { target, ready, placed } = offer(now);
+    const { target, ready } = offer(now);
     if (target === null) return UNAIMED;
-    return (ready ?? (closes ? placed : null))?.readiness ?? UNREADY;
+    return ready?.readiness ?? UNREADY;
   };
   /**
    * Its model (`Terms`), walked into its window first where `walks`, by `going` where it names a
@@ -183,7 +176,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const scaled = readProfile(found.profile, measure.spec).scaled(now.focus?.spec ?? null);
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
-    model: (now) => priceOf(now, entry(now).kind === "position"),
+    model: (now) => priceOf(now, false),
     through: (now, going) => priceOf(now, true, going),
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
@@ -193,18 +186,11 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       if (running) state.began ??= now.time;
       if (running) return { ...still, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };
       if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
-      const chosen = limbFor(now, state.target);
+      const chosen = scan(now, state.target).ready;
       if (!chosen) { state.over = true; return still; }
       state.limb = chosen.limb;
-      switch (chosen.readiness.kind) {
-        case "ready": {
-          state.id = now.sight.instance();
-          return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
-        }
-        case "position": return { ...still, approach: chosen.readiness.window };
-        case "waiting": case "blocked": return still;
-        default: { const never: never = chosen.readiness; throw new Error(`unknown readiness ${JSON.stringify(never)}`); }
-      }
+      state.id = now.sight.instance();
+      return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
     },
   };
 }

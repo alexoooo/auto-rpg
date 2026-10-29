@@ -109,7 +109,7 @@ function walkTo(now: Situation, to: number, duration: number, pace: number, goin
  * focus where the heads stand farther apart than the band reaches even with the centres together;
  * back from nearer than its near end; and standing within.
  */
-export function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["toward"]> {
+function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["toward"]> {
   const face = walk.facing(now), apart = now.reach.apart, outside = goal.near(now), band = goal.width(now);
   const focus = now.focus!, centre = now.sight.view.stance.centre;
   if (apart > outside + band) {

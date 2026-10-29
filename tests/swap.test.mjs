@@ -1,7 +1,7 @@
 /**
  * **A part of any converted role swaps in from outside the shared code** (Node, core world,
- * vendored Rapier, 120 Hz). The fixture entrants (`tests/fixtures/swap/`), a fighter and an options
- * fighter, are registered by a line each of the kinds list, outside `src/`, and hold a stub of each
+ * vendored Rapier, 120 Hz). The fixture entrants (`tests/fixtures/swap/`), a fighter and Kinetic,
+ * are registered by a line each of the kinds list, outside `src/`, and hold a stub of each
  * converted role as their own parts. For each, chosen by its config alone: the catalog offers it to
  * its own mind's slot and refuses it in another's tree, the part its maker made is the part a bout
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
@@ -14,8 +14,8 @@
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
  * planner's own report reaches the readout a person reads. The quadruped fixture holds a stub of
- * each of the quadruped's roles (motor, gait, bite, planner), and the options fixture one aim and
- * one chooser.
+ * each of the quadruped's roles (motor, gait, bite, planner), and the Kinetic fixture one aim, one
+ * chooser and one balance.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -36,7 +36,7 @@ const { RECIPE_FIGHTER, FIGHTING } = await import("../src/core/mind/config.ts");
 const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
-const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS, SWAP_QUADRUPED_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
+const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_KINETIC_DEFAULTS, SWAP_QUADRUPED_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
 const { STRAIGHT_NAVIGATION } = await import("./fixtures/swap/straight-navigation.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
@@ -63,7 +63,7 @@ const STEPS = 240, FORK = 120;
 const spec = modelSpec("workshop-fighter");
 
 test("the fixture entrants are registered from outside src/", () => {
-  for (const config of [SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS, SWAP_QUADRUPED_DEFAULTS]) {
+  for (const config of [SWAP_DEFAULTS, SWAP_KINETIC_DEFAULTS, SWAP_QUADRUPED_DEFAULTS]) {
     assert.ok(Object.hasOwn(CONTROLLERS, config.kind), `the hook put ${config.kind}'s line in the kinds list`);
     assert.deepEqual(treeFaults(config), [], `${config.kind} holding every stub of its own has no fault`);
   }
@@ -71,7 +71,7 @@ test("the fixture entrants are registered from outside src/", () => {
 
 test("the Lab plays the fixture fighter, prepares its planner once, and replaces it completely with a supplied script", async () => {
   assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
-  assert.deepEqual(labMind(SWAP_OPTIONS_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
+  assert.deepEqual(labMind(SWAP_KINETIC_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
   const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_DEFAULTS });
   try {
     const skills = actor.drive(); stand.step();
@@ -104,7 +104,7 @@ test("an external preset's model calibration governs Arena, Lab and evaluation c
 });
 
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
-  const evaluation = EVALUATIONS.tournament, panel = "options/workshop-fighter/empty,empty";
+  const evaluation = EVALUATIONS.tournament, panel = "kinetic/workshop-fighter/empty,empty";
   for (const [id, changes] of [["swap-stub", ["tactics.choose.patience=0.5"]],
     ["swap-unarmed", [`executors=${JSON.stringify(RECIPE_FIGHTER.executors)}`, `actions=${JSON.stringify(RECIPE_FIGHTER.actions)}`]]]) {
     const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
@@ -336,7 +336,9 @@ test("a mind that never strikes carries a club on a stand, is refused from a bou
 });
 
 test("each part a bout runs is the one its config names, and the bout forks, resumes, replays and links", async () => {
-  const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTIONS_DEFAULTS }, recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds };
+  // The Kinetic fixture as Kinetic plays: the Warrior with toes, which its learned punch is trained on.
+  const minds = { left: SWAP_DEFAULTS, right: SWAP_KINETIC_DEFAULTS }, attributes = { left: {}, right: CONTROLLERS.kinetic.presets.kinetic.character };
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds, attributes };
   const played = async (hooks, fork) => {
     const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
     try {
@@ -376,7 +378,8 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);
   assert.equal(replay.digest, first.digest, "the replay is the bout");
-  for (const config of Object.values(minds)) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] }, `${config.kind}'s tree goes through a link unchanged`);
+  for (const side of SIDES) assert.deepEqual(parseMind(writeMind(minds[side]), modelSpec("workshop-fighter", undefined, attributes[side]), FIGHT_ENTRY), { config: minds[side], faults: [] },
+    `${minds[side].kind}'s tree goes through a link unchanged`);
 });
 
 test("each part a quadruped's config names is the one its mind runs, and its bout forks and resumes", async () => {

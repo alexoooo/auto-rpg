@@ -83,7 +83,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down], unbraced: ground.unbraced });
-  const strikes = standing.map((action, i) => strike(action, walk, false, blowsOf(parts, deciding.executors, action), measures[i]!));
+  const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
   const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "");
   const options: readonly Option[] = [followOrders(walk, standing), ...strikes,

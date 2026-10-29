@@ -114,7 +114,7 @@ export type Start = "settled" | "walking";
  */
 const FIGHT = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
-  foes: ["classic", "counter", "duellist", "options", "vanguard-warrior"],
+  foes: ["classic", "counter", "duellist", "vanguard-warrior"],
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],

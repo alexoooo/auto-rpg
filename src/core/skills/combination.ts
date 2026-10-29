@@ -22,7 +22,7 @@ export interface Combination extends StraightPunch {
 }
 
 /**
- * The combination as the options fighter throws it: the Counter-puncher's straight punch, the
+ * The stock combination: the Counter-puncher's straight punch, the
  * second hand driven 0.3 s after the first drive ends, once the centre of mass is back over the
  * feet: sooner, or from a body still carried off its feet by the first, the second lean bends the
  * body over at the hips.
