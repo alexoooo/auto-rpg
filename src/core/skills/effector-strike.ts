@@ -24,6 +24,8 @@ interface StrikeDef {
   readonly returnSeconds: number;
   /** Each goal's tracking response, s; the tracker's own where absent. */
   readonly response?: number;
+  /** Whether the stroke and a held contact drive the limb firm (`EffectorGoal.firm`), braced through the blow. */
+  readonly firm?: boolean;
 }
 
 /** A strike's cycle, where its point was at the last read (root frame), and what its strokes have come to. */
@@ -112,7 +114,7 @@ export function effectorStrike(def: StrikeDef) {
       const position = impact ? impact.finish : phase === "chamber" ? course.chamber : phase === "return" ? course.home : course.target;
       return { ...(def.response === undefined ? {} : { response: def.response }), places: [{ point: def.point, position }],
         seconds: impact ? def.limits.impact!.impactSeconds : seconds(course), follows: true, initialVelocity: state.velocity, sequence: state.sequence,
-        ...(orientation ? { orientation } : {}),
+        ...(orientation ? { orientation } : {}), ...(def.firm && (impact || phase === "swing") ? { firm: true } : {}),
         ...(impact ? { terminalVelocity: STILL }
           : phase === "swing" ? { terminalVelocity: course.contactVelocity, ...(course.curve ? { curve: course.curve } : {}) } : {}) };
     },

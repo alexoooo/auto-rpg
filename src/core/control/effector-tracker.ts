@@ -32,6 +32,13 @@ export interface EffectorGoal {
   readonly follows?: boolean;
   /** Optional muscle tracking response, s, independent of the endpoint path duration. */
   readonly response?: number;
+  /**
+   * Whether the chain's free freedoms are driven firm: toward the speed the servo asks of them, at
+   * their muscles' full strength, not at the torque the motion takes. The motion is the same; a
+   * limb coasting at speed is held by its muscles through what it strikes (`Hold`,
+   * `src/core/build/contact-mass.ts`), not met limp.
+   */
+  readonly firm?: boolean;
   /** Initial point velocity in the body frame, m/s, for a measured Hermite path. One point only. */
   readonly initialVelocity?: Vec3;
   /** Desired point velocity at the target, body frame, m/s; one-point Hermite paths only. */
@@ -233,6 +240,12 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
     response(channel: string) {
       for (const limb of all) if (limb.memory.goals.has(channel)) return limb.memory.goal?.response;
       return undefined;
+    },
+    /** Whether channel `i` is a free freedom of a goal driven firm (`EffectorGoal.firm`) this step. */
+    firm(i: number): boolean {
+      const name = driving!.channels[i]!.name;
+      for (const limb of all) if (limb.memory.goals.has(name)) return limb.memory.goal?.firm === true;
+      return false;
     },
     release(segment: string) { const limb = limbs.get(segment); if (!limb) throw new Error(`no effector ${segment}`); limb.memory.goal = null; },
     reset() { for (const limb of all) limb.memory.goal = null; },

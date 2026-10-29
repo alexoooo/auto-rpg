@@ -181,6 +181,8 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   const whole = makeWholeBody(freedoms, 2, points.length);
   let driven: WholeBodyAsk | null = null;
   const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
+  // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
+  const firm = new Float64Array(freedoms);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state, unmet };
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
@@ -206,6 +208,11 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
+    let anyFirm = false;
+    for (let i = 0; i < freedoms; i++) {
+      firm[i] = !work.fixed[i] && owned(i) && tracker.firm(i) ? driver.speed(i) + work.accel[i]! * dt : NaN;
+      if (!Number.isNaN(firm[i]!)) anyFirm = true;
+    }
     const ask = standing ? stance.ask(driver) : null;
     unmet.points = ask ? 0 : state.points.length;
     if (ask) {
@@ -220,6 +227,12 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
       stance.launch(driver);
     }
     else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
+    // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
+    if (anyFirm) for (let i = 0; i < freedoms; i++) {
+      if (Number.isNaN(firm[i]!)) continue;
+      driver.velocity[i] = firm[i]!;
+      driver.activation[i] = 1;
+    }
   };
 
   return {

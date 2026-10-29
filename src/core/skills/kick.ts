@@ -39,7 +39,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();
   const limits = Object.freeze({ ...tuning, impact: tuning });
-  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits,
+  const strikeOf = (side: Side) => effectorStrike({ effector: `foot.${side}`, point: "strike", limits, firm: true,
     chamberSeconds: tuning.chamberSeconds, returnSeconds: tuning.returnSeconds, response: tuning.response });
   const strikes = { left: strikeOf("left"), right: strikeOf("right") };
   const footprints = { left: Object.freeze(["foot.left", "legs", "trunk"]), right: Object.freeze(["foot.right", "legs", "trunk"]) };
