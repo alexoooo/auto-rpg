@@ -634,11 +634,15 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   parts that read them declare (`Part.reads`); an entrant's own profiles would be a key of their
   own. Each reader says how it is priced: a strike (`StrikeOption.priced`), the pressure, the rise
   (`Ground.priced`); Kinetic reports them (`Profiles`).
-- **Named goals** (`GOALS`, `goals.ts`): a band of the range to the focus whose limits are reach
-  readings read each step, never metres written down: `close`, inside this body's reach; `at the
-  edge`, just outside the focus's (`EDGE`); `out of reach`, past that; `guard to guard`. `toGoal`
-  walks to one, facing the focus; `moveTo` is the footwork option of one, priced by where it leaves
-  the body (Kinetic's close, at the edge and out of reach), and the edge-hold holds the edge's band.
+- **Goals** (`Goal`, `goals.ts`): a band of the range to the focus whose ends are read each step,
+  never metres written down. `toGoal` walks to one, facing the focus; `moveTo` is the footwork
+  option of one, priced by where it leaves the body. The goals made from the skills: into a
+  strike's window (`toWindow`, on offer while its limbs have a window, `StrikeOption.window`, and
+  none is ready; it walks as `approachActionWindow` does and is worth the strike walked there,
+  `StrikeOption.through`), and out of the foe's pressure (`OUT_OF_PRESSURE`: past its modelled
+  strikes' reach, `pressureEdge`, by `closes`, how far it walks at its measured fastest walk in the
+  reaction time). The options fighter's edge-hold holds the band from the focus's reach to `closes`
+  past it (`holdEdge`, `EDGE` its patience).
 - **The value of a position** (`PositionValue`, `position.ts`): what a place (`Place`: the range
   head to head to the focus and the chance the body is down there) is worth in life, the lead
   expected at the verdict from there, and the rate of play, what a second of the fight is worth

@@ -6,8 +6,9 @@ code. Kinetic decides by one mechanism: **options, and one policy that selects a
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy
 (built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, the rise as options,
-`groundOptions`, each edge priced by its expected time to standing, and each hand's cover,
-`covers`, priced by the share of the blow on the head it keeps off).
+`groundOptions`, each edge priced by its expected time to standing; each hand's cover, `covers`,
+priced by the share of the blow on the head it keeps off; and the goals made from the skills,
+`toWindow` and `OUT_OF_PRESSURE`).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -59,10 +60,7 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Decisions beside the policy.** Kinetic's strike walks to its window (`approach`) beside
-  `moveTo("close")`; its three goals are written by hand. A goal is only a band of `Reach.apart`
-  (`src/core/mind/options/goals.ts`), its width a fixed 0.25 m (`EDGE.band`), and `close` is this
-  body's reach, not a strike's window. The gait is chosen by Move's rules (`MoveRule`,
+- **Decisions beside the policy.** The gait is chosen by Move's rules (`MoveRule`,
   `src/core/skills/move.ts`): braced within 5 m of a foe or a destination, 8.5 m of an ally, else
   run, 0.5 m past a rule before it lets go (`LEAVING`).
 - **Letting go is measured at one instant.** The Strike drill lets go only at the first decision
@@ -85,21 +83,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 7. Goals from the skills
-
-A goal is any percept against a limit read each step (a cue,
-[Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), and the goals on offer are made from the
-skills, not listed: each strike's entry window (its `position`), and out of the foe's pressure
-(where its profiles' pressure reaches nothing). A band's width is read from the bodies (the
-distance the foe closes in the reaction time), not set. `approach` and the strike's walk into its
-window go: a strike is entered from its window, and a gait toward that window brings the body
-there, worth the strike the position's exchange counts from it (`pressing`). `GOALS`, the three
-`moveTo`s in Kinetic's tactics and `EDGE.band` go. The options fighter is its own mind and keeps
-its own footwork (`holdEdge`, `setDistance`).
-
-Check: Kinetic's Strike drill fight rung against the baseline record; `npm run match` of Kinetic
-against itself at the commit before, a loss fixed or its reason recorded; a bout looked at.
 
 ### 8. Gaits as options
 
