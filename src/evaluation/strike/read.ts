@@ -16,6 +16,7 @@ import { aimOf } from "../../core/skills/strikes.ts";
 import { acos, cos } from "../../core/math/real.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";
+import type { HostedBody } from "../../core/body.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import type { Reader } from "../evaluation.ts";
 
@@ -119,9 +120,14 @@ export type StrikeReading = {
    * points the striker lost from the let-go until then; absent where it did not let one go.
    */
   readonly letGo?: { readonly at: number; readonly again: number | null; readonly opening: number };
+  /** The fist's nearest approach to where its action aimed (`ActionStatus.aim`), m, over the steps the reader saw it under way; null where it never said. */
+  readonly nearest: number | null;
   readonly down: boolean;
   readonly seconds: number;
 };
+
+/** Whether a hit passes every one of the bar's tests. */
+export const meetsBar = (hit: StrikeHit): boolean => hit.fast && hit.heavy && hit.square && hit.soon && hit.lined && hit.extended && hit.upright;
 
 /**
  * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
@@ -168,7 +174,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
-  let letAt: number | null = null, again: number | null = null;
+  let letAt: number | null = null, again: number | null = null, nearest: number | null = null;
+  /** The striker's view, where its body is hosted: where its fists were as its last step read them. */
+  const view = "view" in left.body ? (left.body as HostedBody).view : null;
   let asked: StrikeReading["asked"] = null, foePhase: string | null = null, atHand: string | null = null;
   const head = centreReading(left.built, "head"), centre = new Vector3();
   /** The target's phase as the striker senses it now (`sensedPhase`). */
@@ -225,6 +233,11 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         if (action.phase === "release" && times.released === null) times.released = world.time;
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
+      const aimed = action && action.id === id ? action.aim : null;
+      if (aimed && view) {
+        const fist = view.fists[hand].position, dx = fist.x - aimed[0], dy = fist.y - aimed[1], dz = fist.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (nearest === null || apart < nearest) nearest = apart;
+      }
       const drill = skills.report.engagement?.phase;
       if (drill === "let go" && letAt === null) { letAt = world.time; againstChest(was); }
       else if (letAt !== null && again === null) {
@@ -279,14 +292,13 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
           soon: times.began !== null && contact.time - times.began <= bar.within,
           lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean };
       });
-      const meets = (hit: StrikeHit) => hit.fast && hit.heavy && hit.square && hit.soon && hit.lined && hit.extended && hit.upright;
-      const hit = hits.find(meets) ?? hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
+      const hit = hits.find(meetsBar) ?? hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meetsBar(hit) && times.ended !== null ? "landed" : "weak"
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       return { outcome, phase, foePhase: foePhase ?? atHand, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
-        ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), down, seconds: world.time };
+        ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), nearest, down, seconds: world.time };
     },
   };
 }

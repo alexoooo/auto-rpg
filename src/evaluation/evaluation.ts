@@ -15,6 +15,7 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { MindPreset } from "../core/mind/controller.ts";
+import type { Minded } from "../core/mind/minds.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
@@ -76,12 +77,18 @@ export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone | BuiltTe
  * `playCase` steps every kind the same way.
  */
 export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly world: { step(): void }; dispose(): void } = BuiltCase> {
-  build(world: W): Promise<B>;
+  /** `world` built, at `hz` control steps a second where the kind takes a rate (a bout's), else at the world's own. */
+  build(world: W, options?: { readonly hz?: number }): Promise<B>;
   start?(built: B, world: W): void;
   traced(built: B): readonly BuiltBody[];
   clock(built: B): number;
   minds(world: W): readonly MindConfig[];
   parts?(world: W): readonly string[];
+  /** The bodies under a mind the built world plays, where the kind lists them: what a learning environment finds its learner in. */
+  hosted?(built: B): readonly Minded[];
+  /** The built world as it stands, and the same world put back to a save of it, where the kind can (a bout's, `Duel.save`). */
+  save?(built: B): unknown;
+  load?(built: B, saved: unknown): void;
 }
 
 /** Reads a case as it plays: after each step, whether it is over, and what it came to. */
@@ -160,6 +167,16 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
    * each trial and its reel plays the failures first.
    */
   outcome?(reading: R): { readonly label: string; readonly passed: boolean };
+  /**
+   * What a learning environment may weigh at a trial's end beside its reading's own numbers
+   * (`research/case-learning-environment.mjs`): named terms, each from the reading and its condition.
+   */
+  readonly terms?: Readonly<Record<string, (reading: R, condition: C) => number>>;
+  /**
+   * What a learning environment may weigh as a trial plays: named percepts of its world, each read
+   * after every step as a value a second, which the environment sums over the step's seconds.
+   */
+  readonly percepts?: Readonly<Record<string, (built: B, condition: C) => number>>;
   /** What the evaluation states of a complete table beside its figures: lines to print, and JSON to keep. */
   summary(table: Table<C, R>): { readonly lines: readonly string[]; readonly json: Json };
 }

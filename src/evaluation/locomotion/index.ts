@@ -11,7 +11,10 @@ import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
 import { sha256Text } from "../sha256.ts";
-import { LOCOMOTION_CASES, type LocomotionCondition } from "./cases.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { BuiltSegment } from "../../core/build/build-body.ts";
+import type { Orders } from "../../core/mind/orders.ts";
+import { LOCOMOTION_CASES, scriptOf, type LocomotionCondition } from "./cases.ts";
 import type { LocomotionReading } from "./read.ts";
 
 /**
@@ -75,6 +78,30 @@ export function locomotionSummary({ subjects, cases }: Table<LocomotionCondition
   };
 }
 
+/** The orders `condition`'s script has given by `time`, s: its last cue at or before then that gives any; none before the first. */
+function ordersAt(condition: LocomotionCondition, time: number): Orders | null {
+  let orders: Orders | null = null;
+  for (const cue of scriptOf(condition).cues) if (cue.at <= time && cue.orders !== undefined) orders = cue.orders;
+  return orders;
+}
+
+/** The lone body's root segment: the one no joint moves. */
+function rootOf(built: BuiltLone): BuiltSegment {
+  const spec = built.body.built.spec, name = spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name;
+  return built.body.built.segments.get(name)!;
+}
+
+/** The root's velocity, world, m/s, into a vector made once. */
+const rootVelocity = (() => { const out = new Vector3(); return (built: BuiltLone): Vector3 => rootOf(built).body.linearVelocityToRef(out); })();
+
+/** The ground direction the body is ordered to move, unit; null where it is ordered to stop or not ordered. */
+function orderedWay(built: BuiltLone, condition: LocomotionCondition): { readonly x: number; readonly z: number; readonly pace: number } | null {
+  const orders = ordersAt(condition, built.world.time), move = orders?.move;
+  if (move?.kind !== "direct") return null;
+  const length = Math.sqrt(move.direction.x * move.direction.x + move.direction.z * move.direction.z);
+  return length > 0 ? { x: move.direction.x / length, z: move.direction.z / length, pace: orders?.pace ?? 0 } : null;
+}
+
 export const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, BuiltLone> = {
   id: "locomotion",
   title: "The Locomotion drill",
@@ -86,6 +113,25 @@ export const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, Buil
   analysis: {},
   subjects: (choice) => mindSubjects(choice, ["kinetic"]),
   figures: LOCOMOTION_FIGURES,
+  /**
+   * A learning environment's percepts, each a second: `progress`, its root's speed along the ordered
+   * way, to the order's pace where it names one (0 unordered); `halt`, less its ground
+   * speed where it is not ordered to move (0 ordered); `upright`, its root's up.
+   */
+  percepts: {
+    progress: (built, condition) => {
+      const way = orderedWay(built, condition), velocity = rootVelocity(built);
+      if (!way) return 0;
+      const toward = velocity.x * way.x + velocity.z * way.z;
+      return way.pace > 0 ? Math.min(toward, way.pace) : toward;
+    },
+    halt: (built, condition) => {
+      if (orderedWay(built, condition)) return 0;
+      const velocity = rootVelocity(built);
+      return -Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    },
+    upright: (built) => { const turn = rootOf(built).node.rotationQuaternion!; return 1 - 2 * (turn.x * turn.x + turn.z * turn.z); },
+  },
   outcome: (r) => ({ label: r.fell ? "fell" : r.stopped ? "stood" : "moving", passed: !r.fell }),
   summary: locomotionSummary,
 };

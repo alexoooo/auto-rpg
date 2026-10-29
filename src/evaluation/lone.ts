@@ -88,4 +88,5 @@ export const LONE_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "lone" }>
   traced: (built) => [built.body.built],
   clock: (built) => built.world.time,
   minds: (world) => [world.lone.mind],
+  hosted: (built) => [built.body.minded],
 };

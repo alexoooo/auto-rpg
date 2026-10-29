@@ -17,7 +17,8 @@ import { STRIKE_CASES, type StrikeCondition } from "./cases.ts";
 /** Where a trial was thrown: the still rung's offset and gap, or a fight's foe and moment. */
 const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${condition.foe}, moment ${condition.moment}`
   : `across ${condition.across} m, gap ${condition.gap} m${condition.start ? `, ${condition.start}` : ""}`;
-import type { StrikeReading } from "./read.ts";
+import { meetsBar, type StrikeReading } from "./read.ts";
+import { barScore } from "./score.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
 const DRILLED = ["puncher/strike", "duellist/swing high", "vanguard-warrior/strike"];
@@ -59,6 +60,16 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
     return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
   },
   outcome: strikeOutcome,
+  /**
+   * A learning environment's terms: the bar's score, a hit that meets every test counted landed
+   * (the striker's standing left to the drill, `barScore`); whether it met them, 1 or 0; and, where
+   * the fist met nothing on the mark, how far short of its aim it stayed at its nearest, m, to 0.5.
+   */
+  terms: {
+    score: (reading, condition) => barScore(reading.hit !== null && meetsBar(reading.hit) ? { ...reading, outcome: "landed" } : reading, condition.hand),
+    met: (reading) => reading.hit !== null && meetsBar(reading.hit) ? 1 : 0,
+    short: (reading) => reading.hit ? 0 : Math.min(reading.nearest ?? Infinity, .5),
+  },
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
     { name: "landed on the body", unit: "share of blows that met the target past its arms", kind: "rate", better: "higher",

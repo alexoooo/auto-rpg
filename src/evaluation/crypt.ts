@@ -227,4 +227,5 @@ export const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" 
       .map((one) => one.side === "party" ? crypt.mind ?? modelInfo(one.model).mind : modelInfo(one.model).mind);
   },
   parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
+  hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),
 };
