@@ -11,7 +11,7 @@ import type { Walker } from "./walk.ts";
  * `Chooser`), each worth nothing: what keeping the body as it is brings. Their model leaves the body
  * where it is at once, through nothing it was not already taking.
  */
-const still = (now: Situation): Terms => ({ duration: 0, dealt: 0, taken: now.predictions.danger, orders: 0, exit: here(now) });
+export const still = (now: Situation): Terms => ({ duration: 0, dealt: 0, taken: now.predictions.danger, orders: 0, exit: here(now) });
 
 /** The parts of a rest option that do nothing: never over, always yielding. */
 const RESTING = { rest: true, status: (): Status => "yields", begin() {}, end() {} } as const;

@@ -1,7 +1,5 @@
 import { blowsOf } from "../../mind/action-config.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
-import type { PartLookup } from "../../mind/lookup.ts";
-import type { MindWiring } from "../../mind/minds.ts";
 import { chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { goings } from "./options/goals.ts";
@@ -18,8 +16,7 @@ import type { PartConfig } from "../../mind/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";
-import type { Rulebook } from "../../rules/rulebook.ts";
-import type { BodySpec } from "../../spec/body.ts";
+import type { TacticsMaking } from "../../mind/tactics-part.ts";
 
 /** What Kinetic decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {
@@ -77,29 +74,36 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * (`stepSet`); the walk keeps out of a fallen body's reach and a solid's clearance
  * (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
- * were priced (`profileDetail`).
+ * were priced (`profileDetail`); where the first chosen reports more than its name (a script,
+ * `scripted`), what it reports and the context it publishes, in their place.
  */
-export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
-  const given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
+export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Tactics {
+  const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
-    ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down], unbraced: ground.unbraced });
+    ordersOf: making.orders, downs: [ground.down], unbraced: ground.unbraced });
   const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
   const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "", tables.gaits);
-  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, standing, strikes, gaits, ground, hands });
+  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, standing, strikes, gaits, ground, hands, making });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
+  const reported = () => chosen.running[0]?.engagement;
   const engagement = {
-    get phase() { return chosen.running[0]?.name ?? "hold"; },
+    get phase() { return reported()?.phase ?? chosen.running[0]?.name ?? "hold"; },
+    get focus() { return reported()?.focus; },
     get offers() { return chosen.offers; },
-    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, ground, lastNow)] : []; },
+    get details() {
+      const own = reported();
+      return own ? own.details ?? [] : last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, ground, lastNow)] : [];
+    },
   };
   return {
     name: "kinetic", state, engagement,
+    get decision() { return chosen.running[0]?.decision; },
     decide(seen: Sight, dt: number) {
       last = seen;
       const now = lastNow = reader.read(seen);
