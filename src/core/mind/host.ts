@@ -19,6 +19,9 @@ type Grants = Partial<Pick<MindWiring, "senses" | "assist" | "contactIdentity" |
 /** The rules a body is played by where its fight names none. */
 const ARENA = rulebook("arena");
 
+/** The rules a body is played by: its fight's (`MindWiring.rules`), else the arena's. */
+export const rulesOf = (grants: Pick<Grants, "rules">): Rulebook => grants.rules ?? ARENA;
+
 /** What a fight's own adapters take beside the grants, which no maker names: where the body's order sheets are written. */
 type Trusted = { readonly log?: SheetLog };
 
@@ -53,7 +56,7 @@ export function bodyHost(built: BuiltBody, world: World, grants: Grants, parts: 
   const take = () => { if (body) throw new Error("a mind takes its body once"); };
   const given = { senses: grants.senses, assist: grants.assist, log };
   const host: BodyHost = Object.freeze({
-    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, rules: grants.rules ?? ARENA,
+    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, rules: rulesOf(grants),
     command(options: Omit<BodyOptions, keyof Grants | keyof Trusted>) {
       take();
       const commanded = createBody(built, world, { ...options, ...given, contactIdentity: grants.contactIdentity });

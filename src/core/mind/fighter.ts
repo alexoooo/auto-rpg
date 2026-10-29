@@ -4,7 +4,7 @@ import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../skills/action-instances.ts";
 import type { Clock } from "../clock.ts";
-import type { BodyHost } from "./host.ts";
+import { rulesOf, type BodyHost } from "./host.ts";
 import type { FighterConfig, SkillKit } from "./config.ts";
 import { actionConfigFaults, actionFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
@@ -44,7 +44,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const making: TacticsMaking = { spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
+  const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
     aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts };
   const tactics = wiring.script ?? tacticsOf(making, config.tactics);

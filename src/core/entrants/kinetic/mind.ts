@@ -81,7 +81,7 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
   const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, { ...config, support: null }, driving, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions });
   if (config.tactics) {
-    const making: TacticsMaking = { spec: host.spec, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
+    const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
       aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
     const tactics = config.tactics;
     skills = driveBy(body, tacticsOf(making, tactics), (made, driving) => prepareTacticsSkills(making, tactics, make(made, driving), () => driving.decision));

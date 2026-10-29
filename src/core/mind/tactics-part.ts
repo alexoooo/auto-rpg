@@ -8,6 +8,7 @@ import type { Orders } from "./orders.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
 import type { DecisionCapability, Sight, TacticalDecision, Tactics } from "./tactics.ts";
 import type { Skills } from "../skills/skills.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 export interface ActionEstimate {
@@ -16,9 +17,11 @@ export interface ActionEstimate {
 }
 export type ActionEstimates = Readonly<Record<string, ActionEstimate>>;
 
-/** What tactics are made for: the body, the actions it may start and their estimates, a person's orders, a screen's script and the parts the tree names. */
+/** What tactics are made for: the body, the fight's rules, the actions it may start and their estimates, a person's orders, a screen's script and the parts the tree names. */
 export interface TacticsMaking {
   readonly spec: BodySpec;
+  /** The rules the fight is played by (`BodyHost.rules`), which price a blow. */
+  readonly rules: Rulebook;
   readonly actions: readonly ActionConfig[];
   readonly estimates: ActionEstimates;
   /** Each aiming action's aim, by the action's name (`configuredAims`): where its blow would land, as its executor aims it. */
