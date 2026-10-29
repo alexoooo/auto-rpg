@@ -129,12 +129,13 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const target = resolve(view, request.target, request.action, request.effector);
       if (!target) throw new Error("kick target has no aim");
       const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
-      const x = (view.stance.soles.left.x + view.stance.soles.right.x) / 2, z = (view.stance.soles.left.z + view.stance.soles.right.z) / 2;
+      // The stance it kicks from: the kicking foot where it stands, where its window was read from, and the bearing foot a hip's width beside it, square to the heading.
+      const x = view.stance.soles[foot].x, z = view.stance.soles[foot].z, across = foot === "left" ? hipWidth : -hipWidth;
+      const beside: readonly [number, number] = [x + across * cos(around.heading), z - across * sin(around.heading)];
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
         height: view.standing - around.lower - tuning.lower, target: [...target], initial, back: null, withdrawn: false, ending: { kind: "completed" },
         bearing: bearing.sole, bearingRotation: bearing.rotation, setting: null,
-        footing: { left: [x - hipWidth * cos(around.heading) / 2, z + hipWidth * sin(around.heading) / 2],
-          right: [x + hipWidth * cos(around.heading) / 2, z - hipWidth * sin(around.heading) / 2] } };
+        footing: foot === "left" ? { left: [x, z], right: beside } : { left: beside, right: [x, z] } };
     },
     update(view, continued, _around, dt) {
       support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle); state.cooldown += dt;
