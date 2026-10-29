@@ -65,6 +65,29 @@ after skills are trained against it.
   (`BodySpec.ends`), but the legs bear only on its feet and report the rest unmet; a ground
   technique holds the whole body and pushes every muscle as its run drives it (`groundExecutor`),
   and whether the legs can bear on hands and knees is open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
+- **An option's shape is wide.** An option has `entry`, `exit`, `yields`, `ended`, `begin`, `end`,
+  `claims`, `holds`, `near`, `rest`, `posture`, `model` and `step` (`src/core/mind/options/option.ts`);
+  its `posture` names a sub-mind variant (`DownOption`) that only the options fighter makes. The
+  strike walks to its window where it `closes`, as `toWindow` does, and Kinetic turns that off.
+- **Percepts hold predictions.** Beside readings of the senses, `PERCEPTS`
+  (`src/core/mind/options/percepts.ts`) computes from the profiles and the rules every step:
+  `danger`, `pressure` and `pressing` (which carry profile readings), `downCost`, `blows` and
+  `closes`; and `unbraced` reads the rise's own state. Each of those, the strike's model and the
+  gaits' has a measured branch and a hand-built one.
+- **A place is a range.** Where an option leaves the body (`Place`,
+  `src/core/mind/options/position.ts`) is the range head to head, the chance it is down and the
+  seconds until braced, so no position value can price a bearing, a wall, a second foe or the
+  posture lying.
+- **Kinetic's deciding parts are code.** The valued chooser prices by `FEW_TERMS` alone
+  (`src/core/mind/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
+  one frozen literal, and a profile is read only by `readProfile`. A drill drives Kinetic by
+  swapping its whole policy for tactics (`KineticConfig.tactics`).
+- **The rise's options are offered by Stand up's supervisor.** `groundOptions` offers, in a fixed
+  cascade, the attempt under way alone, else brace, back off, steady, the edges reading motion,
+  land, the edges, a reposition, back off; its modes run on timers and counts (`BRACE_LIMIT`,
+  `STEADY_LIMIT`, `BACKOFF`, `RETRIES`, `READY_HOLD`). An edge is priced by a search to standing
+  (`toStanding`), not by the posture it leaves the body in; unmeasured on toes, every edge is
+  priced alike and taken by rank.
 
 ## Steps
 
@@ -92,6 +115,78 @@ Check: the probes' kneeling and hands-and-knees sets borne, not reported; the ba
 flat-footed stand-up stands its 32 falls, in no longer a median, paired against its record; the
 owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
 
+### 12. The option's shape
+
+An option is its entry, its claims, its model, its step and one status: committed, yields, at
+its exit, or over (for `exit`, `yields`, `ended`; `begin` and `end` stay its memory's). `rest` is
+its model's worth of nothing and its rank, `posture` its entry's; the sub-mind variant
+(`DownOption`) is the options fighter's own option, in its files, not a case of the shared shape.
+A strike never walks: its approach (`closes`, `approach`, `position` in its model) goes, and
+reaching a window is `toWindow`'s, the options fighter's included.
+
+Check: the gate; the fingerprint against the commit before, Kinetic's cases unmoved and the
+options fighter's moved cases named.
+
+### 13. Percepts and predictions
+
+A percept reads the senses and the body's own state with fixed geometry and kinematics, and stays
+the same when a profile is regenerated or the rules change: `down`, `orders`, `focus`, `apart`,
+`reach`, `lead`, `left`, the gait's, the unmet, `reaction`, and the threat's estimates `incoming`,
+`phase` and `contact`. Its value is a number or a name, so a cue, an entry, a profile's cell and a
+learned part's input layout read the same thing. A prediction reads data a drill, a training run or
+the rules make, and goes stale with it.
+
+The predictions go behind one interface, asked when an option or the position value needs them,
+never read each step: what a skill brings at a target from here (`readProfile`'s `expect`), what the
+focus deals a second at a range and its reach (`pressure`, `pressing`), what a blow coming costs
+(`danger`), what a fall costs (`downCost`), a hand's blow by the rules (`blows`), and how far the
+focus closes while the senses show it late (`closes`). The hand-built models are its prior, a
+profile like any measured one, so the strike, the pressure, the danger, the fall's cost and the
+gaits keep one branch each. `unbraced` goes: how long until braced is an exit's (`Place.braced`).
+An input layout may name a prediction as a derived input, read through the interface and stale
+with its profile. This is the registry Kinetic step 13's consumers move to.
+
+Check: the gate; the fingerprint against the commit before, its message naming the cases that
+move (a prior a profile rounds as the hand-built arithmetic did, or names the cell that moves);
+the step's time read before and after.
+
+### 14. Where an option leaves the body
+
+An option's exit is a prediction of the percepts it leaves (`Place` widened): the range, the
+bearing around the focus, the posture lying or standing, the seconds until braced and the chance
+of being down, each a percept by name, the rest as now. A position value reads the exit as it
+reads the situation, so a learned one is given every percept and the few terms keep to those they
+read. A profile's cell names the exit percepts its trials ended in, as an edge's `ends` name its
+postures.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike,
+Gait and Cover drills' rungs paired with the step before.
+
+### 15. Kinetic's parts by configuration
+
+Kinetic's config names its position value (`FEW_TERMS` the default), its predictions (the prior,
+the measured tables), its options (each a skill kind and its targets, the list `kineticTactics`
+makes now, in rank order) and the percepts it adds to the toolkit's, an entrant's own as a part is.
+A drill drives Kinetic by its config: its subject's options narrowed to the skill under test and a
+scripted option for its orders, under the same policy, so `KineticConfig.tactics` goes. Each is a
+part role the editor shows ([part roles](2026-10-27-kinetic.md#part-roles)).
+
+Check: the gate; the fingerprint against the commit before, unmoved; the drills read with the
+policy in place of the tactics paired with the step before; a person edits Kinetic's options in
+the Arena and the link carries them.
+
+### 16. The rise chosen by the policy
+
+Each ground technique's entry is its own (`TechniqueRun.admits` on the body as it lies);
+brace, land and steady are options worth their models (what a brace saves while tumbling, what the
+steady's seconds cost); a failure is the edge's expected cost from that posture, read from its
+profile and the attempt's record, in place of `RETRIES` and the back-off; and an edge is worth the
+posture it leaves the body in by the position value (step 14), the lying postures among its places,
+in place of its search to standing. Stand up's supervisor goes from Kinetic's rise.
+
+Check: the gate; by rank, the baseline's flat-footed stand-up stands Stand up's falls fall for
+fall; by worth, paired against its record; the owner looks at a rise in the Lab's Stand-up mode.
+
 ## Not here
 
 - A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
@@ -114,4 +209,10 @@ its phase the percept the policy reads; letting go is measured across the wind-u
 option priced from where it is; every mind is felled and stood on one bed; one case environment
 trains any part on any world kind from a file, the punch's own environment deleted, at a speed read
 on what it trains; and the legs bear on the ends the body's spec names, so a ground technique holds
-only the limbs it moves and writes no muscle itself.
+only the limbs it moves and writes no muscle itself. An option is its entry, claims, model, step
+and status, and a strike never walks; percepts read the senses alone, and every prediction is
+asked of one interface whose prior is a profile, one branch each; an option's exit is the percepts
+it leaves, which any position value reads; Kinetic's position value, predictions, options and
+added percepts are its config's, and a drill drives it by config, not by tactics in its policy's
+place; and the rise is chosen by the policy, each technique on offer by its own entry and worth
+the posture it leaves, with no supervisor.
