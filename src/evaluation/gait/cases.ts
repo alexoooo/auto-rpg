@@ -9,6 +9,7 @@
  */
 import { MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
+import { drilledBy } from "../../core/mind/catalog.ts";
 import type { GaitDrillConfig } from "../../core/mind/drill-gait.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
@@ -46,17 +47,18 @@ function actionOf(mind: MindConfig): string | null {
 
 /** The subject's mind going by `gait` at `speed`, stopping and striking with `hand`: `mind` with the drill in its tactics' slot. */
 export function goer(mind: MindConfig, gait: GaitName, speed: number, hand: GaitHand): MindConfig {
-  if (!("tactics" in mind)) throw new Error(`a ${mind.kind} mind has no tactics slot to drill its gaits in`);
   const action = actionOf(mind);
   if (action === null) throw new Error(`a ${mind.kind} mind throws nothing standing`);
   const tactics: GaitDrillConfig = { kind: "drill-gait", action, effector: `hand.${hand}`, mark: "middle", gait, speed };
-  return deepFreeze({ ...mind, tactics } as MindConfig);
+  const drilled = drilledBy(mind, tactics);
+  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
+  return deepFreeze(drilled);
 }
 
 /** Why `value` is no subject, or what keeps its mind from `model` with empty hands (`mindFaults`). */
 function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const mind = value as unknown as MindConfig | null;
-  if (!mind || typeof mind !== "object" || !("tactics" in mind)) return ["a subject is a mind with a tactics slot to drill its gaits in"];
+  if (!mind || typeof mind !== "object" || !drilledBy(mind, { kind: "drill-gait" })) return ["a subject is a mind a drill drives"];
   if (actionOf(mind) === null) return ["a subject's mind throws a strike standing"];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
   return mindFaults(goer(mind, "braced", 1, "right"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);

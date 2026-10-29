@@ -18,6 +18,7 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
+import { drilledBy } from "../../core/mind/catalog.ts";
 import type { DrillTacticsConfig } from "../../core/mind/drill-tactics.ts";
 import type { PartConfig } from "../../core/mind/parts.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
@@ -39,11 +40,12 @@ export type StrikeSubject = { readonly mind: MindConfig; readonly action: string
  */
 export function striker({ mind, action }: StrikeSubject, hand: Hand, mark: Mark,
   { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {}): MindConfig {
-  if (!("tactics" in mind)) throw new Error(`a ${mind.kind} mind has no tactics slot to drill its skills in`);
   const tactics: DrillTacticsConfig = { kind: "drill", action, effector: `hand.${hand}`, mark, after, ...(pace === undefined ? {} : { pace }), ...(walking ? { walking: true } : {}),
     ...(letGo === undefined ? {} : { letGo }),
-    ...(moment === undefined ? {} : { fight: mind.tactics as PartConfig, moment }) };
-  return deepFreeze({ ...mind, tactics } as MindConfig);
+    ...(moment === undefined ? {} : { fight: ("tactics" in mind ? mind.tactics : null) as PartConfig, moment }) };
+  const drilled = drilledBy(mind, tactics);
+  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
+  return deepFreeze(drilled);
 }
 
 /**
@@ -135,7 +137,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   const kind = (given.mind as { kind?: unknown } | undefined)?.kind;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!("tactics" in given.mind!)) return [`a ${kind} mind has no tactics slot to drill its skills in`];
+  if (!drilledBy(given.mind!, { kind: "drill" })) return [`no drill drives a ${kind} mind`];
   return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
