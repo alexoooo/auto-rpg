@@ -543,7 +543,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| kinetic | `src/core/entrants/kinetic/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer with no low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| kinetic | `src/core/entrants/kinetic/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -594,9 +594,15 @@ let go now, what letting it go leaves), its step (`Step`: what it asks and what 
 asks' `Sight.needs`) and one status (`Status`): committed, yielding, at its exit (a strike's
 stroke's end, its blow's `release`: kept there, it throws its next blow), or over. A strike yields
 before its blow's `commit`, its point of no return; a goal, a cover, the orders and a rest option
-always yield; a ground option where its run says it may. Each claims resources while it runs (`claims`: a strike the legs, the trunk and its
-limbs; a walk to a goal the legs; a ground option the whole body, `WHOLE`). A strike never walks: a
-walk into its window is a goal's (`toWindow`, below). The rest options (`rest.ts`), worth nothing,
+always yield; a ground option where its run says it may. An option's entry is its skill's
+readiness: a strike's its limbs' (its executor refuses a body down and a target out of its band); a
+walk's, holding the position's, following orders' and a hand at its guard's the legs'
+(`legsReadiness`, `src/core/skills/locomotion.ts`: a body down cannot walk), and brace's the
+reverse; a hand's cover is on offer down or standing where no action holds the hand. Each claims
+resources while it runs (`claims`: a strike what its blow needs with the limb it strikes with,
+`Sight.needs`; a walk to a goal the legs; a ground option the whole body, `WHOLE`). A strike never
+walks: a walk into its window is a goal's (`toWindow`, below), priced over the walk into the window
+(`windowDistance`, `src/core/mind/action-window.ts`). The rest options (`rest.ts`), worth nothing,
 take what nothing else is worth more on: hold the position facing the focus (`hold`, the legs),
 each hand at its guard (`guard`), and down, brace (`brace`, the whole body, priced as the rise that
 never stands from where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
@@ -626,7 +632,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what Kinetic perceives with fixed
   geometry and kinematics: each step `situationReader` (`situation.ts`) reads every named percept
   once into the `Situation` (down, the seconds until the body is braced, orders, focus, distance,
-  the blow coming, reach, how late the senses show the focus, the lead and the time left before the
+  the blow coming, how late the senses show the focus, the lead and the time left before the
   clock's verdict; the gait's phase, bearing feet and speed; what the legs and the motor did not
   carry out; the focus's phase, striking, down, rising or clear, `foePhase` in
   `src/core/mind/threat.ts`, and its blow's time to contact); a percept's cue is what a chooser
@@ -673,7 +679,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   strike's window (`toWindow`, on offer while its limbs have a window, `StrikeOption.window`, and
   none is ready; it walks as `approachActionWindow` does and is worth the strike walked there,
   `StrikeOption.through`), and out of the foe's pressure (`OUT_OF_PRESSURE`: past its modelled
-  strikes' reach, `pressureEdge`, by `closes`, how far it walks at its measured fastest walk in the
+  strikes' reach, `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the
   reaction time). Each goes by each gait (`goings`, a `Going`): at the gait's pace, asking it
   (`Intent.gait`), and leaving the body unbraced for the seconds the Gait drill measured the gait
   stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once).
@@ -684,8 +690,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   now, `atExit`), the lead
   expected at the verdict from there, and the rate of play, what a second of the fight is worth
   with the defaults holding the position. One interface; its first implementation is a few terms
-  (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against both reaches
-  (the body's own pressure on the focus there over a held place's time once braced, less the
+  (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against how far each
+  side's modelled strikes reach (`edgeOf`; the body's own pressure on the focus there over a held place's time once braced, less the
   focus's on it),
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a

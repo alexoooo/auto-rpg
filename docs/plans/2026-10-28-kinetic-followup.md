@@ -86,8 +86,8 @@ after skills are trained against it.
   `STEADY_LIMIT`, `BACKOFF`, `RETRIES`, `READY_HOLD`). An edge is priced by a search to standing
   (`toStanding`), not by the posture it leaves the body in; unmeasured on toes, every edge is
   priced alike and taken by rank.
-- **Entries and limits are flags.** An option's entry reads `now.down` and `focus.down` where its
-  skill's readiness already answers (the punch's: "body is down", "target is outside the arm's
+- **Entries and limits are flags** (entries, claims, the walk into reach and low support: step 17,
+  built). An option's entry reads `now.down` and `focus.down` where its skill's readiness already answers (the punch's: "body is down", "target is outside the arm's
   height band"); a strike claims the legs and the trunk whatever its action needs; the walk into a
   strike's reach is priced from the reach percept (`rangeOf`, a stock right-hand punch, 0 for a body
   without both hands), not the strike's own window; a blow from low support is refused (the
@@ -246,22 +246,19 @@ rise in the Lab's Stand-up mode.
 
 ### 17. Entries from the skills
 
-Left: an option is on offer where its skill's readiness admits it, with no flag beside it.
-
-- The strike's entry is its limbs' readiness alone (`strike.ts`, `unfit` loses `now.down` and
-  `focus.down`); the walk into its window is on offer where the strike has a window (`toWindow`
-  loses `now.down`).
-- The legs answer readiness as the executors do: a body down cannot walk. Footwork, hold the
-  position, follow orders and a hand at its guard ask it in place of `now.down`, and brace the
-  reverse.
-- A hand's cover is on offer down where no option holds the hand (`covers`); a ground technique holds
-  only the limbs it moves once step 11 is built.
-- A strike claims what its action needs (`Sight.needs`), not the legs and the trunk by name.
-- The walk into reach is priced from the strike's own window (`Readiness`'s `position`), not
-  `apart − reach.mine`; the reach percept goes where the windows and the pressure's reach
-  (`pressureEdge`) answer, else is read from the body's own actions.
-- A blow from low support is an option like any: the `lower` filter and its config fault go, and
-  the support fold (`support-fold.ts`) is among Kinetic's skills.
+Built: an option is on offer where its skill's readiness admits it. The strike's entry is its limbs'
+readiness, with no `now.down` or `focus.down` beside it; the legs answer whether they can carry the
+body (`legsReadiness`, `src/core/skills/locomotion.ts`), which footwork, hold the position, follow
+orders and a hand at its guard ask, and brace the reverse; a hand's cover is on offer down where no
+action holds the hand; a strike claims what its blow needs with the limb it strikes with
+(`Sight.needs`); the walk into a strike's window is priced over the walk into it
+(`windowDistance`, `src/core/mind/action-window.ts`); the reach percept is gone, the pressure's and
+the pressing's reach read from their models (`edgeOf`), and each side's prior from its hands'
+ranges (both hands, the farther); a blow from low support is a strike like any, the support fold
+among Kinetic's skills.
+At `629cd10d` the fingerprint moved only Kinetic against Kinetic with clubs; the Strike drill's
+five rungs and the Cover drill's two pair with their records at `c5c4bbb0` and `adc1bb47` unchanged
+on every figure: both drills drive Kinetic by a script, which none of this reaches.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
 and Cover drills' rungs paired with the step before.
