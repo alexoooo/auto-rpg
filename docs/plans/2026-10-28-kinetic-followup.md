@@ -61,10 +61,10 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Bearing ends are sides.** `BearingEnd` is `Side` (`src/core/spec/body.ts`), so a legs goal
-  cannot ask for hands or knees; a ground technique holds the whole body and pushes every muscle
-  as its run drives it (`groundExecutor`), and whether the legs can bear on hands and knees is
-  open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
+- **The legs stand only on feet.** A legs goal names any of the body's bearing ends
+  (`BodySpec.ends`), but the legs bear only on its feet and report the rest unmet; a ground
+  technique holds the whole body and pushes every muscle as its run drives it (`groundExecutor`),
+  and whether the legs can bear on hands and knees is open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
 
 ## Steps
 
@@ -75,19 +75,22 @@ Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 
 ### 11. Bearing ends from the body
 
-The ends a body can bear on are its spec's, beside its `marks` (`BodySpec`,
-`src/core/spec/body.ts`): a biped's feet, hands and knees. `BearingEnd` names one of them, not a
-`Side`, and the swing, the footing and the pose's anchors are keyed by it. The legs bear on any set
-of them, carrying the root over them as the ground techniques do now (`carryRoot`, `bearLimbs`,
-`src/core/control/bearing.ts`), or report an end they cannot bear on unmet. A ground technique asks
-its bearing ends in its legs goal and holds only the limbs it moves, so an arm it does not use is
-the policy's for a cover or the guard, and no technique writes the muscles itself (`groundExecutor`,
-`src/core/mind/ground/held.ts`).
+Built: the ends a body can bear on are its spec's (`BodySpec.ends`, `src/core/spec/body.ts`): a
+biped's feet, hands and knees; `BearingEnd` names one, and the swing, the footing, the feet and the
+pose's anchors are keyed by it; the stance walk reports a field naming an end it does not stand on
+unmet (`onStanceFeet`); the probes ask every legs to bear kneeling and on hands and knees, and each
+reports both unmet.
 
-Check: the probes ask the Warrior to bear on each set of ends (standing, kneeling, on hands and
-knees), each borne or reported unmet; the baseline's flat-footed stand-up stands its 32 falls, in
-no longer a median, paired against its record; the owner looks at a rise in the Lab's Stand-up
-mode, its unused arm at the guard.
+Left: the legs bear on any set of the ends, carrying the root over them as the ground techniques do
+now (`carryRoot`, `bearLimbs`, `src/core/control/bearing.ts`; the limbs made from the spec's ends in
+the control layer, `riseLimbs` moved there), from where the body is or by lowering it to them. A
+ground technique then asks its bearing ends in its legs goal and holds only the limbs it moves, so
+an arm it does not use is the policy's for a cover or the guard, and no technique writes the
+muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
+
+Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's
+flat-footed stand-up stands its 32 falls, in no longer a median, paired against its record; the
+owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
 
 ## Not here
 

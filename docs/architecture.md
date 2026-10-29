@@ -331,8 +331,9 @@ pays, `envelopeRunning`), which a mind reads as `Sight.envelopeOf`. An intent ma
 (`Intent.gait`), which the arbiter puts in the legs goal where the action holding the legs asks none.
 **The probes** (`tests/harness/probes.mjs`, run by `tests/probes.test.mjs`) ask each legs-goal
 field and claim term of a standing Warrior, through each gait, the stance walk, Move, each balance
-and motor and the swap stubs: each does it within its limit or reports it undone, and legs or a
-motor that ignore a term and say nothing fail its probe.
+and motor and the swap stubs, and ask the legs to bear kneeling and on hands and knees: each does
+it within its limit or reports it undone, and legs or a motor that ignore a term and say nothing
+fail its probe.
 
 | Skill | File | What it is |
 |---|---|---|
