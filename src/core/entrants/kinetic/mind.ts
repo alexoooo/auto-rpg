@@ -50,8 +50,8 @@ export interface KineticConfig {
 /** The learned straight punch (`PunchPolicy`): the drive the learned puncher throws. */
 const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, learned: true });
 
-/** Its punch with either hand at the trunk's opening, aimed as the learned puncher aims. */
-const STRIKE: ActionConfig = deepFreeze({ name: "strike", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
+/** **The straight punch**: its punch with either hand at the trunk's opening, aimed as the learned puncher aims. */
+const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
 /** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
@@ -59,7 +59,7 @@ const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise:
 
 /** As it starts: by worth, the learned punch, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
 const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH], actions: [STRIKE], ground: STAND_UP.techniques });
+  executors: [PUNCH], actions: [STRAIGHT_PUNCH_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
