@@ -12,7 +12,7 @@ import type { Ground } from "./ground.ts";
 import { asking, READY, WHOLE, type Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
 import type { Going } from "./position.ts";
-import { guard, hold, still } from "./rest.ts";
+import { guardOf, hold, still } from "./rest.ts";
 import type { StrikeOption } from "./strike.ts";
 import type { Walker } from "./walk.ts";
 
@@ -66,8 +66,8 @@ export const COVER_OPTION = kind("covers", "Cover", (given) => given.hands.optio
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
-/** **Each hand at its guard** (`guard`), rest options. */
-export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => [...new Set((given.spec.effectors ?? []).map((effector) => effector.segment))].map(guard));
+/** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
+export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
 
 /** **Brace**, down (`Ground.rest`), a rest option. */
 export const BRACE_OPTION = kind("brace", "Brace", (given) => [given.ground.rest]);

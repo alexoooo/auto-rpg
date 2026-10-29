@@ -1,4 +1,5 @@
 import type { Resource, TargetRef } from "../../../skills/action.ts";
+import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import { legsReadiness } from "../../../skills/locomotion.ts";
 import { asking, blocked, NOTHING, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
@@ -23,11 +24,21 @@ export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
     entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: walk.kept(now, { move: null, face: walk.facing(now), actions: [] }), holds: NOTHING }) };
 }
 
-/** **A hand at its guard**, where the legs can carry the body (`legsReadiness`): `hand` (an effector, `hand.left`) asked for nothing, its guard the body's. */
-export function guard(hand: Resource): Option {
-  return { name: `guard ${hand.slice(hand.indexOf(".") + 1)}`, claims: Object.freeze([hand]), state: {}, ...RESTING,
+/**
+ * **The hands at their guard**, where the legs can carry the body (`legsReadiness`): each of
+ * `hands` (effectors, `hand.left`) it is given (a rest option takes whichever are free, `Chooser`)
+ * asked for nothing, its guard the body's.
+ */
+export function guard(hands: readonly Resource[]): Option {
+  return { name: "guard", claims: Object.freeze([...hands]), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING }) };
 }
+
+/** **The guard of `spec`'s hands** (`guard`): over its hands (`hand.left`, `hand.right`), none for a body without. */
+export const guardOf = (spec: BodySpec): readonly Option[] => {
+  const hands = (["hand.left", "hand.right"] as const).filter((hand) => spec.segments.some((segment) => segment.name === hand));
+  return hands.length ? [guard(hands)] : [];
+};
 
 /** A brace's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
