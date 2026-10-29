@@ -344,7 +344,7 @@ fail its probe.
 |---|---|---|
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`LegsGoal.footing`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `LegsDrive`) when asked past its walk and allowed (`Locomotion.runs`) |
-| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Kinetic names one and has no rules); Classic's is `MOVE` |
+| Move | `move.ts` | chooses among its gaits (`MoveConfig.gaits`, each a name, a label and any other walk's config as its legs; the stock `STOCK_GAITS`, `gaits.ts`, where it names none) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Kinetic names one and has no rules); Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
 its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
@@ -606,8 +606,9 @@ Each claims resources while it runs (`claims`: a strike what its blow needs with
 strikes with, `Sight.needs`; the cover the hand on the blow's side; a gait's walk the legs; a
 ground option the whole body, `WHOLE`). An option may have targets to run at (`Option.targets`, a
 gait's destinations), which the chooser prices it at, aiming it at the best (`Option.aim`). A
-strike never walks: a walk into its window is a gait's, to a destination (`toWindowOf`, below),
-priced over the walk into the window (`windowDistance`, `src/core/mind/action-window.ts`). The rest
+strike never walks: a walk into its window is a gait's, to a place (`windowPlace`, below), and the
+strike is priced there as at any place (`Option.at`), its window tested at the place's spot
+(`windowHolds`, the ready limb's window carried by its readiness, `Readiness.window`). The rest
 options (`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position
 facing the focus (`hold`, the legs), the hands at their guard (`guard`, over the body's hands,
 `guardOf`), and down, brace (`brace`, the whole body, priced as the rise that never stands from
@@ -685,17 +686,22 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   parts that read them declare (`Part.reads`); an entrant's own profiles would be a key of their
   own. Each reader says how it is priced: a strike (`StrikeOption.priced`), the pressure, the rise
   (`Ground.priced`); Kinetic reports them (`Profiles`).
-- **Footwork** (`goals.ts`): an option a gait (`moveBy`), run at whichever destination
-  (`Destination`) it is worth most to walk to: into each strike's window (`toWindowOf`, a place to
-  walk to while its limbs have a window, `StrikeOption.window`, and none is ready; it walks as
-  `approachActionWindow` does and is worth the strike walked there, `StrikeOption.through`), and
-  out of the foe's pressure (`toGoalOf` of `OUT_OF_PRESSURE`: past its modelled strikes' reach,
-  `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the reaction time). A goal
-  (`Goal`) is a band of the range to the focus whose ends are read each step, never metres written
-  down; `toGoal` walks to one, facing the focus, priced by where it leaves the body. A gait
-  (`goings`, a `Going`) goes at its pace, asking it (`Intent.gait`), and leaves the body unbraced
-  for the seconds the Gait drill measured it stopping to strike, at its share fallen
-  (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a destination; another gait, an option.
+- **Footwork** (`places.ts`): an option a gait (`walkBy`), run at whichever place
+  (`Destination`) it is worth most to walk to, each derived from a skill or the foe, each source
+  of places a kind of option: into each strike's window where its readiness gives one
+  (`walk-into-windows`, `windowPlace`, `windowSpot`, `src/core/mind/action-window.ts`), and out of
+  the foe's pressure (`walk-out-of-pressure`, `outOfPressure`: past its modelled strikes' reach,
+  `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the reaction time), on
+  the line from the focus. A place names its spot on the ground (`Spot`);
+  the walk there (`walkTerms`) is priced by the route's length at the gait's pace in each direction
+  to the focus, the foe's pressure while within its reach on the way, and where it leaves the body:
+  the range and the bearing around the focus, turned by what the focus turns while the walk lasts
+  (`Predictions.turns`, its measured turn, `turnAt`). A gait (`goings`, a `Going`) goes at its pace,
+  asking it (`Intent.gait`), and leaves the body unbraced for the seconds the Gait drill measured it
+  stopping to throw each strike (`ready`, by the action), at its share fallen
+  (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
+  gait, an option of each kind; another source of places, a kind. What a walk's place is worth
+  beyond the position is the chooser's to look past (below).
 - **The value of a position** (`PositionValue`, `position.ts`): what a place is worth in life
   (`Place`: a prediction of the percepts an option leaves, each by its name: the range head to head
   to the focus, `range`, the chance the body is down there, the seconds until it is braced there,
@@ -705,14 +711,16 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   with the defaults holding the position. One interface; its first implementation is a few terms
   (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against how far each
   side's modelled strikes reach (`edgeOf`; the body's own pressure on the focus there over a held place's time once braced, less the
-  focus's on it),
+  focus's on it once it has turned to face the body, `turning`),
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
   `src/core/mind/chooser-part.ts`) in Kinetic's `chooser` slot, its own parts (`valued`, `ranked`;
-  `depth` 1, `chooserOf`), takes the option on offer of highest
-  worth, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/tactics.ts`),
+  `depth`, `chooserOf`), takes the option on offer of highest
+  worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
+  offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
+  `placed`), never the world forked, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/tactics.ts`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
   its claims; with none, the target, the foe whose situation's best option is worth most, the one

@@ -8,8 +8,8 @@ to go and at what gait, the rise, holding still) is an option; nothing is chosen
 (built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, the rise as options,
 `groundOptions`, each edge priced by its expected time to standing; the cover, `covers`,
 priced by the share of the blow on the head it keeps off; and an option a gait walking where it
-is worth most of the destinations made from the skills, `moveBy`, `toWindowOf` and
-`OUT_OF_PRESSURE`).
+is worth most of the places made from the skills, `walkBy`, `windowPlace` and
+`outOfPressure`, each looked past to the best option there, `lookingPast`).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -137,7 +137,7 @@ committed, yields, at its exit, or over; `begin` and `end` stay its memory's). I
 it asks and what that holds (`Step`), and Kinetic's intent is the set it selected, each member's
 claims, holds and asks (`SelectedAsk`), made one intent by the toolkit (`intentOfSet`,
 `src/core/mind/intent.ts`); other minds write the intent as before. `posture` and `near` went:
-nothing read them. A strike never walks: reaching a window is a gait's (`toWindowOf`), and the sub-mind
+nothing read them. A strike never walks: reaching a window is a gait's (`windowPlace`), and the sub-mind
 option went with the options fighter. `rest` stays the option's own mark: by rank the rest options
 are last, the floor, and by worth a rest option wins a tie, so neither its rank nor its model
 (brace is priced as a rise that never stands) can say it.
@@ -294,22 +294,9 @@ paired with the step before.
 
 ### 19. A blow at a foe on the ground
 
-Left: Kinetic strikes a foe lying within reach of a stomp, and of the downward blow from low support
-where its target is high enough (the grounded combat record lands almost nothing 0.27 m off the
-floor).
-
-- A stomp: the kick executor (`kick.ts`) driving the sole down onto a lying target, with the front
-  kick's support transfer, chamber and return; its readiness gives a window beside the lying body.
-- The downward blow (`PATH_STRIKES`' `downward`) among Kinetic's actions, from the support fold.
-- Each a strike option and a walk into its window, priced by hand, then by a drill: a rung on a
-  lying Warrior and a lying Skeleton. A foot's blow is priced by the rules as a hand's is
-  (`priorOf` prices hands alone, a foot's blow at nothing).
-- Time against a foe on the ground is priced by its rise: a blow that lands after the foe's
-  predicted rise is worth the blow on a standing foe, as the body's own rise is priced (`riseFrom`),
-  so a stomp 10 m off is worth less than one at hand.
-
-In part: the stomp is built and measured. It is the front kick with its settings as config keys
-(`KICK_PART`), its chamber over the target and its height band low
+Built: Kinetic strikes a foe lying within reach of a stomp; the downward blow from low support is
+not needed for now (the owner's decision). The stomp is the front kick with its settings as config
+keys (`KICK_PART`), its chamber over the target and its height band low
 ([stomp settings](../reference/front-kicks.md#stomp-settings)), among Kinetic's actions with either
 foot at the trunk's middle. A walk into a window on a lying body goes round it to a place beside it
 where both feet stand clear of its limbs (`Window.on`, `approachActionWindow`), the body named by
@@ -319,103 +306,93 @@ Warrior and a Skeleton lying limp on their backs; each reading records the targe
 range, which the profiles cut their cells by. A kick returns to its chamber, carried with the
 pelvis, before it is placed, so a stomp's foot is withdrawn clear of the body it struck; its stroke
 is braced (`EffectorGoal.firm`), and a leg it leaves straight is bent to come back
-(`EffectorGoal.unbend`); a kick squares its stance in one step. At `2c92392a` the rung lands 10 of
-12, none falls or stalls; the best blow has 17.6 kg behind the foot at the median, 37 J on the
-Warrior and 13 J on the light Skeleton, 0.22 to 0.43 HP a trial on the Warrior (the punch's 0.2 to
-1.3), the kick 5.8 s from its start to its end, and its profile (`2d80df8e`) has
-Kinetic stomp a lying body under its own chooser. Left: the downward blow from low support.
+(`EffectorGoal.unbend`); a kick squares its stance in one step, and has no startup or cooldown
+timer: it waits only while one is under way. At `2c92392a` the rung lands 10 of 12, none falls or
+stalls; the best blow has 17.6 kg behind the foot at the median, 37 J on the Warrior and 13 J on the
+light Skeleton, 0.22 to 0.43 HP a trial on the Warrior (the punch's 0.2 to 1.3), the kick 5.8 s
+from its start to its end, and its profile (`2d80df8e`) has Kinetic stomp a lying body under its
+own chooser.
 
 Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
 fallen Duellist Skeleton in the Arena.
 
 ### 20. Looking one option past
 
-Left: a walk is priced by its gait and the place it leaves the body, not by the strike it brings,
-and the chooser looks one option past each option that moves the body.
-
-- An option's worth at depth 2 is its own terms, then the best option on offer where it leaves the
-  body, priced at that place (`Place`, its percepts predicted, step 14) less its time at the rate
-  of play. Only an option whose exit moves the body (a walk, a strike) is looked past: a rest option
-  or a cover leaves it where it is, and the best there is the best now.
-- The lookahead reads the options' models at their predicted exits, never the world: the game runs
-  in real time, and no decision forks, copies or rebuilds the world's state. A forked bout is for
-  offline work (training, evaluation, replay).
-- An option answers at a place as well as now: its entry there and its model there, from the
-  percepts the place predicts (`atExit`). A strike is on offer at a place that lies in the window
-  its readiness gives now, and reads its profile at the place's range and the focus's predicted
-  posture; an option whose entry reads nothing a place predicts answers as it does now.
-- The walk into a strike's window is today that one pairing built by hand: `toWindowOf` prices the
-  walk by `StrikeOption.through` (the walk, braced, then the blow), which is how Kinetic walks to
-  a lying body and stomps it. `through` goes, and the walk into a window is a gait toward a goal
-  priced by its own profile, as a walk to a goal is (`toGoalOf`); the strike prices no walk, and the
-  stomp after the walk is the best option at the walk's exit. A walk then any option (out of
-  pressure then a strike, a walk then a cover) is priced the same way, with no pairing written.
-- Its time is read as the step's is: on Node a simulated depth 2 (each option on offer priced
-  again for each, this step's readings reused) took a decision from 0.15 to 0.52 ms at the median and a
-  Kinetic v Kinetic bout's step from 2.76 to 2.91 ms on the mean (Rapier, 120 Hz, 30 s, the toed
-  Warrior, performance cores, at `8a30589e`); a real one also reads the percepts each place
-  predicts.
+Built: a walk is priced by its gait and the place it leaves the body, and the chooser looks one
+option past it. The valued chooser at depth 2 (Kinetic's) adds to a walk the best worth of the
+options that answer at the spot it leaves the body (`lookingPast`, `Option.at`), at the situation
+the place predicts (`placed`), at the chance the body is up there, less the best of them on offer
+now; only a walk names a spot (`Place.at`), so only a walk is looked past. It reads the options'
+models at the place, never the world. A strike prices no walk (`through` went): it answers at a
+place whose spot lies in its window (`windowHolds`), the ready limb's window carried by its
+readiness (`Readiness.window`), after the seconds the gait leaves that strike unready
+(`Going.ready`, each gait's profile stopping to throw each strike, by the action). A gait is any of
+Move's (`MoveConfig.gaits`, config entries; the stock ones, `STOCK_GAITS`, where it names none).
+At `d597bd5b` the stomping rung lands 10 of 12 as at `2c92392a`, none falls, 17.6 kg behind the
+foot at the median. Kinetic under its own chooser stomps a lying Skeleton at 0.8, 1 and 1.2 m within
+3.3 s, and a lying Warrior at 0.8 and 1 m but not at 1.2 m in 20 s (at `fe82cf01`, first at 9.2 s):
+the place beside the body flips between its sides ([roadmap](../roadmap.md#the-ai)). A Kinetic v
+Kinetic bout's step (toed Warriors, 30 s; Node, Rapier, 120 Hz) has a mean of 3.23 ms against 3.00
+and a median of 2.29 against 2.23; the Crypt runs no Kinetic.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
 and Gait drills paired with the step before; Kinetic still walks to a lying Skeleton and stomps it;
-the step's time read before and after, and in a Crypt run with its most bodies.
+the step's time read before and after.
 
 ### 21a. Places at distance from the foe
 
-Left: footwork walks to places at a distance from the focus, each derived from a skill or the foe's
-model, in place of its named destinations. It needs step 20: between bodies alike, a place priced
-by the position value alone is worth about nothing (`toWindowOf`), so a walk is worth the best
-option at its end.
-
-- **The places**: footwork (an option a gait, as now) is aimed at candidate places, each derived:
-  - each strike's window, as its readiness gives it: a range facing the focus for the punch, a
-    place beside a lying body for the stomp (`Window.on`), walked to as now (`approachActionWindow`);
-  - the foe's reach edge plus what it closes in the senses' lag (`edgeOf` of the pressure plus
-    `closes`, what `OUT_OF_PRESSURE` reads now), walked to as a range (`MovementRequest`'s `range`);
-  - where the body stands.
-
-  A new strike adds its window; no distance is set by hand.
-- **The foe's reach where nothing measured it**: a foe with no profile measured on its body is
-  modelled by Kinetic's own strikes, read at their measured ranges (`foeModel`, "as its own
-  strikes"), so an unmeasured Skeleton's shorter arms or a Rogue's club read as the Warrior's punch.
-  Such a borrowed profile's ranges are read scaled by the two bodies' reach (`armOf`, and a held
-  item's points where it is armed), and the reading says so (`scaled`).
-- **Its price**: the gait's own profile (the time at its pace, the seconds until braced, the
-  chance it falls; `Going`) and the foe's pressure while within its reach on the way; its exit the
-  place's range, so the position value prices it and step 20 adds the best option there. The walk
-  stays kept out of every fallen body's reach but the focus's (`Walker.kept`).
-- **What goes**: `toWindowOf`, `toGoalOf`, `OUT_OF_PRESSURE` and the `Goal` band type.
-  `StrikeOption.window` stays: a source of places and the strike's own readiness.
-- Kinetic walks about as now; a case that moves is named.
+Built: footwork walks to places derived from the skills and the foe's model, each a spot on the
+ground (`Spot`), in place of the named goals (`toWindowOf`, `toGoalOf`, `OUT_OF_PRESSURE` and the
+`Goal` band went). Each source of places is a kind of option, one option a gait (`walkBy`): into
+each strike's window as its readiness gives it (`walk-into-windows`, `windowPlace`), and out of the
+focus's pressure on the line from it, past its modelled strikes' reach by what it closes in the
+senses' lag (`walk-out-of-pressure`, `outOfPressure`). Holding still is the hold option. A walk is
+priced by its route at the gait's pace in each direction to the focus, the foe's pressure while
+within its reach on the way, and where it leaves the body; the best option there is the chooser's
+(step 20). Each walk stays kept out of every fallen body's reach but the focus's (`Walker.kept`).
+Baseline fights (60 bouts: the Duellist and Vanguard on the Warrior, both sides, five loadouts,
+three gaps) at `054ed4b3` against `fe82cf01`: a score of 0.383 against 0.417, paired -0.033 +- 0.071;
+a margin of -0.032 against -0.048, paired +0.016 +- 0.037. The fingerprint moved only Kinetic v
+Kinetic with clubs.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
-and Gait drills paired with the step before; Kinetic against an unmeasured foe of another reach
-read with and without the scaled reach (`npm run match`).
+and Gait drills paired with the step before.
 
 ### 21b. A bearing around the foe
 
-Left: footwork sidesteps and circles: the places of 21a at bearings around the focus, priced by
-what a bearing changes.
+In part: a bearing is priced; no place moves the body round the foe. The bearing around the focus
+is a percept (`around`) a place predicts (`walkTerms`: the spot's bearing, less what the focus
+turns while the walk lasts), and the position value reads it: the foe's pressure waits the time it
+takes to turn to face the body (`turning`, at its measured turn, `Predictions.turns`, `turnAt`;
+1 rad/s on the Warrior). Tried and not kept: a place behind the focus, round its flank. Two
+Kinetics circled each other at the full turn, the walk behind and the walk straight in priced
+within a thousandth of a life of each other and swapped every rethink, and neither struck for
+1.7 s at 0.9 m; against the Duellist and Vanguard it gained nothing (a score of 0.367 against
+0.417, paired -0.05 +- 0.065). Left: bearings from the edges of the foe's striking arc, which its
+model gives once a strike profile has bearing as a dimension (a Strike drill rung that strikes from
+off the foe's front), so a place aside is on offer only where the foe's arc is narrower than the
+body's own.
 
-- **The places**: each distance at the bearing the body holds and a step to either side of it.
-  The bearing is a percept (`around`, from the focus's forward direction) that a place may predict
-  (`Place`); nothing prices it yet. The walk is to a point (`MovementRequest`'s `place`), so it is
-  routed round walls.
-- **What a bearing is worth**: the position value reads it. A strike needs its striker to face its
-  target, so the foe's pressure from its side or back waits the time it takes to turn (its turn
-  rate, measured), and the body's strikes the same. By hand first, the owner's decision sourced;
-  then measured by a Strike drill rung that strikes from off the foe's front, the strike profiles
-  gaining bearing as a dimension beside range and the foe's phase.
-- **Dithering**: neighbouring bearings price alike, so the choice may flip between them. The cost
-  of letting an option go (`Offer.letGo`) and the chooser's rethink (`DECIDING`, 0.2 s) damp it; a
-  bout watched decides whether more is needed.
+Check: the gate; the fingerprint against the commit before, the cases that move named; the
+baseline fights against their records; the owner watches a bout for circling and dithering.
 
-Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
-and Gait drills paired with the step before; the baseline fights against their records; the step's
-time in a Crypt run with its most bodies; the owner watches a bout for circling and dithering.
+### 21c. A foe's reach by its limbs and what it holds
+
+Left: a foe with no profile measured on its body is modelled by Kinetic's own strikes (`foeModel`,
+"as its own strikes"), read at Kinetic's ranges, and its prior's reach counts its hands alone
+(`handsReach`), so a club or a kick reads as a punch. A borrowed profile's ranges and the prior's
+reach are read by the limb the strike is of (an arm, a leg, or the held item's points where it is
+armed), scaled by the two bodies', and the reading says so (`scaled`). The held item needs the
+senses to carry what a body holds. Between bare-handed bodies the arms differ by a few per cent
+(the Rogue's hands reach 0.97 of the Warrior's, the Skeleton's 1.12).
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; Kinetic
+against an unmeasured foe of another reach, with and without the scaling (`npm run match`).
 
 ## Not here
 
+- The downward blow from low support: the stomp strikes a foe on the ground for now (the owner's
+  decision).
 - A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
   where a drill shows a place the two lose.
 - Other minds' deciding: other minds keep their Move rules, Stand up, their conditions and the
