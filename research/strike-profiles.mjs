@@ -8,14 +8,15 @@
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
  * reached the drill). A record that does not hold that phase is refused: its rung is played again. The `walk`
  * rung is left out: the range it was asked at is not recorded.
- * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go.
+ * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go,
+ * at the progress of the motion it was let go at (the seconds from its start, to the step).
  *
  * A cell's trials: the share that landed; the hit points the rules took from the target in every
  * contact of the striker's on it (`StrikeContact.damage`), and those the striker lost in them; the seconds from the first step the
  * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
- * own length); and the share that ended down. Its cost of letting go, over the trials let go: the
- * seconds from the let-go until the strike was ready again (the trial's end where it was not), and
- * the hit points the striker lost meanwhile.
+ * own length); and the share that ended down. Its cost of letting go, by progress, over the trials
+ * let go there: the seconds from the let-go until the hand was back at its guard (the trial's end
+ * where it was not), and the hit points the striker lost meanwhile.
  *
  *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl> ...] [--write]
  *
@@ -72,11 +73,15 @@ for (const path of paths) {
     const phase = row.reading.foePhase;
     if (phase === null) continue;
     const cellKey = JSON.stringify([row.condition.gap, phase]);
-    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, let: 0, letSeconds: 0, letTaken: 0 };
+    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, lets: new Map() };
     profile.cells.set(cellKey, cell);
     const r = row.reading;
     if (drill.letGo !== undefined) {
-      if (r.letGo) { cell.let++; cell.letSeconds += (r.letGo.again ?? r.seconds) - r.letGo.at; cell.letTaken += r.letGo.opening; }
+      if (r.letGo) {
+        const progress = Math.round((r.letGo.at - r.began) * hz) / hz, at = cell.lets.get(progress) ?? { n: 0, seconds: 0, taken: 0 };
+        cell.lets.set(progress, at);
+        at.n++; at.seconds += (r.letGo.again ?? r.seconds) - r.letGo.at; at.taken += r.letGo.opening;
+      }
       continue;
     }
     cell.trials++;
@@ -93,10 +98,10 @@ const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles
   cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
     range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
     seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [],
-    ...(c.let ? { letGo: { seconds: round(c.letSeconds / c.let), taken: round(c.letTaken / c.let) } } : {}) })) })) };
+    ...(c.lets.size ? { letGo: [...c.lets].sort(([a], [b]) => a - b).map(([progress, at]) => ({ progress: round(progress), seconds: round(at.seconds / at.n), taken: round(at.taken / at.n) })) } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz, senses ${profile.measured.reaction} s late)`);
-  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.seconds} s, taken ${c.letGo.taken} HP` : ""}`);
-  for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${c.let} times, no trial thrown: left out`);
+  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.map((at) => `at ${at.progress} s, ${at.seconds} s, taken ${at.taken} HP`).join("; ")}` : ""}`);
+  for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${[...c.lets.values()].reduce((n, at) => n + at.n, 0)} times, no trial thrown: left out`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

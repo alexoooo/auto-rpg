@@ -48,7 +48,7 @@ export interface Target {
  * rules' damage, each a share of a body's life once over that body's hit points), the seconds a
  * trial ran, the share that ended with the body down, and where those not done came to rest (an
  * edge's positions), each with its share; and, where its drill let it go from there before its
- * point of no return, what that cost.
+ * point of no return, what that cost at each progress of the motion it was let go at.
  */
 export interface ProfileCell {
   readonly range: number;
@@ -60,8 +60,12 @@ export interface ProfileCell {
   readonly seconds: number;
   readonly down: number;
   readonly ends: readonly { readonly at: string; readonly share: number }[];
-  /** What letting it go before its point of no return cost: the seconds until it could begin again, and the hit points its body lost meanwhile; absent where no drill let it go. */
-  readonly letGo?: { readonly seconds: number; readonly taken: number };
+  /**
+   * What letting it go before its point of no return cost, by the progress of the motion it was let
+   * go at (s from its start, in order): the seconds until the hand was back at its guard, and the
+   * hit points its body lost meanwhile; absent where no drill let it go.
+   */
+  readonly letGo?: readonly { readonly progress: number; readonly seconds: number; readonly taken: number }[];
 }
 
 export interface Profile {
@@ -75,14 +79,16 @@ export interface Profile {
 export interface ProfilePlace {
   readonly range: number;
   readonly phase: string;
+  /** How far the motion is under way, s from its start; absent, not begun. */
+  readonly progress?: number;
 }
 
 /**
  * **What a skill is expected to bring from a place** (`ProfileReading.expect`), in life, a share
  * of a body's full life: the share done; the struck body's life its blows take; its own body's life
  * lost; the seconds a trial ran; the chance it ends down; where those not done came to rest; and,
- * where its drill let it go there, what letting it go cost (the seconds until it could begin again,
- * and its own life lost meanwhile).
+ * where its drill let it go there, what letting it go at the place's progress cost (its nearest
+ * measured: the seconds until the hand was back at its guard, and its own life lost meanwhile).
  */
 export interface Expected {
   readonly done: number;
@@ -145,8 +151,11 @@ export function readProfile(profile: Profile, striker: BodySpec): ProfileReading
         if (d < distance) { best = cell; distance = d; }
       }
       if (!best) return null;
+      const progress = at.progress ?? 0;
+      let letGo: NonNullable<ProfileCell["letGo"]>[number] | null = null;
+      for (const one of best.letGo ?? []) if (!letGo || Math.abs(one.progress - progress) < Math.abs(letGo.progress - progress)) letGo = one;
       return { done: best.done, dealt: struck ? best.dealt / struck.wounds.hp.value : 0, taken: best.taken / own, seconds: best.seconds, down: best.down, ends: best.ends,
-        ...(best.letGo ? { letGo: { seconds: best.letGo.seconds, taken: best.letGo.taken / own } } : {}) };
+        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}) };
     },
     peak(phase, struck) {
       const at = phaseOf(phase), hp = struck.wounds.hp.value;

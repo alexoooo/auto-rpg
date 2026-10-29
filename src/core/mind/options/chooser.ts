@@ -8,12 +8,8 @@ import { eventOf } from "./percepts.ts";
 import { FEW_TERMS } from "./position.ts";
 import { OBEDIENCE, STEADY, worth, type ObedienceLevel, type Terms } from "./value.ts";
 
-/**
- * When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`); the
- * running option is worth `keep` more than its value while it goes on, so that two near alike do
- * not trade places each decision.
- */
-export interface Deciding { readonly rethink: number; readonly keep: number }
+/** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
+export interface Deciding { readonly rethink: number }
 
 /**
  * **Choosing by chance**: among the options worth more than the best less `margin` (in the worth's unit), one drawn in
@@ -22,11 +18,8 @@ export interface Deciding { readonly rethink: number; readonly keep: number }
  */
 export interface Chance { readonly margin: number; readonly seed: number }
 
-/** How a ranked chooser decides (`Deciding`). */
-const RANKED_DECIDING: Deciding = Object.freeze({ rethink: .2, keep: .5 });
-
-/** How a valued chooser decides: a running option kept above its rivals by 1/600 of a life (`worth`), the owner's decision. */
-const VALUED_DECIDING: Deciding = Object.freeze({ rethink: RANKED_DECIDING.rethink, keep: 1 / 600 });
+/** How a chooser decides (`Deciding`), by rank or by worth. */
+const DECIDING: Deciding = Object.freeze({ rethink: .2 });
 
 /**
  * An option's worth at a decision, the terms it was weighed from, how much it changes the position
@@ -62,7 +55,7 @@ export interface Chooser {
  * Once a control step (`decide`), on an event, when an option running is over or out of its entry,
  * when the first chosen reaches its exit, or `rethink` s on, it decides afresh: a running option
  * that does not yield keeps what it claims; then, of the options on offer (`onOffer`), each running
- * one raised by `keep` and what letting it go costs (`Offer.letGo`), it takes the best (drawn by
+ * one raised by what letting it go costs (`Offer.letGo`), it takes the best (drawn by
  * `chance` where it gives a margin), then the best of the rest whose claims are still free, the
  * first of equals, until none is left. The rest options (`hold`, `guard`, `brace`) take a resource
  * nothing else is worth more on. Its memory is which options run (their places in `options`, the
@@ -101,7 +94,7 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
       options.forEach((option, i) => {
         values.push(-Infinity);
         if (chosen.includes(i) || !onOffer(option, now)) return;
-        const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? deciding.keep + offer.letGo : 0);
+        const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
         state.offers.push(offer);
         values[i] = value;
         order.push(i);
@@ -194,7 +187,7 @@ export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
       const terms = option.model(now), { worth: value, moves, letGo } = worth(terms, now, obedience, FEW_TERMS);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
-    }, VALUED_DECIDING, { margin: config.margin ?? 0, seed });
+    }, DECIDING, { margin: config.margin ?? 0, seed });
   },
 });
 
@@ -205,5 +198,5 @@ interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 export const RANKED_CHOOSER: ChooserPart<RankedConfig> = deepFreeze({
   role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults,
-  make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), RANKED_DECIDING),
+  make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), DECIDING),
 });

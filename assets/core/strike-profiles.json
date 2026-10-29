@@ -3,9 +3,9 @@
     "script": "research/strike-profiles.mjs",
     "records": [
       "assets/evaluations/baseline/2026-10-29-3e6e204c-1be9aa1c.jsonl",
-      "assets/evaluations/strike/2026-10-29-3e6e204c-7706d46e.jsonl",
+      "assets/evaluations/strike/2026-10-29-b749d57c-23f408cd.jsonl",
       "assets/evaluations/strike/2026-10-29-3e6e204c-7b408abf.jsonl",
-      "assets/evaluations/strike/2026-10-29-3e6e204c-9f5483fb.jsonl",
+      "assets/evaluations/strike/2026-10-29-b749d57c-fc7d6c28.jsonl",
       "assets/evaluations/strike/2026-10-29-3e6e204c-a103b003.jsonl",
       "assets/evaluations/strike/2026-10-29-3e6e204c-e959b495.jsonl"
     ]
@@ -56,10 +56,13 @@
           "seconds": 2.4028,
           "down": 0,
           "ends": [],
-          "letGo": {
-            "seconds": 0.0167,
-            "taken": 0
-          }
+          "letGo": [
+            {
+              "progress": 0.0083,
+              "seconds": 0.0083,
+              "taken": 0
+            }
+          ]
         },
         {
           "range": 0.9,
@@ -82,10 +85,13 @@
           "seconds": 3.425,
           "down": 0,
           "ends": [],
-          "letGo": {
-            "seconds": 0.0167,
-            "taken": 0
-          }
+          "letGo": [
+            {
+              "progress": 0.0083,
+              "seconds": 0.0083,
+              "taken": 0
+            }
+          ]
         },
         {
           "range": 1.1,
@@ -108,10 +114,13 @@
           "seconds": 2.5417,
           "down": 0,
           "ends": [],
-          "letGo": {
-            "seconds": 0.0167,
-            "taken": 0
-          }
+          "letGo": [
+            {
+              "progress": 0.0083,
+              "seconds": 0.0083,
+              "taken": 0
+            }
+          ]
         },
         {
           "range": 1.3,
@@ -134,10 +143,13 @@
           "seconds": 0.6042,
           "down": 0,
           "ends": [],
-          "letGo": {
-            "seconds": 0.0208,
-            "taken": 0
-          }
+          "letGo": [
+            {
+              "progress": 0.0083,
+              "seconds": 0.0292,
+              "taken": 0
+            }
+          ]
         }
       ]
     }

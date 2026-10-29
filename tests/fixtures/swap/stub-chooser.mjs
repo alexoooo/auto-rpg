@@ -12,7 +12,7 @@ export const STUB_CHOOSER = Object.freeze({
   fits: anyBody, faults: () => [],
   make(_config, options) {
     const counts = { stub: "stub-chooser", steps: 0 };
-    const inner = chooser(options, (option, i) => { counts.steps++; return { name: option.name, worth: options.length - i, terms: null }; }, { rethink: .2, keep: .5 });
+    const inner = chooser(options, (option, i) => { counts.steps++; return { name: option.name, worth: options.length - i, terms: null }; }, { rethink: .2 });
     return { state: { counts, inner: inner.state }, decide: inner.decide, get running() { return inner.running; }, get offers() { return inner.offers; } };
   },
 });
