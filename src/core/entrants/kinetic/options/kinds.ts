@@ -10,7 +10,7 @@ import type { covers } from "./cover.ts";
 import type { Ground } from "./ground.ts";
 import { asking, READY, WHOLE, type Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
-import { outOfPressure, walkBy, windowPlace } from "./places.ts";
+import { outOfPressure, walkBy, windowPlace, type Destination } from "./places.ts";
 import type { Going } from "./position.ts";
 import { guardOf, hold, still } from "./rest.ts";
 import type { StrikeOption } from "./strike.ts";
@@ -47,15 +47,18 @@ export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followO
 /** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
-/**
- * **Footwork**: an option a gait (`walkBy`), each going where it is worth most of the places made from
- * the skills and the focus's model: each strike's window (`windowPlace`), and out of the focus's
- * pressure (`outOfPressure`).
- */
-export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) => {
-  const destinations = [...given.strikes.map((one) => windowPlace(one, given.walk)), outOfPressure(given.walk)];
-  return given.gaits.map((going) => walkBy(going, destinations, given.walk));
-});
+/** A kind of footwork, `kind`, labelled `label`: an option a gait (`walkBy`), each going where it is worth most of the places `places` makes. */
+const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
+  kind(name, label, (given) => {
+    const destinations = places(given);
+    return given.gaits.map((going) => walkBy(going, destinations, given.walk));
+  });
+
+/** **Walking into a strike's window**: footwork to each strike's (`windowPlace`), so a new strike adds its own place. */
+export const WINDOWS_WALK = footwork("walk-into-windows", "Walk into strike windows", (given) => given.strikes.map((one) => windowPlace(one, given.walk)));
+
+/** **Walking out of the focus's pressure**: footwork past where its modelled strikes reach (`outOfPressure`). */
+export const PRESSURE_WALK = footwork("walk-out-of-pressure", "Walk out of pressure", (given) => [outOfPressure(given.walk)]);
 
 /** **The rise**: down, the ground's options (`groundOptions`). */
 export const RISE_OPTION = kind("rise", "Rise", (given) => given.ground.options);
@@ -110,11 +113,11 @@ export const scriptsOf = (configs: readonly PartConfig[]): readonly PartConfig[]
   configs.flatMap((config) => config.kind === "scripted" ? [(config as ScriptedConfig).tactics] : []);
 
 /** Every kind of Kinetic's options. */
-export const OPTION_KINDS: readonly KineticOptionPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, FOOTWORK_OPTION, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION,
+export const OPTION_KINDS: readonly KineticOptionPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION,
   SCRIPTED_OPTION as KineticOptionPart]);
 
-/** Its options as it starts, in rank order: orders, strikes, footwork, the rise, covers, then the rest options. */
-export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, FOOTWORK_OPTION, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]
+/** Its options as it starts, in rank order: orders, strikes, footwork into the windows and out of pressure, the rise, covers, then the rest options. */
+export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]
   .map((part) => part.defaults));
 
 /** The options `configs` name, each kind's as `of` finds it, made from `given`, in their order. */
