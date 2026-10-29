@@ -11,6 +11,7 @@ import type { PartLookup } from "./lookup.ts";
 import type { OwnBody } from "./mind.ts";
 import type { PartConfig } from "./parts.ts";
 import type { SubMind } from "./sub-mind.ts";
+import { lowering } from "./rise/lowering.ts";
 
 /** The game's guard: what a rig that plays a technique or a sub-mind without a mind of its own holds (`kitOf`). */
 export const GAME_GUARD: PartConfig = Object.freeze({ kind: "cover-guard" });
@@ -26,12 +27,15 @@ export function motorOf(parts: PartLookup, config: PartConfig | null | undefined
 
 /** Legs of any kind `parts` finds, as Move makes its gaits (`LocomotionPart.make`). */
 function legsFrom(parts: PartLookup): Legs {
-  return { make: (body, config) => legsOf(parts, body, config), runs: (config) => parts.of("locomotion", config).runs?.(config), parts };
+  return { make: (body, config) => parts.of("locomotion", config).make(body, config, legsFrom(parts)), runs: (config) => parts.of("locomotion", config).runs?.(config), parts };
 }
 
-/** **The legs' skill** `config` names for `body`, as `parts` finds it (`LocomotionPart.make`). */
+/**
+ * **The legs' skill** `config` names for `body`, as `parts` finds it (`LocomotionPart.make`), which
+ * also lower the body onto the ends a lowering of its bears on (`lowering`).
+ */
 export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
-  return parts.of("locomotion", config).make(body, config, legsFrom(parts));
+  return lowering(body, parts.of("locomotion", config).make(body, config, legsFrom(parts)));
 }
 
 /**

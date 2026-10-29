@@ -1,13 +1,12 @@
 import type { Body, BodyView } from "../../body.ts";
+import { heldBody } from "../held-body.ts";
 import type { Clock } from "../../clock.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { MusclePush } from "../../control/motor.ts";
-import type { MuscleDriver } from "../../muscle/driver.ts";
 import type { ActionClaim, ActionEnding, ActionRequest, Executor, LifecycleUpdate, Phase, Readiness, Resource } from "../../skills/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../../skills/action-instances.ts";
 import type { Side } from "../../spec/body.ts";
 import type { MindKit } from "../kit.ts";
-import type { OwnBody } from "../mind.ts";
 import { flatten } from "./flatten.ts";
 import { brace, steadying } from "./steady.ts";
 import { poseDrive, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
@@ -25,24 +24,6 @@ export const GROUND = "ground";
 
 /** A side's effector: what a ground action names the side it is begun on by. */
 export const sideEffector = (side: Side): string => `foot.${side}`;
-
-/**
- * **A body held whole**: `body` as a technique drives it (`OwnBody`), reading its muscles as they
- * are and commanding them in `activation` and `velocity`, its own, which an action's claim carries
- * to the muscles (`groundExecutor`). It asks no hand a pose.
- */
-function heldBody(body: Pick<Body, "built" | "muscles" | "assist">, activation: Float64Array, velocity: Float64Array): OwnBody {
-  const real = body.muscles;
-  const muscles: MuscleDriver = {
-    channels: real.channels, activation, velocity, dynamics: real.dynamics, ceiling: real.ceiling, bounds: real.bounds, pulled: real.pulled,
-    get state() { return real.state; }, get level() { return real.level; },
-    angle: (i) => real.angle(i), rate: (i) => real.rate(i), speed: (i) => real.speed(i), turning: (i, k) => real.turning(i, k),
-    strength: (i, sense) => real.strength(i, sense), channel: (name) => real.channel(name),
-    setLevel() { throw new Error("a held body's level is its host's"); },
-    dispose() { throw new Error("a held body is its host's to dispose"); },
-  };
-  return { spec: body.built.spec, built: body.built, muscles, assist: body.assist, requestHandPoses() { throw new Error("a ground technique asks no hand a pose"); } };
-}
 
 /** What the ground executor gives the options that run it (`groundOptions`): the runs of its techniques by name, and its actions. */
 export interface GroundExecutor {

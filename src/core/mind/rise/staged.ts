@@ -135,13 +135,14 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
    * For a bearing stage, by the recipe's limb: whether it bears, and its share; and whether the
    * stage leaves it. `keeps`: it leaves none.
    */
-  const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly keeps: boolean }>();
+  const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>();
   for (const stage of stagesOf(recipe)) {
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(muscles.channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
     if (stage.kind !== "bear") continue;
     const shares = ends.map((limb) => stage.on.find((on) => on.limb === limb.name)), leaves = ends.map((limb) => stage.leave.includes(limb.name));
-    bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves, keeps: stage.leave.length === 0 });
+    bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves,
+      toes: ends.map((limb) => stage.toes?.includes(limb.name) ?? false), keeps: stage.leave.length === 0 });
   }
 
   const state = {
@@ -221,7 +222,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const bear = (stage: BearStage, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
     const seconds = stage.seconds, n = 1 / seconds;
-    const goals = goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
+    const goals = goalsOf.get(stage)!, { on, share, leaves, toes, keeps } = bearsOf.get(stage)!;
     const ground = upright.lowest(), standing = upright.standing;
     // The way the pelvis faces, about up: its left-to-right axis says it however far forward it is pitched.
     across.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, turn), across);
@@ -231,7 +232,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // servo's until then; the place is the middle of where the body is held over those that
     // bear, by their shares, and with none down, where the centre of mass is.
     const c = view.stance.centre, v = view.stance.velocity;
-    made.read(ground, stage.overProp);
+    made.read(ground, stage.overProp, toes, c);
     place.setAll(0);
     let borne = 0, down = true;
     made.over.forEach((over, l) => {
@@ -376,6 +377,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
             case "bear": {
               const there = bear(stage, dt);
               state.time += dt;
+              // A recipe that holds its last stage stays in it.
+              if (recipe.holds && state.phase === "rise" && state.stage === recipe.rise.length - 1) return;
               if (there) enter(state.phase, state.stage + 1);
               else if (state.time + dt / 2 >= stage.limit) settle();
               return;

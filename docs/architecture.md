@@ -347,7 +347,11 @@ Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locom
 its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
 faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from
 which the slot's config type (`LocomotionConfig`) follows. `legsOf` (`mind/kit.ts`) makes the
-legs a config names as the lookup finds them; Move makes its gaits' legs and its rules
+legs a config names as the lookup finds them, wrapped so that a goal asking the ends a lowering
+bears on (`LegsGoal.feet`, `LOWERINGS`, `rise/stages.ts`) sets the feet at its footing and plays
+its stages on the body held whole (`lowering`, `rise/lowering.ts`; `heldBody`, `mind/held-body.ts`),
+the body held at its height (`LegsDrive.held`, read by the down rule); asked ends no lowering bears
+on, the legs report them unmet. Move makes its gaits' legs and its rules
 (`MoveRulePart`, `skills/move-rule-part.ts`, a line in `MOVE_RULES`) through the lookup the legs
 carry (`Legs`). The legs state their limits to the speed rule: what they hold
 (`Locomotion.envelope`) and how fast they stop (`Locomotion.stopping`).

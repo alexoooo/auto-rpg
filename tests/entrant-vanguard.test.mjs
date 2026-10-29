@@ -215,7 +215,7 @@ test("the Lab drives Vanguard's chosen kit, with its planner or a supplied scrip
     assert.deepEqual(observed, [scripted.report]);
     assert.equal(scripted.state.tactics, state);
     assert.ok(skills.gait.envelope.turns.length > 0, "the fixture exposes measured turn limits");
-    assert.ok(scripted.state.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
+    assert.ok(scripted.state.legs.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
     assert.deepEqual(scripted.gait.envelope, skills.gait.envelope, "the same calibrated legs drive both paths");
   } finally { actor.dispose(); stand.dispose(); }
 });

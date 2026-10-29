@@ -1,12 +1,13 @@
-import type { ActionAround, Readiness, Region, TargetRef, Window } from "../../../skills/action.ts";
+import type { ActionAround, Readiness, Region, Resource, TargetRef, Window } from "../../../skills/action.ts";
 import { STANCE_LOWER } from "../../../skills/locomotion.ts";
 import { regionSegments } from "../../../mind/action-aim.ts";
+import { windowDistance } from "../../../mind/action-window.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../mind/config.ts";
 import type { PartLookup } from "../../../mind/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
-import { threatened } from "./percepts.ts";
+import { edgeOf, threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { Walker } from "./walk.ts";
@@ -59,15 +60,17 @@ export interface StrikeOption extends Option {
 }
 
 /**
- * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready. It
+ * **Strike**: `action` at the focus with the first of its limbs that is ready, on offer where one
+ * is (its executor's readiness, which refuses a body down and a target out of its band). It
  * never walks: a walk into its window is another option's (`toWindow`). It asks for the blow once
  * the limb is ready, and goes on asking until the blow is over: then it has run its course. A blow
  * asked for and refused, every limb out of its entry, or `PATIENCE` s without a blow also end it.
  * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
  * stroke's end (the blow's `release`): there, given up, it asks no more and its executor may hand
  * the arm to the guard; kept, it strikes again, its blow let go and the next asked of the first
- * limb ready. It claims the legs and the trunk, and holds what its blow holds (`asking`): a limb is
- * its blow's as it asks it, and a cover of it is dropped (`stepSet`). The region struck is what the
+ * limb ready. It claims what its blow needs with the limb it strikes with (`Sight.needs`): its blow
+ * under way's, else the limb ready's, else the first with a window's; and holds what its blow holds
+ * (`asking`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has.
  *
  * Its model, where its drill measured it as it is read now (its profile among its measure's,
@@ -123,27 +126,33 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return offered;
   };
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
-  const UNFIT = blocked("no standing focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
-  /** Whether the body, the focus and its blow under way leave it a target to strike. */
-  const unfit = (now: Situation): boolean => now.down || !now.focus || now.focus.down || state.target !== null && state.target.body !== now.focus.id;
+  const UNFIT = blocked("no focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
+  /** Whether the focus and its blow under way leave it a target to strike. */
+  const unfit = (now: Situation): boolean => !now.focus || state.target !== null && state.target.body !== now.focus.id;
+  /** What it claims (`Option.claims`), as its entry last read it: what its blow needs with the limb it strikes with. */
+  const claimed = { claims: Object.freeze([]) as readonly Resource[] };
+  const claim = (now: Situation, limb: string | undefined): void => { if (limb !== undefined) claimed.claims = now.sight.needs(action.name, limb); };
   const entry = (now: Situation): Readiness => {
-    if (live(now)) return READY;
+    const running = live(now);
+    if (running) { claim(now, running.effector); return READY; }
     if (unfit(now)) return UNFIT;
-    const { target, ready } = offer(now);
+    const { target, ready, placed } = offer(now);
     if (target === null) return UNAIMED;
+    claim(now, ready?.limb ?? placed?.limb);
     return ready?.readiness ?? UNREADY;
   };
   /**
-   * Its model (`Terms`), walked into its window first where `walks`, by `going` where it names a
-   * gait, and braced there. Its blow under way, short of its exit, it is priced from where it is:
+   * Its model (`Terms`), walked into its window first where `walks` (`windowDistance`), by `going`
+   * where it names a gait, and braced there. Its blow under way, short of its exit, it is priced from where it is:
    * the time its motion has left, and its payoff unless its blow has met the target.
    */
   const priceOf = (now: Situation, walks: boolean, going?: Going): Terms => {
-    const apart = now.range, { theirs, mine } = now.reach, pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
-    const walking = walks ? Math.max(0, apart - mine) / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
+    const apart = now.range, theirs = edgeOf(now, now.predictions.pressure), pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
+    const window = walks ? windowNow(now) : null, distance = window ? windowDistance(now.sight.view, window) : 0, there = Math.max(0, apart - distance);
+    const walking = walks ? distance / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - there) / pace : 0;
     const running = live(now), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const from = walks ? Math.min(apart, mine) : apart, e = expected(now, progress) ?? priorOf(now, from);
+    const from = walks ? there : apart, e = expected(now, progress) ?? priorOf(now, from);
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
@@ -160,15 +169,17 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.predictions.blows[limb.slice(5) as Side] : 0));
     return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
+  /** Its window now (`StrikeOption.window`). */
+  const windowNow = (now: Situation): Window | null => {
+    if (live(now) || unfit(now)) return null;
+    const { ready, placed } = offer(now);
+    return ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
+  };
   return {
-    name: action.name, claims: Object.freeze(["legs", "trunk"]), state,
+    name: action.name, get claims() { return claimed.claims; }, state,
     entry,
     status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
-    window(now) {
-      if (live(now) || unfit(now)) return null;
-      const { ready, placed } = offer(now);
-      return ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
-    },
+    window: windowNow,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; state.began = null; },
     end() { state.id = null; state.limb = null; state.target = null; state.began = null; },
     priced(now) {

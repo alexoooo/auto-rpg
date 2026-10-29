@@ -18,13 +18,13 @@ import type { Walker } from "./walk.ts";
 
 /**
  * **What Kinetic gives each kind of its options** to make them from: its body's spec, its walk, the
- * actions it throws standing and a strike of each (`strike`), each gait as measured (`goings`), the
+ * actions it throws and a strike of each (`strike`), each gait as measured (`goings`), the
  * rise (`groundOptions`), the hands' covers (`covers`) and what tactics are made for (`TacticsMaking`, a script's).
  */
 export interface OptionsGiven {
   readonly spec: BodySpec;
   readonly walk: Walker;
-  readonly standing: readonly ActionConfig[];
+  readonly actions: readonly ActionConfig[];
   readonly strikes: readonly StrikeOption[];
   readonly gaits: readonly Going[];
   readonly ground: Ground;
@@ -42,9 +42,9 @@ function kind<K extends string>(kind: K, label: string, make: (given: OptionsGiv
 }
 
 /** **Following the orders** a person gives (`followOrders`). */
-export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followOrders(given.walk, given.standing)]);
+export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followOrders(given.walk, given.actions)]);
 
-/** **A strike** of each blow it throws standing (`strike`). */
+/** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
 /** **Footwork**: by each gait, a walk into each strike's window (`toWindow`), then out of the focus's pressure (`moveTo`, `OUT_OF_PRESSURE`). */
