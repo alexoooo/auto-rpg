@@ -10,7 +10,8 @@ import type { FallReading } from "../fall.ts";
 import { LOCOMOTION_FIGURES, locomotionSummary, mindSubjects } from "../locomotion/index.ts";
 import type { LocomotionCondition } from "../locomotion/cases.ts";
 import type { LocomotionReading } from "../locomotion/read.ts";
-import { FALL_FIGURES, fallSummary } from "../rising-target/index.ts";
+import { FALL_CAP } from "../fall.ts";
+import { fallSummary } from "../rising-target/index.ts";
 import { STRIKE } from "../strike/index.ts";
 import type { StrikeCondition } from "../strike/cases.ts";
 import type { StrikeReading } from "../strike/read.ts";
@@ -23,6 +24,16 @@ function partFigures<R>(part: BaselinePart, figures: readonly Figure<R & Json>[]
 }
 
 const STRIKE_FIGURES = STRIKE.figures.filter((figure) => ["landed", "landed on the body", "admitted", "fell"].includes(figure.name));
+
+/** A fall's time to stand from its takeover, s: verified on the stand bed, by the fight's down rule on the lone-body bed; one not stood counts at the cap. */
+const standTime = (r: FallReading): number => r.stood ? r.verified ?? r.handback ?? FALL_CAP : FALL_CAP;
+
+/** The stand-up read on either bed (`stood` is the bed's own verdict): stood within 6 s, stood, and the failure-inclusive median. */
+const STAND_FIGURES: readonly Figure<FallReading & Json>[] = [
+  { name: "within 6 s", unit: "share of falls", kind: "rate", better: "higher", of: (r) => standTime(r) <= 6 },
+  { name: "stood", unit: "share of falls", kind: "rate", better: "higher", of: (r) => r.stood },
+  { name: "time to stand", unit: "s, a fall not stood at the cap", kind: "median", better: "lower", of: standTime },
+];
 
 const FIGHT_FIGURES: readonly Figure<FightReading & Json>[] = [
   { name: "score", unit: "a win 1, a draw a half", kind: "mean", better: "higher", of: (r) => r.score },
@@ -63,7 +74,7 @@ export const BASELINE: Evaluation<Json, BaselineReading, BuiltCase> = {
   figures: [
     ...partFigures<LocomotionReading>("walk", LOCOMOTION_FIGURES),
     ...partFigures<StrikeReading>("punch", STRIKE_FIGURES),
-    ...partFigures<FallReading>("stand-up", FALL_FIGURES),
+    ...partFigures<FallReading>("stand-up", STAND_FIGURES),
     ...partFigures<FightReading>("fight", FIGHT_FIGURES),
   ],
   summary(table) {
@@ -71,7 +82,7 @@ export const BASELINE: Evaluation<Json, BaselineReading, BuiltCase> = {
     switch (part) {
       case "walk": return locomotionSummary(table as unknown as Table<LocomotionCondition, LocomotionReading>);
       case "punch": return STRIKE.summary(table as unknown as Table<StrikeCondition, StrikeReading>);
-      case "stand-up": return fallSummary(table as unknown as Table<Json, FallReading>, true);
+      case "stand-up": return fallSummary(table as unknown as Table<Json, FallReading>, false);
       case "fight": return fightSummary(table);
       case undefined: return { lines: [], json: null };
       default: { const never: never = part; throw new Error(`no baseline competence ${String(never)}`); }
