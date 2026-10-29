@@ -7,7 +7,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { awaits, choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
-import { EDGE_PROFILES, measuredOn, profileFor, techniqueDigest } from "../profile.ts";
+import { edgeExpected } from "../profile.ts";
 import { brace, steadying } from "./steady.ts";
 import { standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
 import type { Senses } from "../senses.ts";
@@ -50,8 +50,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
     const run = spec.make(own, view, clock, kit); runs[name] = run;
     waits ||= spec.moving && order.includes(name);
-    const found = profileFor(EDGE_PROFILES, measuredOn(own.spec, techniqueDigest(config.techniques.find((technique) => technique.kind === name) ?? { kind: name }), hz, null));
-    const profile = found && found.stale === null ? found.profile.cells[0] ?? null : null;
+    const profile = edgeExpected(own.spec, config.techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz).expected;
     graph[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => run.admits(g, side) };
     moving[name] = { sides: spec.sides, edges: spec.edges, raw: spec.moving, profile, admits: (g, side) => spec.moving && run.admits(g, side) };
   }

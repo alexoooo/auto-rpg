@@ -1,5 +1,5 @@
 import type { Side } from "../../spec/body.ts";
-import type { ProfileCell } from "../profile.ts";
+import type { Expected } from "../profile.ts";
 import type { GroundReading, Position } from "./reading.ts";
 
 /** The chooser needs only declared edges and the live run's admission predicate. */
@@ -8,8 +8,8 @@ export interface GraphTechnique {
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   /** Its entry reads the raw position (`GroundReading.raw`), not the settled one. */
   readonly raw: boolean;
-  /** What its drill found of it on this body (its profile's one cell, `EDGE_PROFILES`); null for none, or one measured on another body, which prices no route. */
-  readonly profile: ProfileCell | null;
+  /** What its drill found of it on this body (`edgeExpected`); null for none, or one measured on another body, which prices no route. */
+  readonly profile: Expected | null;
   admits(reading: GroundReading, side: Side): boolean;
 }
 export interface GraphFailure { readonly technique: string; readonly side: Side; readonly from: Position; count: number }
@@ -42,7 +42,7 @@ function usable(technique: GraphTechnique, name: string, from: Position, failure
  * theirs; a failure that rests where it began, or where no route is priced, is tried again.
  * Infinity for an edge never done.
  */
-function cost(profile: ProfileCell, from: Position, to: Position, time: Float64Array): number {
+function cost(profile: Expected, from: Position, to: Position, time: Float64Array): number {
   let sum = profile.seconds + (profile.done > 0 ? profile.done * time[index(to)]! : 0), again = 0;
   for (const fail of profile.ends) {
     const at = POSITIONS.indexOf(fail.at as Position);

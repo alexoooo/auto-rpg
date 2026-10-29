@@ -11,7 +11,7 @@ import { moveTo } from "../../mind/options/goals.ts";
 import type { Asked, Option, Situation } from "../../mind/options/option.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
-import { groundOptions } from "../../mind/options/ground.ts";
+import { groundOptions, type Ground } from "../../mind/options/ground.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "../../mind/options/strike.ts";
@@ -56,11 +56,13 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
 }
 
 /**
- * How each strike is priced as it last decided, as an engagement's detail: by its measured profile,
- * or by hand and why (`StrikeOption.unmeasured`).
+ * How each strike, the focus's strikes and the rise are priced as it last decided, as an
+ * engagement's detail: by their measured profiles, or by hand and why (`StrikeOption.priced`,
+ * `Pressure.priced`, `Ground.priced`).
  */
-function profileDetail(strikes: readonly StrikeOption[], now: Situation): EngagementDetail {
-  return { label: "Profiles", value: strikes.map((option) => { const why = option.unmeasured(now); return `${option.name}: ${why === null ? "measured" : `by hand, ${why}`}`; }).join("; ") || "none" };
+function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Situation): EngagementDetail {
+  const own = strikes.map((option) => `${option.name}: ${option.priced(now)}`);
+  return { label: "Profiles", value: [...own, `foe: ${now.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
 }
 
 /**
@@ -90,7 +92,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const engagement = {
     get phase() { return chosen.running?.name ?? "hold"; },
     get offers() { return chosen.offers; },
-    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, lastNow)] : []; },
+    get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, ground, lastNow)] : []; },
   };
   return {
     name: "kinetic", state, engagement,

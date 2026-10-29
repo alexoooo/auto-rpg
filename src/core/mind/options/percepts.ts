@@ -12,7 +12,7 @@ import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Cover } from "../intent.ts";
 import type { Orders } from "../orders.ts";
-import { profilesOn, sameReaction, STRIKE_PROFILES, type Profile, type ProfileCell } from "../profile.ts";
+import { profilesOn, readProfile, sameReaction, STRIKE_PROFILES, type Profile, type ProfileReading } from "../profile.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
 import { READINGS, threatReader, type ThreatView } from "../threat.ts";
@@ -134,20 +134,27 @@ const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number =
 /** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
 const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
 
+/** Strikes a body is modelled by, each read for its striker (`readProfile`), and how they are priced, a sentence. */
+interface Model { readonly readings: readonly ProfileReading[]; readonly priced: string }
+
 /**
  * **The strikes a foe of `foe` is modelled by**: those a drill measured on its body (`profilesOn`),
  * else this body's own (`Seen.strikes`), each fresh at the senses' reaction time; none where
- * neither is.
+ * neither is, and why.
  */
-function foeModel(seen: Seen, foe: BodySpec): readonly Profile[] {
+function foeModel(seen: Seen, foe: BodySpec): Model {
   const measured = profilesOn(STRIKE_PROFILES, foe, seen.hz, reactionOf(seen));
-  return measured.length ? measured : ownModel(seen);
+  if (measured.fresh.length) return { readings: measured.fresh.map((profile) => readProfile(profile, foe)), priced: "measured" };
+  const own = ownModel(seen);
+  return own.readings.length ? { readings: own.readings.map((reading) => readProfile(reading.profile, foe)), priced: `as its own strikes: ${measured.stale}` } : { readings: [], priced: `by hand, ${measured.stale}` };
 }
 
 /** **This body's own strikes** (`Seen.strikes`), those fresh at the senses' reaction time. */
-function ownModel(seen: Seen): readonly Profile[] {
+function ownModel(seen: Seen): Model {
   const reaction = reactionOf(seen);
-  return seen.strikes.filter((profile) => sameReaction(profile.measured.reaction, reaction, seen.hz));
+  const fresh = seen.strikes.filter((profile) => sameReaction(profile.measured.reaction, reaction, seen.hz));
+  return fresh.length ? { readings: fresh.map((profile) => readProfile(profile, seen.spec)), priced: "measured" }
+    : { readings: [], priced: seen.strikes.length ? `by hand, measured with senses ${seen.strikes[0]!.measured.reaction} s late, read ${reaction} s late` : "by hand, no drill measured its strikes" };
 }
 
 /** This body's phase as a foe's strike meets it (`FoePhase`'s): striking while a blow of its own is under way, else clear. */
@@ -155,57 +162,38 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
 
 /**
  * **What one standing body's strikes are expected to deal another**: the strikes it is modelled by
- * (`model`), read at the struck body's phase (`phase`) and in its life (`hp`, its hit points), the
- * most of them a second at any range (`peak`, the struck body's life); with no model, built by hand
- * within the striker's reach (`peak` its blows a second, `RATE`, landing as this body's own do,
- * `record`, each its heavier hand's). The focus's on this body (`pressure`), and this body's on the
- * focus (`pressing`); none with no standing focus.
+ * (`model`, each read through its profile, `ProfileReading`), read at the struck body's phase
+ * (`phase`) and in its life (`struck`), the most of them a second at any range (`peak`, the struck
+ * body's life); with no model, built by hand within the striker's reach (`peak` its blows a second,
+ * `RATE`, landing as this body's own do, `record`, each its heavier hand's); and how it is priced
+ * (`priced`, a sentence). The focus's on this body (`pressure`), and this body's on the focus
+ * (`pressing`); none with no standing focus.
  */
 export interface Pressure {
-  readonly model: readonly Profile[];
+  readonly model: readonly ProfileReading[];
   readonly phase: string;
-  readonly hp: number;
+  readonly struck: BodySpec | null;
   readonly peak: number;
+  readonly priced: string;
 }
 
 /** No pressure: no standing focus. */
-const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", hp: 1, peak: 0 });
+const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, priced: "no standing focus" });
 
-/** The phase of `profile`'s cells read for a body in `phase`: its own where the profile has cells of it, else clear. */
-const phaseIn = (profile: Profile, phase: string): string => profile.cells.some((cell) => cell.phase === phase) ? phase : "clear";
-
-/**
- * The cell of `profile` nearest `range` m, centre to centre, for a body in `phase` (`phaseIn`):
- * where `anywhere`, at any range; else within its reach, its farthest cell and half its spacing on,
- * and null beyond.
- */
-function cellAt(profile: Profile, phase: string, range: number, anywhere: boolean): ProfileCell | null {
-  const at = phaseIn(profile, phase);
-  let nearest: ProfileCell | null = null, far = -Infinity, next = -Infinity;
-  for (const cell of profile.cells) {
-    if (cell.phase !== at) continue;
-    if (cell.range > far) { next = far; far = cell.range; } else if (cell.range > next) next = cell.range;
-    if (!nearest || Math.abs(cell.range - range) < Math.abs(nearest.range - range)) nearest = cell;
-  }
-  return nearest && (anywhere || range <= far + (next > -Infinity ? (far - next) / 2 : 0)) ? nearest : null;
-}
-
-/** **The pressure** (`Pressure`) of strikes `model` on a body in `phase` of `hp` hit points; `byHand` its peak with no model. */
-function pressureBy(model: readonly Profile[], phase: string, hp: number, byHand: () => number): Pressure {
-  if (model.length === 0) return { model, phase, hp, peak: byHand() };
+/** **The pressure** (`Pressure`) of strikes `model` on a body of `struck` in `phase`; `byHand` its peak with no model. */
+function pressureBy(model: Model, phase: string, struck: BodySpec, byHand: () => number): Pressure {
+  const { readings, priced } = model;
+  if (readings.length === 0) return { model: readings, phase, struck, peak: byHand(), priced };
   let peak = 0;
-  for (const profile of model) {
-    const at = phaseIn(profile, phase);
-    for (const cell of profile.cells) if (cell.phase === at) peak = Math.max(peak, cell.dealt / hp / cell.seconds);
-  }
-  return { model, phase, hp, peak };
+  for (const reading of readings) peak = Math.max(peak, reading.peak(phase, struck));
+  return { model: readings, phase, struck, peak, priced };
 }
 
 /** **The pressure** (`Pressure`) a standing focus puts on the body. */
 function pressureOf(seen: Seen): Pressure {
   const { focus, sight, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(foeModel(seen, focus.spec), ownPhase(seen), spec.wounds.hp.value,
+  return pressureBy(foeModel(seen, focus.spec), ownPhase(seen), spec,
     () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, focus.spec, spec));
 }
 
@@ -213,22 +201,22 @@ function pressureOf(seen: Seen): Pressure {
 function pressingOf(seen: Seen): Pressure {
   const { focus, sight, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(ownModel(seen), foePhase(focus, seen.blow), focus.spec.wounds.hp.value,
+  return pressureBy(ownModel(seen), foePhase(focus, seen.blow), focus.spec,
     () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, spec, focus.spec));
 }
 
 /**
  * **The life `seconds` s at `range` m apart, centre to centre, are expected to cost the struck
- * body** under `pressure`: modelled, the most of its strikes, each its nearest cell's hit points
- * over its seconds within its reach (`cellAt`); built by hand, its peak at any range (its caller
- * keeps to the striker's reach, `dealtAt`).
+ * body** under `pressure`: modelled, the most of its strikes, each what its profile expects there
+ * within its reach (`ProfileReading.expect`) a second; built by hand, its peak at any range (its
+ * caller keeps to the striker's reach, `dealtAt`).
  */
 export function pressureAt(pressure: Pressure, range: number, seconds: number): number {
   if (pressure.model.length === 0) return pressure.peak * seconds;
   let rate = 0;
-  for (const profile of pressure.model) {
-    const cell = cellAt(profile, pressure.phase, range, false);
-    if (cell) rate = Math.max(rate, cell.dealt / pressure.hp / cell.seconds);
+  for (const reading of pressure.model) {
+    const expected = reading.expect({ range, phase: pressure.phase }, pressure.struck);
+    if (expected) rate = Math.max(rate, expected.dealt / expected.seconds);
   }
   return rate * seconds;
 }
@@ -246,18 +234,18 @@ export const threatened = (now: Situation, seconds: number, apart = now.reach.ap
 
 /**
  * **The own life the blow coming is expected to take**: modelled (`foeModel`, its striker's), the
- * most of its strikes' hit points at the striker's range and this body's phase, its nearest cell's
- * at any range (a blow predicted to reach the head is in reach); else built by hand, its energy at
+ * most its strikes are expected to take at the striker's range and this body's phase, to their reach
+ * (a blow predicted to reach the head is in reach); else built by hand, its energy at
  * the speed it closes, landing as often as `LANDS`. 0 with none coming.
  */
 function dangerOf(seen: Seen): number {
   const { blow, spec, sight } = seen;
   if (!blow) return 0;
-  const model = foeModel(seen, blow.foe.spec);
+  const model = foeModel(seen, blow.foe.spec).readings;
   if (model.length === 0) return LANDS * blowLife(seen.rules, blow.foe.spec, blow.hand, spec, blow.closing);
   const centre = sight.view.stance.centre, range = hypot(blow.foe.centre.x - centre.x, blow.foe.centre.z - centre.z), phase = ownPhase(seen);
   let most = 0;
-  for (const profile of model) most = Math.max(most, (cellAt(profile, phase, range, true)?.dealt ?? 0) / spec.wounds.hp.value);
+  for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase }, spec)?.dealt ?? 0);
   return most;
 }
 

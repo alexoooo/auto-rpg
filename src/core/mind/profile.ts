@@ -77,22 +77,92 @@ export interface ProfilePlace {
   readonly phase: string;
 }
 
-/** **What `profile` expects from `at`**: its nearest cell of the same phase by range, the first of equals; null where it has none of that phase. */
-export function expect(profile: Profile, at: ProfilePlace): ProfileCell | null {
-  let best: ProfileCell | null = null, distance = Infinity;
-  for (const cell of profile.cells) {
-    if (cell.phase !== at.phase) continue;
-    const d = Math.abs(cell.range - at.range);
-    if (d < distance) { best = cell; distance = d; }
-  }
-  return best;
+/**
+ * **What a skill is expected to bring from a place** (`ProfileReading.expect`), in life, a share
+ * of a body's full life: the share done; the struck body's life its blows take; its own body's life
+ * lost; the seconds a trial ran; the chance it ends down; where those not done came to rest; and,
+ * where its drill let it go there, what letting it go cost (the seconds until it could begin again,
+ * and its own life lost meanwhile).
+ */
+export interface Expected {
+  readonly done: number;
+  readonly dealt: number;
+  readonly taken: number;
+  readonly seconds: number;
+  readonly down: number;
+  readonly ends: ProfileCell["ends"];
+  readonly letGo?: { readonly seconds: number; readonly taken: number };
 }
 
-/** The farthest range `profile` was measured from in `phase`, m; -Infinity where it has no cell of that phase. */
-export function farthest(profile: Profile, phase: string): number {
-  let most = -Infinity;
-  for (const cell of profile.cells) if (cell.phase === phase) most = Math.max(most, cell.range);
-  return most;
+/**
+ * **A profile as a mind reads it**, the one way any is read (`readProfile`). A body in a phase the
+ * profile has no cells of is read at its clear cells. Its cells' hit points are the rules' damage
+ * on the body it was measured against, read over the hit points of the body struck now: a blow on a
+ * body of another mass delivers it within about one per cent (an arm's reduced mass against a whole
+ * body's), so the hit points are taken as they are, and the reading says it is scaled (`scaled`).
+ */
+export interface ProfileReading {
+  readonly profile: Profile;
+  /** The farthest range it reads at for a body in `phase`, m: its farthest cell, and half its spacing on; -Infinity with no cells. */
+  reach(phase: string): number;
+  /** What it expects from `at` against `struck` (none for a skill with no foe): its nearest cell by range within its reach, the first of equals; null beyond. */
+  expect(at: ProfilePlace, struck: BodySpec | null): Expected | null;
+  /** The most of `struck`'s life a second any of its cells for a body in `phase` takes; 0 with none. */
+  peak(phase: string, struck: BodySpec): number;
+  /** Why its cells are read scaled for `struck`, a sentence; null where `struck` is its target, or it has none. */
+  scaled(struck: BodySpec | null): string | null;
+}
+
+/** Each profile's readings, by the striker's spec: a profile and a spec are immutable. */
+const READINGS = new WeakMap<Profile, WeakMap<BodySpec, ProfileReading>>();
+
+/** **`profile` read for a skill of a body of `striker`** (`ProfileReading`), made once for the two. */
+export function readProfile(profile: Profile, striker: BodySpec): ProfileReading {
+  let bySpec = READINGS.get(profile);
+  if (!bySpec) READINGS.set(profile, bySpec = new WeakMap());
+  const known = bySpec.get(striker);
+  if (known) return known;
+  const own = striker.wounds.hp.value;
+  const phaseOf = (phase: string): string => profile.cells.some((cell) => cell.phase === phase) ? phase : "clear";
+  const reach = (phase: string): number => {
+    const at = phaseOf(phase);
+    let far = -Infinity, next = -Infinity;
+    for (const cell of profile.cells) {
+      if (cell.phase !== at) continue;
+      if (cell.range > far) { next = far; far = cell.range; } else if (cell.range > next && cell.range < far) next = cell.range;
+    }
+    return far + (next > -Infinity ? (far - next) / 2 : 0);
+  };
+  const reading: ProfileReading = {
+    profile, reach,
+    expect(at, struck) {
+      const phase = phaseOf(at.phase);
+      if (at.range > reach(phase)) return null;
+      let best: ProfileCell | null = null, distance = Infinity;
+      for (const cell of profile.cells) {
+        if (cell.phase !== phase) continue;
+        const d = Math.abs(cell.range - at.range);
+        if (d < distance) { best = cell; distance = d; }
+      }
+      if (!best) return null;
+      return { done: best.done, dealt: struck ? best.dealt / struck.wounds.hp.value : 0, taken: best.taken / own, seconds: best.seconds, down: best.down, ends: best.ends,
+        ...(best.letGo ? { letGo: { seconds: best.letGo.seconds, taken: best.letGo.taken / own } } : {}) };
+    },
+    peak(phase, struck) {
+      const at = phaseOf(phase), hp = struck.wounds.hp.value;
+      let most = 0;
+      for (const cell of profile.cells) if (cell.phase === at) most = Math.max(most, cell.dealt / hp / cell.seconds);
+      return most;
+    },
+    scaled(struck) {
+      const target = profile.target;
+      if (!target || !struck) return null;
+      const body = bodyKey(struck);
+      return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
+    },
+  };
+  bySpec.set(striker, reading);
+  return reading;
 }
 
 /** Each object's digest, found once: what is digested is frozen. */
@@ -200,10 +270,34 @@ export function profileFor(profiles: readonly Profile[], now: Measured): Found |
   return found ? { profile: found, stale: staleness(found, now) } : null;
 }
 
-/** **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s late, of any skill: what a foe of that body is measured to deal. */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null): readonly Profile[] {
-  const body = bodyKey(spec), digest = specDigest(spec);
-  return profiles.filter((profile) => staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction }) === null);
+/**
+ * **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s
+ * late, of any skill (`fresh`): what a foe of that body is measured to deal; and, for none, why
+ * (`stale`): the first measured on its body that is stale (`staleness`), or none measured on it.
+ */
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null): { readonly fresh: readonly Profile[]; readonly stale: string } {
+  const body = bodyKey(spec), digest = specDigest(spec), fresh: Profile[] = [];
+  let stale: string | null = null;
+  for (const profile of profiles) {
+    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction });
+    if (why === null) fresh.push(profile);
+    else if (profile.measured.body === body) stale ??= why;
+  }
+  return { fresh, stale: stale ?? `no drill measured the strikes of a ${body}` };
+}
+
+/**
+ * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`**: its profile
+ * (`EDGE_PROFILES`) read through `readProfile`, from where it begins (`expected`); and how it is
+ * priced, a sentence (`priced`): measured, or not, and why (no drill measured it, or its profile is
+ * stale, `staleness`).
+ */
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number): { readonly expected: Expected | null; readonly priced: string } {
+  const found = profileFor(EDGE_PROFILES, measuredOn(spec, techniqueDigest(technique), hz, null));
+  if (!found) return { expected: null, priced: "no drill measured it" };
+  if (found.stale !== null) return { expected: null, priced: found.stale };
+  const expected = readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null);
+  return { expected, priced: expected ? "measured" : "no cell of its profile reads from where it begins" };
 }
 
 /** The strikes' profiles, from the Strike drill (`research/strike-profiles.mjs`). */

@@ -8,7 +8,7 @@ import { standReady, tumbling } from "../ground/reading.ts";
 import { STAND_UP_PART } from "../ground/stand-up-part.ts";
 import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../ground/stand-up.ts";
 import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
-import { EDGE_PROFILES, measuredOn, profileFor, techniqueDigest } from "../profile.ts";
+import { edgeExpected } from "../profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { asking, blocked, READY, type GroundOption, type Situation } from "./option.ts";
 
@@ -29,6 +29,8 @@ export interface Ground {
   readonly options: readonly GroundOption[];
   /** What a fall is priced at, getting up (`downCost`). */
   readonly down: DownModel;
+  /** How the rise is priced, a sentence: each edge of its route measured, or not and why (`edgeExpected`). */
+  readonly priced: string;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /** `now`, the body down while its rise runs, though up on its feet: what its options and the others' are chosen by. */
@@ -58,18 +60,21 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const order: readonly string[] = techniques.map((technique) => technique.kind), runs = executor.runs;
   const graph: Record<string, GraphTechnique> = {}, moving: Record<string, GraphTechnique> = {};
   let waits = false;
+  const unpriced: string[] = [];
   for (const [name, part] of Object.entries(registry)) {
     const run = runs[name];
     if (!run) continue;
     waits ||= part.moving && order.includes(name);
-    const found = profileFor(EDGE_PROFILES, measuredOn(spec, techniqueDigest(techniques.find((technique) => technique.kind === name) ?? { kind: name }), hz, null));
-    const profile = found && found.stale === null ? found.profile.cells[0] ?? null : null;
+    const { expected: profile, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz);
+    if (!profile && order.includes(name)) unpriced.push(`${name}: ${why}`);
     graph[name] = { sides: part.sides, edges: part.edges, raw: part.moving, profile, admits: (g, side) => run.admits(g, side) };
     moving[name] = { sides: part.sides, edges: part.edges, raw: part.moving, profile, admits: (g, side) => part.moving && run.admits(g, side) };
   }
   const work = graphWork(), dt = 1 / hz;
   const priced = toStanding(order, "back", graph, [], RETRIES, work);
   const down: DownModel = Number.isFinite(priced) ? { seconds: priced, stands: 1, shelter: 0 } : BY_HAND;
+  const why = unpriced.length ? `; unmeasured ${unpriced.join("; ")}` : "";
+  const pricedBy = Number.isFinite(priced) ? `measured from the back${why}` : `by hand, no route measured to standing${why}`;
   const state = {
     active: false, mode: "brace" as Mode, time: 0, ready: 0, braceUsed: false, steadied: false,
     current: null as Attempt | null, route: [] as RouteStep[], failures: [] as GraphFailure[], reposition: [] as string[], steadyTried: [] as Position[],
@@ -200,7 +205,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   };
   const options = [...order, ...Object.keys(runs).filter((name) => !order.includes(name)), ...GROUND_MODES].map(option);
   return {
-    options, down, state: { plan: state, options: options.map((one) => one.state) },
+    options, down, priced: pricedBy, state: { plan: state, options: options.map((one) => one.state) },
     read(now) { plan(now); return state.active && !now.down ? { ...now, down: true } : now; },
   };
 }

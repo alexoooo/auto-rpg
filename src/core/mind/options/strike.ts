@@ -3,7 +3,7 @@ import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import { regionSegments } from "../action-aim.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../lookup.ts";
-import { expect, farthest, measuredOn, profileFor, skillDigest, staleness, STRIKE_PROFILES, type Measured, type Profile } from "../profile.ts";
+import { measuredOn, profileFor, readProfile, skillDigest, staleness, STRIKE_PROFILES, type Expected, type Measured, type Profile } from "../profile.ts";
 import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
@@ -34,10 +34,14 @@ export function measuredProfile(measure: StrikeMeasure): Profile | null {
   return found && found.stale === null ? found.profile : null;
 }
 
-/** **A strike option** (`strike`), which says why its model is built by hand. */
+/** **A strike option** (`strike`), which says how its model is priced. */
 export interface StrikeOption extends StandingOption {
-  /** Why its model is built by hand now, a sentence: no drill measured it, or its profile is stale (`staleness`); null where it reads its profile. */
-  unmeasured(now: Situation): string | null;
+  /**
+   * How its model is priced now, a sentence: measured, where a cell of its profile prices it (and
+   * why scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile
+   * is stale (`staleness`), or no cell reads where it stands.
+   */
+  priced(now: Situation): string;
 }
 
 /**
@@ -55,11 +59,11 @@ export interface StrikeOption extends StandingOption {
  *
  * Its model, where its drill measured it as it is read now (its profile among `STRIKE_PROFILES`,
  * found by `measure`, read at the senses' reaction time): walking into the window, where its entry
- * is one, then the profile's cell nearest the range (to its farthest measured), the closing speed
- * and the focus's phase (`expect`): the focus's life its blows took, its own the drill took (the
+ * is one, then what the profile expects at the range (to its reach) and the focus's phase
+ * (`readProfile`): the focus's life its blows took, its own the drill took (the
  * foe's reply while it struck), how long it ran and its chance of ending down; through the blow
  * coming, and the focus's pressure while it walks within the focus's reach (`threatened`); and,
- * its blow begun and not yet committed, what letting it go cost there (`ProfileCell.letGo`). Else
+ * its blow begun and not yet committed, what letting it go cost there (`Expected.letGo`). Else
  * built by hand: walking into the window until the focus is in its reach, then `throws` blows from
  * its stronger hand, each landing as often as its record says (`record`, which is of the hand it is
  * asked for), within the focus's reach from where it stands or the focus would reach it while it
@@ -72,6 +76,13 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
     found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;
+  /** What its profile expects where the body stands now (`ProfileReading.expect`); null where none prices it. */
+  const expected = (now: Situation): Expected | null => {
+    const profile = profileNow(now), focus = now.focus;
+    if (!profile || !focus) return null;
+    const reading = readProfile(profile, measure.spec);
+    return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase }, focus.spec);
+  };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
     if (!focus || !action.regions) return null;
@@ -110,17 +121,23 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     holds: asking,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
     end() { state.id = null; state.limb = null; state.target = null; },
-    unmeasured: (now) => !found ? "no drill measured it" : staleness(found.profile, { ...measured, reaction: now.reaction }),
+    priced(now) {
+      if (!found) return "by hand, no drill measured it";
+      const stale = staleness(found.profile, { ...measured, reaction: now.reaction });
+      if (stale !== null) return `by hand, ${stale}`;
+      if (!expected(now)) return "by hand, no cell of its profile reads here";
+      const scaled = readProfile(found.profile, measure.spec).scaled(now.focus?.spec ?? null);
+      return scaled === null ? "measured" : `measured, ${scaled}`;
+    },
     model: (now): Terms => {
       const { apart, theirs, mine } = now.reach, pace = walk.pace(now), walks = entry(now).kind === "position";
       const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
-      const profile = profileNow(now), focus = now.focus;
-      const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), phase: now.phase }) : null;
+      const e = expected(now);
       const from = walks ? Math.min(apart, mine) : apart;
-      if (e && focus) {
-        const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds, hp = measure.spec.wounds.hp.value;
-        const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: { seconds: e.letGo.seconds, taken: e.letGo.taken / hp } } : {};
-        return { duration, dealt, taken: now.danger + e.taken / hp + threatened(now, walkingInReach, from),
+      if (e) {
+        const duration = walking + e.seconds;
+        const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
+        return { duration, dealt: e.dealt, taken: now.danger + e.taken + threatened(now, walkingInReach, from),
           orders: 0, exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
       }
       const { lands, seconds } = record(now.sight.report.ledger, action.name);
