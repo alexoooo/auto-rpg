@@ -43,7 +43,8 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, p
  * from the ground; lie still. Standing, the commitments: follow orders; strike, with a limb in its
  * action's entry or from a window its legs are brought to; strike a foe that is down or low, from
  * low support. And the footwork: break a clinch; step back from a blow coming in; hold at the edge
- * of its foe's reach (`EDGE`); and hold, facing its foe. Standing options are carried out through
+ * of its foe's reach (`EDGE`). With none worth more than holding its position, it holds it, facing
+ * its foe. Standing options are carried out through
  * the skills its config names (`SkillKit`, `fighterSkills`): a strike for each of its standing
  * actions, and a low strike by the first action thrown from low support, if it has one; a down
  * option is carried out by its sub-mind, which the body's one sub-mind, its down half
@@ -91,16 +92,15 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     ...low ? [strikeLow(low, host.spec, walk)] : [],
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikes.some((option) => option.entry(now).kind === "ready")),
-    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   const chosen = choosing = chooserOf(host.parts, config.chooser, options, host.seed);
   const hands = cover(host.spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
-  const engagement = { get phase() { return chosen.running?.name ?? "guard"; }, get offers() { return chosen.offers; } };
+  const engagement = { get phase() { return chosen.running?.name ?? "hold"; }, get offers() { return chosen.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,
     decide(seen, dt) {
       const now = situation(seen), option = chosen.decide(now);
-      const asked: Asked = option?.posture === "standing" ? option.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
+      const asked: Asked = option?.posture === "standing" ? option.step(now, dt) : { move: null, face: now.down ? seen.report.heading : walk.facing(now), actions: [] };
       const held = option?.posture === "standing" ? option.holds(now, asked) : [];
       const near = option?.posture === "standing" ? option.near?.(now) ?? null : null;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;

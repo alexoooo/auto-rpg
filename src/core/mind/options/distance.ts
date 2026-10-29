@@ -63,8 +63,8 @@ function facing(how: Goal["facing"], x: number, z: number): number {
  * its near bound (at its slant, `slanted`), closing while farther than its far one (a correction, until `BAND` m inside
  * them), standing still between. It is footwork, always yields, and asks for no blow. Its model: a correction
  * walks to `BAND` m inside its bounds, a keeping goes on `AHEAD` s, through the blow coming and
- * the focus's reach while it stands in it; a correction that ends out of a clinch (`CLINCH`) leaves
- * its chance of going down behind.
+ * the focus's reach while it stands in it, and leaves the body where it walked to; a correction
+ * that ends out of a clinch (`CLINCH`) leaves its chance of going down behind.
  */
 export function setDistance(goal: Goal, walk: Walker): StandingOption {
   const state = { side: 1 };
@@ -92,7 +92,7 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
       const d = apart(now), to = d < goal.near + BAND ? goal.near + BAND : d > goal.far - BAND ? goal.far - BAND : d;
       const duration = goal.correcting ? Math.abs(to - d) / walk.pace(now) : AHEAD, after = now.reach.apart + to - d;
       const leaves = goal.correcting && goal.near >= CLINCH.within;
-      return { duration, dealt: 0, taken: now.danger + threatened(now, duration, Math.min(now.reach.apart, after)), orders: 0, fall: leaves ? 0 : clinched(now, duration) };
+      return { duration, dealt: 0, taken: now.danger + threatened(now, duration, Math.min(now.reach.apart, after)), orders: 0, exit: { apart: after, down: leaves ? 0 : clinched(now, duration) } };
     } },
     step(now) {
       const d = apart(now), focus = now.focus!, centre = now.sight.view.stance.centre;

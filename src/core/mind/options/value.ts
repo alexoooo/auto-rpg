@@ -5,20 +5,21 @@ import type { Ended } from "../../skills/action.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Situation } from "./option.ts";
+import { here, type Place, type PositionValue } from "./position.ts";
 
 /**
  * **What running an option from now is expected to bring**, over its run, in life (a share of a
  * body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's life
- * its blows take; its own life the blows it takes take; its progress on the orders, a metre walked
- * as ordered (`ORDERED`); and the chance it ends with the body down, which costs what a fall costs
- * (the `downCost` percept).
+ * its blows take; its own life the blows it takes take, the blow coming included; its progress on
+ * the orders, a metre walked as ordered (`ORDERED`); and where it leaves the body (`Place`: how far
+ * from the focus, and the chance it is down).
  */
 export interface Terms {
   readonly duration: number;
   readonly dealt: number;
   readonly taken: number;
   readonly orders: number;
-  readonly fall: number;
+  readonly exit: Place;
 }
 
 /**
@@ -34,16 +35,17 @@ export const OBEDIENCE: readonly (readonly [value: string, name: string, orders:
 /** The steady level's worth of a metre walked as ordered, life: the valued chooser's own. */
 export const STEADY = OBEDIENCE[1]![2];
 
-/** The time beyond an option's run over which its terms are spread (`worth`), s: an option's worth is a rate, but a short run does not magnify a cost it cannot avoid. */
-const HORIZON = 1;
-
 /**
- * **An option's worth**, life a second: the focus's life it takes less its own it loses, a fall's
- * chance at what a fall costs (`downCost`, life), its progress on the orders at `obedience` (life a
- * metre), over a second of its run and `HORIZON`.
+ * **An option's worth beside the defaults holding the position**, life, by `position`: its payoff
+ * (the focus's life it takes less its own it loses beyond the blow coming, which holding takes as
+ * well, and its progress on the orders at `obedience`, life a metre), the position where it leaves
+ * the body less the position now, and its time at the rate of play. With it, how much the position
+ * changes (`moves`).
  */
-export const worth = (terms: Terms, obedience: number, downCost: number): number =>
-  (terms.dealt - terms.taken + obedience * terms.orders - downCost * terms.fall) / (terms.duration + HORIZON);
+export function worth(terms: Terms, now: Situation, obedience: number, position: PositionValue): { readonly worth: number; readonly moves: number } {
+  const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0);
+  return { worth: terms.dealt - (terms.taken - now.danger) + obedience * terms.orders + moves - position.rate(now) * terms.duration, moves };
+}
 
 /** The rules a fight is played by, whose arithmetic prices a blow (`blowDamage`). */
 const RULES = rulebook("arena");

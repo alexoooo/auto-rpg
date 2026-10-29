@@ -32,6 +32,8 @@ export interface EndRule<C extends EndRuleConfig = EndRuleConfig> {
   out(one: EndContestant, config: C, recipe: DuelRecipe): string | null;
   /** The share of every side's full life it has taken `seconds` into the bout; none unless it says. */
   drained?(seconds: number, config: C): number;
+  /** How far into the bout it has taken every side's full life, s: where it drains (`drained`). */
+  drainedBy?(config: C): number;
   /** What a person is told of a bout a side lost so, by ending: "by a fall". */
   readonly endings: Readonly<Record<string, string>>;
 }

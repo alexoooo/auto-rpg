@@ -16,8 +16,8 @@ export interface DownModel {
   readonly shelter: number;
 }
 
-/** The terms of a down option of `model`: the near focus's blows it does not keep off, the blow coming, and the chance it stays down. */
-const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, fall: 1 - model.stands,
+/** The terms of a down option of `model`: the near focus's blows it does not keep off, the blow coming, and the chance it leaves the body still down where it lies. */
+const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, exit: { apart: now.reach.apart, down: 1 - model.stands },
   taken: now.danger + (now.apart <= NEAR ? pressureAt(now.pressure, 0, model.seconds * (1 - model.shelter)) : 0) });
 
 /** Whether the body is the down half's (`downHalf`): handed to it by the body's host, and not yet taken back. */

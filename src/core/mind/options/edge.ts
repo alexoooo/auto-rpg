@@ -16,7 +16,8 @@ const AHEAD = 1;
  * again at once, or once its patience is spent. It is footwork, always yields, and asks for no blow;
  * its exit is the band, where it stands at the edge. Its model:
  * the rest of its patience, at most `AHEAD` s, through the blow coming, and the focus's reach
- * where it stands in it: a foe within reach strikes while it backs away.
+ * where it stands in it: a foe within reach strikes while it backs away; it leaves the body in its
+ * band.
  */
 export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => boolean): StandingOption {
   const state = { focus: null as string | null, since: null as number | null };
@@ -40,7 +41,8 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
     end() {},
     models: { "hand-built": (now): Terms => {
       const waited = state.focus === now.focus?.id && state.since !== null ? now.time - state.since : 0, duration = Math.min(AHEAD, Math.max(0, edge.patience - waited));
-      return { duration, dealt: 0, taken: now.danger + threatened(now, duration), orders: 0, fall: clinched(now, duration) };
+      const near = now.reach.theirs, apart = Math.min(Math.max(now.reach.apart, near), near + edge.band);
+      return { duration, dealt: 0, taken: now.danger + threatened(now, duration), orders: 0, exit: { apart, down: clinched(now, duration) } };
     } },
     step(now) {
       if (within(now, edging)) state.since ??= now.time;

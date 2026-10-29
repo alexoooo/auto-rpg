@@ -5,6 +5,7 @@ import type { PartLookup } from "../lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts.ts";
 import { onOffer, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
+import { FEW_TERMS } from "./position.ts";
 import { OBEDIENCE, STEADY, worth, type Terms } from "./value.ts";
 
 /**
@@ -15,7 +16,7 @@ import { OBEDIENCE, STEADY, worth, type Terms } from "./value.ts";
 export interface Deciding { readonly rethink: number; readonly keep: number }
 
 /**
- * **Choosing by chance**: among the options worth more than the best less `margin`, one drawn in
+ * **Choosing by chance**: among the options worth more than the best less `margin` (in the worth's unit), one drawn in
  * proportion to what each is worth above that floor, from a stream begun at `seed`. A margin of
  * 0 draws nothing and takes the best.
  */
@@ -24,14 +25,15 @@ export interface Chance { readonly margin: number; readonly seed: number }
 /** How a ranked chooser decides (`Deciding`). */
 const RANKED_DECIDING: Deciding = Object.freeze({ rethink: .2, keep: .5 });
 
-/** How a valued chooser decides: a running option kept above its rivals by as much as a joule a second on the Warrior (6 hit points of 100 J), life a second (`worth`). */
+/** How a valued chooser decides: a running option kept above its rivals by as much as a joule on the Warrior (6 hit points of 100 J), life (`worth`). */
 const VALUED_DECIDING: Deciding = Object.freeze({ rethink: RANKED_DECIDING.rethink, keep: 1 / 600 });
 
-/** An option's worth at a decision, and the terms it was weighed from; none for a fixed worth. */
+/** An option's worth at a decision, the terms it was weighed from and how much it changes the position (`worth`); none for a fixed worth. */
 export interface Offer {
   readonly name: string;
   readonly worth: number;
   readonly terms: Terms | null;
+  readonly moves: number | null;
 }
 
 /** How a chooser prices the option at `i` of its options, now. */
@@ -57,7 +59,9 @@ export interface Chooser {
  * prices it. Once a control step (`decide`), on an event, when the running option is over or out
  * of its entry, or `rethink` s on, it takes the option on offer (`onOffer`) of the highest worth,
  * the running one's raised by `keep`, the first of equals, or one drawn by `chance` where it gives
- * a margin; a running option that does not yield is kept while it goes on. Its memory is which
+ * a margin; a running option that does not yield is kept while it goes on. Standing, it takes one
+ * only worth more than the defaults holding the position, none; down there are no defaults, and it
+ * takes the best. Its memory is which
  * option runs (its place in `options`, or -1), when it decided, when it next rethinks, the event it
  * decided on, the offers it chose from, and, where it draws, its stream's word.
  */
@@ -81,7 +85,7 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
       state.next = now.time + deciding.rethink;
       if (running && !over && !running.yields(now)) return running;
       if (running && over) { running.end(); state.running = -1; }
-      let best = -1, top = -Infinity;
+      let best = -1, top = now.down ? -Infinity : 0;
       state.offers = [];
       values.length = 0;
       options.forEach((option, i) => {
@@ -140,8 +144,8 @@ const depthFaults = (config: { readonly depth: number }): readonly string[] => c
 
 /**
  * **The valued chooser's config**: its depth, what a metre walked as ordered is worth, life
- * (`obedience`, `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life a
- * second, within which it chooses by chance (`Chance`), none unless given.
+ * (`obedience`, `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life,
+ * within which it chooses by chance (`Chance`), none unless given.
  */
 interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: number; readonly margin?: number }
 
@@ -161,7 +165,7 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   },
 };
 
-/** **Valued**: each option worth its hand-built model's terms (`Terms`) in life (`worth`), its orders at its obedience. */
+/** **Valued**: each option worth its hand-built model's terms (`Terms`) in life beside the position held (`worth`, by the few terms, `FEW_TERMS`), its orders at its obedience. */
 export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
   keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
@@ -171,9 +175,9 @@ export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
     const obedience = config.obedience ?? STEADY;
     return chooser(options, (option, _, now) => {
-      const terms = option.models["hand-built"](now), value = worth(terms, obedience, now.downCost);
+      const terms = option.models["hand-built"](now), { worth: value, moves } = worth(terms, now, obedience, FEW_TERMS);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
-      return { name: option.name, worth: value, terms };
+      return { name: option.name, worth: value, terms, moves };
     }, VALUED_DECIDING, { margin: config.margin ?? 0, seed });
   },
 });
@@ -185,5 +189,5 @@ interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 export const RANKED_CHOOSER: ChooserPart<RankedConfig> = deepFreeze({
   role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults,
-  make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null }), RANKED_DECIDING),
+  make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null }), RANKED_DECIDING),
 });

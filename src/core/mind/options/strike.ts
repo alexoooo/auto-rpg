@@ -53,12 +53,14 @@ export interface StrikeOption extends StandingOption {
  * Its model, where its drill measured it as it is read now (its profile among `STRIKE_PROFILES`,
  * found by `measure`, read at the senses' reaction time): walking into the window, where its entry
  * is one, then the profile's cell nearest the range (to its farthest measured), the closing speed
- * and the focus's phase (`expect`): the focus's life its blows took, its own the drill took, how long
- * it ran and its chance of ending down; through the blow coming, and the focus's pressure while it
- * walks within the focus's reach and while it strikes (`threatened`). Else built by hand: walking
- * into the window until the focus is in its reach, then `throws` blows from its stronger hand, each
- * landing as often as its record says (`record`, which is of the hand it is asked for), within the
- * focus's reach from where it stands or the focus would reach it, and through the blow coming.
+ * and the focus's phase (`expect`): the focus's life its blows took, its own the drill took (the
+ * foe's reply while it struck), how long it ran and its chance of ending down; through the blow
+ * coming, and the focus's pressure while it walks within the focus's reach (`threatened`). Else
+ * built by hand: walking into the window until the focus is in its reach, then `throws` blows from
+ * its stronger hand, each landing as often as its record says (`record`, which is of the hand it is
+ * asked for), within the focus's reach from where it stands or the focus would reach it while it
+ * strikes, and through the blow coming. Either leaves the body where it strikes from: its own reach,
+ * or nearer where it stands nearer.
  */
 export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
@@ -110,15 +112,16 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
       const profile = profileNow(now), focus = now.focus;
       const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), closing: now.closing, phase: now.phase }) : null;
+      const from = walks ? Math.min(apart, mine) : apart;
       if (e && focus) {
         const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds;
-        return { duration, dealt, taken: now.danger + e.taken / measure.spec.wounds.hp.value + threatened(now, walkingInReach + e.seconds, Math.min(apart, mine)),
-          orders: orderedDealt(now, dealt), fall: Math.max(e.down, clinched(now, duration)) };
+        return { duration, dealt, taken: now.danger + e.taken / measure.spec.wounds.hp.value + threatened(now, walkingInReach, from),
+          orders: orderedDealt(now, dealt), exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) } };
       }
       const { lands, seconds } = record(now.sight.report.ledger, action.name);
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
       const dealt = throws * lands * blow, duration = walking + seconds;
-      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, Math.min(apart, mine)), orders: orderedDealt(now, dealt), fall: clinched(now, duration) };
+      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: orderedDealt(now, dealt), exit: { apart: from, down: clinched(now, duration) } };
     } },
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };

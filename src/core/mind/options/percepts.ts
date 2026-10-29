@@ -127,8 +127,13 @@ const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === un
  * neither is.
  */
 function foeModel(seen: Seen, foe: BodySpec): readonly Profile[] {
-  const reaction = reactionOf(seen), measured = profilesOn(STRIKE_PROFILES, foe, seen.hz, reaction);
-  if (measured.length) return measured;
+  const measured = profilesOn(STRIKE_PROFILES, foe, seen.hz, reactionOf(seen));
+  return measured.length ? measured : ownModel(seen);
+}
+
+/** **This body's own strikes** (`Seen.strikes`), those fresh at the senses' reaction time. */
+function ownModel(seen: Seen): readonly Profile[] {
+  const reaction = reactionOf(seen);
   return seen.strikes.filter((profile) => profile.measured.reaction === null || reaction === null || Math.abs(profile.measured.reaction - reaction) <= .5 / seen.hz);
 }
 
@@ -136,11 +141,12 @@ function foeModel(seen: Seen, foe: BodySpec): readonly Profile[] {
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
 
 /**
- * **What a standing focus is expected to deal this body**: the strikes it is modelled by (`model`,
- * `foeModel`), read at this body's phase (`phase`, `ownPhase`) and in its life (`hp`, its hit
- * points), the most of them a second at any range (`peak`, own life); with no model, built by hand
- * within the focus's reach (`peak` its blows a second, `RATE`, landing as the body's own do,
- * `record`, each its heavier hand's). None with no standing focus.
+ * **What one standing body's strikes are expected to deal another**: the strikes it is modelled by
+ * (`model`), read at the struck body's phase (`phase`) and in its life (`hp`, its hit points), the
+ * most of them a second at any range (`peak`, the struck body's life); with no model, built by hand
+ * within the striker's reach (`peak` its blows a second, `RATE`, landing as this body's own do,
+ * `record`, each its heavier hand's). The focus's on this body (`pressure`), and this body's on the
+ * focus (`pressing`); none with no standing focus.
  */
 export interface Pressure {
   readonly model: readonly Profile[];
@@ -171,12 +177,9 @@ function cellAt(profile: Profile, phase: string, range: number, anywhere: boolea
   return nearest && (anywhere || range <= far + (next > -Infinity ? (far - next) / 2 : 0)) ? nearest : null;
 }
 
-/** **The pressure** (`Pressure`) a standing focus puts on the body. */
-function pressureOf(seen: Seen): Pressure {
-  const { focus, sight, spec } = seen;
-  if (!focus || focus.down) return NO_PRESSURE;
-  const model = foeModel(seen, focus.spec), phase = ownPhase(seen), hp = spec.wounds.hp.value;
-  if (model.length === 0) return { model, phase, hp, peak: RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(focus.spec, spec), spec) };
+/** **The pressure** (`Pressure`) of strikes `model` on a body in `phase` of `hp` hit points; `byHand` its peak with no model. */
+function pressureBy(model: readonly Profile[], phase: string, hp: number, byHand: () => number): Pressure {
+  if (model.length === 0) return { model, phase, hp, peak: byHand() };
   let peak = 0;
   for (const profile of model) {
     const at = phaseIn(profile, phase);
@@ -185,11 +188,27 @@ function pressureOf(seen: Seen): Pressure {
   return { model, phase, hp, peak };
 }
 
+/** **The pressure** (`Pressure`) a standing focus puts on the body. */
+function pressureOf(seen: Seen): Pressure {
+  const { focus, sight, spec } = seen;
+  if (!focus || focus.down) return NO_PRESSURE;
+  return pressureBy(foeModel(seen, focus.spec), ownPhase(seen), spec.wounds.hp.value,
+    () => RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(focus.spec, spec), spec));
+}
+
+/** **The pressure** (`Pressure`) the body's own strikes put on a standing focus: its measured strikes (`Seen.strikes`) fresh at the senses' reaction time, read at the focus's phase (`FoePhase`). */
+function pressingOf(seen: Seen): Pressure {
+  const { focus, sight, spec } = seen;
+  if (!focus || focus.down) return NO_PRESSURE;
+  return pressureBy(ownModel(seen), foePhase(focus, seen.blow), focus.spec.wounds.hp.value,
+    () => RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(spec, focus.spec), focus.spec));
+}
+
 /**
- * **The own life `seconds` s at `range` m from the focus, centre to centre, are expected to cost**
- * under `pressure`: modelled, the most of its strikes, each its nearest cell's hit points over its
- * seconds within its reach (`cellAt`); built by hand, its peak at any range (its caller keeps to
- * the focus's reach).
+ * **The life `seconds` s at `range` m apart, centre to centre, are expected to cost the struck
+ * body** under `pressure`: modelled, the most of its strikes, each its nearest cell's hit points
+ * over its seconds within its reach (`cellAt`); built by hand, its peak at any range (its caller
+ * keeps to the striker's reach, `dealtAt`).
  */
 export function pressureAt(pressure: Pressure, range: number, seconds: number): number {
   if (pressure.model.length === 0) return pressure.peak * seconds;
@@ -202,12 +221,15 @@ export function pressureAt(pressure: Pressure, range: number, seconds: number): 
 }
 
 /**
- * **The own life `seconds` s cost under the focus's pressure** (`Pressure`), standing `apart` m
- * from it head to head: modelled, at the range centre to centre that leaves (`pressureAt`); built
- * by hand, only within the focus's reach.
+ * **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to
+ * head: modelled, at the range centre to centre that leaves (`pressureAt`); built by hand, only
+ * within the striker's `reach`, m head to head.
  */
-export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number =>
-  now.pressure.model.length ? pressureAt(now.pressure, now.apart + apart - now.reach.apart, seconds) : apart <= now.reach.theirs ? pressureAt(now.pressure, 0, seconds) : 0;
+export const dealtAt = (pressure: Pressure, now: Situation, apart: number, reach: number, seconds: number): number =>
+  pressure.model.length ? pressureAt(pressure, now.apart + apart - now.reach.apart, seconds) : apart <= reach ? pressureAt(pressure, 0, seconds) : 0;
+
+/** **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing `apart` m from it head to head. */
+export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.pressure, now, apart, now.reach.theirs, seconds);
 
 /**
  * **The own life the blow coming is expected to take**: modelled (`foeModel`, its striker's), the
@@ -253,8 +275,10 @@ function closingOf({ focus, sight }: Seen): number {
  * predicted to reach it (`READINGS.predicted`); the own life that blow is expected to take
  * (`dangerOf`), 0 with none; the reach head to head (`Reach`:
  * Infinity and noughts with no focus); what a standing focus is expected to deal the body
- * (`Pressure`); what a fall would cost (`downCostOf`), own life; how fast the two close
- * (`closingOf`), m/s; how late the senses show the focus (`reactionOf`), s;
+ * (`Pressure`), and what its own strikes are expected to deal the focus (`pressingOf`); what a fall
+ * would cost (`downCostOf`), own life; how fast the two close (`closingOf`), m/s; how late the
+ * senses show the focus (`reactionOf`), s; the lead (its own life less the focus's, 0 with none)
+ * and the time left before the clock's verdict (`Senses.ends`, Infinity where none ends it), s;
  * and the focus's life a blow of each hand at its head takes (`blowEnergy`, `lifeOf`), 0 with no
  * focus. The gait's: where the stance is in a step (`StanceReading.phase`),
  * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
@@ -278,9 +302,12 @@ export const PERCEPTS = Object.freeze({
       mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0, guards: guardAhead(spec) + guardAhead(focus.spec) };
   } } as Percept<Reach>,
   pressure: { read: pressureOf } as Percept<Pressure>,
+  pressing: { read: pressingOf } as Percept<Pressure>,
   downCost: { read: downCostOf } as Percept<number>,
   closing: { read: closingOf } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
+  lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
+  left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
   blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? lifeOf(blowEnergy(spec, "left", focus.spec), focus.spec) : 0,
     right: focus ? lifeOf(blowEnergy(spec, "right", focus.spec), focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,

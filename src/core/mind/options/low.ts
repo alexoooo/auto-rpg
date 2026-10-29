@@ -21,7 +21,8 @@ const FOLD_FALLS = .05;
  * and yields only before the placement begins; its walk need not keep out of the focus's reach. A
  * commitment, it holds the legs and the trunk, and what its blow holds.
  * Its model: walking beside the focus, then a blow of its record (`record`) from its stronger hand,
- * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming.
+ * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming; a low focus's range is
+ * not priced, so it is taken as leaving the body where it is.
  */
 export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): StandingOption {
   // Its walks are kept clear by the body's navigator (`Sight.clearance`), read at each step.
@@ -48,7 +49,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     near: (now) => now.focus?.id ?? null,
     models: { "hand-built": (now): Terms => {
       const { lands, seconds } = record(now.sight.report.ledger, action.name), dealt = lands * Math.max(now.blows.left, now.blows.right);
-      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: orderedDealt(now, dealt), fall: FOLD_FALLS };
+      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: orderedDealt(now, dealt), exit: { apart: now.reach.apart, down: FOLD_FALLS } };
     } },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;

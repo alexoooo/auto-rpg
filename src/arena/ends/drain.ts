@@ -16,6 +16,7 @@ export const DRAIN_END = Object.freeze<EndRule<DrainConfig>>({
     if (!(config.over > 0) || !Number.isFinite(config.from)) throw new Error(`a drain runs over a positive time from a finite one, not ${config.over} s from ${config.from} s`);
     return seconds > config.from ? (seconds - config.from) / config.over : 0;
   },
+  drainedBy: (config) => config.from + config.over,
   out: (one) => one.life <= 0 ? "drained" : null,
   endings: Object.freeze({ drained: "by the clock" }),
 });
