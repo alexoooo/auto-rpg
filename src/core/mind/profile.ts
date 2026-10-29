@@ -40,7 +40,8 @@ export interface Measured {
  * posture), the hit points its blows took from the body struck and those its own body lost (the
  * rules' damage, each a share of a body's life once over that body's hit points), the seconds a
  * trial ran, the share that ended with the body down, and where those not done came to rest (an
- * edge's positions), each with its share.
+ * edge's positions), each with its share; and, where its drill let it go from there before its
+ * point of no return, what that cost.
  */
 export interface ProfileCell {
   readonly range: number;
@@ -53,6 +54,8 @@ export interface ProfileCell {
   readonly seconds: number;
   readonly down: number;
   readonly ends: readonly { readonly at: string; readonly share: number }[];
+  /** What letting it go before its point of no return cost: the seconds until it could begin again, and the hit points its body lost meanwhile; absent where no drill let it go. */
+  readonly letGo?: { readonly seconds: number; readonly taken: number };
 }
 
 export interface Profile {

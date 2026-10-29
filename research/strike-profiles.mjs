@@ -4,13 +4,16 @@
  * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at. A
  * profile a skill on a body: its measured-on read from each row's world (the left body's spec as the
  * bout builds it, the skill's digest as the mind holds it, the harness's rate, the recipe's sense
- * delay); a cell a gap and the foe's phase (`striking` on the `punching` rung, else `clear`),
- * closing 0. The `walk` rung is left out: the range it was asked at is not recorded.
+ * delay); a cell a gap and the foe's phase (`striking` on the `punching` and `letgo-punched` rungs,
+ * else `clear`), closing 0. The `walk` rung is left out: the range it was asked at is not recorded.
+ * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go.
  *
  * A cell's trials: the share that landed; the hit points their blows took by the rules (`blowDamage`
  * of each hit's energy, 0 for none) and those the striker lost; the seconds from the first step the
  * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
- * own length); and the share that ended down.
+ * own length); and the share that ended down. Its cost of letting go, over the trials let go: the
+ * seconds from the let-go until the strike was ready again (the trial's end where it was not), and
+ * the hit points the striker lost meanwhile.
  *
  *   node --import ./tests/harness/preload-data.mjs research/strike-profiles.mjs [<record.jsonl> ...] [--write]
  *
@@ -28,6 +31,8 @@ const write = process.argv.includes("--write");
 const named = process.argv.slice(2).filter((arg) => arg !== "--write");
 const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
 const RULES = rulebook("arena");
+/** The foe's phase on each rung that has one but `clear`. */
+const PHASES = { punching: "striking", "letgo-punched": "striking" };
 
 /** A record's header and rows. */
 const read = (path) => readFileSync(path, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
@@ -63,10 +68,14 @@ for (const path of paths) {
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.action}`, records: new Set(), cells: new Map() };
     profiles.set(key, profile);
     profile.records.add(path);
-    const phase = rung === "punching" ? "striking" : "clear", cellKey = JSON.stringify([row.condition.gap, phase]);
-    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, closing: 0, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0 };
+    const phase = PHASES[rung] ?? "clear", cellKey = JSON.stringify([row.condition.gap, phase]);
+    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, closing: 0, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, let: 0, letSeconds: 0, letTaken: 0 };
     profile.cells.set(cellKey, cell);
     const r = row.reading;
+    if (drill.letGo !== undefined) {
+      if (r.letGo) { cell.let++; cell.letSeconds += (r.letGo.again ?? r.seconds) - r.letGo.at; cell.letTaken += r.letGo.opening; }
+      continue;
+    }
     cell.trials++;
     if (r.outcome === "landed") cell.done++;
     if (r.hit) cell.dealt += blowDamage(RULES, "blunt", r.hit.energy);
@@ -78,11 +87,13 @@ for (const path of paths) {
 }
 
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured,
-  cells: [...profile.cells.values()].sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
+  cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
     range: c.range, closing: c.closing, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
-    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [] })) })) };
+    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [],
+    ...(c.let ? { letGo: { seconds: round(c.letSeconds / c.let), taken: round(c.letTaken / c.let) } } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz, senses ${profile.measured.reaction} s late)`);
-  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}`);
+  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.seconds} s, taken ${c.letGo.taken} HP` : ""}`);
+  for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${c.let} times, no trial thrown: left out`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);
