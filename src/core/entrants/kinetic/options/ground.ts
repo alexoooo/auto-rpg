@@ -7,7 +7,7 @@ import type { GroundReading, Position } from "../../../mind/ground/reading.ts";
 import { standReady, tumbling } from "../../../mind/ground/reading.ts";
 import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../../../mind/ground/stand-up.ts";
 import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../../../mind/ground/technique.ts";
-import { edgeExpected } from "../../../mind/profile.ts";
+import { edgeExpected, type Profile } from "../../../mind/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type Option, type Situation } from "./option.ts";
@@ -69,7 +69,7 @@ export interface Ground {
  * attempt under way, the failures, the repositions and steadies tried.
  */
 export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecutor, techniques: readonly TechniqueConfig[],
-  registry: Readonly<Record<string, TechniquePart>>): Ground {
+  registry: Readonly<Record<string, TechniquePart>>, edges: readonly Profile[]): Ground {
   const order: readonly string[] = techniques.map((technique) => technique.kind), runs = executor.runs;
   const graph: Record<string, GraphTechnique> = {}, moving: Record<string, GraphTechnique> = {};
   let waits = false;
@@ -78,7 +78,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     const run = runs[name];
     if (!run) continue;
     waits ||= part.moving && order.includes(name);
-    const { expected: profile, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz);
+    const { expected: profile, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz, edges);
     if (!profile && order.includes(name)) unpriced.push(`${name}: ${why}`);
     graph[name] = { sides: part.sides, edges: part.edges, raw: part.moving, profile, admits: (g, side) => run.admits(g, side) };
     moving[name] = { sides: part.sides, edges: part.edges, raw: part.moving, profile, admits: (g, side) => part.moving && run.admits(g, side) };

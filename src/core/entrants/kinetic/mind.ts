@@ -22,11 +22,13 @@ import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
+import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
 import { kineticTactics } from "./tactics.ts";
 
 /**
  * **Kinetic's config**: its chooser, its options (each a part of role `option`, in rank order;
- * `OPTIONS` where none are given), the parts its body layer is made from (legs, navigation, guard,
+ * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
+ * unless given), the parts its body layer is made from (legs, navigation, guard,
  * executors and the actions they carry out, motor), the techniques it rises by from the ground, in
  * rank order, and the tactics that decide in its chooser's place (a drill's), or null.
  */
@@ -34,6 +36,7 @@ export interface KineticConfig {
   readonly kind: "kinetic";
   readonly chooser: PartConfig;
   readonly options?: readonly PartConfig[] | null;
+  readonly predictions?: PartConfig | null;
   readonly tactics: PartConfig | null;
   readonly locomotion: LocomotionConfig;
   readonly navigation?: PartConfig;
@@ -60,7 +63,7 @@ const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "v
 
 /** Its slots: its chooser and its options, the tactics in its place, a skill of each role but low support, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("tactics", "Tactics", "tactics", true),
+  slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults), slotOne("tactics", "Tactics", "tactics", true),
   slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
@@ -103,8 +106,8 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
 /** **Kinetic** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
 export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
-  keys: { kind: true, chooser: true, options: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, COVER_DRILL_TACTICS],
+  keys: { kind: true, chooser: true, options: true, predictions: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS],
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],

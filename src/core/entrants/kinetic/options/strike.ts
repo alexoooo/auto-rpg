@@ -3,7 +3,6 @@ import { STANCE_LOWER } from "../../../skills/locomotion.ts";
 import { regionSegments } from "../../../mind/action-aim.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../mind/config.ts";
 import type { PartLookup } from "../../../mind/lookup.ts";
-import { dataOf } from "../../../data/store.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
@@ -20,19 +19,24 @@ const PATIENCE = 2;
 export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
   support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
 
-/** What a strike's profile is looked up by: the body throwing it, and what a profile read by it must have been measured on (`measuredOn`, no reaction time: the senses give it at each decision). */
+/**
+ * What a strike's profile is looked up by: the body throwing it, what a profile read by it must
+ * have been measured on (`measuredOn`, no reaction time: the senses give it at each decision), and
+ * the strikes' profiles it is looked up among (`ProfileTables.strikes`).
+ */
 export interface StrikeMeasure {
   readonly spec: BodySpec;
   readonly measured: Measured;
+  readonly profiles: readonly Profile[];
 }
 
-/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown by a body of `spec` at `hz`. */
-export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number): StrikeMeasure =>
-  ({ spec, measured: measuredOn(spec, skillDigest(parts, executors, action), hz, null) });
+/** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown by a body of `spec` at `hz`, looked up among `profiles`. */
+export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, profiles: readonly Profile[]): StrikeMeasure =>
+  ({ spec, measured: measuredOn(spec, skillDigest(parts, executors, action), hz, null), profiles });
 
 /** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
 export function measuredProfile(measure: StrikeMeasure): Profile | null {
-  const found = profileFor(dataOf("strike-profiles"), measure.measured);
+  const found = profileFor(measure.profiles, measure.measured);
   return found && found.stale === null ? found.profile : null;
 }
 
@@ -66,7 +70,7 @@ export interface StrikeOption extends Option {
  * its blow's as it asks it, and a cover of it is dropped (`stepSet`). The region struck is what the
  * orders name on the focus, else the first of the action's regions the focus has.
  *
- * Its model, where its drill measured it as it is read now (its profile among `STRIKE_PROFILES`,
+ * Its model, where its drill measured it as it is read now (its profile among its measure's,
  * found by `measure`, read at the senses' reaction time): what the profile expects at the range
  * (to its reach) and the focus's phase (`readProfile`): the focus's life its blows took, its own
  * the drill took (the foe's reply while it struck), how long it ran and its chance of ending down;
@@ -78,7 +82,7 @@ export interface StrikeOption extends Option {
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null };
-  const { measured } = measure, found = profileFor(dataOf("strike-profiles"), measured);
+  const { measured } = measure, found = profileFor(measure.profiles, measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
     found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;

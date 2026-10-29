@@ -23,3 +23,15 @@ export interface PositionPart<C extends PartConfig = PartConfig, V = unknown> ex
   /** The position value a config of it names. */
   make(config: C): V;
 }
+
+/**
+ * **A kind of predictions**: a part of role `predictions` that owns its config's keys and faults,
+ * and makes the data a mind predicts from (`T`: the tables a drill measured, or none, so each model
+ * reads its prior), read by the mind whose slot holds the part as its own.
+ */
+export interface PredictionsPart<C extends PartConfig = PartConfig, T = unknown> extends Part<C> {
+  readonly role: "predictions";
+  readonly keys: KeysOf<C>;
+  /** The data a config of it predicts from. */
+  make(config: C): T;
+}

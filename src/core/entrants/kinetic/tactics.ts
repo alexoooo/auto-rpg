@@ -1,4 +1,3 @@
-import { dataOf } from "../../data/store.ts";
 import { blowsOf } from "../../mind/action-config.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
@@ -7,6 +6,7 @@ import { chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { goings } from "./options/goals.ts";
 import { OPTIONS, optionsOf, type KineticOptionPart } from "./options/kinds.ts";
+import { MEASURED_PREDICTIONS, type ProfileTables } from "./options/predictions-part.ts";
 import { stepSet, type Situation } from "./options/option.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
@@ -24,6 +24,8 @@ import type { BodySpec } from "../../spec/body.ts";
 /** What Kinetic decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {
   readonly chooser: PartConfig;
+  /** What it predicts from (a part of role `predictions`; the measured profiles, `MEASURED_PREDICTIONS`, unless given). */
+  readonly predictions?: PartConfig | null;
   readonly options?: readonly PartConfig[] | null;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
@@ -78,14 +80,15 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * were priced (`profileDetail`).
  */
 export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
-  const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
+  const given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
+  const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
-  const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
+  const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
+  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down], unbraced: ground.unbraced });
   const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
-  const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "");
+  const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "", tables.gaits);
   const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, standing, strikes, gaits, ground, hands });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
