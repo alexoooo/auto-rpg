@@ -310,7 +310,8 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(row);
   }
-  const time = (row: RisingRow): number | null => row.stood ? (target || row.obstacle || row.equipped ? row.verified ?? null : row.handback ?? null) : null;
+  // A stand verified is timed so; on a bed that does not verify it, by the hand-back.
+  const time = (row: RisingRow): number | null => row.stood ? row.verified ?? (target || row.obstacle || row.equipped ? null : row.handback ?? null) : null;
   const successful = (row: RisingRow, within = Infinity) => time(row) !== null && time(row)! <= within;
   const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
     reached: cases.filter(row => row.reached).length,
