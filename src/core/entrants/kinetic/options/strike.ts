@@ -134,7 +134,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
    * the time its motion has left, and its payoff unless its blow has met the target.
    */
   const priceOf = (now: Situation, walks: boolean, going?: Going): Terms => {
-    const { apart, theirs, mine } = now.reach, pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
+    const apart = now.range, { theirs, mine } = now.reach, pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
     const walking = walks ? Math.max(0, apart - mine) / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
     const running = live(now), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
@@ -142,7 +142,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-      orders: 0, exit: fromHere(now, { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
+      orders: 0, exit: fromHere(now, { range: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows

@@ -11,7 +11,7 @@ import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
 /**
- * **A goal**: a band of the range head to head to the focus (`Reach.apart`), from `near` and
+ * **A goal**: a band of the range head to head to the focus (`Situation.range`), from `near` and
  * `width` m past it, each read each step from the bodies, so a resized body, a longer weapon or
  * another foe moves it and no number is retuned.
  */
@@ -22,7 +22,7 @@ export interface Goal {
 
 /** Whether the range head to head to the focus is within `goal`'s band. */
 export function within(now: Situation, goal: Goal): boolean {
-  const near = goal.near(now), apart = now.reach.apart;
+  const near = goal.near(now), apart = now.range;
   return apart >= near && apart <= near + goal.width(now);
 }
 
@@ -36,7 +36,7 @@ export function pressureEdge(now: Situation): number {
   if (model.length === 0) return now.reach.theirs;
   let range = -Infinity;
   for (const reading of model) range = Math.max(range, reading.reach(phase));
-  return now.reach.apart + range - now.apart;
+  return now.range + range - now.apart;
 }
 
 /** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Predictions.closes`). */
@@ -79,7 +79,7 @@ export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Op
     begin() {},
     end() {},
     model: (now): Terms => {
-      const apart = now.reach.apart, near = goal.near(now), far = near + goal.width(now);
+      const apart = now.range, near = goal.near(now), far = near + goal.width(now);
       const to = apart < near ? near : apart > far ? far : apart, pace = walk.pace(now, going.gait);
       return walkTo(now, to, Math.abs(to - apart) / pace, pace, going);
     },
@@ -94,11 +94,11 @@ export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Op
  * chance of going down behind.
  */
 function walkTo(now: Situation, to: number, duration: number, pace: number, going: Going): Terms {
-  const apart = now.reach.apart;
+  const apart = now.range;
   const nearer = Math.min(apart, to), inReach = Math.max(0, Math.min(Math.max(apart, to), now.reach.theirs) - nearer) / pace;
   const leaves = now.apart + to - apart >= CLINCH.within;
   return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearer), orders: 0,
-    exit: fromHere(now, { apart: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), braced: going.braced }) };
+    exit: fromHere(now, { range: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), unbraced: going.braced }) };
 }
 
 /**
@@ -108,7 +108,7 @@ function walkTo(now: Situation, to: number, duration: number, pace: number, goin
  * back from nearer than its near end; and standing within.
  */
 function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["toward"]> {
-  const face = walk.facing(now), apart = now.reach.apart, outside = goal.near(now), band = goal.width(now);
+  const face = walk.facing(now), apart = now.range, outside = goal.near(now), band = goal.width(now);
   const focus = now.focus!, centre = now.sight.view.stance.centre;
   if (apart > outside + band) {
     const near = outside + now.apart - apart, far = near + band;

@@ -23,7 +23,7 @@ export interface OfferTerms {
   readonly dealt: number;
   readonly taken: number;
   readonly orders: number;
-  readonly exit: { readonly apart: number; readonly down: number };
+  readonly exit: { readonly range: number; readonly down: number };
 }
 
 /**

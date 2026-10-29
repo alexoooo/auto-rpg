@@ -1,7 +1,7 @@
 import type { MotorUnmet } from "../../../control/motor.ts";
 import { paceToward, stanceEnvelopeOf } from "../../../control/stance-envelope.ts";
 import type { StancePhase } from "../../../control/stance.ts";
-import { hypot } from "../../../math/real.ts";
+import { atan2, hypot } from "../../../math/real.ts";
 import type { Rulebook } from "../../../rules/rulebook.ts";
 import type { LegsUnmet } from "../../../skills/skill.ts";
 import { rangeOf } from "../../../skills/strike.ts";
@@ -13,6 +13,7 @@ import { profilesOn, readProfile, sameReaction, type Measured, type Profile, typ
 import type { BodySense } from "../../../mind/senses.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { foePhase, threatReader, type FoePhase } from "../../../mind/threat.ts";
+import type { Position } from "../../../mind/ground/reading.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
 import { blowLife, record } from "./value.ts";
@@ -53,8 +54,11 @@ export interface Percept<V> {
   cue?(value: V): unknown;
 }
 
-/** Head to head across the ground to the focus, m; and the most at which its hands reach this body's head and this body's reach its. */
-export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number }
+/** The most at which the focus's hands reach this body's head, and this body's reach its, m head to head across the ground. */
+export interface Reach { readonly theirs: number; readonly mine: number }
+
+/** This body's head, and the focus's (its `marks.high`, else its centre). */
+const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focus ? focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre : null });
 
 /**
  * By hand, where no strike models the foe (`foeModel`), the owner's decisions: the chance a foe's
@@ -121,7 +125,7 @@ function prior(striker: BodySpec, struck: BodySpec, range: number, life: number,
 }
 
 /** How far centre to centre the head-to-head `reach` is with the focus where it stands, m. */
-const centred = (seen: Seen, reach: number): number => PERCEPTS.apart.read(seen) - PERCEPTS.reach.read(seen).apart + reach;
+const centred = (seen: Seen, reach: number): number => PERCEPTS.apart.read(seen) - PERCEPTS.range.read(seen) + reach;
 
 /** Strikes a body is modelled by, each read for its striker (`readProfile`), and how they are priced, a sentence. */
 interface Model { readonly readings: readonly ProfileReading[]; readonly priced: string }
@@ -207,10 +211,10 @@ export function pressureAt(pressure: Pressure, range: number, seconds: number): 
 }
 
 /** **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to head: at the range centre to centre that leaves (`pressureAt`). */
-export const dealtAt = (pressure: Pressure, now: Situation, apart: number, seconds: number): number => pressureAt(pressure, now.apart + apart - now.reach.apart, seconds);
+export const dealtAt = (pressure: Pressure, now: Situation, apart: number, seconds: number): number => pressureAt(pressure, now.apart + apart - now.range, seconds);
 
 /** **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing `apart` m from it head to head. */
-export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.predictions.pressure, now, apart, seconds);
+export const threatened = (now: Situation, seconds: number, apart = now.range): number => dealtAt(now.predictions.pressure, now, apart, seconds);
 
 /**
  * **The own life `blow` is expected to take**: the most its striker's strikes (`foeModel`) are
@@ -247,10 +251,12 @@ function downCostOf(seen: Seen): number {
 /**
  * **Every percept Kinetic reads**, by name, in the order they are read: what it reads of the senses
  * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
- * Whether the body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its
- * focus; how far off the focus is, centre to centre across the ground (Infinity with none); a foe's
- * blow predicted to reach the head (`READINGS.predicted`); the reach head to head (`Reach`:
- * Infinity and noughts with no focus); how late the senses show the focus (`reactionOf`), s; the
+ * Whether the body is down, how it lies (`Position`: standing on its feet), and the seconds until
+ * it is braced (`Seen.unbraced`); its orders; its focus; how far off the focus is, centre to centre
+ * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
+ * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
+ * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); the reach
+ * head to head (`Reach`: noughts with no focus); how late the senses show the focus (`reactionOf`), s; the
  * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
  * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
@@ -261,16 +267,24 @@ function downCostOf(seen: Seen): number {
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
+  posture: { read: ({ sight }) => sight.view.ground?.position ?? (sight.view.down ? "between" : "standing") } as Percept<Position>,
   unbraced: { read: (seen) => seen.unbraced(seen.sight), cue: (seconds) => seconds > 0 } as Percept<number>,
   orders: { read: (seen) => seen.orders, cue: (orders) => orders } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
-  reach: { read: ({ focus, sight, spec }): Reach => {
-    if (!focus) return { apart: Infinity, theirs: 0, mine: 0 };
-    const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
-    return { apart: hypot(theirs.x - mine.x, theirs.z - mine.z), theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0,
-      mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
+  range: { read: (seen) => { const { mine, theirs } = heads(seen); return theirs ? hypot(theirs.x - mine.x, theirs.z - mine.z) : Infinity; } } as Percept<number>,
+  around: { read: ({ focus, sight }) => {
+    const turn = focus?.segments.get(focus.spec.marks.base)?.rotation;
+    if (!focus || !turn) return 0;
+    const ahead = { x: 2 * (turn.x * turn.z + turn.w * turn.y), z: 1 - 2 * (turn.x * turn.x + turn.y * turn.y) };
+    const to = { x: sight.view.stance.centre.x - focus.centre.x, z: sight.view.stance.centre.z - focus.centre.z };
+    return atan2(ahead.z * to.x - ahead.x * to.z, ahead.x * to.x + ahead.z * to.z);
+  } } as Percept<number>,
+  reach: { read: (seen): Reach => {
+    const { mine, theirs } = heads(seen), { focus, spec } = seen;
+    if (!focus || !theirs) return { theirs: 0, mine: 0 };
+    return { theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0, mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
   } } as Percept<Reach>,
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,

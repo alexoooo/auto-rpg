@@ -13,5 +13,5 @@ export interface DownModel {
 }
 
 /** The terms of a way up of `model`: the blows it does not keep off of a focus within its reach (`Reach.theirs`), the blow coming, and the chance it leaves the body still down where it lies. */
-export const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, exit: { apart: now.reach.apart, down: 1 - model.stands },
-  taken: now.predictions.danger + (now.reach.apart <= now.reach.theirs ? pressureAt(now.predictions.pressure, 0, model.seconds * (1 - model.shelter)) : 0) });
+export const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, exit: { range: now.range, down: 1 - model.stands },
+  taken: now.predictions.danger + (now.range <= now.reach.theirs ? pressureAt(now.predictions.pressure, 0, model.seconds * (1 - model.shelter)) : 0) });
