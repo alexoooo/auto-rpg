@@ -2,7 +2,7 @@
   "source": {
     "script": "research/gait-profiles.mjs",
     "records": [
-      "assets/evaluations/gait/2026-10-29-1a62d33c-086c9526.jsonl"
+      "assets/evaluations/gait/2026-10-29-c5c4bbb0-e8b315b5.jsonl"
     ]
   },
   "profiles": [
@@ -10,7 +10,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "434b198d006f2d6f",
+        "skill": "9f3534d870acc87a",
         "hz": 120,
         "reaction": null
       },
@@ -33,7 +33,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "ecbe661896077f06",
+        "skill": "6ef50af5061dd8fb",
         "hz": 120,
         "reaction": null
       },
