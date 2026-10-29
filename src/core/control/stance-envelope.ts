@@ -256,6 +256,9 @@ export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
   return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
 }
 
+/** The measured envelope of `spec`'s body (`stanceEnvelope`), or null where the stance's envelope was not measured on it. */
+export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Object.hasOwn(measured.models, bodyKey(spec)) ? stanceEnvelope(spec) : null;
+
 /**
  * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/walk-run.ts`)
  * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule

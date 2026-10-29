@@ -1,4 +1,4 @@
-import type { ActionAround, Readiness, Region, TargetRef } from "../../skills/action.ts";
+import type { ActionAround, Readiness, Region, TargetRef, Window } from "../../skills/action.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import { regionSegments } from "../action-aim.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
@@ -43,6 +43,14 @@ export interface StrikeOption extends StandingOption {
    * is stale (`staleness`), or no cell reads where it stands.
    */
   priced(now: Situation): string;
+  /**
+   * The window its legs are to be brought to for it now (`Readiness`'s `position`): the first of
+   * its limbs' that has one, where none is ready and no blow of its own is under way; null where a
+   * limb is ready, or none has a window. What a walk into it goes to (`toWindow`).
+   */
+  window(now: Situation): Window | null;
+  /** Its model walked into its window first, wherever the body stands: what a walk into it is worth (`toWindow`). */
+  through(now: Situation): Terms;
 }
 
 /**
@@ -94,25 +102,56 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
     now.sight.readiness(now.sight.view, action.name, limb, target, around(now.sight));
-  /** The first limb ready, else, where it closes, the first with a window to walk to; null with neither. */
-  const limbFor = (now: Situation, target: TargetRef): { limb: string; readiness: Readiness } | null => {
-    let placed: { limb: string; readiness: Readiness } | null = null;
+  type Limb = { readonly limb: string; readonly readiness: Readiness };
+  /** The first limb ready at `target`, and the first with a window to walk to (`position`) where none is. */
+  const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
+    let placed: Limb | null = null;
     for (const limb of action.effectors) {
       const ready = readiness(now, limb, target);
-      if (ready.kind === "ready") return { limb, readiness: ready };
-      if (closes && ready.kind === "position") placed ??= { limb, readiness: ready };
+      if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null };
+      if (ready.kind === "position") placed ??= { limb, readiness: ready };
     }
-    return placed;
+    return { ready: null, placed };
+  };
+  /** The first limb ready, else, where it closes, the first with a window to walk to; null with neither. */
+  const limbFor = (now: Situation, target: TargetRef): Limb | null => { const { ready, placed } = scan(now, target); return ready ?? (closes ? placed : null); };
+  /** What its entry reads of its limbs at the target the situation names (`targetOf`), once a step. */
+  const offered = { time: NaN, target: null as TargetRef | null, ready: null as Limb | null, placed: null as Limb | null };
+  const offer = (now: Situation): typeof offered => {
+    if (offered.time === now.time) return offered;
+    offered.time = now.time; offered.target = targetOf(now);
+    const scanned = offered.target === null ? { ready: null, placed: null } : scan(now, offered.target);
+    offered.ready = scanned.ready; offered.placed = scanned.placed;
+    return offered;
   };
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
   const UNFIT = blocked("no standing focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
   const STROKE: Readiness = Object.freeze({ kind: "waiting", reason: "the stroke goes on" });
+  /** Whether the body, the focus and its blow under way leave it a target to strike. */
+  const unfit = (now: Situation): boolean => now.down || !now.focus || now.focus.down || state.target !== null && state.target.body !== now.focus.id;
   const entry = (now: Situation): Readiness => {
     if (live(now)) return READY;
-    if (now.down || !now.focus || now.focus.down || state.target !== null && state.target.body !== now.focus.id) return UNFIT;
-    const target = targetOf(now);
+    if (unfit(now)) return UNFIT;
+    const { target, ready, placed } = offer(now);
     if (target === null) return UNAIMED;
-    return limbFor(now, target)?.readiness ?? UNREADY;
+    return (ready ?? (closes ? placed : null))?.readiness ?? UNREADY;
+  };
+  /** Its model (`Terms`), walked into its window first where `walks`. */
+  const priceOf = (now: Situation, walks: boolean): Terms => {
+    const { apart, theirs, mine } = now.reach, pace = walk.pace(now);
+    const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
+    const e = expected(now);
+    const from = walks ? Math.min(apart, mine) : apart;
+    if (e) {
+      const duration = walking + e.seconds;
+      const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
+      return { duration, dealt: e.dealt, taken: now.danger + e.taken + threatened(now, walkingInReach, from),
+        orders: 0, exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
+    }
+    const { lands, seconds } = record(now.sight.report.ledger, action.name);
+    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
+    const dealt = throws * lands * blow, duration = walking + seconds;
+    return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: clinched(now, duration) } };
   };
   return {
     name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk"]), state,
@@ -121,6 +160,11 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     yields: (now) => (live(now)?.phase ?? "prepare") !== "commit",
     ended: () => state.over,
     holds: asking,
+    window(now) {
+      if (live(now) || unfit(now)) return null;
+      const { ready, placed } = offer(now);
+      return ready === null && placed?.readiness.kind === "position" ? placed.readiness.window : null;
+    },
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
     end() { state.id = null; state.limb = null; state.target = null; },
     priced(now) {
@@ -131,22 +175,8 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const scaled = readProfile(found.profile, measure.spec).scaled(now.focus?.spec ?? null);
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
-    model: (now): Terms => {
-      const { apart, theirs, mine } = now.reach, pace = walk.pace(now), walks = entry(now).kind === "position";
-      const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
-      const e = expected(now);
-      const from = walks ? Math.min(apart, mine) : apart;
-      if (e) {
-        const duration = walking + e.seconds;
-        const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
-        return { duration, dealt: e.dealt, taken: now.danger + e.taken + threatened(now, walkingInReach, from),
-          orders: 0, exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
-      }
-      const { lands, seconds } = record(now.sight.report.ledger, action.name);
-      const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
-      const dealt = throws * lands * blow, duration = walking + seconds;
-      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: clinched(now, duration) } };
-    },
+    model: (now) => priceOf(now, entry(now).kind === "position"),
+    through: (now) => priceOf(now, true),
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
       const running = live(now);

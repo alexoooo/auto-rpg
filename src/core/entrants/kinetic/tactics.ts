@@ -4,10 +4,9 @@ import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
 import { NO_COVER } from "../../mind/intent.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
-import { approach } from "../../mind/options/approach.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { covers } from "../../mind/options/cover.ts";
-import { moveTo } from "../../mind/options/goals.ts";
+import { moveTo, OUT_OF_PRESSURE, toWindow } from "../../mind/options/goals.ts";
 import { stepSet, type Option, type Situation } from "../../mind/options/option.ts";
 import { guard, hold } from "../../mind/options/rest.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
@@ -64,17 +63,18 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 
 /**
  * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim:
- * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, which
- * closes into its window, `approach`, and is priced by its measured profile where it has one,
- * `strikeMeasure`), a move to each of three named goals (`moveTo`: close, at the edge, out of
- * reach), each worth where it leaves the body, and, down, the rise's options (`groundOptions`), the
- * body down while its rise runs, which price a fall (`downCost`); and the rest options, worth
- * nothing, which take what nothing else is worth more on: hold the position, each hand at its
- * guard, and, down, brace (`hold`, `guard`, `brace`), which a hand's cover outbids while a blow
- * closes on the head (`covers`). The set's step is its members' (`stepSet`); the walk keeps out of a fallen body's reach and a
- * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers
- * it chose among, what its controllers did not carry out as it last decided (`unmetDetail`) and how
- * its options were priced (`profileDetail`).
+ * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, from
+ * a limb ready, priced by its measured profile where it has one, `strikeMeasure`), and the goals
+ * made from them, each worth where it leaves the body: a walk into each strike's window
+ * (`toWindow`), and one out of the foe's pressure (`moveTo`, `OUT_OF_PRESSURE`); and, down, the
+ * rise's options (`groundOptions`), the body down while its rise runs, which price a fall
+ * (`downCost`); and the rest options, worth nothing, which take what nothing else is worth more on:
+ * hold the position, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`), which a
+ * hand's cover outbids while a blow closes on the head (`covers`). The set's step is its members'
+ * (`stepSet`); the walk keeps out of a fallen body's reach and a solid's clearance
+ * (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
+ * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
+ * were priced (`profileDetail`).
  */
 export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
@@ -82,9 +82,10 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
-  const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
+  const strikes = standing.map((action, i) => strike(action, walk, false, blowsOf(parts, deciding.executors, action), measures[i]!));
   const hands = covers(spec);
-  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options,
+  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, ...strikes.map((one) => toWindow(one, walk)), moveTo("out of pressure", OUT_OF_PRESSURE, walk),
+    ...ground.options,
     ...hands.options, hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), ground.rest];
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
@@ -100,7 +101,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
       last = seen;
       const now = lastNow = ground.read(reader.read(seen));
       const { asked, near } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
-      return { ...walk.kept(now, approach(now, asked), near), guard: { ...NO_COVER, ...asked.guard } };
+      return { ...walk.kept(now, asked, near), guard: { ...NO_COVER, ...asked.guard } };
     },
   };
 }

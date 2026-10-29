@@ -1,12 +1,9 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { rigidPoints } from "../../build/rigid.ts";
-import { pointAtToRef, poseAngles, specChainTo } from "../../control/kinematics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
+import { paceToward, stanceEnvelopeOf } from "../../control/stance-envelope.ts";
 import type { StancePhase } from "../../control/stance.ts";
 import { hypot } from "../../math/real.ts";
 import type { Rulebook } from "../../rules/rulebook.ts";
 import type { LegsUnmet } from "../../skills/skill.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { rangeOf } from "../../skills/strike.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
@@ -54,12 +51,8 @@ export interface Percept<V> {
   cue?(value: V): unknown;
 }
 
-/**
- * Head to head across the ground to the focus, m; the most at which its hands reach this body's
- * head and this body's reach its; and the range head to head at which the two guards' farthest
- * points meet (`guardAhead`).
- */
-export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number; readonly guards: number }
+/** Head to head across the ground to the focus, m; and the most at which its hands reach this body's head and this body's reach its. */
+export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number }
 
 /**
  * By hand, where no strike models the foe (`foeModel`), the owner's decisions: the chance a foe's
@@ -108,26 +101,15 @@ const twoHanded = (spec: BodySpec): boolean => ["hand.left", "hand.right"].every
 /** How far a hand of `striker` reaches a head `up` m over its own, m head to head across the ground: its range's outer bound. */
 const outer = (striker: BodySpec, up: number): number => { const range = rangeOf(striker, "right", up); return range.reach + range.along[1]; };
 
-/** Each spec's guard's reach ahead of its head, found once: a spec is immutable, and so is what is read from it. */
-const GUARDS = new WeakMap<BodySpec, number>();
+/** Each spec's fastest walk forward measured on its body, m/s, found once: a spec is immutable, and so is what is read from it; null where none was measured. */
+const PACES = new WeakMap<BodySpec, number | null>();
 
-/**
- * **How far ahead of its head `spec`'s guard holds its farthest point**, m: of each hand's points
- * and what it holds (`rigidPoints`), in the reference pose with the guard's angles
- * (`guardPosture`), along the body frame's forward; 0 for a body with no hands.
- */
-function guardAhead(spec: BodySpec): number {
-  let ahead = GUARDS.get(spec);
-  if (ahead !== undefined) return ahead;
-  const angles = poseAngles(spec, guardPosture(spec)), head = spec.segments.find((segment) => segment.name === "head")?.centreOfMass.value[2] ?? 0, at = new Vector3();
-  ahead = 0;
-  for (const segment of spec.segments) {
-    if (segment.name !== "hand.left" && segment.name !== "hand.right") continue;
-    const chain = specChainTo(spec, segment.name), turned = chain.map((joint) => angles[joint.spec.name] ?? joint.spec.dofs.map(() => 0));
-    for (const point of rigidPoints(spec, segment).values()) ahead = Math.max(ahead, pointAtToRef(chain, turned, point.value, at).z - head);
-  }
-  GUARDS.set(spec, ahead);
-  return ahead;
+/** The fastest walk forward `spec`'s body was measured to hold (`stanceEnvelopeOf`, `paceToward`), m/s; null where none was measured. */
+function paceOf(spec: BodySpec): number | null {
+  if (PACES.has(spec)) return PACES.get(spec)!;
+  const envelope = stanceEnvelopeOf(spec), pace = envelope ? paceToward(envelope, 1, 0) : null;
+  PACES.set(spec, pace);
+  return pace;
 }
 
 /** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`). */
@@ -135,6 +117,19 @@ const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number =
 
 /** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
 const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
+
+/**
+ * **How far the focus walks in the time the senses show it late**, m: at its fastest walk forward
+ * measured on its body, else at this body's own (`paceOf`, `Sight.envelope`), as a foe with no
+ * model of its own is modelled as this body is; 0 with no focus, no reaction time or no walk
+ * measured.
+ */
+function closesOf(seen: Seen): number {
+  const { focus, sight } = seen, reaction = reactionOf(seen);
+  if (!focus || reaction === null) return 0;
+  const pace = paceOf(focus.spec) ?? (sight.envelope ? paceToward(sight.envelope, 1, 0) : 0);
+  return pace * reaction;
+}
 
 /** Strikes a body is modelled by, each read for its striker (`readProfile`), and how they are priced, a sentence. */
 interface Model { readonly readings: readonly ProfileReading[]; readonly priced: string }
@@ -276,7 +271,7 @@ function downCostOf(seen: Seen): number {
  * Infinity and noughts with no focus); what a standing focus is expected to deal the body
  * (`Pressure`), and what its own strikes are expected to deal the focus (`pressingOf`); what a fall
  * would cost (`downCostOf`), own life; how late the
- * senses show the focus (`reactionOf`), s; the lead (its own life less the focus's, 0 with none)
+ * senses show the focus (`reactionOf`), s, and how far it walks in that time (`closesOf`), m; the lead (its own life less the focus's, 0 with none)
  * and the time left before the clock's verdict (`Senses.ends`, Infinity where none ends it), s;
  * and the focus's life a blow of each hand at its head takes by the rules (`blowLife`), 0 with no
  * focus. The gait's: where the stance is in a step (`StanceReading.phase`),
@@ -296,15 +291,16 @@ export const PERCEPTS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Percept<number>,
   menace: { read: (seen) => lifeOf(seen, seen.threats.blowOf(seen.sight.view, READINGS.threat)) } as Percept<number>,
   reach: { read: ({ focus, sight, spec }): Reach => {
-    if (!focus) return { apart: Infinity, theirs: 0, mine: 0, guards: 0 };
+    if (!focus) return { apart: Infinity, theirs: 0, mine: 0 };
     const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
     return { apart: hypot(theirs.x - mine.x, theirs.z - mine.z), theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0,
-      mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0, guards: guardAhead(spec) + guardAhead(focus.spec) };
+      mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
   } } as Percept<Reach>,
   pressure: { read: pressureOf } as Percept<Pressure>,
   pressing: { read: pressingOf } as Percept<Pressure>,
   downCost: { read: downCostOf } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
+  closes: { read: closesOf } as Percept<number>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
   blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
