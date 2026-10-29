@@ -15,11 +15,11 @@ const LONGEST = 1;
 const STOPS = .6;
 
 /**
- * **The covers**: an option for each hand of `spec`, its target the blow closing on the head
- * (`Situation.threat`). A hand's is on offer while it is the one on the side the blow closes from
+ * **The covers**: an option for each hand of `spec`, its target the blow predicted to reach the
+ * head (`Situation.incoming`, `READINGS.predicted`). A hand's is on offer while it is the one on the side the blow closes from
  * (`coveringHand`) and no action under way holds it, for at most `LONGEST` s of one run of blows,
  * then not until the threat has gone. It claims its hand, asks it between the blow and the head,
- * and is priced by the share of the blow's life it keeps off (`STOPS` of `Situation.menace`),
+ * and is priced by the share of the blow's life it keeps off (`STOPS` of `Situation.danger`),
  * leaving the body where it is. It always yields. Their memory is when the run began and whether
  * it is spent, read once a step.
  */
@@ -29,7 +29,7 @@ export function covers(spec: BodySpec): { readonly options: readonly StandingOpt
   const handAt = (now: Situation): Side | null => {
     if (state.read === now.time) return state.hand;
     state.read = now.time; state.hand = null;
-    const threat = now.threat;
+    const threat = now.incoming;
     if (now.down || !threat) { state.since = null; state.spent = false; return null; }
     if (state.spent) return null;
     state.since ??= now.time;
@@ -43,8 +43,8 @@ export function covers(spec: BodySpec): { readonly options: readonly StandingOpt
       name: `cover ${side}`, posture: "standing", claims: Object.freeze([hand]), state: {},
       entry: (now) => handAt(now) !== side ? OFF : now.sight.report.actions.some((action) => action.holds.includes(hand)) ? HELD : READY,
       exit: () => null, yields: () => true, ended: () => false, begin() {}, end() {},
-      model: (now) => ({ duration: 0, dealt: 0, taken: now.danger - STOPS * now.menace, orders: 0, exit: here(now) }),
-      step: (now) => ({ move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.threat! } }),
+      model: (now) => ({ duration: 0, dealt: 0, taken: (1 - STOPS) * now.danger, orders: 0, exit: here(now) }),
+      step: (now) => ({ move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.incoming! } }),
       holds: () => [],
     };
   };

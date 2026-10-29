@@ -235,8 +235,7 @@ export const threatened = (now: Situation, seconds: number, apart = now.reach.ap
  * **The own life `blow` is expected to take**: modelled (`foeModel`, its striker's), the most its
  * strikes are expected to take at the striker's range and this body's phase, to their reach (a blow
  * predicted to reach the head is in reach); else built by hand, its energy at the speed it closes,
- * landing as often as `LANDS`. 0 with none: the blow coming's (`danger`), and the one closing on
- * the head's (`menace`).
+ * landing as often as `LANDS`. 0 with none: the blow coming's (`danger`).
  */
 function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const { spec, sight } = seen;
@@ -267,9 +266,9 @@ function downCostOf(seen: Seen): number {
 /**
  * **Every percept the options fighter reads**, by name, in the order they are read: whether the
  * body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its focus; how
- * far off the focus is, centre to centre across the ground (Infinity with none); a foe's blow closing on the head (`READINGS.threat`) and one
- * predicted to reach it (`READINGS.predicted`); the own life that blow is expected to take
- * (`lifeOf`), 0 with none, and the one closing on it; the reach head to head (`Reach`:
+ * far off the focus is, centre to centre across the ground (Infinity with none); a foe's blow
+ * predicted to reach the head (`READINGS.predicted`); the own life that blow is expected to take
+ * (`lifeOf`), 0 with none; the reach head to head (`Reach`:
  * Infinity and noughts with no focus); what a standing focus is expected to deal the body
  * (`Pressure`), and what its own strikes are expected to deal the focus (`pressingOf`); what a fall
  * would cost (`downCostOf`), own life; how late the
@@ -289,10 +288,8 @@ export const PERCEPTS = Object.freeze({
   orders: { read: (seen) => seen.orders, cue: (orders) => orders } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
-  threat: { read: (seen) => seen.threats.threatOf(seen.sight.view, READINGS.threat), cue: (threat) => threat !== null } as Percept<Cover | null>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Percept<number>,
-  menace: { read: (seen) => lifeOf(seen, seen.threats.blowOf(seen.sight.view, READINGS.threat)) } as Percept<number>,
   reach: { read: ({ focus, sight, spec }): Reach => {
     if (!focus) return { apart: Infinity, theirs: 0, mine: 0 };
     const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
