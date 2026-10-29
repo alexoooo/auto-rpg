@@ -51,6 +51,8 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
     support: [s.support.x, s.support.z], guard };
   return {
     view, legs, start, channels: hosted.muscles.channels.map((channel) => channel.name),
+    /** The height over the ground of the centre of the segment the spec's bearing end `end` is on, m. */
+    endHeight: (end) => stand.built.segments.get(spec.ends.find((one) => one.name === end).segment).node.position.y,
     run(seconds, asked) { ask = asked; stand.step(stand.seconds(seconds)); },
     dispose() { hosted.dispose(); stand.dispose(); },
   };
@@ -71,6 +73,17 @@ const round = (x) => Math.round(x * 1000) / 1000;
  * undone (`reported`), and what was read against what limit (`detail`).
  */
 const reading = (met, reported, detail) => ({ met, reported, passed: met || reported, detail });
+
+/**
+ * A probe of the legs asked to bear on `ends` (the body's names, `BodySpec.ends`) for 2 s from
+ * standing: borne where each end's segment has come down to the ground, its centre within 0.2 m of
+ * it, the body not down.
+ */
+const bearOn = (ends) => async (rig) => {
+  rig.run(2, () => ({ legs: { feet: ends } }));
+  const highest = Math.max(...ends.map(rig.endHeight));
+  return reading(highest <= 0.2 && !rig.view.down, listed(rig, "feet"), `bearing on ${ends.join(", ")}: the highest end's segment ${round(highest)} m over the ground, limit 0.2`);
+};
 
 /**
  * **The legs goal's probes**, by name, each the field it asks (`field`) and how it is read (`run`), on
@@ -148,6 +161,8 @@ export const LEGS_PROBES = Object.freeze({
     return reading(off <= 0.03 && !rig.view.down, listed(rig, "centre") || unmetOf(rig).centre >= off - 0.03,
       `held ${round(off)} m from a centre 0.3 m past the left sole, limit 0.03; reported ${round(unmetOf(rig).centre)} m`);
   } },
+  kneeling: { field: "feet", run: bearOn(["shin.left", "shin.right"]) },
+  "on hands and knees": { field: "feet", run: bearOn(["shin.left", "shin.right", "hand.left", "hand.right"]) },
   pose: { field: "pose", run: async (rig) => {
     const before = tilt(rig.view);
     rig.run(1, () => ({ legs: { pose: { pitch: 0.3, seconds: 0.3 } } }));
