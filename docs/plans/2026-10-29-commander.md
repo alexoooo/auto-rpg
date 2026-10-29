@@ -2,13 +2,13 @@
 
 ## Why
 
-Kinetic is a general mind: options, each a skill applied to a target, chosen as a set whose claims
+Option Mind is a general mind: options, each a skill applied to a target, chosen as a set whose claims
 do not overlap, each priced in the verdict's unit, by a chooser that is a part. The Commanders are
 not general: `mob`, `independent`, `party` and `clearer` (`src/core/command/`) are each a rule
 written by hand, and `clearer`'s `POLICY` numbers are first guesses. None weighs one course
 against another.
 
-This plan builds one Commander in Kinetic's shape one level up, the **Option Commander**: the members are
+This plan builds one Commander in Option Mind's shape one level up, the **Option Commander**: the members are
 its resources, a team option claims members, each option is priced by what it is expected to leave
 at the exit, and its chooser is configured. The four kinds stay, as opponents and baselines.
 
@@ -25,7 +25,7 @@ at the exit, and its chooser is configured. The four kinds stay, as opponents an
 (not a time written down); the drain on the player's side only; the name.
 
 **What must not move**: the game's Crypt with no drain (its fingerprint cases, before and after
-step 1); Kinetic's fingerprint through step 3; the Commander contract's boundary
+step 1); Option Mind's fingerprint through step 3; the Commander contract's boundary
 (`tests/core-boundary.test.mjs`, `COMMAND_BARRED`).
 
 ## The design
@@ -49,13 +49,13 @@ Arena's is (`Duel.life`). A run drained to nothing is lost by the drain.
   already `Duel.life` (`src/arena/team.ts`): the Commander's view, a member's senses (`enlist`'s
   `life`) and whether it is out (`enlist`'s `out` agreeing with `DungeonActor.alive`). So a drained
   run plays differently from an undrained one under every Commander and Mind that reads life:
-  `clearer` (its `POLICY.odds` and `hurt`) and Kinetic (its `lead` and `downCostAt`). The Crypt
+  `clearer` (its `POLICY.odds` and `hurt`) and Option Mind (its `lead` and `downCostAt`). The Crypt
   gives the senses no verdict time (`createSenses`' `ends`): its end is the exit or death, not a
   judgement of the lead.
 
 ### The Option Commander
 
-| Kinetic (one body) | The Option Commander (one team) |
+| Option Mind (one body) | The Option Commander (one team) |
 |---|---|
 | Resources: legs, trunk, each hand (`Resource`, a string) | Each member, by id |
 | An option: a skill applied to a target (`Option`) | A team option: a course applied to a target, its step the orders of the members it claims |
@@ -63,7 +63,7 @@ Arena's is (`Duel.life`). A run drained to nothing is lost by the drain.
 | Its entry (`Readiness`) | A foe seen, a member standing, a frontier or the exit known |
 | Its model (`Terms`: time, life dealt and taken, where it leaves the body) | Time, life dealt and taken, where it leaves the team |
 | The value of a position (`PositionValue`, `FEW_TERMS`) | The life predicted at the exit from a team's place |
-| Its chooser, a part (`ChooserPart`: `valued`, `ranked`) | Its chooser, named by its config (`valued`, `ranked`), over set selection shared with Kinetic |
+| Its chooser, a part (`ChooserPart`: `valued`, `ranked`) | Its chooser, named by its config (`valued`, `ranked`), over set selection shared with Option Mind |
 | Following orders at `OBEDIENCE` | A person's commands, later, as an option weighted alike |
 
 **The team's options**, for one unit first:
@@ -100,7 +100,7 @@ Falling back costs seconds and pays where the fight it leaves would cost more.
 
 Each lands green on its own: `npm run check`, `npm test`; a browser look where it is something to
 see. A run is priced on the pool from its first trials before it runs. A step that touches both
-the toolkit and Kinetic lands as two commits, the toolkit's first (`node scripts/entrant-check.mjs`).
+the toolkit and Option Mind lands as two commits, the toolkit's first (`node scripts/entrant-check.mjs`).
 
 ### 1. The Crypt's drain, an experiment's rule
 
@@ -142,19 +142,19 @@ Check: `npm run evaluate -- crypt-clear` for `clearer` drained, `--write`, the b
 
 ### 3. The chooser shared: set selection in the toolkit
 
-Kinetic's `chooser` (`src/core/entrants/kinetic/options/chooser.ts`) reads of its options only
+Option Mind's `chooser` (`src/core/entrants/option/options/chooser.ts`) reads of its options only
 their claims, rest mark, targets and aim, entry (`onOffer`), status, begin and end, and of the
-situation only its time and its cue (`eventOf`, Kinetic's). Lift it:
+situation only its time and its cue (`eventOf`, Option Mind's). Lift it:
 
 - **The toolkit's commit**: `Choice<S extends { readonly time: number }>`
   (`src/core/mind/choice.ts`), the option shape without its step, and `selectSet<S>(choices,
   appraise, deciding, cue, chance)`, the present `chooser` with its cue passed in; `overlaps`,
   `NOTHING`, `WHOLE` with it.
-- **Kinetic's commit**: `Option` extends `Choice<Situation>` with `step`; `chooser` is
+- **Option Mind's commit**: `Option` extends `Choice<Situation>` with `step`; `chooser` is
   `selectSet` with `eventOf`; `VALUED_CHOOSER` and `RANKED_CHOOSER` unchanged in behaviour.
 
 Check: the gate; `scripts/fingerprint.mjs` against the commit before, no case moved (it plays
-Kinetic with `valued`); one bout of Kinetic with `ranked`, its digest equal before and after.
+Option Mind with `valued`); one bout of Option Mind with `ranked`, its digest equal before and after.
 
 ### 4. What the team reads: routes and prospects
 
@@ -166,14 +166,14 @@ Kinetic with `valued`); one bout of Kinetic with `ranked`, its digest equal befo
   body expects to deal it a second, and of its own it expects to take, at the range head to head
   now; `MemberView.prospects` carries it, null where the Mind publishes none. The architecture's
   Command table gains it.
-- **Kinetic's commit**: Kinetic writes its prospects into its `state` when its chooser prices a
+- **Option Mind's commit**: Option Mind writes its prospects into its `state` when its chooser prices a
   foe: the focus at each decision, and each of `others` where the chooser reads them, from its
   `pressing` and `pressure` at the range now. It reads nothing its valuation does not already, so
   the step costs no more, and a forked bout carries them. A foe it has not priced has none.
 - Where a member has no prospect of a foe, the Option Commander prices the fight by the baseline's
   record: the mean life the hero lost a foe defeated (step 2's rows).
 
-Check: the gate; in a Node stand, Kinetic's prospects against a standing Warrior agree with its
+Check: the gate; in a Node stand, Option Mind's prospects against a standing Warrior agree with its
 own `pressing` and `pressure` that decision (a printout, no test); a forked bout's prospects equal
 the original's.
 
@@ -193,8 +193,8 @@ one, sending its member at the foe, and replaying it from its orders.
 
 ### 6. Read against the clearer
 
-`npm run evaluate -- crypt-clear` with the Option Commander (Kinetic the hero's mind), paired against
-step 2's `clearer` record (`npm run compare`); then Kinetic under `clearer` against Kinetic under
+`npm run evaluate -- crypt-clear` with the Option Commander (Option Mind the hero's mind), paired against
+step 2's `clearer` record (`npm run compare`); then Option Mind under `clearer` against Option Mind under
 the Option Commander, so the mind is the same on both sides. The owner watches a run with
 `&party=option&drain=<perMetre>`. An iteration from here is one question on the Option Commander,
 one change, paired.

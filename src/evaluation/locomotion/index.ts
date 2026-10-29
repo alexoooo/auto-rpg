@@ -111,7 +111,7 @@ export const LOCOMOTION: Evaluation<LocomotionCondition, LocomotionReading, Buil
   defaultProtocol: "screen",
   schedule: "all",
   analysis: {},
-  subjects: (choice) => mindSubjects(choice, ["kinetic"]),
+  subjects: (choice) => mindSubjects(choice, ["option"]),
   figures: LOCOMOTION_FIGURES,
   /**
    * A learning environment's percepts, each a second: `progress`, its root's speed along the ordered

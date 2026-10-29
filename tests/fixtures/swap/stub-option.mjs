@@ -1,10 +1,10 @@
 /**
- * **A stub kind of option**: Kinetic's strikes as it gives them, then a hold of the position
+ * **A stub kind of option**: Option Mind's strikes as it gives them, then a hold of the position
  * (`hold`) that counts the steps it is asked. Its state names it, so a test can read that the
  * options a config names are those the mind decides among.
  */
 import { anyBody } from "../../../src/core/mind/parts.ts";
-import { hold } from "../../../src/core/entrants/kinetic/options/rest.ts";
+import { hold } from "../../../src/core/entrants/option/options/rest.ts";
 
 export const STUB_OPTION = Object.freeze({
   role: "option", label: "Counted hold (stub)", stage: "experimental", fields: [], slots: [],

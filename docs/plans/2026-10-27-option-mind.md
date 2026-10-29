@@ -1,8 +1,8 @@
-# Kinetic: the general mind on the toed Warrior
+# Option Mind: the general mind on the toed Warrior
 
 ## Why
 
-Kinetic is the reference mind for long-term AI experiments: every skill in one shape, one chooser
+Option Mind is the reference mind for long-term AI experiments: every skill in one shape, one chooser
 that chains skills in real time, one legs goal any stance or walk carries out
 ([skills](../architecture.md#skills)), one registry of percepts that every consumer
 reads, worth in the verdict's own unit, and one trainer that learns any skill, chooser or mind.
@@ -14,16 +14,16 @@ each paired against the baseline by one command. What a trained skill learns fro
 inputs, the profile it is read by) is set by the generalization, so training first would be done
 again after it.
 
-- **Kinetic is the reference mind.** Its options, chooser and percepts are its own
-  (`src/core/entrants/kinetic/options/`); the toolkit keeps what other minds read of them: the
+- **Option Mind is the reference mind.** Its options, chooser and percepts are its own
+  (`src/core/entrants/option/options/`); the toolkit keeps what other minds read of them: the
   chooser's role (`ChooserPart`), an offer as a readout shows it (`Offer`) and a foe's phase
   (`foePhase`, `sensedPhase`).
 - **The body is the toed Warrior.** Toes that bend stand a rise from hands and knees 30 of 32
   times against 0 without ([toes](../reference/toes.md)). On toes the game's step-up stands none of
   the target's 64 falls ([on the game bodies](../reference/toes.md#on-the-game-bodies)), so toes
-  are a setting of the human figure that Kinetic's bodies take now and the game's take with the new
+  are a setting of the human figure that Option Mind's bodies take now and the game's take with the new
   stand-up ([Recovery](2026-10-23-recovery.md) step 3). The Rogue follows the Warrior.
-- **What Kinetic is today** (`src/core/entrants/kinetic/`): a chooser over
+- **What Option Mind is today** (`src/core/entrants/option/`): a chooser over
   `followOrders`, `strike`, an option a gait (`walkBy`, `goings`) walking to the places made
   from the strikes' windows and the foe's pressure (`windowPlace`, `outOfPressure`), the cover, the
   rise's options and the rest options, selected as a set and a walk looked past to the best option
@@ -36,7 +36,7 @@ again after it.
   about 420 decisions a second with the trainer's update on 8 workers of 4
   ([the trainer's speed](../reference/learned-punch.md#the-trainers-speed)), so 5 M decisions take
   about 3.3 hours. Its speed decides how many experiments the project can run.
-- **Kinetic chooses by worth one step ahead**: a strike its drill measured is priced
+- **Option Mind chooses by worth one step ahead**: a strike its drill measured is priced
   by its profile ([the profile](#the-profile)), its punch alone so far; a strike unmeasured at its
   hand's energy times its landing record whatever the range (`strike`, `value.ts`); an option is worth its payoff, the position where it leaves the body less the
   position now, and its time at the rate of play, beside the position held
@@ -49,7 +49,7 @@ again after it.
   focus's blows while down, orders the one weight, a place by the few terms (`worth`, `value.ts`;
   `FEW_TERMS`, `position.ts`); the guard is not priced, and a fall's price is the rise's
   (`Ground.down`): its route to standing where its edges are measured, else Stand up's by hand,
-  as Kinetic's is. What the
+  as Option Mind's is. What the
   foe deals is its strikes' profiles over the range at this body's phase (`Pressure`), not what the
   foe is doing, so a counter into its wind-up, a strike at its recovery or keeping out while it
   winds up have no worth of their own.
@@ -92,7 +92,7 @@ the option's measured model.
 Every power strike holds the legs and the trunk with its hand (`straight-punch.ts`, `strike.ts`,
 `blade.ts`), as do a kick and the rise; footwork holds the legs alone, and a cover one hand. So
 one policy selects a set of options whose claims do not overlap (built: `Chooser.decide`,
-`stepSet`, `src/core/entrants/kinetic/options/`): the best option, then the best of the rest whose resources
+`stepSet`, `src/core/entrants/option/options/`): the best option, then the best of the rest whose resources
 are still free, until none is left. A strike runs beside the other hand's guard; between strikes,
 footwork runs beside both hands'.
 
@@ -109,18 +109,18 @@ footwork runs beside both hands'.
 ### One path for every motion
 
 Falling, lying, rising and fighting from the ground are skills in the shape, chosen by the one
-chooser, as a strike or a step is. No sub-mind takes the body from it (built: Kinetic names none;
+chooser, as a strike or a step is. No sub-mind takes the body from it (built: Option Mind names none;
 its rise is the ground options, `groundOptions`, over the ground executor, `groundExecutor`, each
 on offer as Stand up's supervisor offers it and its edges priced by their expected time to
 standing, and stands Stand up's falls fall for fall, [the baseline](../reference/baseline.md#what-is-used);
 each on offer by its own entry and worth the posture it leaves is
-[follow-up](2026-10-28-kinetic-followup.md) step 16). A ground technique that
+[follow-up](2026-10-28-option-mind-followup.md) step 16). A ground technique that
 cannot yet share the body is a commitment that holds every resource (built: it asks no stance and
 pushes every muscle as its run drives it); what it is worth is its profile, and the postures it
 passes through are exits the chooser prices ([the value of a position](#the-value-of-a-position)).
 A legs goal names the body's bearing ends (`BodySpec.ends`); whether the legs can bear on hands
 and knees as the techniques do (`carryRoot`, `bearLimbs`), so a technique leaves an arm it does not
-use to the guard with no direct muscle writes, is open ([follow-up](2026-10-28-kinetic-followup.md)
+use to the guard with no direct muscle writes, is open ([follow-up](2026-10-28-option-mind-followup.md)
 step 11); until they do, a technique holds the whole body. Getting up, moving
 away on the ground, fighting from it or waiting are then choices by worth, not a rule. A motion
 that seems to need a path of its own is a skill whose entry, resources or exit are not yet
@@ -159,13 +159,13 @@ and choose again, as at an exit; after it, the skill runs to its exit.
   of its profile is (the Strike drill's `letgo` and `letgo-punched` rungs at 0, 0.05, 0.1 and
   0.15 s, `ProfileCell.letGo` by progress); a running option is kept by it in life, what the body
   loses beyond holding the position as long (`Offer.letGo`), and priced from where it is, its time
-  and payoff left. Kinetic's punch commits on its first quiet step (`settle` 0), so only the first
+  and payoff left. Option Mind's punch commits on its first quiet step (`settle` 0), so only the first
   point lets it go: at 0.008 s into its motion its hand is back at its guard 0.008 s later, 0.029 s
   at a foe punching back, nothing lost: it costs nothing. A running option is kept by nothing else.
 - **A feint is a strike started and let go**: chosen where the foe's reply to the wind-up (its
   phase, a cover raised) is worth more than the blow. There is no feint skill, and a strike the
-  foe reads in time is let go for the next choice: Kinetic lets its wind-up go when the foe's blow
-  comes, its profile at a striking foe worth less. A cover is no reason to let Kinetic's punch go:
+  foe reads in time is let go for the next choice: Option Mind lets its wind-up go when the foe's blow
+  comes, its profile at a striking foe worth less. A cover is no reason to let Option Mind's punch go:
   it lands through the guarding rung's cover, 6 trials of 6, so the foe's phase reads no cover
   until a strike a cover stops is measured.
 
@@ -191,13 +191,13 @@ interface Cue {                 // a percept against a limit
 - **One registry is the vocabulary of what a mind perceives**, read by every consumer: the
   chooser's cues, a skill's entry, a profile's variables, a learned skill's inputs (its input
   layout names percepts) and a behaviour list's conditions. The editor's fields for `CONDITIONS`
-  carry over. It is built in the body layer (`PERCEPTS`, `src/core/entrants/kinetic/options/percepts.ts`) with
+  carry over. It is built in the body layer (`PERCEPTS`, `src/core/entrants/option/options/percepts.ts`) with
   its first consumers; the others move to it in step 13.
 - **Every percept is computed each step at first.** Computing only what is watched comes later,
   and only if the step cost shows a need.
 - **A place is made from the skills**, never a bare number with a label: a spot on the ground read
   each step from the bodies and the skills' entries (`Destination`,
-  `src/core/entrants/kinetic/options/places.ts`), so a resized body, a longer weapon or another foe
+  `src/core/entrants/option/options/places.ts`), so a resized body, a longer weapon or another foe
   moves it and no number is retuned. The places on offer are those the skills make:
 
   | Place | Where |
@@ -261,7 +261,7 @@ less its own life it is expected to lose.
 
 ### The value of a position
 
-`PositionValue` (`src/core/entrants/kinetic/options/position.ts`, built): what a place is worth in life, the
+`PositionValue` (`src/core/entrants/option/options/position.ts`, built): what a place is worth in life, the
 lead the mind expects at the verdict from there, read over few percepts (the range against both
 reaches, the body's posture, the lead, the time left before the clock's verdict, which the senses
 give, `Senses.ends`). One interface, as a profile's. Its first implementation is a few terms
@@ -294,10 +294,10 @@ One type (`Profile`, `src/core/mind/profile.ts`, built), grown from the ground e
 cells over range, closing speed and the foe's phase, not every percept, each the share done, the
 hit points dealt and lost (life once over the body's hit points), the seconds, the share ending
 down and where those not done come to rest, and the cost of letting go where a drill let it go.
-The strikes' (Kinetic's punch) and the ground edges' are measured
-(`assets/core/strike-profiles.json`, `assets/core/edge-profiles.json`). It replaces Kinetic's down
+The strikes' (Option Mind's punch) and the ground edges' are measured
+(`assets/core/strike-profiles.json`, `assets/core/edge-profiles.json`). It replaces Option Mind's down
 model (`DownModel`) with the ground skills' (built: its rise's route priced by its edges' profiles
-where they are measured on its body), and the behaviour tactics' `ActionEstimate`, which no Kinetic part
+where they are measured on its body), and the behaviour tactics' `ActionEstimate`, which no Option Mind part
 reads, as the recipe strikes are drilled. A profile is read through one interface (built:
 `readProfile`, its payoff, duration and exit), so a table from the drills is its first
 implementation and a learned estimate another.
@@ -308,7 +308,7 @@ implementation and a learned estimate another.
   measured again, never searched again, and never read on another's numbers.
 - **It is data a skill or an entrant ships** (`assets/core/`, `assets/entrants/<name>/`), written
   by a script that names the drill records it reads, as the edge profiles are
-  (`research/edge-profiles.mjs`). It is the toolkit's, not Kinetic's: any mind's chooser reads the
+  (`research/edge-profiles.mjs`). It is the toolkit's, not Option Mind's: any mind's chooser reads the
   entry conditions and the profiles, never a skill's code.
 
 ### The reference chooser
@@ -402,14 +402,14 @@ whole mind trains on the same trainer as a skill does.
   step makes every later run cheaper; `research/learning-speed.mjs` reads it.
 - **The route with nothing of the toolkit**: a bare entrant (`bare`, `src/core/entrants/bare/`)
   takes its body as a policy (`host.policy`: `BodyObservation` in, `BodyAction` out), its network
-  the trainer's, so a mind from the senses to the muscles trains on a bout as Kinetic's chooser
-  does. It keeps the testbed's most general route exercised, not only Kinetic's skills.
+  the trainer's, so a mind from the senses to the muscles trains on a bout as Option Mind's chooser
+  does. It keeps the testbed's most general route exercised, not only Option Mind's skills.
 
 ### What stays free
 
-Kinetic is a reference, not a rule. The tools it is built with (the body layer, the percepts
+Option Mind is a reference, not a rule. The tools it is built with (the body layer, the percepts
 registry, the profiles, the drills, the trainer, the baseline evaluation) take any mind, and every
-part of Kinetic (its skills, chooser, value of a position, rate of play, percepts, carriages and
+part of Option Mind (its skills, chooser, value of a position, rate of play, percepts, carriages and
 gaits) is a part role that another implementation replaces by configuration, or a mind drops
 altogether. Only the left column binds a mind.
 
@@ -444,23 +444,23 @@ that replaces it. A mind outside the toolkit names its own parts.
 The steps come in two groups, each in order, and every training run waits for both: design is
 cheap beside training, so skills are trained on the completed design, each run's reward, inputs
 and profile set by it. The first group lays the baseline and the testbed's rules, what every mind
-meets whatever it is: the baseline evaluation (built; Kinetic's reference record in
+meets whatever it is: the baseline evaluation (built; Option Mind's reference record in
 [the baseline](../reference/baseline.md)) and the trainer (built: an environment file for any
 skill or bout, `research/environments/`, and the bare entrant). The
-second is Kinetic's own design: what a skill is worth, what it reads, how it chains. Skills are
+second is Option Mind's own design: what a skill is worth, what it reads, how it chains. Skills are
 then trained in their own plans, each paired against the baseline by its evaluation, a training
 run priced on the pool first from its first decisions' rate: the punch
 ([Punch](2026-10-28-punch.md)), the rise's fast edge ([Recovery](2026-10-23-recovery.md) step 2),
 and the skills the roadmap lists.
 
-**Kinetic's design, before any training run.** Each step is checked by the gate, the drill
+**Option Mind's design, before any training run.** Each step is checked by the gate, the drill
 readings it touches against the baseline record ([the baseline](../reference/baseline.md)) and a look; fights are read once, by the
 baseline evaluation at step 14 against that record, since each step moves what the next reads.
 
 ### 13. Footwork, the guard and the intent
 
 The goals and the covers are options under one policy, and the gaits braced and run options
-toward each goal ([follow-up](2026-10-28-kinetic-followup.md): built). This step names what
+toward each goal ([follow-up](2026-10-28-option-mind-followup.md): built). This step names what
 they ask of the legs and the hands: `walk(velocity, facing)`, the legs goal as asked, for what
 `move`, `movement` and `face` give now, and a goal as a bearing around the foe for circling or a
 place the navigator routes to, beside the goals made from the skills; the legs goal takes a pace
@@ -470,9 +470,9 @@ as the gait is. Each hand's guard is `cover(region)`, finding the threat it cove
 `predictIntercept`), and a held weapon's point covering as a hand does (built in part: a cover's
 target is the blow predicted to reach the head, `READINGS.predicted`; the blow predicted at the
 body, guarded where it meets the body's axis, lost on the Cover drill's punched rung, covered 0 of
-12 against 2, so it waits on a cover that keeps the head while it guards the trunk). Kinetic's
+12 against 2, so it waits on a cover that keeps the head while it guards the trunk). Option Mind's
 intent is the set it selected, each option with its resources (built:
-[follow-up](2026-10-28-kinetic-followup.md) step 12); the orders a person gives Kinetic open with
+[follow-up](2026-10-28-option-mind-followup.md) step 12); the orders a person gives Option Mind open with
 it, an order naming a goal as a skill does. Other minds keep the intent they write and their own
 readings.
 
@@ -486,7 +486,7 @@ goal's pace and height under standing (the arbiter folds the intent's `lower`, `
 
 ### 14. The design read whole
 
-Kinetic's part roles are the design's ([part roles](#part-roles)): a role nothing configures goes.
+Option Mind's part roles are the design's ([part roles](#part-roles)): a role nothing configures goes.
 Then the baseline evaluation reads the design whole: the design group's one fight reading.
 
 Check: the gate; the baseline evaluation against the baseline record, written (`--write`), a fight
@@ -498,7 +498,7 @@ fights, 0.68 against the record's 0.64, lost nothing ([the baseline](../referenc
 
 ## Done when
 
-Kinetic on the toed Warrior has no body layer of its own; the baseline evaluation reads it in one command under the owner's verdict, against opponents
+Option Mind on the toed Warrior has no body layer of its own; the baseline evaluation reads it in one command under the owner's verdict, against opponents
 outside it; its tactics decide within the step on measured profiles in life, each naming what it
 was measured on, with each side's life sensed, indexed by the foe's phase, with the value of a
 position and the rate of play, and no reflex layer beside them; its part roles are the design's

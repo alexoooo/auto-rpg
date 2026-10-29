@@ -261,7 +261,7 @@ export const SOURCES = Object.freeze({
       + "the boot's toe, a slab 0.025 m thick, the foot's box running from the heel to them; and the ankle of a toed "
       + "foot dorsiflexes to 0.8 rad past the reference pose, beside the 43 degrees of a weight-bearing lunge (Konor "
       + "et al. 2012, Int J Sports Phys Ther 7(3):279-287, Table 2). Toes and the stop are what let the Warrior stand "
-      + "up from hands and knees; Kinetic's fighter takes them now, the game's characters with the new stand-up.",
+      + "up from hands and knees; Option Mind's fighter takes them now, the game's characters with the new stand-up.",
     record: "docs/reference/toes.md",
   },
   "owner-physique": {

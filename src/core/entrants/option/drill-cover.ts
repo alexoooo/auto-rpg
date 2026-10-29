@@ -15,7 +15,7 @@ interface CoverDrillConfig { readonly kind: "drill-cover" }
 /**
  * Stands where it is, facing its focus or the way it faces with none (`Walker.facing`), asks no
  * action, and chooses by worth (`VALUED_CHOOSER`) between each hand's guard and its cover
- * (`covers`), on the situation Kinetic's options read (`situationReader`, with no strikes of its own):
+ * (`covers`), on the situation Option Mind's options read (`situationReader`, with no strikes of its own):
  * what the Cover drill reads of a body's covers. Its memory is the chooser's, the situation's and
  * the covers'.
  */

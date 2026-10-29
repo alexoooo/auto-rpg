@@ -80,7 +80,7 @@ anatomy with the same meanings. One URL codec reads and writes attributes per sc
 What is measured on a body (a walk's envelope, a technique's profile, a learned skill's settings,
 the searched strikes) is read under its key (`bodyKey`, `src/core/spec/body.ts`): its model, and
 `+toes` where its feet have toes. A mind's preset may choose its bodies' character
-(`MindPreset.character`; Kinetic's takes toes): the Arena puts a person's attributes over it
+(`MindPreset.character`; Option Mind's takes toes): the Arena puts a person's attributes over it
 (`controlCharacter`, `src/arena/matchup.ts`, the attribute panel showing it as the base), and an
 evaluation plays a preset's subject on it (`Subject.character`, a part of its own, each case's
 world given its seated subjects' characters). The Crypt plays its minds on its participants' own
@@ -344,7 +344,7 @@ fail its probe.
 |---|---|---|
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`LegsGoal.footing`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `LegsDrive`) when asked past its walk and allowed (`Locomotion.runs`) |
-| Move | `move.ts` | chooses among its gaits (`MoveConfig.gaits`, each a name, a label and any other walk's config as its legs; the stock `STOCK_GAITS`, `gaits.ts`, where it names none) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Kinetic names one and has no rules); Classic's is `MOVE` |
+| Move | `move.ts` | chooses among its gaits (`MoveConfig.gaits`, each a name, a label and any other walk's config as its legs; the stock `STOCK_GAITS`, `gaits.ts`, where it names none) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Option Mind names one and has no rules); Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
 its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
@@ -546,7 +546,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| kinetic | `src/core/entrants/kinetic/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| option | `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -590,7 +590,7 @@ or a test may still name it. An arena recipe may name each side's mind (`DuelRec
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
 
-**Kinetic's options** (`src/core/entrants/kinetic/options/`). An `Option` (`option.ts`) is a
+**Option Mind's options** (`src/core/entrants/option/options/`). An `Option` (`option.ts`) is a
 skill applied to a target in one shape: its entry (`Readiness`: ready, else waiting or blocked and
 why), its claims, its model (`Terms`, with where it leaves the body, `Place`, and, where it may be
 let go now, what letting it go leaves), its step (`Step`: what it asks and what its asks hold, the
@@ -636,7 +636,7 @@ down (`fromHere`), so only the rise stands it. What happened since the last step
 attempt ended, the rise begun or over) is read before the percept is. Once down,
 the body reads the ground while no stance is asked (`BodyView.ground`).
 
-- **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what Kinetic perceives with fixed
+- **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what Option Mind perceives with fixed
   geometry and kinematics: each step `situationReader` (`situation.ts`) reads every named percept
   once into the `Situation` (down, the seconds until the body is braced, orders, focus, distance,
   the blow coming, how late the senses show the focus, the lead and the time left before the
@@ -685,7 +685,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   data (`dataOf("strike-profiles")`, `dataOf("edge-profiles")`, `src/core/data/store.ts`), which the
   parts that read them declare (`Part.reads`); an entrant's own profiles would be a key of their
   own. Each reader says how it is priced: a strike (`StrikeOption.priced`), the pressure, the rise
-  (`Ground.priced`); Kinetic reports them (`Profiles`).
+  (`Ground.priced`); Option Mind reports them (`Profiles`).
 - **Footwork** (`places.ts`): an option a gait (`walkBy`), run at whichever place
   (`Destination`) it is worth most to walk to, each derived from a skill or the foe, each source
   of places a kind of option: into each strike's window where its readiness gives one
@@ -716,7 +716,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
-  `src/core/mind/chooser-part.ts`) in Kinetic's `chooser` slot, its own parts (`valued`, `ranked`;
+  `src/core/mind/chooser-part.ts`) in Option Mind's `chooser` slot, its own parts (`valued`, `ranked`;
   `depth`, `chooserOf`), takes the option on offer of highest
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
@@ -753,7 +753,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   no action under way holding it, at most a second a run of blows; it claims that hand, asks it
   between the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS`
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
-- Its defaults are `KINETIC` (`mind.ts`). A drill drives it by its config (`drilled`): its options
+- Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill drives it by its config (`drilled`): its options
   one script of the drill's tactics (`scripted`, `kinds.ts`), chosen by its chooser and reporting
   the drill's phase in its place. The Cover drill's tactics (`drill-cover.ts`), a part of its own,
   stand and cover by its covers, its chooser and its situation.
@@ -853,7 +853,7 @@ inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
 inside a clearance steps out (`exit`), which a planner reads from its sight
 (`Sight.clearance`) and a skill set given no navigation takes from its body
 (`stockClearance`). A planner's walk is kept out of a solid's clearance and a fallen body's reach
-by `keepOut` (`clear-step.ts`), which Kinetic's walk applies to what it asks (`Walker.kept`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+by `keepOut` (`clear-step.ts`), which Option Mind's walk applies to what it asks (`Walker.kept`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance grows or shrinks by `NAV.margin`, it has stalled,
 or a goal that moves is
@@ -895,7 +895,7 @@ goal has no end and no corner, so it goes at the gait's top speed.
 #### Adding a Mind
 
 A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`.
-Kinetic (`entrants/kinetic/mind.ts`), the toolkit's skills under a chooser and tactics of its own,
+Option Mind (`entrants/option/mind.ts`), the toolkit's skills under a chooser and tactics of its own,
 is the reference example.
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
@@ -913,10 +913,10 @@ is the reference example.
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`, layered planner, `vanguard-plan`, contact selector, `vanguard-exchange`, walk,
    `vanguard-walk`, held-item recipe adapter, `vanguard-weapon`, and navigator, `vanguard-navigation`;
-   Kinetic's choosers, `valued` and `ranked`, and the Cover drill's tactics, `drill-cover`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
+   Option Mind's choosers, `valued` and `ranked`, and the Cover drill's tactics, `drill-cover`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter,
-   Kinetic and a quadruped) and holds a stub of each role to it: chosen by config, run,
+   Option Mind and a quadruped) and holds a stub of each role to it: chosen by config, run,
    forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and

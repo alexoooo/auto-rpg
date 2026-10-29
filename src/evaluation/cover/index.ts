@@ -3,7 +3,7 @@
  * and stay up? Each rung is a protocol (rung 0, `swung`: a club swung on a rhythm; rung 1,
  * `punched`: punches on a rhythm), its trials laid out by body, what the subject holds, offset and
  * range. The subject is a mind; the drill puts its own tactics in the mind's tactics slot, standing
- * and covering as Kinetic does, so the guard and the covers' choice are read on the mind's body and
+ * and covering as Option Mind does, so the guard and the covers' choice are read on the mind's body and
  * parts.
  */
 import { recordingKey } from "../../core/recording.ts";
@@ -25,7 +25,7 @@ export const COVER: Evaluation<CoverCondition, CoverReading> = {
   defaultProtocol: "swung",
   schedule: "all",
   analysis: {},
-  subjects: (choice) => mindSubjects(choice, ["kinetic"]),
+  subjects: (choice) => mindSubjects(choice, ["option"]),
   outcome: coverOutcome,
   figures: [
     { name: "covered", unit: "share of trials, the guard alone met", kind: "rate", better: "higher", of: (r) => r.outcome === "covered" },

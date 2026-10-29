@@ -48,7 +48,7 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   (`above`); the aim is the trunk's surface square to that shoulder (`square`,
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
 - **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_POLICY`,
-  `assets/core/learned-punch.meta.json`): Kinetic's preset.
+  `assets/core/learned-punch.meta.json`): Option Mind's preset.
 - **How it was made**: PPO (`research/run-train.py` on
   `research/punch-learning-environment.mjs@5d782f0e`, whose episodes the case environment on
   `research/environments/punch.json` plays to the bit)
@@ -58,18 +58,18 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   with its legs' outputs as pushes, the last 4.1 M scored by each of the bar's margins to its best;
   then its outputs reshaped to the legs goal's asks (`research/punch-reshape.py@f59b8a75`: the
   trunk's and arm's kept, the asks starting at zero) and 6.5 M more on the toed Warrior
-  (`research/runs/kinetic-punch`), its places the still rung's 0.6 to 1.3 m and walks in from 1.6
+  (`research/runs/option-punch`), its places the still rung's 0.6 to 1.3 m and walks in from 1.6
   to 3 m, halting the walk as it commits from 45.8 M. The checkpoint is the run's best on the
   drill's still and walk rungs of the 21 from 46.0 M on (the last; the others 25 to 31 of 32 and
   33 to 41 of 64). Exported by `research/punch-export.mjs`.
 - **Its drill subject**: `research/learned-puncher.json`, the Puncher with the learned punch as its
-  strike, on the toed Warrior (`character`). On the drill it plays Kinetic's bouts to the bit.
+  strike, on the toed Warrior (`character`). On the drill it plays Option Mind's bouts to the bit.
 
 ## Measurement
 
 ### Trained on its unmet asks
 
-The network at 50.9 M decisions trained on to 55.0 M (`research/runs/kinetic-punch-gait`, kept
+The network at 50.9 M decisions trained on to 55.0 M (`research/runs/option-punch-gait`, kept
 outside Git) with the legs' unmet asks weighed, -1 a field a second, and 480 Hz drawn two times in
 three (`research/environments/punch.json`). Its checkpoints read held out every 0.5 M (seed 4001,
 160 trials a rate) rose from 122 and 114 at 120 and 480 Hz to 131 and 136; the best two were read
@@ -90,7 +90,7 @@ them, Node, the core's world on Rapier, the toed Warrior, both hands; landed of 
 None fell. Short of 90 % in five of the eight cells: walking in, the right hand at 120 Hz (70 %)
 the furthest; the right hand still at 120 Hz lost 6 trials.
 
-On the baseline's punch rung (Kinetic, `kinetic`, Node, the bout world on Rapier, 120 Hz), paired
+On the baseline's punch rung (Option Mind, `option`, Node, the bout world on Rapier, 120 Hz), paired
 over 128 trials with the network before (`2026-10-29-3e6e204c-1be9aa1c` against
 `2026-10-29-c5c4bbb0-9edf70eb`): landed 0.578 to 0.609 (difference 0.031, 95 % from -0.031 to
 0.094), admitted 0.750 both, none fell. Still, 28 to 26 of 64 (the high mark refused, 32 of them);
@@ -100,8 +100,8 @@ from a walk, 46 to 52 of 64.
 
 Paired with the network before it (`assets/core/learned-punch.json@f59b8a75`: its legs' 10
 outputs pushes, trained on flat feet, the toed Warrior's settings the flat one's) on the toed
-Warrior. The drill: Node, the bout world on Rapier, 120 Hz, the middle mark, both hands, Kinetic
-(`kinetic/strike`) and the learned puncher alike. Held out: `research/punch-policy-check.mjs`,
+Warrior. The drill: Node, the bout world on Rapier, 120 Hz, the middle mark, both hands, Option Mind
+(`option/strike`) and the learned puncher alike. Held out: `research/punch-policy-check.mjs`,
 seed 1001, 80 trials drawn as training draws them, each at 120 and 480 Hz.
 
 | Reading | Before | Now |
@@ -115,9 +115,9 @@ seed 1001, 80 trials drawn as training draws them, each at 120 and 480 Hz.
 
 None fell. The drill's walk rung's misses are weak, none missed. Records
 `2026-10-28-1754938b-593e2ab7` (still,
-`?play=ratings&evaluation=strike&pool=72c48f7f&subject=kinetic/strike&version=825089e6846a22c1`) and
+`?play=ratings&evaluation=strike&pool=72c48f7f&subject=option/strike&version=825089e6846a22c1`) and
 `2026-10-28-1754938b-7bea47b4` (walk,
-`?play=ratings&evaluation=strike&pool=6ceb4f94&subject=kinetic/strike&version=94422b9c03f183cb`). In
+`?play=ratings&evaluation=strike&pool=6ceb4f94&subject=option/strike&version=94422b9c03f183cb`). In
 the walk rung's worst trial (the left hand, 2.8 m, walking) the striker walks in at about 0.75 m/s
 and throws without stopping 0.9 m off; the fist meets the target between its raised hands, 0.59 kg,
 and the striker stays up. Held out at 120 Hz, still, the

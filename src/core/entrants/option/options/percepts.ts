@@ -314,7 +314,7 @@ function downCostAtOf(seen: Seen): (posture: Position) => number {
 const FALLEN: Position = "back";
 
 /**
- * **Every percept Kinetic reads**, by name, in the order they are read: what it reads of the senses
+ * **Every percept Option Mind reads**, by name, in the order they are read: what it reads of the senses
  * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
  * Whether the body is down, how it lies (`Position`: standing on its feet), and the seconds until
  * it is braced (`Seen.unbraced`); its orders; its focus; how far off the focus is, centre to centre
@@ -363,7 +363,7 @@ export interface Prediction<V> {
 }
 
 /**
- * **Every prediction Kinetic reads**, by name: the own life the blow coming is expected to take
+ * **Every prediction Option Mind reads**, by name: the own life the blow coming is expected to take
  * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
  * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late

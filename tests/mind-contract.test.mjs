@@ -111,8 +111,8 @@ for (const [id, preset] of MINDS) {
 }
 
 test("an assisted bout with blows, fists and assist asks replays from its sheets to the bit", async () => {
-  // The control for the bouts above, where nobody is assisted: Kinetic each side, with a quarter of its weight to ask.
-  const { config, character } = CONTROLLERS.kinetic.presets.kinetic;
+  // The control for the bouts above, where nobody is assisted: Option Mind each side, with a quarter of its weight to ask.
+  const { config, character } = CONTROLLERS.option.presets.option;
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const first = await played(recipe, { record: true }, false);
   const carried = (key) => SIDES.map((side) => first.sheets[side].sheets.filter((sheet) => key(sheet)).length);
@@ -125,8 +125,8 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
 });
 
 test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
-  // Kinetic with a punch of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
-  const { config, character } = CONTROLLERS.kinetic.presets.kinetic, [strike] = config.actions;
+  // Option Mind with a punch of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
+  const { config, character } = CONTROLLERS.option.presets.option, [strike] = config.actions;
   const hands = ["hand.right", "hand.left"].map((hand) => ({ ...strike, name: hand, effectors: [hand] }));
   const mind = (margin) => ({ ...config, actions: hands, chooser: { ...config.chooser, margin } });
   const recipe = (margin, seed) => ({ left: "workshop-fighter", right: "workshop-fighter", gap: GAP, seed, minds: { left: mind(margin), right: config }, entry: [], ...bothAs(character) });
@@ -138,8 +138,8 @@ test("a mind that draws by chance plays apart on two bout seeds, and a seed's bo
 });
 
 test("a mind senses its own life at once and another's as late as the rest of it, a fraction of the whole, never a part's hit points", async () => {
-  // Kinetic at arm's reach each side, each with a quarter of its weight to ask, wound each other within the bout.
-  const { config, character } = CONTROLLERS.kinetic.presets.kinetic;
+  // Option Mind at arm's reach each side, each with a quarter of its weight to ask, wound each other within the bout.
+  const { config, character } = CONTROLLERS.option.presets.option;
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   try {

@@ -17,7 +17,7 @@ import type { StrikeOption } from "./strike.ts";
 import type { Walker } from "./walk.ts";
 
 /**
- * **What Kinetic gives each kind of its options** to make them from: its body's spec, its walk, the
+ * **What Option Mind gives each kind of its options** to make them from: its body's spec, its walk, the
  * actions it throws and a strike of each (`strike`), each gait as measured (`goings`), the
  * rise (`groundOptions`), the hands' covers (`covers`) and what tactics are made for (`TacticsMaking`, a script's).
  */
@@ -32,11 +32,11 @@ export interface OptionsGiven {
   readonly making: TacticsMaking;
 }
 
-/** **A kind of Kinetic's options** (`OptionPart`): made from what Kinetic gives (`OptionsGiven`). */
-export type KineticOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, OptionsGiven, Option>;
+/** **A kind of Option Mind's options** (`OptionPart`): made from what Option Mind gives (`OptionsGiven`). */
+export type OptionKindPart<C extends PartConfig = PartConfig> = OptionPart<C, OptionsGiven, Option>;
 
 /** A kind of option with no settings of its own, `kind`, labelled `label`, made by `make`. */
-function kind<K extends string>(kind: K, label: string, make: (given: OptionsGiven) => readonly Option[]): KineticOptionPart<{ readonly kind: K }> {
+function kind<K extends string>(kind: K, label: string, make: (given: OptionsGiven) => readonly Option[]): OptionKindPart<{ readonly kind: K }> {
   return deepFreeze({ role: "option", label, stage: "game", fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
     fits: anyBody, faults: () => [], make: (_config: { readonly kind: K }, given: OptionsGiven) => make(given) });
 }
@@ -102,7 +102,7 @@ function scripted(tactics: Tactics): Option {
 }
 
 /** **A script** (`scripted`): the tactics its config names, made as a mind's are (`tacticsOf`). */
-export const SCRIPTED_OPTION: KineticOptionPart<ScriptedConfig> = deepFreeze({
+export const SCRIPTED_OPTION: OptionKindPart<ScriptedConfig> = deepFreeze({
   role: "option", label: "Script", stage: "experimental", fields: [], slots: [slotOne("tactics", "Tactics", "tactics")],
   defaults: { kind: "scripted", tactics: { kind: "drill-cover" } }, keys: { kind: true, tactics: true },
   fits: anyBody, faults: () => [], make: (config: ScriptedConfig, given: OptionsGiven) => [scripted(tacticsOf(given.making, config.tactics))],
@@ -112,14 +112,14 @@ export const SCRIPTED_OPTION: KineticOptionPart<ScriptedConfig> = deepFreeze({
 export const scriptsOf = (configs: readonly PartConfig[]): readonly PartConfig[] =>
   configs.flatMap((config) => config.kind === "scripted" ? [(config as ScriptedConfig).tactics] : []);
 
-/** Every kind of Kinetic's options. */
-export const OPTION_KINDS: readonly KineticOptionPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION,
-  SCRIPTED_OPTION as KineticOptionPart]);
+/** Every kind of Option Mind's options. */
+export const OPTION_KINDS: readonly OptionKindPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION,
+  SCRIPTED_OPTION as OptionKindPart]);
 
 /** Its options as it starts, in rank order: orders, strikes, footwork into the windows and out of pressure, the rise, covers, then the rest options. */
 export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]
   .map((part) => part.defaults));
 
 /** The options `configs` name, each kind's as `of` finds it, made from `given`, in their order. */
-export const optionsOf = (of: (config: PartConfig) => KineticOptionPart, configs: readonly PartConfig[], given: OptionsGiven): readonly Option[] =>
+export const optionsOf = (of: (config: PartConfig) => OptionKindPart, configs: readonly PartConfig[], given: OptionsGiven): readonly Option[] =>
   configs.flatMap((config) => of(config).make(config, given));

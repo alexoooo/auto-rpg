@@ -23,7 +23,7 @@ export const GAIT: Evaluation<GaitCondition, GaitReading> = {
   defaultProtocol: "stopped",
   schedule: "all",
   analysis: {},
-  subjects: (choice) => mindSubjects(choice, ["kinetic"]),
+  subjects: (choice) => mindSubjects(choice, ["option"]),
   outcome: gaitOutcome,
   figures: [
     { name: "ready", unit: "share of trials, its strike admitted after the stop", kind: "rate", better: "higher", of: (r) => r.outcome === "ready" },

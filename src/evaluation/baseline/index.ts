@@ -59,7 +59,7 @@ export const BASELINE: Evaluation<Json, BaselineReading, BuiltCase> = {
   schedule: "all",
   analysis: {},
   subjects: (choice) => {
-    const chosen = mindSubjects(choice, ["kinetic"]);
+    const chosen = mindSubjects(choice, ["option"]);
     if (chosen.length !== 1) throw new Error("the baseline reads one mind");
     return chosen;
   },

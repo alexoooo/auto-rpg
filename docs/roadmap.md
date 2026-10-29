@@ -15,7 +15,7 @@ as it needs ([architecture](architecture.md#the-layers)).
 
 - **Skills, proficiency and use.** A body has an array of skills, each in one shape: a name and
   goal, an entry condition, the resources it holds, an exit and a profile
-  ([Kinetic](plans/2026-10-27-kinetic.md#the-shape-of-a-skill)). A skill is proved on drills,
+  ([Option Mind](plans/2026-10-27-option-mind.md#the-shape-of-a-skill)). A skill is proved on drills,
   ladders of rungs the owner watches and accepts, and its profile is measured there ([Drills](plans/2026-10-24-drills.md)).
   Tactics choose skills by their entry conditions and profiles, never motion. The more general
   and robust, the better: a body that is resized or made stronger is measured again, not searched
@@ -53,17 +53,17 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind (built), what footwork and the guard ask of the legs and the hands (in part: covers take the blow predicted to reach the head; the legs ask and the intent's form left past the time box), the design read whole (the fights read, 0.68); few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
-| [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) | Kinetic decides by one policy over options, each a skill applied to a target, selected as a set by their resources (built: rest, the rise, the cover, an option a gait walking to the destinations the skills make, a rest option taking what is free, nothing chosen beside it); life read from the rules and the records (built), one profile interface (built), one stand-up bed (built), letting go measured across the wind-up (built), one trainer for any part (built), the legs bearing on the ends the body's spec names (in part: a legs goal names them; the legs stand on feet, lower the body onto its knees and hold it there, and report the rest unmet; bearing on hands and knees, and a technique holding only the limbs it moves, left past the time box); a narrower option shape and a strike that never walks (built, with Kinetic's options in its own folder and the options fighter deleted); percepts apart from predictions behind one interface whose prior is a profile, and an exit as the percepts it leaves (built); Kinetic's position value, predictions and options by configuration, a drill driving it by a script among its options (built); the rise chosen by the policy with no supervisor (built; on toes it stands none, as before, until the legs bear on hands and knees); every entry its skill's readiness (built: claims from the blow's needs, the walk into reach from the strike's window, low support among its skills); a downed foe priced by its models (built: pressure, pressing and the clinch read at how the two bodies stand, the keep-out a limit of each walk, the focus chosen by worth across the foes); a blow at a foe on the ground, so Kinetic strikes a fallen foe (built: the stomp, braced, walked round to beside a lying body and measured on the Strike drill's `stomping` rung, 10 of 12 landed, none fallen or stalled, 0.22 to 0.43 HP a trial on the Warrior, 5.8 s from its start to its end, and chosen by Kinetic over a lying body; the downward blow not needed for now); the chooser looking one option past on the options' models, the strike pricing no walk (built: a walk worth the best option where it leaves the body, the gaits Move's config); footwork to places at a distance from the focus, each derived from a skill's window or the foe's model (built: each strike's window and out of pressure, each a kind of option), and at a bearing around it, priced by the position value (in part: the bearing priced by the foe's measured turn; a place behind the foe tried and not kept, two Kinetics circling); a foe's reach by its limbs and what it holds (open) |
-| [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
+| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Option Mind, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Option Mind's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind (built), what footwork and the guard ask of the legs and the hands (in part: covers take the blow predicted to reach the head; the legs ask and the intent's form left past the time box), the design read whole (the fights read, 0.68); few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
+| [Option Mind follow-up](plans/2026-10-28-option-mind-followup.md) | Option Mind decides by one policy over options, each a skill applied to a target, selected as a set by their resources (built: rest, the rise, the cover, an option a gait walking to the destinations the skills make, a rest option taking what is free, nothing chosen beside it); life read from the rules and the records (built), one profile interface (built), one stand-up bed (built), letting go measured across the wind-up (built), one trainer for any part (built), the legs bearing on the ends the body's spec names (in part: a legs goal names them; the legs stand on feet, lower the body onto its knees and hold it there, and report the rest unmet; bearing on hands and knees, and a technique holding only the limbs it moves, left past the time box); a narrower option shape and a strike that never walks (built, with Option Mind's options in its own folder and the options fighter deleted); percepts apart from predictions behind one interface whose prior is a profile, and an exit as the percepts it leaves (built); Option Mind's position value, predictions and options by configuration, a drill driving it by a script among its options (built); the rise chosen by the policy with no supervisor (built; on toes it stands none, as before, until the legs bear on hands and knees); every entry its skill's readiness (built: claims from the blow's needs, the walk into reach from the strike's window, low support among its skills); a downed foe priced by its models (built: pressure, pressing and the clinch read at how the two bodies stand, the keep-out a limit of each walk, the focus chosen by worth across the foes); a blow at a foe on the ground, so Option Mind strikes a fallen foe (built: the stomp, braced, walked round to beside a lying body and measured on the Strike drill's `stomping` rung, 10 of 12 landed, none fallen or stalled, 0.22 to 0.43 HP a trial on the Warrior, 5.8 s from its start to its end, and chosen by Option Mind over a lying body; the downward blow not needed for now); the chooser looking one option past on the options' models, the strike pricing no walk (built: a walk worth the best option where it leaves the body, the gaits Move's config); footwork to places at a distance from the focus, each derived from a skill's window or the foe's model (built: each strike's window and out of pressure, each a kind of option), and at a bearing around it, priced by the position value (in part: the bearing priced by the foe's measured turn; a place behind the foe tried and not kept, two Option Minds circling); a foe's reach by its limbs and what it holds (open) |
+| [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
-| [Commander](plans/2026-10-29-commander.md) | A general Commander in Kinetic's shape, the Option Commander: team options claiming members, priced by the hero's life left at the Crypt's exit, its chooser configured over set selection shared with Kinetic; the Crypt's drain for AI experiments (none in the game by default), its length from the level's route; the player's side one unit |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
+| [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the hero's life left at the Crypt's exit, its chooser configured over set selection shared with Option Mind; the Crypt's drain for AI experiments (none in the game by default), its length from the level's route; the player's side one unit |
 | [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it: the skills free of the decider's memory and report, a neutral `Decider` seam, tactics a package with the fighter kind, each layer's config with its layer, drills driving any mind by a decider; one way into a body, the command layers a toolkit layer reading the body from its spec, no sub-minds in the body, the quadruped on the command layers |
 
-1. **Now: Kinetic's design**, before any training run (worth in life, measured profiles, the
+1. **Now: Option Mind's design**, before any training run (worth in life, measured profiles, the
    value of a position, exits and letting go, the stand-up as a chain are built): the
-   [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) in order, then footwork and the guard
+   [Option Mind follow-up](plans/2026-10-28-option-mind-followup.md) in order, then footwork and the guard
    (step 13) and the design read whole (step 14). Each step is
    checked on the drills it touches; the
    fights are read once, at step 14.
@@ -73,15 +73,15 @@ The plans in flight, and what comes next across them. Each plan names its own de
    the Stand drill (Drills step 8) landing before it, and the other skills
    ([Body and motor control](#body-and-motor-control)).
 3. **Beside them:** Drills step 2 (the moving target, overlays and side by
-   side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Kinetic
+   side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
-   Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
+   Recovery step 3 once Option Mind's rise stands the target: the game's bodies take toes with it,
    since on them step-up stands none of the target's falls
    ([on the game bodies](reference/toes.md#on-the-game-bodies)).
    The [Commander](plans/2026-10-29-commander.md) in order: the drain and the score (steps 1
-   and 2) need nothing of Kinetic; the Option Commander (step 5) plays the Crypt with Kinetic as its hero.
+   and 2) need nothing of Option Mind; the Option Commander (step 5) plays the Crypt with Option Mind as its hero.
    [Layering](plans/2026-10-29-layering.md) in order, each step bit for bit on the fingerprint but
-   the quadruped's; its steps 1 to 5 land before the Commander's step 3, which lifts Kinetic's chooser.
+   the quadruped's; its steps 1 to 5 land before the Commander's step 3, which lifts Option Mind's chooser.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -106,14 +106,14 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
-- Kinetic's toed Warrior (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`):
+- Option Mind's toed Warrior (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=option,duellist`):
   walking, punching and fighting; its run held to 0.7 m/s forward on toes
   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
 - The verdict ([play](reference/play.md#the-bout)): a bout in the Arena, life draining from the
   first minute, ended by two minutes, a fall ending nothing; records read under the old verdict
   are read again before any comparison.
 - The reaction time, 0.15 s ([play](reference/play.md#reaction-time)): a bout under it
-  (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`) beside one
+  (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=option,duellist`) beside one
   at 0 (`&senseDelay=0`); one that plays wrong changes the one number.
 - The skeleton's look in play, on its 15 kg body fitted to its bones and its robot-like motors
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
@@ -147,7 +147,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
-    ([Kinetic](plans/2026-10-27-kinetic.md), step 13);
+    ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
   - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
     elsewhere does not fork;
   - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
@@ -170,7 +170,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
     `loadData`), once the screen is in use and a live run would save a trip to the command line;
   - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
     a chooser scored by regret, when a tactics question needs one; its value unit is life
-    (`worth`, `src/core/entrants/kinetic/options/value.ts`), and it waits on how a chooser ranks responses.
+    (`worth`, `src/core/entrants/option/options/value.ts`), and it waits on how a chooser ranks responses.
 
 ### Body and motor control
 
@@ -186,7 +186,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **The stance on a lying body.** Asked a stand while the body lies with no ground action holding
   it, the stance's plan takes what the ground missed (`plan.missed`, `advancePlan`) unbounded and
   runs to NaN in seconds, which the action command refuses as a throw; no mind asks it now
-  (Kinetic's brace holds the body by the ground's brace).
+  (Option Mind's brace holds the body by the ground's brace).
 - **The body layer's probes** ([architecture](architecture.md#skills)) found what the stance does
   not carry out and does not report: legs asked to bear on one foot while the centre of mass is
   not over it fall, the other leg left to the posture (an action shifts the weight first, as the
@@ -230,7 +230,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
   and thrusts, held-item recipes, kicks and low support (a legs-and-trunk commitment that lends the
-  trunk to a low strike) come into Kinetic's shape after the punch, each a configuration of the
+  trunk to a low strike) come into Option Mind's shape after the punch, each a configuration of the
   general trainer where it is learned and drilled as the Strike drill drills the punch.
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
@@ -302,42 +302,42 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   ([record](reference/vanguard.md#standing-miss-return)).
 - **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
-  an opponent outside Kinetic that the baseline evaluation fights
+  an opponent outside Option Mind that the baseline evaluation fights
   ([the baseline](reference/baseline.md)); its tactics are not ported.
 - Not built: a learned mind (the bare entrant, `src/core/entrants/bare/`, is its route, trained
-  after Kinetic's design); sight that is blocked (the senses pass every body
+  after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
 - **The foe's phase reads `rising` in bursts** (`PERCEPTS.phase`): only while the fallen body's
-  centre of mass climbs faster than 0.2 m/s. On Kinetic's matches (the Warrior, empty hands,
+  centre of mass climbs faster than 0.2 m/s. On Option Mind's matches (the Warrior, empty hands,
   against six foes, 36 bouts; Node, the bout world, Rapier, 120 Hz, each side's view of the
   other), all 22 falls read `down` from their first step and 19 of 21 rises read `rising`, about
   0.9 s after the pelvis's lowest point, but only 6 % of the steps from that point to standing
   did. Of 1,321 commits, 88 % read `striking` (about 11 steps into the commit), with 0.4 % of
   clear steps read `striking`. On the Strike drill's still and fight rungs no body fell. Read
-  again when a profile has a cell at a rising foe ([the profile](plans/2026-10-27-kinetic.md#the-profile)).
+  again when a profile has a cell at a rising foe ([the profile](plans/2026-10-27-option-mind.md#the-profile)).
 - **Nothing in the rules costs effort**: a mind trained on the verdict alone may find that
   striking without pause pays. Watched once whole minds train; a rule (fatigue) only if it does.
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
-  ([the profile](plans/2026-10-27-kinetic.md#the-profile)), each asked of a concrete
+  ([the profile](plans/2026-10-27-option-mind.md#the-profile)), each asked of a concrete
   failure, one decision at a time, and read by the paired report:
   - the behaviour tactics' recipe estimate (`ActionEstimate`) becomes the recipe strikes' profiles
     once they are drilled;
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
-    legs skill, `move(goal)` toward a named range ([Kinetic](plans/2026-10-27-kinetic.md), step 13);
+    legs skill, `move(goal)` toward a named range ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
   - an option's worth is its profile: attack value, incoming cost, travel time, falls and
     recovery, with no hidden opponent state;
   - ground choices: getting up, moving away, fighting from the ground or waiting, on the same
     falls;
   - selection: valued, ranked and behaviour-list selection, interruption; a reflex is a cue the
     chooser watches, not a layer
-    ([Kinetic](plans/2026-10-27-kinetic.md#one-policy-selecting-a-set));
+    ([Option Mind](plans/2026-10-27-option-mind.md#one-policy-selecting-a-set));
   - orders: obedience against self-preservation, read with orders given; follow orders values
     an order without its walk (`Orders.walk`).
 - **The place beside a lying body flips between its sides**: a kick's window is read from where
   the kicking sole stands now (`kick.ts`), which a stride moves about 0.1 m, so the nearer side's
   feet-clear test (`besideLying`, `src/core/mind/action-window.ts`) passes and fails step to step
-  and the walk turns back for the far side. Kinetic stomps a lying Warrior 1.2 m off its feet at
+  and the walk turns back for the far side. Option Mind stomps a lying Warrior 1.2 m off its feet at
   9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
   instead lands 8 of the stomping rung's 12 against 10.
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter

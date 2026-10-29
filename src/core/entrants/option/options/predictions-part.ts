@@ -4,7 +4,7 @@ import { anyBody } from "../../../mind/parts.ts";
 import type { Profile } from "../../../mind/profile.ts";
 import { deepFreeze } from "../../../state.ts";
 
-/** **What Kinetic predicts from**: the profiles its drills measured, of strikes (any striker's), gaits and the rise's edges; a model with none of its own reads its prior. */
+/** **What Option Mind predicts from**: the profiles its drills measured, of strikes (any striker's), gaits and the rise's edges; a model with none of its own reads its prior. */
 export interface ProfileTables {
   readonly strikes: readonly Profile[];
   readonly gaits: readonly Profile[];

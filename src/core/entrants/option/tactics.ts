@@ -4,7 +4,7 @@ import { gaitsOfMove, type MoveConfig } from "../../skills/move-part.ts";
 import { chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { goings, type GaitOf } from "./options/places.ts";
-import { OPTIONS, optionsOf, type KineticOptionPart } from "./options/kinds.ts";
+import { OPTIONS, optionsOf, type OptionKindPart } from "./options/kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./options/predictions-part.ts";
 import { stepSet, type Situation } from "./options/option.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
@@ -19,7 +19,7 @@ import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";
 import type { TacticsMaking } from "../../mind/tactics-part.ts";
 
-/** What Kinetic decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
+/** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {
   readonly chooser: PartConfig;
   /** What it predicts from (a part of role `predictions`; the measured profiles, `MEASURED_PREDICTIONS`, unless given). */
@@ -69,7 +69,7 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 }
 
 /**
- * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
+ * **Option Mind's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
  * at the foe it is worth most to act on (`Chooser.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
@@ -89,7 +89,7 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * were priced (`profileDetail`); where the first chosen reports more than its name (a script,
  * `scripted`), what it reports and the context it publishes, in their place.
  */
-export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Tactics {
+export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Tactics {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;
@@ -99,7 +99,7 @@ export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deci
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw each strike.
   const hands = covers(spec), gaits = goings(spec, hz, gaitsOf(deciding.locomotion), actions.map((action, i) => ({ name: action.name, skill: measures[i]!.measured.skill })), tables.gaits);
-  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, actions, strikes, gaits, ground, hands, making });
+  const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS, { spec, walk, actions, strikes, gaits, ground, hands, making });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
@@ -114,7 +114,7 @@ export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deci
     },
   };
   return {
-    name: "kinetic", state, engagement,
+    name: "option", state, engagement,
     get decision() { return chosen.running[0]?.decision; },
     decide(seen: Sight, dt: number) {
       last = seen;

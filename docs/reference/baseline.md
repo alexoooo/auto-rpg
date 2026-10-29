@@ -1,12 +1,12 @@
 # The baseline
 
-Kinetic's reference record: what the reference mind does on the toed Warrior, read by the baseline
-evaluation (`npm run evaluate -- baseline kinetic`, `src/evaluation/baseline/`), so a later change
+Option Mind's reference record: what the reference mind does on the toed Warrior, read by the baseline
+evaluation (`npm run evaluate -- baseline option`, `src/evaluation/baseline/`), so a later change
 reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Summary
 
-| Competence | Reading | Kinetic |
+| Competence | Reading | Option Mind |
 | --- | --- | --- |
 | walk | on its feet, of 39 trials | 37 (both turns fall) |
 | walk | walks on pace (0.8 to 1.25 along, under a quarter across), of 8 | 8 |
@@ -21,13 +21,13 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## What is used
 
-- The subject: the `kinetic` preset, its character's toes on.
-- The opponents (`OPPONENTS`): the `duellist` and `vanguard-warrior` presets, never Kinetic's own.
-- The stand-up: Kinetic's whole mind on the fall bed every mind is read on
+- The subject: the `option` preset, its character's toes on.
+- The opponents (`OPPONENTS`): the `duellist` and `vanguard-warrior` presets, never Option Mind's own.
+- The stand-up: Option Mind's whole mind on the fall bed every mind is read on
   (`src/evaluation/fall.ts`): the target's directions and loadouts, shoved by the target's impulse
   and again while it holds the shove, its stand verified. Every one of the 32 falls is made. On
-  toes Kinetic stands none, so the reading is 0 until its rise stands them
-  ([Recovery](../plans/2026-10-23-recovery.md)). Kinetic stands on toes: a flat-footed reading
+  toes Option Mind stands none, so the reading is 0 until its rise stands them
+  ([Recovery](../plans/2026-10-23-recovery.md)). Option Mind stands on toes: a flat-footed reading
   is not taken.
 
 ## Measurement
@@ -43,7 +43,7 @@ The records:
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
 | fight | `assets/evaluations/baseline/2026-10-29-cc339f53-da3510a2.jsonl` |
 
-The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the
+The fights are the standard match's loadouts Option Mind can strike with (empty hands, the club, the
 sword) at gaps 3, 4 and 5 m, on each side; with a buckler it strikes with nothing the body has, so
 those 24 are dropped. By opponent and side: the Duellist 6 of 9 on the left, 7 of 9 on the right;
 Vanguard 6 of 9 on the left, 5 of 9 and a draw on the right. The score is coarse here: many bouts

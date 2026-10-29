@@ -59,7 +59,7 @@ discards the foot path through the common skill resume list.
 
 ## Stomp settings
 
-Kinetic's stomp (`STOMP`, `src/core/entrants/kinetic/mind.ts`) is the front kick's executor with
+Option Mind's stomp (`STOMP`, `src/core/entrants/option/mind.ts`) is the front kick's executor with
 these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
 of a blow down on a body lying ahead; no source pins them. Read on the Strike drill's `stomping`
 rung (Node stand, Rapier, 120 Hz; 12 trials, each foot at a limp Warrior and Skeleton lying on its

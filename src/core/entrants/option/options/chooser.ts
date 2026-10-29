@@ -185,12 +185,12 @@ function drawn(values: readonly number[], floor: number, best: number, next: () 
   return best;
 }
 
-/** **A kind of Kinetic's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
-export type KineticChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
+/** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
+export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
 
 /**
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
- * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Kinetic's are.
+ * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
  */
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
   parts.of("chooser", config).make(config, options, seed, parts) as Chooser;
@@ -263,7 +263,7 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
  * (`worth`, by its position value), its orders at its obedience; at depth 2, a walk worth as well the
  * best option where it leaves the body (`lookingPast`).
  */
-export const VALUED_CHOOSER: KineticChooserPart<ValuedConfig> = deepFreeze({
+export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [slotOne("position", "Position value", "position", true, FEW_TERMS_PART.defaults)],
   defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, obedience: true, margin: true, position: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config),
@@ -285,7 +285,7 @@ export const VALUED_CHOOSER: KineticChooserPart<ValuedConfig> = deepFreeze({
 interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 
 /** **Ranked**: each option worth its place, the first the most. */
-export const RANKED_CHOOSER: KineticChooserPart<RankedConfig> = deepFreeze({
+export const RANKED_CHOOSER: OptionChooserPart<RankedConfig> = deepFreeze({
   role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults([RANKED_DEPTH]),
   make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), DECIDING),

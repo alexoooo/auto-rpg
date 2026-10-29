@@ -1,5 +1,5 @@
 /**
- * **The swap fixture's entrants**: the game's fighter, Kinetic and quadruped under kinds of
+ * **The swap fixture's entrants**: the game's fighter, Option Mind and quadruped under kinds of
  * their own, every part chosen by its config, their stubs their own parts (`Controller.parts`).
  * They are registered from here by one list line each (`kinds.mjs`), as an entrant's folder is.
  */
@@ -8,7 +8,7 @@ import { QUADRUPED_MIND } from "../../../src/core/reptile/kind.ts";
 import { AIMED, STUB_AIM } from "./stub-aim.mjs";
 import { STUB_JAW, STUB_PAW_MOTOR, STUB_STALK, STUB_TROT } from "./stub-quadruped.mjs";
 import { FIGHTER_MIND } from "../../../src/core/mind/fighter-kind.ts";
-import { KINETIC_MIND } from "../../../src/core/entrants/kinetic/mind.ts";
+import { OPTION_MIND } from "../../../src/core/entrants/option/mind.ts";
 import { STRAIGHT_NAVIGATION } from "./straight-navigation.mjs";
 import { STUB_GUARD } from "./stub-guard.mjs";
 import { STUB_SUPPORT } from "./stub-support.mjs";
@@ -28,11 +28,11 @@ import { GAME_MOTOR } from "../../../src/core/mind/kit.ts";
 /** Where a stub behaviour goes: after the fighter's own. */
 const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
 
-/** Kinetic as it starts. */
-const KINETIC = KINETIC_MIND.defaults;
+/** Option Mind as it starts. */
+const OPTION_DEFAULTS = OPTION_MIND.defaults;
 
-/** Kinetic's first aimed action, where the stub aim goes. */
-const AIM_AT = KINETIC.actions.findIndex((action) => action.aim?.kind === "surface");
+/** Option Mind's first aimed action, where the stub aim goes. */
+const AIM_AT = OPTION_DEFAULTS.actions.findIndex((action) => action.aim?.kind === "surface");
 
 /**
  * Each converted role's stub: the part, the fixture mind that owns it (`mind`), `place` putting it
@@ -55,18 +55,18 @@ export const STUBS = Object.freeze([
     read: (_mind, body) => body.mind.subs[0].techniques["stub-technique"] },
   { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${RECIPE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
     read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "stub-takeover") },
-  { part: STUB_CHOOSER, mind: "swap-kinetic", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
-  { part: STUB_OPTION, mind: "swap-kinetic", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.tactics.options.at(-1).counts },
-  { part: STUB_BALANCE, mind: "swap-kinetic", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
+  { part: STUB_CHOOSER, mind: "swap-option", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
+  { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.tactics.options.at(-1).counts },
+  { part: STUB_BALANCE, mind: "swap-option", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
-  { part: STUB_AIM, mind: "swap-kinetic", at: `actions.${AIM_AT}.aim`,
+  { part: STUB_AIM, mind: "swap-option", at: `actions.${AIM_AT}.aim`,
     place: (config) => ({ ...config, actions: config.actions.map((action, i) => i === AIM_AT ? { ...action, aim: STUB_AIM.defaults } : action) }), read: () => AIMED },
   ...[["motor", STUB_PAW_MOTOR], ["travel", STUB_TROT], ["bite", STUB_JAW], ["tactics", STUB_STALK]].map(([at, part]) => (
     { part, mind: "swap-quadruped", at, place: (config) => ({ ...config, [at]: part.defaults }), read: (_mind, body) => body.mind.host[at] })),
 ].map(Object.freeze));
 
 /** Each fixture mind's game config: where its stubs are placed one at a time. */
-export const GAME_CONFIGS = Object.freeze({ "swap-stub": RECIPE_FIGHTER, "swap-kinetic": KINETIC, "swap-quadruped": QUADRUPED });
+export const GAME_CONFIGS = Object.freeze({ "swap-stub": RECIPE_FIGHTER, "swap-option": OPTION_DEFAULTS, "swap-quadruped": QUADRUPED });
 
 /** A fixture mind's config: `base` under `kind`, every stub of its own placed, then `more`. */
 const withStubs = (kind, base, more) => Object.freeze({ ...STUBS.filter((stub) => stub.mind === kind).reduce((config, stub) => stub.place(config), base), kind, ...more });
@@ -76,8 +76,8 @@ export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 
-/** The Kinetic fixture: Kinetic with its chooser, option, balance and aim stubs. */
-export const SWAP_KINETIC_DEFAULTS = withStubs("swap-kinetic", KINETIC, {});
+/** The Option Mind fixture: Option Mind with its chooser, option, balance and aim stubs. */
+export const SWAP_OPTION_DEFAULTS = withStubs("swap-option", OPTION_DEFAULTS, {});
 
 /** The quadruped fixture: its motor, trot, bite and planner each a stub. */
 export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", QUADRUPED, {});
@@ -94,8 +94,8 @@ export const SWAP_MIND = Object.freeze({
   }), parts: own("swap-stub"),
 });
 
-export const SWAP_KINETIC_MIND = Object.freeze({
-  ...KINETIC_MIND, label: "Swap Kinetic", stage: "experimental", defaults: SWAP_KINETIC_DEFAULTS, presets: Object.freeze({}), parts: own("swap-kinetic"),
+export const SWAP_OPTION_MIND = Object.freeze({
+  ...OPTION_MIND, label: "Swap Option Mind", stage: "experimental", defaults: SWAP_OPTION_DEFAULTS, presets: Object.freeze({}), parts: own("swap-option"),
 });
 
 export const SWAP_QUADRUPED_MIND = Object.freeze({

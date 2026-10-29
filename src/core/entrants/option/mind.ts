@@ -23,17 +23,17 @@ import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS, scriptsOf } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
 import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
-import { kineticTactics } from "./tactics.ts";
+import { optionTactics } from "./tactics.ts";
 
 /**
- * **Kinetic's config**: its chooser, its options (each a part of role `option`, in rank order;
+ * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
  * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
  * unless given), the parts its body layer is made from (legs, navigation, guard, low support,
  * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
  * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
  */
-export interface KineticConfig {
-  readonly kind: "kinetic";
+export interface OptionMindConfig {
+  readonly kind: "option";
   readonly chooser: PartConfig;
   readonly options?: readonly PartConfig[] | null;
   readonly predictions?: PartConfig | null;
@@ -70,7 +70,7 @@ const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp"
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
-const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
   executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
@@ -82,7 +82,7 @@ const SLOTS: readonly Slot[] = Object.freeze([
 ]);
 
 /** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`STAND_UP_PART.faults`). */
-function kineticFaults(config: KineticConfig, parts: PartLookup): readonly string[] {
+function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config, parts)];
   if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
   else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground }, parts).map((fault) => `ground: ${fault}`));
@@ -90,13 +90,13 @@ function kineticFaults(config: KineticConfig, parts: PartLookup): readonly strin
 }
 
 /**
- * **A Kinetic fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
+ * **An Option Mind fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
  * layer (`fighterSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its tactics (`kineticTactics`), the skills prepared for each
+ * (`groundExecutor`), decided by its tactics (`optionTactics`), the skills prepared for each
  * script among its options (`scriptsOf`, `prepareTacticsSkills`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
-function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring) {
+function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
@@ -106,14 +106,14 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
     { executors: [ground.binding], actions: ground.actions });
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
     aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  skills = driveBy(body, kineticTactics(making, Math.round(1 / host.clock.dt), config, host.seed, { executor: ground, registry }), (made, driving) =>
+  skills = driveBy(body, optionTactics(making, Math.round(1 / host.clock.dt), config, host.seed, { executor: ground, registry }), (made, driving) =>
     scriptsOf(config.options ?? []).reduce((prepared, tactics) => prepareTacticsSkills(making, tactics, prepared, () => driving.decision), make(made, driving)));
   return { skills, state: skills.state };
 }
 
-/** **Kinetic** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
-export const KINETIC_MIND = controller<KineticConfig>({
-  role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
+/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
+export const OPTION_MIND = controller<OptionMindConfig>({
+  role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
   parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS],
   // The options it starts with where its config names none.
@@ -121,10 +121,10 @@ export const KINETIC_MIND = controller<KineticConfig>({
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
   // A drill drives it by a script of its tactics in place of its options.
   drilled: (config, tactics) => ({ ...config, options: [{ kind: "scripted", tactics }] }),
-  fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
+  fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
-  faults: kineticFaults,
-  presets: deepFreeze({ kinetic: { label: "Kinetic", config: KINETIC, models: ["workshop-fighter"], character: { toes: true } } }),
+  faults: optionMindFaults,
+  presets: deepFreeze({ option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"], character: { toes: true } } }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
-  create: createKinetic,
+  create: createOptionMind,
 });
