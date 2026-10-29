@@ -254,13 +254,15 @@ export function digestOf(value: unknown): string {
 export const specDigest = (spec: BodySpec): string => digestOf(spec);
 
 /**
- * **A strike's digest**: its action's config, its executor's (named by the action) and the mind
- * data the executor reads (`Part.reads`, a learned skill's weights), as the mind holds them.
+ * **A strike's digest**: what it does, not what it is called: its action's config and its
+ * executor's (the one the action names), each without its name, and the mind data the executor
+ * reads (`Part.reads`, a learned skill's weights), as the mind holds them.
  */
 export function skillDigest(parts: PartLookup, executors: readonly ExecutorEntry[], action: ActionConfig): string {
   const executor = executors.find((entry) => entry.name === action.executor) ?? null;
   const data = executor ? (parts.of("executor", executor).reads?.(executor) ?? []).map((key) => digestOf(dataOf(key))) : [];
-  return digestOf({ action, executor, data });
+  const { name: _action, executor: _executor, ...does } = action;
+  return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }
 
 /** A ground technique's digest: its config, as its stand-up holds it. */
