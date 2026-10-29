@@ -14,6 +14,7 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness,
 import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
 import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
+import { learnerOf } from "../mind/learner.ts";
 import { legOf } from "./gait-scale.ts";
 
 /**
@@ -274,10 +275,11 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     /** The control step's length, s, as the last update had it: what a push covers of it. */
     step: 0,
     /**
-     * With `steered`: what the drive last read of itself (`punchFeatures`), when, s into it, the
-     * steer it adds (`steerPushes`), and when the steer was last set from what it read.
+     * With `steered`: its learner (`Learner`: what the drive last read of itself, `punchFeatures`;
+     * the steer it adds, `steerPushes`; its decisions, and whether its drive runs), when, s into
+     * the drive, it last read itself, and when the steer was last set from what it read.
      */
-    features: [] as number[], decided: -Infinity, steer: [] as number[], steeredAt: -Infinity,
+    learner: learnerOf(0, false), decided: -Infinity, steeredAt: -Infinity,
     still: 0, thrown: { left: 0, right: 0 },
     /**
      * Each shoulder at contact from the head as the last step left it, in the body frame: the
@@ -305,7 +307,9 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     get still() { return state.still; },
     rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-CROWDED, settings.band] }),
   };
-  const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; };
+  const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; state.learner.running = false; };
+  /** The motion enters `phase`: its learner runs through a steered swing alone. */
+  const enter = (phase: Phase): void => { state.phase = phase; state.learner.running = settings.steered === true && phase === "swing"; };
   const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), goal = new Vector3(), apart = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
   /**
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
@@ -354,7 +358,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       if (part > 0 && p.level !== 0) pushes.push({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.abs(p.level) * part });
     }
     for (const g of limb.goals) push(g.channel, g.angle);
-    if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steeredAt = -Infinity; state.steer.length = 0; }
+    if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steeredAt = -Infinity; state.learner.outputs.length = 0; }
     if (settings.fire !== undefined && state.fired === null && since < settings.lead) {
       const fist = view.fists[hand].position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= settings.fire * limb.arm) state.fired = since;
@@ -373,20 +377,20 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       // A policy's steer from what the drive last read holds from the step after it read it.
       if (policy && state.decided > state.steeredAt) {
         state.steeredAt = state.decided;
-        const steer = policy(state.features);
-        state.steer.length = 0;
-        for (const level of steer) state.steer.push(level);
+        const steer = policy(state.learner.inputs);
+        state.learner.outputs.length = 0;
+        for (const level of steer) state.learner.outputs.push(level);
       }
       if (since >= state.decided + PUNCH_DECIDE - 1e-9) {
-        state.decided = since;
+        state.decided = since; state.learner.decisions++;
         // The shoulder where the trunk stands, against the target the solve above left in the body frame.
         const { chain, angles, trunk } = limb;
         for (let j = 0; j < trunk; j++) chain[j]!.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(chain[j]!, k)] ?? 0; });
         pointAtToRef(limb.trunkChain, angles, limb.shoulder, apart);
         punchFeatures(body, view, hand, steeredChannels[hand], since, apart.set(target.x - apart.x, target.y - apart.y, target.z - apart.z), state.target, state.aimed,
-          (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, state.features);
+          (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0, limb.arm, state.learner.inputs);
       }
-      steerPushes(pushes, steeredChannels[hand], state.steer);
+      steerPushes(pushes, steeredChannels[hand], state.learner.outputs);
     }
     return posture;
   };
@@ -430,7 +434,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       state.target[i] = at[i]!;
     }
   };
-  return { state, report, end, read, standOff, chamber, drive, sense, steeredChannels, aimAt,
+  return { state, report, end, enter, read, standOff, chamber, drive, sense, steeredChannels, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }
@@ -479,7 +483,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
     stage: "admitting" | "settle" | "swing" | "return"; time: number; quiet: number; lower: number;
     withdrawn: boolean; ending: ActionEnding } };
   const release = (ending: ActionEnding) => {
-    const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; motion.phase = "return";
+    const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; technique.enter("return");
   };
   const sparse = (posture: Pose, hand: Side): Pose => Object.fromEntries(Object.entries(posture)
     .filter(([channel]) => !channel.includes(`.${hand === "left" ? "right" : "left"} `)));
@@ -503,7 +507,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (!at) throw new Error("straight punch target has no aim");
       state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, quiet: 0, lower: around.lower,
         withdrawn: false, ending: { kind: "completed" } };
-      motion.hand = hand; motion.phase = "settle"; technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
+      motion.hand = hand; technique.enter("settle"); technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
@@ -526,7 +530,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PUNCH_PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
         else if (quiet && live.quiet >= settings.settle) {
-          live.phase = "commit"; live.stage = "swing"; live.time = 0; motion.phase = "swing";
+          live.phase = "commit"; live.stage = "swing"; live.time = 0; technique.enter("swing");
           motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
           motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
         }
@@ -538,7 +542,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       } else if (live.time >= settings.recover) {
         const ending = live.ending; state.live = null; technique.end(); return [{ id: live.request.id, ending }];
       }
-      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: sides[live.hand] }];
+      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: sides[live.hand], aim: motion.target }];
       return updates;
     },
     command(view, id, around) {
@@ -548,7 +552,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, points, policy)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
       const sense = technique.sense[live.hand], shift: [number, number] = [0, 0];
-      const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.steer, motion.face, sense, shift) : 0;
+      const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
       // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
       const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
       return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),

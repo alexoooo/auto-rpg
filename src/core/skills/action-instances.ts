@@ -27,6 +27,7 @@ const summary = () => ({ counts: { prepare: counts(), commit: counts(), release:
 interface Live extends Omit<ActionRequest, "target"> {
   target: TargetRef;
   phase: Phase;
+  aim: [number, number, number] | null;
   stage: string;
   holds: Resource[];
   observations: Observation[];
@@ -106,6 +107,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     if (change.holds.some(resource => !item.holds.includes(resource))) throw new Error("action acquired a resource after admission");
     resources.controls(change.holds);
     item.phase = change.phase; item.stage = change.stage; item.holds = [...change.holds];
+    if (change.aim) { const aim = item.aim ??= [0, 0, 0]; aim[0] = change.aim[0]; aim[1] = change.aim[1]; aim[2] = change.aim[2]; }
     item.committed ||= change.phase === "commit";
   };
   return {
@@ -147,7 +149,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         state.seen = request.id;
         const ready = readiness(view, request.action, request.effector, request.target, around);
         const binding = bindings.get(request.action), owner = binding ? registered.get(binding.executor)! : -1;
-        const item: Live = { ...request, target: copyActionTarget(request.target), phase: "prepare", stage: "admitting", holds: [],
+        const item: Live = { ...request, target: copyActionTarget(request.target), phase: "prepare", stage: "admitting", holds: [], aim: null,
           observations: [], contacts: summary(), observed: 0, began: view.time, executor: owner, withdrawn: false, committed: false,
           targetSegments: view.senses?.others.find(other => other.id === request.target.body)?.spec.segments.map(segment => segment.name) ?? [] };
         if (ready.kind !== "ready") { record(item, { kind: "refused", reason: ready.kind === "position" ? "outside entry window" : ready.reason }, view.time); continue; }

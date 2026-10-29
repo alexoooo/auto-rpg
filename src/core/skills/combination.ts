@@ -96,12 +96,12 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
   /** Begins `hand`'s drive now. */
   const drive = (view: BodyView, hand: Side) => {
     const live = state.live!;
-    live.drive = 0; motion.hand = hand; motion.phase = "swing"; motion.began = view.time; motion.touched = null;
+    live.drive = 0; motion.hand = hand; technique.enter("swing"); motion.began = view.time; motion.touched = null;
     motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
     motion.touching = (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0;
   };
   const release = (ending: ActionEnding) => {
-    const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; motion.phase = "return";
+    const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; technique.enter("return");
   };
   const fists = deepFreeze(Object.fromEntries((["left", "right"] as const).filter((hand) => closesToStrike(body.built.spec, hand)).map((hand) => [`hand.${hand}`, "fist" as const])));
   return {
@@ -124,7 +124,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
       if (!at) throw new Error("combination target has no aim");
       state.live = { request: { ...request }, first, phase: "prepare", stage: "settle", time: 0, drive: 0, quiet: 0, lower: around.lower,
         withdrawn: false, ending: { kind: "completed" } };
-      motion.hand = first; motion.phase = "settle"; technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
+      motion.hand = first; technique.enter("settle"); technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
     update(view, continued, _around, dt) {
@@ -155,7 +155,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
           motion.touching = touching;
           if (motion.touched !== null && view.time - motion.touched >= settings.follow || live.drive >= settings.longest) {
             if (live.stage === "first" && settings.drives === 1) release({ kind: "completed" });
-            else if (live.stage === "first") { live.stage = "between"; live.drive = 0; live.quiet = 0; motion.phase = "return"; }
+            else if (live.stage === "first") { live.stage = "between"; live.drive = 0; live.quiet = 0; technique.enter("return"); }
             else release({ kind: "completed" });
           }
         }

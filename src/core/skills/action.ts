@@ -87,6 +87,8 @@ export interface ActionStatus extends ActionRequest {
   readonly holds: readonly Resource[];
   readonly observations: readonly Observation[];
   readonly contacts: ContactSummary;
+  /** Where it aims, world, m, as its executor last said: null where it aims at no point. */
+  readonly aim: readonly [number, number, number] | null;
 }
 
 export interface ActionEnding {
@@ -107,7 +109,7 @@ export interface Ended extends ActionRequest {
 }
 
 /** An executor can relinquish controls, but never acquire new ones after admission. */
-export type LifecycleUpdate = { readonly id: number; readonly phase: Phase; readonly stage: string; readonly holds: readonly Resource[] }
+export type LifecycleUpdate = { readonly id: number; readonly phase: Phase; readonly stage: string; readonly holds: readonly Resource[]; readonly aim?: readonly [number, number, number] }
   | { readonly id: number; readonly ending: ActionEnding };
 
 /** Sparse writes owned by one instance; a held control it leaves unwritten is the defaults' (`skillSet`). */
