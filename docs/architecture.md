@@ -571,8 +571,10 @@ chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's act
 **The options fighter** (`createOptionsFighter`, `options/mind.ts`). An `Option` (`option.ts`) is a
 skill in one shape: its entry (`Readiness`: ready, `position` with the window its legs are brought
 to, else waiting or blocked and why), what it holds in a step (`holds`, the asks' `Sight.needs`),
-its model (`Terms`, with where it leaves the body, `Place`) and its exit (a strike's stroke's end,
-the edge-hold's band; null elsewhere, read by no chooser yet). Each is a commitment (follow orders,
+its model (`Terms`, with where it leaves the body, `Place`, and, where it may be let go now, what
+letting it go leaves), its exit (a strike's stroke's end, its blow's `release`; the edge-hold's
+band; null elsewhere) and whether, running, it yields (a strike before its blow's `commit`, its
+point of no return, and from its exit: kept there, it throws its next blow). Each is a commitment (follow orders,
 a strike, the low strike, a down option) or footwork (break a clinch, evade, hold at the edge)
 (`Layer`); with none worth more than the position held, it holds it, facing its focus. A down option is
 carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
@@ -594,8 +596,9 @@ hands the body over).
   (`pressing`).
 - **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range, the closing speed and the foe's phase, each the share done,
-  the hit points dealt and lost, the seconds and the share ending down, and where those not done
-  came to rest (`ProfileCell`, read through `expect`). Each names what it was measured on
+  the hit points dealt and lost, the seconds and the share ending down, where those not done
+  came to rest, and what letting it go before its point of no return cost (`letGo`, where a drill
+  let it go) (`ProfileCell`, read through `expect`). Each names what it was measured on
   (`Measured`: the body's key and spec digest, the skill's digest, the rate and the reaction time),
   and one read on another is stale (`staleness`) and not read. Scripts write them from drill
   records: the strikes' from the Strike drill (`research/strike-profiles.mjs`,
@@ -619,7 +622,8 @@ hands the body over).
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
-  worth, keeping the running one within its keep, deciding afresh on a cue's change or every
+  worth, keeping the running one within its keep and what letting it go costs (`Offer.letGo`),
+  deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. Standing, it takes one only worth more than its defaults holding the position;
   down, the best. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
@@ -628,7 +632,9 @@ hands the body over).
   at the person's `OBEDIENCE`, the one weight; the position where it leaves the body less the
   position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the focus's
   blows over the cheapest way up its sub-minds' prices give, at most the life the senses say it
-  has); and its time at the rate of play. Ranked worth is the options' order.
+  has); its time at the rate of play; and, running, what letting it go costs: the life the body
+  loses while it comes back beyond what holding the position as long costs. Ranked worth is the
+  options' order.
 - **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
   and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
   of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers
@@ -1072,7 +1078,10 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   drill tactics: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
   0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
-  `still`), with the hit points the striker lost in its contacts (`taken`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
+  `still`), with the hit points the striker lost in its contacts (`taken`); rungs `letgo` and
+  `letgo-punched`, the opponent rungs' trials at `drill-stand` and `drill-punch` with the strike
+  let go at its first decision before its point of no return (`DrillTacticsConfig.letGo`), read
+  for when it was ready again and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
