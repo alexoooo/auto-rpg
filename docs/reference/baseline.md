@@ -29,12 +29,13 @@ reads what it touches by the same command and pairs it with `npm run compare`.
   fells Kinetic standing in 1 of 32 falls on toes and 7 flat-footed; twice it fells 28 and 32. On
   toes every game riser stands none, so the reading is 0 until Kinetic's rise stands them
   ([Recovery](../plans/2026-10-23-recovery.md)). Flat-footed (the preset without its character,
-  the plain straight punch, since the learned one is set for toes alone) Kinetic's Stand up
-  stands all 32: the reading a change to the rise is paired on.
+  the plain straight punch, since the learned one is set for toes alone) Kinetic's rise, its
+  ground options over the game's stand-up's techniques, stands all 32, each fall at the time
+  Stand up as its sub-mind stood it (`c07fc4e0`): the reading a change to the rise is paired on.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the stand-up at `c07fc4e0`): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the stand-up at `0e158ffb`): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
@@ -42,8 +43,8 @@ The records:
 | --- | --- |
 | walk | `assets/evaluations/baseline/2026-10-28-c43aa358-b68a3e72.jsonl` |
 | punch | `assets/evaluations/baseline/2026-10-28-c43aa358-7537bf1f.jsonl` |
-| stand-up | `assets/evaluations/baseline/2026-10-29-c07fc4e0-eba212a9.jsonl` |
-| stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-c07fc4e0-d77dc2cd.jsonl` |
+| stand-up | `assets/evaluations/baseline/2026-10-29-0e158ffb-c977e23e.jsonl` |
+| stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-0e158ffb-c3bbe74f.jsonl` |
 | fight | `assets/evaluations/baseline/2026-10-28-c43aa358-05ee4b28.jsonl` |
 
 The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the

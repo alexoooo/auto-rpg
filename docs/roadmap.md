@@ -53,16 +53,16 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind, footwork as one `move` toward named goals and covers with no reflex layer, the design read whole; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
+| [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind (built), footwork as one `move` toward named goals and covers with no reflex layer, the design read whole; few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
 | [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) | Kinetic's general claims made true, mostly by deletion: life read from the rules and the records, one profile interface, one stand-up bed, rest and footwork as options made from the skills, the rise chosen by the chooser, letting go measured across the wind-up, one trainer for any part |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: Kinetic's design**, before any training run (worth in life, measured profiles, the
-   value of a position, exits and letting go are built): the stand-up as a chain with no sub-mind
-   (step 12), then the [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) in order, then
-   footwork and the guard (step 13) and the design read whole (step 14). Each step is
+   value of a position, exits and letting go, the stand-up as a chain are built): the
+   [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) in order, then footwork and the guard
+   (step 13) and the design read whole (step 14). Each step is
    checked on the drills it touches, the Cover drill (Drills step 8) landing before step 13; the
    fights are read once, at step 14.
 2. **Then training**, on the completed design, each paired by the baseline evaluation: the

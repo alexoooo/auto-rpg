@@ -295,7 +295,10 @@ actions over it.
   defaults' (`skillSet`): the guard's posture, covers, holds and hand poses, the walk's arm swing,
   the fold's trunk. Writing any channel of an effector's chain writes the effector, so no default
   goal takes a chain an action drives; a legs goal writes the legs. An action that wants a
-  control neutral writes its reference.
+  control neutral writes its reference. One holding the legs may ask no stance at all (`legs`
+  null, the ground executor's): the legs' muscles are its own, and the legs, guard, support and
+  navigation resume once no action asks so. A push's speed may be unbounded (directional, as the
+  servo's own torques).
 - Contacts are observed after physics from each action's admitted surfaces. Intended hits, blocks
   and incidental contacts are labels for tactics, never damage.
 - Every skill answers `Skill.resume` (`src/core/skills/skill.ts`) and is in the one list its skill
@@ -524,7 +527,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are what its `state` holds, which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -575,11 +578,20 @@ its model (`Terms`, with where it leaves the body, `Place`, and, where it may be
 letting it go leaves), its exit (a strike's stroke's end, its blow's `release`; the edge-hold's
 band; null elsewhere) and whether, running, it yields (a strike before its blow's `commit`, its
 point of no return, and from its exit: kept there, it throws its next blow). Each is a commitment (follow orders,
-a strike, the low strike, a down option) or footwork (break a clinch, evade, hold at the edge)
+a strike, the low strike, a ground or down option) or footwork (break a clinch, evade, hold at the edge)
 (`Layer`); with none worth more than the position held, it holds it, facing its focus. A down option is
 carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
 sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
-hands the body over).
+hands the body over). A ground option (`GroundOption`, `groundOptions`, `ground.ts`; Kinetic's)
+is carried out through the skills as an action of the ground executor (`groundExecutor`,
+`ground/held.ts`): each technique of a list, flatten, and the modes brace, back off, land and
+steady (`GROUND_MODES`; brace and the steady with its climb in `ground/steady.ts`, shared with
+Stand up), each run on the body held whole, holding every resource, asking no stance and pushing
+every muscle as its run drives it. One plan a step puts one on offer, what Stand up's supervisor
+would run (`standUp`); none yields; each is priced as a fall (`downTerms`) by the rise's price
+(`Ground.down`: its route to standing, `toStanding`, where its edges are measured, else Stand up's
+`SubMindPart.down`), and the body counts as down while the rise runs (`Ground.read`). Once down,
+the body reads the ground while no stance is asked (`BodyView.ground`).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
   `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
@@ -631,7 +643,7 @@ hands the body over).
   rules' `blowDamage` over the struck body's hit points (`lifeOf`); its progress on orders, a metre
   at the person's `OBEDIENCE`, the one weight; the position where it leaves the body less the
   position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the focus's
-  blows over the cheapest way up its sub-minds' prices give, at most the life the senses say it
+  blows over the cheapest way up its sub-minds' or its rise's prices give, at most the life the senses say it
   has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
@@ -1029,8 +1041,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **The baseline** (`baseline`): one mind's configuration on the Warrior, its preset's character
   its body's, a protocol a competence and one command playing each in turn (`Evaluation.every`), a
   record each: `walk`, the Locomotion drill; `punch`, the Strike drill's still and walk rungs by its
-  first action; `stand-up`, the owner's target's falls risen by its own sub-minds on the rising
-  bed's host; `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
+  first action; `stand-up`, the owner's target's falls risen by the whole mind (on the lone-body
+  bed for a mind that takes no Lab script, shoved at `FELLING`); `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
   side. A reading carries its competence (`part`) and each figure reads its own. A mind given whole
   takes a character and bodies as a preset names them (`{ mind, character, models }`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
