@@ -4,7 +4,7 @@ import { wrap } from "../math/turn.ts";
 import type { Window } from "../skills/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { groundRoute } from "./ground-route.ts";
-import { placeMovement, type MovementRequest } from "./movement.ts";
+import { placeMovement, type GroundPoint, type MovementRequest } from "./movement.ts";
 import { sensedFootClearance } from "./sensed-bounds.ts";
 import type { BodySense } from "./senses.ts";
 import { lyingAxis } from "./targets.ts";
@@ -27,11 +27,29 @@ const LYING = Object.freeze({ footRadius: .12, column: .5, bearings: 16, turn: .
 
 /** Pure geometric admission, in the same ground frame the approach controller uses. */
 export function withinActionWindow(view: BodyView, window: Window, heading: number): boolean {
-  const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
+  return windowHolds(window, view.stance.centre.x, view.stance.centre.z, heading)
+    && hypot(view.stance.velocity.x, view.stance.velocity.z) <= window.speed;
+}
+
+/** **Whether a body still at (`x`, `z`) on the ground, facing `heading`, stands within `window`**: its target ahead and aside within its bands, and within its facing. */
+export function windowHolds(window: Window, x: number, z: number, heading: number): boolean {
+  const dx = window.at[0] - x, dz = window.at[2] - z;
   const along = dx * sin(heading) + dz * cos(heading), across = dx * cos(heading) - dz * sin(heading);
   return along >= window.along[0] && along <= window.along[1] && across >= window.across[0] && across <= window.across[1]
-    && Math.abs(wrap(atan2(dx, dz) - heading)) <= window.facing
-    && hypot(view.stance.velocity.x, view.stance.velocity.z) <= window.speed;
+    && Math.abs(wrap(atan2(dx, dz) - heading)) <= window.facing;
+}
+
+/**
+ * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
+ * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
+ * body (`by`, `MovementRequest`'s).
+ */
+export interface Spot {
+  readonly x: number;
+  readonly z: number;
+  readonly face: number;
+  readonly route?: readonly GroundPoint[];
+  readonly by?: string;
 }
 
 type Offset = { readonly x: number; readonly z: number; readonly face: number };
@@ -99,6 +117,28 @@ function besideLying(view: BodyView, window: Window, lying: BodySense, heading: 
 function placeOf(view: BodyView, window: Window, heading: number): { readonly offset: Offset; readonly beside: Beside | null } {
   const lying = lyingUnder(view, window), beside = lying && besideLying(view, window, lying, heading);
   return { offset: beside ? beside.offset : windowOffset(view, window), beside };
+}
+
+/** **Where a walk into `window` stands** (`approachActionWindow`), from where the body stands facing `heading`, as a spot: beside the body its target is on where that body lies, with the way round it. */
+export function windowSpot(view: BodyView, window: Window, heading: number): Spot {
+  const { offset: { x, z, face }, beside } = placeOf(view, window, heading), centre = view.stance.centre;
+  const at = { x: centre.x + x, z: centre.z + z, face };
+  return beside ? { ...at, route: beside.route.map((point) => ({ x: point[0], z: point[2] })), by: beside.by } : at;
+}
+
+/**
+ * **A walk to `spot`**, facing `face`: a place goal there (its route where it has one) under
+ * `ceiling` and no faster than it closes in `RESPONSE`, which counts as arrived `near` m from it;
+ * standing once within that.
+ */
+export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: number, near = ARRIVED): {
+  readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number;
+} {
+  const distance = hypot(spot.x - view.stance.centre.x, spot.z - view.stance.centre.z);
+  if (distance <= near) return { move: null, face };
+  const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
+    : placeMovement({ x: spot.x, z: spot.z }, near);
+  return { move: null, face, movement, pace: Math.min(Math.max(0, ceiling), distance / RESPONSE) };
 }
 
 /** **How far a walk into `window` goes** from where the body stands facing `heading` (`approachActionWindow`), m across the ground, straight to its place. */

@@ -35,8 +35,11 @@ export interface Window {
   readonly speed: number;
 }
 
-/** Admission permits bounded preparation; it never waits for unowned preparation work. */
-export type Readiness = { readonly kind: "ready" } | { readonly kind: "position"; readonly window: Window }
+/**
+ * Admission permits bounded preparation; it never waits for unowned preparation work. Ready or to
+ * be walked to, an action that has a window names it (`window`): where the body stands for it.
+ */
+export type Readiness = { readonly kind: "ready"; readonly window?: Window } | { readonly kind: "position"; readonly window: Window }
   | { readonly kind: "waiting" | "blocked"; readonly reason: string };
 
 /** A request's identity and anatomical choice remain fixed for its lifetime. */

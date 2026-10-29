@@ -6,7 +6,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../core/control/support.ts";
 import { MOVE } from "../core/mind/config.ts";
-import { GAIT_NAMES, GAITS, type GaitName } from "../core/skills/gaits.ts";
+import { STOCK_GAITS, type GaitName } from "../core/skills/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
@@ -69,7 +69,7 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
 type Legs = "move" | GaitName | "mind";
 const LEGS: readonly Entry<Legs>[] = [
   { value: "move", name: "Move, as the game" },
-  ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].label })),
+  ...STOCK_GAITS.map((gait) => ({ value: gait.name, name: gait.label })),
   { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character" },
 ];
 

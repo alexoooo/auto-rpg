@@ -160,7 +160,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
         across: [across - .2, across + .2] as const, facing: .4, speed: .3 }
         : { at, along: [-.15, .75] as const, across: hand === "right" ? [.05, .55] as const : [-.55, -.05] as const, facing: 2, speed: .18 };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
-      return { kind: "ready" };
+      return { kind: "ready", window };
     },
     interrupt(_view, id) {
       for (const hand of ["left", "right"] as const) if (state.lives[hand]?.request.id === id) { state.lives[hand] = null; strikes[hand].reset(); }

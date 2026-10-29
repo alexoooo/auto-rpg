@@ -120,7 +120,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const window = { at, along: [ahead + tuning.alongNear, ahead + tuning.alongFar] as const, across: [across - tuning.across, across + tuning.across] as const,
         facing: tuning.facing, speed: tuning.admitSpeed, ...(target.kind === "body" ? { on: target.body } : {}) };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
-      return { kind: "ready" };
+      return { kind: "ready", window };
     },
     resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); support.state.quiet = 0; },
     start(view, request, around) {

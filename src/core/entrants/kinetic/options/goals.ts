@@ -1,4 +1,4 @@
-import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
+import { GAIT_NAMES, gaitNamed, STOCK_GAITS } from "../../../skills/gaits.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { approachActionWindow } from "../../../mind/action-window.ts";
 import type { Readiness } from "../../../skills/action.ts";
@@ -41,7 +41,7 @@ const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
  */
 export function goings(spec: BodySpec, hz: number, strike: string, profiles: readonly Profile[]): readonly Going[] {
   return GAIT_NAMES.map((gait): Going => {
-    const found = profileFor(profiles, measuredOn(spec, gaitDigest(GAITS[gait].legs, strike), hz, null));
+    const found = profileFor(profiles, measuredOn(spec, gaitDigest(gaitNamed(STOCK_GAITS, gait)!.legs, strike), hz, null));
     const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
     return Object.freeze({ gait, braced: expected.seconds, down: expected.down });
   });
@@ -148,7 +148,7 @@ export function toWindowOf(strike: StrikeOption, walk: Walker): Destination {
  * memory is which destination it runs at.
  */
 export function moveBy(going: Going, destinations: readonly Destination[]): Option {
-  const state = { at: 0 }, gait = GAITS[going.gait].label.toLowerCase();
+  const state = { at: 0 }, gait = gaitNamed(STOCK_GAITS, going.gait)!.label.toLowerCase();
   const to = (): Destination => destinations[state.at]!;
   return {
     get name() { return `${gait} ${to().name}`; },

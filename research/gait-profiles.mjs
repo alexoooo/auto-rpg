@@ -4,7 +4,7 @@
  * foe, its trials those asked at least as fast as the gait went (the fastest it came to at the stop,
  * less `TOP`): the share whose strike was admitted, the mean seconds from the stop until it was
  * (`GaitReading.braced`), and the share that fell. Each names what it was measured on: the body as
- * the drill's recipe resolves it, the gait's legs (`GAITS`) and the strike it stopped to throw
+ * the drill's recipe resolves it, the gait's legs (its mind's Move's, `gaitsOfMove`) and the strike it stopped to throw
  * (`gaitDigest`), the harness's rate, and no reaction time. Kinetic prices where a gait leaves the
  * body by them (`src/core/entrants/kinetic/tactics.ts`).
  *
@@ -18,7 +18,8 @@ import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { gaitDigest, measuredOn, skillDigest } from "../src/core/mind/profile.ts";
-import { GAITS } from "../src/core/skills/gaits.ts";
+import { gaitNamed, STOCK_GAITS } from "../src/core/skills/gaits.ts";
+import { gaitsOfMove } from "../src/core/skills/move-part.ts";
 
 const OUT = "assets/core/gait-profiles.json", SCRIPT = "research/gait-profiles.mjs";
 /** How far under the fastest a gait came to at the stop a trial may have gone and still be read as at its top, m/s. */
@@ -44,7 +45,9 @@ for (const path of paths) {
     if (row.fault || !row.reading || drill?.kind !== "drill-gait") continue;
     const spec = specOf(recipe), action = armedActions(partLookup, spec, mind.executors, mind.actions).find((one) => one.name === drill.action);
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
-    const measured = measuredOn(spec, gaitDigest(GAITS[drill.gait].legs, skillDigest(partLookup, mind.executors, action)), hz, null), key = JSON.stringify(measured);
+    const gait = gaitNamed(mind.locomotion?.kind === "move" ? gaitsOfMove(mind.locomotion) : STOCK_GAITS, drill.gait);
+    if (!gait) throw new Error(`${path}: no gait ${drill.gait} in its mind's legs`);
+    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, mind.executors, action)), hz, null), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.gait}`, rows: [] };
     profiles.set(key, profile);
     profile.rows.push(row.reading);

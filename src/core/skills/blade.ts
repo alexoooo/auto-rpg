@@ -93,7 +93,7 @@ export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[
       if (!placedHeightFits(spec, hand, up, undefined, end.point)) return { kind: "blocked", reason: "target is outside the blade's height band" };
       const reach = placedReach(spec, hand, up, undefined, end.point);
       const window = { at, along: [Math.max(.1, reach - .5), reach + .1] as const, across: [-.5, .5] as const, facing: .8, speed: .5 };
-      return withinActionWindow(view, window, around.heading) ? { kind: "ready" } : { kind: "position", window };
+      return withinActionWindow(view, window, around.heading) ? { kind: "ready", window } : { kind: "position", window };
     },
     start(view, request) {
       check(request.action);
