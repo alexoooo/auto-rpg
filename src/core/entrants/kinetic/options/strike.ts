@@ -72,10 +72,8 @@ export interface StrikeOption extends Option {
  * the drill took (the foe's reply while it struck), how long it ran and its chance of ending down;
  * through the blow coming, and the focus's pressure within its reach (`threatened`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
- * Else built by hand: `throws` blows from its stronger hand, each landing as often as its record
- * says (`record`, which is of the hand it is asked for), within the focus's reach from where it
- * stands or the focus would reach it while it strikes, and through the blow coming. Either leaves
- * the body where it strikes from. What a walk into its window first is worth is `through`'s.
+ * Else its prior (`priorOf`), read the same way. Either leaves the body where it strikes from.
+ * What a walk into its window first is worth is `through`'s.
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false, began: null as number | null };
@@ -140,18 +138,22 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const walking = walks ? Math.max(0, apart - mine) / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
     const running = live(now), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const e = expected(now, progress);
-    const from = walks ? Math.min(apart, mine) : apart;
-    if (e) {
-      const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
-      const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
-      return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-        orders: 0, exit: fromHere(now, { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
-    }
+    const from = walks ? Math.min(apart, mine) : apart, e = expected(now, progress) ?? priorOf(now, from);
+    const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
+    const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
+    return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
+      orders: 0, exit: fromHere(now, { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
+  };
+  /**
+   * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
+   * from its stronger hand, each landing as often as its record says (`record`, which is of the hand
+   * it is asked for), as long as its record says it runs, under the focus's pressure from `from` m
+   * head to head.
+   */
+  const priorOf = (now: Situation, from: number): Expected => {
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
     const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.predictions.blows[limb.slice(5) as Side] : 0));
-    const left = Math.max(0, seconds - progress), dealt = met ? 0 : throws * lands * blow, duration = walking + left;
-    return { duration, dealt, taken: now.predictions.danger + threatened(now, left + walkingInReach, from), orders: 0, exit: fromHere(now, { apart: from, down: Math.max(fell, clinched(now, duration)) }) };
+    return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
   return {
     name: action.name, claims: Object.freeze(["legs", "trunk"]), state,

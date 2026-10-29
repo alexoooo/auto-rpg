@@ -9,7 +9,7 @@ import type { BodySpec, Side } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Cover } from "../../../mind/intent.ts";
 import type { Orders } from "../../../mind/orders.ts";
-import { profilesOn, readProfile, sameReaction, type Profile, type ProfileReading } from "../../../mind/profile.ts";
+import { profilesOn, readProfile, sameReaction, type Measured, type Profile, type ProfileReading } from "../../../mind/profile.ts";
 import type { BodySense } from "../../../mind/senses.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { foePhase, threatReader, type FoePhase } from "../../../mind/threat.ts";
@@ -107,6 +107,22 @@ function closesOf(seen: Seen): number {
   return pace * reaction;
 }
 
+/** What a prior was measured on: nothing; the owner's decision by hand. */
+const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", hz: 0, reaction: null });
+
+/**
+ * **A prior**: what a strike of `striker` is taken to bring before a drill measures it, a profile
+ * of one cell read like any measured one (`readProfile`): within `range` m centre to centre, in any
+ * phase, `life` of `struck`'s life every `seconds` s.
+ */
+function prior(striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading {
+  return readProfile({ measured: BY_HAND, target: null,
+    cells: [{ range, phase: "clear", trials: 1, done: 1, dealt: life * struck.wounds.hp.value, taken: 0, seconds, down: 0, ends: [] }] }, striker);
+}
+
+/** How far centre to centre the head-to-head `reach` is with the focus where it stands, m. */
+const centred = (seen: Seen, reach: number): number => PERCEPTS.apart.read(seen) - PERCEPTS.reach.read(seen).apart + reach;
+
 /** Strikes a body is modelled by, each read for its striker (`readProfile`), and how they are priced, a sentence. */
 interface Model { readonly readings: readonly ProfileReading[]; readonly priced: string }
 
@@ -137,9 +153,9 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
  * **What one standing body's strikes are expected to deal another**: the strikes it is modelled by
  * (`model`, each read through its profile, `ProfileReading`), read at the struck body's phase
  * (`phase`) and in its life (`struck`), the most of them a second at any range (`peak`, the struck
- * body's life); with no model, built by hand within the striker's reach (`peak` its blows a second,
- * `RATE`, landing as this body's own do, `record`, each its heavier hand's); and how it is priced
- * (`priced`, a sentence). The focus's on this body (`pressure`), and this body's on the focus
+ * body's life), and how it is priced (`priced`, a sentence). With no strike measured its model is
+ * its prior (`prior`): within the striker's reach, `RATE` blows a second, landing as this body's
+ * own do (`record`), each its heavier hand's. The focus's on this body (`pressure`), and this body's on the focus
  * (`pressing`); none with no standing focus.
  */
 export interface Pressure {
@@ -153,39 +169,35 @@ export interface Pressure {
 /** No pressure: no standing focus. */
 const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, priced: "no standing focus" });
 
-/** **The pressure** (`Pressure`) of strikes `model` on a body of `struck` in `phase`; `byHand` its peak with no model. */
-function pressureBy(model: Model, phase: string, struck: BodySpec, byHand: () => number): Pressure {
-  const { readings, priced } = model;
-  if (readings.length === 0) return { model: readings, phase, struck, peak: byHand(), priced };
+/** **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in `phase`, its prior within `reach` m centre to centre where none is measured. */
+function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, reach: number): Pressure {
+  const readings = model.readings.length ? model.readings
+    : [prior(striker, struck, reach, record(seen.sight.report.ledger, null).lands * heavier(seen.rules, striker, struck), 1 / RATE)];
   let peak = 0;
   for (const reading of readings) peak = Math.max(peak, reading.peak(phase, struck));
-  return { model: readings, phase, struck, peak, priced };
+  return { model: readings, phase, struck, peak, priced: model.priced };
 }
 
 /** **The pressure** (`Pressure`) a standing focus puts on the body. */
 function pressureOf(seen: Seen): Pressure {
-  const { focus, sight, spec } = seen;
+  const { focus, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(foeModel(seen, focus.spec), ownPhase(seen), spec,
-    () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, focus.spec, spec));
+  return pressureBy(seen, foeModel(seen, focus.spec), ownPhase(seen), focus.spec, spec, centred(seen, PERCEPTS.reach.read(seen).theirs));
 }
 
 /** **The pressure** (`Pressure`) the body's own strikes put on a standing focus: its measured strikes (`Seen.strikes`) fresh at the senses' reaction time, read at the focus's phase (`FoePhase`). */
 function pressingOf(seen: Seen): Pressure {
-  const { focus, sight, spec } = seen;
+  const { focus, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(ownModel(seen), foePhase(focus, seen.blow), focus.spec,
-    () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, spec, focus.spec));
+  return pressureBy(seen, ownModel(seen), foePhase(focus, seen.blow), spec, focus.spec, centred(seen, PERCEPTS.reach.read(seen).mine));
 }
 
 /**
  * **The life `seconds` s at `range` m apart, centre to centre, are expected to cost the struck
- * body** under `pressure`: modelled, the most of its strikes, each what its profile expects there
- * within its reach (`ProfileReading.expect`) a second; built by hand, its peak at any range (its
- * caller keeps to the striker's reach, `dealtAt`).
+ * body** under `pressure`: the most of its strikes, each what its profile expects there within its
+ * reach (`ProfileReading.expect`) a second.
  */
 export function pressureAt(pressure: Pressure, range: number, seconds: number): number {
-  if (pressure.model.length === 0) return pressure.peak * seconds;
   let rate = 0;
   for (const reading of pressure.model) {
     const expected = reading.expect({ range, phase: pressure.phase }, pressure.struck);
@@ -194,29 +206,24 @@ export function pressureAt(pressure: Pressure, range: number, seconds: number): 
   return rate * seconds;
 }
 
-/**
- * **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to
- * head: modelled, at the range centre to centre that leaves (`pressureAt`); built by hand, only
- * within the striker's `reach`, m head to head.
- */
-export const dealtAt = (pressure: Pressure, now: Situation, apart: number, reach: number, seconds: number): number =>
-  pressure.model.length ? pressureAt(pressure, now.apart + apart - now.reach.apart, seconds) : apart <= reach ? pressureAt(pressure, 0, seconds) : 0;
+/** **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to head: at the range centre to centre that leaves (`pressureAt`). */
+export const dealtAt = (pressure: Pressure, now: Situation, apart: number, seconds: number): number => pressureAt(pressure, now.apart + apart - now.reach.apart, seconds);
 
 /** **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing `apart` m from it head to head. */
-export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.predictions.pressure, now, apart, now.reach.theirs, seconds);
+export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.predictions.pressure, now, apart, seconds);
 
 /**
- * **The own life `blow` is expected to take**: modelled (`foeModel`, its striker's), the most its
- * strikes are expected to take at the striker's range and this body's phase, to their reach (a blow
- * predicted to reach the head is in reach); else built by hand, its energy at the speed it closes,
- * landing as often as `LANDS`. 0 with none: the blow coming's (`danger`).
+ * **The own life `blow` is expected to take**: the most its striker's strikes (`foeModel`) are
+ * expected to take at the striker's range and this body's phase, to their reach (a blow predicted
+ * to reach the head is in reach); with none measured, its prior (`prior`): its energy at the speed
+ * it closes, landing as often as `LANDS`. 0 with none: the blow coming's (`danger`).
  */
 function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   const { spec, sight } = seen;
   if (!blow) return 0;
-  const model = foeModel(seen, blow.foe.spec).readings;
-  if (model.length === 0) return LANDS * blowLife(seen.rules, blow.foe.spec, blow.hand, spec, blow.closing);
   const centre = sight.view.stance.centre, range = hypot(blow.foe.centre.x - centre.x, blow.foe.centre.z - centre.z), phase = ownPhase(seen);
+  const measured = foeModel(seen, blow.foe.spec).readings;
+  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.hand, spec, blow.closing), 1)];
   let most = 0;
   for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase }, spec)?.dealt ?? 0);
   return most;
@@ -230,8 +237,8 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
  * costs something with no foe standing, so that down, a way up is worth more than lying still.
  */
 function downCostOf(seen: Seen): number {
-  const { focus, sight, spec } = seen, foe = focus?.spec ?? spec;
-  const peak = pressureBy(foeModel(seen, foe), ownPhase(seen), spec, () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, foe, spec)).peak;
+  const { focus, spec } = seen, foe = focus?.spec ?? spec;
+  const peak = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak;
   let least = seen.sight.view.senses.life;
   for (const down of seen.downs) if (down.stands > 0) least = Math.min(least, peak * down.seconds * (1 - down.shelter) / down.stands);
   return least;

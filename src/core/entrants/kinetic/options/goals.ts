@@ -27,9 +27,9 @@ export function within(now: Situation, goal: Goal): boolean {
 }
 
 /**
- * **How far the focus's pressure reaches** (`Predictions.pressure`), m head to head: its modelled
- * strikes' farthest range at the body's phase (`ProfileReading.reach`), as the range now places
- * it; built by hand, the focus's hands' reach (`Reach.theirs`).
+ * **How far the focus's pressure reaches** (`Predictions.pressure`), m head to head: its strikes'
+ * farthest range at the body's phase (`ProfileReading.reach`), as the range now places it; with no
+ * standing focus, the focus's hands' reach (`Reach.theirs`).
  */
 export function pressureEdge(now: Situation): number {
   const { model, phase } = now.predictions.pressure;
@@ -42,17 +42,20 @@ export function pressureEdge(now: Situation): number {
 /** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Predictions.closes`). */
 export const OUT_OF_PRESSURE: Goal = Object.freeze({ near: (now: Situation) => pressureEdge(now) + now.predictions.closes, width: () => Infinity });
 
+/** A gait's prior, where no profile measures it, the owner's decision: braced at once, and up. */
+const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
+
 /**
  * **Each gait** (`GAITS`) as a body of `spec` goes by it at `hz`, stopping to throw the strike of
  * digest `strike` (`skillDigest`): what its profile measured it to leave the body (`Going`, the
- * cell of `dataOf("gait-profiles")` measured as the body reads it, `gaitDigest`); braced at once
- * and up where none is.
+ * cell of `dataOf("gait-profiles")` measured as the body reads it, `gaitDigest`); its prior
+ * (`UNMEASURED`) where none is.
  */
 export function goings(spec: BodySpec, hz: number, strike: string): readonly Going[] {
   return GAIT_NAMES.map((gait): Going => {
     const found = profileFor(dataOf("gait-profiles"), measuredOn(spec, gaitDigest(GAITS[gait].legs, strike), hz, null));
-    const expected = found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null;
-    return Object.freeze({ gait, braced: expected?.seconds ?? 0, down: expected?.down ?? 0 });
+    const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
+    return Object.freeze({ gait, braced: expected.seconds, down: expected.down });
   });
 }
 
