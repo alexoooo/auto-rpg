@@ -294,10 +294,34 @@ floor).
   kick's support transfer, chamber and return; its readiness gives a window beside the lying body.
 - The downward blow (`PATH_STRIKES`' `downward`) among Kinetic's actions, from the support fold.
 - Each a strike option and a walk into its window, priced by hand, then by a drill: a rung on a
-  lying Warrior and a lying Skeleton.
+  lying Warrior and a lying Skeleton. A foot's blow is priced by the rules as a hand's is
+  (`priorOf` prices hands alone, a foot's blow at nothing).
+- Time against a foe on the ground is priced by its rise: a blow that lands after the foe's
+  predicted rise is worth the blow on a standing foe, as the body's own rise is priced (`riseFrom`),
+  so a stomp 10 m off is worth less than one at hand.
 
 Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
 fallen Duellist Skeleton in the Arena.
+
+### 20. Looking one option past
+
+Left: a walk is priced by its gait and the place it leaves the body, not by the strike it brings,
+and the chooser looks one option past each option that moves the body.
+
+- An option's worth at depth 2 is its own terms, then the best option on offer where it leaves the
+  body, priced at that place (`Place`, its percepts predicted, step 14) less its time at the rate
+  of play. Only an option whose exit moves the body (a walk, a strike) is looked past: a rest option
+  or a cover leaves it where it is, and the best there is the best now.
+- `StrikeOption.through` goes, and the walk into a window is a gait toward a goal priced by its
+  own profile, as `moveTo` is; the strike prices no walk.
+- Its time is read as the step's is: on Node a simulated depth 2 (each option on offer priced
+  again for each, this step's readings reused) took a decision from 0.15 to 0.52 ms at the median and a
+  Kinetic v Kinetic bout's step from 2.76 to 2.91 ms on the mean (Rapier, 120 Hz, 30 s, the toed
+  Warrior, performance cores, at `8a30589e`); a real one reads a predicted situation for each.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
+and Gait drills paired with the step before; the step's time read before and after, and in a Crypt
+run with its most bodies.
 
 ## Not here
 
@@ -329,4 +353,5 @@ place; and the rise is chosen by the policy, each technique on offer by its own 
 the posture it leaves, with no supervisor. Every option's entry is its skill's readiness, its
 claims what its action needs, and the walk into its reach priced from its window; a foe on the
 ground is priced by its models, the focus chosen by worth and the walk's limits priced in the walk;
-and Kinetic strikes a fallen foe.
+and Kinetic strikes a fallen foe. A walk is priced by its gait and where it leaves the body, and the
+chooser looks one option past each option that moves the body.
