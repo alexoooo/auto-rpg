@@ -58,6 +58,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
+| [Commander](plans/2026-10-29-commander.md) | A general Commander in Kinetic's shape, the Strategist: team options claiming members, priced by the hero's life left at the Crypt's exit, its chooser configured over set selection shared with Kinetic; the Crypt's drain for AI experiments (none in the game by default), its length from the level's route; the player's side one unit |
 
 1. **Now: Kinetic's design**, before any training run (worth in life, measured profiles, the
    value of a position, exits and letting go, the stand-up as a chain are built): the
@@ -76,6 +77,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    Recovery step 3 once Kinetic's rise stands the target: the game's bodies take toes with it,
    since on them step-up stands none of the target's falls
    ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+   The [Commander](plans/2026-10-29-commander.md) in order: the drain and the score (steps 1
+   and 2) need nothing of Kinetic; the Strategist (step 5) plays the Crypt with Kinetic as its hero.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
