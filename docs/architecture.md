@@ -591,10 +591,15 @@ is carried out through the skills as an action of the ground executor (`groundEx
 `ground/held.ts`): each technique of a list, flatten, and the modes brace, back off, land and
 steady (`GROUND_MODES`; brace and the steady with its climb in `ground/steady.ts`, shared with
 Stand up), each run on the body held whole, holding every resource, asking no stance and pushing
-every muscle as its run drives it. One plan a step puts one on offer, what Stand up's supervisor
-would run (`standUp`); none yields; each is priced as a fall (`downTerms`) by the rise's price
-(`Ground.down`: its route to standing, `toStanding`, where its edges are measured, else Stand up's
-`SubMindPart.down`), and the body counts as down while the rise runs (`Ground.read`). Once down,
+every muscle as its run drives it. Each is on offer where the body as it lies admits it, read
+once a step where Stand up's supervisor (`standUp`) would run it (`offered`): every edge that
+admits the body on a route to standing (`firstEdges`), else a reposition, and each mode where the
+supervisor runs it, counting its time against its limit as it runs. A mode yields, a technique
+where its run says it may. An edge is priced as a fall (`downTerms`) at its expected seconds to
+standing through it, by its profile where measured, so the policy takes the cheapest; the rest at
+the rise's price (`Ground.down`: its route to standing from the back, `toStanding`, where its edges
+are measured, else Stand up's `SubMindPart.down`), so unmeasured they go by rank. The body counts
+as down while the rise runs (`Ground.read`). Once down,
 the body reads the ground while no stance is asked (`BodyView.ground`).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step

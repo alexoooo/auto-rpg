@@ -5,7 +5,8 @@ case each, beside a list or a copy. This plan makes each claim true as stated, m
 code. Kinetic decides by one mechanism: **options, and one policy that selects among those
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy
-(built: the set by claims, `Chooser.decide`, and the rest options, `rest.ts`).
+(built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, and the rise as options,
+`groundOptions`, each edge priced by its expected time to standing).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -64,10 +65,6 @@ after skills are trained against it.
   body's reach, not a strike's window. The gait is chosen by Move's rules (`MoveRule`,
   `src/core/skills/move.ts`): braced within 5 m of a foe or a destination, 8.5 m of an ally, else
   run, 0.5 m past a rule before it lets go (`LEAVING`).
-- **The rise is offered one option at a time.** The ground options' plan (`planAt`,
-  `groundOptions`, `ground.ts`) picks the single option on offer as Stand up's supervisor did, a
-  copy of it; none yields; the fall is priced by hand (`BY_HAND`), no edge being measured on the
-  toed Warrior (the edges are measured on the flat-footed fighter).
 - **Letting go is measured at one instant.** The Strike drill lets go only at the first decision
   (`LETTING_GO`, `src/evaluation/strike/cases.ts`), and "ready again" is the executor's
   bookkeeping, not the hand back at its guard; a running strike is priced as a fresh one.
@@ -88,22 +85,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 5. The rise as options
-
-Every ground option whose entry admits the body is on offer to the policy. Stand up's supervisor's
-branches are the options' entries (tumbling or no ground reading for brace, no route stood for
-back off, on its feet for steady), and its limits (`RETRIES`, `BRACE_LIMIT`, `STEADY_LIMIT`)
-entry conditions of the options they limit, their counts in the options' memory; its precedence is
-the options' rank. The body counted down while its rise runs is the running option's exit, not a
-reading rewritten (`Ground.read` goes). By worth, each is worth its own time and the expected time to standing from
-where it ends (`toStanding`, `src/core/mind/ground/graph.ts`) at the rate of play; unmeasured, as
-on toes, the tie goes by rank. `planAt` goes. An option yields before its point of no return as a
-strike does ([letting go](2026-10-27-kinetic.md#letting-go)).
-
-Check: by rank, the chain stands the baseline's target falls fall for fall as Stand up does, a
-paired difference of 0, before `planAt` is deleted; by worth, flat-footed, it stands as many within
-a placebo's spread, in no longer a median; the fingerprint's moved cases named.
 
 ### 6. Covers as options
 
@@ -137,7 +118,10 @@ body by a drill of the two gaits (from each, at its speeds, stopped and asked it
 seconds until it is braced and its strike ready, and the share that fell. The place an option
 leaves the body names the seconds until it is braced, and the position discounts its exchange by
 them. Move's rules leave Kinetic (`MoveRule`, `LEAVING`; the keep margin holds a gait as it holds
-any option); other minds keep theirs.
+any option); other minds keep theirs. The body on its feet mid-rise is left unbraced for the
+steady's seconds the same way, so the body counted down while its rise runs is the rise's exit,
+not a reading rewritten (`Ground.read` goes): without it, holding the position, priced as a body
+standing, outbids the steady.
 
 Check: the gait drill's readings for both gaits on the toed Warrior; the baseline evaluation's
 walk against the baseline record; `npm run match` of Kinetic against itself at the commit before,
