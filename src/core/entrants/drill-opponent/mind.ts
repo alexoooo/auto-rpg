@@ -1,4 +1,4 @@
-import { CLASSIC, FIGHTING, PUNCHER, type MindConfig } from "../../mind/config.ts";
+import { CLASSIC, DUELLIST, FIGHTING, PUNCHER, type MindConfig } from "../../mind/config.ts";
 import { controller, type Controller, type MindPreset } from "../../mind/controller.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { STAND_ORDERS, type Orders } from "../../mind/orders.ts";
@@ -55,6 +55,8 @@ const PRESETS: Readonly<Record<string, MindPreset<DrillOpponentConfig>>> = deepF
     beats: [{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }] } },
   "drill-guard": { label: "Drill: guard", offered: false, config: { kind: "drill-opponent", body: GUARDS, beats: [] } },
   "drill-punch": { label: "Drill: punch on a rhythm", offered: false, config: { kind: "drill-opponent", body: PUNCHES,
+    beats: [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] } },
+  "drill-swing": { label: "Drill: swing on a rhythm", offered: false, config: { kind: "drill-opponent", body: DUELLIST,
     beats: [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] } },
   "drill-press": { label: "Drill: press forward", offered: false, config: { kind: "drill-opponent", body: MOVES,
     beats: [{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }] } },
