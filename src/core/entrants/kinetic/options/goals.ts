@@ -1,10 +1,9 @@
-import type { Readiness } from "../../../skills/action.ts";
 import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { dataOf } from "../../../data/store.ts";
 import { approachActionWindow } from "../../../mind/action-window.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile } from "../../../mind/profile.ts";
-import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
+import { blocked, LEGS, READY, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { StrikeOption } from "./strike.ts";
@@ -68,16 +67,12 @@ const named = (name: string, going: Going): string => going.gait === "braced" ? 
  * (`threatened`), leaving the body there as the gait leaves it (`Going`); a walk that ends out of a
  * clinch (`CLINCH`) leaves its chance of going down behind.
  */
-export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): StandingOption {
+export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Option {
   const UNFIT = blocked("no standing focus"), THERE = blocked("within its band");
-  const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not in its band" });
   return {
-    name: named(name, going), posture: "standing", claims: LEGS, state: {},
+    name: named(name, going), claims: LEGS, state: {},
     entry: (now) => now.down || !now.focus || now.focus.down ? UNFIT : within(now, goal) ? THERE : READY,
-    exit: (now) => within(now, goal) ? READY : AWAY,
-    holds: () => LEGS,
-    yields: () => true,
-    ended: (now) => within(now, goal),
+    status: (now) => within(now, goal) ? "over" : "yields",
     begin() {},
     end() {},
     model: (now): Terms => {
@@ -85,7 +80,7 @@ export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): St
       const to = apart < near ? near : apart > far ? far : apart, pace = walk.pace(now, going.gait);
       return walkTo(now, to, Math.abs(to - apart) / pace, pace, going);
     },
-    step: (now) => ({ ...toGoal(now, goal, walk), actions: [], gait: going.gait }),
+    step: (now) => ({ asked: { ...toGoal(now, goal, walk), actions: [], gait: going.gait }, holds: LEGS }),
   };
 }
 
@@ -130,23 +125,20 @@ function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["to
  * (`pressing`, `pressure`), comes to about nothing, so a walk priced by the place alone is never
  * worth taking.
  */
-export function toWindow(strike: StrikeOption, walk: Walker, going: Going): StandingOption {
+export function toWindow(strike: StrikeOption, walk: Walker, going: Going): Option {
   const UNFIT = blocked(`no window to walk to for ${strike.name}`);
-  const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not in its window" });
   return {
-    name: named(`into ${strike.name}'s window`, going), posture: "standing", claims: LEGS, state: {},
+    name: named(`into ${strike.name}'s window`, going), claims: LEGS, state: {},
     entry: (now) => now.down || strike.window(now) === null ? UNFIT : READY,
-    exit: (now) => strike.window(now) === null ? READY : AWAY,
-    holds: () => LEGS,
-    yields: () => true,
-    ended: (now) => strike.window(now) === null,
+    status: (now) => strike.window(now) === null ? "over" : "yields",
     begin() {},
     end() {},
     model: (now) => strike.through(now, going),
     step: (now) => {
       const window = strike.window(now);
-      return window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
+      const asked = window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
         : { move: null, face: walk.facing(now), actions: [], gait: going.gait };
+      return { asked, holds: LEGS };
     },
   };
 }

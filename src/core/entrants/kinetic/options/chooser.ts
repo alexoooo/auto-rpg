@@ -59,7 +59,9 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
   const values: number[] = [], order: number[] = [], chosen: number[] = [], set: Option[] = [];
   const current = (): readonly Option[] => { set.length = 0; for (const i of state.running) set.push(options[i]!); return set; };
   const free = (i: number): boolean => { for (const k of chosen) if (overlaps(options[k]!.claims, options[i]!.claims)) return false; return true; };
-  const exitingOf = (now: Situation): boolean => state.running.length > 0 && options[state.running[0]!]!.exit(now)?.kind === "ready";
+  const exitingOf = (now: Situation): boolean => state.running.length > 0 && options[state.running[0]!]!.status(now) === "exit";
+  /** Whether a running `option` is done: over, or out of its entry. */
+  const done = (option: Option, now: Situation): boolean => option.status(now) === "over" || !onOffer(option, now);
   return {
     state,
     get running() { return current(); },
@@ -69,16 +71,16 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
       state.decided = now.time;
       const event = eventOf(now);
       let over = false;
-      for (const i of state.running) { const option = options[i]!; if (option.ended(now) || !onOffer(option, now)) over = true; }
+      for (const i of state.running) if (done(options[i]!, now)) over = true;
       const exiting = !over && exitingOf(now);
       if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return current();
       state.event = event;
       state.next = now.time + deciding.rethink;
       // An option over or out of its entry is ended: it may only be begun afresh.
-      if (over) state.running = state.running.filter((i) => { const option = options[i]!; const done = option.ended(now) || !onOffer(option, now); if (done) option.end(); return !done; });
+      if (over) state.running = state.running.filter((i) => { const option = options[i]!, ended = done(option, now); if (ended) option.end(); return !ended; });
       chosen.length = 0;
       // A running option that does not yield keeps what it claims.
-      for (const i of state.running) if (!options[i]!.yields(now)) chosen.push(i);
+      for (const i of state.running) if (options[i]!.status(now) === "committed") chosen.push(i);
       state.offers = [];
       values.length = 0; order.length = 0;
       options.forEach((option, i) => {

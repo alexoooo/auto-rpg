@@ -1,5 +1,5 @@
 import type { Readiness, Resource } from "../../../skills/action.ts";
-import type { Cover, Intent } from "../../../mind/intent.ts";
+import { intentOfSet, type Intent, type SelectedAsk } from "../../../mind/intent.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import type { Percepts } from "./percepts.ts";
 import type { Terms } from "./value.ts";
@@ -11,61 +11,53 @@ export interface Situation extends Percepts {
 }
 
 /**
- * **An option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of options
- * whose resources do not overlap, in one shape: its entry (where it can begin, or, running, go
- * on), the resources it claims, its model (what running it from now is expected to bring: measured
- * where a profile prices it, else built by hand) and its exit (where it can hand the body over).
- * Begun, it runs until it is over, out of its entry, or given up for a better one where it yields.
+ * Where an option running is (`Option.status`): `committed`, keeping what it claims; `yields`,
+ * given up for a better one if there is one; at its `exit`, where the body can be handed to another
+ * option here, which a chooser decides afresh at and looks past (yielding there too); or `over`,
+ * having run its course, to be begun afresh only.
  */
-interface OptionBase {
+export type Status = "committed" | "yields" | "exit" | "over";
+
+/** What an option asks of the skills in a step, the hands' cover aside. */
+export type Asked = SelectedAsk["asked"];
+
+/** **An option's step**: what it asks, and what its asks hold (`Sight.needs`, `asking`), by resource. */
+export interface Step {
+  readonly asked: Asked;
+  readonly holds: readonly Resource[];
+}
+
+/**
+ * **An option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of options
+ * whose resources do not overlap, in one shape: its entry (where it can begin, or, running, go on),
+ * the resources it claims, its model (what running it from now is expected to bring: measured where
+ * a profile prices it, else built by hand), its step and its status. Begun, it runs until it is
+ * over, out of its entry, or given up for a better one where it yields.
+ */
+export interface Option {
   readonly name: string;
   /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
   /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, the whole body): what no other option chosen beside it may hold. */
   readonly claims: readonly Resource[];
-  /** Whether it is a rest option (`hold`, `guard`, `brace`): one worth no more than it does not take its resource from it. */
+  /**
+   * Whether it is a rest option (`hold`, `guard`, `brace`): one worth no more than it does not take
+   * its resource from it. A mark of its own: by rank the rest options are last, the floor, and by
+   * worth a rest option wins a tie, so neither its rank nor its model can say it.
+   */
   readonly rest?: true;
   /** Its entry, now: `ready` to begin or go on, else `waiting` or `blocked`, and why. */
   entry(now: Situation): Readiness;
-  /**
-   * Its exit, now: `ready` where the body can be handed to another option here, else why not; null
-   * where it names none. What a chooser looking past it reads.
-   */
-  exit(now: Situation): Readiness | null;
-  /** Whether, running, it may give way to another now. */
-  yields(now: Situation): boolean;
-  /** Whether, running, it has run its course: it is over, and may only be begun afresh. */
-  ended(now: Situation): boolean;
+  /** Where it is now, running (`Status`). */
+  status(now: Situation): Status;
   begin(now: Situation): void;
   /** It is over, run out or given up. */
   end(): void;
   /** What running it from now is expected to bring (`Terms`). */
   model(now: Situation): Terms;
+  /** What it asks this step, and what that holds. */
+  step(now: Situation, dt: number): Step;
 }
-
-/** What an option asks of the skills in a step, the hands' cover aside. */
-export type Asked = Omit<Intent, "guard"> & { readonly guard?: Readonly<Record<string, Cover>> };
-
-/** An option the body carries out through its skills. */
-interface SkillOption extends OptionBase {
-  step(now: Situation, dt: number): Asked;
-  /** What it holds in a step it asked `asked` (`Sight.needs`), by resource. */
-  holds(now: Situation, asked: Asked): readonly Resource[];
-  /** The body it means to be near, whose reach its walk need not keep out of (`keepOut`); none where absent. */
-  near?(now: Situation): string | null;
-}
-
-/** An option the body carries out standing, through its skills. */
-export interface StandingOption extends SkillOption {
-  readonly posture: "standing";
-}
-
-/** An option the body carries out on the ground, through its skills (`groundOptions`): a commitment of the whole body. */
-export interface GroundOption extends SkillOption {
-  readonly posture: "ground";
-}
-
-export type Option = StandingOption | GroundOption;
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });
@@ -86,6 +78,9 @@ export function asking(now: Situation, asked: Asked): readonly Resource[] {
   return held;
 }
 
+/** What an option that holds nothing holds. */
+export const NOTHING: readonly Resource[] = Object.freeze([]);
+
 /** What footwork holds: the legs. */
 export const LEGS: readonly Resource[] = Object.freeze(["legs"]);
 
@@ -96,24 +91,11 @@ export const WHOLE: readonly Resource[] = Object.freeze(["*"]);
 export const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
   a.includes("*") && b.length > 0 || b.includes("*") && a.length > 0 || a.some((resource) => b.includes(resource));
 
-/** Whether `claims` hold the legs. */
-export const holdsLegs = (claims: readonly Resource[]): boolean => claims.includes("legs") || claims.includes("*");
-
 /**
- * **What a set of options asks in a step**: the walk and facing of the one that holds the legs
- * (`holdsLegs`), else `idle`'s; every one's actions; every one's covers (`Asked.guard`) of a hand
- * no one's asks hold (`SkillOption.holds`); and the body the legs' holder means to be near.
+ * **What a set of options asks in a step**: each member's step as a selected set's
+ * (`SelectedAsk`), made one intent (`intentOfSet`): the walk and facing of the one that claims the
+ * legs, else `idle`'s; every one's actions; every one's covers of a hand no one's asks hold.
  */
-export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Asked, "actions">): { asked: Asked; near: string | null } {
-  let legs: Asked | null = null, near: string | null = null;
-  const actions: Asked["actions"][number][] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
-  for (const option of set) {
-    const asked = option.step(now, dt);
-    for (const action of asked.actions) actions.push(action);
-    for (const resource of option.holds(now, asked)) if (!held.includes(resource)) held.push(resource);
-    if (asked.guard) Object.assign(guard, asked.guard);
-    if (legs === null && holdsLegs(option.claims)) { legs = asked; near = option.near?.(now) ?? null; }
-  }
-  for (const hand of Object.keys(guard)) if (held.includes(hand)) delete guard[hand];
-  return { asked: { ...(legs ?? idle()), actions, guard }, near };
+export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Intent, "guard" | "actions">): Intent {
+  return intentOfSet(set.map((option) => ({ claims: option.claims, ...option.step(now, dt) })), idle);
 }

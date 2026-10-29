@@ -1,7 +1,6 @@
 import { dataOf } from "../../data/store.ts";
 import { blowsOf } from "../../mind/action-config.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
-import { NO_COVER } from "../../mind/intent.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { chooserOf } from "./options/chooser.ts";
@@ -103,8 +102,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
     decide(seen: Sight, dt: number) {
       last = seen;
       const now = lastNow = reader.read(seen);
-      const { asked, near } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
-      return { ...walk.kept(now, asked, near), guard: { ...NO_COVER, ...asked.guard } };
+      return walk.kept(now, stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) })));
     },
   };
 }

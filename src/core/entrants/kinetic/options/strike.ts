@@ -6,7 +6,7 @@ import type { PartLookup } from "../../../mind/lookup.ts";
 import { dataOf } from "../../../data/store.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
 import type { Sight } from "../../../mind/tactics.ts";
-import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
+import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
 import { fromHere, type Going } from "./position.ts";
@@ -37,7 +37,7 @@ export function measuredProfile(measure: StrikeMeasure): Profile | null {
 }
 
 /** **A strike option** (`strike`), which says how its model is priced. */
-export interface StrikeOption extends StandingOption {
+export interface StrikeOption extends Option {
   /**
    * How its model is priced now, a sentence: measured, where a cell of its profile prices it (and
    * why scaled, `ProfileReading.scaled`); else by hand, and why: no drill measured it, its profile
@@ -121,7 +121,6 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
   const UNFIT = blocked("no standing focus to strike"), UNAIMED = blocked("the focus has none of its regions"), UNREADY = blocked("no limb in its entry");
-  const STROKE: Readiness = Object.freeze({ kind: "waiting", reason: "the stroke goes on" });
   /** Whether the body, the focus and its blow under way leave it a target to strike. */
   const unfit = (now: Situation): boolean => now.down || !now.focus || now.focus.down || state.target !== null && state.target.body !== now.focus.id;
   const entry = (now: Situation): Readiness => {
@@ -155,12 +154,9 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     return { duration, dealt, taken: now.danger + threatened(now, left + walkingInReach, from), orders: 0, exit: fromHere(now, { apart: from, down: Math.max(fell, clinched(now, duration)) }) };
   };
   return {
-    name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk"]), state,
+    name: action.name, claims: Object.freeze(["legs", "trunk"]), state,
     entry,
-    exit: (now) => live(now)?.phase === "release" ? READY : STROKE,
-    yields: (now) => (live(now)?.phase ?? "prepare") !== "commit",
-    ended: () => state.over,
-    holds: asking,
+    status: (now) => { if (state.over) return "over"; const phase = live(now)?.phase; return phase === "release" ? "exit" : phase === "commit" ? "committed" : "yields"; },
     window(now) {
       if (live(now) || unfit(now)) return null;
       const { ready, placed } = offer(now);
@@ -178,19 +174,21 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     },
     model: (now) => priceOf(now, false),
     through: (now, going) => priceOf(now, true, going),
-    step(now) {
-      const face = walk.facing(now), still = { move: null, face, actions: [] };
-      const running = live(now);
-      // Kept at its exit, it strikes again: the blow under way is let go, and the next is asked once a limb is ready.
-      if (running?.phase === "release") { state.id = null; state.since = now.time; state.began = null; return still; }
-      if (running) state.began ??= now.time;
-      if (running) return { ...still, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };
-      if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
-      const chosen = scan(now, state.target).ready;
-      if (!chosen) { state.over = true; return still; }
-      state.limb = chosen.limb;
-      state.id = now.sight.instance();
-      return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
-    },
+    step(now) { const asked = ask(now); return { asked, holds: asking(now, asked) }; },
   };
+  /** What it asks this step: its blow, asked once a limb is ready and continued until it is over. */
+  function ask(now: Situation): Asked {
+    const face = walk.facing(now), still = { move: null, face, actions: [] };
+    const running = live(now);
+    // Kept at its exit, it strikes again: the blow under way is let go, and the next is asked once a limb is ready.
+    if (running?.phase === "release") { state.id = null; state.since = now.time; state.began = null; return still; }
+    if (running) state.began ??= now.time;
+    if (running) return { ...still, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };
+    if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
+    const chosen = scan(now, state.target).ready;
+    if (!chosen) { state.over = true; return still; }
+    state.limb = chosen.limb;
+    state.id = now.sight.instance();
+    return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
+  }
 }

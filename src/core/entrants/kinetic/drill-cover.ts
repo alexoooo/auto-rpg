@@ -1,5 +1,4 @@
 import { deepFreeze } from "../../state.ts";
-import { NO_COVER } from "../../mind/intent.ts";
 import { VALUED_CHOOSER, chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { stepSet } from "./options/option.ts";
@@ -33,9 +32,9 @@ function coverDrill(making: TacticsMaking): Tactics {
       // The situation is read at the world's rate, which the first decision's step gives.
       reader ??= situationReader({ spec: making.spec, hz: Math.round(1 / dt), rules: making.rules, strikes: [], measured: [], ordersOf: () => null, downs: [] });
       state.situation = reader.state;
-      const now = reader.read(sight), { asked } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
-      state.covering = Object.keys(asked.guard ?? {}).length > 0;
-      return { move: null, face: walk.facing(now), guard: { ...NO_COVER, ...asked.guard }, actions: [] };
+      const now = reader.read(sight), { guard } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
+      state.covering = Object.keys(guard).length > 0;
+      return { move: null, face: walk.facing(now), guard, actions: [] };
     },
   };
 }

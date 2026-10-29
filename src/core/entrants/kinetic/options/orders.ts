@@ -1,6 +1,6 @@
 import { NO_COVER } from "../../../mind/intent.ts";
 import { orderedIntent } from "../../../mind/ordered.ts";
-import { asking, blocked, READY, type StandingOption } from "./option.ts";
+import { asking, blocked, READY, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
 import type { Terms } from "./value.ts";
@@ -27,16 +27,13 @@ const AHEAD = 1;
  * it is priced as leaving the body where it is, and what it follows as the share of it the body is
  * up there (`here`): a body counted down while its rise runs follows none.
  */
-export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
+export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): Option {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
   const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
-    name: "follow orders", posture: "standing", claims, state: {},
+    name: "follow orders", claims, state: {},
     entry: (now) => !now.down && now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED,
-    exit: () => null,
-    holds: (now, asked) => [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")],
-    yields: () => true,
-    ended: () => false,
+    status: () => "yields",
     begin() {},
     end() {},
     model: (now): Terms => {
@@ -59,7 +56,8 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
           break outer;
         }
       }
-      return { ...ordered, actions: asks };
+      const asked = { ...ordered, actions: asks };
+      return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
     },
   };
 }
