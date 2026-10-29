@@ -9,10 +9,10 @@ import type { BodySpec, Side } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Cover } from "../../../mind/intent.ts";
 import type { Orders } from "../../../mind/orders.ts";
-import { profilesOn, readProfile, sameReaction, type Measured, type Profile, type ProfileReading } from "../../../mind/profile.ts";
+import { profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../../../mind/profile.ts";
 import type { BodySense } from "../../../mind/senses.ts";
 import type { Sight } from "../../../mind/tactics.ts";
-import { foePhase, threatReader, type FoePhase } from "../../../mind/threat.ts";
+import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../../mind/threat.ts";
 import type { Position } from "../../../mind/ground/reading.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
@@ -141,18 +141,18 @@ interface Model { readonly readings: readonly ProfileReading[]; readonly priced:
  * else this body's own (`Seen.strikes`), each fresh at the senses' reaction time; none where
  * neither is, and why.
  */
-function foeModel(seen: Seen, foe: BodySpec): Model {
+function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
   const measured = profilesOn(seen.measured, foe, seen.hz, reactionOf(seen));
-  if (measured.fresh.length) return { readings: measured.fresh.map((profile) => readProfile(profile, foe)), priced: "measured" };
-  const own = ownModel(seen);
-  return own.readings.length ? { readings: own.readings.map((reading) => readProfile(reading.profile, foe)), priced: `as its own strikes: ${measured.stale}` } : { readings: [], priced: `by hand, ${measured.stale}` };
+  if (measured.fresh.length) return { readings: measured.fresh.map((profile) => readProfile(profile, foe, postures)), priced: "measured" };
+  const own = ownModel(seen, postures);
+  return own.readings.length ? { readings: own.readings.map((reading) => readProfile(reading.profile, foe, postures)), priced: `as its own strikes: ${measured.stale}` } : { readings: [], priced: `by hand, ${measured.stale}` };
 }
 
-/** **This body's own strikes** (`Seen.strikes`), those fresh at the senses' reaction time. */
-function ownModel(seen: Seen): Model {
+/** **This body's own strikes** (`Seen.strikes`), those fresh at the senses' reaction time, read at `postures` (`readProfile`). */
+function ownModel(seen: Seen, postures: Postures = STANDING): Model {
   const reaction = reactionOf(seen);
   const fresh = seen.strikes.filter((profile) => sameReaction(profile.measured.reaction, reaction, seen.hz));
-  return fresh.length ? { readings: fresh.map((profile) => readProfile(profile, seen.spec)), priced: "measured" }
+  return fresh.length ? { readings: fresh.map((profile) => readProfile(profile, seen.spec, postures)), priced: "measured" }
     : { readings: [], priced: seen.strikes.length ? `by hand, measured with senses ${seen.strikes[0]!.measured.reaction} s late, read ${reaction} s late` : "by hand, no drill measured its strikes" };
 }
 
@@ -160,13 +160,14 @@ function ownModel(seen: Seen): Model {
 const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? "striking" : "clear";
 
 /**
- * **What one standing body's strikes are expected to deal another**: the strikes it is modelled by
- * (`model`, each read through its profile, `ProfileReading`), read at the struck body's phase
- * (`phase`) and in its life (`struck`), the most of them a second at any range (`peak`, the struck
- * body's life), and how it is priced (`priced`, a sentence). With no strike measured its model is
- * its prior (`prior`): within the striker's reach, `RATE` blows a second, landing as this body's
- * own do (`record`), each its heavier hand's. The focus's on this body (`pressure`), and this body's on the focus
- * (`pressing`); none with no standing focus.
+ * **What one body's strikes are expected to deal another**: the strikes it is modelled by
+ * (`model`, each read through its profile at how the two stand, `ProfileReading`), read at the
+ * struck body's phase (`phase`) and in its life (`struck`), the most of them a second at any range
+ * (`peak`, the struck body's life), and how it is priced (`priced`, a sentence). With no strike
+ * measured, between two standing bodies its model is its prior (`prior`): within the striker's
+ * reach, `RATE` blows a second, landing as this body's own do (`record`), each its heavier hand's;
+ * a body lying, or struck lying, with no strike measured from there deals none. The focus's on this
+ * body (`pressure`), and this body's on the focus (`pressing`); none with no focus.
  */
 export interface Pressure {
   readonly model: readonly ProfileReading[];
@@ -176,32 +177,44 @@ export interface Pressure {
   readonly priced: string;
 }
 
-/** No pressure: no standing focus. */
-const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, priced: "no standing focus" });
+/** No pressure: no focus. */
+const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, priced: "no focus" });
 
-/** **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in `phase`, its prior within `reach` m centre to centre where none is measured. */
-function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, reach: number): Pressure {
-  const readings = model.readings.length ? model.readings
+/**
+ * **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in
+ * `phase`; where none is measured, its prior within `reach` m centre to centre, and none where
+ * `reach` is null (a posture no prior is of).
+ */
+function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, reach: number | null): Pressure {
+  const readings = model.readings.length || reach === null ? model.readings
     : [prior(striker, struck, reach, record(seen.sight.report.ledger, null).lands * heavier(seen.rules, striker, struck), 1 / RATE)];
   let peak = 0;
   for (const reading of readings) peak = Math.max(peak, reading.peak(phase, struck));
   return { model: readings, phase, struck, peak, priced: model.priced };
 }
 
-/** **The pressure** (`Pressure`) a standing focus puts on the body. */
+/** The prior's reach (`pressureBy`) of a body of `striker` at a head `up` m over its own, centre to centre: its hands' (`handsReach`) where the focus is in `posture` standing, else none. */
+const priorReach = (seen: Seen, striker: BodySpec, up: number, posture: string): number | null =>
+  posture === "standing" ? centred(seen, handsReach(striker, up)) : null;
+
+/** **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture (`sensedPosture`), the body struck as standing. */
 function pressureOf(seen: Seen): Pressure {
-  const { focus, spec } = seen;
-  if (!focus || focus.down) return NO_PRESSURE;
-  const { mine, theirs } = heads(seen);
-  return pressureBy(seen, foeModel(seen, focus.spec), ownPhase(seen), focus.spec, spec, centred(seen, theirs ? handsReach(focus.spec, mine.y - theirs.y) : 0));
+  const { focus, spec } = seen, { mine, theirs } = heads(seen);
+  if (!focus || !theirs) return NO_PRESSURE;
+  const posture = sensedPosture(focus);
+  return pressureBy(seen, foeModel(seen, focus.spec, { own: posture, target: "standing" }), ownPhase(seen), focus.spec, spec, priorReach(seen, focus.spec, mine.y - theirs.y, posture));
 }
 
-/** **The pressure** (`Pressure`) the body's own strikes put on a standing focus: its measured strikes (`Seen.strikes`) fresh at the senses' reaction time, read at the focus's phase (`FoePhase`). */
+/**
+ * **The pressure** (`Pressure`) the body's own strikes put on the focus: its measured strikes
+ * (`Seen.strikes`) fresh at the senses' reaction time, read standing at the focus's posture
+ * (`sensedPosture`) and phase (`FoePhase`).
+ */
 function pressingOf(seen: Seen): Pressure {
-  const { focus, spec } = seen;
-  if (!focus || focus.down) return NO_PRESSURE;
-  const { mine, theirs } = heads(seen);
-  return pressureBy(seen, ownModel(seen), foePhase(focus, seen.blow), spec, focus.spec, centred(seen, theirs ? handsReach(spec, theirs.y - mine.y) : 0));
+  const { focus, spec } = seen, { mine, theirs } = heads(seen);
+  if (!focus || !theirs) return NO_PRESSURE;
+  const posture = sensedPosture(focus);
+  return pressureBy(seen, ownModel(seen, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, priorReach(seen, spec, theirs.y - mine.y, posture));
 }
 
 /**
@@ -286,7 +299,8 @@ const FALLEN: Position = "back";
  * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
  * over the ground, m/s. What the controllers did not carry out: the legs' (`SkillReport.legs`) and
- * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the
+ * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), its posture (`sensedPosture`;
+ * standing with no focus), and the time to contact of the
  * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, braced, other
  * orders, another focus, a threat or a blow coming.
  */
@@ -315,6 +329,7 @@ export const PERCEPTS = Object.freeze({
   legsUnmet: { read: ({ sight }) => sight.report.legs } as Percept<LegsUnmet>,
   motorUnmet: { read: ({ sight }) => sight.view.unmet } as Percept<MotorUnmet>,
   phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
+  foePosture: { read: ({ focus }) => focus ? sensedPosture(focus) : "standing" } as Percept<Position>,
   contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
 });
 
@@ -329,10 +344,10 @@ export interface Prediction<V> {
 
 /**
  * **Every prediction Kinetic reads**, by name: the own life the blow coming is expected to take
- * (`lifeOf`), 0 with none; what a standing focus is expected to deal the body (`Pressure`), and
+ * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
  * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late
- * (`closesOf`), m; and the focus's life a blow of each hand at its head takes by the rules
+ * (`closesOf`), m; and the focus's life a blow of each hand at a segment of its takes by the rules
  * (`blowLife`), 0 with no focus.
  */
 export const PREDICTIONS = Object.freeze({
@@ -342,8 +357,8 @@ export const PREDICTIONS = Object.freeze({
   downCost: { read: (seen) => downCostAtOf(seen)(FALLEN) } as Prediction<number>,
   downCostAt: { read: downCostAtOf } as Prediction<(posture: Position) => number>,
   closes: { read: closesOf } as Prediction<number>,
-  blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
-    right: focus ? blowLife(rules, spec, "right", focus.spec) : 0 }) } as Prediction<Readonly<Record<Side, number>>>,
+  blows: { read: ({ focus, spec, rules }) => (segment: string): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec, undefined, segment) : 0,
+    right: focus ? blowLife(rules, spec, "right", focus.spec, undefined, segment) : 0 }) } as Prediction<(segment: string) => Readonly<Record<Side, number>>>,
 });
 
 /** What each prediction says, by its name. */

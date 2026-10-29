@@ -108,14 +108,15 @@ function strikingStiffness(spec: BodySpec, hand: Side): number | null {
 }
 
 /**
- * **The life a blow of `hand` of `striker` takes from `struck`'s head**, by `rules`: its energy
- * closing at `closing` m/s (`blowEnergy`), the head's share of it by the two faces' stiffness
- * (`energyShares`), priced blunt as the rules price a side's damage (`sideDamage`), over the
- * struck body's hit points. An edge or a point is priced as its blunt impact, the hand's own model.
+ * **The life a blow of `hand` of `striker` takes from `struck`'s segment `at`** (its head, its
+ * `marks.high`, unless named), by `rules`: its energy closing at `closing` m/s (`blowEnergy`), the
+ * segment's share of it by the two faces' stiffness (`energyShares`), priced blunt as the rules
+ * price a side's damage (`sideDamage`), over the struck body's hit points. An edge or a point is
+ * priced as its blunt impact, the hand's own model.
  */
-export function blowLife(rules: Rulebook, striker: BodySpec, hand: Side, struck: BodySpec, closing = BLOW_SPEED): number {
-  const head = struck.segments.find((segment) => segment.name === struck.marks.high)?.surface?.stiffness.value ?? null;
-  const share = energyShares([strikingStiffness(striker, hand), head])[1]!;
+export function blowLife(rules: Rulebook, striker: BodySpec, hand: Side, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
+  const face = struck.segments.find((segment) => segment.name === at)?.surface?.stiffness.value ?? null;
+  const share = energyShares([strikingStiffness(striker, hand), face])[1]!;
   return sideDamage(rules, "blunt", blowEnergy(striker, hand, struck, closing), share, 0) / struck.wounds.hp.value;
 }
 
@@ -137,8 +138,12 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
   return { lands: (hits + PRIOR.lands * PRIOR.weight) / (committed + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (committed + PRIOR.weight) };
 }
 
-/** A clinch, the owner's decision until a drill measures one: a standing focus within `within` m, centre to centre, where a body goes down `falls` times a second. */
+/**
+ * A clinch, the owner's decision until a drill measures one: a focus within `within` m, centre to
+ * centre, where a body goes down `falls` times a second, standing (tangled with it) or lying (its
+ * limbs underfoot, `docs/reference/ground-combat.md#policy-settings`).
+ */
 export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 
 /** The chance of going down in `seconds` s of a clinch, if the body is in one. */
-export const clinched = (now: Situation, seconds: number): number => now.focus && !now.focus.down && now.apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;
+export const clinched = (now: Situation, seconds: number): number => now.focus && now.apart < CLINCH.within ? Math.min(1, CLINCH.falls * seconds) : 0;

@@ -50,21 +50,21 @@ export function goings(spec: BodySpec, hz: number, strike: string, profiles: rea
 const named = (name: string, going: Going): string => going.gait === "braced" ? name : `${name}, ${going.gait}`;
 
 /**
- * **Move to a goal** (`Goal`) by `going`'s gait, facing a standing focus (`toGoal`): footwork, on
- * offer where the legs can carry the body (`legsReadiness`), at a standing focus out of the goal's band, run its course once in the band; it
+ * **Move to a goal** (`Goal`) by `going`'s gait, facing the focus (`toGoal`): footwork, on
+ * offer where the legs can carry the body (`legsReadiness`), at a focus out of the goal's band, run its course once in the band; it
  * always yields and asks for no blow. Its model: the walk to the band's nearer end at the gait's
  * pace, through the blow coming and the focus's pressure while it walks within the focus's reach
  * (`threatened`), leaving the body there as the gait leaves it (`Going`); a walk that ends out of a
  * clinch (`CLINCH`) leaves its chance of going down behind.
  */
 export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Option {
-  const UNFIT = blocked("no standing focus"), THERE = blocked("within its band");
+  const UNFIT = blocked("no focus"), THERE = blocked("within its band");
   return {
     name: named(name, going), claims: LEGS, state: {},
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       if (legs.kind !== "ready") return legs;
-      return !now.focus || now.focus.down ? UNFIT : within(now, goal) ? THERE : READY;
+      return !now.focus ? UNFIT : within(now, goal) ? THERE : READY;
     },
     status: (now) => within(now, goal) ? "over" : "yields",
     begin() {},

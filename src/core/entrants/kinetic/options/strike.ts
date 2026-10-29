@@ -93,7 +93,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const expected = (now: Situation, progress: number): Expected | null => {
     const profile = profileNow(now), focus = now.focus;
     if (!profile || !focus) return null;
-    const reading = readProfile(profile, measure.spec);
+    const reading = readProfile(profile, measure.spec, { own: "standing", target: now.foePosture });
     return reading.expect({ range: Math.min(now.apart, reading.reach(now.phase)), phase: now.phase, progress }, focus.spec);
   };
   const targetOf = (now: Situation): TargetRef | null => {
@@ -160,13 +160,15 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
-   * from its stronger hand, each landing as often as its record says (`record`, which is of the hand
+   * from its stronger hand at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the hand
    * it is asked for), as long as its record says it runs, under the focus's pressure from `from` m
    * head to head.
    */
   const priorOf = (now: Situation, from: number): Expected => {
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
-    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.predictions.blows[limb.slice(5) as Side] : 0));
+    const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
+    const blows = now.predictions.blows(segment ?? now.focus?.spec.marks.high ?? "");
+    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? blows[limb.slice(5) as Side] : 0));
     return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
   /** Its window now (`StrikeOption.window`). */
