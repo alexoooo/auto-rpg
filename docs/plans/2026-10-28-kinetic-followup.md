@@ -110,12 +110,15 @@ Built: the ends a body can bear on are its spec's (`BodySpec.ends`, `src/core/sp
 biped's feet, hands and knees; `BearingEnd` names one, and the swing, the footing, the feet and the
 pose's anchors are keyed by it; the stance walk reports a field naming an end it does not stand on
 unmet (`onStanceFeet`); the probes ask every legs to bear kneeling and on hands and knees, and each
-reports both unmet.
+reports both unmet. Legs asked both shins lower the body onto its knees and hold it there
+(`lowering`, `src/core/mind/rise/lowering.ts`, `KNEEL_DOWN`; the probes' kneeling set borne); asked
+hands and knees they report the ends unmet, no lowering found
+([the kneel-down](../reference/rising.md#the-kneel-down)).
 
-Left: the legs bear on any set of the ends, carrying the root over them as the ground techniques do
-now (`carryRoot`, `bearLimbs`, `src/core/control/bearing.ts`; the limbs made from the spec's ends in
-the control layer, `riseLimbs` moved there), from where the body is or by lowering it to them. A
-ground technique then asks its bearing ends in its legs goal and holds only the limbs it moves, so
+Left: the legs bear on hands and knees, and on any set of the ends from where the body is, carrying
+the root over them as the ground techniques do now (`carryRoot`, `bearLimbs`,
+`src/core/control/bearing.ts`; the limbs made from the spec's ends in the control layer,
+`riseLimbs` moved there). A ground technique then asks its bearing ends in its legs goal and holds only the limbs it moves, so
 an arm it does not use is the policy's for a cover or the guard, and no technique writes the
 muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
 
