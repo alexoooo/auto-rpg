@@ -29,12 +29,15 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   schedule (`StraightPunch.timed`: the trunk's, both legs' and the striking arm's 18 channels, each
   a level, a start and a length), its drive braked onto its goals (`brake`), a walk halted as it
   commits (`halts`), steered with `learned` (`src/core/skills/learned-punch.ts`).
-- **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 55-256-256-11, reads the
+- **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 59-256-256-12, reads the
   drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
-  mass's velocity, whether the hand touches, and the trunk's, legs' and arm's angles and speeds
-  (`punchFeatures`). It adds a level to the pushes of the trunk's turn and lean and the punching
-  arm's four channels (`steerPushes`), and asks the legs goal for a heading turned up to 0.5 rad
-  and a centre moved up to 0.15 m ahead and across on the Warrior's leg (`stanceAsks`). Inputs and
+  mass's velocity, whether the hand touches, the trunk's, legs' and arm's angles and speeds, and
+  the gait's phase: which feet bear and whether the stance shifts or swings (`punchFeatures`). It
+  adds a level to the pushes of the trunk's turn and lean and the punching arm's four channels
+  (`steerPushes`), asks the legs goal for a heading turned up to 0.5 rad and a centre moved up to
+  0.15 m ahead and across on the Warrior's leg (`stanceAsks`), and keeps a walk under way or halts
+  it (`keepsWalk`; the shipped network's weights for the gait's phase and the walk are zero, so it
+  halts as `halts` does). Inputs and
   outputs are named in its layout file (`assets/core/learned-punch.layout.json`, `PUNCH_LAYOUT`).
   The left hand's are the right's mirrored (`punchChannels`).
 - **The window**: admitted 0.89 to 1.01 m from the target, within 0.17 m (`aside`) of the line the

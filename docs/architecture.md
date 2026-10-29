@@ -378,12 +378,13 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   near its goal instead of pushing past it each step, so the fist keeps its line. With `steered`,
   60 times a second through the drive it reads itself (`punchFeatures`,
   `src/core/skills/learned-punch.ts`: the target from the shoulder and its velocity, the fist, the
-  trunk's, legs' and arm's angles and speeds, the left hand mirrored), adds a learned steer to the
-  trunk's and the arm's pushes (`steerPushes`) and asks the legs goal with it (`stanceAsks`). Its
+  trunk's, legs' and arm's angles and speeds, the gait's phase, the left hand mirrored), adds a
+  learned steer to the trunk's and the arm's pushes (`steerPushes`), asks the legs goal with it
+  (`stanceAsks`) and keeps the walk under way or halts it (`keepsWalk`). Its
   inputs and outputs are a layout file (`PUNCH_LAYOUT`, `assets/core/learned-punch.layout.json`):
   each input a named reading of the drive or a channel's `angle` or `speed`, each output a push on
   a named channel or an ask of the legs goal (`heading`, `centre` ahead or across) at a full scale,
-  a distance's in proportion to the body's leg (`legOf`). Its
+  a distance's in proportion to the body's leg (`legOf`), or the walk's keep (`walk`). Its
   window may be narrower across the line it faces than along it (`aside`), centred with
   `squared` on the line the punching shoulder faces along at contact rather than the head's, and
   refuse a target higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and
@@ -980,7 +981,7 @@ world for learning and search.
   hosted minds of the subject's kind (`WorldKind.hosted`), plays from its first decision to its
   next, and ends with the case's reader or the part no longer running. Its reward is the outputs'
   effort, the evaluation's percepts summed over each decision (`Evaluation.percepts`: Locomotion's
-  progress, halt and upright) and, at the end, its terms and readings (`Evaluation.terms`: the
+  progress, halt and upright; the Strike drill's legs left undone, `unmet`) and, at the end, its terms and readings (`Evaluation.terms`: the
   Strike drill's bar score, whether it met it, how short of its aim the fist stayed). Where the
   world kind saves (`WorldKind.save`, a bout's) it keeps a pool of saved starts, refreshed while the
   trainer updates; a bout builds at the rate a trial draws (`WorldKind.build`).
