@@ -1,3 +1,4 @@
+import type { GaitName } from "./gaits.ts";
 import { stockClearance } from "../mind/clear-step.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
@@ -88,6 +89,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     clearance: navigation ?? stockClearance(body.built.spec),
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },
+    envelopeOf: (gait: GaitName) => legs.envelopeOf?.(gait) ?? null,
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
       navigation?.resume();
@@ -202,17 +204,18 @@ function writes(claim: ActionClaim, control: string, legs: readonly string[], ch
 }
 
 /**
- * **The legs goal the legs are given** (`LegsAsked`): `asked`, its walk and facing the intent's
- * where it leaves them out, and its height the intent's lowering under standing where it sets
+ * **The legs goal the legs are given** (`LegsAsked`): `asked`, its walk, facing and gait the
+ * intent's where it leaves them out, and its height the intent's lowering under standing where it sets
  * none. A footing asked stands, facing the legs' `heading`. While a support fold is under way
  * (`waiting`) a walk waits for it to rise.
  */
-function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination">, view: Pick<BodyView, "standing">, heading: number,
+function legsGoal(asked: LegsGoal, intent: Pick<Intent, "move" | "face" | "lower" | "destination" | "gait">, view: Pick<BodyView, "standing">, heading: number,
   fold: { readonly waiting: boolean }): LegsAsked {
   const height = asked.height ?? (intent.lower === undefined ? undefined : view.standing - intent.lower);
-  if (asked.footing) return { ...asked, walk: null, face: heading, height };
+  const gait = asked.gait ?? intent.gait, named = gait === undefined ? {} : { gait };
+  if (asked.footing) return { ...asked, walk: null, face: heading, height, ...named };
   return { ...asked, walk: fold.waiting ? null : asked.walk !== undefined ? asked.walk : intent.move, face: asked.face ?? intent.face, height,
-    destination: asked.destination ?? intent.destination };
+    destination: asked.destination ?? intent.destination, ...named };
 }
 
 /**

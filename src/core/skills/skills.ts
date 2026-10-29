@@ -1,6 +1,7 @@
 import type { Clearance } from "../mind/clear-step.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
+import type { GaitName } from "./gaits.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
@@ -19,6 +20,8 @@ export interface Skills extends Skill {
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
   readonly envelope: StanceEnvelope | null;
+  /** What its legs hold going by `gait` (`Locomotion.envelopeOf`); null where they have no such gait or state none. */
+  envelopeOf(gait: GaitName): StanceEnvelope | null;
   /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
   readonly gait: GaitLimits;
   /** How its planner keeps the body clear of the solids sensed: its navigator's (`Navigator`), or the stock navigators' where it has none (`stockClearance`). */

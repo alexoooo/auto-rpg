@@ -51,7 +51,7 @@ export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config:
       const side = config.kicks === "either" ? state.next : config.kicks;
       const choice = retained ? current : side !== "none" && state.settled >= 1 && surface && supported() ? { action: "ground-kick", effector: `foot.${side}`,
         target: { kind: "body" as const, body: surface.foe, region: { kind: "segment" as const, segment: surface.part } } } : null;
-      const sight = { view, report: skills.report, envelope: null, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+      const sight = { view, report: skills.report, envelope: null, envelopeOf: () => null, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
       const asked = producer.request(sight, choice, { heading: 0, placed: true, walk: null, lower: 0, support: null });
       const command = skills.command(view, { ...standIntent(), actions: asked.requests }, dt);
       for (const effector of tracker.models) {

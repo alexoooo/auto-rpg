@@ -78,7 +78,8 @@ const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destinatio
  * wanted, and the gait changes once it has given the legs back to the stance. Two gaits of one walk
  * change at once, the walk told whether it may run (`MoveGait.runs`). Before the body's first
  * step, and as it is resumed, it walks by the gait it would stand by with nothing near. Its
- * envelope, which tactics plan by, and its arms are the gait's it walks by.
+ * envelope, which tactics plan by, and its arms are the gait's it walks by; it says what each of its
+ * gaits holds (`envelopeOf`).
  */
 export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], otherwise: number): Locomotion {
   const wanted = (reading: Reading, current: number | null, named?: GaitName): number => {
@@ -129,6 +130,11 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     get placed() { return now().placed; },
     get unmet() { return memory.unmet; },
     get gait() { return gaits[memory.gait]!.name; },
+    envelopeOf(name) {
+      const gait = gaits.find((one) => one.name === name);
+      if (!gait) return null;
+      return gait.runs !== undefined && gait.legs.envelopeRunning ? gait.legs.envelopeRunning(gait.runs) : gait.legs.envelope ?? null;
+    },
     resume(view) {
       memory.chosen = true;
       memory.gait = wanted(STILL, null);

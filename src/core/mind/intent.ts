@@ -1,4 +1,5 @@
 import type { ActionRequest } from "../skills/action.ts";
+import type { GaitName } from "../skills/gaits.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
 
@@ -42,6 +43,8 @@ export interface Intent {
   readonly interrupt?: readonly number[];
   /** How far the body is from where its walk is taking it, m; absent where it is taking it nowhere. Its locomotion may choose its gait by it (`move`). */
   readonly destination?: number;
+  /** The gait to go by, by name (`GAITS`), for legs that walk by gaits; absent, their own choice (`move`'s rules). */
+  readonly gait?: GaitName;
 }
 
 /** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */

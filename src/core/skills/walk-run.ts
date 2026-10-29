@@ -226,6 +226,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get envelope() { return envelopeNow(); },
     get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
     runs(may) { memory.may = may && pays; },
+    envelopeRunning: (may) => may && pays ? runEnvelope : body.envelope,
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },
     get reference() { return legs.reference; },

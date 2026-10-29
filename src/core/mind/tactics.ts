@@ -85,6 +85,8 @@ export interface Sight {
   readonly report: SkillReport;
   /** What the skills' locomotion was measured to hold with this body (`Locomotion.envelope`), as it is now: its fastest walk, and its turns. */
   readonly envelope: StanceEnvelope | null;
+  /** What it holds going by a gait (`Skills.envelopeOf`). */
+  readonly envelopeOf: Skills["envelopeOf"];
   /** How the body keeps clear of the solids sensed (`Skills.clearance`): its navigator's, so replacing the navigator replaces it for the planner. */
   readonly clearance: Clearance;
 }
@@ -98,7 +100,7 @@ export interface Sight {
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
   const skills = make(body, tactics);
-  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);

@@ -4,7 +4,7 @@ import type { LocomotionPart } from "../mind/locomotion-part.ts";
 import { fitsSoles } from "../control/stance-balance.ts";
 import { slotList, type ConfigOf, type PartConfig } from "../mind/parts.ts";
 import { deepFreeze } from "../state.ts";
-import { GAITS, type GaitName } from "./gaits.ts";
+import { GAIT_NAMES, GAITS, type GaitName } from "./gaits.ts";
 import type { Locomotion } from "./locomotion.ts";
 import { move, type MoveGait } from "./move.ts";
 import { GAIT_CHOICES, isGait } from "./move-rule-part.ts";
@@ -23,8 +23,8 @@ export interface MoveConfig {
   readonly otherwise: GaitName;
 }
 
-/** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them. */
-const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...config.rules.map((r) => r.gait), config.otherwise])];
+/** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them, then every other gait (`GAITS`), which a legs goal may name. */
+const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...config.rules.map((r) => r.gait), config.otherwise, ...GAIT_NAMES])];
 
 /**
  * **Move** (`move`): the legs of the gait it goes by, so it holds that gait's envelope and stops at
