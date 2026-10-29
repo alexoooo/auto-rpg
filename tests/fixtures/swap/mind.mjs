@@ -17,6 +17,7 @@ import { STUB_MOTOR } from "./stub-motor.mjs";
 import { STUB_LEGS } from "./stub-legs.mjs";
 import { STUB_RULE } from "./stub-rule.mjs";
 import { STUB_TACTICS } from "./stub-tactics.mjs";
+import { STUB_OPTION } from "./stub-option.mjs";
 import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 import { STUB_CHOOSER } from "./stub-chooser.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
@@ -55,6 +56,7 @@ export const STUBS = Object.freeze([
   { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${RECIPE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
     read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "stub-takeover") },
   { part: STUB_CHOOSER, mind: "swap-kinetic", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
+  { part: STUB_OPTION, mind: "swap-kinetic", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.tactics.options.at(-1).counts },
   { part: STUB_BALANCE, mind: "swap-kinetic", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
   { part: STUB_AIM, mind: "swap-kinetic", at: `actions.${AIM_AT}.aim`,
@@ -74,7 +76,7 @@ export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 
-/** The Kinetic fixture: Kinetic with its chooser, balance and aim stubs. */
+/** The Kinetic fixture: Kinetic with its chooser, option, balance and aim stubs. */
 export const SWAP_KINETIC_DEFAULTS = withStubs("swap-kinetic", KINETIC, {});
 
 /** The quadruped fixture: its motor, trot, bite and planner each a stub. */

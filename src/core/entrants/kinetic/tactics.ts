@@ -5,13 +5,12 @@ import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
-import { goings, moveTo, OUT_OF_PRESSURE, toWindow } from "./options/goals.ts";
-import { stepSet, type Option, type Situation } from "./options/option.ts";
-import { guard, hold } from "./options/rest.ts";
+import { goings } from "./options/goals.ts";
+import { OPTIONS, optionsOf, type KineticOptionPart } from "./options/kinds.ts";
+import { stepSet, type Situation } from "./options/option.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
 import { groundOptions, type Ground } from "./options/ground.ts";
-import { followOrders } from "./options/orders.ts";
 import { situationReader } from "./options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./options/strike.ts";
 import { walker } from "./options/walk.ts";
@@ -22,9 +21,10 @@ import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";
 import type { Rulebook } from "../../rules/rulebook.ts";
 import type { BodySpec } from "../../spec/body.ts";
 
-/** What Kinetic decides with: its chooser, and the actions and executors its strikes are carried out by. */
+/** What Kinetic decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {
   readonly chooser: PartConfig;
+  readonly options?: readonly PartConfig[] | null;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
   /** Its techniques for getting up, in rank order. */
@@ -61,7 +61,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 }
 
 /**
- * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim:
+ * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
+ * the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
  * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, from
  * a limb ready, priced by its measured profile where it has one, `strikeMeasure`), and the goals
  * made from them, each worth where it leaves the body: a walk into each strike's window
@@ -85,10 +86,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
   const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "");
-  const options: readonly Option[] = [followOrders(walk, standing), ...strikes,
-    ...gaits.flatMap((going) => [...strikes.map((one) => toWindow(one, walk, going)), moveTo("out of pressure", OUT_OF_PRESSURE, walk, going)]),
-    ...ground.options,
-    ...hands.options, hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), ground.rest];
+  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, standing, strikes, gaits, ground, hands });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;

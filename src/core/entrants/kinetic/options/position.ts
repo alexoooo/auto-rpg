@@ -1,4 +1,6 @@
 import type { GaitName } from "../../../skills/gaits.ts";
+import type { PositionPart } from "../../../mind/option-part.ts";
+import { anyBody } from "../../../mind/parts.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import type { Percepts } from "./percepts.ts";
@@ -93,4 +95,10 @@ export const FEW_TERMS: PositionValue = deepFreeze({
     const clinch = !now.down && now.apart < CLINCH.within ? now.predictions.downCost * CLINCH.falls : 0;
     return -dealtAt(now.predictions.pressure, now, now.range, 1) - clinch;
   },
+});
+
+/** **The few terms** (`FEW_TERMS`) as a part of role `position`: what a chooser that values places prices them by. */
+export const FEW_TERMS_PART: PositionPart<{ readonly kind: "few-terms" }, PositionValue> = deepFreeze({
+  role: "position", label: "Few terms", stage: "game", fields: [], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true },
+  fits: anyBody, faults: () => [], make: () => FEW_TERMS,
 });

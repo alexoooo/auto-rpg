@@ -20,16 +20,20 @@ import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
+import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
+import { FEW_TERMS_PART } from "./options/position.ts";
 import { kineticTactics } from "./tactics.ts";
 
 /**
- * **Kinetic's config**: its chooser and the parts its body layer is made from (legs, navigation,
- * guard, executors and the actions they carry out, motor), the techniques it rises by from the
- * ground, in rank order, and the tactics that decide in its chooser's place (a drill's), or null.
+ * **Kinetic's config**: its chooser, its options (each a part of role `option`, in rank order;
+ * `OPTIONS` where none are given), the parts its body layer is made from (legs, navigation, guard,
+ * executors and the actions they carry out, motor), the techniques it rises by from the ground, in
+ * rank order, and the tactics that decide in its chooser's place (a drill's), or null.
  */
 export interface KineticConfig {
   readonly kind: "kinetic";
   readonly chooser: PartConfig;
+  readonly options?: readonly PartConfig[] | null;
   readonly tactics: PartConfig | null;
   readonly locomotion: LocomotionConfig;
   readonly navigation?: PartConfig;
@@ -51,12 +55,12 @@ const STRIKE: ActionConfig = deepFreeze({ name: "strike", executor: "punch", eff
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /** As it starts: by worth, the learned punch, the gaits its options name (`GOING`), the shield guard, and the game's stand-up's techniques. */
-const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, tactics: null, locomotion: GOING, guard: { kind: "shield-guard" },
+const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, options: OPTIONS, tactics: null, locomotion: GOING, guard: { kind: "shield-guard" },
   executors: [PUNCH], actions: [STRIKE], ground: STAND_UP.techniques });
 
-/** Its slots: its chooser, the tactics in its place, a skill of each role but low support, its techniques on the ground and its motor. */
+/** Its slots: its chooser and its options, the tactics in its place, a skill of each role but low support, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("chooser", "Chooser", "chooser"), slotOne("tactics", "Tactics", "tactics", true),
+  slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("tactics", "Tactics", "tactics", true),
   slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
@@ -96,12 +100,13 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
   return { skills, state: skills.state };
 }
 
-/** **Kinetic** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers and the Cover drill's tactics. */
+/** **Kinetic** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
 export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
-  keys: { kind: true, chooser: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, COVER_DRILL_TACTICS],
-  uses: () => REPOSITION,
+  keys: { kind: true, chooser: true, options: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, COVER_DRILL_TACTICS],
+  // The options it starts with where its config names none.
+  uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
   fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
