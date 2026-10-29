@@ -307,8 +307,8 @@ the Rogue at 0.25, 0.38, 0.23, 0.10 and the skeleton at 0.32, 0.40, 0.42, 0.46. 
 
 ### The limbs
 
-What a bearing stage may bear on (`Recipe.limbs`, made by `riseLimbs`,
-`src/core/mind/rise/limbs.ts`). Both sides alike:
+What a bearing stage may bear on: the body's bearing ends (`BodySpec.ends`, the human's in
+`src/core/human/spec.ts`), made limbs by `riseLimbs` (`src/core/mind/rise/limbs.ts`). Both sides alike:
 
 | Limb | Kind | Bears on | Its task is taken by |
 |---|---|---|---|

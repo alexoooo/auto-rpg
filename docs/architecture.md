@@ -308,6 +308,10 @@ actions over it.
 legs goal (`goal`: a stance goal, or a gait's own drive of the legs), their heading and how fast
 they stop. An action holding the legs asks them in one legs goal (`LegsGoal`, its `legs`): a walk,
 and the stance goal's fields it sets; nothing edits the stance goal after the legs complete it.
+The ends it bears on, swings, places and anchors are named as the body's spec names its bearing
+ends (`BearingEnd`, `BodySpec.ends`: a human's `foot.<side>`, `hand.<side>`, `shin.<side>`); the
+stance walk turns its foot ends into the stance's feet (`onStanceFeet`, `stanceFeetOf`) and reports
+a field that names an end it does not stand on unmet.
 The low support fold (`SupportSkill`, `src/core/skills/support-fold.ts`) carries a goal that leaves
 the stance's shape to the legs (`foldCarries`) down to the height it asks, before the legs complete
 it, and asks its trunk flexion of whatever holds the trunk (`SupportReport.posture`): the defaults
@@ -741,7 +745,7 @@ data-reading mind (the stand and the bout among them).
 and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the
 centre of mass inside it. **The riser plays a recipe** (`RISE`, `rise/stages.ts`): plain data of
 pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`) and bearing stages
-(`BearStage`, limbs from `riseLimbs`), after reading how the body lies (`lieOf`). `stageFaults` says
+(`BearStage`, its limbs the body's bearing ends, `BodySpec.ends`, made by `riseLimbs`), after reading how the body lies (`lieOf`). `stageFaults` says
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).
 
