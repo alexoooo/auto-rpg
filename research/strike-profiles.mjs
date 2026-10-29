@@ -4,9 +4,11 @@
  * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at. A
  * profile a skill on a body against a target: its measured-on read from each row's world (the left
  * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
- * the recipe's sense delay), its target the right body's; a cell a gap and the target's phase as
+ * the recipe's sense delay), its target the right body's; a cell a range, the target's phase as
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
- * reached the drill). A record that does not hold that phase is refused: its rung is played again. The `walk`
+ * reached the drill) and its posture then (`foeAt.posture`, `ProfileCell.postures`; standing in a
+ * record from before the reading held it). A target standing is at its condition's gap; one down,
+ * at the range the striker sensed it at then, centre to centre (`foeAt.apart`), to the nearest 0.1 m. A record that does not hold that phase is refused: its rung is played again. The `walk`
  * rung is left out: the range it was asked at is not recorded.
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go,
  * at the progress of the motion it was let go at (the seconds from its start, to the step).
@@ -73,8 +75,9 @@ for (const path of paths) {
     if (row.reading.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
     const phase = row.reading.foePhase;
     if (phase === null) continue;
-    const cellKey = JSON.stringify([row.condition.gap, phase]);
-    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, ranged: 0, exitRange: 0, lets: new Map() };
+    const posture = row.reading.foeAt?.posture ?? "standing", range = posture === "standing" ? row.condition.gap : Math.round(row.reading.foeAt.apart * 10) / 10;
+    const cellKey = JSON.stringify([range, phase, posture]);
+    const cell = profile.cells.get(cellKey) ?? { range, phase, posture, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, ranged: 0, exitRange: 0, lets: new Map() };
     profile.cells.set(cellKey, cell);
     const r = row.reading;
     if (drill.letGo !== undefined) {
@@ -97,13 +100,14 @@ for (const path of paths) {
 }
 
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
-  cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
+  cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.posture.localeCompare(b.posture) || a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
     range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
     seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [], ...(c.ranged ? { exit: { range: round(c.exitRange / c.ranged) } } : {}),
+    ...(c.posture === "standing" ? {} : { postures: { own: "standing", target: c.posture } }),
     ...(c.lets.size ? { letGo: [...c.lets].sort(([a], [b]) => a - b).map(([progress, at]) => ({ progress: round(progress), seconds: round(at.seconds / at.n), taken: round(at.taken / at.n) })) } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz, senses ${profile.measured.reaction} s late)`);
-  for (const c of out.profiles[i].cells) console.log(`  ${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.map((at) => `at ${at.progress} s, ${at.seconds} s, taken ${at.taken} HP`).join("; ")}` : ""}`);
+  for (const c of out.profiles[i].cells) console.log(`  ${c.postures ? `${c.postures.target} ` : ""}${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.map((at) => `at ${at.progress} s, ${at.seconds} s, taken ${at.taken} HP`).join("; ")}` : ""}`);
   for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${[...c.lets.values()].reduce((n, at) => n + at.n, 0)} times, no trial thrown: left out`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

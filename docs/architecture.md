@@ -1216,9 +1216,15 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   no return (`DrillTacticsConfig.letGo`, the condition's `letGo`), read for when the hand was back
   at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
-  its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
+  its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
+  each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
+  (the condition's `target`) lying limp on its back under the bare mind with no network, walked
+  round to from 0.8 to 1.2 m; each trial's reading records the target's posture and the range
+  centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
+  landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
-  straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), guarded
+  straight, the chest upright; `BAR`, `strike/read.ts`; a foot, which the bar sets no test for, on
+  the mark at all, its fastest touch read), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
   refused or waiting, fell, or a fight that never came to its moment); `gait` (a mind going at a
   still Warrior by each gait at each speed under the drill's tactics, `drill-gait`, stopping where
