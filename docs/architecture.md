@@ -321,7 +321,10 @@ no feet finds them standing. Legs say what of their last goal they did not carry
 (`Locomotion.unmet`, `LegsUnmet`): the fields they left undone (a gait by name the stance walk has
 none of, a heading asked beside a walk, the stance's fields while the run drives the legs), and
 how far the stance held the centre of mass and its plan's height from those asked; the skills'
-report carries it (`SkillReport.legs`). Legs that walk by gaits by name say which (`Locomotion.gait`).
+report carries it (`SkillReport.legs`). Legs that walk by gaits by name say which (`Locomotion.gait`)
+and each one's envelope (`Locomotion.envelopeOf`; the walk-run's own while it may run and the run
+pays, `envelopeRunning`), which a mind reads as `Sight.envelopeOf`. An intent may name a gait
+(`Intent.gait`), which the arbiter puts in the legs goal where the action holding the legs asks none.
 **The probes** (`tests/harness/probes.mjs`, run by `tests/probes.test.mjs`) ask each legs-goal
 field and claim term of a standing Warrior, through each gait, the stance walk, Move, each balance
 and motor and the swap stubs: each does it within its limit or reports it undone, and legs or a
@@ -331,7 +334,7 @@ motor that ignore a term and say nothing fail its probe.
 |---|---|---|
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`LegsGoal.footing`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `LegsDrive`) when asked past its walk and allowed (`Locomotion.runs`) |
-| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
+| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Kinetic names one and has no rules); Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
 its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
@@ -598,19 +601,22 @@ supervisor runs it, counting its time against its limit as it runs. A mode yield
 where its run says it may. An edge is priced as a fall (`downTerms`) at its expected seconds to
 standing through it, by its profile where measured, so the policy takes the cheapest; the rest at
 the rise's price (`Ground.down`: its route to standing from the back, `toStanding`, where its edges
-are measured, else Stand up's `SubMindPart.down`), so unmeasured they go by rank. The body counts
-as down while the rise runs (`Ground.read`). Once down,
+are measured, else Stand up's `SubMindPart.down`), so unmeasured they go by rank. On its feet
+while the rise runs, the body is counted down until the steady braces it (`Ground.unbraced`: the
+steady's seconds left, the percept `unbraced`; `here`), and a standing option leaves it counted
+down (`fromHere`), so only the rise stands it; the steady is priced at the seconds it has left.
+What happened since the last step (`since`: an attempt ended, a hand-back) is read before the
+percept is. Once down,
 the body reads the ground while no stance is asked (`BodyView.ground`).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
   `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
-  orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure and
+  the seconds until the body is braced, orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure and
   this body's on it, what a fall costs, how fast the two close, how late the senses show the focus,
   the lead and the time left before the clock's verdict, each hand's blow; the
   gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the focus's
   phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue is what a
-  chooser watches (`eventOf`). Reach is read head to head: the focus's, this body's, and where the
-  two guards meet (`guardAhead`). The pressure (`Pressure`) is what a standing focus is expected to
+  chooser watches (`eventOf`). Reach is read head to head: the focus's and this body's. The pressure (`Pressure`) is what a standing focus is expected to
   deal the body a second, over the range: measured from the strike profiles on the focus's body
   where there are any (`profilesOn`), else by hand within its reach, and says how it is priced
   (`Pressure.priced`); an option is charged it for its time near the focus (`threatened`). The
@@ -641,14 +647,18 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   none is ready; it walks as `approachActionWindow` does and is worth the strike walked there,
   `StrikeOption.through`), and out of the foe's pressure (`OUT_OF_PRESSURE`: past its modelled
   strikes' reach, `pressureEdge`, by `closes`, how far it walks at its measured fastest walk in the
-  reaction time). The options fighter's edge-hold holds the band from the focus's reach to `closes`
+  reaction time). Each goes by each gait (`goings`, a `Going`): at the gait's pace, asking it
+  (`Intent.gait`), and leaving the body unbraced for the seconds the Gait drill measured the gait
+  stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once). The options fighter's edge-hold holds the band from the focus's reach to `closes`
   past it (`holdEdge`, `EDGE` its patience).
 - **The value of a position** (`PositionValue`, `position.ts`): what a place (`Place`: the range
-  head to head to the focus and the chance the body is down there) is worth in life, the lead
+  head to head to the focus, the chance the body is down there, and the seconds until it is braced
+  there, `braced`) is worth in life, the lead
   expected at the verdict from there, and the rate of play, what a second of the fight is worth
   with the defaults holding the position. One interface; its first implementation is a few terms
   (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against both reaches
-  (the body's own pressure on the focus there over a held place's time, less the focus's on it),
+  (the body's own pressure on the focus there over a held place's time once braced, less the
+  focus's on it),
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
@@ -1131,7 +1141,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
   straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
-  refused or waiting, fell, or a fight that never came to its moment); and `cover` (a mind standing
+  refused or waiting, fell, or a fight that never came to its moment); `gait` (a mind going at a
+  still Warrior by each gait at each speed under the drill's tactics, `drill-gait`, stopping where
+  its first standing strike's window would admit it and striking: rung `stopped`, read for the
+  speed it stopped from, the seconds from the stop to its strike admitted and whether it fell,
+  `gait/read.ts`; the gaits' profiles regenerate from its records, `research/gait-profiles.mjs`,
+  `assets/core/gait-profiles.json`); and `cover` (a mind standing
   and covering under the drill's tactics, `drill-cover`, against a drill opponent striking on its
   script: rung `swung`, a club swung on a rhythm, `drill-swing`; rung `punched`, punches,
   `drill-punch`; a Warrior empty-handed or with a club, by offset and range: each touch read by

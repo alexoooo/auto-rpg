@@ -60,9 +60,6 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Decisions beside the policy.** The gait is chosen by Move's rules (`MoveRule`,
-  `src/core/skills/move.ts`): braced within 5 m of a foe or a destination, 8.5 m of an ally, else
-  run, 0.5 m past a rule before it lets go (`LEAVING`).
 - **Letting go is measured at one instant.** The Strike drill lets go only at the first decision
   (`LETTING_GO`, `src/evaluation/strike/cases.ts`), and "ready again" is the executor's
   bookkeeping, not the hand back at its guard; a running strike is priced as a fresh one.
@@ -83,23 +80,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 8. Gaits as options
-
-Each gait, braced and run, is an option toward each goal ([the design](#the-design)), its profile
-the gait's: top speeds (its envelope, `src/core/control/stance-envelope.ts`), and, measured on the
-body by a drill of the two gaits (from each, at its speeds, stopped and asked its strike), the
-seconds until it is braced and its strike ready, and the share that fell. The place an option
-leaves the body names the seconds until it is braced, and the position discounts its exchange by
-them. Move's rules leave Kinetic (`MoveRule`, `LEAVING`; the keep margin holds a gait as it holds
-any option); other minds keep theirs. The body on its feet mid-rise is left unbraced for the
-steady's seconds the same way, so the body counted down while its rise runs is the rise's exit,
-not a reading rewritten (`Ground.read` goes): without it, holding the position, priced as a body
-standing, outbids the steady.
-
-Check: the gait drill's readings for both gaits on the toed Warrior; the baseline evaluation's
-walk against the baseline record; `npm run match` of Kinetic against itself at the commit before,
-a loss fixed or its reason recorded; a bout looked at, the owner judging when it runs.
 
 ### 9. Letting go measured across the wind-up
 
