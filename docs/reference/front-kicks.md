@@ -52,6 +52,29 @@ the centre of mass within 2 cm of the soles' midpoint. Only the whole sequence c
 kick: a deadline counts a failure, cancellation before a stroke an interruption. Recovery takeover
 discards the foot path through the common skill resume list.
 
+## Stomp settings
+
+Kinetic's stomp (`STOMP`, `src/core/entrants/kinetic/mind.ts`) is the front kick's executor with
+these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
+of a blow down on a body lying ahead; no source pins them. Read on the Strike drill's `stomping`
+rung (Node stand, Rapier, 120 Hz; 12 trials, each foot at a limp Warrior and Skeleton lying on its
+back, 0.8 to 1.2 m off).
+
+| Setting | Value | Why |
+| --- | ---: | --- |
+| over | 1 | The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8 the stroke came in straighter and faster on the Warrior, and 5 to 7 trials of 12 fell |
+| windup / soleTurn | 0 m / 0 | No draw back and no turn of the sole: a stroke straight down |
+| lift | 0.5 m | The chamber this far over the strike site, clear of a lying trunk |
+| top | 0.4 | The height band's top low over the sole: a lying body's trunk, never a standing one's |
+| alongNear / alongFar / across | 0.4 / 0.7 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle; nearer, no place is |
+| contactSpeed / swingSeconds | 3 m/s / 0.3 s | At 2 m/s over 0.4 s the stroke only touched (under 2 J); at 5 m/s over 0.25 s, 6 trials of 12 fell after it |
+
+Its trials (`ff7651ed`'s rung): 6 of 12 landed and 1 more met the mark short of its action's end, 1
+fell, and 4 never reached the window or were never admitted; the stroke takes about 5.7 s from
+admission to recentred, most of it the kick's preparation. The fall comes after the stroke: the
+blow pushes the body back over its one bearing foot while the other is still in the air. A return
+and placement twice as quick (0.3 / 0.5 s) and a forward lean of 0.15 rad did not keep it up.
+
 ## Harness and qualification
 
 `node research/front-kicks.mjs` records six cases in `front-kicks.json.gz`: Node unpinned Warrior
