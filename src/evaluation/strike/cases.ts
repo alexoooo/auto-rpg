@@ -35,12 +35,13 @@ export type StrikeSubject = { readonly mind: MindConfig; readonly action: string
  * The mind that drills `action` with `hand` at `mark`: `mind` with a drill in its tactics' slot,
  * standing `after` s first and walking to its action's window no faster than `pace` (asking, with
  * `walking`, the first step it is ready), or, at a `moment`, fighting by its own tactics until they ask that
- * many actions.
+ * many actions; with `letGo`, letting its action go that long after it began.
  */
 export function striker({ mind, action }: StrikeSubject, hand: Hand, mark: Mark,
-  { after = STILL.settled, pace, walking, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly moment?: number } = {}): MindConfig {
+  { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {}): MindConfig {
   if (!("tactics" in mind)) throw new Error(`a ${mind.kind} mind has no tactics slot to drill its skills in`);
   const tactics: DrillTacticsConfig = { kind: "drill", action, effector: `hand.${hand}`, mark, after, ...(pace === undefined ? {} : { pace }), ...(walking ? { walking: true } : {}),
+    ...(letGo === undefined ? {} : { letGo }),
     ...(moment === undefined ? {} : { fight: mind.tactics as PartConfig, moment }) };
   return deepFreeze({ ...mind, tactics } as MindConfig);
 }
@@ -90,6 +91,15 @@ const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
 const PUNCHING = deepFreeze({ ...OPPONENT, opponent: "drill-punch" });
 
+/**
+ * Letting go: the opponent rungs' trials at a target standing (`letgo`) and punching back
+ * (`letgo-punched`), each strike let go at its first decision after it began (`letGo` 0 s),
+ * before its point of no return: what letting it go costs, the time until it is ready again and
+ * what the striker loses meanwhile (`StrikeReading.letGo`).
+ */
+const LETTING_GO = deepFreeze({ ...OPPONENT, letGo: 0 });
+const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: 0 });
+
 /** How a walk-rung trial asks: once settled in its window's middle, or the first step it is ready, still walking. */
 export type Start = "settled" | "walking";
 
@@ -126,7 +136,7 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   return mindFaults(striker(given as StrikeSubject, "right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
-function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string }): Cases<StrikeCondition, StrikeReading> {
+function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: number }): Cases<StrikeCondition, StrikeReading> {
   const conditions: StillCondition[] = [];
   for (const model of protocol.models) for (const mark of protocol.marks) for (const hand of protocol.hands)
     for (const across of protocol.across) for (const gap of protocol.gaps) for (const start of protocol.starts ?? [undefined])
@@ -144,7 +154,8 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
-        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking" }), right: MINDS[protocol.opponent ?? STANDING]!.config as MindConfig } } };
+        minds: { left: striker(value as unknown as StrikeSubject, hand, mark, { pace: protocol.pace, walking: start === "walking", ...(protocol.letGo === undefined ? {} : { letGo: protocol.letGo }) }),
+          right: MINDS[protocol.opponent ?? STANDING]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };
@@ -174,4 +185,5 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
 
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), walk: stillCases(WALK),
-  stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT) });
+  stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
+  letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED) });

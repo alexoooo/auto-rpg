@@ -18,7 +18,10 @@ import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "./tactics-par
  * action is not thrown off a walk's last steps, but with `walking`, where it asks the first step it
  * is ready, still walking. A request the skills
  * refuse at its start is asked again. Once an action it asked has run and ended it asks nothing
- * more. A drill reads the action's own motion from where the body stands. With `fight`, it fights
+ * more. With `letGo`, it lets its action go that long after it began, if it is still before its
+ * point of no return (its `prepare`): it asks no more, and stands reading the action's readiness
+ * until it is ready again (`let go`), then is done; an action past that point it asks to its end.
+ * A drill reads the action's own motion from where the body stands. With `fight`, it fights
  * by those tactics until they ask their `moment`th action, and asks its own in that one's place
  * from that step: a moment of a fight handed to the drill.
  */
@@ -34,13 +37,15 @@ export interface DrillTacticsConfig {
   readonly pace?: number;
   /** Ask the first step the action is ready, walking or not, rather than once settled in the window's middle. */
   readonly walking?: true;
+  /** How long after its action began it lets it go, s, where the action is still before its point of no return; absent, it asks to the end. */
+  readonly letGo?: number;
   /** The tactics it fights by until they ask their `moment`th action (from 1), in place of standing; absent, it stands. */
   readonly fight?: PartConfig;
   readonly moment?: number;
 }
 
-/** Where the drill is: fighting by its `fight`, before its action (the readiness last read), with it under way, or after it. */
-export type DrillPhase = "fighting" | "lost" | Readiness["kind"] | "striking" | "done";
+/** Where the drill is: fighting by its `fight`, before its action (the readiness last read), with it under way, after letting it go until it is ready again, or after it. */
+export type DrillPhase = "fighting" | "lost" | Readiness["kind"] | "striking" | "let go" | "done";
 
 /** How near the middle of an action's window the drill walks to, m: a body stopped at the window's edge is admitted where the action reaches least. */
 const MIDDLE = .01;
@@ -72,6 +77,8 @@ function standing(window: Window, lean: number): Window {
 
 function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactics<Sight, Intent> {
   const state = { phase: (fight ? "fighting" : "lost") as DrillPhase, reason: "", focus: null as string | null, request: null as ActionRequest | null, started: false, since: null as number | null,
+    /** When its action began, and when it let it go: null before. */
+    began: null as number | null, let: null as number | null,
     /**
      * The action's window its readiness last named, and whether it has walked toward it: a body that
      * walked is brought to the window's middle and settled there before it asks, though it reads
@@ -121,14 +128,17 @@ function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactic
       state.focus = foe?.id ?? null;
       state.since ??= view.time;
       if (state.request) {
-        const id = state.request.id;
-        if (report.actions.some((action) => action.id === id)) {
+        const id = state.request.id, live = report.actions.find((action) => action.id === id);
+        if (live) {
           state.started = true;
-          return { move: null, face: report.heading, guard: NO_COVER, actions: [state.request] };
+          state.began ??= view.time;
+          const letting = config.letGo !== undefined && live.phase === "prepare" && view.time >= state.began + config.letGo;
+          if (!letting) return { move: null, face: report.heading, guard: NO_COVER, actions: [state.request] };
+          state.let = view.time;
         }
         // A request the skills refused at its start is asked again, with a new id, once ready.
         state.request = null;
-        if (state.started) { state.phase = "done"; state.reason = ""; }
+        if (state.started) { state.phase = state.let === null ? "done" : "let go"; state.reason = ""; }
       }
       if (view.time < state.since + config.after) { state.phase = "lost"; state.reason = "settling"; return { move: null, face: report.heading, guard: NO_COVER, actions: [] }; }
       if (!foe || state.phase === "done") {
@@ -138,6 +148,11 @@ function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactic
       const target = { kind: "body" as const, body: foe.id, region: { kind: "mark" as const, mark: config.mark } };
       const around: ActionAround = { heading: report.heading, placed: view.stance.phase === "stand", support: report.support ?? null, walk: null, lower: STANCE_LOWER };
       const readiness = sight.readiness(view, config.action, config.effector, target, around);
+      if (state.phase === "let go") {
+        // Let go, it stands until the action it let go is ready again.
+        if (readiness.kind === "ready") state.phase = "done";
+        return { move: null, face: report.heading, guard: NO_COVER, actions: [] };
+      }
       state.phase = readiness.kind;
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
       const h = report.heading, toward = atan2(foe.centre.x - view.stance.centre.x, foe.centre.z - view.stance.centre.z);
@@ -166,8 +181,8 @@ function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactic
 export const DRILL_TACTICS: TacticsPart<DrillTacticsConfig> = deepFreeze({
   role: "tactics", label: "Drill one action", stage: "experimental", fields: [], slots: [slotOne("fight", "Fight until the moment", "tactics", true)],
   defaults: { kind: "drill", action: "strike", effector: "hand.right", mark: "high", after: .5 },
-  keys: { kind: true, action: true, effector: true, mark: true, after: true, pace: true, walking: true, fight: true, moment: true }, fits: anyBody,
-  phases: { fighting: "Fighting", lost: "Finding the target", position: "Out of its window", waiting: "Waiting", blocked: "Refused", ready: "Ready", striking: null, done: "Done" },
+  keys: { kind: true, action: true, effector: true, mark: true, after: true, pace: true, walking: true, letGo: true, fight: true, moment: true }, fits: anyBody,
+  phases: { fighting: "Fighting", lost: "Finding the target", position: "Out of its window", waiting: "Waiting", blocked: "Refused", ready: "Ready", striking: null, "let go": "Let go", done: "Done" },
   faults: (config: DrillTacticsConfig) => [
     ...typeof config.action === "string" && config.action ? [] : ["action: a drill names one action"],
     ...typeof config.effector === "string" && config.effector ? [] : ["effector: a drill names one effector"],
@@ -175,6 +190,7 @@ export const DRILL_TACTICS: TacticsPart<DrillTacticsConfig> = deepFreeze({
     ...Number.isFinite(config.after) && config.after >= 0 ? [] : ["after: a finite time, s, not negative"],
     ...config.pace === undefined || Number.isFinite(config.pace) && config.pace >= 0 ? [] : ["pace: a finite speed, m/s, not negative"],
     ...config.walking === undefined || config.walking === true ? [] : ["walking: true, or absent"],
+    ...config.letGo === undefined || Number.isFinite(config.letGo) && config.letGo >= 0 ? [] : ["letGo: a finite time, s, not negative"],
     ...config.moment === undefined || config.fight !== undefined && Number.isSafeInteger(config.moment) && config.moment >= 1 ? [] : ["moment: a count from 1, of a fight's actions"],
   ],
   actionFaults: (config, actions, parts) => [...actions.includes(config.action) ? [] : [`action: no action ${config.action}`],

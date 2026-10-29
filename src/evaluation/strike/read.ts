@@ -105,6 +105,12 @@ export type StrikeReading = {
   readonly contacts: readonly StrikeContact[];
   /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
   readonly taken: number;
+  /**
+   * Where the drill let its action go (`DrillTacticsConfig.letGo`): when it let it go and when the
+   * action was ready again, s (null where it was not by the trial's end), and the hit points the
+   * striker lost from the let-go until then; absent where it did not let one go.
+   */
+  readonly letGo?: { readonly at: number; readonly again: number | null; readonly opening: number };
   readonly down: boolean;
   readonly seconds: number;
 };
@@ -140,6 +146,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
+  let letAt: number | null = null, again: number | null = null;
   let asked: StrikeReading["asked"] = null;
   const velocity = new Vector3(), segments = [...left.built.segments.values()], mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0);
   /** Which feet bear on the ground, and the centre of mass's speed over it, as this step left them. */
@@ -189,6 +196,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         if (action.phase === "release" && times.released === null) times.released = world.time;
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
+      const drill = skills.report.engagement?.phase;
+      if (drill === "let go") letAt ??= world.time;
+      else if (letAt !== null && drill === "done") again ??= world.time;
       if (id === null) {
         const engagement = skills.report.engagement;
         phase = (engagement?.phase ?? "lost") as DrillPhase;
@@ -209,9 +219,12 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         || id === null && handed !== null && world.time >= handed + ending.settled + ending.patience;
     },
     reading() {
-      let taken = 0;
+      let taken = 0, opening = 0;
       for (const blow of duel.blows) for (const side of blow.sides)
-        if (side.fighter === "left" && blow.sides.some((other) => other.fighter === "right")) taken += side.damage;
+        if (side.fighter === "left" && blow.sides.some((other) => other.fighter === "right")) {
+          taken += side.damage;
+          if (letAt !== null && blow.time >= letAt && blow.time <= (again ?? world.time)) opening += side.damage;
+        }
       const touches = duel.blows.flatMap((blow) => {
         if (blow.kind !== "impact") return [];
         const k = blow.sides.findIndex((side) => side.fighter === "left"), by = blow.sides[k], on = blow.sides[1 - k];
@@ -238,7 +251,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
-      return { outcome, phase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken, down, seconds: world.time };
+      return { outcome, phase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
+        ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), down, seconds: world.time };
     },
   };
 }
