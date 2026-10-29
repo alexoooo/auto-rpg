@@ -625,13 +625,17 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   for every skill: cells over the range and the foe's phase as the striker sensed it where the
   trial began (`sensedPhase`), each the share done, the hit points dealt and lost, the seconds and
   the share ending down, where those not done came to rest, and what letting it go before its
-  point of no return cost (`letGo`, where a drill let it go) (`ProfileCell`). Each names what it
+  point of no return cost by the progress of the motion it was let go at (`letGo`, where a drill
+  let it go: the seconds until the hand was back at its guard, and what was lost meanwhile)
+  (`ProfileCell`). Each names what it
   was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
   reaction time), and one read on another is stale (`staleness`) and not read; and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
-  `readProfile` (`ProfileReading`): its reach in a phase, what it expects from a place against the
-  body struck now (`Expected`, in life: hit points over that body's), its peak a second, and why it
-  is scaled where that body is not its target. The strike's model, the pressure, the danger of a
+  `readProfile` (`ProfileReading`): its reach in a phase, what it expects from a place (`ProfilePlace`:
+  the range, the foe's phase and the motion's progress) against the body struck now (`Expected`, in
+  life: hit points over that body's), its peak a second, and why it is scaled where that body is not
+  its target. The strike's model (a blow under way priced from where it is: the time its motion has
+  left, its payoff unless it has met the target, letting it go at its progress), the pressure, the danger of a
   blow coming and the rise's edges (`edgeExpected`) read it. Scripts write them from drill
   records: the strikes' from the Strike drill (`research/strike-profiles.mjs`,
   `assets/core/strike-profiles.json`), the ground edges' from the Rise drill
@@ -664,7 +668,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
-  worth, keeping the running one within its keep and what letting it go costs (`Offer.letGo`),
+  worth, keeping the running one by what letting it go costs (`Offer.letGo`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
   its claims; then the best on offer, then the best of the rest whose claims are still free, until
@@ -1134,8 +1138,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
   `still`), with the hit points the striker lost in its contacts (`taken`); rungs `letgo` and
   `letgo-punched`, the opponent rungs' trials at `drill-stand` and `drill-punch` with the strike
-  let go at its first decision before its point of no return (`DrillTacticsConfig.letGo`), read
-  for when it was ready again and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
+  let go at each point of its wind-up, 0 to 0.15 s after it began, where still before its point of
+  no return (`DrillTacticsConfig.letGo`, the condition's `letGo`), read for when the hand was back
+  at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near

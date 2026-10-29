@@ -60,9 +60,6 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Letting go is measured at one instant.** The Strike drill lets go only at the first decision
-  (`LETTING_GO`, `src/evaluation/strike/cases.ts`), and "ready again" is the executor's
-  bookkeeping, not the hand back at its guard; a running strike is priced as a fresh one.
 - **Two trainers.** The learning server's kinds (`research/run-learning-server.mjs`) are the
   punch's own code (`research/punch-learning-environment.mjs`) and a case environment that
   drives only the bare mind (`research/case-learning-environment.mjs`): its rewards read the bare
@@ -80,17 +77,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 9. Letting go measured across the wind-up
-
-The Strike drill's letting-go rungs let go at several points of the wind-up, not only the first
-decision, and "ready again" is the hand back at its guard, a reading of the body. The profile's
-cost of letting go is indexed by the progress of the motion (a field of the profile's place, `ProfilePlace`), and a running option
-is priced from where it is: its time and payoff left. `keep` stays only where two options alike
-still change places step to step without it.
-
-Check: the rungs' readings by progress; the Kinetic plan's measured cost of letting go corrected
-to them; `npm run match` of Kinetic against itself at the commit before.
 
 ### 10. One trainer for any part
 
