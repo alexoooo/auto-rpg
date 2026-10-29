@@ -44,7 +44,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const navigation = services.navigation;
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
-  const allControls = resources.controls(Object.keys(resources.footprints));
+  const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
   const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
   const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
@@ -137,7 +137,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const unstanced = legOwner?.claim.legs === null;
       if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
       state.unstanced = unstanced;
-      let stance: StanceGoal | null = null;
+      let stance: StanceGoal | null = null, held: number | undefined;
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
@@ -153,8 +153,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
               if (!allControls.includes(`channel:${channel}`)) throw new Error(`unknown locomotion channel ${channel}`);
               if (available(`channel:${channel}`)) posture[channel] = angle;
             }
-            resources.validatePatch(["legs"], { pushes: drive.pushes });
-            pushes.push(...drive.pushes);
+            // The legs push their own channels, and any other no action holds: legs that hold the body whole.
+            for (const push of drive.pushes) if (legsControls.includes(`channel:${push.channel}`) || available(`channel:${push.channel}`)) pushes.push(push);
+            held = drive.held;
             break;
           }
           default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
@@ -174,7 +175,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         Object.assign(effectors, claim.effectors);
         Object.assign(handPoses, claim.handPoses);
       }
-      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance };
+      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(held === undefined ? {} : { held }) };
       if (command.stance) for (const side of command.stance.feet) if (command.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
       for (const control of allControls) if (available(control)) state.owners[control] = "default";
       state.command = immutableCommand(command);

@@ -123,6 +123,12 @@ export interface BodyCommand {
   readonly points?: readonly PointTask[];
   /** Stand on the ground so (`stance.ts`), or null to leave the legs to the posture. */
   readonly stance: StanceGoal | null;
+  /**
+   * With no stance, the centre of mass's height over the ground, m, at which the body is held low
+   * on purpose (a kneel): it is down only once that far under it as under its standing height
+   * (`Uprightness.down`). Absent, its standing height.
+   */
+  readonly held?: number;
 }
 
 /** No point driven. */
@@ -267,6 +273,8 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     head: head.centre,
     motor: motor.state,
     down: false,
+    /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
+    held: null as number | null,
     ground: ground.state,
     subOwned: false,
     groundActive: false,
@@ -317,6 +325,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     motor.setPushes(command.pushes);
     motor.setPoints(command.points ?? NO_POINTS);
     motor.setStance(command.stance);
+    state.held = command.stance ? null : command.held ?? null;
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];
       if (!goal) { if (was) motor.release(segment); }
@@ -343,7 +352,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     head.update();
     motor.stance.read();
     const standing = motor.standing;
-    state.down = upright.down(standing?.height, standing?.pose !== undefined);
+    state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
     state.groundActive = state.down || state.subOwned || state.groundActive && standing === null;
     if (state.groundActive) ground.read();
     else ground.reset();

@@ -241,11 +241,13 @@ export interface StanceWalk extends Locomotion {
 /**
  * **What the legs ask** (`Locomotion.goal`): the stance's goal, or the legs
  * driven with no stance: some freedoms by their muscles alone, as pushes (`MusclePush`), and
- * the rest by the servo, toward the angles of `posture`, laid over the command's.
+ * the rest by the servo, toward the angles of `posture`, laid over the command's; legs that hold
+ * the body low on purpose say the centre of mass's height they hold it at (`held`,
+ * `BodyCommand.held`).
  */
 export type LegsDrive =
   | { readonly kind: "stance"; readonly goal: StanceGoal | null }
-  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[] };
+  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number };
 
 /** **What the locomotion skill remembers.** */
 interface LocomotionState extends LegsMemory {

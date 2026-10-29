@@ -46,9 +46,11 @@ export interface RiseLimbs {
   /**
    * Read where each limb would bear, world, into its work's point, the ground's level being
    * `ground`, world; a limb propped on a foot holds the body over where the foot stands if
-   * `overProp`, and otherwise over its patch's middle.
+   * `overProp`, and otherwise over its patch's middle; a foot whose `toes` is set holds the body
+   * over its sole's front edge, and bears on that edge, its heel let up, once the centre of mass
+   * (`centre`, world) is past it.
    */
-  read(ground: number, overProp: boolean): void;
+  read(ground: number, overProp: boolean, toes?: readonly boolean[], centre?: Readonly<{ x: number; z: number }>): void;
   /**
    * Limb `index` bears this step, if the point last read is down (within `DOWN` of the ground,
    * `ground`, world), which is returned: its task is that point held where it is across the
@@ -70,7 +72,7 @@ export interface RiseLimbs {
 interface Part {
   readonly limb: Limb;
   readonly over: Vector3;
-  read(ground: number, overProp: boolean): void;
+  read(ground: number, overProp: boolean, toes: boolean, centre: Readonly<{ x: number; z: number }> | undefined): void;
   bear(goal: ArrayLike<number>, rate: number, ground: number, transfer: boolean): void;
 }
 
@@ -97,9 +99,9 @@ export function riseLimbs(own: OwnBody): RiseLimbs {
     limbs: parts.map((part) => part.limb),
     tasks: parts.map((part) => part.limb.task),
     over: parts.map((part) => part.over),
-    read(ground, overProp) {
+    read(ground, overProp, toes, centre) {
       readSupport(feet, feet, support);
-      for (const part of parts) part.read(ground, overProp);
+      for (let l = 0; l < parts.length; l++) parts[l]!.read(ground, overProp, toes?.[l] ?? false, centre);
     },
     bear(index, goal, rate, ground, share, transfer = false) {
       const part = parts[index]!, down = part.limb.work.at.y - ground < DOWN;
@@ -309,10 +311,18 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
 
 /**
  * A foot as the stance bears on it: on its sole, held flat, or, its heel more than `DOWN` over the
- * ground, on its sole's front edge, its turn about the edge free. Its point is the sole's middle,
+ * ground, on its sole's front edge, its turn about the edge free. Asked onto its toes, it holds the
+ * body over that edge, and bears on it once the centre of mass is ahead of the sole's middle, the
+ * posture's ankle then letting the heel up. Its point is the sole's middle,
  * or the edge's; its patch the sole, or the band of it at the edge (`bearingSole`). Every freedom
  * of its chain takes the task.
  */
+/** Whether `centre` is ahead of `foot`'s sole's middle, toward its front edge. */
+function aheadOf(foot: FootState, centre: Readonly<{ x: number; z: number }>): boolean {
+  const edge = foot.ends.front.middle;
+  return (centre.x - foot.middle.x) * (edge.x - foot.middle.x) + (centre.z - foot.middle.z) * (edge.z - foot.middle.z) > 0;
+}
+
 function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
   const chain = chainOf(own, spec), at = new Vector3();
   const limb: Limb = {
@@ -321,11 +331,14 @@ function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
   };
   return {
     limb, over: at,
-    read(ground) {
+    read(ground, _overProp, toes, centre) {
+      const was = foot.memory.rolled;
       foot.memory.ground = ground;
       foot.memory.lifted = 0;
-      foot.memory.rolled = foot.ends.front.middle.y + foot.heel - ground >= DOWN ? "front" : null;
-      at.copyFrom(rolledEdge(foot)?.middle ?? foot.middle);
+      const up = foot.ends.front.middle.y + foot.heel - ground >= DOWN;
+      const onto = toes && centre !== undefined && (was === "front" || aheadOf(foot, centre));
+      foot.memory.rolled = up || onto ? "front" : null;
+      at.copyFrom(toes ? foot.ends.front.middle : rolledEdge(foot)?.middle ?? foot.middle);
     },
     bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);

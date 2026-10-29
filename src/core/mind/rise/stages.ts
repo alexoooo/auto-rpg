@@ -62,6 +62,8 @@ export interface BearStage {
    * the middle of the limb's patch: the centre of mass brought onto the toes, off the knee.
    */
   readonly overProp: boolean;
+  /** The feet it bears on that bear on their toes, by the recipe's names: each on its sole's front edge, its heel let up. */
+  readonly toes?: readonly string[];
   /**
    * The centre of mass's height over the ground, as a part of its standing height
    * (`Uprightness.standing`); null where the limbs it bears on leave the body none of its own (a
@@ -122,6 +124,8 @@ export interface Recipe {
   readonly trunk: readonly string[];
   readonly roll: Readonly<Record<Exclude<Lie, "front">, readonly PoseStage[]>>;
   readonly rise: readonly Stage[];
+  /** Whether its last stage, a bearing one, holds the body there once reached, its time unlimited; absent, the rise ends there. */
+  readonly holds?: boolean;
 }
 
 const SIDES = ["left", "right"] as const;
@@ -398,6 +402,53 @@ export const CONTACT_RISE: Recipe = deepFreeze({
   ],
 });
 
+/**
+ * **A lowering**: how a body standing comes down to bear on `ends` (`BodySpec.ends`' names): its
+ * feet set at `footing` first, each foot's end that far ahead of where it stands along the way the
+ * body faces, m, then `recipe`'s rise played from its first stage and its last held. Borne so, its
+ * centre of mass is `rests` of its standing height (`Uprightness.standing`) over the ground.
+ */
+export interface Lowering {
+  readonly ends: readonly string[];
+  readonly footing: Readonly<Record<string, number>>;
+  readonly rests: number;
+  readonly recipe: Recipe;
+}
+
+/** A stage of the rise by name. */
+const riseStage = (name: string): Stage => RISE.rise.find((stage) => stage.name === name)!;
+
+/**
+ * **The kneel-down**: the rise's step played back (`docs/reference/rising.md#the-kneel-down`). The
+ * feet set in a lunge, the left ahead; the lunge's rungs down, the right foot on its toes, and one
+ * lower, until the right knee is at the ground; half kneeling; the step's poses back, which bring
+ * the left knee down beside the right; and tall on both knees, borne on the shins and held.
+ */
+export const KNEEL_DOWN: Lowering = deepFreeze({
+  ends: ["shin.left", "shin.right"],
+  footing: { "foot.left": 0.35, "foot.right": -0.45 },
+  rests: 0.47,
+  recipe: {
+    ...RISE,
+    roll: { back: [], left: [], right: [] },
+    progress: { restSeconds: 0.5, restWiden: 2.5 },
+    holds: true,
+    rise: [
+      ...["lunge 3", "lunge 2", "lunge 1", "lunge 0"].map((name) => ({ ...riseStage(name) as BearStage, toes: ["foot.right"] })),
+      { ...riseStage("lunge 0") as BearStage, name: "lunge low", toes: ["foot.right"], height: 0.5 },
+      riseStage("half kneel"),
+      ...["reach", "swing", "lift", "shift", "tall"].map(riseStage),
+      {
+        kind: "bear", name: "kneel", on: SIDES.map((side) => ({ limb: `shin.${side}`, share: 0.5 })), leave: [], overProp: false,
+        height: null, pitch: KNEEL_PITCH, posture: bothSides(TALL), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
+      },
+    ],
+  },
+});
+
+/** The lowerings a human's legs know, each by the ends it bears on. */
+export const LOWERINGS: readonly Lowering[] = Object.freeze([KNEEL_DOWN]);
+
 /** Every stage of `recipe`: each roll's, then the rise's. */
 export const stagesOf = (recipe: Recipe): readonly Stage[] => [...recipe.roll.back, ...recipe.roll.left, ...recipe.roll.right, ...recipe.rise];
 
@@ -507,6 +558,7 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`${stage.name}'s progress ${name} must be finite and positive`);
   }
   if (recipe.trunk.length === 0) faults.push("the trunk has no segment");
+  if (recipe.holds && recipe.rise.at(-1)?.kind !== "bear") faults.push("a rise that holds its last stage ends on a bearing one");
   for (const segment of recipe.trunk) if (!spec.segments.some((other) => other.name === segment)) faults.push(`the trunk has ${segment}, which ${spec.model} lacks`);
   // Each channel's range from its own zero.
   const ranges = new Map<string, readonly [number, number]>();
@@ -551,6 +603,11 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
         };
         for (const { limb } of stage.on) drive(limb, "bears on");
         for (const limb of stage.leave) drive(limb, "leaves");
+        for (const limb of stage.toes ?? []) {
+          if (spec.ends?.find((other) => other.name === limb)?.kind !== "foot" || !stage.on.some((on) => on.limb === limb)) {
+            faults.push(`stage ${stage.name} stands ${limb} on its toes, which it does not bear on as a foot`);
+          }
+        }
         const sum = stage.on.reduce((total, { share }) => total + share, 0);
         if (!(Math.abs(sum - 1) <= SHARES_SUM)) faults.push(`stage ${stage.name}'s shares sum to ${sum}`);
         break;

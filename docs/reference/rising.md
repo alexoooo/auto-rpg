@@ -622,6 +622,42 @@ staged rise's earlier battery the step kept 3 or 4 more of 127 up over a 40 s wa
 (`SQUARE_NEAR` 0.1, at `1f354189`); the braced walk shoved under orders falls as before (the
 Rogue 5 of 200, the Warrior 1).
 
+### The kneel-down
+
+**Legs asked to bear on both shins lower the body onto its knees** (`KNEEL_DOWN`,
+`src/core/mind/rise/stages.ts`; `lowering`, `src/core/mind/rise/lowering.ts`): the rise's step
+played back on the body held whole, every muscle pushed as the stages drive it, its last stage
+held. Node stand, core world, Rapier, 120 Hz, the Warrior in the guard: borne from standing in
+9.5 s of the probe's 15 (`tests/harness/probes.mjs`, `bearOn`), the centre of mass held about
+0.50 m up.
+
+| | value | why |
+|---|---|---|
+| footing | `foot.left` 0.35 m ahead of its sole, `foot.right` 0.45 m behind | the lunge the step rises through, set by the legs before the stages begin |
+| settle | 0.25 s on placed feet, the centre of mass under 0.1 m/s | a step's end leaves the body moving |
+| stages | `lunge 3` to `lunge 0`, then `lunge low` (0.5 of standing), the right foot on its toes; `half kneel`; `reach`, `swing`, `lift`, `shift`, `tall`; `kneel`, both shins 0.5 each | the rise's own stages, from the lunge to tall on the knees |
+| rests | 0.47 of standing | the height the body is held at (`LegsDrive.held`): the down rule reads it, so a body kneeling as asked is not down |
+
+**A foot asked onto its toes** (`BearStage.toes`) holds the body over its sole's front edge, and
+bears on that edge once the centre of mass is ahead of the sole's middle (`aheadOf`,
+`src/core/mind/rise/limbs.ts`); until then it bears where its rolled edge is. The rear foot of a
+lunge goes onto its toes as the knee comes down; flat, its ankle's dorsiflexion (0.389 rad at most)
+floors the lunge at a centre of mass about 0.71 m up.
+
+Tried and not kept:
+
+- **Both feet onto their toes** (a calf raise) before kneeling: the bearing solve does not hold it.
+- **A propped shin bearing through its toes**: the ankle is not in the shin's chain, and the knee
+  rises.
+- **Pushing the legs and trunk alone**, the arms left at the guard: the lowering does not reach the
+  knees; the whole body is pushed.
+- **Hands and knees** (`shin.left`, `shin.right`, `hand.left`, `hand.right`), from tall on the
+  knees: the rise's `fours` stage directly, a free lean onto the hands, the sit back onto the heels
+  and a hinge over the knees. Leant, the hands land with the centre of mass about 0.28 m up and the
+  body goes onto its chest; hinged on the shins the hands stop 0.2 to 0.25 m over the ground; sat
+  back, the feet lift and the trunk reaches the ground. No lowering ends on the four, and legs
+  asked them report the ends unmet.
+
 ### The roll
 
 A body on its back plays `RISE.roll.back`: four poses that turn it over its right side onto its

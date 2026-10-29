@@ -41,7 +41,7 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
     const claim = ask(view), drive = legs.goal(view, { walk: null, face: legs.heading, ...claim.legs }, dt);
     const stance = drive.kind === "stance";
     return filter({ posture: { ...guard, ...(stance ? {} : drive.posture), ...claim.posture }, pushes: [...(stance ? [] : drive.pushes), ...claim.pushes ?? []],
-      stance: stance ? drive.goal : null, ...(claim.effectors ? { effectors: claim.effectors } : {}), ...(claim.points ? { points: claim.points } : {}),
+      stance: stance ? drive.goal : null, ...(!stance && drive.held !== undefined ? { held: drive.held } : {}), ...(claim.effectors ? { effectors: claim.effectors } : {}), ...(claim.points ? { points: claim.points } : {}),
       ...(claim.handPoses ? { handPoses: claim.handPoses } : {}) });
   });
   // The first step builds the stance's reference; what the probes read from is the body standing after it.
@@ -75,15 +75,25 @@ const round = (x) => Math.round(x * 1000) / 1000;
 const reading = (met, reported, detail) => ({ met, reported, passed: met || reported, detail });
 
 /**
- * A probe of the legs asked to bear on `ends` (the body's names, `BodySpec.ends`) for 2 s from
- * standing: borne where each end's segment has come down to the ground, its centre within 0.2 m of
- * it, the body not down.
+ * A probe of the legs asked to bear on `ends` (the body's names, `BodySpec.ends`) from standing,
+ * for as long as the legs take to come down onto them and at most `BEARING.most` s: borne where
+ * each end's segment has come down to the ground, its centre within 0.2 m of it, the body not down,
+ * for `BEARING.held` s; reported where the legs say the ends unmet once asked as long.
  */
 const bearOn = (ends) => async (rig) => {
-  rig.run(2, () => ({ legs: { feet: ends } }));
+  const step = 0.25, borne = () => Math.max(...ends.map(rig.endHeight)) <= 0.2 && !rig.view.down;
+  let held = 0, time = 0;
+  while (held < BEARING.held && time < BEARING.most && !listed(rig, "feet")) {
+    rig.run(step, () => ({ legs: { feet: ends } }));
+    time += step;
+    held = borne() ? held + step : 0;
+  }
   const highest = Math.max(...ends.map(rig.endHeight));
-  return reading(highest <= 0.2 && !rig.view.down, listed(rig, "feet"), `bearing on ${ends.join(", ")}: the highest end's segment ${round(highest)} m over the ground, limit 0.2`);
+  return reading(held >= BEARING.held, listed(rig, "feet"),
+    `bearing on ${ends.join(", ")} after ${time} s: the highest end's segment ${round(highest)} m over the ground, limit 0.2, ${rig.view.down ? "down" : "not down"}, borne ${held} s of ${BEARING.held}`);
 };
+/** How long a body asked to bear on ends is borne on them to have done it, s, and the longest its legs take to come down onto them, s. */
+const BEARING = { held: 1, most: 15 };
 
 /**
  * **The legs goal's probes**, by name, each the field it asks (`field`) and how it is read (`run`), on
