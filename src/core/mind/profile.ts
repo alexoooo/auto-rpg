@@ -308,12 +308,12 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
 
 /**
  * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`**: its profile
- * (`dataOf("edge-profiles")`) read through `readProfile`, from where it begins (`expected`); and how it is
+ * among `profiles` (`dataOf("edge-profiles")` unless given) read through `readProfile`, from where it begins (`expected`); and how it is
  * priced, a sentence (`priced`): measured, or not, and why (no drill measured it, or its profile is
  * stale, `staleness`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number): { readonly expected: Expected | null; readonly priced: string } {
-  const found = profileFor(dataOf("edge-profiles"), measuredOn(spec, techniqueDigest(technique), hz, null));
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, profiles: readonly Profile[] = dataOf("edge-profiles")): { readonly expected: Expected | null; readonly priced: string } {
+  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(technique), hz, null));
   if (!found) return { expected: null, priced: "no drill measured it" };
   if (found.stale !== null) return { expected: null, priced: found.stale };
   const expected = readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null);

@@ -15,7 +15,7 @@
 import "../tests/harness/preload-data.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolveCharacter } from "../src/core/models.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partIn, partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { gaitDigest, measuredOn, skillDigest } from "../src/core/mind/profile.ts";
 import { GAITS } from "../src/core/skills/gaits.ts";
@@ -40,7 +40,7 @@ for (const path of paths) {
   const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
   if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   for (const row of rows) {
-    const recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = mind?.tactics;
+    const recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = partIn(mind, "drill-gait");
     if (row.fault || !row.reading || drill?.kind !== "drill-gait") continue;
     const spec = specOf(recipe), action = armedActions(partLookup, spec, mind.executors, mind.actions).find((one) => one.name === drill.action);
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);

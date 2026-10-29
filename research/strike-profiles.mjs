@@ -25,7 +25,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolveCharacter } from "../src/core/models.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partIn, partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/mind/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
@@ -58,7 +58,7 @@ for (const path of paths) {
   const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
   if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   for (const row of rows) {
-    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = mind?.tactics;
+    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = partIn(mind, "drill");
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
     const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);

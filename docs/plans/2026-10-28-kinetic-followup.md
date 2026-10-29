@@ -79,8 +79,7 @@ after skills are trained against it.
   posture lying.
 - **Kinetic's deciding parts are code.** The valued chooser prices by `FEW_TERMS` alone
   (`src/core/entrants/kinetic/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
-  one frozen literal, and a profile is read only by `readProfile`. A drill drives Kinetic by
-  swapping its whole policy for tactics (`KineticConfig.tactics`).
+  one frozen literal, and a profile is read only by `readProfile`.
 - **The rise's options are offered by Stand up's supervisor.** `groundOptions` offers, in a fixed
   cascade, the attempt under way alone, else brace, back off, steady, the edges reading motion,
   land, the edges, a reposition, back off; its modes run on timers and counts (`BRACE_LIMIT`,
@@ -110,9 +109,9 @@ ground technique then asks its bearing ends in its legs goal and holds only the 
 an arm it does not use is the policy's for a cover or the guard, and no technique writes the
 muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
 
-Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's
-flat-footed stand-up stands its 32 falls, in no longer a median, paired against its record; the
-owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
+Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's stand-up
+on toes, paired against its record (0 of 32); the owner looks at a rise in the Lab's Stand-up mode,
+its unused arm at the guard.
 
 ### 12. The option's shape
 
@@ -172,7 +171,28 @@ their own tactics, which read no exit.
 
 ### 15. Kinetic's parts by configuration
 
-Kinetic's config names its position value (`FEW_TERMS` the default), its predictions (the prior,
+Built: Kinetic's config names its chooser and, in the valued chooser's slot, its position value
+(`FEW_TERMS_PART`, `few-terms`); its predictions (`predictions`: `measured`, the drills' tables, or
+`prior`, none, `predictions-part.ts`); and its options, each a part of role `option` making the
+options of its kind from what Kinetic gives it (`OPTION_KINDS`, `OptionsGiven`,
+`src/core/entrants/kinetic/options/kinds.ts`), in rank order. A drill drives Kinetic by its config
+(`Controller.drilled`, `drilledBy`): its options are one script of the drill's tactics
+(`scripted`), on offer and committed over the whole body, chosen by Kinetic's chooser on its
+percepts, which reports the drill's phase in Kinetic's place; `KineticConfig.tactics` is gone.
+
+Two parts of the step stay as they are. The percepts stay Kinetic's own module (`PERCEPTS`): a
+part role for them would have one reader. The drill's script stays whole rather than Kinetic's
+options narrowed to the skill under test with the drill's orders beside them: orders that name a
+skill and its target wait on the orders vocabulary
+([Kinetic plan step 13](2026-10-27-kinetic.md#13-footwork-the-guard-and-the-intent)).
+
+Check: the gate; the fingerprint against the commit before, unmoved; the drills read with the
+policy in place of the tactics paired with the step before; a person edits Kinetic's options in
+the Arena and the link carries them. Read: no pose moved (67cb9f43 against 3e9b1fe9); every Kinetic
+drill rung (Cover `punched` and `swung`, Gait `stopped`, Strike `guarding`, `letgo`,
+`letgo-punched`, `punching`, `stepping`) plays trial for trial as at eab4ca4d.
+
+The step as asked: Kinetic's config names its position value (`FEW_TERMS` the default), its predictions (the prior,
 the measured tables), its options (each a skill kind and its targets, the list `kineticTactics`
 makes now, in rank order) and the percepts it adds to the toolkit's, an entrant's own as a part is.
 A drill drives Kinetic by its config: its subject's options narrowed to the skill under test and a
@@ -185,15 +205,31 @@ the Arena and the link carries them.
 
 ### 16. The rise chosen by the policy
 
-Each ground technique's entry is its own (`TechniqueRun.admits` on the body as it lies);
+Built: no supervisor offers Kinetic's rise (`groundOptions`,
+`src/core/entrants/kinetic/options/ground.ts`). A technique is on offer where its own entry admits
+the body as it lies, once its position is read; a body tumbling is braced its second first
+(`BY_HAND.braced`), the one count kept, read from the body: begun on a body still rolling, the
+step-up fails more often than begun a second on. Brace, land and steady are options; every way up
+is worth where it leaves the body by the position value, a lying posture worth the rise from it
+(`riseFrom`, `downCostAt`); a failed attempt moves its way's share done by the rise's record
+(`recorded`), in place of `RETRIES` and the back-off. Stand up's supervisor keeps its own; its
+search to standing (`toStanding`, `firstEdges`) and the back-off mode went with Kinetic's use.
+
+Read: the gate; the fingerprint against 3e9b1fe9 moves the Kinetic v Kinetic arena case
+(empty-handed) and reshapes the club case's state; a bout's step 2.19 ms against 2.13 ms. The
+flat-footed stand-up is no longer read (the owner: Kinetic stands on toes); on toes the baseline's
+stand-up stands 0 of 32, as before the step: the step-up reaches a crouch and fails, each attempt
+priced dearer and tried again. What stands it is the legs bearing on hands and knees (step 11).
+
+The step as asked: each ground technique's entry is its own (`TechniqueRun.admits` on the body as it lies);
 brace, land and steady are options worth their models (what a brace saves while tumbling, what the
 steady's seconds cost); a failure is the edge's expected cost from that posture, read from its
 profile and the attempt's record, in place of `RETRIES` and the back-off; and an edge is worth the
 posture it leaves the body in by the position value (step 14), the lying postures among its places,
 in place of its search to standing. Stand up's supervisor goes from Kinetic's rise.
 
-Check: the gate; by rank, the baseline's flat-footed stand-up stands Stand up's falls fall for
-fall; by worth, paired against its record; the owner looks at a rise in the Lab's Stand-up mode.
+Check: the gate; the baseline's stand-up on toes, paired against its record; the owner looks at a
+rise in the Lab's Stand-up mode.
 
 ## Not here
 

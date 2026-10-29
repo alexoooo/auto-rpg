@@ -11,7 +11,7 @@ import type { Walker } from "./walk.ts";
  * `Chooser`), each worth nothing: what keeping the body as it is brings. Their model leaves the body
  * where it is at once, through nothing it was not already taking.
  */
-const still = (now: Situation): Terms => ({ duration: 0, dealt: 0, taken: now.predictions.danger, orders: 0, exit: here(now) });
+export const still = (now: Situation): Terms => ({ duration: 0, dealt: 0, taken: now.predictions.danger, orders: 0, exit: here(now) });
 
 /** The parts of a rest option that do nothing: never over, always yielding. */
 const RESTING = { rest: true, status: (): Status => "yields", begin() {}, end() {} } as const;
@@ -43,7 +43,7 @@ export function brace(rise: (now: Situation) => DownModel, by: { readonly action
   const STANDING = blocked("standing"), state = { id: null as number | null };
   return { name: "brace", claims: WHOLE, state, ...RESTING,
     begin() { state.id = null; }, end() { state.id = null; },
-    entry: (now) => now.down ? READY : STANDING, model: (now) => downTerms({ ...rise(now), stands: 0 })(now),
+    entry: (now) => now.down ? READY : STANDING, model: (now) => downTerms({ ...rise(now), stands: 0 }, now.posture)(now),
     step(now) {
       if (!by) return { asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING };
       state.id ??= now.sight.instance();

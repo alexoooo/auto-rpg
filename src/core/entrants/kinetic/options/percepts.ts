@@ -22,7 +22,7 @@ import { blowLife, record } from "./value.ts";
  * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
  * measured profiles of its own strikes and of every striker's, its orders, the foe it fights (its focus,
  * `situationReader`), the blow predicted to reach its head and the threat reader that predicted it,
- * and how its ways up from the ground are priced (`DownModel`).
+ * and what a rise from each posture is priced at (`DownModel`; null where none stands it).
  */
 export interface Seen {
   readonly sight: Sight;
@@ -37,7 +37,7 @@ export interface Seen {
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
   readonly threats: Threats;
-  readonly downs: readonly DownModel[];
+  readonly riseFrom: (posture: Position) => DownModel | null;
   /** The seconds until the body is braced (`Reading.unbraced`). */
   readonly unbraced: (sight: Sight) => number;
 }
@@ -234,19 +234,26 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
 }
 
 /**
- * **What a fall is expected to cost**, own life: the blows of a foe standing over the body while it
- * is down, at the most they deal (`Pressure.peak`): the focus's, down or not, and with none one of
- * its own kind; over the cheapest of its ways up that stands (its time down, less the share of
- * blows it keeps off, over its chance of standing); all the life it has where none stands. A fall
- * costs something with no foe standing, so that down, a way up is worth more than lying still.
+ * **What lying in a posture is expected to cost**, own life: the blows of a foe standing over the
+ * body while it is down, at the most they deal (`Pressure.peak`): the focus's, down or not, and
+ * with none one of its own kind; over the rise from there (its time down, less the share of blows
+ * it keeps off, over its chance of standing, `Seen.riseFrom`); all the life it has where none
+ * stands it. It costs something with no foe standing, so that down, a way up is worth more than
+ * lying still.
  */
-function downCostOf(seen: Seen): number {
-  const { focus, spec } = seen, foe = focus?.spec ?? spec;
-  const peak = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak;
-  let least = seen.sight.view.senses.life;
-  for (const down of seen.downs) if (down.stands > 0) least = Math.min(least, peak * down.seconds * (1 - down.shelter) / down.stands);
-  return least;
+function downCostAtOf(seen: Seen): (posture: Position) => number {
+  const { focus, spec } = seen, foe = focus?.spec ?? spec, life = seen.sight.view.senses.life;
+  let peak: number | null = null;
+  return (posture) => {
+    const down = seen.riseFrom(posture);
+    if (!down || down.stands <= 0) return life;
+    peak ??= pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak;
+    return Math.min(life, peak * down.seconds * (1 - down.shelter) / down.stands);
+  };
 }
+
+/** A fall's lie: what a fall is priced from (`downCost`). */
+const FALLEN: Position = "back";
 
 /**
  * **Every percept Kinetic reads**, by name, in the order they are read: what it reads of the senses
@@ -311,7 +318,7 @@ export interface Prediction<V> {
  * **Every prediction Kinetic reads**, by name: the own life the blow coming is expected to take
  * (`lifeOf`), 0 with none; what a standing focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
- * (`downCostOf`), own life; how far the focus walks in the time the senses show it late
+ * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late
  * (`closesOf`), m; and the focus's life a blow of each hand at its head takes by the rules
  * (`blowLife`), 0 with no focus.
  */
@@ -319,7 +326,8 @@ export const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: pressureOf } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,
-  downCost: { read: downCostOf } as Prediction<number>,
+  downCost: { read: (seen) => downCostAtOf(seen)(FALLEN) } as Prediction<number>,
+  downCostAt: { read: downCostAtOf } as Prediction<(posture: Position) => number>,
   closes: { read: closesOf } as Prediction<number>,
   blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
     right: focus ? blowLife(rules, spec, "right", focus.spec) : 0 }) } as Prediction<Readonly<Record<Side, number>>>,

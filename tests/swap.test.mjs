@@ -15,7 +15,7 @@
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
  * planner's own report reaches the readout a person reads. The quadruped fixture holds a stub of
  * each of the quadruped's roles (motor, gait, bite, planner), and the Kinetic fixture one aim, one
- * chooser and one balance.
+ * chooser, one option and one balance.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";

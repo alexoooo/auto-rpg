@@ -13,6 +13,7 @@ import type { GuardPart } from "../skills/guard-part.ts";
 import type { SupportPart } from "../skills/support-part.ts";
 import type { MoveRulePart } from "../skills/move-rule-part.ts";
 import type { ChooserPart } from "./chooser-part.ts";
+import type { OptionPart, PositionPart, PredictionsPart } from "./option-part.ts";
 import type { AimPart } from "./aim-part.ts";
 import type { BitePart, GaitPart, QuadrupedTacticsPart, SupportMotorPart } from "../reptile/parts.ts";
 
@@ -30,6 +31,9 @@ export interface RoleParts {
   readonly executor: ExecutorPart;
   readonly support: SupportPart;
   readonly chooser: ChooserPart;
+  readonly option: OptionPart;
+  readonly position: PositionPart;
+  readonly predictions: PredictionsPart;
   readonly motor: MotorPart;
   readonly balance: BalancePart;
   readonly aim: AimPart;

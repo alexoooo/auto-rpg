@@ -9,6 +9,7 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
+import { drilledBy } from "../../core/mind/catalog.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { Loadout } from "../../core/items/held.ts";
 import type { BodyModel } from "../../core/models.ts";
@@ -42,8 +43,9 @@ const loadoutOf = (held: CoverHeld): Loadout => ({ left: "empty", right: held })
 
 /** The subject's mind standing and covering: `mind` with the drill in its tactics' slot. */
 export function coverer(mind: MindConfig): MindConfig {
-  if (!("tactics" in mind)) throw new Error(`a ${mind.kind} mind has no tactics slot to drill its covers in`);
-  return deepFreeze({ ...mind, tactics: { kind: "drill-cover" } } as MindConfig);
+  const drilled = drilledBy(mind, { kind: "drill-cover" });
+  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
+  return deepFreeze(drilled);
 }
 
 /** Why `value` is no subject, or what keeps its mind from `model` holding `held` (`mindFaults`). */
@@ -51,7 +53,7 @@ function faultsOf(value: Json, model: BodyModel, held: CoverHeld, subject?: Subj
   const kind = (value as { kind?: unknown } | null)?.kind;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!("tactics" in (value as object))) return [`a ${kind} mind has no tactics slot to drill its covers in`];
+  if (!drilledBy(value as unknown as MindConfig, { kind: "drill-cover" })) return [`no drill drives a ${kind} mind`];
   return mindFaults(coverer(value as unknown as MindConfig), modelHolding(model, loadoutOf(held), subject?.character), { entry: [] }).map((fault) => `${model}, ${held}: ${fault}`);
 }
 

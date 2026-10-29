@@ -7,6 +7,7 @@ import type { BodySense } from "../../../mind/senses.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { READINGS, threatReader } from "../../../mind/threat.ts";
 import type { DownModel } from "./down.ts";
+import type { Position } from "../../../mind/ground/reading.ts";
 import type { Situation } from "./option.ts";
 import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
 
@@ -24,7 +25,7 @@ export interface Reading {
   readonly strikes: readonly Profile[];
   readonly measured: readonly Profile[];
   readonly ordersOf: (sight: Sight) => Orders | null;
-  readonly downs: readonly DownModel[];
+  readonly riseFrom?: (posture: Position) => DownModel | null;
   readonly unbraced?: (sight: Sight) => number;
 }
 
@@ -35,7 +36,7 @@ export interface Reading {
  * Its memory is the focus's id.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, rules, strikes, measured, ordersOf, downs } = reading, unbraced = reading.unbraced ?? (() => 0);
+  const { spec, hz, rules, strikes, measured, ordersOf } = reading, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
   const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor();
   const focusOf = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { senses, stance } = sight.view;
@@ -57,7 +58,7 @@ export function situationReader(reading: Reading) {
     read(sight: Sight): Situation {
       const orders = ordersOf(sight), focus = focusOf(sight, orders);
       state.focus = focus?.id ?? null;
-      const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, downs, unbraced };
+      const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, riseFrom, unbraced };
       predicting.reset(seen);
       const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions };
       for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);

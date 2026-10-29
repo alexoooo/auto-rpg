@@ -7,7 +7,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { FighterConfig, MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
-import type { KeysOf, Part } from "./parts.ts";
+import type { KeysOf, Part, PartConfig } from "./parts.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Tactics } from "./tactics.ts";
 
@@ -65,6 +65,8 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly parts?: readonly Part[];
   /** How a scene drives it by a script (`Scripted`); absent where it takes none. */
   readonly scripted?: Scripted;
+  /** A config of it driven by a drill's `tactics`; absent, a drill puts them in its `tactics` slot (`drilledBy`). */
+  drilled?(config: C, tactics: PartConfig): C;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 

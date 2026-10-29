@@ -15,14 +15,15 @@ import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart,
 import type { PartLookup } from "../lookup.ts";
 
 /** Bounded settling, retry and log limits prevent unobserved waits and unlimited history: a rise's, s, and its tries of an edge from a position. */
-export const BRACE_LIMIT = 1, STEADY_LIMIT = 2, BACKOFF = 2, RETRIES = 2;
+const BRACE_LIMIT = 1, BACKOFF = 2, RETRIES = 2;
+export const STEADY_LIMIT = 2;
 const LOG_SIZE = 32;
 /** What a rise is doing: an edge of its route or a reposition, or one of its modes. */
-export type Mode = "execute" | "brace" | "land" | "steady" | "reposition" | "stuck";
+type Mode = "execute" | "brace" | "land" | "steady" | "reposition" | "stuck";
 /** A body read with no support (`between`) is still landing while faster than this, m/s. */
-export const LANDING = .1;
+const LANDING = .1;
 /** A body standing ready this long (`standReady`) is handed back from the steady, s. */
-export const READY_HOLD = .1;
+const READY_HOLD = .1;
 interface Attempt { technique: string; side: Side; from: Position; to: Position; seconds: number }
 interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 

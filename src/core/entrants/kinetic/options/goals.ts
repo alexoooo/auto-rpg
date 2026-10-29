@@ -1,8 +1,7 @@
 import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
 import type { BodySpec } from "../../../spec/body.ts";
-import { dataOf } from "../../../data/store.ts";
 import { approachActionWindow } from "../../../mind/action-window.ts";
-import { gaitDigest, measuredOn, profileFor, readProfile } from "../../../mind/profile.ts";
+import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../../../mind/profile.ts";
 import { blocked, LEGS, READY, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
@@ -48,12 +47,12 @@ const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
 /**
  * **Each gait** (`GAITS`) as a body of `spec` goes by it at `hz`, stopping to throw the strike of
  * digest `strike` (`skillDigest`): what its profile measured it to leave the body (`Going`, the
- * cell of `dataOf("gait-profiles")` measured as the body reads it, `gaitDigest`); its prior
+ * cell of `profiles`, the gaits', measured as the body reads it, `gaitDigest`); its prior
  * (`UNMEASURED`) where none is.
  */
-export function goings(spec: BodySpec, hz: number, strike: string): readonly Going[] {
+export function goings(spec: BodySpec, hz: number, strike: string, profiles: readonly Profile[]): readonly Going[] {
   return GAIT_NAMES.map((gait): Going => {
-    const found = profileFor(dataOf("gait-profiles"), measuredOn(spec, gaitDigest(GAITS[gait].legs, strike), hz, null));
+    const found = profileFor(profiles, measuredOn(spec, gaitDigest(GAITS[gait].legs, strike), hz, null));
     const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
     return Object.freeze({ gait, braced: expected.seconds, down: expected.down });
   });

@@ -3,11 +3,11 @@ import { deepFreeze } from "../../../state.ts";
 import type { PartField } from "../../../mind/fields.ts";
 import type { PartLookup } from "../../../mind/lookup.ts";
 import type { ChooserPart } from "../../../mind/chooser-part.ts";
-import { anyBody, type PartConfig } from "../../../mind/parts.ts";
+import { anyBody, slotOne, type PartConfig } from "../../../mind/parts.ts";
 import type { Offer } from "../../../mind/tactics.ts";
 import { onOffer, overlaps, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
-import { FEW_TERMS } from "./position.ts";
+import { FEW_TERMS_PART, type PositionValue } from "./position.ts";
 import { OBEDIENCE, STEADY, worth, type ObedienceLevel } from "./value.ts";
 
 /** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
@@ -135,7 +135,7 @@ export type KineticChooserPart<C extends PartConfig = PartConfig> = ChooserPart<
  * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Kinetic's are.
  */
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
-  parts.of("chooser", config).make(config, options, seed) as Chooser;
+  parts.of("chooser", config).make(config, options, seed, parts) as Chooser;
 
 /** How many options ahead a chooser looks: one, until its options' profiles are measured. */
 const DEPTH = 1;
@@ -145,10 +145,11 @@ const depthFaults = (config: { readonly depth: number }): readonly string[] => c
 
 /**
  * **The valued chooser's config**: its depth, what a metre walked as ordered is worth, life
- * (`obedience`, a level of `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life,
- * within which it chooses by chance (`Chance`), none unless given.
+ * (`obedience`, a level of `OBEDIENCE`; steady, `STEADY`, unless given), the margin of worth, life,
+ * within which it chooses by chance (`Chance`), none unless given, and the position value it prices
+ * places by (`position`, a part of role `position`; the few terms, `FEW_TERMS`, unless given).
  */
-interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: ObedienceLevel; readonly margin?: number }
+interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly position?: PartConfig | null }
 
 /**
  * The valued chooser's obedience (`OBEDIENCE`): a choice written as its level's value, the steady
@@ -165,17 +166,18 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   },
 };
 
-/** **Valued**: each option worth its model's terms (`Terms`) in life beside the position held (`worth`, by the few terms, `FEW_TERMS`), its orders at its obedience. */
+/** **Valued**: each option worth its model's terms (`Terms`) in life beside the position held (`worth`, by its position value), its orders at its obedience. */
 export const VALUED_CHOOSER: KineticChooserPart<ValuedConfig> = deepFreeze({
-  role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
-  keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
+  role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [slotOne("position", "Position value", "position", true, FEW_TERMS_PART.defaults)],
+  defaults: { kind: "valued", depth: DEPTH }, keys: { kind: true, depth: true, obedience: true, margin: true, position: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
     ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]],
-  make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
-    const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY;
+  make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup) => {
+    const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.position ?? FEW_TERMS_PART.defaults;
+    const position = parts.of("position", given).make(given) as PositionValue;
     return chooser(options, (option, _, now) => {
-      const terms = option.model(now), { worth: value, moves, letGo } = worth(terms, now, obedience, FEW_TERMS);
+      const terms = option.model(now), { worth: value, moves, letGo } = worth(terms, now, obedience, position);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
     }, DECIDING, { margin: config.margin ?? 0, seed });
