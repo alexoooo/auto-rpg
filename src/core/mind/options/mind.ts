@@ -96,7 +96,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     ...low ? [strikeLow(low, host.spec, walk)] : [],
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikes.some((option) => option.entry(now).kind === "ready")),
-    hold(walk), ...[...new Set((host.spec.effectors ?? []).map((effector) => effector.segment))].map(guard), brace(rise),
+    hold(walk), ...[...new Set((host.spec.effectors ?? []).map((effector) => effector.segment))].map(guard), brace(rise, null),
   ];
   const chosen = choosing = chooserOf(host.parts, config.chooser, options, host.seed);
   const hands = cover(host.spec);

@@ -10,6 +10,7 @@ import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type 
 import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
 import { edgeExpected } from "../profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
+import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
 
 /** What a rise is priced at where no route it takes is measured to standing: Stand up's own price (`SubMindPart.down`). */
@@ -27,6 +28,8 @@ interface Attempt { readonly technique: string; readonly side: Side; readonly fr
 /** **The ground's options and what they read**: the options (`GroundOption`), the rise's price (`DownModel`), and the situation as the rise reads it (`read`). */
 export interface Ground {
   readonly options: readonly GroundOption[];
+  /** The rest option down (`brace`): the ground's brace, priced as the rise that never stands. */
+  readonly rest: GroundOption;
   /** What a fall is priced at, getting up (`downCost`). */
   readonly down: DownModel;
   /** How the rise is priced, a sentence: each edge of its route measured, or not and why (`edgeExpected`). */
@@ -205,7 +208,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   };
   const options = [...order, ...Object.keys(runs).filter((name) => !order.includes(name)), ...GROUND_MODES].map(option);
   return {
-    options, down, priced: pricedBy, state: { plan: state, options: options.map((one) => one.state) },
+    options, rest: brace(down, { action: "brace", effector: sideEffector("left") }), down, priced: pricedBy, state: { plan: state, options: options.map((one) => one.state) },
     read(now) { plan(now); return state.active && !now.down ? { ...now, down: true } : now; },
   };
 }

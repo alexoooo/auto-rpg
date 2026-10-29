@@ -252,13 +252,15 @@ function dangerOf(seen: Seen): number {
 }
 
 /**
- * **What a fall is expected to cost**, own life: the focus's blows while the body is down, at the
- * most its pressure deals (`Pressure.peak`), over the cheapest of its ways up that stands (its time
- * down, less the share of blows it keeps off, over its chance of standing); all the life it has
- * where none stands.
+ * **What a fall is expected to cost**, own life: the blows of a foe standing over the body while it
+ * is down, at the most they deal (`Pressure.peak`): the focus's, down or not, and with none one of
+ * its own kind; over the cheapest of its ways up that stands (its time down, less the share of
+ * blows it keeps off, over its chance of standing); all the life it has where none stands. A fall
+ * costs something with no foe standing, so that down, a way up is worth more than lying still.
  */
 function downCostOf(seen: Seen): number {
-  const peak = pressureOf(seen).peak;
+  const { focus, sight, spec } = seen, foe = focus?.spec ?? spec;
+  const peak = pressureBy(foeModel(seen, foe), ownPhase(seen), spec, () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, foe, spec)).peak;
   let least = seen.sight.view.senses.life;
   for (const down of seen.downs) if (down.stands > 0) least = Math.min(least, peak * down.seconds * (1 - down.shelter) / down.stands);
   return least;

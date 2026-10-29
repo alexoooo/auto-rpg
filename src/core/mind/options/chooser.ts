@@ -106,7 +106,8 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
         values[i] = value;
         order.push(i);
       });
-      order.sort((a, b) => values[b]! - values[a]! || a - b);
+      // Equals by rank, a rest option before the rest: an option takes a resource from rest only worth more.
+      order.sort((a, b) => values[b]! - values[a]! || Number(options[b]!.rest ?? false) - Number(options[a]!.rest ?? false) || a - b);
       // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
       const best = stream ? order.find(free) : undefined;
       if (stream && best !== undefined) {

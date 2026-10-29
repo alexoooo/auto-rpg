@@ -9,7 +9,7 @@ import { chooserOf } from "../../mind/options/chooser.ts";
 import { cover } from "../../mind/options/cover.ts";
 import { moveTo } from "../../mind/options/goals.ts";
 import { stepSet, type Option, type Situation } from "../../mind/options/option.ts";
-import { brace, guard, hold } from "../../mind/options/rest.ts";
+import { guard, hold } from "../../mind/options/rest.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
 import { groundOptions, type Ground } from "../../mind/options/ground.ts";
@@ -84,7 +84,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options,
-    hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), brace(ground.down)];
+    hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), ground.rest];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;

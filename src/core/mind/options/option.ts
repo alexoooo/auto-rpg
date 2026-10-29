@@ -24,6 +24,8 @@ interface OptionBase {
   readonly state: object;
   /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, the whole body): what no other option chosen beside it may hold. */
   readonly claims: readonly Resource[];
+  /** Whether it is a rest option (`hold`, `guard`, `brace`): one worth no more than it does not take its resource from it. */
+  readonly rest?: true;
   /**
    * Its entry, now: `ready` to begin or go on; `position` where it begins once its legs are
    * brought into the window (`approach`); else `waiting` or `blocked`, and why.
