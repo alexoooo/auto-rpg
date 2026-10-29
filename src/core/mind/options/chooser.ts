@@ -6,7 +6,7 @@ import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts.ts";
 import { onOffer, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
 import { FEW_TERMS } from "./position.ts";
-import { OBEDIENCE, STEADY, worth, type Terms } from "./value.ts";
+import { OBEDIENCE, STEADY, worth, type ObedienceLevel, type Terms } from "./value.ts";
 
 /**
  * When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`); the
@@ -25,7 +25,7 @@ export interface Chance { readonly margin: number; readonly seed: number }
 /** How a ranked chooser decides (`Deciding`). */
 const RANKED_DECIDING: Deciding = Object.freeze({ rethink: .2, keep: .5 });
 
-/** How a valued chooser decides: a running option kept above its rivals by as much as a joule on the Warrior (6 hit points of 100 J), life (`worth`). */
+/** How a valued chooser decides: a running option kept above its rivals by 1/600 of a life (`worth`), the owner's decision. */
 const VALUED_DECIDING: Deciding = Object.freeze({ rethink: RANKED_DECIDING.rethink, keep: 1 / 600 });
 
 /**
@@ -150,24 +150,23 @@ const depthFaults = (config: { readonly depth: number }): readonly string[] => c
 
 /**
  * **The valued chooser's config**: its depth, what a metre walked as ordered is worth, life
- * (`obedience`, `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life,
+ * (`obedience`, a level of `OBEDIENCE`; steady, `STEADY`, unless given), and the margin of worth, life,
  * within which it chooses by chance (`Chance`), none unless given.
  */
-interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: number; readonly margin?: number }
+interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: ObedienceLevel; readonly margin?: number }
 
 /**
- * The valued chooser's obedience (`OBEDIENCE`): a choice written as the worth of its orders, the
- * steady level as none written, so the preset is unchanged; a worth that is no level reads as none
- * of them.
+ * The valued chooser's obedience (`OBEDIENCE`): a choice written as its level's value, the steady
+ * level as none written, so the preset is unchanged.
  */
 const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   kind: "choice", key: "obedience", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),
-  read: (config) => OBEDIENCE.find(([, , orders]) => orders === (config.obedience ?? STEADY))?.[0] ?? "",
+  read: (config) => config.obedience ?? "steady",
   write: (config, text) => {
     const level = OBEDIENCE.find(([value]) => value === text);
     if (!level) return null;
     const { obedience: _, ...rest } = config;
-    return level[2] === STEADY ? rest : { ...rest, obedience: level[2] };
+    return level[2] === STEADY ? rest : { ...rest, obedience: level[0] };
   },
 };
 
@@ -177,9 +176,9 @@ export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
   keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
-    ...config.obedience === undefined || Number.isFinite(config.obedience) && config.obedience >= 0 ? [] : ["obedience: a finite worth of a metre ordered, not negative"]],
+    ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]],
   make: (config: ValuedConfig, options: readonly Option[], seed: number) => {
-    const obedience = config.obedience ?? STEADY;
+    const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY;
     return chooser(options, (option, _, now) => {
       const terms = option.models["hand-built"](now), { worth: value, moves, letGo } = worth(terms, now, obedience, FEW_TERMS);
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);

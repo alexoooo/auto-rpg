@@ -117,6 +117,16 @@ export function blowDamage(rules: Rulebook, mechanism: Mechanism, energy: number
   return energy * rules.worth[mechanism].value / rules.unit.value;
 }
 
+/**
+ * **What a blow takes from one of its sides**, hit points: the share of its `energy` that side
+ * stores (`energyShares`, `src/core/rules/share.ts`), less what it spares (`fist`, for a bare hand
+ * meeting a body's own surface), priced at the `mechanism` it meets (`blowDamage`); none for no
+ * share.
+ */
+export function sideDamage(rules: Rulebook, mechanism: Mechanism, energy: number, share: number, spared: number): number {
+  return share > 0 ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0;
+}
+
 /** Piercing injury, HP, from the interval's summed aligned normal impulse, N s. */
 export function pointLoadDamage(rules: Rulebook, impulse: number, seconds: number): number {
   if (!(impulse >= 0) || !Number.isFinite(impulse) || !(seconds > 0) || !Number.isFinite(seconds)) throw new Error("a point load needs finite nonnegative impulse and positive duration");

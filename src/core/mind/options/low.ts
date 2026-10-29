@@ -8,10 +8,10 @@ import { groundPosition } from "../ground-position.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { around } from "./strike.ts";
-import { orderedDealt, record, type Terms } from "./value.ts";
+import { record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
-/** The chance a body goes down lowering to strike from low support and rising again. */
+/** The chance a body goes down lowering to strike from low support and rising again, the owner's decision until a drill measures the fold. */
 const FOLD_FALLS = .05;
 
 /**
@@ -49,7 +49,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     near: (now) => now.focus?.id ?? null,
     models: { "hand-built": (now): Terms => {
       const { lands, seconds } = record(now.sight.report.ledger, action.name), dealt = lands * Math.max(now.blows.left, now.blows.right);
-      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: orderedDealt(now, dealt), exit: { apart: now.reach.apart, down: FOLD_FALLS } };
+      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: 0, exit: { apart: now.reach.apart, down: FOLD_FALLS } };
     } },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;

@@ -158,14 +158,17 @@ export const techniqueDigest = (technique: PartConfig): string => digestOf(techn
 export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null): Measured =>
   ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction });
 
-/** **Why `profile` is stale for `now`**, a sentence: the first of what it was measured on that differs (a reaction time within half a step is the same); null where none does. */
+/** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
+export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
+
+/** **Why `profile` is stale for `now`**, a sentence: the first of what it was measured on that differs (a reaction time the same by `sameReaction`); null where none does. */
 export function staleness(profile: Profile, now: Measured): string | null {
   const was = profile.measured;
   if (was.body !== now.body) return `measured on ${was.body}, read on ${now.body}`;
   if (was.spec !== now.spec) return `measured on another ${now.body}`;
   if (was.skill !== now.skill) return "measured on another version of the skill";
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
-  if (was.reaction !== null && now.reaction !== null && Math.abs(was.reaction - now.reaction) > .5 / now.hz)
+  if (!sameReaction(was.reaction, now.reaction, now.hz))
     return `measured with senses ${was.reaction} s late, read ${now.reaction} s late`;
   return null;
 }

@@ -4,6 +4,7 @@ import { pointAtToRef, poseAngles, specChainTo } from "../../control/kinematics.
 import type { MotorUnmet } from "../../control/motor.ts";
 import type { StancePhase } from "../../control/stance.ts";
 import { hypot } from "../../math/real.ts";
+import type { Rulebook } from "../../rules/rulebook.ts";
 import type { LegsUnmet } from "../../skills/skill.ts";
 import { guardPosture } from "../../skills/guard.ts";
 import { rangeOf } from "../../skills/strike.ts";
@@ -11,13 +12,13 @@ import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Cover } from "../intent.ts";
 import type { Orders } from "../orders.ts";
-import { profilesOn, STRIKE_PROFILES, type Profile, type ProfileCell } from "../profile.ts";
+import { profilesOn, sameReaction, STRIKE_PROFILES, type Profile, type ProfileCell } from "../profile.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
 import { READINGS, type threatReader } from "../threat.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
-import { blowEnergy, lifeOf, record } from "./value.ts";
+import { blowLife, record } from "./value.ts";
 
 /**
  * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
@@ -29,6 +30,8 @@ export interface Seen {
   readonly sight: Sight;
   readonly spec: BodySpec;
   readonly hz: number;
+  /** The rules the fight is played by (`BodyHost.rules`), which price a blow built by hand (`blowLife`). */
+  readonly rules: Rulebook;
   readonly strikes: readonly Profile[];
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
@@ -57,9 +60,10 @@ export interface Percept<V> {
 export interface Reach { readonly apart: number; readonly theirs: number; readonly mine: number; readonly guards: number }
 
 /**
- * By hand, where no strike models the foe (`foeModel`): the chance a foe's blow predicted to reach
- * the head lands; and how many blows a second a standing foe throws within its reach, of which as
- * many land as of the body's own (`record`): two bodies trading blows land alike.
+ * By hand, where no strike models the foe (`foeModel`), the owner's decisions: the chance a foe's
+ * blow predicted to reach the head lands; and how many blows a second a standing foe throws within
+ * its reach, of which as many land as of the body's own (`record`): two bodies trading blows land
+ * alike.
  */
 const LANDS = .3, RATE = 1;
 
@@ -115,8 +119,8 @@ function guardAhead(spec: BodySpec): number {
   return ahead;
 }
 
-/** The heavier of `striker`'s two hands' blows on `struck`'s head, J. */
-const heavier = (striker: BodySpec, struck: BodySpec): number => Math.max(blowEnergy(striker, "left", struck), blowEnergy(striker, "right", struck));
+/** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`). */
+const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number => Math.max(blowLife(rules, striker, "left", struck), blowLife(rules, striker, "right", struck));
 
 /** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
 const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
@@ -134,7 +138,7 @@ function foeModel(seen: Seen, foe: BodySpec): readonly Profile[] {
 /** **This body's own strikes** (`Seen.strikes`), those fresh at the senses' reaction time. */
 function ownModel(seen: Seen): readonly Profile[] {
   const reaction = reactionOf(seen);
-  return seen.strikes.filter((profile) => profile.measured.reaction === null || reaction === null || Math.abs(profile.measured.reaction - reaction) <= .5 / seen.hz);
+  return seen.strikes.filter((profile) => sameReaction(profile.measured.reaction, reaction, seen.hz));
 }
 
 /** This body's phase as a foe's strike meets it (`FoePhase`'s): striking while a blow of its own is under way, else clear. */
@@ -193,7 +197,7 @@ function pressureOf(seen: Seen): Pressure {
   const { focus, sight, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
   return pressureBy(foeModel(seen, focus.spec), ownPhase(seen), spec.wounds.hp.value,
-    () => RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(focus.spec, spec), spec));
+    () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, focus.spec, spec));
 }
 
 /** **The pressure** (`Pressure`) the body's own strikes put on a standing focus: its measured strikes (`Seen.strikes`) fresh at the senses' reaction time, read at the focus's phase (`FoePhase`). */
@@ -201,7 +205,7 @@ function pressingOf(seen: Seen): Pressure {
   const { focus, sight, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
   return pressureBy(ownModel(seen), foePhase(focus, seen.blow), focus.spec.wounds.hp.value,
-    () => RATE * record(sight.report.ledger, null).lands * lifeOf(heavier(spec, focus.spec), focus.spec));
+    () => RATE * record(sight.report.ledger, null).lands * heavier(seen.rules, spec, focus.spec));
 }
 
 /**
@@ -241,7 +245,7 @@ function dangerOf(seen: Seen): number {
   const { blow, spec, sight } = seen;
   if (!blow) return 0;
   const model = foeModel(seen, blow.foe.spec);
-  if (model.length === 0) return LANDS * lifeOf(blowEnergy(blow.foe.spec, blow.hand, spec, blow.closing), spec);
+  if (model.length === 0) return LANDS * blowLife(seen.rules, blow.foe.spec, blow.hand, spec, blow.closing);
   const centre = sight.view.stance.centre, range = hypot(blow.foe.centre.x - centre.x, blow.foe.centre.z - centre.z), phase = ownPhase(seen);
   let most = 0;
   for (const profile of model) most = Math.max(most, (cellAt(profile, phase, range, true)?.dealt ?? 0) / spec.wounds.hp.value);
@@ -279,7 +283,7 @@ function closingOf({ focus, sight }: Seen): number {
  * would cost (`downCostOf`), own life; how fast the two close (`closingOf`), m/s; how late the
  * senses show the focus (`reactionOf`), s; the lead (its own life less the focus's, 0 with none)
  * and the time left before the clock's verdict (`Senses.ends`, Infinity where none ends it), s;
- * and the focus's life a blow of each hand at its head takes (`blowEnergy`, `lifeOf`), 0 with no
+ * and the focus's life a blow of each hand at its head takes by the rules (`blowLife`), 0 with no
  * focus. The gait's: where the stance is in a step (`StanceReading.phase`),
  * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
  * the controllers did not carry out: the legs' (`SkillReport.legs`) and the motor's
@@ -308,8 +312,8 @@ export const PERCEPTS = Object.freeze({
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
-  blows: { read: ({ focus, spec }): Readonly<Record<Side, number>> => ({ left: focus ? lifeOf(blowEnergy(spec, "left", focus.spec), focus.spec) : 0,
-    right: focus ? lifeOf(blowEnergy(spec, "right", focus.spec), focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
+  blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
+    right: focus ? blowLife(rules, spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
   bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
   speed: { read: ({ sight }) => hypot(sight.view.stance.velocity.x, sight.view.stance.velocity.z) } as Percept<number>,

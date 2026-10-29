@@ -8,8 +8,8 @@
  * else `clear`), closing 0. The `walk` rung is left out: the range it was asked at is not recorded.
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go.
  *
- * A cell's trials: the share that landed; the hit points their blows took by the rules (`blowDamage`
- * of each hit's energy, 0 for none) and those the striker lost; the seconds from the first step the
+ * A cell's trials: the share that landed; the hit points the rules took from the target in every
+ * contact of the striker's on it (`StrikeContact.damage`), and those the striker lost in them; the seconds from the first step the
  * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
  * own length); and the share that ended down. Its cost of letting go, over the trials let go: the
  * seconds from the let-go until the strike was ready again (the trial's end where it was not), and
@@ -24,13 +24,11 @@ import { resolveCharacter } from "../src/core/models.ts";
 import { partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { measuredOn, skillDigest } from "../src/core/mind/profile.ts";
-import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");
 const named = process.argv.slice(2).filter((arg) => arg !== "--write");
 const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
-const RULES = rulebook("arena");
 /** The foe's phase on each rung that has one but `clear`. */
 const PHASES = { punching: "striking", "letgo-punched": "striking" };
 
@@ -78,7 +76,7 @@ for (const path of paths) {
     }
     cell.trials++;
     if (r.outcome === "landed") cell.done++;
-    if (r.hit) cell.dealt += blowDamage(RULES, "blunt", r.hit.energy);
+    for (const contact of r.contacts) cell.dealt += contact.damage;
     cell.taken += r.taken ?? 0;
     if (r.down) cell.down++;
     if (r.ready !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.ready; }

@@ -3,9 +3,6 @@ import { blocked, READY, type DownOption, type Situation } from "./option.ts";
 import { pressureAt } from "./percepts.ts";
 import type { Terms } from "./value.ts";
 
-/** Near enough that a standing focus strikes a body that is down, m, centre to centre. */
-const NEAR = 1.2;
-
 /**
  * How a down option is priced: how long it runs, s; the chance it ends with the body standing;
  * and the share of a near focus's blows it keeps off while it runs.
@@ -16,9 +13,9 @@ export interface DownModel {
   readonly shelter: number;
 }
 
-/** The terms of a down option of `model`: the near focus's blows it does not keep off, the blow coming, and the chance it leaves the body still down where it lies. */
+/** The terms of a down option of `model`: the blows it does not keep off of a focus within its reach (`Reach.theirs`), the blow coming, and the chance it leaves the body still down where it lies. */
 export const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, exit: { apart: now.reach.apart, down: 1 - model.stands },
-  taken: now.danger + (now.apart <= NEAR ? pressureAt(now.pressure, 0, model.seconds * (1 - model.shelter)) : 0) });
+  taken: now.danger + (now.reach.apart <= now.reach.theirs ? pressureAt(now.pressure, 0, model.seconds * (1 - model.shelter)) : 0) });
 
 /** Whether the body is the down half's (`downHalf`): handed to it by the body's host, and not yet taken back. */
 interface Half { current: boolean }

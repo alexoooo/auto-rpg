@@ -102,7 +102,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const senses = enlisting.senses.add(sensed);
   const sheets = enlisting.replay ?? (enlisting.record ? sheetLog(identity!) : null);
   minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(built, world, mind, {
-    name: enlisting.name, senses, assist, orders: enlisting.orders,
+    name: enlisting.name, senses, assist, orders: enlisting.orders, rules,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
     ...(enlisting.seed !== undefined ? { seed: enlisting.seed } : {}),
   }, sheets ?? undefined);

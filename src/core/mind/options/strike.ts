@@ -7,7 +7,7 @@ import { expect, farthest, measuredOn, profileFor, skillDigest, staleness, STRIK
 import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
-import { clinched, orderedDealt, record, type Terms } from "./value.ts";
+import { clinched, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 
@@ -121,12 +121,12 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
         const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds, hp = measure.spec.wounds.hp.value;
         const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: { seconds: e.letGo.seconds, taken: e.letGo.taken / hp } } : {};
         return { duration, dealt, taken: now.danger + e.taken / hp + threatened(now, walkingInReach, from),
-          orders: orderedDealt(now, dealt), exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
+          orders: 0, exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
       }
       const { lands, seconds } = record(now.sight.report.ledger, action.name);
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
       const dealt = throws * lands * blow, duration = walking + seconds;
-      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: orderedDealt(now, dealt), exit: { apart: from, down: clinched(now, duration) } };
+      return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: clinched(now, duration) } };
     } },
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };

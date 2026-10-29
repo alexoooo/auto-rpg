@@ -1,5 +1,6 @@
 import { impactEnergy } from "../../rules/impact.ts";
-import { blowDamage, rulebook } from "../../rules/rulebook.ts";
+import { sideDamage, type Rulebook } from "../../rules/rulebook.ts";
+import { energyShares } from "../../rules/share.ts";
 import { landed } from "../../skills/action-instances.ts";
 import type { Ended } from "../../skills/action.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
@@ -10,8 +11,8 @@ import { here, type Place, type PositionValue } from "./position.ts";
 /**
  * **What running an option from now is expected to bring**, over its run, in life (a share of a
  * body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's life
- * its blows take; its own life the blows it takes take, the blow coming included; its progress on
- * the orders, a metre walked as ordered (`ORDERED`); where it leaves the body (`Place`: how far
+ * its blows take; its own life the blows it takes take, the blow coming included; the metres it
+ * walks as ordered; where it leaves the body (`Place`: how far
  * from the focus, and the chance it is down); and, where it runs and may be let go now, before its
  * point of no return, what letting it go leaves: the seconds until its body could begin it again,
  * and its own life lost meanwhile.
@@ -26,38 +27,44 @@ export interface Terms {
 }
 
 /**
- * **How far a person's orders are carried out through blows coming**, a player's choice and the
- * one weight of an option's worth: what a metre walked as ordered is worth, in life, at each level,
- * by its value and name: as much as a blow on the Warrior (6 hit points of 100 J) of 10 J (its own
- * judgement), 45 J (steady: orders obeyed past a one-two at hand and a weak blow coming, not into
- * a heavy one) and 200 J (orders first). Without orders it changes nothing.
+ * **What carrying out the orders is worth**, life: a metre walked as ordered (`metre`), and how
+ * much more than another's a foe's life is worth where the orders name it (`foe`, a share of it).
  */
-export const OBEDIENCE: readonly (readonly [value: string, name: string, orders: number])[] = deepFreeze([
-  ["own", "Own judgement", 1 / 60], ["steady", "Steady", .075], ["orders", "Orders first", 1 / 3]]);
+export interface Obedience { readonly metre: number; readonly foe: number }
 
-/** The steady level's worth of a metre walked as ordered, life: the valued chooser's own. */
-export const STEADY = OBEDIENCE[1]![2];
+/** An obedience level's value (`OBEDIENCE`). */
+export type ObedienceLevel = "own" | "steady" | "orders";
+
+/**
+ * **How far a person's orders are carried out through blows coming**, a player's choice and the
+ * one weight of an option's worth, by its value and name, each the owner's decision: its own
+ * judgement (a metre 1/60 of a life, a named foe's life a third more), steady (orders obeyed past
+ * a one-two at hand and a weak blow coming, not into a heavy one: a metre 0.075 of a life, a named
+ * foe's life one and a half times more) and orders first (a metre a third of a life, a named foe's
+ * life twenty thirds more). Without orders it changes nothing.
+ */
+export const OBEDIENCE: readonly (readonly [value: ObedienceLevel, name: string, worth: Obedience])[] = deepFreeze([
+  ["own", "Own judgement", { metre: 1 / 60, foe: 1 / 3 }], ["steady", "Steady", { metre: .075, foe: 1.5 }], ["orders", "Orders first", { metre: 1 / 3, foe: 20 / 3 }]]);
+
+/** The steady level: the valued chooser's own. */
+export const STEADY: Obedience = OBEDIENCE[1]![2];
 
 /**
  * **An option's worth beside the defaults holding the position**, life, by `position`: its payoff
- * (the focus's life it takes less its own it loses beyond the blow coming, which holding takes as
- * well, and its progress on the orders at `obedience`, life a metre), the position where it leaves
+ * (the focus's life it takes, more where the orders name the focus, less its own it loses beyond
+ * the blow coming, which holding takes as well, and the metres it walks as ordered, each at
+ * `obedience`), the position where it leaves
  * the body less the position now, and its time at the rate of play. With it, how much the position
  * changes (`moves`), and what letting it go now costs (`letGo`): the life it loses while it comes
  * back beyond what holding the position as long costs, none below nothing, and none where it may
  * not be let go.
  */
-export function worth(terms: Terms, now: Situation, obedience: number, position: PositionValue): { readonly worth: number; readonly moves: number; readonly letGo: number } {
+export function worth(terms: Terms, now: Situation, obedience: Obedience, position: PositionValue): { readonly worth: number; readonly moves: number; readonly letGo: number } {
   const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0), rate = position.rate(now);
   const letGo = terms.letGo ? Math.max(0, terms.letGo.taken + rate * terms.letGo.seconds) : 0;
-  return { worth: terms.dealt - (terms.taken - now.danger) + obedience * terms.orders + moves - rate * terms.duration, moves, letGo };
+  const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id;
+  return { worth: terms.dealt * (named ? 1 + obedience.foe : 1) - (terms.taken - now.danger) + obedience.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
 }
-
-/** The rules a fight is played by, whose arithmetic prices a blow (`blowDamage`). */
-const RULES = rulebook("arena");
-
-/** **The life a blunt blow of `energy` J takes from `struck`**: its damage by the rules (`blowDamage`) over its full hit points. */
-export const lifeOf = (energy: number, struck: BodySpec): number => blowDamage(RULES, "blunt", energy) / struck.wounds.hp.value;
 
 /** How fast a hand closes on a head in a blow not under way to measure, m/s. */
 const BLOW_SPEED = 5;
@@ -89,12 +96,30 @@ function strikingMass(spec: BodySpec, hand: Side): number {
 const headMass = (spec: BodySpec): number => spec.segments.find((segment) => segment.name === spec.marks.high)?.mass.value ?? spec.mass.value;
 
 /** The energy of a blow of `hand` of `striker` on `struck`'s head, J: as the rules price an impact (`impactEnergy`), closing at `closing` m/s. */
-export function blowEnergy(striker: BodySpec, hand: Side, struck: BodySpec, closing = BLOW_SPEED): number {
+function blowEnergy(striker: BodySpec, hand: Side, struck: BodySpec, closing: number): number {
   const mass = strikingMass(striker, hand);
   return mass > 0 ? impactEnergy(mass, headMass(struck), closing) : 0;
 }
 
-/** What an action is taken to do before its body has a record of it: land this share of its blows, each running this long, s; worth `weight` records. */
+/** How stiff the face `hand` of `spec` strikes with is, N/m: what it holds, else the hand's own; null for a rigid one. */
+function strikingStiffness(spec: BodySpec, hand: Side): number | null {
+  const segment = `hand.${hand}`, held = spec.held?.find((item) => item.segment === segment);
+  return (held ? held.item.surface : spec.segments.find((one) => one.name === segment)?.surface)?.stiffness.value ?? null;
+}
+
+/**
+ * **The life a blow of `hand` of `striker` takes from `struck`'s head**, by `rules`: its energy
+ * closing at `closing` m/s (`blowEnergy`), the head's share of it by the two faces' stiffness
+ * (`energyShares`), priced blunt as the rules price a side's damage (`sideDamage`), over the
+ * struck body's hit points. An edge or a point is priced as its blunt impact, the hand's own model.
+ */
+export function blowLife(rules: Rulebook, striker: BodySpec, hand: Side, struck: BodySpec, closing = BLOW_SPEED): number {
+  const head = struck.segments.find((segment) => segment.name === struck.marks.high)?.surface?.stiffness.value ?? null;
+  const share = energyShares([strikingStiffness(striker, hand), head])[1]!;
+  return sideDamage(rules, "blunt", blowEnergy(striker, hand, struck, closing), share, 0) / struck.wounds.hp.value;
+}
+
+/** What an action is taken to do before its body has a record of it, the owner's decision: land this share of its blows, each running this long, s; worth `weight` records. */
 const PRIOR = Object.freeze({ lands: .3, seconds: .6, weight: 3 });
 
 /**
@@ -112,13 +137,7 @@ export function record(ledger: readonly Ended[], action: string | null): { reado
   return { lands: (hits + PRIOR.lands * PRIOR.weight) / (committed + PRIOR.weight), seconds: (seconds + PRIOR.seconds * PRIOR.weight) / (committed + PRIOR.weight) };
 }
 
-/** The focus's life dealt to a foe the orders name that counts as a metre on them: a 30 J blow on the Warrior. */
-const ORDERED = .05;
-
-/** The progress on the orders of taking `dealt` of the focus's life: some only where the orders name it. */
-export const orderedDealt = (now: Situation, dealt: number): number => now.orders?.foe !== undefined && now.orders.foe === now.focus?.id ? dealt / ORDERED : 0;
-
-/** A clinch: a standing focus within `within` m, centre to centre, where a body goes down `falls` times a second. */
+/** A clinch, the owner's decision until a drill measures one: a standing focus within `within` m, centre to centre, where a body goes down `falls` times a second. */
 export const CLINCH = deepFreeze({ within: .65, falls: .2 });
 
 /** The chance of going down in `seconds` s of a clinch, if the body is in one. */

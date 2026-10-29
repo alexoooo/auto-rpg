@@ -21,6 +21,7 @@ import type { PartConfig } from "../../mind/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";
+import type { Rulebook } from "../../rules/rulebook.ts";
 import type { BodySpec } from "../../spec/body.ts";
 
 /** What Kinetic decides with: its chooser, and the actions and executors its strikes are carried out by. */
@@ -75,11 +76,12 @@ function profileDetail(strikes: readonly StrikeOption[], now: Situation): Engage
  * controllers did not carry out as it last decided (`unmetDetail`) and how its strikes were priced
  * (`profileDetail`).
  */
-export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
+export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
-  const walk = walker(spec), reader = situationReader(spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses), [ground.down]);
+  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []),
+    ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);

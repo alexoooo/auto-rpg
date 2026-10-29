@@ -12,7 +12,7 @@ import type { World } from "../world.ts";
 import type { Hold } from "../build/contact-mass.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Pool, Wound } from "./pool.ts";
-import { pointLoadDamage, blowDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
+import { pointLoadDamage, sideDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
 import { energyShares } from "./share.ts";
 
 /**
@@ -178,7 +178,7 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
       const spared = surfaces[k].item === null && part.segment.spec.handPoses && surfaces[k === 0 ? 1 : 0].item === null ? rules.fist.value : 0;
       const opposing = surfaces[k === 0 ? 1 : 0];
       const loadPoint = mechanism === "point" && opposing.item === null;
-      const damage = share > 0 && !loadPoint ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0;
+      const damage = loadPoint ? 0 : sideDamage(rules, mechanism, energy, share, spared);
       const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false }) : null;
       return { fighter: part.body.id, segment: name, item: surfaces[k].item, ...(surfaces[k].region ? { region: surfaces[k].region } : {}),
         ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage, wound };

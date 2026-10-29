@@ -2,6 +2,7 @@ import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
 import { poseAngles } from "../control/kinematics.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
@@ -30,6 +31,8 @@ export interface MindWiring {
   readonly assist?: AssistCeiling;
   /** The seed its mind's chances are drawn from (`BodyHost.seed`): the fight's for this body (`seedOf`); 0 unless given. */
   readonly seed?: number;
+  /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
+  readonly rules?: Rulebook;
   /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
   readonly script?: Tactics;
 }
