@@ -52,8 +52,8 @@ export interface Ground {
  * `STEADY_LIMIT` on its feet standing up, else tried elsewhere; still landing, land; else every
  * edge that admits it on a route to standing (`firstEdges`), else a reposition, else back off for
  * `BACKOFF`. An edge fails `RETRIES` times from a position before it is given up there. Each mode
- * counts its time against its limit as it runs (`modeStep`). A technique does not yield; a mode
- * does.
+ * counts its time against its limit as it runs (`modeStep`). A mode yields; a technique where its
+ * run says it may (`TechniqueRun.yields`: before its point of no return, or ended).
  *
  * Each is priced as a fall is (`downTerms`): an edge at its expected seconds to standing through it
  * (`firstEdges`, by the edges' profiles, `EDGE_PROFILES`), so the policy takes the cheapest; the
@@ -212,7 +212,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
       name, posture: "ground", claims: WHOLE, state: memory,
       entry: (now) => offered(now).has(name) ? READY : UNOFFERED,
       exit: () => null,
-      yields: () => isMode(name),
+      yields: () => isMode(name) || state.current?.technique === name && runs[name]!.yields,
       ended: (now) => live(now)?.stage.startsWith("ended:") ?? false,
       begin(now) {
         memory.id = null;
