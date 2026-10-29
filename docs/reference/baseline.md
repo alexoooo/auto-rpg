@@ -35,14 +35,14 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the stand-up at `0e158ffb`): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `0e158ffb`): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
 | Competence | Record |
 | --- | --- |
 | walk | `assets/evaluations/baseline/2026-10-28-c43aa358-b68a3e72.jsonl` |
-| punch | `assets/evaluations/baseline/2026-10-28-c43aa358-7537bf1f.jsonl` |
+| punch | `assets/evaluations/baseline/2026-10-29-3e6e204c-1be9aa1c.jsonl` |
 | stand-up | `assets/evaluations/baseline/2026-10-29-0e158ffb-c977e23e.jsonl` |
 | stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-0e158ffb-c3bbe74f.jsonl` |
 | fight | `assets/evaluations/baseline/2026-10-28-c43aa358-05ee4b28.jsonl` |
