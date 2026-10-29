@@ -433,7 +433,9 @@ step, after the muscles read the joints.
   drives muscles. Its memory is its `state` (`Mind.state`), saved with its body ([State](#state)).
 
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
-fraction of its full life, `Pool.bar`, at once), and every other body (`BodySense`): side, spec
+fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
+latest (`ends`: a bout's cap or its drain's end, `EndRule.drainedBy`; absent where no clock ends
+it), and every other body (`BodySense`): side, spec
 with what it holds, out, down by its spec's rule, its life, centre of mass and its velocity, each
 segment's pose and motion. Never a part's hit points or another mind. A fight's one
 sensing layer (`createSenses`) reads every body in the step's sensing phase, before any mind, so
@@ -569,24 +571,27 @@ chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's act
 **The options fighter** (`createOptionsFighter`, `options/mind.ts`). An `Option` (`option.ts`) is a
 skill in one shape: its entry (`Readiness`: ready, `position` with the window its legs are brought
 to, else waiting or blocked and why), what it holds in a step (`holds`, the asks' `Sight.needs`),
-its model (`Terms`) and its exit (a strike's stroke's end, the edge-hold's band; null elsewhere,
-read by no chooser yet). Each is a commitment (follow orders, a strike, the low strike, a down
-option) or footwork (break a clinch, evade, hold at the edge, hold) (`Layer`). A down option is
+its model (`Terms`, with where it leaves the body, `Place`) and its exit (a strike's stroke's end,
+the edge-hold's band; null elsewhere, read by no chooser yet). Each is a commitment (follow orders,
+a strike, the low strike, a down option) or footwork (break a clinch, evade, hold at the edge)
+(`Layer`); with none worth more than the position held, it holds it, facing its focus. A down option is
 carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`, priced by the
 sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the `downHalf` sub-mind
 hands the body over).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
   `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
-  orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure, what a
-  fall costs, how fast the two close, how late the senses show the focus, each hand's blow; the
+  orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure and
+  this body's on it, what a fall costs, how fast the two close, how late the senses show the focus,
+  the lead and the time left before the clock's verdict, each hand's blow; the
   gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the focus's
   phase, striking, down, rising or clear, and its blow's time to contact); a percept's cue is what a
   chooser watches (`eventOf`). Reach is read head to head: the focus's, this body's, and where the
   two guards meet (`guardAhead`). The pressure (`Pressure`) is what a standing focus is expected to
   deal the body a second, over the range: measured from the strike profiles on the focus's body
   where there are any (`profilesOn`), else by hand within its reach; an option is charged it for its
-  time near the focus (`threatened`).
+  time near the focus (`threatened`). The body's own strikes press the focus the same way
+  (`pressing`).
 - **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range, the closing speed and the foe's phase, each the share done,
   the hit points dealt and lost, the seconds and the share ending down, and where those not done
@@ -601,18 +606,29 @@ hands the body over).
 - **Named goals** (`GOALS`, `goals.ts`): a band of the range to the focus whose limits are reach
   readings read each step, never metres written down: `close`, inside this body's reach; `at the
   edge`, just outside the focus's (`EDGE`); `out of reach`, past that; `guard to guard`. `toGoal`
-  walks to one, facing the focus; Kinetic's default footwork asks `at the edge`, and the edge-hold
-  holds the same band.
+  walks to one, facing the focus; `moveTo` is the footwork option of one, priced by where it leaves
+  the body (Kinetic's close, at the edge and out of reach), and the edge-hold holds the edge's band.
+- **The value of a position** (`PositionValue`, `position.ts`): what a place (`Place`: the range
+  head to head to the focus and the chance the body is down there) is worth in life, the lead
+  expected at the verdict from there, and the rate of play, what a second of the fight is worth
+  with the defaults holding the position. One interface; its first implementation is a few terms
+  (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against both reaches
+  (the body's own pressure on the focus there over a held place's time, less the focus's on it),
+  and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
+  body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
+  clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` in the config's `chooser` slot
   (`CHOOSERS`: `valued`, `ranked`; `depth` 1, `chooserOf`), takes the option on offer of highest
   worth, keeping the running one within its keep, deciding afresh on a cue's change or every
-  `rethink` s. Valued worth (`worth`, `value.ts`), life a second: each option's `Terms` in life,
-  a share of a body's full life, the verdict's unit: the focus's life its blows take less its own
-  the blows it takes take, each blow's energy priced by the rules' `blowDamage` over the struck
-  body's hit points (`lifeOf`); its chance of going down at what a fall costs (`downCost`: the
-  focus's blows over the cheapest way up its sub-minds' prices give, at most the life the senses
-  say it has); and its progress on orders, a metre at the person's `OBEDIENCE`, the one weight.
-  Ranked worth is the options' order.
+  `rethink` s. Standing, it takes one only worth more than its defaults holding the position;
+  down, the best. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
+  verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
+  less its own the blows it takes take beyond the blow coming, each blow's energy priced by the
+  rules' `blowDamage` over the struck body's hit points (`lifeOf`); its progress on orders, a metre
+  at the person's `OBEDIENCE`, the one weight; the position where it leaves the body less the
+  position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the focus's
+  blows over the cheapest way up its sub-minds' prices give, at most the life the senses say it
+  has); and its time at the rate of play. Ranked worth is the options' order.
 - **The layers under it**, each step: a commitment keeps the legs (standing, facing as it asks)
   and, where its entry says `position`, `approach` brings them into its window; the walk is kept out
   of fallen bodies and solids by navigation (`keepOut`, `clear-step.ts`); a free hand covers
