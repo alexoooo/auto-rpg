@@ -8,7 +8,10 @@ import { approach } from "../../mind/options/approach.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { cover } from "../../mind/options/cover.ts";
 import { moveTo } from "../../mind/options/goals.ts";
-import type { Asked, Situation, StandingOption } from "../../mind/options/option.ts";
+import type { Asked, Option, Situation } from "../../mind/options/option.ts";
+import type { GroundExecutor } from "../../mind/ground/held.ts";
+import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
+import { groundOptions } from "../../mind/options/ground.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "../../mind/options/strike.ts";
@@ -25,8 +28,14 @@ export interface Deciding {
   readonly chooser: PartConfig;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  /** Its ways up from the ground, which price a fall (`downCost`). */
-  readonly subs: readonly PartConfig[];
+  /** Its techniques for getting up, in rank order. */
+  readonly ground: readonly TechniqueConfig[];
+}
+
+/** What it rises by: the ground executor (`groundExecutor`) of the techniques it was made with, `registry`. */
+export interface Rising {
+  readonly executor: GroundExecutor;
+  readonly registry: Readonly<Record<string, TechniquePart>>;
 }
 
 /** **The default footwork**: the position held, standing, facing the focus or the way it faces. */
@@ -59,21 +68,22 @@ function profileDetail(strikes: readonly StrikeOption[], now: Situation): Engage
  * window, `approach`, and is priced by its measured profile where it has one, `strikeMeasure`), and
  * its footwork, a move to each of three named goals (`moveTo`: close, at the edge, out of reach),
  * each worth where it leaves the body; with none worth more than the position held, the default
- * footwork (`footwork`). A free hand covers (`cover`); the walk keeps
+ * footwork (`footwork`). Down, the rise's options (`groundOptions`), the body down while its rise
+ * runs, which price a fall (`downCost`). A free hand covers (`cover`); the walk keeps
  * out of a fallen body's reach and a solid's clearance (`keepOut`); an order to face is followed.
  * What it reports doing is the running commitment's name, the offers it chose among, what its
  * controllers did not carry out as it last decided (`unmetDetail`) and how its strikes were priced
  * (`profileDetail`).
  */
-export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number): Tactics {
-  const downs = deciding.subs.flatMap((sub) => parts.of("sub-mind", sub).down ?? []);
+export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
+  const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
-  const walk = walker(spec), reader = situationReader(spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses), downs);
+  const walk = walker(spec), reader = situationReader(spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses), [ground.down]);
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
-  const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk)];
+  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
-  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
+  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
     get phase() { return chosen.running?.name ?? "hold"; },
@@ -84,8 +94,8 @@ export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, w
     name: "kinetic", state, engagement,
     decide(seen: Sight, dt: number) {
       last = seen;
-      const now = lastNow = reader.read(seen), option = chosen.decide(now);
-      const running = option?.posture === "standing" ? option : null;
+      const now = lastNow = ground.read(reader.read(seen)), option = chosen.decide(now);
+      const running = option && option.posture !== "down" ? option : null;
       const asked: Asked = running ? running.step(now, dt) : { ...footwork(now, walk), actions: [] };
       const held = running ? running.holds(now, asked) : [], near = running?.near?.(now) ?? null;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
