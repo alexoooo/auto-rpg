@@ -141,12 +141,6 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: 
   return { move: null, face, movement, pace: Math.min(Math.max(0, ceiling), distance / RESPONSE) };
 }
 
-/** **How far a walk into `window` goes** from where the body stands facing `heading` (`approachActionWindow`), m across the ground, straight to its place. */
-export function windowDistance(view: BodyView, window: Window, heading: number): number {
-  const { x, z } = placeOf(view, window, heading).offset;
-  return hypot(x, z);
-}
-
 /**
  * Bring a pending target into its declared entry window without taking an action's controls: a
  * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`;
