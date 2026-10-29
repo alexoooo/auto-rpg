@@ -9,7 +9,7 @@ The values the options are priced by are read from the rules and the records, no
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
 letting go is measured across the wind-up; every mind is felled on
-one stand-up bed; one trainer trains any part; and the legs bear on whichever ends the body has. It
+one stand-up bed (built: `buildFall`); one trainer trains any part; and the legs bear on whichever ends the body has. It
 lands before Kinetic step 13, which builds on its options, and before any training run, which
 optimises against its values.
 
@@ -73,11 +73,6 @@ after skills are trained against it.
 - **Letting go is measured at one instant.** The Strike drill lets go only at the first decision
   (`LETTING_GO`, `src/evaluation/strike/cases.ts`), and "ready again" is the executor's
   bookkeeping, not the hand back at its guard; a running strike is priced as a fresh one.
-- **Two stand-up beds.** A mind that takes the Lab's script is read on the stand bed (the target's
-  impulse, re-shoved, a verified stand); any other on the lone bed, shoved once by `FELLING`
-  (237 N s, `src/evaluation/baseline/cases.ts`, a copy of `targetImpulse`'s arithmetic for a
-  79 kg body) and stood by the fight's down rule; a shove that does not fell counts as a failed
-  rise.
 - **Two trainers.** The learning server's kinds (`research/run-learning-server.mjs`) are the
   punch's own code (`research/punch-learning-environment.mjs`) and a case environment that
   drives only the bare mind (`research/case-learning-environment.mjs`): its rewards read the bare
@@ -95,17 +90,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 3. One stand-up bed
-
-Every mind is felled the same way: on the lone bed, shoved by `targetImpulse` of its own body and
-shoved again while it stands (`SHOVED`, `src/lab/ground-mode.ts`), and stood by the target's
-verified stand ([rising](../reference/rising.md#the-owners-target)). A fall not made is a trial
-that did not reach its case, reported so, not a failed rise; the record gives the falls made beside
-the stands. `FELLING` and the stand bed's separate path go.
-
-Check: the baseline's stand-up read again for Kinetic flat-footed and on toes and for step-up
-([the baseline](../reference/baseline.md)), the reference record written with it.
 
 ### 4. One policy, selecting a set
 

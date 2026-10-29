@@ -1052,8 +1052,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **The baseline** (`baseline`): one mind's configuration on the Warrior, its preset's character
   its body's, a protocol a competence and one command playing each in turn (`Evaluation.every`), a
   record each: `walk`, the Locomotion drill; `punch`, the Strike drill's still and walk rungs by its
-  first action; `stand-up`, the owner's target's falls risen by the whole mind (on the lone-body
-  bed for a mind that takes no Lab script, shoved at `FELLING`); `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
+  first action; `stand-up`, the owner's target's falls risen by the whole mind on the fall bed;
+  `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
   side. A reading carries its competence (`part`) and each figure reads its own. A mind given whole
   takes a character and bodies as a preset names them (`{ mind, character, models }`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
@@ -1124,11 +1124,16 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   against the field; intervals from refits to the pairs resampled whole. No strength is carried
   across pools.
 - **Falls** (`fall.ts`): one body of any model under any mind, on Rapier; not bit-equal between
-  JavaScript engines, as a bout is. A fighter on a body the command layers read is shoved, dropped
-  or placed on the ground of the Lab's Stand-up mode, its stand verified (`STAND_CHECK`); any other
-  is built standing as a fight builds it, shoved, and read by the fight's down rule
-  (`buildLoneFall`), and a condition that bed cannot play is refused with why. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
-  same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
+  JavaScript engines, as a bout is. Every evaluated fall is played on one bed (`buildFall`), every
+  mind felled the same way: built standing and enlisted as a fight enlists it, shoved at the middle
+  trunk by the target's impulse (`targetImpulse`), again while it holds the shove (`SHOVED`), taken
+  over when first down by the fight's rule, and its stand verified as the Lab verifies one
+  (`standCheck`, `STAND_CHECK`, `src/lab/ground-mode.ts`). A fall not made did not reach its case:
+  the figures give the falls made and read the stand over them. A condition the bed cannot play is
+  refused with why. The research rising bed (`rising.ts`) plays a fighter on the Lab's Stand-up
+  mode itself (`buildStandFall`), its sub-minds replaceable. `rising-target` plays the owner's 64
+  falls and reports the target's gates; `equipped-rise` the same shoves with sword and buckler and
+  with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
 - **Techniques in turn** (`technique.ts`): one body on the arena's solids, placed in a posture or
   shoved from standing, its stand-up techniques played one after another with no Stand up to route

@@ -39,8 +39,10 @@ npm run evaluate -- rising-target [riser ...]
 ```
 
 - **The falls**: the Warrior and the Rogue, empty-handed and with the club, each shoved sixteen
-  ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`), a shove the
-  body holds given again the same way 1.5 s later, at most three (`SHOVED`): the Warrior's braced
+  ways 22.5 degrees apart, on the fall bed every mind is felled on (`buildFall`,
+  `src/evaluation/fall.ts`; figures read before `35faee00` on the Lab's Stand-up mode,
+  `src/lab/ground-mode.ts`), a shove the body holds given again the same way 1.5 s later, at most
+  three (`SHOVED`): the Warrior's braced
   stance holds 6 of its 16 club shoves and 1 empty-handed, and a fall not made is no stand-up; Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
@@ -51,8 +53,9 @@ npm run evaluate -- rising-target [riser ...]
   the target's directions, 11.25 degrees past each (`FRESH_OFFSET`), read against the same gates,
   their cardinals the four directions just past each. No edge, timing or route is tuned on them:
   they show whether a gain on the target is fitted to its 64 falls.
-- **A recovery** is timed to verified standing, from the riser's takeover, through landing,
-  orientation and retries. A fall not stood counts at the cap.
+- **A recovery** is timed to verified standing (`standCheck`), from the riser's takeover (the body
+  first down by the fight's rule), through landing, orientation and retries. A fall not stood
+  counts at the cap; a fall not made is no stand-up.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
   16 within 6 s in each body and loadout group, and 61 of 64 overall; every cardinal direction
   within 6 s; a failure-inclusive median of at most 4 s.
