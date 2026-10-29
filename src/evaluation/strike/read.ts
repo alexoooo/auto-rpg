@@ -91,7 +91,11 @@ export type StrikeReading = {
   readonly outcome: StrikeOutcome;
   /** The drill's last phase before its action, and the reason its readiness last gave. */
   readonly phase: DrillPhase;
-  /** The target's phase as the striker sensed it the step its action began (the `phase` percept, `sensedPhase`); null where none began. */
+  /**
+   * The target's phase as the striker sensed it (the `phase` percept, `sensedPhase`) where its
+   * trial began: the step the drill was first ready to ask or its action began, whichever came
+   * first, else the step the drill had the body; null where it never had it.
+   */
   readonly foePhase: string | null;
   readonly reason: string;
   /** When the drill had the body, s: the bout's start, or the moment its fight was handed to it; null where it never was. */
@@ -151,7 +155,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
   let letAt: number | null = null, again: number | null = null;
-  let asked: StrikeReading["asked"] = null, foePhase: string | null = null;
+  let asked: StrikeReading["asked"] = null, foePhase: string | null = null, atHand: string | null = null;
   const head = centreReading(left.built, "head"), centre = new Vector3();
   /** The target's phase as the striker senses it now (`sensedPhase`). */
   const sensed = (): string => {
@@ -199,9 +203,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         for (const one of skills.report.actions) before.add(one.id);
         return;
       }
-      handed ??= fought ? world.time : 0;
+      if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
       const action = skills.report.actions.find((one) => !before.has(one.id));
-      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foePhase = sensed(); }
+      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foePhase ??= sensed(); }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
         if (action.phase === "release" && times.released === null) times.released = world.time;
@@ -213,7 +217,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       if (id === null) {
         const engagement = skills.report.engagement;
         phase = (engagement?.phase ?? "lost") as DrillPhase;
-        if (phase === "ready" || phase === "striking") ready ??= world.time;
+        if ((phase === "ready" || phase === "striking") && ready === null) { ready = world.time; foePhase ??= sensed(); }
         reason = engagement?.details?.find((detail) => detail.label === "readiness")?.value ?? "";
       }
       if (id !== null && times.ended === null) {
@@ -262,7 +266,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meets(hit) && times.ended !== null ? "landed" : "weak"
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
-      return { outcome, phase, foePhase, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
+      return { outcome, phase, foePhase: foePhase ?? atHand, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), down, seconds: world.time };
     },
   };

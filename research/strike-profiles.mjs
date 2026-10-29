@@ -5,8 +5,8 @@
  * profile a skill on a body against a target: its measured-on read from each row's world (the left
  * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
  * the recipe's sense delay), its target the right body's; a cell a gap and the target's phase as
- * the striker sensed it when its strike began (the reading's `foePhase`; a trial with none began
- * none). A record that does not hold that phase is refused: its rung is played again. The `walk`
+ * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
+ * reached the drill). A record that does not hold that phase is refused: its rung is played again. The `walk`
  * rung is left out: the range it was asked at is not recorded.
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go.
  *
