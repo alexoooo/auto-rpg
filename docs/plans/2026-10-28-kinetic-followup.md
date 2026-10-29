@@ -79,8 +79,7 @@ after skills are trained against it.
   posture lying.
 - **Kinetic's deciding parts are code.** The valued chooser prices by `FEW_TERMS` alone
   (`src/core/entrants/kinetic/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
-  one frozen literal, and a profile is read only by `readProfile`. A drill drives Kinetic by
-  swapping its whole policy for tactics (`KineticConfig.tactics`).
+  one frozen literal, and a profile is read only by `readProfile`.
 - **The rise's options are offered by Stand up's supervisor.** `groundOptions` offers, in a fixed
   cascade, the attempt under way alone, else brace, back off, steady, the edges reading motion,
   land, the edges, a reposition, back off; its modes run on timers and counts (`BRACE_LIMIT`,
@@ -172,7 +171,28 @@ their own tactics, which read no exit.
 
 ### 15. Kinetic's parts by configuration
 
-Kinetic's config names its position value (`FEW_TERMS` the default), its predictions (the prior,
+Built: Kinetic's config names its chooser and, in the valued chooser's slot, its position value
+(`FEW_TERMS_PART`, `few-terms`); its predictions (`predictions`: `measured`, the drills' tables, or
+`prior`, none, `predictions-part.ts`); and its options, each a part of role `option` making the
+options of its kind from what Kinetic gives it (`OPTION_KINDS`, `OptionsGiven`,
+`src/core/entrants/kinetic/options/kinds.ts`), in rank order. A drill drives Kinetic by its config
+(`Controller.drilled`, `drilledBy`): its options are one script of the drill's tactics
+(`scripted`), on offer and committed over the whole body, chosen by Kinetic's chooser on its
+percepts, which reports the drill's phase in Kinetic's place; `KineticConfig.tactics` is gone.
+
+Two parts of the step stay as they are. The percepts stay Kinetic's own module (`PERCEPTS`): a
+part role for them would have one reader. The drill's script stays whole rather than Kinetic's
+options narrowed to the skill under test with the drill's orders beside them: orders that name a
+skill and its target wait on the orders vocabulary
+([Kinetic plan step 13](2026-10-27-kinetic.md#13-footwork-the-guard-and-the-intent)).
+
+Check: the gate; the fingerprint against the commit before, unmoved; the drills read with the
+policy in place of the tactics paired with the step before; a person edits Kinetic's options in
+the Arena and the link carries them. Read: no pose moved (67cb9f43 against 3e9b1fe9); every Kinetic
+drill rung (Cover `punched` and `swung`, Gait `stopped`, Strike `guarding`, `letgo`,
+`letgo-punched`, `punching`, `stepping`) plays trial for trial as at eab4ca4d.
+
+The step as asked: Kinetic's config names its position value (`FEW_TERMS` the default), its predictions (the prior,
 the measured tables), its options (each a skill kind and its targets, the list `kineticTactics`
 makes now, in rank order) and the percepts it adds to the toolkit's, an entrant's own as a part is.
 A drill drives Kinetic by its config: its subject's options narrowed to the skill under test and a

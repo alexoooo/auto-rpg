@@ -711,8 +711,10 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   action under way holds it, at most a second a run of blows; it claims its hand, asks it between
   the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS` of
   `danger`, that blow's life), so it outbids the hand's guard while a blow comes.
-- Its defaults are `KINETIC` (`mind.ts`). The Cover drill's tactics (`drill-cover.ts`), a part of
-  its own, stand and cover by its covers, its chooser and its situation.
+- Its defaults are `KINETIC` (`mind.ts`). A drill drives it by its config (`drilled`): its options
+  one script of the drill's tactics (`scripted`, `kinds.ts`), chosen by its chooser and reporting
+  the drill's phase in its place. The Cover drill's tactics (`drill-cover.ts`), a part of its own,
+  stand and cover by its covers, its chooser and its situation.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
