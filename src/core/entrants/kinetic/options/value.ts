@@ -3,7 +3,7 @@ import { sideDamage, type Rulebook } from "../../../rules/rulebook.ts";
 import { energyShares } from "../../../rules/share.ts";
 import { landed } from "../../../skills/action-instances.ts";
 import type { Ended } from "../../../skills/action.ts";
-import type { BodySpec, Side } from "../../../spec/body.ts";
+import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import { here, type Place, type PositionValue } from "./position.ts";
@@ -66,58 +66,59 @@ export function worth(terms: Terms, now: Situation, obedience: Obedience, positi
   return { worth: terms.dealt * (named ? 1 + obedience.foe : 1) - (terms.taken - now.predictions.danger) + obedience.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
 }
 
-/** How fast a hand closes on a head in a blow not under way to measure, m/s. */
+/** How fast a limb closes on what it strikes in a blow not under way to measure, m/s. */
 const BLOW_SPEED = 5;
 
-/** Each spec's striking masses, found once: a spec is immutable. */
-const arms = new WeakMap<BodySpec, Readonly<Record<Side, number>>>();
+/** Each spec's striking masses by limb, found once: a spec is immutable. */
+const limbs = new WeakMap<BodySpec, Map<string, number>>();
 
-/** The mass a hand of `spec` strikes with, kg: its arm's segments, from its effector's base out, and what the hand holds. */
-function strikingMass(spec: BodySpec, hand: Side): number {
-  let masses = arms.get(spec);
-  if (!masses) {
-    const of = (side: Side): number => {
-      const effector = spec.effectors?.find((e) => e.segment === `hand.${side}`);
-      if (!effector) return 0;
-      let total = 0;
-      for (let at: string | undefined = effector.segment; at !== undefined && at !== effector.base; at = spec.joints.find((joint) => joint.child === at)?.parent) {
-        const name = at;
-        total += spec.segments.find((segment) => segment.name === name)?.mass.value ?? 0;
-        for (const item of spec.held ?? []) if (item.segment === name) total += item.item.mass.value;
-      }
-      return total;
-    };
-    arms.set(spec, masses = { left: of("left"), right: of("right") });
+/**
+ * The mass `limb` of `spec` (an effector's segment, `hand.left`, `foot.right`) strikes with, kg:
+ * its chain's segments, from its effector's base out, and what they hold; 0 for no effector.
+ */
+function strikingMass(spec: BodySpec, limb: string): number {
+  let masses = limbs.get(spec);
+  if (!masses) limbs.set(spec, masses = new Map());
+  const known = masses.get(limb);
+  if (known !== undefined) return known;
+  const effector = spec.effectors?.find((e) => e.segment === limb);
+  let total = 0;
+  if (effector) for (let at: string | undefined = effector.segment; at !== undefined && at !== effector.base; at = spec.joints.find((joint) => joint.child === at)?.parent) {
+    const name = at;
+    total += spec.segments.find((segment) => segment.name === name)?.mass.value ?? 0;
+    for (const item of spec.held ?? []) if (item.segment === name) total += item.item.mass.value;
   }
-  return masses[hand];
+  masses.set(limb, total);
+  return total;
 }
 
-/** The head's mass of `spec`, kg: the segment its high mark names. */
-const headMass = (spec: BodySpec): number => spec.segments.find((segment) => segment.name === spec.marks.high)?.mass.value ?? spec.mass.value;
+/** The mass of `spec`'s segment `at`, kg; the body's with no such segment. */
+const segmentMass = (spec: BodySpec, at: string): number => spec.segments.find((segment) => segment.name === at)?.mass.value ?? spec.mass.value;
 
-/** The energy of a blow of `hand` of `striker` on `struck`'s head, J: as the rules price an impact (`impactEnergy`), closing at `closing` m/s. */
-function blowEnergy(striker: BodySpec, hand: Side, struck: BodySpec, closing: number): number {
-  const mass = strikingMass(striker, hand);
-  return mass > 0 ? impactEnergy(mass, headMass(struck), closing) : 0;
+/** The energy of a blow of `limb` of `striker` on `struck`'s segment `at`, J: as the rules price an impact (`impactEnergy`), closing at `closing` m/s. */
+function blowEnergy(striker: BodySpec, limb: string, struck: BodySpec, at: string, closing: number): number {
+  const mass = strikingMass(striker, limb);
+  return mass > 0 ? impactEnergy(mass, segmentMass(struck, at), closing) : 0;
 }
 
-/** How stiff the face `hand` of `spec` strikes with is, N/m: what it holds, else the hand's own; null for a rigid one. */
-function strikingStiffness(spec: BodySpec, hand: Side): number | null {
-  const segment = `hand.${hand}`, held = spec.held?.find((item) => item.segment === segment);
-  return (held ? held.item.surface : spec.segments.find((one) => one.name === segment)?.surface)?.stiffness.value ?? null;
+/** How stiff the face `limb` of `spec` strikes with is, N/m: what it holds, else the limb's own; null for a rigid one. */
+function strikingStiffness(spec: BodySpec, limb: string): number | null {
+  const held = spec.held?.find((item) => item.segment === limb);
+  return (held ? held.item.surface : spec.segments.find((one) => one.name === limb)?.surface)?.stiffness.value ?? null;
 }
 
 /**
- * **The life a blow of `hand` of `striker` takes from `struck`'s segment `at`** (its head, its
- * `marks.high`, unless named), by `rules`: its energy closing at `closing` m/s (`blowEnergy`), the
- * segment's share of it by the two faces' stiffness (`energyShares`), priced blunt as the rules
- * price a side's damage (`sideDamage`), over the struck body's hit points. An edge or a point is
- * priced as its blunt impact, the hand's own model.
+ * **The life a blow of `limb` of `striker` takes from `struck`'s segment `at`** (`limb` an
+ * effector's segment, `hand.left` or `foot.right`; `at` its head, its `marks.high`, unless named),
+ * by `rules`: its energy closing at `closing` m/s into that segment (`blowEnergy`), the segment's
+ * share of it by the two faces' stiffness (`energyShares`), priced blunt as the rules price a
+ * side's damage (`sideDamage`), over the struck body's hit points. An edge or a point is priced as
+ * its blunt impact, the limb's own model.
  */
-export function blowLife(rules: Rulebook, striker: BodySpec, hand: Side, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
+export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
   const face = struck.segments.find((segment) => segment.name === at)?.surface?.stiffness.value ?? null;
-  const share = energyShares([strikingStiffness(striker, hand), face])[1]!;
-  return sideDamage(rules, "blunt", blowEnergy(striker, hand, struck, closing), share, 0) / struck.wounds.hp.value;
+  const share = energyShares([strikingStiffness(striker, limb), face])[1]!;
+  return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) / struck.wounds.hp.value;
 }
 
 /** What an action is taken to do before its body has a record of it, the owner's decision: land this share of its blows, each running this long, s; worth `weight` records. */

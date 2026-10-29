@@ -11,7 +11,7 @@ import { edgeOf, threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { Walker } from "./walk.ts";
-import type { BodySpec, Side } from "../../../spec/body.ts";
+import type { BodySpec } from "../../../spec/body.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
@@ -160,15 +160,15 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
-   * from its stronger hand at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the hand
+   * from its stronger limb at the segment its region strikes (`blowLife`), each landing as often as its record says (`record`, which is of the limb
    * it is asked for), as long as its record says it runs, under the focus's pressure from `from` m
    * head to head.
    */
   const priorOf = (now: Situation, from: number): Expected => {
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
     const target = targetOf(now), segment = target?.kind === "body" && now.focus ? regionSegments(now.focus.spec, target.region)[0] : undefined;
-    const blows = now.predictions.blows(segment ?? now.focus?.spec.marks.high ?? "");
-    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? blows[limb.slice(5) as Side] : 0));
+    const struck = segment ?? now.focus?.spec.marks.high ?? "";
+    const blow = Math.max(...action.effectors.map((limb) => now.predictions.blows(limb, struck)));
     return { done: lands, dealt: throws * lands * blow, taken: threatened(now, seconds, from), seconds, down: 0, ends: [] };
   };
   /** Its window now (`StrikeOption.window`). */
