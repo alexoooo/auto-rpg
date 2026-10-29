@@ -337,16 +337,82 @@ and the chooser looks one option past each option that moves the body.
   body, priced at that place (`Place`, its percepts predicted, step 14) less its time at the rate
   of play. Only an option whose exit moves the body (a walk, a strike) is looked past: a rest option
   or a cover leaves it where it is, and the best there is the best now.
-- `StrikeOption.through` goes, and the walk into a window is a gait toward a goal priced by its
-  own profile, as `moveTo` is; the strike prices no walk.
+- The lookahead reads the options' models at their predicted exits, never the world: the game runs
+  in real time, and no decision forks, copies or rebuilds the world's state. A forked bout is for
+  offline work (training, evaluation, replay).
+- An option answers at a place as well as now: its entry there and its model there, from the
+  percepts the place predicts (`atExit`). A strike is on offer at a place that lies in the window
+  its readiness gives now, and reads its profile at the place's range and the focus's predicted
+  posture; an option whose entry reads nothing a place predicts answers as it does now.
+- The walk into a strike's window is today that one pairing built by hand: `toWindowOf` prices the
+  walk by `StrikeOption.through` (the walk, braced, then the blow), which is how Kinetic walks to
+  a lying body and stomps it. `through` goes, and the walk into a window is a gait toward a goal
+  priced by its own profile, as a walk to a goal is (`toGoalOf`); the strike prices no walk, and the
+  stomp after the walk is the best option at the walk's exit. A walk then any option (out of
+  pressure then a strike, a walk then a cover) is priced the same way, with no pairing written.
 - Its time is read as the step's is: on Node a simulated depth 2 (each option on offer priced
   again for each, this step's readings reused) took a decision from 0.15 to 0.52 ms at the median and a
   Kinetic v Kinetic bout's step from 2.76 to 2.91 ms on the mean (Rapier, 120 Hz, 30 s, the toed
-  Warrior, performance cores, at `8a30589e`); a real one reads a predicted situation for each.
+  Warrior, performance cores, at `8a30589e`); a real one also reads the percepts each place
+  predicts.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
-and Gait drills paired with the step before; the step's time read before and after, and in a Crypt
-run with its most bodies.
+and Gait drills paired with the step before; Kinetic still walks to a lying Skeleton and stomps it;
+the step's time read before and after, and in a Crypt run with its most bodies.
+
+### 21a. Places at distance from the foe
+
+Left: footwork walks to places at a distance from the focus, each derived from a skill or the foe's
+model, in place of its named destinations. It needs step 20: between bodies alike, a place priced
+by the position value alone is worth about nothing (`toWindowOf`), so a walk is worth the best
+option at its end.
+
+- **The places**: footwork (an option a gait, as now) is aimed at candidate places, each derived:
+  - each strike's window, as its readiness gives it: a range facing the focus for the punch, a
+    place beside a lying body for the stomp (`Window.on`), walked to as now (`approachActionWindow`);
+  - the foe's reach edge plus what it closes in the senses' lag (`edgeOf` of the pressure plus
+    `closes`, what `OUT_OF_PRESSURE` reads now), walked to as a range (`MovementRequest`'s `range`);
+  - where the body stands.
+
+  A new strike adds its window; no distance is set by hand.
+- **The foe's reach where nothing measured it**: a foe with no profile measured on its body is
+  modelled by Kinetic's own strikes, read at their measured ranges (`foeModel`, "as its own
+  strikes"), so an unmeasured Skeleton's shorter arms or a Rogue's club read as the Warrior's punch.
+  Such a borrowed profile's ranges are read scaled by the two bodies' reach (`armOf`, and a held
+  item's points where it is armed), and the reading says so (`scaled`).
+- **Its price**: the gait's own profile (the time at its pace, the seconds until braced, the
+  chance it falls; `Going`) and the foe's pressure while within its reach on the way; its exit the
+  place's range, so the position value prices it and step 20 adds the best option there. The walk
+  stays kept out of every fallen body's reach but the focus's (`Walker.kept`).
+- **What goes**: `toWindowOf`, `toGoalOf`, `OUT_OF_PRESSURE` and the `Goal` band type.
+  `StrikeOption.window` stays: a source of places and the strike's own readiness.
+- Kinetic walks about as now; a case that moves is named.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
+and Gait drills paired with the step before; Kinetic against an unmeasured foe of another reach
+read with and without the scaled reach (`npm run match`).
+
+### 21b. A bearing around the foe
+
+Left: footwork sidesteps and circles: the places of 21a at bearings around the focus, priced by
+what a bearing changes.
+
+- **The places**: each distance at the bearing the body holds and a step to either side of it.
+  The bearing is a percept (`around`, from the focus's forward direction) that a place may predict
+  (`Place`); nothing prices it yet. The walk is to a point (`MovementRequest`'s `place`), so it is
+  routed round walls.
+- **What a bearing is worth**: the position value reads it. A strike needs its striker to face its
+  target, so the foe's pressure from its side or back waits the time it takes to turn (its turn
+  rate, measured), and the body's strikes the same. By hand first, the owner's decision sourced;
+  then measured by a Strike drill rung that strikes from off the foe's front, the strike profiles
+  gaining bearing as a dimension beside range and the foe's phase.
+- **Dithering**: neighbouring bearings price alike, so the choice may flip between them. The cost
+  of letting an option go (`Offer.letGo`) and the chooser's rethink (`DECIDING`, 0.2 s) damp it; a
+  bout watched decides whether more is needed.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike
+and Gait drills paired with the step before; the baseline fights against their records; the step's
+time in a Crypt run with its most bodies; the owner watches a bout for circling and dithering.
 
 ## Not here
 
@@ -379,4 +445,6 @@ the posture it leaves, with no supervisor. Every option's entry is its skill's r
 claims what its action needs, and the walk into its reach priced from its window; a foe on the
 ground is priced by its models, the focus chosen by worth and the walk's limits priced in the walk;
 and Kinetic strikes a fallen foe. A walk is priced by its gait and where it leaves the body, and the
-chooser looks one option past each option that moves the body.
+chooser looks one option past each option that moves the body, on the options' models, never the
+world; footwork walks to places at a distance and a bearing from the focus, each derived from a
+skill's window or the foe's model, and a bearing is priced by the position value.
