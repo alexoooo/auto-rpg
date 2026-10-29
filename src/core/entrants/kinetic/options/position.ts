@@ -82,7 +82,7 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 export const FEW_TERMS: PositionValue = deepFreeze({
   name: "few terms",
   of(now: Situation, place: Place, seconds: number): number {
-    const lead = now.lead, fallen = place.down * now.predictions.downCost, focus = now.focus;
+    const lead = now.lead, fallen = place.down * (place.posture ? now.predictions.downCostAt(place.posture) : now.predictions.downCost), focus = now.focus;
     if (!focus || focus.down || !Number.isFinite(place.range)) return lead - fallen;
     const { theirs, mine } = now.reach;
     const exchange = dealtAt(now.predictions.pressing, now, place.range, Math.max(0, TERMS.held - atExit(now, place, "unbraced"))) - dealtAt(now.predictions.pressure, now, place.range, TERMS.held);

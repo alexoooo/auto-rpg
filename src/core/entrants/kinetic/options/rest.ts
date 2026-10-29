@@ -43,7 +43,7 @@ export function brace(rise: (now: Situation) => DownModel, by: { readonly action
   const STANDING = blocked("standing"), state = { id: null as number | null };
   return { name: "brace", claims: WHOLE, state, ...RESTING,
     begin() { state.id = null; }, end() { state.id = null; },
-    entry: (now) => now.down ? READY : STANDING, model: (now) => downTerms({ ...rise(now), stands: 0 })(now),
+    entry: (now) => now.down ? READY : STANDING, model: (now) => downTerms({ ...rise(now), stands: 0 }, now.posture)(now),
     step(now) {
       if (!by) return { asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING };
       state.id ??= now.sight.instance();

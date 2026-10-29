@@ -30,7 +30,7 @@ function coverDrill(making: TacticsMaking): Tactics {
     engagement: { get phase() { return state.covering ? "covering" : "standing"; } },
     decide(sight, dt) {
       // The situation is read at the world's rate, which the first decision's step gives.
-      reader ??= situationReader({ spec: making.spec, hz: Math.round(1 / dt), rules: making.rules, strikes: [], measured: [], ordersOf: () => null, downs: [] });
+      reader ??= situationReader({ spec: making.spec, hz: Math.round(1 / dt), rules: making.rules, strikes: [], measured: [], ordersOf: () => null });
       state.situation = reader.state;
       const now = reader.read(sight), { guard } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
       state.covering = Object.keys(guard).length > 0;
