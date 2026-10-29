@@ -1,11 +1,12 @@
 /**
  * **A skill's profile**: what its drill measured the skill to bring from where it began, so that a
  * chooser prices it on measured numbers rather than a hand-built model. Few dimensions: the range to
- * the foe, centre to centre across the ground, m; how fast the two close, m/s; and the foe's phase
- * (`FoePhase`: a skill with no foe, a ground edge, has one cell, at no range, clear). Each cell holds
- * what its trials came to (`ProfileCell`). A profile names what it was measured on (`Measured`);
- * one read for another body, skill, rate or reaction time is stale (`staleness`), and a chooser
- * prices that skill by hand.
+ * the foe, centre to centre across the ground, m, and the foe's phase as the striker sensed it when
+ * it began (the `phase` percept, `sensedPhase`: a skill with no foe, a ground edge, has one cell, at
+ * no range, clear). Each cell holds what its trials came to (`ProfileCell`). A profile names what it
+ * was measured on (`Measured`) and the body it was measured against (`Target`, none for a skill with
+ * no foe); one read for another body, skill, rate or reaction time is stale (`staleness`), and a
+ * chooser prices that skill by hand.
  *
  * Profiles are data scripts write from drill records: the strikes' from the Strike drill
  * (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`) and the ground edges' from
@@ -34,8 +35,14 @@ export interface Measured {
   readonly reaction: number | null;
 }
 
+/** The body a profile was measured against: its body (`bodyKey`) and its spec's digest (`specDigest`). */
+export interface Target {
+  readonly body: string;
+  readonly spec: string;
+}
+
 /**
- * **One cell of a profile**: where its trials began (range, closing speed, the foe's phase), how
+ * **One cell of a profile**: where its trials began (range, the foe's phase), how
  * many there were, and what they came to: the share done (a strike landed, an edge reached its
  * posture), the hit points its blows took from the body struck and those its own body lost (the
  * rules' damage, each a share of a body's life once over that body's hit points), the seconds a
@@ -45,7 +52,6 @@ export interface Measured {
  */
 export interface ProfileCell {
   readonly range: number;
-  readonly closing: number;
   readonly phase: string;
   readonly trials: number;
   readonly done: number;
@@ -60,25 +66,23 @@ export interface ProfileCell {
 
 export interface Profile {
   readonly measured: Measured;
+  /** The body it was measured against; null for a skill with no foe. */
+  readonly target: Target | null;
   readonly cells: readonly ProfileCell[];
 }
 
-/** Where a skill would begin: the range, m, the closing speed, m/s, and the foe's phase. */
+/** Where a skill would begin: the range, m, and the foe's phase. */
 export interface ProfilePlace {
   readonly range: number;
-  readonly closing: number;
   readonly phase: string;
 }
 
-/** How far a metre a second of closing is from a metre of range, s, in finding the nearest cell. */
-const CLOSING_SECONDS = 1;
-
-/** **What `profile` expects from `at`**: its nearest cell of the same phase (range and closing apart, `CLOSING_SECONDS`), the first of equals; null where it has none of that phase. */
+/** **What `profile` expects from `at`**: its nearest cell of the same phase by range, the first of equals; null where it has none of that phase. */
 export function expect(profile: Profile, at: ProfilePlace): ProfileCell | null {
   let best: ProfileCell | null = null, distance = Infinity;
   for (const cell of profile.cells) {
     if (cell.phase !== at.phase) continue;
-    const d = Math.abs(cell.range - at.range) + CLOSING_SECONDS * Math.abs(cell.closing - at.closing);
+    const d = Math.abs(cell.range - at.range);
     if (d < distance) { best = cell; distance = d; }
   }
   return best;

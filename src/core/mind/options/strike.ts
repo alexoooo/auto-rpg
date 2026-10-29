@@ -115,7 +115,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const { apart, theirs, mine } = now.reach, pace = walk.pace(now), walks = entry(now).kind === "position";
       const walking = walks ? Math.max(0, apart - mine) / pace : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0;
       const profile = profileNow(now), focus = now.focus;
-      const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), closing: now.closing, phase: now.phase }) : null;
+      const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), phase: now.phase }) : null;
       const from = walks ? Math.min(apart, mine) : apart;
       if (e && focus) {
         const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds, hp = measure.spec.wounds.hp.value;

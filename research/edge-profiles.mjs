@@ -62,8 +62,8 @@ for (const path of paths) {
   }
 }
 
-const out = { source: { script: "research/edge-profiles.mjs", records: paths }, profiles: [...profiles.values()].map((p) => ({ measured: p.measured,
-  cells: [{ range: 0, closing: 0, phase: "clear", trials: p.begun, done: p.done / p.begun, dealt: 0, taken: 0, seconds: round(p.seconds / p.begun),
+const out = { source: { script: "research/edge-profiles.mjs", records: paths }, profiles: [...profiles.values()].map((p) => ({ measured: p.measured, target: null,
+  cells: [{ range: 0, phase: "clear", trials: p.begun, done: p.done / p.begun, dealt: 0, taken: 0, seconds: round(p.seconds / p.begun),
     down: 1 - p.done / p.begun, ends: Object.entries(p.fails).map(([at, count]) => ({ at, share: count / p.begun })) }] })) };
 for (const p of profiles.values())
   console.log(`${p.label}: done ${p.done} of ${p.begun}, ${round(p.seconds / p.begun)} s a trial, failures ending ${JSON.stringify(p.fails)}`);

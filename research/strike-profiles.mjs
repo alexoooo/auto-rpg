@@ -2,10 +2,12 @@
  * **The strikes' profiles** (`src/core/mind/profile.ts`, `assets/core/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
  * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at. A
- * profile a skill on a body: its measured-on read from each row's world (the left body's spec as the
- * bout builds it, the skill's digest as the mind holds it, the harness's rate, the recipe's sense
- * delay); a cell a gap and the foe's phase (`striking` on the `punching` and `letgo-punched` rungs,
- * else `clear`), closing 0. The `walk` rung is left out: the range it was asked at is not recorded.
+ * profile a skill on a body against a target: its measured-on read from each row's world (the left
+ * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
+ * the recipe's sense delay), its target the right body's; a cell a gap and the target's phase as
+ * the striker sensed it when its strike began (the reading's `foePhase`; a trial with none began
+ * none). A record that does not hold that phase is refused: its rung is played again. The `walk`
+ * rung is left out: the range it was asked at is not recorded.
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go.
  *
  * A cell's trials: the share that landed; the hit points the rules took from the target in every
@@ -23,25 +25,24 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
-import { measuredOn, skillDigest } from "../src/core/mind/profile.ts";
+import { measuredOn, skillDigest, specDigest } from "../src/core/mind/profile.ts";
+import { bodyKey } from "../src/core/spec/body.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");
 const named = process.argv.slice(2).filter((arg) => arg !== "--write");
 const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).source.records;
-/** The foe's phase on each rung that has one but `clear`. */
-const PHASES = { punching: "striking", "letgo-punched": "striking" };
 
 /** A record's header and rows. */
 const read = (path) => readFileSync(path, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 const round = (x) => Number(x.toFixed(4));
 
-/** Each left body's spec, by its recipe's model and attributes: as the bout resolves it (no loadout, surfaces, haste or balance in a drill's recipe). */
+/** Each side's body's spec, by its recipe's model and attributes: as the bout resolves it (no loadout, surfaces, haste or balance in a drill's recipe). */
 const specs = new Map();
-function specOf(recipe) {
+function specOf(recipe, side = "left") {
   for (const key of ["loadouts", "surfaces", "haste", "balance"]) if (recipe[key] !== undefined) throw new Error(`a drill recipe with ${key} is not read here`);
-  const key = JSON.stringify([recipe.left, recipe.attributes?.left ?? {}]);
-  if (!specs.has(key)) specs.set(key, resolveCharacter({ model: recipe.left, attributes: recipe.attributes?.left ?? {} }).spec);
+  const key = JSON.stringify([recipe[side], recipe.attributes?.[side] ?? {}]);
+  if (!specs.has(key)) specs.set(key, resolveCharacter({ model: recipe[side], attributes: recipe.attributes?.[side] ?? {} }).spec);
   return specs.get(key);
 }
 
@@ -62,12 +63,16 @@ for (const path of paths) {
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
-    const measured = measuredOn(spec, skillDigest(partLookup, mind.executors, action), hz, reaction), key = JSON.stringify(measured);
-    const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.action}`, records: new Set(), cells: new Map() };
+    const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
+    const measured = measuredOn(spec, skillDigest(partLookup, mind.executors, action), hz, reaction), key = JSON.stringify([measured, target]);
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, records: new Set(), cells: new Map() };
     profiles.set(key, profile);
     profile.records.add(path);
-    const phase = PHASES[rung] ?? "clear", cellKey = JSON.stringify([row.condition.gap, phase]);
-    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, closing: 0, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, let: 0, letSeconds: 0, letTaken: 0 };
+    if (row.reading.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
+    const phase = row.reading.foePhase;
+    if (phase === null) continue;
+    const cellKey = JSON.stringify([row.condition.gap, phase]);
+    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, let: 0, letSeconds: 0, letTaken: 0 };
     profile.cells.set(cellKey, cell);
     const r = row.reading;
     if (drill.letGo !== undefined) {
@@ -84,9 +89,9 @@ for (const path of paths) {
   }
 }
 
-const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured,
+const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
   cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
-    range: c.range, closing: c.closing, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
+    range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
     seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [],
     ...(c.let ? { letGo: { seconds: round(c.letSeconds / c.let), taken: round(c.letTaken / c.let) } } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {

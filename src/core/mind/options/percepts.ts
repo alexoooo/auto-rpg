@@ -15,7 +15,7 @@ import type { Orders } from "../orders.ts";
 import { profilesOn, sameReaction, STRIKE_PROFILES, type Profile, type ProfileCell } from "../profile.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
-import { READINGS, type threatReader } from "../threat.ts";
+import { READINGS, threatReader, type ThreatView } from "../threat.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
 import { blowLife, record } from "./value.ts";
@@ -89,6 +89,15 @@ function foePhase(focus: BodySense | null, blow: Seen["blow"]): FoePhase {
   if (!focus) return "clear";
   if (focus.down) return focus.velocity.y > RISING ? "rising" : "down";
   return blow?.foe.id === focus.id ? "striking" : "clear";
+}
+
+/**
+ * **The `phase` percept of a body that senses as `view` does, its focus the body `focus` names**
+ * (`foePhase`, the blow predicted as the situation predicts it, `READINGS.predicted`): the rule a
+ * reader outside the mind reads it by, a drill's record of where its strike began.
+ */
+export function sensedPhase(view: ThreatView, focus: string): FoePhase {
+  return foePhase(view.senses.others.find((other) => other.id === focus) ?? null, threatReader().blowOf(view, READINGS.predicted));
 }
 
 /** Whether `spec` has both hands to strike with: what the reach readings measure. */
@@ -265,13 +274,6 @@ function downCostOf(seen: Seen): number {
   return least;
 }
 
-/** How fast the body and the focus close, m/s, across the ground: their centres' velocities along the line between them; 0 with no focus, or none apart. */
-function closingOf({ focus, sight }: Seen): number {
-  if (!focus) return 0;
-  const { centre, velocity } = sight.view.stance, x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, apart = hypot(x, z);
-  return apart > 0 ? ((velocity.x - focus.velocity.x) * x + (velocity.z - focus.velocity.z) * z) / apart : 0;
-}
-
 /**
  * **Every percept the options fighter reads**, by name, in the order they are read: whether the
  * body is down; its orders; its focus; how far off the focus is, centre to centre across the
@@ -280,7 +282,7 @@ function closingOf({ focus, sight }: Seen): number {
  * (`dangerOf`), 0 with none; the reach head to head (`Reach`:
  * Infinity and noughts with no focus); what a standing focus is expected to deal the body
  * (`Pressure`), and what its own strikes are expected to deal the focus (`pressingOf`); what a fall
- * would cost (`downCostOf`), own life; how fast the two close (`closingOf`), m/s; how late the
+ * would cost (`downCostOf`), own life; how late the
  * senses show the focus (`reactionOf`), s; the lead (its own life less the focus's, 0 with none)
  * and the time left before the clock's verdict (`Senses.ends`, Infinity where none ends it), s;
  * and the focus's life a blow of each hand at its head takes by the rules (`blowLife`), 0 with no
@@ -308,7 +310,6 @@ export const PERCEPTS = Object.freeze({
   pressure: { read: pressureOf } as Percept<Pressure>,
   pressing: { read: pressingOf } as Percept<Pressure>,
   downCost: { read: downCostOf } as Percept<number>,
-  closing: { read: closingOf } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,

@@ -75,12 +75,19 @@ const STRIKING = new WeakMap<BodySpec, Readonly<Record<Side, Vec3 | null>>>();
 interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; readonly lever: Vector3 }
 
 /** A mind's own threat readings (`threatOf`, `incomingThreat`), working in vectors no other mind shares. */
+/** What a threat is read from (`threatOf`): the body's senses, its head and its centre of mass. */
+export interface ThreatView {
+  readonly senses: BodyView["senses"];
+  readonly head: BodyView["head"];
+  readonly stance: Pick<BodyView["stance"], "centre">;
+}
+
 export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
-    threatOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading)?.cover ?? null,
+    threatOf: (view: ThreatView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading)?.cover ?? null,
     /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, its time to contact, s, and whose hand it is. */
-    blowOf: (view: BodyView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading),
+    blowOf: (view: ThreatView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
   };
 }
@@ -99,7 +106,7 @@ export function threatReader() {
  * With `hold`, a point the prediction finds no crossing for is covered where it is. Its time to
  * contact is the crossing's, or with none its distance at its closing speed.
  */
-function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork,
+function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
   { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; hand: Side } | null {
   const { senses, head } = view;
   let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, by: { foe: BodySense; hand: Side } | null = null;
