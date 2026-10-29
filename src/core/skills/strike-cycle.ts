@@ -36,6 +36,8 @@ interface Motion {
 }
 export interface StrikeLimits {
   readonly near: number;
+  /** How near home a return comes to be done, m; none, `near`. A return to a waypoint is done further off than a chamber is reached. */
+  readonly returnNear?: number;
   readonly slow: number;
   readonly hold: number;
   readonly prepareLimit: number;
@@ -48,8 +50,8 @@ export interface StrikeLimits {
 export const STRIKE_EVENT = Object.freeze({ launch: 1, thrown: 2, returned: 4, failed: 8, finished: 16, admitted: 32, aborted: 64 });
 
 /** Measured endpoint proximity and speed, independent of a requested path's clock. */
-function strikeReady(at: Vec3, target: Vec3, velocity: Vec3, limits: Pick<StrikeLimits, "near" | "slow">): boolean {
-  return hypot(at[0] - target[0], at[1] - target[1], at[2] - target[2]) <= limits.near && hypot(...velocity) <= limits.slow;
+function strikeReady(at: Vec3, target: Vec3, velocity: Vec3, near: number, slow: number): boolean {
+  return hypot(at[0] - target[0], at[1] - target[1], at[2] - target[2]) <= near && hypot(...velocity) <= slow;
 }
 
 /** Start a finite path from the measured endpoint motion. */
@@ -68,7 +70,7 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
     case "chamber":
       if (!motion.requested) strikeTransition(state, "return", motion.velocity);
       else {
-        state.ready = motion.prepared && motion.supported && strikeReady(motion.at, motion.chamber, motion.velocity, limits) ? state.ready + dt : 0;
+        state.ready = motion.prepared && motion.supported && strikeReady(motion.at, motion.chamber, motion.velocity, limits.near, limits.slow) ? state.ready + dt : 0;
         if (state.ready >= limits.hold) { strikeTransition(state, "swing", motion.velocity); event = STRIKE_EVENT.launch; }
         else if (state.time >= limits.prepareLimit) { event = STRIKE_EVENT.failed; strikeTransition(state, "return", motion.velocity); }
       }
@@ -97,7 +99,8 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
       break;
     }
     case "return":
-      state.ready = !motion.down && motion.released !== false && strikeReady(motion.at, motion.home, motion.velocity, limits) ? state.ready + dt : 0;
+      state.ready = !motion.down && motion.released !== false
+        && strikeReady(motion.at, motion.home, motion.velocity, limits.returnNear ?? limits.near, limits.slow) ? state.ready + dt : 0;
       if (state.ready >= limits.hold || state.time >= limits.returnLimit) {
         event = STRIKE_EVENT.finished | (state.ready >= limits.hold ? STRIKE_EVENT.returned : STRIKE_EVENT.failed); state.phase = null;
       }

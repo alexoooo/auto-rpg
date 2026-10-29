@@ -17,7 +17,7 @@ import { withinActionWindow } from "../mind/action-window.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
-  prepareLimit: 4, returnLimit: 2, near: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
+  prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
   recenterLimit: 4, startup: 2, cooldown: 1, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
@@ -53,19 +53,19 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   /**
    * Where `foot` stands now and its stroke's chamber: `lift` over the point `over` of the way from
    * its strike point to `target` across the ground (0 over the foot, a front kick's; 1 over the
-   * target, a stomp's), `windup` back along `heading`.
+   * target, a stomp's), `windup` back along `heading`. The stroke starts from the chamber and
+   * returns to it.
    */
   const capture = (view: BodyView, foot: Side, heading: number, target: Vec3) => {
     const effector = view.effectors[`foot.${foot}`]!, sole = worldPoint(view, effector.points.sole!), strike = worldPoint(view, effector.points.strike!);
     view.root.rotation.multiplyToRef(effector.rotation, turn).normalize();
     const x = strike[0] + tuning.over * (target[0] - strike[0]), z = strike[2] + tuning.over * (target[2] - strike[2]);
     return { sole, rotation: [turn.x, turn.y, turn.z, turn.w] as Rotation,
-      chamber: [x + tuning.windup * sin(heading), strike[1] + tuning.lift, z + tuning.windup * cos(heading)] as Vec3,
-      home: [strike[0], strike[1] + tuning.near, strike[2]] as Vec3 };
+      chamber: [x + tuning.windup * sin(heading), strike[1] + tuning.lift, z + tuning.windup * cos(heading)] as Vec3 };
   };
   type Motion = { request: ActionRequest; foot: Side; stage: "admitting" | "setup" | "transfer" | "unload" | "strike" | "place" | "recenter";
     phase: "prepare" | "commit" | "release"; time: number; held: number; heading: number; height: number; target: Vec3;
-    initial: ReturnType<typeof capture>; withdrawn: boolean; ending: ActionEnding; bearing: Vec3;
+    initial: ReturnType<typeof capture>; back: Vec3 | null; withdrawn: boolean; ending: ActionEnding; bearing: Vec3;
     bearingRotation: Rotation; setting: Side | null; footing: Record<Side, readonly [number, number]> };
   const state = { live: null as Motion | null, cooldown: tuning.cooldown, support: support.state,
     cycles: { left: strikes.left.state, right: strikes.right.state } };
@@ -84,8 +84,10 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   const courseOf = (view: BodyView, live: Motion): StrikeCourse => {
     const chamber = coordinates(intoFrameToRef(view.root, live.initial.chamber, local));
     const target = coordinates(intoFrameToRef(view.root, live.target, local));
-    const home = coordinates(intoFrameToRef(view.root, live.initial.home, local));
     const dx = target[0] - chamber[0], dy = target[1] - chamber[1], dz = target[2] - chamber[2], length = hypot(dx, dy, dz);
+    // The stroke returns to its chamber carried with the body as the blow moved it (`back`): clear of
+    // what it struck and within reach, and placed from there.
+    const p = view.root.position, home = live.back ? coordinates(intoFrameToRef(view.root, [p.x + live.back[0], p.y + live.back[1], p.z + live.back[2]], local)) : chamber;
     return { home, chamber, target, seconds: tuning.swingSeconds,
       contactVelocity: length ? [dx * tuning.contactSpeed / length, dy * tuning.contactSpeed / length, dz * tuning.contactSpeed / length] : [0, 0, 0] };
   };
@@ -128,7 +130,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
       const x = (view.stance.soles.left.x + view.stance.soles.right.x) / 2, z = (view.stance.soles.left.z + view.stance.soles.right.z) / 2;
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
-        height: view.standing - around.lower - tuning.lower, target: [...target], initial, withdrawn: false, ending: { kind: "completed" },
+        height: view.standing - around.lower - tuning.lower, target: [...target], initial, back: null, withdrawn: false, ending: { kind: "completed" },
         bearing: bearing.sole, bearingRotation: bearing.rotation, setting: null,
         footing: { left: [x - hipWidth * cos(around.heading) / 2, z + hipWidth * sin(around.heading) / 2],
           right: [x + hipWidth * cos(around.heading) / 2, z - hipWidth * sin(around.heading) / 2] } };
@@ -177,10 +179,15 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
           else if (live.held >= tuning.hold) { stage("strike"); strike.begin("chamber", velocity); }
           break;
         case "strike": {
-          const event = strike.step(view, velocity, courseOf(view, live), { requested: true, down: false, supported: bearingReady,
+          const course = courseOf(view, live);
+          const event = strike.step(view, velocity, course, { requested: true, down: false, supported: bearingReady,
             prepared: support.state.loads[foot] === 0, free: support.state.loads[foot] === 0, targetId: live.request.target.body }, dt);
           if (event & STRIKE_EVENT.failed) live.ending = { kind: "stalled", reason: strike.state.phase === "return" ? "chamber deadline" : "withdrawal deadline" };
           if (event & STRIKE_EVENT.aborted) live.ending = { kind: "interrupted", reason: "stroke lost support or met blocking contact" };
+          if (strike.state.phase === "swing" && !live.back) {
+            const p = view.root.position, chamber = live.initial.chamber;
+            live.back = [chamber[0] - p.x, chamber[1] - p.y, chamber[2] - p.z];
+          }
           if (event & STRIKE_EVENT.finished) { live.phase = "release"; stage("place"); }
           else live.phase = strike.state.phase === "chamber" ? "prepare" : strike.state.phase === "swing" ? "commit" : "release";
           break;

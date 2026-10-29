@@ -33,7 +33,8 @@ double support is required before preparation and after placement.
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
 | soleTurn | 0.2 | Fraction of a quarter turn during the stroke |
 | prepareLimit / returnLimit | 4 / 2 s | Measured preparation and withdrawal deadlines |
-| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission; the home's height over the strike point |
+| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission |
+| returnNear | 0.04 m | How near the chamber the stroke's return comes to be done: the chamber where it lay from the pelvis as the stroke began, carried with the pelvis however the blow moved it, so the foot is withdrawn clear of what it struck before it is placed |
 | hover | 0.08 m | The lifted foot's height over where it stood, before the chamber and a set-down: clear of the ground at the toes with the foot pitched as the trunk leans on one leg |
 | followSeconds | 0.04 s | Finite ordinary follow-through |
 | impactSeconds / impactTravel / normalAlignment | 0.04 s / 0.04 m / 0.5 | Matched-contact ceilings and directional cosine |
