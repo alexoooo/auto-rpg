@@ -3,7 +3,8 @@ import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import { regionSegments } from "../action-aim.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../lookup.ts";
-import { measuredOn, profileFor, readProfile, skillDigest, staleness, STRIKE_PROFILES, type Expected, type Measured, type Profile } from "../profile.ts";
+import { dataOf } from "../../data/store.ts";
+import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../profile.ts";
 import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
@@ -30,7 +31,7 @@ export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: read
 
 /** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
 export function measuredProfile(measure: StrikeMeasure): Profile | null {
-  const found = profileFor(STRIKE_PROFILES, measure.measured);
+  const found = profileFor(dataOf("strike-profiles"), measure.measured);
   return found && found.stale === null ? found.profile : null;
 }
 
@@ -72,7 +73,7 @@ export interface StrikeOption extends StandingOption {
  */
 export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws: number, measure: StrikeMeasure): StrikeOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
-  const { measured } = measure, found = profileFor(STRIKE_PROFILES, measured);
+  const { measured } = measure, found = profileFor(dataOf("strike-profiles"), measured);
   /** Its profile, where it is read now: measured as the body reads it, its senses as late. */
   const profileNow = (now: Situation): Profile | null =>
     found && staleness(found.profile, { ...measured, reaction: now.reaction }) === null ? found.profile : null;

@@ -10,14 +10,12 @@
  *
  * Profiles are data scripts write from drill records: the strikes' from the Strike drill
  * (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`) and the ground edges' from
- * the Rise drill (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`). A chooser reads
- * one through `expect`, never a skill's code.
+ * the Rise drill (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`). A mind reaches
+ * them as mind data (`dataOf("strike-profiles")`, `dataOf("edge-profiles")`), which the parts that
+ * read them declare (`Part.reads`), and reads one through `readProfile`, never a skill's code.
  */
-import edgeData from "../../../assets/core/edge-profiles.json" with { type: "json" };
-import strikeData from "../../../assets/core/strike-profiles.json" with { type: "json" };
 import { dataOf } from "../data/store.ts";
 import { bodyKey, type BodySpec } from "../spec/body.ts";
-import { deepFreeze } from "../state.ts";
 import type { ActionConfig, ExecutorEntry } from "./config.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { PartConfig } from "./parts.ts";
@@ -288,20 +286,14 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
 
 /**
  * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`**: its profile
- * (`EDGE_PROFILES`) read through `readProfile`, from where it begins (`expected`); and how it is
+ * (`dataOf("edge-profiles")`) read through `readProfile`, from where it begins (`expected`); and how it is
  * priced, a sentence (`priced`): measured, or not, and why (no drill measured it, or its profile is
  * stale, `staleness`).
  */
 export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number): { readonly expected: Expected | null; readonly priced: string } {
-  const found = profileFor(EDGE_PROFILES, measuredOn(spec, techniqueDigest(technique), hz, null));
+  const found = profileFor(dataOf("edge-profiles"), measuredOn(spec, techniqueDigest(technique), hz, null));
   if (!found) return { expected: null, priced: "no drill measured it" };
   if (found.stale !== null) return { expected: null, priced: found.stale };
   const expected = readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null);
   return { expected, priced: expected ? "measured" : "no cell of its profile reads from where it begins" };
 }
-
-/** The strikes' profiles, from the Strike drill (`research/strike-profiles.mjs`). */
-export const STRIKE_PROFILES: readonly Profile[] = deepFreeze((strikeData as unknown as { profiles: Profile[] }).profiles);
-
-/** The ground edges' profiles, from the Rise drill (`research/edge-profiles.mjs`). */
-export const EDGE_PROFILES: readonly Profile[] = deepFreeze((edgeData as unknown as { profiles: Profile[] }).profiles);

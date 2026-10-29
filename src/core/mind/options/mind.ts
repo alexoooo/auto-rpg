@@ -1,3 +1,4 @@
+import { dataOf } from "../../data/store.ts";
 import type { PartLookup } from "../lookup.ts";
 import type { BodyHost } from "../host.ts";
 import type { ActionConfig, OptionsConfig } from "../config.ts";
@@ -64,7 +65,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
   const hz = Math.round(1 / host.clock.dt), walk = walker(host.spec), standing = config.actions.filter((action) => action.lower === undefined);
   const measures = standing.map((action) => strikeMeasure(host.parts, host.spec, config.executors, action, hz));
-  const reader = situationReader({ spec: host.spec, hz, rules: host.rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []),
+  const reader = situationReader({ spec: host.spec, hz, rules: host.rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: config.subs.map((sub) => host.parts.of("sub-mind", sub).down!) });
   let sight: Sight | null = null, choosing: Chooser | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.

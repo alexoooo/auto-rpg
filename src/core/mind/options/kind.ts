@@ -22,6 +22,7 @@ export const OPTIONS_MIND = controller<OptionsConfig>({
   role: "mind", label: "Options fighter", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: OPTIONS_SLOTS, defaults: OPTIONS,
   keys: { kind: true, chooser: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, motor: true, subs: true },
   fits: optionsFit,
+  reads: () => ["strike-profiles"],
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: (config, parts) => [
     ...config.subs.flatMap((sub, i) => parts.of("sub-mind", sub).down ? [] : [`subs.${i}: ${parts.of("sub-mind", sub).label} cannot be a down option`]),

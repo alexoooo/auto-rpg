@@ -96,6 +96,7 @@ export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
   keys: { kind: true, chooser: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
   uses: () => REPOSITION,
+  reads: () => ["strike-profiles", "edge-profiles"],
   fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: kineticFaults,

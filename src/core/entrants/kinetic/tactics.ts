@@ -1,3 +1,4 @@
+import { dataOf } from "../../data/store.ts";
 import { blowsOf } from "../../mind/action-config.ts";
 import { keepOut } from "../../mind/clear-step.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
@@ -82,7 +83,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
   const standing = deciding.actions.filter((action) => action.lower === undefined);
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []),
+  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options];

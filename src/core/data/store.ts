@@ -1,10 +1,15 @@
+import type { Profile } from "../mind/profile.ts";
 import type { PunchPolicy } from "../skills/learned-punch.ts";
 
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "learned-punch";
+export type DataKey = "learned-punch" | "strike-profiles" | "edge-profiles";
 
 interface DataOf {
   "learned-punch": PunchPolicy;
+  /** What the Strike drill measured every strike to bring (`Profile`). */
+  "strike-profiles": readonly Profile[];
+  /** What the Rise drill measured every ground edge to bring (`Profile`). */
+  "edge-profiles": readonly Profile[];
 }
 
 /**
@@ -14,6 +19,8 @@ interface DataOf {
  */
 const LOADERS: { readonly [K in DataKey]: () => Promise<DataOf[K]> } = {
   "learned-punch": () => import("./learned-punch.ts").then((m) => m.LEARNED_PUNCH),
+  "strike-profiles": () => import("./strike-profiles.ts").then((m) => m.STRIKE_PROFILES),
+  "edge-profiles": () => import("./edge-profiles.ts").then((m) => m.EDGE_PROFILES),
 };
 
 /** Every key, in `LOADERS`' order. */

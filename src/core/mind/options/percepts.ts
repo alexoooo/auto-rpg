@@ -12,7 +12,7 @@ import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Cover } from "../intent.ts";
 import type { Orders } from "../orders.ts";
-import { profilesOn, readProfile, sameReaction, STRIKE_PROFILES, type Profile, type ProfileReading } from "../profile.ts";
+import { profilesOn, readProfile, sameReaction, type Profile, type ProfileReading } from "../profile.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
 import { READINGS, threatReader, type ThreatView } from "../threat.ts";
@@ -22,7 +22,7 @@ import { blowLife, record } from "./value.ts";
 
 /**
  * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
- * measured profiles of its own strikes, its orders, the foe it fights (its focus,
+ * measured profiles of its own strikes and of every striker's, its orders, the foe it fights (its focus,
  * `situationReader`), the blow predicted to reach its head and the threat reader that predicted it,
  * and how its ways up from the ground are priced (`DownModel`).
  */
@@ -33,6 +33,8 @@ export interface Seen {
   /** The rules the fight is played by (`BodyHost.rules`), which price a blow built by hand (`blowLife`). */
   readonly rules: Rulebook;
   readonly strikes: readonly Profile[];
+  /** Every striker's measured strikes (`dataOf("strike-profiles")`), which model a foe's (`foeModel`). */
+  readonly measured: readonly Profile[];
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
@@ -143,7 +145,7 @@ interface Model { readonly readings: readonly ProfileReading[]; readonly priced:
  * neither is, and why.
  */
 function foeModel(seen: Seen, foe: BodySpec): Model {
-  const measured = profilesOn(STRIKE_PROFILES, foe, seen.hz, reactionOf(seen));
+  const measured = profilesOn(seen.measured, foe, seen.hz, reactionOf(seen));
   if (measured.fresh.length) return { readings: measured.fresh.map((profile) => readProfile(profile, foe)), priced: "measured" };
   const own = ownModel(seen);
   return own.readings.length ? { readings: own.readings.map((reading) => readProfile(reading.profile, foe)), priced: `as its own strikes: ${measured.stale}` } : { readings: [], priced: `by hand, ${measured.stale}` };
