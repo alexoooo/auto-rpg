@@ -32,7 +32,8 @@ function coverDrill(making: TacticsMaking): Tactics {
       // The situation is read at the world's rate, which the first decision's step gives.
       reader ??= situationReader({ spec: making.spec, hz: Math.round(1 / dt), rules: making.rules, strikes: [], measured: [], ordersOf: () => null });
       state.situation = reader.state;
-      const now = reader.read(sight), { guard } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
+      const now = reader.read(sight), { guard } = stepSet(chosen.decide(now).set, now, dt, () => ({ move: null, face: walk.facing(now) }));
+      reader.keep(now);
       state.covering = Object.keys(guard).length > 0;
       return { move: null, face: walk.facing(now), guard, actions: [] };
     },
