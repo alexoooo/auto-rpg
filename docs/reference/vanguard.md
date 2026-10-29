@@ -24,8 +24,8 @@ that loss and clears nine development cases. A [fresh wait screen](#fresh-standi
 wins all four Behaviours cases, then stops on a Reptile pilot loss with seven cases unplayed.
 The Skeleton's additional route room
 [does not repair its court loss](#skeleton-route-and-blocked-steps). The full field and equipment
-remain unqualified. Standing misses and early aim-loss returns pass their physical return gate;
-an already driven [low target-loss miss](#low-target-loss-miss) still fails it on the Warrior.
+remain unqualified. Standing misses and early aim-loss returns pass their physical return limits,
+but for the Skeleton's left standing miss, which throws it off balance; an already driven [low target-loss miss](#low-target-loss-miss) still fails it on the Warrior.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -1736,12 +1736,14 @@ pass. The rejected source variants and guard configuration are removed.
 
 The standing punch regains its physical guard and planted stance after an unloaded miss with
 each hand on the Warrior and Rogue, and with the right hand on the Skeleton. All six strokes
-commit and complete without falls. The Skeleton's left hand does not return: its feet slide 11 to
-15 cm while its stance stands, and the hand settles 0.1143 m from its guard at the deadline
-(0.029 m/s, planted), on its [motors](../art/skeleton.md#motors-not-muscles).
-`RETURN_LIMITS` in `tests/entrant-vanguard.test.mjs` keeps the criterion fixed: the striking
-point is within 0.05 m of the settled guard, world speed at most 0.6 m/s, and both feet carry a
-quiet upright base without substitute support for 0.05 s, within 1.2 s after lifecycle completion.
+commit and complete without falls. The Skeleton's left miss throws it off balance, on its
+[motors](../art/skeleton.md#motors-not-muscles): thrown after the right, its stance centre moves
+0.40 m before both feet plant, and the hand settles 0.1143 m from its guard in the body frame at
+the deadline (0.029 m/s, planted, the trunk untwisted); thrown first, from a fresh stance, it
+falls at 3.14 s. The criterion (`RETURN_LIMITS`,
+`tests/entrant-vanguard.test.mjs@1caeef63`): the striking point within 0.05 m of the settled
+guard in the body frame, speed at most 0.6 m/s, and both feet carrying a quiet upright base
+without substitute support for 0.05 s, within 1.2 s after lifecycle completion.
 These are the [shared path return limits](combat-strikes.md#trajectory-settings), applied to the
 standing punch's actual return rather than its phase label.
 
@@ -1759,7 +1761,9 @@ fixture before the recovery assertions. No body pose, velocity, strength or assi
 
 Harness: Node core stand, vendored `rapier-coordinate`, 120 Hz, default attributes, empty hands,
 Balance 0. Complete recipes, declared limits, records and source remain in
-`research/runs/vanguard/miss-return/`. The regression check runs in under ten seconds. Its scope
+`research/runs/vanguard/miss-return/`; the Skeleton's stance and its left-first fall were read on
+the same stand at `1caeef63`. The check is no longer in the gate: how well a skill recovers is
+a drill's question, not a test's. Its scope
 is stationary empty-space standing punches; it does not qualify low punches, moving-target
 misses, equipment or collision-laden combat recovery, and it does not erase the failed bout gates.
 
@@ -1834,9 +1838,9 @@ The toolkit API lands separately at `86bedcc4`, disabled by default. All ten sco
 records for Puncher, Counter, Tempo and the three Vanguard presets preserve pose, physics and
 saved state against `eef26399`; no case moves. These are the fingerprint script's Arena cases,
 using the vendored `rapier-coordinate` bout engine. The entrant enables the check in its own
-executor. Typecheck, all 119 tests, build, two-file entrant scope and line endings pass. The new
-physical regression fails on the original missing brake and passes all six early-loss returns
-in 3.7 s. A production Arena smoke check has visible advancing frames and no console errors;
+executor. Typecheck, all 119 tests, build, two-file entrant scope and line endings pass. Its
+physical check (`tests/entrant-vanguard.test.mjs@1caeef63`) fails on the original missing brake
+and passes all six early-loss returns in 3.7 s. A production Arena smoke check has visible advancing frames and no console errors;
 it also shows the Warrior recovering from a combat fall at 32.4 s. That unfinished smoke case
 is not qualification or a new win. Its screenshot and observations remain with the record,
 and the temporary preview is stopped by PID.
