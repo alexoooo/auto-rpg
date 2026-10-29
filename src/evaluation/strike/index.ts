@@ -70,6 +70,13 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
     met: (reading) => reading.hit !== null && meetsBar(reading.hit) ? 1 : 0,
     short: (reading) => reading.hit ? 0 : Math.min(reading.nearest ?? Infinity, .5),
   },
+  /**
+   * A learning environment's percepts, each a second: `unmet`, how many fields of their last goal
+   * the striker's legs left undone (`SkillReport.legs`), 0 for a mind that runs no skills.
+   */
+  percepts: {
+    unmet: (built) => built.duel.duelists.left.minded.skills?.report.legs.fields.length ?? 0,
+  },
   figures: [
     { name: "landed", unit: "share of trials", kind: "rate", better: "higher", of: (r) => r.outcome === "landed" },
     { name: "landed on the body", unit: "share of blows that met the target past its arms", kind: "rate", better: "higher",
