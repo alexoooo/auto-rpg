@@ -24,7 +24,6 @@ speeds are driven pre-contact readings with startup and post-contact motion excl
 | hook: duration / lateral curve / lateral terminal component (`hookSeconds`, `curve`, `hookAcross`) | 0.18 s / 0.05 m / 0.15 |
 | chamber and return gate: point error / body-relative speed / hold (`near`, `slow`, `hold`) | 0.05 m / 0.6 m/s / 0.05 s |
 | preparation / return timeout (`prepareLimit`, `returnLimit`) | 0.8 / 1.2 s |
-| startup wait (`startup`) | 2 s |
 
 The path is the shared quintic Hermite; its continuation past the endpoint is linear, so the IK
 finite differences keep the asked contact rate. A segment identity starts each path; a moving

@@ -1,6 +1,6 @@
 import { atan2 } from "../math/real.ts";
 import type { ActionAround, ActionRequest } from "../skills/action.ts";
-import { GAIT_NAMES, type GaitName } from "../skills/gaits.ts";
+import type { GaitName } from "../skills/gaits.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
 import { approachActionWindow, withinActionWindow } from "./action-window.ts";
@@ -87,7 +87,7 @@ export const GAIT_DRILL_TACTICS: TacticsPart<GaitDrillConfig> = deepFreeze({
     ...typeof config.action === "string" && config.action ? [] : ["action: a drill names one action"],
     ...typeof config.effector === "string" && config.effector ? [] : ["effector: a drill names one effector"],
     ...["high", "middle", "legs"].includes(config.mark) ? [] : ["mark: high, middle or legs"],
-    ...GAIT_NAMES.includes(config.gait) ? [] : [`gait: one of ${GAIT_NAMES.join(", ")}`],
+    ...typeof config.gait === "string" && config.gait ? [] : ["gait: a drill names one of its legs' gaits"],
     ...Number.isFinite(config.speed) && config.speed > 0 ? [] : ["speed: a finite speed, m/s, over nothing"],
   ],
   actionFaults: (config, actions) => actions.includes(config.action) ? [] : [`action: no action ${config.action}`],

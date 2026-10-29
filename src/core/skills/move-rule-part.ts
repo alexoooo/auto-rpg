@@ -1,13 +1,10 @@
 import { choice, type PartField } from "../mind/fields.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../mind/parts.ts";
-import { GAIT_NAMES, GAITS, type GaitName } from "./gaits.ts";
+import { STOCK_GAITS, type GaitName } from "./gaits.ts";
 import type { MoveRule } from "./move.ts";
 
-/** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
-export const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
-
-/** The gaits as a choice offers them. */
-export const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[name].label]);
+/** The stock gaits (`STOCK_GAITS`) as a choice offers them; a gait a config adds is named in its config. */
+export const GAIT_CHOICES = STOCK_GAITS.map((gait): [GaitName, string] => [gait.name, gait.label]);
 
 /** A rule of Move's config: when it holds, and the gait it chooses then. */
 export interface RuleConfig extends PartConfig { readonly gait: GaitName }
@@ -29,8 +26,7 @@ export const withGait = <C>(fields: readonly PartField<C>[]): readonly PartField
     return updated ? { ...config, ...updated } : null;
   } }));
 
-/** A Move rule's part: its own fields and the gait's choice, its own faults and a gait no gait has, for every body. */
+/** A Move rule's part: its own fields and the gait's choice, and its own faults (its Move says a gait it has not), for every body. */
 export const moveRulePart = <C extends RuleConfig>(rule: Omit<MoveRulePart<C>, "role" | "stage" | "slots" | "fits">): MoveRulePart<C> => ({
   ...rule, role: "move-rule", stage: "game", slots: [], fits: anyBody, fields: [...rule.fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)],
-  faults: (config, parts) => [...rule.faults(config, parts), ...isGait(config.gait) ? [] : [`no gait called ${JSON.stringify(config.gait)}`]],
 });

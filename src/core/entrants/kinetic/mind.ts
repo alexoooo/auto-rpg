@@ -70,7 +70,7 @@ const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp"
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
-const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
+const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
   executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */

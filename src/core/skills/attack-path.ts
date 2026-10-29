@@ -20,7 +20,7 @@ export const ATTACK_PATH = Object.freeze({ chamberSeconds: .22, swingSeconds: .1
   uppercutWindup: .12, uppercutSeconds: .25,
   // Optional elbow preference: `docs/reference/combat-strikes.md#elbow-extension`.
   elbowExtension: 0,
-  prepareLimit: .8, returnLimit: 1.2, near: .05, slow: .6, hold: .05, startup: 2 });
+  prepareLimit: .8, returnLimit: 1.2, near: .05, slow: .6, hold: .05 });
 
 export type AttackTuning = { readonly [K in keyof typeof ATTACK_PATH]: number };
 

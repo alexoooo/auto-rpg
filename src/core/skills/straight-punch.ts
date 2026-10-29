@@ -461,7 +461,7 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
   const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
     across: [across - (settings.aside ?? settings.band), across + (settings.aside ?? settings.band)] as const, facing: .4, speed: settings.pace };
   if (!withinActionWindow(view, window, heading) || settings.poised && !quietToPunch(view)) return { kind: "position", window };
-  return { kind: "ready" };
+  return { kind: "ready", window };
 }
 
 /**

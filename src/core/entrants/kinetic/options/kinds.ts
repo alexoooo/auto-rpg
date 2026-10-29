@@ -7,10 +7,10 @@ import type { Tactics } from "../../../mind/tactics.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { covers } from "./cover.ts";
-import { moveBy, OUT_OF_PRESSURE, toGoalOf, toWindowOf } from "./goals.ts";
 import type { Ground } from "./ground.ts";
 import { asking, READY, WHOLE, type Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
+import { outOfPressure, walkBy, windowPlace } from "./places.ts";
 import type { Going } from "./position.ts";
 import { guardOf, hold, still } from "./rest.ts";
 import type { StrikeOption } from "./strike.ts";
@@ -48,13 +48,13 @@ export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followO
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
 /**
- * **Footwork**: an option a gait (`moveBy`), each going where it is worth most of the destinations:
- * into each strike's window (`toWindowOf`), and out of the focus's pressure (`toGoalOf`,
- * `OUT_OF_PRESSURE`).
+ * **Footwork**: an option a gait (`walkBy`), each going where it is worth most of the places made from
+ * the skills and the focus's model: each strike's window (`windowPlace`), and out of the focus's
+ * pressure (`outOfPressure`).
  */
 export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) => {
-  const destinations = [...given.strikes.map((one) => toWindowOf(one, given.walk)), toGoalOf("out of pressure", OUT_OF_PRESSURE, given.walk)];
-  return given.gaits.map((going) => moveBy(going, destinations));
+  const destinations = [...given.strikes.map((one) => windowPlace(one, given.walk)), outOfPressure(given.walk)];
+  return given.gaits.map((going) => walkBy(going, destinations, given.walk));
 });
 
 /** **The rise**: down, the ground's options (`groundOptions`). */

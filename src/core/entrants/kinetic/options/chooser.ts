@@ -6,10 +6,10 @@ import type { ChooserPart } from "../../../mind/chooser-part.ts";
 import { anyBody, slotOne, type PartConfig } from "../../../mind/parts.ts";
 import type { Offer } from "../../../mind/tactics.ts";
 import type { Resource } from "../../../skills/action.ts";
-import { NOTHING, onOffer, overlaps, type Option, type Situation } from "./option.ts";
+import { NOTHING, onOffer, overlaps, placed, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
-import { FEW_TERMS_PART, type PositionValue } from "./position.ts";
-import { OBEDIENCE, STEADY, worth, type ObedienceLevel } from "./value.ts";
+import { FEW_TERMS_PART, type Place, type PositionValue } from "./position.ts";
+import { OBEDIENCE, STEADY, worth, type Obedience, type ObedienceLevel } from "./value.ts";
 
 /** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
 export interface Deciding { readonly rethink: number }
@@ -195,14 +195,48 @@ export type KineticChooserPart<C extends PartConfig = PartConfig> = ChooserPart<
 export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
   parts.of("chooser", config).make(config, options, seed, parts) as Chooser;
 
-/** How many options ahead a chooser looks: one, until its options' profiles are measured. */
-const DEPTH = 1;
+/** How many options ahead the ranked chooser looks: the one it takes. */
+const RANKED_DEPTH = 1;
 
-/** A depth other than the one a chooser looks (`DEPTH`), as a fault. */
-const depthFaults = (config: { readonly depth: number }): readonly string[] => config.depth === DEPTH ? [] : [`depth: ${DEPTH}`];
+/** How many options ahead the valued chooser looks: the one it takes, or that and the best where it leaves the body (`lookingPast`). */
+const VALUED_DEPTHS: readonly number[] = Object.freeze([1, 2]);
+
+/** A depth other than those a chooser looks (`depths`), as a fault. */
+const depthFaults = (depths: readonly number[]) => (config: { readonly depth: number }): readonly string[] =>
+  depths.includes(config.depth) ? [] : [`depth: ${depths.join(" or ")}`];
 
 /**
- * **The valued chooser's config**: its depth, what a metre walked as ordered is worth, life
+ * **What looking one option past an option adds to its worth**, life, over `options` priced at
+ * `obedience` by `position` (`worth`): where the option leaves the body at a spot (`Place.at`, a
+ * walk's), the best worth of the options that answer there (`Option.at`, at the situation the place
+ * predicts, `placed`), none below nothing (the rest options' floor), at the chance the body is up
+ * there; less the best of them on offer here, so the option is priced against them as they stand
+ * now. Only a walk is looked past: a strike, a cover or a rest option leaves the body where it
+ * stands, and the best there is the best here. It reads the options' models at the place, never
+ * the world. Its memory is the best here, for the situation it was read at.
+ */
+function lookingPast(options: readonly Option[], obedience: Obedience, position: PositionValue): (now: Situation, exit: Place) => number {
+  const past = options.filter((option) => option.at !== undefined), memo = { now: null as Situation | null, here: 0 };
+  const here = (now: Situation): number => {
+    if (memo.now === now) return memo.here;
+    let best = 0;
+    for (const option of past) if (onOffer(option, now)) best = Math.max(best, worth(option.model(now), now, obedience, position).worth);
+    memo.now = now; memo.here = best;
+    return best;
+  };
+  return (now, exit) => {
+    const there = placed(now, exit);
+    let best = 0;
+    for (const option of past) {
+      const terms = option.at!(now, there, exit);
+      if (terms) best = Math.max(best, worth(terms, there, obedience, position).worth);
+    }
+    return (1 - exit.down) * best - here(now);
+  };
+}
+
+/**
+ * **The valued chooser's config**: its depth (`VALUED_DEPTHS`), what a metre walked as ordered is worth, life
  * (`obedience`, a level of `OBEDIENCE`; steady, `STEADY`, unless given), the margin of worth, life,
  * within which it chooses by chance (`Chance`), none unless given, and the position value it prices
  * places by (`position`, a part of role `position`; the few terms, `FEW_TERMS`, unless given).
@@ -224,30 +258,35 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
   },
 };
 
-/** **Valued**: each option worth its model's terms (`Terms`) in life beside the position held (`worth`, by its position value), its orders at its obedience. */
+/**
+ * **Valued**: each option worth its model's terms (`Terms`) in life beside the position held
+ * (`worth`, by its position value), its orders at its obedience; at depth 2, a walk worth as well the
+ * best option where it leaves the body (`lookingPast`).
+ */
 export const VALUED_CHOOSER: KineticChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [slotOne("position", "Position value", "position", true, FEW_TERMS_PART.defaults)],
-  defaults: { kind: "valued", depth: DEPTH }, keys: { kind: true, depth: true, obedience: true, margin: true, position: true }, fits: anyBody,
-  faults: (config: ValuedConfig) => [...depthFaults(config),
+  defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, obedience: true, margin: true, position: true }, fits: anyBody,
+  faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
     ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup) => {
     const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.position ?? FEW_TERMS_PART.defaults;
-    const position = parts.of("position", given).make(given) as PositionValue;
+    const position = parts.of("position", given).make(given) as PositionValue, past = config.depth >= 2 ? lookingPast(options, obedience, position) : null;
     return chooser(options, (option, _, now) => {
-      const terms = option.model(now), { worth: value, moves, letGo } = worth(terms, now, obedience, position);
+      const terms = option.model(now), { worth: own, moves, letGo } = worth(terms, now, obedience, position);
+      const value = past && terms.exit.at ? own + past(now, terms.exit) : own;
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
     }, DECIDING, { margin: config.margin ?? 0, seed });
   },
 });
 
-/** The ranked chooser's config: its depth. */
+/** The ranked chooser's config: its depth (`RANKED_DEPTH`). */
 interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 
 /** **Ranked**: each option worth its place, the first the most. */
 export const RANKED_CHOOSER: KineticChooserPart<RankedConfig> = deepFreeze({
-  role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: DEPTH },
-  keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults,
+  role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
+  keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults([RANKED_DEPTH]),
   make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), DECIDING),
 });

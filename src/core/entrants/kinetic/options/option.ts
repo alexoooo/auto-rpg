@@ -2,6 +2,7 @@ import type { Readiness, Resource } from "../../../skills/action.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../../../mind/intent.ts";
 import type { Engagement, Sight, TacticalDecision } from "../../../mind/tactics.ts";
 import type { Percepts, Predictions } from "./percepts.ts";
+import type { Place } from "./position.ts";
 import type { Terms } from "./value.ts";
 
 /**
@@ -66,6 +67,13 @@ export interface Option {
   end(): void;
   /** What running it from now is expected to bring (`Terms`). */
   model(now: Situation): Terms;
+  /**
+   * What running it is expected to bring once the body stands where `place` leaves it (`Place.at`),
+   * read at `there`, the situation that place predicts (`placed`): its entry there and its model
+   * there, null where it is not on offer there. Absent, an option the chooser does not look at past
+   * a walk: its entry reads nothing a place predicts, so it answers there as it does here.
+   */
+  at?(now: Situation, there: Situation, place: Place): Terms | null;
   /** What it asks this step, and what that holds. */
   step(now: Situation, dt: number): Step;
   /** What it reports doing, running, where it says more than its name (a script's, `scripted`): the mind reports it in its own place. */
@@ -73,6 +81,13 @@ export interface Option {
   /** This step's operational context, where it publishes one (a script's, `Tactics.decision`). */
   readonly decision?: TacticalDecision;
 }
+
+/**
+ * **The situation where `place` leaves the body**, as `now` reads it otherwise: its range and the
+ * range centre to centre moved alike, and its bearing around the focus where it names one.
+ */
+export const placed = (now: Situation, place: Place): Situation =>
+  ({ ...now, range: place.range, apart: now.apart + place.range - now.range, around: place.around ?? now.around });
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });

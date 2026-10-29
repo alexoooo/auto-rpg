@@ -1,8 +1,9 @@
 import { blowsOf } from "../../mind/action-config.ts";
-import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
+import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../../mind/config.ts";
+import { gaitsOfMove, type MoveConfig } from "../../skills/move-part.ts";
 import { chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
-import { goings } from "./options/goals.ts";
+import { goings, type GaitOf } from "./options/places.ts";
 import { OPTIONS, optionsOf, type KineticOptionPart } from "./options/kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./options/predictions-part.ts";
 import { stepSet, type Situation } from "./options/option.ts";
@@ -26,8 +27,16 @@ export interface Deciding {
   readonly options?: readonly PartConfig[] | null;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
+  /** Its legs: the gaits its footwork goes by (`gaitsOf`). */
+  readonly locomotion: LocomotionConfig;
   /** Its techniques for getting up, in rank order. */
   readonly ground: readonly TechniqueConfig[];
+}
+
+/** **The gaits `legs` go by**: Move's (`gaitsOfMove`), else the legs as one gait that names none. */
+function gaitsOf(legs: LocomotionConfig): readonly GaitOf[] {
+  if (legs.kind === "move") return gaitsOfMove(legs as MoveConfig);
+  return [{ name: null, label: "Walk", legs }];
 }
 
 /** What it rises by: the ground executor (`groundExecutor`) of the techniques it was made with, `registry`. */
@@ -65,9 +74,10 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
- * option a gait (`moveBy`, `goings`: its pace, and the seconds it leaves the body unbraced) walking
- * where it is worth most, each destination worth where it leaves the body: into each strike's
- * window (`toWindowOf`), and out of the foe's pressure (`toGoalOf`, `OUT_OF_PRESSURE`); and, down,
+ * option a gait of its legs (`walkBy`, `gaitsOf`, `goings`: its pace, and the seconds it leaves each
+ * strike unready) walking where it is worth most, each place worth where it leaves the body and the
+ * best option there (the chooser's look past it): each strike's window, ahead and behind the foe
+ * (`windowPlaces`), and out of the foe's pressure (`outOfPressure`); and, down,
  * the rise's options (`groundOptions`), which count the body down on its feet until their steady
  * braces it (`here`), and price a fall (`downCost`); and the rest options, worth nothing, which
  * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
@@ -87,8 +97,8 @@ export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deci
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
     ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced });
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
-  // Each gait as the drill measured it stopping to throw its first strike.
-  const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "", tables.gaits);
+  // Each gait as the drill measured it stopping to throw each strike.
+  const hands = covers(spec), gaits = goings(spec, hz, gaitsOf(deciding.locomotion), actions.map((action, i) => ({ name: action.name, skill: measures[i]!.measured.skill })), tables.gaits);
   const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, actions, strikes, gaits, ground, hands, making });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };

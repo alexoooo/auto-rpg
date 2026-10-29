@@ -337,7 +337,7 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
     const entry = { at, along: [reach + ahead + window.along[0] - slack.along, reach + ahead + window.along[1] + slack.along] as const,
       across: [aside + window.across[0] - slack.across, aside + window.across[1] + slack.across] as const, facing: .4, speed: APPROACH.pace };
     if (!withinActionWindow(view, entry, heading)) return { kind: "position", window: entry } as const;
-    return { kind: "ready" } as const;
+    return { kind: "ready", window: entry } as const;
   };
   /** Whether `target` stands within `blow`'s window and its slack, seen from the head facing `heading`. */
   const within = (view: BodyView, target: Vec3, blow: Blow, heading: number) => {
