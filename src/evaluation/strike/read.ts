@@ -122,6 +122,12 @@ export type StrikeReading = {
   readonly letGo?: { readonly at: number; readonly again: number | null; readonly opening: number };
   /** The fist's nearest approach to where its action aimed (`ActionStatus.aim`), m, over the steps the reader saw it under way; null where it never said. */
   readonly nearest: number | null;
+  /**
+   * The percepts it left the striker in where its action ended, by name: the range head to head
+   * across the ground to the target (`range`, m: the striker's head to the target's `marks.high`);
+   * null where its action did not end.
+   */
+  readonly exit: { readonly range: number } | null;
   readonly down: boolean;
   readonly seconds: number;
 };
@@ -178,7 +184,14 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   /** The striker's view, where its body is hosted: where its fists were as its last step read them. */
   const view = "view" in left.body ? (left.body as HostedBody).view : null;
   let asked: StrikeReading["asked"] = null, foePhase: string | null = null, atHand: string | null = null;
-  const head = centreReading(left.built, "head"), centre = new Vector3();
+  const head = centreReading(left.built, "head"), centre = new Vector3(), theirHead = centreReading(duel.duelists.right.built, target.marks.high);
+  /** The range head to head across the ground to the target, as this step left the two, m. */
+  const range = (): number => {
+    head.update(); theirHead.update();
+    const dx = theirHead.centre.x - head.centre.x, dz = theirHead.centre.z - head.centre.z;
+    return Math.sqrt(dx * dx + dz * dz);
+  };
+  let exit: StrikeReading["exit"] = null;
   /** The target's phase as the striker senses it now (`sensedPhase`). */
   const sensed = (): string => {
     head.update();
@@ -232,7 +245,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
         if (action.phase === "release" && times.released === null) times.released = world.time;
       }
-      if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) times.ended = world.time;
+      if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) { times.ended = world.time; exit = { range: range() }; }
       const aimed = action && action.id === id ? action.aim : null;
       if (aimed && view) {
         const fist = view.fists[hand].position, dx = fist.x - aimed[0], dy = fist.y - aimed[1], dz = fist.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -298,7 +311,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         : byHand.length ? byHand.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       return { outcome, phase, foePhase: foePhase ?? atHand, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
-        ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), nearest, down, seconds: world.time };
+        ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), nearest, exit, down, seconds: world.time };
     },
   };
 }
