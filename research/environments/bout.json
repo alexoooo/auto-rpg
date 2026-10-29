@@ -1,8 +1,9 @@
 {
   "kind": "cases",
   "evaluation": "baseline",
-  "protocol": "fight",
   "subject": { "kind": "bare", "network": null, "every": 2 },
+  "layout": "research/environments/bare-warrior.layout.json",
+  "places": [{ "protocol": "fight" }],
   "character": { "toes": true },
   "reward": { "effort": 0.001, "end": { "score": 1, "margin": 1 } }
 }

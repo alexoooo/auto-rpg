@@ -19,12 +19,10 @@ import { readFileSync } from 'node:fs';
 
 /**
  * Each kind of environment's maker, by the `kind` its file names: an episode's shape, which its
- * settings fill in. `punch`: the steered punch from its drive's first step
- * (`punch-learning-environment.mjs`); `cases`: an evaluation's cases played by a bare mind
+ * settings fill in. `cases`: any learnable part of a mind played in an evaluation's cases
  * (`case-learning-environment.mjs`).
  */
 const KINDS = {
-  punch: async () => (await import('./punch-learning-environment.mjs')).punchEnvironment,
   cases: async () => (await import('./case-learning-environment.mjs')).caseEnvironment,
 };
 
