@@ -11,6 +11,7 @@ import { wrap } from "../math/turn.ts";
 import { deepFreeze } from "../state.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, setIn, onStanceFeet, type LegsAsked, type LegsField, type LegsUnmet, type SidedAsk, type StanceFeet, type Skill } from "./skill.ts";
 import type { GaitName } from "./gaits.ts";
+import type { Readiness } from "./action.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m: the height every table
@@ -19,6 +20,15 @@ import type { GaitName } from "./gaits.ts";
  * and falls walking or stopping from there.
  */
 export const STANCE_LOWER = 0.03;
+
+/** The legs' answers to whether they can carry the body: they can, or it is down. */
+const LEGS_READY: Readiness = Object.freeze({ kind: "ready" }), LEGS_DOWN: Readiness = Object.freeze({ kind: "blocked", reason: "body is down" });
+
+/**
+ * **Whether the legs can carry the body** now, as an executor's readiness answers (`Readiness`): not
+ * while it is down (`BodyView.down`).
+ */
+export const legsReadiness = (view: Pick<BodyView, "down">): Readiness => view.down ? LEGS_DOWN : LEGS_READY;
 
 /**
  * **A carriage**: a fighting pose the legs hold standing, as data. `width`, the soles' middles'

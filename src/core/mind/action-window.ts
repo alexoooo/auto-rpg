@@ -19,6 +19,20 @@ export function withinActionWindow(view: BodyView, window: Window, heading: numb
     && hypot(view.stance.velocity.x, view.stance.velocity.z) <= window.speed;
 }
 
+/** The ground offset from the body's centre to `window`'s middle, as a walk into it faces: x, z and the facing, rad. */
+function windowOffset(view: BodyView, window: Window): { readonly x: number; readonly z: number; readonly face: number } {
+  const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
+  const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
+  const face = atan2(dx, dz) - atan2(across, along);
+  return { x: dx - along * sin(face) - across * cos(face), z: dz - along * cos(face) + across * sin(face), face };
+}
+
+/** **How far a walk into `window` goes** from where the body stands (`approachActionWindow`), m across the ground. */
+export function windowDistance(view: BodyView, window: Window): number {
+  const { x, z } = windowOffset(view, window);
+  return hypot(x, z);
+}
+
 /**
  * Bring a pending target into its declared entry window without taking an action's controls: a
  * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`;
@@ -28,11 +42,8 @@ export function withinActionWindow(view: BodyView, window: Window, heading: numb
 export function approachActionWindow(view: BodyView, window: Window, heading: number, ceiling: number, travel = Infinity, near = ARRIVED): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number; readonly travelFacing?: true;
 } {
-  const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
-  const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
-  const face = atan2(dx, dz) - atan2(across, along);
+  const { x, z, face } = windowOffset(view, window);
   if (withinActionWindow(view, window, heading)) return { move: null, face };
-  const x = dx - along * sin(face) - across * cos(face), z = dz - along * cos(face) + across * sin(face);
   const distance = hypot(x, z);
   if (distance === 0) return { move: null, face };
   return { move: null, face, movement: placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near),
