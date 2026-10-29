@@ -1,0 +1,12 @@
+import "../../tests/harness/preload-data.mjs";
+import { staticBody, search, recordOf, rowNamed } from "../../research/core-posture-trials.mjs";
+import { variantSpec } from "./bodies.mjs";
+const [variant = "built", rowName = "squat, hands light", h = "0.6", seed = "0", evals = "1500"] = process.argv.slice(2);
+const t = Date.now();
+const body = await staticBody(variantSpec("workshop-fighter", variant));
+const row = rowNamed(rowName);
+const sole = body.contacts?.get?.("sole.right") ?? null;
+const r = search(body, row, { seed: +seed, evals: +evals, height: row.heights ? +h : undefined });
+const rec = recordOf(body, row, r, { height: row.heights ? +h : undefined, seed: +seed });
+console.log(JSON.stringify({ variant, row: rec.row, held: rec.held, found: rec.found, balanced: rec.balanced, share: rec.share, miss: rec.miss, margin: rec.margin, height: rec.height, overlap: rec.overlap, forces: rec.forces, ankle: rec.angles["ankle.right dorsiflexion"], knee: rec.angles["knee.right flexion"], hip: rec.angles["hip.right flexion"], s: (Date.now() - t) / 1000 }));
+body.dispose();

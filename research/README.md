@@ -109,7 +109,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 
 | Family | Scripts | Record |
 |---|---|---|
-| Standing up | `rising-*.mjs`, `recovery-transfer.mjs` | [rising](../docs/reference/rising.md), [recovery transfer](../docs/reference/recovery-transfer.md) |
+| Standing up | `rising-*.mjs`, `recovery-transfer.mjs`; `stand-controller/`, the stand-up from hands and knees on toes the owner accepted (`c/sitback.mjs`, its runs' settings in `c/.runvar.sh`, the research foot in `bodies.mjs`, frames watched in `c/view/`), as it was run, not yet run at the current commit | [rising](../docs/reference/rising.md), [recovery transfer](../docs/reference/recovery-transfer.md), [toes](../docs/reference/toes.md#measurement) |
 | Punches | `punch-*.mjs`, `greedy-punch.mjs`, `whole-body-spike.mjs` | [punch calibration](../docs/reference/punch-calibration.md), [punch foundation](../docs/reference/punch-foundation.md), [whole-body spike](../docs/reference/whole-body-spike.md), [learned punch](../docs/reference/learned-punch.md) |
 | Learning | `run-learning-server.mjs` (an environment file's copies on worker threads: `environments/punch.json`, `gait.json`, `bout.json`), `case-learning-environment.mjs` (any learnable part in an evaluation's cases), `run-train.py` (PPO against the server), `learning-speed.mjs` (its decisions a second) | [learned punch](../docs/reference/learned-punch.md), [the trainer's speed](../docs/reference/learned-punch.md#the-trainers-speed) |
 | Walking and running | `locomotion-*.mjs`, `run-cycle*.mjs`, `run-feasibility.mjs`, `mocap-import.mjs`, `bvh.mjs`, `combat-locomotion.mjs` | [locomotion](../docs/reference/locomotion.md), [run body](../docs/reference/run-body.md) |

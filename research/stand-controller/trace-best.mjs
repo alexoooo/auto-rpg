@@ -1,0 +1,11 @@
+import { readFileSync } from "node:fs";
+import { armedWith } from "../../src/core/items/held.ts";
+import { humanoidSpec } from "../../src/core/human/spec.ts";
+import { decode } from "./push-search.mjs";
+import { pushTrial } from "./push.mjs";
+const best = JSON.parse(readFileSync(process.argv[2], "utf8")), seed = Number(process.argv[3]);
+const spec = armedWith(humanoidSpec(best.model), "right", best.held), { plan, bridge } = decode(spec, best.u);
+console.log(JSON.stringify({ phases: plan.map(p => ({ d: +p.duration.toFixed(2), shin: +p.shin.toFixed(2), hand: +p.hand.toFixed(2), foot: +p.foot.toFixed(2), h: +p.height.toFixed(2), along: +p.along.toFixed(2), pitch: +p.pitch.toFixed(2) })), bridge }));
+const out = await pushTrial({ model: best.model, held: best.held, seed, plan, bridge, trace: true });
+console.table(out.rows.filter((_, i) => i % 2 === 0));
+const { rows, ...rest } = out; console.log(JSON.stringify(rest));

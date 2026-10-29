@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Hands and toes → deep squat: the failure</title>
+<style>
+  html,body{margin:0;height:100%;background:#1d2126;color:#dde;font:14px system-ui,sans-serif}
+  canvas{width:100%;height:100%;display:block}
+  #panel{position:absolute;top:10px;left:10px;background:#0009;padding:10px 12px;border-radius:6px;max-width:440px}
+  #panel button,#panel select{font:inherit;margin:2px}
+  #read{font:13px ui-monospace,monospace;white-space:pre;margin-top:6px}
+  input[type=range]{width:100%}
+</style></head>
+<body><canvas id="c"></canvas>
+<div id="panel">
+  <select id="run"><option value="push-17.json">Pushing off the back foot: start 17</option><option value="push-2.json">Pushing off the back foot: start 2 (slowest before)</option><option value="close-17.json">Earlier, weight shifted first: start 17 (the lunge)</option><option value="close-2.json">Earlier, weight shifted first: start 2 (slowest of 32)</option><option value="close-1.json">Earlier, weight shifted first: start 1 (no closing step needed)</option><option value="fast-1.json">Earlier, wide stance: start 1</option><option value="fast-2.json">Earlier, wide stance: start 2</option><option value="fast-3.json">Earlier, wide stance: start 3</option><option value="fast-4.json">Earlier, wide stance: start 4</option><option value="fast-17.json">Earlier, wide stance: start 17 (slowest of 32)</option><option value="watch-1.json">Earlier, arms forward: start 1</option><option value="watch-2.json">Earlier, arms forward: start 2</option><option value="watch-3.json">Earlier, arms forward: start 3</option><option value="watch-4.json">Earlier, arms forward: start 4</option><option value="upright-1.json">Trunk brought up over the heels (joint by joint)</option><option value="feet-down-1.json">Both feet kept down (kneeling limb on tucked toes): steady, still leaning forward</option><option value="toes-1.json">Foot with instep and toes that bend at the ball: steady, but stuck kneeling</option><option value="planted-1.json">Earlier: shorter box foot, no toes</option><option value="upright-sit-1.json">Upright sit on tucked toes (seed 1)</option><option value="sit-toes-tucked-1.json">Redo: sit back, toes tucked (seed 1)</option><option value="sit-game-1.json">Redo: game's own sit, toes untucked (seed 1)</option><option value="knees-bent-1.json">Earlier: solver start, knees bent</option><option value="straight-legs-0.json">Earlier: solver start, straight legs</option></select>
+  <button id="play">Pause</button><button id="side">Side view</button>
+  <select id="speed"><option value="1">1×</option><option value="0.5">½×</option><option value="0.25" selected>¼×</option></select>
+  <input id="scrub" type="range" min="0" max="1" step="1" value="0">
+  <div id="label"></div>
+  <div id="read"></div>
+</div>
+<script type="module" src="./viewer.ts"></script>
+</body></html>

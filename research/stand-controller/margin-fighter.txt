@@ -1,0 +1,93 @@
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:16]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:24]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:25]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:27]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:29]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:30]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:34]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:34]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:36]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:39]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:40]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:44]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:45]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:46]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:46]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:48]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:49]: Babylon.js v9.18.1 - Null engine
+BJS - [08:16:58]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:00]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:00]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:01]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:05]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:06]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:11]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:15]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:18]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:20]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:24]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:26]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:27]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:30]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:30]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:32]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:33]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:35]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:39]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:44]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:47]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:47]: Babylon.js v9.18.1 - Null engine
+BJS - [08:17:55]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:01]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:05]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:10]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:17]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:17]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:17]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:18]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:22]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:26]: Babylon.js v9.18.1 - Null engine
+BJS - [08:18:26]: Babylon.js v9.18.1 - Null engine
+workshop-fighter, 80 margin searches, share cap 0.6, 252 s
+| variant | row | verdict | share | margin, m | centre, m | pitch | ankle | knee | hip | lumbar | from |
+| built | hands and feet, hands light | held | 0.574 | 0.003 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| built | squat, hands light @ 0.50 m | unbalanced | - | -0.055 | 0.5 | -4.573 | 0.11 | -0.034 | 1.542 | 0.562 | foot0.12#2 |
+| built | squat, hands light @ 0.60 m | none found (off 0.0202) | - | -0.152 | 0.604 | 2.353 | 0.266 | -0.035 | 2.06 | -0.186 | seed1 |
+| dorsi0.6 | hands and feet, hands light | held | 0.574 | 0.003 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| dorsi0.6 | squat, hands light @ 0.50 m | unbalanced | - | -0.055 | 0.5 | -4.565 | 0.114 | -0.035 | 1.548 | 0.557 | foot0.12#2 |
+| dorsi0.6 | squat, hands light @ 0.60 m | none found (off 0.0207) | - | -0.211 | 0.596 | 2.019 | 0.382 | -0.035 | 1.626 | 0.497 | seed2 |
+| dorsi0.8 | hands and feet, hands light | held | 0.6 | 0.03 | 0.343 | -1.658 | 0.827 | 2.567 | -0.141 | 0.887 | seed2 |
+| dorsi0.8 | squat, hands light @ 0.50 m | unbalanced | - | -0.078 | 0.5 | 2.073 | 0.249 | -0.035 | 1.811 | 0.278 | foot0.12#0 |
+| dorsi0.8 | squat, hands light @ 0.60 m | none found (overlap 0.0159) | - | -0.182 | 0.6 | 2.399 | 0.326 | -0.035 | 2.067 | -0.153 | seed1 |
+| dorsi1.0 | hands and feet, hands light | held | 0.584 | 0.023 | 0.331 | -1.729 | 0.832 | 2.567 | -0.173 | 0.89 | dorsi0.8#2 |
+| dorsi1.0 | squat, hands light @ 0.50 m | unbalanced | - | -0.056 | 0.5 | -4.532 | 0.126 | -0.034 | 1.574 | 0.533 | foot0.12#2 |
+| dorsi1.0 | squat, hands light @ 0.60 m | none found (overlap 0.0134) | - | -0.192 | 0.6 | 2.287 | 0.331 | -0.035 | 1.951 | 0.004 | seed2 |
+| foot0.04 | hands and feet, hands light | held | 0.574 | 0.042 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| foot0.04 | squat, hands light @ 0.50 m | unbalanced | - | -0.019 | 0.5 | -4.572 | 0.109 | -0.035 | 1.543 | 0.562 | foot0.12#2 |
+| foot0.04 | squat, hands light @ 0.60 m | none found (overlap 0.0149) | - | -0.15 | 0.6 | 2.38 | 0.323 | -0.035 | 2.052 | -0.128 | seed2 |
+| foot0.08 | hands and feet, hands light | held | 0.574 | 0.082 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| foot0.08 | squat, hands light @ 0.50 m | held | 0.384 | 0 | 0.5 | -4.636 | 0.158 | -0.035 | 1.431 | 0.645 | foot0.12#2 |
+| foot0.08 | squat, hands light @ 0.60 m | none found (overlap 0.0135) | - | -0.108 | 0.6 | 2.31 | 0.331 | -0.035 | 1.968 | -0.03 | seed1 |
+| foot0.12 | hands and feet, hands light | held | 0.574 | 0.122 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| foot0.12 | squat, hands light @ 0.50 m | held | 0.384 | 0.04 | 0.5 | -4.636 | 0.158 | -0.035 | 1.431 | 0.645 | foot0.12#2 |
+| foot0.12 | squat, hands light @ 0.60 m | none found (overlap 0.0128) | - | -0.071 | 0.6 | 2.274 | 0.331 | -0.035 | 1.921 | 0.021 | seed1 |
+| dorsi0.6+foot0.08 | hands and feet, hands light | held | 0.574 | 0.082 | 0.53 | 1.495 | -0.067 | -0.033 | 1.479 | 0.62 | built#1 |
+| dorsi0.6+foot0.08 | squat, hands light @ 0.50 m | held | 0.384 | 0 | 0.5 | -4.636 | 0.158 | -0.035 | 1.431 | 0.645 | foot0.12#2 |
+| dorsi0.6+foot0.08 | squat, hands light @ 0.60 m | none found (overlap 0.0132) | - | -0.112 | 0.6 | 2.272 | 0.333 | -0.035 | 1.934 | 0.025 | seed2 |

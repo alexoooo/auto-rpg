@@ -46,3 +46,7 @@ __pycache__/
 
 # Resumable research runs: rows kept and reused.
 /research/runs/
+
+# The stand-up research's recorded frames and run logs, kept beside its code (research/stand-controller/).
+/research/stand-controller/c/view/*.json
+/research/stand-controller/**/runs/
