@@ -849,9 +849,17 @@ or a goal that moves is
 neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
 route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
 else to the spot it chose last, carried with the body it ranges about while that spot is open and
-its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body.
+its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body. A place
+may name the body it is by (`MovementRequest`'s `by`): that body is not kept off as a fallen one,
+and the place's points are the way round it. A walk into an action's window on a body lying
+(`Window.on`, `approachActionWindow`, `src/core/mind/action-window.ts`) stands beside that body:
+of the places about the window's target at `LYING.bearings` turns from along the body
+(`lyingAxis`), those where each foot keeps `LYING.footRadius` clear of its colliders up to the knee
+(`sensedFootClearance`), the one whose way round it (`groundRoute`, clear over the same column)
+and turn to its facing cost least, reckoned `LYING.lead` s along the body's motion, so the place
+it set off for stays its choice.
 **The bodies about it** (`src/core/mind/crowd.ts`): a fallen body, of either side but the one it
-ranges about, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
+ranges about or goes to a place by, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
 changes no route; and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a

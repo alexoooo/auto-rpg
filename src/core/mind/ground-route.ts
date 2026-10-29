@@ -6,9 +6,14 @@ import { sensedBounds, sensedFootClearance } from "./sensed-bounds.ts";
 /** Corner separation for the visibility graph: `docs/reference/ground-combat.md#policy-settings`. */
 const ROUTE_MARGIN = .02;
 
-/** Bounded visibility search around the observed body's envelope; every edge checks its actual colliders. */
-export function groundRoute(foe: BodySense, from: Vec3, to: Vec3, radius: number): readonly Vec3[] | null {
-  const clear = sensedFootClearance(foe);
+/**
+ * Bounded visibility search around the observed body's envelope; every edge checks its actual
+ * colliders, at `from`'s height and, with a `column`, at its middle and top over it too.
+ */
+export function groundRoute(foe: BodySense, from: Vec3, to: Vec3, radius: number, column = 0): readonly Vec3[] | null {
+  const sweep = sensedFootClearance(foe), lift = (at: Vec3, by: number): Vec3 => [at[0], at[1] + by, at[2]];
+  const clear = column > 0 ? (a: Vec3, b: Vec3, r: number): boolean => sweep(a, b, r) && sweep(lift(a, column / 2), lift(b, column / 2), r) && sweep(lift(a, column), lift(b, column), r)
+    : sweep;
   if (!clear(to, to, radius)) return null;
   if (clear(from, to, radius)) return [to];
   const margin = ROUTE_MARGIN;

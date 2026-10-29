@@ -27,6 +27,8 @@ export type ContactKind = "target" | "block" | "incidental" | "world";
 /** The entry geometry an approach controller must satisfy before admission. */
 export interface Window {
   readonly at: Vec3;
+  /** The body its target is on, where the executor names it: a walk into the window keeps its feet off that body where it lies (`approachActionWindow`). */
+  readonly on?: string;
   readonly along: readonly [number, number];
   readonly across: readonly [number, number];
   readonly facing: number;

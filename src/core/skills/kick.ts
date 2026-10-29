@@ -115,7 +115,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
       // The low-kick entry uses the tracking selection's reach; admission can brake an ordinary walk.
       const window = { at, along: [ahead + tuning.alongNear, ahead + tuning.alongFar] as const, across: [across - tuning.across, across + tuning.across] as const,
-        facing: tuning.facing, speed: tuning.admitSpeed };
+        facing: tuning.facing, speed: tuning.admitSpeed, ...(target.kind === "body" ? { on: target.body } : {}) };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready" };
     },

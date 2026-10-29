@@ -150,7 +150,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
    */
   const priceOf = (now: Situation, walks: boolean, going?: Going): Terms => {
     const apart = now.range, theirs = edgeOf(now, now.predictions.pressure), pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
-    const window = walks ? windowNow(now) : null, distance = window ? windowDistance(now.sight.view, window) : 0, there = Math.max(0, apart - distance);
+    const window = walks ? windowNow(now) : null, distance = window ? windowDistance(now.sight.view, window, now.sight.report.heading) : 0, there = Math.max(0, apart - distance);
     const walking = walks ? distance / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - there) / pace : 0;
     const running = live(now), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
