@@ -1,9 +1,12 @@
 # The learned punch
 
-**The toed Warrior's learned punch lands 30 of 32 on the Strike drill's still rung and 47 of 64
-from a walk, at 120 Hz.** It is a timed straight punch steered by a network that pushes the trunk
-and the arm and asks the legs goal for the hip's turn and the weight's shift, trained on the toed
-Warrior from still and walking starts (`assets/core/learned-punch.json`, 50.9 M decisions).
+**The toed Warrior's learned punch lands 83 % of 640 held-out trials, still or walking in, at
+120 and 480 Hz alike, short of the 90 % asked; on the baseline's punch rung, 26 of 32 still on the
+middle mark and 52 of 64 from a walk, at 120 Hz.** It is a timed straight punch steered by a
+network that pushes the trunk and the arm and asks the legs goal for the hip's turn and the
+weight's shift, trained on the toed Warrior from still and walking starts, its legs' unmet asks
+weighed (`assets/core/learned-punch.json`, 55.0 M decisions;
+[trained on its unmet asks](#trained-on-its-unmet-asks)).
 
 - **Against the network before it** (its legs' outputs pushes, trained on flat feet), on the toed
   Warrior: the walk rung 47 of 64 against 31, the still rung 30 of 32 against 26; held out at
@@ -63,6 +66,35 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   strike, on the toed Warrior (`character`). On the drill it plays Kinetic's bouts to the bit.
 
 ## Measurement
+
+### Trained on its unmet asks
+
+The network at 50.9 M decisions trained on to 55.0 M (`research/runs/kinetic-punch-gait`, kept
+outside Git) with the legs' unmet asks weighed, -1 a field a second, and 480 Hz drawn two times in
+three (`research/environments/punch.json`). Its checkpoints read held out every 0.5 M (seed 4001,
+160 trials a rate) rose from 122 and 114 at 120 and 480 Hz to 131 and 136; the best two were read
+again on a fresh seed, and the one at 55,005,184 decisions kept (the other, at 54,546,432, landed
+535 against its 534).
+
+Held out: `research/punch-policy-check.mjs`, seed 5001, 320 trials a rate drawn as training draws
+them, Node, the core's world on Rapier, the toed Warrior, both hands; landed of trials.
+
+| Start, hand | 120 Hz before | 120 Hz now | 480 Hz before | 480 Hz now |
+|---|---|---|---|---|
+| still, left | 61/70 | 65/70 | 55/70 | 63/70 |
+| still, right | 84/89 | 78/89 | 68/89 | 80/89 |
+| walking in, left | 49/79 | 65/79 | 55/79 | 63/79 |
+| walking in, right | 44/82 | 57/82 | 57/82 | 63/82 |
+| all | 238/320 | 265/320 | 235/320 | 269/320 |
+
+None fell. Short of 90 % in five of the eight cells: walking in, the right hand at 120 Hz (70 %)
+the furthest; the right hand still at 120 Hz lost 6 trials.
+
+On the baseline's punch rung (Kinetic, `kinetic`, Node, the bout world on Rapier, 120 Hz), paired
+over 128 trials with the network before (`2026-10-29-3e6e204c-1be9aa1c` against
+`2026-10-29-c5c4bbb0-9edf70eb`): landed 0.578 to 0.609 (difference 0.031, 95 % from -0.031 to
+0.094), admitted 0.750 both, none fell. Still, 28 to 26 of 64 (the high mark refused, 32 of them);
+from a walk, 46 to 52 of 64.
 
 ### The one punch
 

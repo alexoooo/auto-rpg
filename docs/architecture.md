@@ -636,10 +636,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
 - **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range and the foe's phase as the striker sensed it where the
   trial began (`sensedPhase`), each the share done, the hit points dealt and lost, the seconds and
-  the share ending down, where those not done came to rest, and what letting it go before its
+  the share ending down, where those not done came to rest, what letting it go before its
   point of no return cost by the progress of the motion it was let go at (`letGo`, where a drill
-  let it go: the seconds until the hand was back at its guard, and what was lost meanwhile)
-  (`ProfileCell`). Each names what it
+  let it go: the seconds until the hand was back at its guard, and what was lost meanwhile), and
+  the percepts its trials ended in, by name (`exit`: a strike's range head to head, which the
+  strike's exit takes) (`ProfileCell`). Each names what it
   was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
   reaction time), and one read on another is stale (`staleness`) and not read; and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
@@ -666,9 +667,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   reaction time). Each goes by each gait (`goings`, a `Going`): at the gait's pace, asking it
   (`Intent.gait`), and leaving the body unbraced for the seconds the Gait drill measured the gait
   stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once).
-- **The value of a position** (`PositionValue`, `position.ts`): what a place (`Place`: the range
-  head to head to the focus, the chance the body is down there, and the seconds until it is braced
-  there, `braced`) is worth in life, the lead
+- **The value of a position** (`PositionValue`, `position.ts`): what a place is worth in life
+  (`Place`: a prediction of the percepts an option leaves, each by its name: the range head to head
+  to the focus, `range`, the chance the body is down there, the seconds until it is braced there,
+  `unbraced`, and any other percept it names, `posture` or `around`; one it does not name is as
+  now, `atExit`), the lead
   expected at the verdict from there, and the rate of play, what a second of the fight is worth
   with the defaults holding the position. One interface; its first implementation is a few terms
   (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against both reaches

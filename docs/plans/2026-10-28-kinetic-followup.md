@@ -147,19 +147,28 @@ A skill's own profile reading (`readProfile`'s `expect`) stays the option's: it 
 option's progress and range, not the situation's.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the step's
-time read before and after.
+time read before and after. Read: no pose moved; a 30 s bout of Kinetic against itself, the
+Warrior against the Rogue with clubs (Node, Rapier, 120 Hz, the least of five playings a step),
+3.079 and 3.055 ms a step before (c8f56406), 3.062 and 2.947 ms after (2704ba4e).
 
 ### 14. Where an option leaves the body
 
-An option's exit is a prediction of the percepts it leaves (`Place` widened): the range, the
-bearing around the focus, the posture lying or standing, the seconds until braced and the chance
-of being down, each a percept by name, the rest as now. A position value reads the exit as it
-reads the situation, so a learned one is given every percept and the few terms keep to those they
-read. A profile's cell names the exit percepts its trials ended in, as an edge's `ends` name its
-postures.
+Built: an option's exit (`Place`, `src/core/entrants/kinetic/options/position.ts`) is a
+prediction of the percepts it leaves, each by its name: the range head to head (the percept
+`range`), the chance of `down`, the seconds `unbraced`, and any other percept it names (`posture`,
+lying or standing, `Position`; `around`, the bearing around the focus); a percept it does not
+name is as now (`atExit`). The position value reads the exit as it reads the situation, so a
+learned one is given every percept and `FEW_TERMS` keeps to the range, the chance down and the
+seconds unbraced. `posture` is read by the rise's edges (step 16); `around` waits for a position
+value that prices a bearing. A profile's cell names the percepts its trials ended in
+(`ProfileCell.exit`): the Strike drill records the range head to head where the strike ended, and
+a strike leaves the body at its cell's range; an edge's postures are its `ends`.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike,
-Gait and Cover drills' rungs paired with the step before.
+Gait and Cover drills' rungs paired with the step before. Read: no pose moved at any commit of the
+step (bbd81957 against 3e9b1fe9, where the profiles were measured again on the trained punch); the
+Cover drill's punched and swung rungs play the same; the Strike and Gait drills drive Kinetic by
+their own tactics, which read no exit.
 
 ### 15. Kinetic's parts by configuration
 
