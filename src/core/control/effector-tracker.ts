@@ -4,7 +4,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import { bodyEffectors } from "./effectors.ts";
 import { pointPathTargetToRef } from "./point-path.ts";
-import { pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation } from "./kinematics.ts";
+import { pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation, type ReachWays } from "./kinematics.ts";
 import { turnBetweenToRef } from "../math/turn.ts";
 import { hypot } from "../math/real.ts";
 import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
@@ -39,6 +39,11 @@ export interface EffectorGoal {
    * `src/core/build/contact-mass.ts`), not met limp.
    */
   readonly firm?: boolean;
+  /**
+   * Whether the solve may take the chain off a stop where it is straight and its place nearer
+   * (`ReachWays.unbend`): a leg locked straight brought back under the hip.
+   */
+  readonly unbend?: boolean;
   /** Initial point velocity in the body frame, m/s, for a measured Hermite path. One point only. */
   readonly initialVelocity?: Vec3;
   /** Desired point velocity at the target, body frame, m/s; one-point Hermite paths only. */
@@ -191,7 +196,7 @@ export function effectorTracker(built: ReadBody, root: ReadSegment, settings: Tr
       turnBetweenToRef(fromTurn, toTurn, amount, turn);
       rotational.target.copyFrom(turn);
     }
-    solveReach(chain, angles, free, tasks, end, work, orientation ? rotational : undefined);
+    solveReach(chain, angles, free, tasks, end, work, orientation ? rotational : undefined, memory.goal!.unbend ? UNBEND : undefined);
     state.reach.solves++;
     state.reach.passes += end.passes;
     if (!end.still) state.reach.capped++;
@@ -310,3 +315,6 @@ const PLACES_SLACK = .01;
 
 /** A point path's start velocity when its goal gives none: at rest. */
 const STILL: Vec3 = Object.freeze([0, 0, 0] as const);
+
+/** The solve's ways for a goal that unbends (`EffectorGoal.unbend`). */
+const UNBEND: ReachWays = Object.freeze({ unbend: true });

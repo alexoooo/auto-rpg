@@ -94,7 +94,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   const place = (view: BodyView, live: Motion, at: Vec3): EffectorGoal => {
     intoFrameToRef(view.root, at, local);
     Quaternion.InverseToRef(view.root.rotation, inverse).multiplyToRef(rotation.copyFromFloats(...live.initial.rotation), turn).normalize();
-    return { response: tuning.response, places: [{ point: "sole", position: [local.x, local.y, local.z] }],
+    // A leg left straight by the stroke is bent to come back under the hip (`unbend`).
+    return { response: tuning.response, places: [{ point: "sole", position: [local.x, local.y, local.z] }], unbend: true,
       seconds: tuning.placeSeconds, follows: true, sequence: strikes[live.foot].state.sequence,
       orientation: { target: [turn.x, turn.y, turn.z, turn.w], seconds: tuning.placeSeconds } };
   };
@@ -232,6 +233,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         else Quaternion.InverseToRef(view.root.rotation, inverse).multiplyToRef(rotation.copyFromFloats(...live.initial.rotation), turn).normalize();
         goal = strike.goal(courseOf(view, live), (strike.state.phase === "swing" && tuning.soleTurn > 0) || strike.state.phase === "return"
           ? { target: [turn.x, turn.y, turn.z, turn.w], seconds: tuning.swingSeconds } : undefined);
+        // The return bends a leg the stroke left straight to bring it back (`unbend`).
+        if (strike.state.phase === "return") goal = { ...goal, unbend: true };
       } else if (live.stage === "place") {
         const sole = worldPoint(view, view.effectors[live.request.effector]!.points.sole!);
         const over = hypot(sole[0] - live.initial.sole[0], sole[2] - live.initial.sole[2]) <= tuning.placement;
