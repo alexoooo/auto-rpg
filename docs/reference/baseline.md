@@ -17,7 +17,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 | punch | admitted, of 128 | 96 |
 | punch | fell, of 128 | 0 |
 | stand-up | stood, of the target's 32 Warrior falls, all made | 0 (flat-footed: 31, median 12.2 s) |
-| fight | score against the Duellist and Vanguard, 36 bouts | 0.64 (Duellist 0.72, Vanguard 0.56) |
+| fight | score against the Duellist and Vanguard, 36 bouts | 0.68 (Duellist 0.72, Vanguard 0.64) |
 
 ## What is used
 
@@ -35,7 +35,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `ddba3991`, options selected as a set, covers, the goals made from the skills and the gaits among them, a running option kept by its cost of letting go alone): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `cc339f53`, options selected as a set, covers taking the blow predicted to reach the head, the goals made from the skills and the gaits among them, a running option kept by its cost of letting go alone): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
@@ -46,15 +46,15 @@ The records:
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
 | stand-up, flat-footed | `assets/evaluations/baseline/2026-10-29-35faee00-24ddc3ca.jsonl` |
 | stand-up, step-up | `assets/evaluations/baseline/2026-10-29-35faee00-09ec36b3.jsonl` |
-| fight | `assets/evaluations/baseline/2026-10-29-ddba3991-bdcec5b4.jsonl` |
+| fight | `assets/evaluations/baseline/2026-10-29-cc339f53-da3510a2.jsonl` |
 
 The fights are the standard match's loadouts Kinetic can strike with (empty hands, the club, the
 sword) at gaps 3, 4 and 5 m, on each side; with a buckler it strikes with nothing the body has, so
-those 24 are dropped. By opponent and side: the Duellist 5 of 9 on the left, 8 of 9 on the right;
-Vanguard 4 of 9 on the left, 6 of 9 on the right. The score is coarse here: many bouts end within
-0.06 of even, and paired bout by bout with `13fcccfd` (0.67, the chooser's keep of 1/600 of a life
-still in it) the life margin moved −0.027 (standard error 0.020), 0.091 to 0.064; the gaits and the
-rise counted down until braced moved no bout. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
+those 24 are dropped. By opponent and side: the Duellist 6 of 9 on the left, 7 of 9 on the right;
+Vanguard 6 of 9 on the left, 5 of 9 and a draw on the right. The score is coarse here: many bouts
+end within 0.06 of even. Paired bout by bout with `ddba3991` (0.64, the covers taking the blow
+already closing on the head), the score moved +0.042 (95 % −0.111 to 0.194) and the life margin
++0.026 (−0.039 to 0.084), 0.064 to 0.089. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
 from a run it is still moving 4 s after the stop is asked. The whole command takes about 5 minutes
 on 12 workers, the fights 4 of them.
 
