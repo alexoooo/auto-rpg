@@ -144,7 +144,9 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   /**
    * Its model (`Terms`), walked into its window first where `walks` (`windowDistance`), by `going`
    * where it names a gait, and braced there. Its blow under way, short of its exit, it is priced from where it is:
-   * the time its motion has left, and its payoff unless its blow has met the target.
+   * the time its motion has left, and its payoff unless its blow has met the target. Its chance of
+   * ending down is its profile's where one measures it (its trials' falls, in a clinch or not), else
+   * the clinch's (`clinched`) at the range it walks to; and the gait's where it walks.
    */
   const priceOf = (now: Situation, walks: boolean, going?: Going): Terms => {
     const apart = now.range, theirs = edgeOf(now, now.predictions.pressure), pace = walk.pace(now, going?.gait), braced = going?.braced ?? 0, fell = going?.down ?? 0;
@@ -152,11 +154,11 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const walking = walks ? distance / pace + braced : 0, walkingInReach = walks ? Math.max(0, Math.min(apart, theirs) - there) / pace : 0;
     const running = live(now), under = running !== undefined && running.phase !== "release";
     const progress = under && state.began !== null ? now.time - state.began : 0, met = under && running.contacts.lastTarget !== null;
-    const from = walks ? there : apart, e = expected(now, progress) ?? priorOf(now, from);
+    const from = walks ? there : apart, measured = expected(now, progress), e = measured ?? priorOf(now, from);
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration, now.apart - distance)) }), ...letGo };
+      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, measured ? 0 : clinched(now, duration, now.apart - distance)) }), ...letGo };
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
