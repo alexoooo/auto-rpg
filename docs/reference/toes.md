@@ -44,7 +44,9 @@ rebuild its toes every step.
 
 ## Measurement
 
-The hand-off study's stand-up harness (Node, `rapier` engine, 120 Hz), the workshop fighter
+The stand-up harness (`research/stand-controller/c/sitback.mjs`, its settings `BASE` and `NOW` in
+`c/.runvar.sh`, the foot `dorsi0.8+toe0.06` of `bodies.mjs`; it runs at commit 20ea40e6 and
+replays these figures there, not at later commits; Node, `rapier` engine, 120 Hz), the workshop fighter
 empty-handed, dorsiflexion stop 0.8 rad, toes 0.06 m long and 0.025 m thick. It starts from the
 game's hands and knees and runs plant, sit back, watched rise, handover to the stance, then a
 closing step. 32 starts, unassisted, timed to the standing check; read with the stance's foot
