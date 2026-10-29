@@ -635,19 +635,24 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   the blow coming, how late the senses show the focus, the lead and the time left before the
   clock's verdict; the gait's phase, bearing feet and speed; what the legs and the motor did not
   carry out; the focus's phase, striking, down, rising or clear, `foePhase` in
-  `src/core/mind/threat.ts`, and its blow's time to contact); a percept's cue is what a chooser
-  watches (`eventOf`). Reach is read head to head: the focus's and this body's.
+  `src/core/mind/threat.ts`, its posture, standing or how it lies, `sensedPosture`, and its blow's
+  time to contact); a percept's cue is what a chooser watches (`eventOf`). Reach is read head to
+  head: the focus's and this body's. The focus is the foe the orders name, else the one the chooser
+  last ran its set at while it is in the fight, else the nearest; the reader reads the situation at
+  each other foe the orders leave open as the chooser asks (`others`).
 - **Predictions** (`PREDICTIONS`, `percepts.ts`): what data a drill, a training run or the rules
   make says of the situation, stale with that data, read through one object
   (`Situation.predictions`, `predictor`) the first time it is asked in a step: the blow coming's
   cost (`danger`), the focus's pressure and this body's on it, what a fall costs, how far the focus
-  closes while the senses show it late, each hand's blow. The pressure (`Pressure`) is what a
-  standing focus is expected to deal the body a second, over the range: measured from the strike
-  profiles on the focus's body where there are any (`profilesOn`), else this body's own, and says
-  how it is priced (`Pressure.priced`); an option is charged it for its time near the focus
-  (`threatened`). The body's own strikes press the focus the same way (`pressing`). A model no
-  drill measured is its prior, read as a measured one is: the pressure's and the danger's a profile
-  of one cell (`prior`), the strike's its cell's expectation (`StrikeOption`'s `priorOf`), a gait's
+  closes while the senses show it late, each hand's blow at a segment of the focus. The pressure
+  (`Pressure`) is what the focus is expected to deal the body a second, over the range, read at how
+  the two stand (the focus at its posture, the body standing): measured from the strike profiles on
+  the focus's body where there are any (`profilesOn`), else this body's own, and says how it is
+  priced (`Pressure.priced`); an option is charged it for its time near the focus (`threatened`).
+  The body's own strikes press the focus the same way (`pressing`), standing at the focus's
+  posture. A model no drill measured is its prior, read as a measured one is: the pressure's and
+  the danger's a profile of one cell (`prior`) between two standing bodies, none where either lies;
+  the strike's its cell's expectation at the segment it aims (`StrikeOption`'s `priorOf`), a gait's
   braced at once and up, the rise's `BY_HAND`.
 - **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range and the foe's phase as the striker sensed it where the
@@ -656,11 +661,12 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   point of no return cost by the progress of the motion it was let go at (`letGo`, where a drill
   let it go: the seconds until the hand was back at its guard, and what was lost meanwhile), and
   the percepts its trials ended in, by name (`exit`: a strike's range head to head, which the
-  strike's exit takes) (`ProfileCell`). Each names what it
+  strike's exit takes), and how the two bodies stood as its trials began (`Postures`, both standing
+  unless named) (`ProfileCell`). Each names what it
   was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
   reaction time), and one read on another is stale (`staleness`) and not read; and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
-  `readProfile` (`ProfileReading`): its reach in a phase, what it expects from a place (`ProfilePlace`:
+  `readProfile` (`ProfileReading`), at a pair of postures, its cells measured there alone: its reach in a phase, what it expects from a place (`ProfilePlace`:
   the range, the foe's phase and the motion's progress) against the body struck now (`Expected`, in
   life: hit points over that body's), its peak a second, and why it is scaled where that body is not
   its target. The strike's model (a blow under way priced from where it is: the time its motion has
@@ -702,7 +708,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   worth, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/tactics.ts`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
-  its claims; then the best on offer, then the best of the rest whose claims are still free, until
+  its claims; with none, the target, the foe whose situation's best option is worth most, the one
+  it ran at where none is worth more (`Chosen.at`); then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
@@ -720,8 +727,10 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
-- **Under the set**, each step: the walk is kept out of fallen bodies and solids (`Walker.kept`, by
-  navigation's `keepOut`, `clear-step.ts`).
+- **The walk's limit**: each option that asks the legs keeps its walk out of a solid's clearance and
+  every fallen body's reach but the one it means to be near, the focus where it walks to strike
+  (`Walker.kept`, by navigation's `keepOut`, `clear-step.ts`); the strike's exit prices the clinch
+  it walks into (`clinched`).
 - **The covers** (`covers`, `cover.ts`): an option a hand, on offer while it is the hand on the
   side a blow predicted to reach the head comes from (`incoming`, `READINGS.predicted`) and no
   action under way holds it, at most a second a run of blows; it claims its hand, asks it between
