@@ -74,15 +74,6 @@ function price(order: readonly string[], techniques: Registry, failures: readonl
 }
 
 /**
- * **The expected seconds to standing from `from`** (`price`), Infinity where no priced route goes:
- * what a rise from there is priced at.
- */
-export function toStanding(order: readonly string[], from: Position, techniques: Registry, failures: readonly GraphFailure[], retries: number, work: Work): number {
-  price(order, techniques, failures, retries, work.time);
-  return work.time[index(from)]!;
-}
-
-/**
  * **The priced route**, into `work.route`: the edge that admits the body as it is read with the
  * least expected seconds to standing (`price`), the first in `order` of equals, then the cheapest
  * edge on from each posture it reaches; false, the route left empty, where no priced edge admits it
@@ -148,51 +139,6 @@ function search(order: readonly string[], from: Position, techniques: Registry, 
   }
   work.visited.pop();
   return false;
-}
-
-/** An edge the body can begin as it lies, and its expected seconds to standing through it: NaN where it is not priced. */
-export interface FirstEdge extends RouteStep { readonly seconds: number }
-
-/**
- * **The edges the body can begin as it lies** (`docs/reference/rising.md#routes-priced`): of
- * `order`, each technique's from where its entry reads the body (`GraphTechnique.raw`), on the
- * first side short of its failures that admits it, the side the body lies on first. Priced, the
- * cheapest of its edges from there (`cost`) where a route on is priced to standing; where no
- * priced edge admits the body, each whose route on reaches standing (`search`), unpriced. None
- * standing.
- */
-export function firstEdges(order: readonly string[], reading: GroundReading, techniques: Registry, failures: readonly GraphFailure[],
-  retries: number, work: Work): FirstEdge[] {
-  const found: FirstEdge[] = [];
-  if (reading.position === "standing") return found;
-  price(order, techniques, failures, retries, work.time);
-  for (const name of order) {
-    const technique = techniques[name];
-    if (!technique?.profile) continue;
-    const at: Position = technique.raw ? reading.raw : reading.position, side = sideOf(technique, name, at, failures, retries, reading);
-    if (side === null) continue;
-    let best: FirstEdge | null = null;
-    for (const edge of technique.edges) {
-      if (edge.from !== at) continue;
-      const seconds = cost(technique.profile, at, edge.to, work.time);
-      if (Number.isFinite(seconds) && (best === null || seconds < best.seconds)) best = { technique: name, side, from: at, to: edge.to, seconds };
-    }
-    if (best) found.push(best);
-  }
-  if (found.length) return found;
-  for (const name of order) {
-    const technique = techniques[name];
-    if (!technique) continue;
-    const at: Position = technique.raw ? reading.raw : reading.position, side = sideOf(technique, name, at, failures, retries, reading);
-    if (side === null) continue;
-    const edge = technique.edges.find((one) => {
-      if (one.from !== at) return false;
-      work.visited.length = 0; work.route.length = 0; work.visited.push(at);
-      return search(order, one.to, techniques, failures, retries, work);
-    });
-    if (edge) found.push({ technique: name, side, from: at, to: edge.to, seconds: NaN });
-  }
-  return found;
 }
 
 /**

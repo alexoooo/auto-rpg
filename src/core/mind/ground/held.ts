@@ -14,11 +14,11 @@ import { poseDrive, type TechniqueEnd, type TechniquePart, type TechniqueRun } f
 
 /**
  * **The ground's modes**, the actions beside the techniques that no edge names: `brace` (falling,
- * `brace`), `back off` (the soft brace once no route stood the body), `land` (the commands carried
- * on while the body lands) and `steady` (on its feet, `steadying`).
+ * `brace`), `land` (the commands carried on while the body lands) and `steady` (on its feet,
+ * `steadying`).
  */
-export const GROUND_MODES = Object.freeze(["brace", "back off", "land", "steady"] as const);
-export type GroundMode = (typeof GROUND_MODES)[number];
+const GROUND_MODES = Object.freeze(["brace", "land", "steady"] as const);
+type GroundMode = (typeof GROUND_MODES)[number];
 
 /** The ground executor's name among a body's executors. */
 export const GROUND = "ground";
@@ -94,7 +94,6 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
     if (isMode(live.action)) {
       switch (live.action) {
         case "brace": brace(drive, "falling"); return null;
-        case "back off": brace(drive, "backing off"); return null;
         case "land": return null;
         case "steady": steady.step(dt); return null;
         default: { const never: never = live.action; throw new Error(`unknown ground mode ${never}`); }
