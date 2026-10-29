@@ -60,8 +60,8 @@ export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) => {
 /** **The rise**: down, the ground's options (`groundOptions`). */
 export const RISE_OPTION = kind("rise", "Rise", (given) => given.ground.options);
 
-/** **A hand's cover** of the head while a blow closes on it (`covers`). */
-export const COVER_OPTION = kind("covers", "Covers", (given) => given.hands.options);
+/** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
+export const COVER_OPTION = kind("covers", "Cover", (given) => given.hands.options);
 
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
