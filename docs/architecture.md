@@ -477,13 +477,14 @@ fight reads. A fight passes the config through and reads nothing in it.
 - The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
   body's description, the clock (`Clock`), the parts its config may name (`PartLookup`, `lookup.ts`,
   `treeLookup`: the registry's `partLookup`, refusing a part the config's tree does not name), which
-  it hands every assembly that builds a part,
+  it hands every assembly that builds a part, the rules the fight is played by (`rules`, the
+  arena's unless the fight gives its own),
   and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
   actions). The command layers are the humanoid's: their view's fists, head and stance
   (`BodyView`) and the intent's guarding hands belong to them, beside the general body (segments,
   joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
-  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed); no maker
+  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules); no maker
   can widen them.
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
@@ -639,9 +640,12 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   `rethink` s. Standing, it takes one only worth more than its defaults holding the position;
   down, the best. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
-  less its own the blows it takes take beyond the blow coming, each blow's energy priced by the
-  rules' `blowDamage` over the struck body's hit points (`lifeOf`); its progress on orders, a metre
-  at the person's `OBEDIENCE`, the one weight; the position where it leaves the body less the
+  less its own the blows it takes take beyond the blow coming, measured where a profile prices the
+  blow (the rules' damage of each contact the drill recorded) and built by hand from the fight's
+  rules where none does (`blowLife`: the blow's energy, the struck face's share of it and the
+  rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
+  `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
+  ordered, and a named foe's life worth more; the position where it leaves the body less the
   position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the focus's
   blows over the cheapest way up its sub-minds' or its rise's prices give, at most the life the senses say it
   has); its time at the rate of play; and, running, what letting it go costs: the life the body

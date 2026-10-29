@@ -5,8 +5,9 @@ case each, beside a list or a copy. This plan makes each claim true as stated, m
 code. Kinetic decides by one mechanism: **options, and one policy that selects among those
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy.
-The values the options are priced by are read from the rules and the records, not copies of them,
-through one profile interface; letting go is measured across the wind-up; every mind is felled on
+The values the options are priced by are read from the rules and the records, not copies of them
+(built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
+orders one weight), through one profile interface; letting go is measured across the wind-up; every mind is felled on
 one stand-up bed; one trainer trains any part; and the legs bear on whichever ends the body has. It
 lands before Kinetic step 13, which builds on its options, and before any training run, which
 optimises against its values.
@@ -54,16 +55,6 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Life is a copy of the rule.** The strike profiles price a hit as `blowDamage(RULES, "blunt",
-  energy)` of its one `hit` (`research/strike-profiles.mjs`), while each contact's damage by the
-  rules is in the record (`StrikeContact.damage`, `src/evaluation/strike/read.ts`) and `taken` sums
-  every contact: a 115 J hit is priced 1.15 HP where the rules dealt 1.01. `lifeOf`
-  (`src/core/mind/options/value.ts`) is the same blunt copy on a fixed arena rulebook.
-- **Weights beside the one weight.** `ORDERED` (`value.ts`) is a second orders scale;
-  `VALUED_DECIDING.keep` (`src/core/mind/options/chooser.ts`) is 1/600 worked out by hand from
-  100 J/HP and the Warrior's 6 HP; `CLINCH`, `FOLD_FALLS` (`src/core/mind/options/low.ts`), `NEAR`
-  (`src/core/mind/options/down.ts`), `PRIOR` (`value.ts`) and `LANDS`
-  (`src/core/mind/options/percepts.ts`) are hand rates, ranges and shares inside worth.
 - **A profile is read three ways.** `expect` (`src/core/mind/profile.ts`) returns a raw cell;
   pressure and danger read their own (`cellAt`, `phaseIn`, `percepts.ts`); the rise reads
   `cells[0]` and drops a stale profile silently, in both `src/core/mind/options/ground.ts` and
@@ -110,19 +101,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 1. Life read from the rules
-
-The strike profiles' `dealt` is the recorded damage of every contact on the target, as `taken`
-is; `lifeOf` takes the bout's rulebook, which reaches a mind through its host, and the blow's
-mechanism. `ORDERED` folds into `OBEDIENCE`; `OBEDIENCE` and `keep` are written in life as the
-owner's decisions, not derived by hand from a body's hit points. `CLINCH`, `FOLD_FALLS`, `NEAR`,
-`PRIOR` and `LANDS` are each read from what measures them (`NEAR` the foe's reach, `FOLD_FALLS`
-the low strike's profile, `PRIOR` and `LANDS` the cell where one prices the blow) or sourced as the
-owner's decision. One freshness predicate, exported by `profile.ts`, which `ownModel` calls.
-
-Check: the profiles regenerated from the same records, each cell's `dealt` equal to the records'
-summed damage; Kinetic's Strike drill fight rung against the baseline record.
 
 ### 2. One profile interface
 
