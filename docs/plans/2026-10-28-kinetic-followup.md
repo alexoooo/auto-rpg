@@ -12,9 +12,10 @@ priced by the share of the blow on the head it keeps off; and the goals made fro
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
-letting go is measured across the wind-up; every mind is felled on
-one stand-up bed (built: `buildFall`); one trainer trains any part; and the legs bear on whichever ends the body has. It
-lands before Kinetic step 13, which builds on its options, and before any training run, which
+letting go is measured across the wind-up; every mind is felled on one stand-up bed (built:
+`buildFall`); one trainer trains any part (built: the learner seam, `Learner`, and one case
+environment, `research/case-learning-environment.mjs`); and the legs bear on whichever ends the
+body has. It lands before Kinetic step 13, which builds on its options, and before any training run, which
 optimises against its values.
 
 ## Why
@@ -60,12 +61,6 @@ after skills are trained against it.
 
 ## Where it starts
 
-- **Two trainers.** The learning server's kinds (`research/run-learning-server.mjs`) are the
-  punch's own code (`research/punch-learning-environment.mjs`) and a case environment that
-  drives only the bare mind (`research/case-learning-environment.mjs`): its rewards read the bare
-  mind's inputs, it finds minds only in duels and lone bodies (`combatantsOf`), it holds no cases
-  out, and no environment file names a layout. The speed figure was read on the punch's cheaper
-  defaults, not `research/environments/punch.json`, and without the trainer's update.
 - **Bearing ends are sides.** `BearingEnd` is `Side` (`src/core/spec/body.ts`), so a legs goal
   cannot ask for hands or knees; a ground technique holds the whole body and pushes every muscle
   as its run drives it (`groundExecutor`), and whether the legs can bear on hands and knees is
@@ -77,22 +72,6 @@ Each step: `npm run check` and `npm test`; a toolkit change read with the finger
 commit before, its message naming the cases that move; a run priced on the pool before it runs.
 Each corrects the text of [Kinetic](2026-10-27-kinetic.md), the
 [architecture](../architecture.md) and the roadmap that it makes true or wrong.
-
-### 10. One trainer for any part
-
-A learnable part takes a network or none; with none it publishes its inputs, when it decided, and
-reads its outputs from its state, as the bare mind does. The learned punch's `steered` takes that
-seam, so one case environment trains any part an environment file names (a mind's configuration
-and the path of its part), on any world kind that lists the minds it hosts. Its reward terms are
-percepts and the case's readings named in the file, not a learner's inputs; its input and output
-layouts are files; its starts are split train and held-out by their keys' digests; its start pool
-(saved worlds refreshed when idle) is the punch environment's. The punch's own environment goes.
-
-Check: the punch through the case environment gives the punch environment's observations and
-rewards at the commit before to the bit on the same seeds; the trainer's speed read again on
-`research/environments/punch.json` with the trainer's update, the
-[trainer's speed](../reference/learned-punch.md#the-trainers-speed) and the plan's hours figure
-corrected to it.
 
 ### 11. Bearing ends from the body
 

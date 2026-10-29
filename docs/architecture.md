@@ -385,7 +385,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   window and the steer's network are the learned punch's (`PunchPolicy`, `dataOf("learned-punch")`,
   `assets/core/learned-punch.json`, exported by `research/punch-export.mjs`; the bodies it has
   settings for, `PUNCH_POLICY`, before it loads): the schedule searched for that body
-  (`research/punch-drill.mjs`), the network trained over it (`research/punch-learning-environment.mjs`)
+  (`research/punch-drill.mjs`), the network trained over it (the case environment on
+  `research/environments/punch.json`, [Research environments](#research-environments))
   and admitted where it lands (`research/punch-policy-check.mjs`).
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
@@ -532,7 +533,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | options fighter | `createOptionsFighter`, `src/core/mind/options/` | a chooser over options in one shape, valued by worth |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | kinetic | `src/core/entrants/kinetic/` | Options' chooser, situation and strikes over the toolkit's body layer with no low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
-| bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are what its `state` holds, which a trainer writes |
+| bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
@@ -961,6 +962,23 @@ world for learning and search.
   `research/control-foundation.mjs` and `/control-foundation.html`
   ([record](reference/control-foundation.md#shared-environment-and-browser-parity));
   `src/core/tasks/navigation.ts` scores navigation the same way.
+- **A learnable part** keeps a learner in its state (`Learner`, `src/core/mind/learner.ts`): with
+  a network it decides by it; with none, each time it decides it publishes its inputs and counts
+  the decision, and acts on the outputs its learner holds, which a trainer writes. It runs while it
+  decides at all (a steered punch's drive, the bare mind always). The straight punch's `steered`
+  and the bare entrant take it.
+- **One case environment trains any part** (`research/case-learning-environment.mjs`, served to
+  the trainer by `research/run-learning-server.mjs`): an environment file
+  (`research/environments/`) names an evaluation, the subject's mind with the part in learning mode
+  and its path, the part's layout file, the places its trials are drawn from or picked among, split
+  train and held out by their condition's digest, and the reward. It finds the one learner in the
+  hosted minds of the subject's kind (`WorldKind.hosted`), plays from its first decision to its
+  next, and ends with the case's reader or the part no longer running. Its reward is the outputs'
+  effort, the evaluation's percepts summed over each decision (`Evaluation.percepts`: Locomotion's
+  progress, halt and upright) and, at the end, its terms and readings (`Evaluation.terms`: the
+  Strike drill's bar score, whether it met it, how short of its aim the fist stayed). Where the
+  world kind saves (`WorldKind.save`, a bout's) it keeps a pool of saved starts, refreshed while the
+  trainer updates; a bout builds at the rate a trial draws (`WorldKind.build`).
 
 ## One world step
 

@@ -43,8 +43,9 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
 - **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_POLICY`,
   `assets/core/learned-punch.meta.json`): Kinetic's preset.
-- **How it was made**: PPO (`research/run-train.py` on `research/punch-learning-environment.mjs`,
-  its settings now the environment file `research/environments/punch.json`)
+- **How it was made**: PPO (`research/run-train.py` on
+  `research/punch-learning-environment.mjs@5d782f0e`, whose episodes the case environment on
+  `research/environments/punch.json` plays to the bit)
   from the schedule `research/punch-drill.mjs` searched, on the Warrior's two hands at 120 and
   480 Hz, the target up to 0.15 m across the body and 0.3 m to the hand's side; each episode a
   trial loaded at the drive's first step. 44.4 M decisions on the flat-footed Warrior's still rung
@@ -312,7 +313,18 @@ watched it: too close, awkward, not landing.
 
 ### The trainer's speed
 
-`research/learning-speed.mjs` on `research/run-learning-server.mjs`: the punch's environment on the
+**What it trains on, 420 decisions a second with the trainer's update**: `research/run-train.py`
+(PPO, its defaults: 256 decisions an environment a rollout) on `research/environments/punch.json`
+through the case environment (both hands, 120 and 480 Hz, the still places and the walks in, a pool
+of 4 starts refreshed every 16 episodes), 8 workers of 4 environments: 65,536 decisions every 2.6
+minutes, steady over 196,608, so 5 M decisions take about 3.3 hours. The server alone
+(`research/learning-speed.mjs`, random steers, 30 s) makes 426 a second on 8 workers of 4 and 80
+on one, so the update costs under 2 %. Node 24.19, Rapier, the development host (16 cores) quiet,
+at 4587ce42. A 480 Hz trial steps four times as often for each decision, and a walk in is played
+while the trainer waits on the slowest environment, so it is half the speed of the cheaper
+defaults below.
+
+The punch's own environment (`research/punch-learning-environment.mjs@5d782f0e`) on the
 toed Warrior with its own defaults (`punchEnvironment`, `{"kind":"punch","character":{"toes":true}}`:
 the still rung's 0.9 to 1 m, the right hand, 120 Hz), random steers, 30 s a reading; Node 24.19, Rapier, 120 Hz, the development host
 (16 cores). Decisions a second, before and after the opening search's hull entry was written in
