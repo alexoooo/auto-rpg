@@ -114,7 +114,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     return limbFor(now, target)?.readiness ?? UNREADY;
   };
   return {
-    name: action.name, posture: "standing", layer: "commitment", state,
+    name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk", ...action.effectors]), state,
     entry,
     exit: (now) => live(now)?.phase === "release" ? READY : STROKE,
     yields: (now) => (live(now)?.phase ?? "prepare") !== "commit",

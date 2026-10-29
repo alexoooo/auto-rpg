@@ -1,5 +1,5 @@
 import type { SubMind } from "../sub-mind.ts";
-import { blocked, READY, type DownOption, type Situation } from "./option.ts";
+import { blocked, READY, WHOLE, type DownOption, type Situation } from "./option.ts";
 import { pressureAt } from "./percepts.ts";
 import type { Terms } from "./value.ts";
 
@@ -33,7 +33,7 @@ export function downOption(name: string, mind: SubMind, half: Half, model: DownM
   const stop = (): void => { if (state.begun) { mind.end(); state.begun = false; } };
   const UNWANTED = blocked(`${name}: its sub-mind does not want the body`);
   return {
-    name, posture: "down", layer: "commitment", mind, state,
+    name, posture: "down", claims: WHOLE, mind, state,
     entry: (now) => mind.wants(now.sight.view.senses) ? READY : UNWANTED,
     exit: () => null,
     yields: () => !(mind.holds?.() ?? false),

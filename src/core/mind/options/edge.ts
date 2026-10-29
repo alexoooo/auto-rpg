@@ -26,7 +26,7 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
   const UNFIT = blocked("no standing, two-handed focus without a blow under way"), SPENT = blocked("its patience is spent");
   const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not at the edge" });
   return {
-    name: "hold at the edge", posture: "standing", layer: "footwork", state,
+    name: "hold at the edge", posture: "standing", claims: LEGS, state,
     entry(now) {
       const focus = now.focus;
       const fits = !now.down && !!focus && !focus.down && !now.sight.report.actions.length

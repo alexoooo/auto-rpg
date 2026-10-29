@@ -12,24 +12,18 @@ export interface Situation extends Percepts {
 }
 
 /**
- * Where an option runs in the intent (`layered`): a **commitment** holds the whole body or several
- * of its parts (a strike, the low strike, orders carried out, a ground or down option), and **footwork**
- * holds the legs alone. A free hand is the hand layer's (`cover`).
- */
-export type Layer = "commitment" | "footwork";
-
-/**
- * **An option**: a skill of the options fighter, chosen by its chooser (`Chooser`), in one shape:
- * its entry (where it can begin, or, running, go on), the resources it holds, its model (what
- * running it from now is expected to bring: measured where a profile prices it, else built by hand)
- * and its exit (where it can hand the body over).
+ * **An option**: a skill applied to a target, chosen by its chooser (`Chooser`) in a set of options
+ * whose resources do not overlap, in one shape: its entry (where it can begin, or, running, go
+ * on), the resources it claims, its model (what running it from now is expected to bring: measured
+ * where a profile prices it, else built by hand) and its exit (where it can hand the body over).
  * Begun, it runs until it is over, out of its entry, or given up for a better one where it yields.
  */
 interface OptionBase {
   readonly name: string;
   /** Its memory (`src/core/state.ts`), plain data. */
   readonly state: object;
-  readonly layer: Layer;
+  /** The resources it takes from the set while it runs (`Resource`; `WHOLE`, the whole body): what no other option chosen beside it may hold. */
+  readonly claims: readonly Resource[];
   /**
    * Its entry, now: `ready` to begin or go on; `position` where it begins once its legs are
    * brought into the window (`approach`); else `waiting` or `blocked`, and why.
@@ -105,3 +99,32 @@ export function asking(now: Situation, asked: Asked): readonly Resource[] {
 
 /** What footwork holds: the legs. */
 export const LEGS: readonly Resource[] = Object.freeze(["legs"]);
+
+/** The whole body as a claim: it overlaps every other (`overlaps`). */
+export const WHOLE: readonly Resource[] = Object.freeze(["*"]);
+
+/** Whether two claims share a resource, the whole body sharing every one. */
+export const overlaps = (a: readonly Resource[], b: readonly Resource[]): boolean =>
+  a.includes("*") && b.length > 0 || b.includes("*") && a.length > 0 || a.some((resource) => b.includes(resource));
+
+/** Whether `claims` hold the legs. */
+export const holdsLegs = (claims: readonly Resource[]): boolean => claims.includes("legs") || claims.includes("*");
+
+/**
+ * **What a set of options asks in a step**: the walk and facing of the one that holds the legs
+ * (`holdsLegs`), else `idle`'s, and every one's actions (`Asked`); what they hold
+ * (`SkillOption.holds`); and the body the legs' holder means to be near. A down option asks
+ * nothing: its sub-mind has the body.
+ */
+export function stepSet(set: readonly Option[], now: Situation, dt: number, idle: () => Omit<Asked, "actions">): { asked: Asked; held: readonly Resource[]; near: string | null } {
+  let legs: Asked | null = null, near: string | null = null;
+  const actions: Asked["actions"][number][] = [], held: Resource[] = [];
+  for (const option of set) {
+    if (option.posture === "down") continue;
+    const asked = option.step(now, dt);
+    for (const action of asked.actions) actions.push(action);
+    for (const resource of option.holds(now, asked)) if (!held.includes(resource)) held.push(resource);
+    if (legs === null && holdsLegs(option.claims)) { legs = asked; near = option.near?.(now) ?? null; }
+  }
+  return { asked: { ...(legs ?? idle()), actions }, held, near };
+}

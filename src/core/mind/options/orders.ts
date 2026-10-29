@@ -17,18 +17,20 @@ const AHEAD = 1;
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing admitted blows
  * and asking for a ready standing action against the explicitly selected foe. On offer while
- * the body stands and has an explicit movement or stop order. A commitment, it holds the legs and
- * what its blows hold; it always yields. Its model: a walk ordered
- * goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is told to go, and a stand
- * ordered, or a place or range it is already in, is kept for as long, worth as much; through the
+ * the body stands and has an explicit movement, stop or facing order. It claims the legs, the
+ * trunk and its actions' limbs, and holds the legs and what its blows hold; it always yields. Its
+ * model: a walk ordered goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is
+ * told to go, and a stand or a facing ordered, or a place or range it is already in, is kept for
+ * as long, worth as much; through the
  * blow coming and the focus's reach where it stands in it; where the orders take it is theirs, so
  * it is priced as leaving the body where it is.
  */
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
-  const UNORDERED = blocked("no orders to move or stand"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
+  const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
+  const claims: readonly string[] = Object.freeze(["legs", "trunk", ...new Set(actions.flatMap((action) => action.effectors))]);
   return {
-    name: "follow orders", posture: "standing", layer: "commitment", state: {},
-    entry: (now) => !now.down && now.orders?.move !== undefined ? READY : UNORDERED,
+    name: "follow orders", posture: "standing", claims, state: {},
+    entry: (now) => !now.down && now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED,
     exit: () => null,
     holds: (now, asked) => [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")],
     yields: () => true,

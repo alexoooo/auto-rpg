@@ -1,6 +1,7 @@
 import { atan2, hypot } from "../../math/real.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { paceToward } from "../../control/stance-envelope.ts";
+import { keepOut } from "../clear-step.ts";
 import { directMovement } from "../movement.ts";
 import type { Situation } from "./option.ts";
 import type { Intent } from "../intent.ts";
@@ -36,6 +37,13 @@ export function walker(_spec: BodySpec) {
     },
     /** A walk along the ground direction (`x`, `z`), facing `face`. */
     toward,
+    /**
+     * `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and a
+     * fallen body's reach, but `near`'s (the body it means to be near), at the orders' pace.
+     */
+    kept<A extends Walk>(now: Situation, asked: A, near: string | null): A {
+      return keepOut(now.sight.view, now.sight.clearance, asked, near, now.orders?.pace);
+    },
     /** Seek a reachable centre-distance band around the sensed focus, keeping tactical facing. */
     range(now: Situation, near: number, far: number, face: number): Walk {
       const focus = now.focus;

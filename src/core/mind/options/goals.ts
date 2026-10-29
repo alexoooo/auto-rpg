@@ -70,7 +70,7 @@ export function moveTo(name: GoalName, walk: Walker): StandingOption {
   const fits = (now: Situation): boolean => !now.down && !!now.focus && !now.focus.down
     && (!(reads(goal.near, "theirs") || reads(goal.width, "theirs")) || now.reach.theirs > 0) && (!(reads(goal.near, "mine") || reads(goal.width, "mine")) || now.reach.mine > 0);
   return {
-    name, posture: "standing", layer: "footwork", state: {},
+    name, posture: "standing", claims: LEGS, state: {},
     entry: (now) => !fits(now) ? UNFIT : within(now, goal) ? THERE : READY,
     exit: (now) => within(now, goal) ? READY : AWAY,
     holds: () => LEGS,

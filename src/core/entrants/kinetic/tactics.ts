@@ -1,6 +1,5 @@
 import { dataOf } from "../../data/store.ts";
 import { blowsOf } from "../../mind/action-config.ts";
-import { keepOut } from "../../mind/clear-step.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
 import { NO_COVER } from "../../mind/intent.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
@@ -9,15 +8,15 @@ import { approach } from "../../mind/options/approach.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { cover } from "../../mind/options/cover.ts";
 import { moveTo } from "../../mind/options/goals.ts";
-import type { Asked, Option, Situation } from "../../mind/options/option.ts";
+import { stepSet, type Option, type Situation } from "../../mind/options/option.ts";
+import { brace, guard, hold } from "../../mind/options/rest.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
 import { groundOptions, type Ground } from "../../mind/options/ground.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "../../mind/options/strike.ts";
-import { walker, type Walker } from "../../mind/options/walk.ts";
-import { orderedFacing } from "../../mind/ordered.ts";
+import { walker } from "../../mind/options/walk.ts";
 import type { PartConfig } from "../../mind/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
@@ -39,9 +38,6 @@ export interface Rising {
   readonly executor: GroundExecutor;
   readonly registry: Readonly<Record<string, TechniquePart>>;
 }
-
-/** **The default footwork**: the position held, standing, facing the focus or the way it faces. */
-const footwork = (now: Situation, walk: Walker): Omit<Asked, "actions"> => ({ move: null, face: walk.facing(now) });
 
 /**
  * What the controllers did not carry out last step, as an engagement's detail: the legs goal's
@@ -67,17 +63,18 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 }
 
 /**
- * **Kinetic's tactics**: the options fighter's chooser (`chooserOf`) over its commitments,
- * following orders and a strike of each blow thrown standing (`strike`, which closes into its
- * window, `approach`, and is priced by its measured profile where it has one, `strikeMeasure`), and
- * its footwork, a move to each of three named goals (`moveTo`: close, at the edge, out of reach),
- * each worth where it leaves the body; with none worth more than the position held, the default
- * footwork (`footwork`). Down, the rise's options (`groundOptions`), the body down while its rise
- * runs, which price a fall (`downCost`). A free hand covers (`cover`); the walk keeps
- * out of a fallen body's reach and a solid's clearance (`keepOut`); an order to face is followed.
- * What it reports doing is the running commitment's name, the offers it chose among, what its
- * controllers did not carry out as it last decided (`unmetDetail`) and how its strikes were priced
- * (`profileDetail`).
+ * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim:
+ * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, which
+ * closes into its window, `approach`, and is priced by its measured profile where it has one,
+ * `strikeMeasure`), a move to each of three named goals (`moveTo`: close, at the edge, out of
+ * reach), each worth where it leaves the body, and, down, the rise's options (`groundOptions`), the
+ * body down while its rise runs, which price a fall (`downCost`); and the rest options, worth
+ * nothing, which take what nothing else is worth more on: hold the position, each hand at its
+ * guard, and, down, brace (`hold`, `guard`, `brace`). The set's step is its members' (`stepSet`);
+ * a hand no member holds covers (`cover`); the walk keeps out of a fallen body's reach and a
+ * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers
+ * it chose among, what its controllers did not carry out as it last decided (`unmetDetail`) and how
+ * its options were priced (`profileDetail`).
  */
 export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deciding: Deciding, wiring: MindWiring, parts: PartLookup, seed: number, rising: Rising): Tactics {
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry);
@@ -86,12 +83,13 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down] });
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
-  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options];
+  const options: readonly Option[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk), ...ground.options,
+    hold(walk), ...[...new Set((spec.effectors ?? []).map((effector) => effector.segment))].map(guard), brace(ground.down)];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
-    get phase() { return chosen.running?.name ?? "hold"; },
+    get phase() { return chosen.running[0]?.name ?? "hold"; },
     get offers() { return chosen.offers; },
     get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, ground, lastNow)] : []; },
   };
@@ -99,14 +97,10 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
     name: "kinetic", state, engagement,
     decide(seen: Sight, dt: number) {
       last = seen;
-      const now = lastNow = ground.read(reader.read(seen)), option = chosen.decide(now);
-      const running = option && option.posture !== "down" ? option : null;
-      const asked: Asked = running ? running.step(now, dt) : { ...footwork(now, walk), actions: [] };
-      const held = running ? running.holds(now, asked) : [], near = running?.near?.(now) ?? null;
-      const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
+      const now = lastNow = ground.read(reader.read(seen));
+      const { asked, held, near } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
       const covered = hands.step(now, held);
-      return { ...keepOut(seen.view, seen.clearance, approach(now, asked), near, now.orders?.pace), ...(facing === null ? {} : { face: facing }),
-        guard: covered ? { ...NO_COVER, ...covered } : NO_COVER };
+      return { ...walk.kept(now, approach(now, asked), near), guard: covered ? { ...NO_COVER, ...covered } : NO_COVER };
     },
   };
 }

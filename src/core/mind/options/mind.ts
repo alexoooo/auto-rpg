@@ -3,10 +3,8 @@ import type { PartLookup } from "../lookup.ts";
 import type { BodyHost } from "../host.ts";
 import type { ActionConfig, OptionsConfig } from "../config.ts";
 import { actionConfigFaults, armedActions, blowsOf } from "../action-config.ts";
-import { keepOut } from "../clear-step.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
-import { orderedFacing } from "../ordered.ts";
 import type { MindWiring } from "../minds.ts";
 import { kitOf, subMind } from "../kit.ts";
 import { driveBy, type Sight, type Tactics } from "../tactics.ts";
@@ -19,7 +17,9 @@ import { downHalf, downOption } from "./down.ts";
 import { holdEdge } from "./edge.ts";
 import { EDGE } from "./goals.ts";
 import { evade } from "./evade.ts";
-import type { Asked, Option, Situation } from "./option.ts";
+import { stepSet, type Option, type Situation } from "./option.ts";
+import { brace, guard, hold } from "./rest.ts";
+import { STAND_UP_PART } from "../ground/stand-up-part.ts";
 import { strikeLow } from "./low.ts";
 import { followOrders } from "./orders.ts";
 import { fitsAll, takesCommands } from "../parts.ts";
@@ -44,17 +44,17 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, p
  * from the ground; lie still. Standing, the commitments: follow orders; strike, with a limb in its
  * action's entry or from a window its legs are brought to; strike a foe that is down or low, from
  * low support. And the footwork: break a clinch; step back from a blow coming in; hold at the edge
- * of its foe's reach (`EDGE`). With none worth more than holding its position, it holds it, facing
- * its foe. Standing options are carried out through
+ * of its foe's reach (`EDGE`). And the rest options, worth nothing: hold the position facing its
+ * foe, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`). Standing options are carried out through
  * the skills its config names (`SkillKit`, `fighterSkills`): a strike for each of its standing
  * actions, and a low strike by the first action thrown from low support, if it has one; a down
  * option is carried out by its sub-mind, which the body's one sub-mind, its down half
  * (`downHalf`), hands the body to.
  *
- * Each control step the option chosen fills the intent's commitment or its footwork (`Layer`),
- * and the layers under it the rest: the legs approach a commitment's window where its entry says
- * `position` (`approach`); the walk keeps out of a fallen body's reach, but the one it means to
- * be near, and out of a solid's clearance (`keepOut`); and a free hand covers (`cover`).
+ * Each control step the set chosen asks what its members ask (`stepSet`): the legs approach a
+ * strike's window where its entry says `position` (`approach`); the walk keeps out of a fallen
+ * body's reach, but the one it means to be near, and out of a solid's clearance (`Walker.kept`);
+ * and a hand no member holds covers (`cover`).
  *
  * The chooser decides once a control step, at the first that asks: the down half, which the body
  * asks whether it wants the body each step once it has looked and before its command layers act
@@ -71,9 +71,12 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
   let read: Situation | null = null;
   const situation = (seen: Sight): Situation => read !== null && read.time === seen.view.time ? read : read = reader.read(seen);
-  const decide = (): Option | null => sight && choosing ? choosing.decide(situation(sight)) : null;
+  const decide = (): Option | null => sight && choosing ? choosing.decide(situation(sight))[0] ?? null : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
-  const running = () => { const chosen = choosing?.running ?? null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
+  const running = () => { const chosen = choosing?.running[0] ?? null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
+  // Bracing is priced as the slowest of its ways up (Stand up's with none) that never stands.
+  const rises = config.subs.map((sub) => host.parts.of("sub-mind", sub).down!);
+  const rise = rises.length ? rises.reduce((slow, one) => one.seconds > slow.seconds ? one : slow) : STAND_UP_PART.down!;
   const body = host.command({ ...fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, host.parts), subs: [(own, view, w, afterPhysics) => {
     const kit = kitOf(host.parts, own.spec, config);
     for (const sub of config.subs) {
@@ -93,21 +96,18 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     ...low ? [strikeLow(low, host.spec, walk)] : [],
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikes.some((option) => option.entry(now).kind === "ready")),
+    hold(walk), ...[...new Set((host.spec.effectors ?? []).map((effector) => effector.segment))].map(guard), brace(rise),
   ];
   const chosen = choosing = chooserOf(host.parts, config.chooser, options, host.seed);
   const hands = cover(host.spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
-  const engagement = { get phase() { return chosen.running?.name ?? "hold"; }, get offers() { return chosen.offers; } };
+  const engagement = { get phase() { return chosen.running[0]?.name ?? "hold"; }, get offers() { return chosen.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,
     decide(seen, dt) {
-      const now = situation(seen), option = chosen.decide(now);
-      const asked: Asked = option?.posture === "standing" ? option.step(now, dt) : { move: null, face: now.down ? seen.report.heading : walk.facing(now), actions: [] };
-      const held = option?.posture === "standing" ? option.holds(now, asked) : [];
-      const near = option?.posture === "standing" ? option.near?.(now) ?? null : null;
-      const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
+      const now = situation(seen);
+      const { asked, held, near } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: now.down ? seen.report.heading : walk.facing(now) }));
       const covered = hands.step(now, held);
-      return { ...keepOut(seen.view, seen.clearance, approach(now, asked), near, now.orders?.pace), ...(facing === null ? {} : { face: facing }),
-        guard: covered ? { ...NO_COVER, ...covered } : NO_COVER };
+      return { ...walk.kept(now, approach(now, asked), near), guard: covered ? { ...NO_COVER, ...covered } : NO_COVER };
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));

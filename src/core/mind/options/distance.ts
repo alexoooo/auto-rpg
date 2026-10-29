@@ -80,7 +80,7 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
   const outside = (now: Situation, margin: number): boolean => { const d = apart(now); return d < goal.near + margin || d > goal.far - margin; };
   const UNKEPT = blocked(`no ${goal.foe === "any" ? "" : `${goal.foe} `}focus`), WITHIN = blocked("within its bounds");
   return {
-    name: goal.name, posture: "standing", layer: "footwork", state,
+    name: goal.name, posture: "standing", claims: LEGS, state,
     entry: (now) => now.down || !kept(now) ? UNKEPT : goal.correcting && !outside(now, 0) ? WITHIN : READY,
     exit: () => null,
     holds: () => LEGS,

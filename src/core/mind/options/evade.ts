@@ -15,7 +15,7 @@ export function evade(walk: Walker): StandingOption {
   const coming = (now: Situation): boolean => !now.down && !!now.focus && now.incoming !== null;
   const CLEAR = blocked("no blow coming");
   return {
-    name: "evade", posture: "standing", layer: "footwork", state: {},
+    name: "evade", posture: "standing", claims: LEGS, state: {},
     entry: (now) => coming(now) ? READY : CLEAR,
     exit: () => null,
     holds: () => LEGS,

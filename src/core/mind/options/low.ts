@@ -38,7 +38,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
   };
   const HIGH = blocked("no low focus"), PLACING: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
-    name: "strike a low foe", posture: "standing", layer: "commitment", state,
+    name: "strike a low foe", posture: "standing", claims: Object.freeze([...PLACING, ...action.effectors]), state,
     entry: (now) => low(now) ? READY : HIGH,
     exit: () => null,
     holds: (now, asked) => [...PLACING, ...asking(now, asked).filter((resource) => !PLACING.includes(resource))],

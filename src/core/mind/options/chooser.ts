@@ -3,7 +3,7 @@ import { deepFreeze } from "../../state.ts";
 import type { PartField } from "../fields.ts";
 import type { PartLookup } from "../lookup.ts";
 import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts.ts";
-import { onOffer, type Option, type Situation } from "./option.ts";
+import { onOffer, overlaps, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
 import { FEW_TERMS } from "./position.ts";
 import { OBEDIENCE, STEADY, worth, type ObedienceLevel, type Terms } from "./value.ts";
@@ -44,36 +44,39 @@ export interface Offer {
 export type Appraise = (option: Option, i: number, now: Situation) => Offer;
 
 /**
- * **A chooser**: of a body's options, the one it runs, which fills the intent's commitment or its
- * footwork (`Layer`); the layers under it fill the rest (`approach`, `cover`). Its memory is in
- * `state`, plain data.
+ * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
+ * overlap. Its memory is in `state`, plain data.
  */
 export interface Chooser {
   readonly state: object;
-  /** The option running, after deciding at `now` if it has not yet this step: null with none. */
-  decide(now: Situation): Option | null;
-  /** The option running, as the last decision left it: null with none. */
-  readonly running: Option | null;
+  /** The set running, after deciding at `now` if it has not yet this step, the first chosen first: empty with none. */
+  decide(now: Situation): readonly Option[];
+  /** The set running, as the last decision left it. */
+  readonly running: readonly Option[];
   /** What it chose among at its last decision. */
   readonly offers: readonly Offer[];
 }
 
 /**
- * **A chooser one option deep**: of `options`, the one the body runs, by its worth as `appraise`
- * prices it. Once a control step (`decide`), on an event, when the running option is over or out
- * of its entry, when it reaches its exit, or `rethink` s on, it takes the option on offer (`onOffer`) of the highest worth,
- * the running one's raised by `keep` and what letting it go costs (`Offer.letGo`), the first of equals, or one drawn by `chance` where it gives
- * a margin; a running option that does not yield is kept while it goes on. Standing, it takes one
- * only worth more than the defaults holding the position, none; down there are no defaults, and it
- * takes the best. Its memory is which option runs (its place in `options`, or -1), when it decided, when it next rethinks, the event it
- * decided on, whether the running option was at its exit, the offers it chose from, and, where it draws, its stream's word.
+ * **The one policy**: of `options`, the set the body runs, by worth as `appraise` prices each.
+ * Once a control step (`decide`), on an event, when an option running is over or out of its entry,
+ * when the first chosen reaches its exit, or `rethink` s on, it decides afresh: a running option
+ * that does not yield keeps what it claims; then, of the options on offer (`onOffer`), each running
+ * one raised by `keep` and what letting it go costs (`Offer.letGo`), it takes the best (drawn by
+ * `chance` where it gives a margin), then the best of the rest whose claims are still free, the
+ * first of equals, until none is left. The rest options (`hold`, `guard`, `brace`) take a resource
+ * nothing else is worth more on. Its memory is which options run (their places in `options`, the
+ * first chosen first), when it decided, when it next rethinks, the event it decided on, whether the
+ * first chosen was at its exit, the offers it chose from, and, where it draws, its stream's word.
  */
 export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
-  const state = { running: -1, decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
-  const values: number[] = [];
-  const current = (): Option | null => state.running < 0 ? null : options[state.running]!;
+  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
+  const values: number[] = [], order: number[] = [], chosen: number[] = [], set: Option[] = [];
+  const current = (): readonly Option[] => { set.length = 0; for (const i of state.running) set.push(options[i]!); return set; };
+  const free = (i: number): boolean => { for (const k of chosen) if (overlaps(options[k]!.claims, options[i]!.claims)) return false; return true; };
+  const exitingOf = (now: Situation): boolean => state.running.length > 0 && options[state.running[0]!]!.exit(now)?.kind === "ready";
   return {
     state,
     get running() { return current(); },
@@ -81,33 +84,40 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
     decide(now) {
       if (state.decided === now.time) return current();
       state.decided = now.time;
-      const event = eventOf(now), running = current();
-      const over = running !== null && (running.ended(now) || !onOffer(running, now));
-      const exiting = running !== null && !over && running.exit(now)?.kind === "ready";
-      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return running;
+      const event = eventOf(now);
+      let over = false;
+      for (const i of state.running) { const option = options[i]!; if (option.ended(now) || !onOffer(option, now)) over = true; }
+      const exiting = !over && exitingOf(now);
+      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return current();
       state.event = event;
-      state.exiting = exiting;
       state.next = now.time + deciding.rethink;
-      if (running && !over && !running.yields(now)) return running;
-      if (running && over) { running.end(); state.running = -1; }
-      let best = -1, top = now.down ? -Infinity : 0;
+      // An option over or out of its entry is ended: it may only be begun afresh.
+      if (over) state.running = state.running.filter((i) => { const option = options[i]!; const done = option.ended(now) || !onOffer(option, now); if (done) option.end(); return !done; });
+      chosen.length = 0;
+      // A running option that does not yield keeps what it claims.
+      for (const i of state.running) if (!options[i]!.yields(now)) chosen.push(i);
       state.offers = [];
-      values.length = 0;
+      values.length = 0; order.length = 0;
       options.forEach((option, i) => {
         values.push(-Infinity);
-        if (!onOffer(option, now)) return;
-        const offer = appraise(option, i, now), value = offer.worth + (i === state.running ? deciding.keep + offer.letGo : 0);
+        if (chosen.includes(i) || !onOffer(option, now)) return;
+        const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? deciding.keep + offer.letGo : 0);
         state.offers.push(offer);
         values[i] = value;
-        if (value > top) { best = i; top = value; }
+        order.push(i);
       });
-      if (stream && best >= 0) best = drawn(values, top - chance.margin, best, stream.next);
-      if (best !== state.running) {
-        if (state.running >= 0) options[state.running]!.end();
-        state.running = best;
-        if (best >= 0) options[best]!.begin(now);
+      order.sort((a, b) => values[b]! - values[a]! || a - b);
+      // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
+      const best = stream ? order.find(free) : undefined;
+      if (stream && best !== undefined) {
+        for (const k of order) if (!free(k)) values[k] = -Infinity;
+        chosen.push(drawn(values, values[best]! - chance.margin, best, stream.next));
       }
-      state.exiting = best >= 0 && options[best]!.exit(now)?.kind === "ready";
+      for (const i of order) if (!chosen.includes(i) && free(i)) chosen.push(i);
+      for (const i of state.running) if (!chosen.includes(i)) options[i]!.end();
+      for (const i of chosen) if (!state.running.includes(i)) options[i]!.begin(now);
+      state.running = [...chosen];
+      state.exiting = exitingOf(now);
       return current();
     },
   };

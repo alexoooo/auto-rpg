@@ -10,7 +10,7 @@ import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type 
 import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
 import { edgeExpected } from "../profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
-import { asking, blocked, READY, type GroundOption, type Situation } from "./option.ts";
+import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
 
 /** What a rise is priced at where no route it takes is measured to standing: Stand up's own price (`SubMindPart.down`). */
 const { name: _, ...BY_HAND } = STAND_UP_PART.down!;
@@ -184,7 +184,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     const UNPICKED = blocked(`the rise does not take ${name} now`);
     const live = (now: Situation) => memory.id === null ? undefined : now.sight.report.actions.find((action) => action.id === memory.id);
     return {
-      name, posture: "ground", layer: "commitment", state: memory,
+      name, posture: "ground", claims: WHOLE, state: memory,
       entry: (now) => plan(now)?.action === name ? READY : UNPICKED,
       exit: () => null,
       yields: () => false,
