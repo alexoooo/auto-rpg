@@ -64,7 +64,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) in order, then footwork and the guard
    (step 13) and the design read whole (step 14). Each step is
    checked on the drills it touches, the Cover drill (Drills step 8) landing before the follow-up's
-   covers (its step 5); the
+   covers (its step 6); the
    fights are read once, at step 14.
 2. **Then training**, on the completed design, each paired by the baseline evaluation: the
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the

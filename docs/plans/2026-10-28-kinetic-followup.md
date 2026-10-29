@@ -169,7 +169,22 @@ Check: down and alive, a rise option outranks bracing (the position charges a fa
 the fingerprint's moved cases each read on their drill against the baseline record; `npm run match`
 of Kinetic against itself at the commit before, a loss fixed or its reason recorded.
 
-### 5. Covers as options
+### 5. The rise as options
+
+Every ground option whose entry admits the body is on offer to the policy. Stand up's supervisor's
+branches are the options' entries (tumbling or no ground reading for brace, no route stood for
+back off, on its feet for steady), and its limits (`RETRIES`, `BRACE_LIMIT`, `STEADY_LIMIT`)
+entry conditions of the options they limit, their counts in the options' memory; its precedence is
+the options' rank. By worth, each is worth its own time and the expected time to standing from
+where it ends (`toStanding`, `src/core/mind/ground/graph.ts`) at the rate of play; unmeasured, as
+on toes, the tie goes by rank. `planAt` goes. An option yields before its point of no return as a
+strike does ([letting go](2026-10-27-kinetic.md#letting-go)).
+
+Check: by rank, the chain stands the baseline's target falls fall for fall as Stand up does, a
+paired difference of 0, before `planAt` is deleted; by worth, flat-footed, it stands as many within
+a placebo's spread, in no longer a median; the fingerprint's moved cases named.
+
+### 6. Covers as options
 
 Each cover is an option on its hand, its target the threat it covers from, priced by the blow it is
 expected to stop and where it leaves the body (its profile, the Cover drill's); `cover`'s hook
@@ -178,7 +193,7 @@ reading Kinetic's covers as they are now, the reference this step is paired agai
 
 Check: the Cover drill's rungs paired with the step before; a bout looked at.
 
-### 6. Goals from the skills
+### 7. Goals from the skills
 
 A goal is any percept against a limit read each step (a cue,
 [Kinetic](2026-10-27-kinetic.md#percepts-cues-and-goals)), and the goals on offer are made from the
@@ -193,7 +208,7 @@ its own footwork (`holdEdge`, `setDistance`).
 Check: Kinetic's Strike drill fight rung against the baseline record; `npm run match` of Kinetic
 against itself at the commit before, a loss fixed or its reason recorded; a bout looked at.
 
-### 7. Gaits as options
+### 8. Gaits as options
 
 Each gait, braced and run, is an option toward each goal ([the design](#the-design)), its profile
 the gait's: top speeds (its envelope, `src/core/control/stance-envelope.ts`), and, measured on the
@@ -206,21 +221,6 @@ any option); other minds keep theirs.
 Check: the gait drill's readings for both gaits on the toed Warrior; the baseline evaluation's
 walk against the baseline record; `npm run match` of Kinetic against itself at the commit before,
 a loss fixed or its reason recorded; a bout looked at, the owner judging when it runs.
-
-### 8. The rise as options
-
-Every ground option whose entry admits the body is on offer to the policy. Stand up's supervisor's
-branches are the options' entries (tumbling or no ground reading for brace, no route stood for
-back off, on its feet for steady), and its limits (`RETRIES`, `BRACE_LIMIT`, `STEADY_LIMIT`)
-entry conditions of the options they limit, their counts in the options' memory; its precedence is
-the options' rank. By worth, each is worth its own time and the expected time to standing from
-where it ends (`toStanding`, `src/core/mind/ground/graph.ts`) at the rate of play; unmeasured, as
-on toes, the tie goes by rank. `planAt` goes. An option yields before its point of no return as a
-strike does ([letting go](2026-10-27-kinetic.md#letting-go)).
-
-Check: by rank, the chain stands the baseline's target falls fall for fall as Stand up does, a
-paired difference of 0, before `planAt` is deleted; by worth, flat-footed, it stands as many within
-a placebo's spread, in no longer a median; the fingerprint's moved cases named.
 
 ### 9. Letting go measured across the wind-up
 
