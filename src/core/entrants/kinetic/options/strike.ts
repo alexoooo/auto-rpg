@@ -72,7 +72,8 @@ export interface StrikeOption extends Option {
  * the drill took (the foe's reply while it struck), how long it ran and its chance of ending down;
  * through the blow coming, and the focus's pressure within its reach (`threatened`); and, its blow
  * begun and not yet committed, what letting it go cost there at its progress (`Expected.letGo`).
- * Else its prior (`priorOf`), read the same way. Either leaves the body where it strikes from.
+ * Else its prior (`priorOf`), read the same way. It leaves the body at the range its cell's trials
+ * ended at (`Expected.exit`), else where it strikes from.
  * What a walk into its window first is worth is `through`'s.
  */
 export function strike(action: ActionConfig, walk: Walker, throws: number, measure: StrikeMeasure): StrikeOption {
@@ -142,7 +143,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
     const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
     return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
-      orders: 0, exit: fromHere(now, { range: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
+      orders: 0, exit: fromHere(now, { range: e.exit?.range ?? from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
   };
   /**
    * Its prior, where no profile prices it, read as a profile's cell is (`Expected`): `throws` blows
