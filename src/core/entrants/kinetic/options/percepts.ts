@@ -1,5 +1,5 @@
 import type { MotorUnmet } from "../../../control/motor.ts";
-import { paceToward, stanceEnvelopeOf } from "../../../control/stance-envelope.ts";
+import { paceToward, stanceEnvelopeOf, turnAt } from "../../../control/stance-envelope.ts";
 import type { StancePhase } from "../../../control/stance.ts";
 import { atan2, hypot } from "../../../math/real.ts";
 import type { Rulebook } from "../../../rules/rulebook.ts";
@@ -100,6 +100,32 @@ function paceOf(spec: BodySpec): number | null {
 
 /** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`): two bodies trading blows trade them with their hands. */
 const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number => Math.max(blowLife(rules, striker, "hand.left", struck), blowLife(rules, striker, "hand.right", struck));
+
+/** Each spec's turn standing measured on its body, rad/s, found once; Infinity where none was measured. */
+const TURNS = new WeakMap<BodySpec, number>();
+
+/** **How fast a body of `spec` turns to face**, rad/s: its measured turn walking slowest (`turnAt`, `stanceEnvelopeOf`); Infinity where none was measured, so it is taken to face at once. */
+function turnOf(spec: BodySpec): number {
+  const known = TURNS.get(spec);
+  if (known !== undefined) return known;
+  const envelope = stanceEnvelopeOf(spec), turn = envelope ? turnAt(envelope, 0) : 0, rate = turn > 0 ? turn : Infinity;
+  TURNS.set(spec, rate);
+  return rate;
+}
+
+/** The way `body`'s `marks.base` faces across the ground, as a vector (its +z); null where it is not sensed. */
+function aheadOf(body: BodySense): { readonly x: number; readonly z: number } | null {
+  const turn = body.segments.get(body.spec.marks.base)?.rotation;
+  return turn ? { x: 2 * (turn.x * turn.z + turn.w * turn.y), z: 1 - 2 * (turn.x * turn.x + turn.y * turn.y) } : null;
+}
+
+/** **The bearing of the ground point (`x`, `z`) around `body`**, rad from the way it faces (`aheadOf`), positive to its right; 0 where it is not sensed. */
+export function bearingAround(body: BodySense, x: number, z: number): number {
+  const ahead = aheadOf(body);
+  if (!ahead) return 0;
+  const to = { x: x - body.centre.x, z: z - body.centre.z };
+  return atan2(ahead.z * to.x - ahead.x * to.z, ahead.x * to.x + ahead.z * to.z);
+}
 
 /** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
 const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
@@ -313,13 +339,7 @@ export const PERCEPTS = Object.freeze({
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
   range: { read: (seen) => { const { mine, theirs } = heads(seen); return theirs ? hypot(theirs.x - mine.x, theirs.z - mine.z) : Infinity; } } as Percept<number>,
-  around: { read: ({ focus, sight }) => {
-    const turn = focus?.segments.get(focus.spec.marks.base)?.rotation;
-    if (!focus || !turn) return 0;
-    const ahead = { x: 2 * (turn.x * turn.z + turn.w * turn.y), z: 1 - 2 * (turn.x * turn.x + turn.y * turn.y) };
-    const to = { x: sight.view.stance.centre.x - focus.centre.x, z: sight.view.stance.centre.z - focus.centre.z };
-    return atan2(ahead.z * to.x - ahead.x * to.z, ahead.x * to.x + ahead.z * to.z);
-  } } as Percept<number>,
+  around: { read: ({ focus, sight }) => focus ? bearingAround(focus, sight.view.stance.centre.x, sight.view.stance.centre.z) : 0 } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
@@ -347,8 +367,8 @@ export interface Prediction<V> {
  * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
  * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late
- * (`closesOf`), m; and the focus's life a blow of a limb at a segment of its takes by the rules
- * (`blowLife`), 0 with no focus.
+ * (`closesOf`), m; how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
+ * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
 export const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
@@ -357,6 +377,7 @@ export const PREDICTIONS = Object.freeze({
   downCost: { read: (seen) => downCostAtOf(seen)(FALLEN) } as Prediction<number>,
   downCostAt: { read: downCostAtOf } as Prediction<(posture: Position) => number>,
   closes: { read: closesOf } as Prediction<number>,
+  turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });
 
