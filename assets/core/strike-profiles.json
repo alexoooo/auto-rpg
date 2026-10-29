@@ -8,7 +8,7 @@
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-99b30cde.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-188d93e5.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-76592539.jsonl",
-      "assets/evaluations/strike/2026-10-29-9ead992f-a2dbb26e.jsonl"
+      "assets/evaluations/strike/2026-10-29-2c92392a-d672f7e1.jsonl"
     ]
   },
   "profiles": [
@@ -199,13 +199,13 @@
           "phase": "down",
           "trials": 2,
           "done": 1,
-          "dealt": 0.4773,
-          "taken": 0.0812,
-          "seconds": 10.9333,
+          "dealt": 0.3327,
+          "taken": 0.0611,
+          "seconds": 9.9292,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6125
+            "range": 0.6163
           },
           "postures": {
             "own": "standing",
@@ -217,13 +217,13 @@
           "phase": "down",
           "trials": 1,
           "done": 1,
-          "dealt": 0.6133,
-          "taken": 0.0853,
-          "seconds": 10.6083,
+          "dealt": 0.4345,
+          "taken": 0.0604,
+          "seconds": 9.975,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6061
+            "range": 0.607
           },
           "postures": {
             "own": "standing",
@@ -235,13 +235,13 @@
           "phase": "down",
           "trials": 2,
           "done": 1,
-          "dealt": 0.14,
-          "taken": 0.0203,
-          "seconds": 9.35,
+          "dealt": 0.3362,
+          "taken": 0.0476,
+          "seconds": 8.8,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8268
+            "range": 0.8207
           },
           "postures": {
             "own": "standing",
@@ -253,13 +253,13 @@
           "phase": "down",
           "trials": 1,
           "done": 1,
-          "dealt": 0.1474,
-          "taken": 0.0321,
-          "seconds": 10.2833,
+          "dealt": 0.222,
+          "taken": 0.0425,
+          "seconds": 10.25,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.4705
+            "range": 0.4819
           },
           "postures": {
             "own": "standing",
@@ -286,13 +286,13 @@
           "phase": "down",
           "trials": 4,
           "done": 0.5,
-          "dealt": 0.0913,
-          "taken": 0.048,
-          "seconds": 12.025,
+          "dealt": 0.1082,
+          "taken": 0.0259,
+          "seconds": 10.9771,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 1.0146
+            "range": 1.0033
           },
           "postures": {
             "own": "standing",
@@ -304,13 +304,13 @@
           "phase": "down",
           "trials": 2,
           "done": 1,
-          "dealt": 0.1057,
-          "taken": 0.0365,
-          "seconds": 12.2917,
+          "dealt": 0.1206,
+          "taken": 0.017,
+          "seconds": 11.175,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.5606
+            "range": 0.5479
           },
           "postures": {
             "own": "standing",
