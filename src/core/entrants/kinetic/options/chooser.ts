@@ -75,16 +75,29 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
   const exitingOf = (now: Situation): boolean => state.running.length > 0 && options[state.running[0]!]!.status(now) === "exit";
   /** Whether a running `option` is done: over, or out of its entry. */
   const done = (option: Option, now: Situation): boolean => option.status(now) === "over" || !onOffer(option, now);
-  /** Each option not chosen priced at `now` (`values`, the offers), in the order taken (`order`): its best's worth, -Infinity with none on offer. */
+  /**
+   * Each option not chosen priced at `now` (`values`, the offers), at each of its targets where it
+   * has them and aimed at the best (`Option.aim`), in the order taken (`order`): the best's worth,
+   * -Infinity with none on offer.
+   */
   const appraiseAt = (now: Situation): number => {
     state.offers = [];
     values.length = 0; order.length = 0;
     options.forEach((option, i) => {
       values.push(-Infinity);
-      if (chosen.includes(i) || !onOffer(option, now)) return;
-      const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
-      state.offers.push(offer);
-      values[i] = value;
+      if (chosen.includes(i)) return;
+      const targets = option.targets?.length ?? 0;
+      let best = -Infinity, at = -1;
+      for (let k = 0; k < Math.max(1, targets); k++) {
+        if (targets) option.aim!(k);
+        if (!onOffer(option, now)) continue;
+        const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
+        state.offers.push(offer);
+        if (value > best) { best = value; at = k; }
+      }
+      if (at < 0) return;
+      if (targets) option.aim!(at);
+      values[i] = best;
       order.push(i);
     });
     // Equals by rank, a rest option before the rest: an option takes a resource from rest only worth more.

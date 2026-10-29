@@ -7,7 +7,7 @@ import type { Tactics } from "../../../mind/tactics.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { covers } from "./cover.ts";
-import { moveTo, OUT_OF_PRESSURE, toWindow } from "./goals.ts";
+import { moveBy, OUT_OF_PRESSURE, toGoalOf, toWindowOf } from "./goals.ts";
 import type { Ground } from "./ground.ts";
 import { asking, READY, WHOLE, type Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
@@ -47,9 +47,15 @@ export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followO
 /** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
-/** **Footwork**: by each gait, a walk into each strike's window (`toWindow`), then out of the focus's pressure (`moveTo`, `OUT_OF_PRESSURE`). */
-export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) =>
-  given.gaits.flatMap((going) => [...given.strikes.map((one) => toWindow(one, given.walk, going)), moveTo("out of pressure", OUT_OF_PRESSURE, given.walk, going)]));
+/**
+ * **Footwork**: an option a gait (`moveBy`), each going where it is worth most of the destinations:
+ * into each strike's window (`toWindowOf`), and out of the focus's pressure (`toGoalOf`,
+ * `OUT_OF_PRESSURE`).
+ */
+export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) => {
+  const destinations = [...given.strikes.map((one) => toWindowOf(one, given.walk)), toGoalOf("out of pressure", OUT_OF_PRESSURE, given.walk)];
+  return given.gaits.map((going) => moveBy(going, destinations));
+});
 
 /** **The rise**: down, the ground's options (`groundOptions`). */
 export const RISE_OPTION = kind("rise", "Rise", (given) => given.ground.options);

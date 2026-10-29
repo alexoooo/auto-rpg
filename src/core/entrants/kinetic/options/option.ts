@@ -50,6 +50,13 @@ export interface Option {
    * worth a rest option wins a tie, so neither its rank nor its model can say it.
    */
   readonly rest?: true;
+  /**
+   * The targets it may run at, by name, where it has a choice of them (a gait's destinations): the
+   * chooser prices it at each (`aim`) and runs it at the best. One with none runs at its own.
+   */
+  readonly targets?: readonly string[];
+  /** Run it at its target at `index` of `targets` from now on: its name, entry, status, model and step are there. */
+  aim?(index: number): void;
   /** Its entry, now: `ready` to begin or go on, else `waiting` or `blocked`, and why. */
   entry(now: Situation): Readiness;
   /** Where it is now, running (`Status`). */

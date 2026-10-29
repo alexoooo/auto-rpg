@@ -1,9 +1,10 @@
 import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { approachActionWindow } from "../../../mind/action-window.ts";
+import type { Readiness } from "../../../skills/action.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../../../mind/profile.ts";
 import { legsReadiness } from "../../../skills/locomotion.ts";
-import { blocked, LEGS, READY, type Situation, type Option } from "./option.ts";
+import { blocked, LEGS, READY, type Situation, type Option, type Status } from "./option.ts";
 import { edgeOf, threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { StrikeOption } from "./strike.ts";
@@ -46,35 +47,39 @@ export function goings(spec: BodySpec, hz: number, strike: string, profiles: rea
   });
 }
 
-/** An option's name going by `going`: its own braced, else the gait's named after it. */
-const named = (name: string, going: Going): string => going.gait === "braced" ? name : `${name}, ${going.gait}`;
+/**
+ * **Where a walk can go**, as a gait's option runs at it (`moveBy`): its name, whether it is a
+ * place to walk to now (`entry`, the legs' readiness aside), whether the body has got there
+ * (`reached`), what walking there by a gait brings (`model`, `Terms`), and the walk there (`walk`,
+ * kept out of what the body keeps clear of, `Walker.kept`).
+ */
+export interface Destination {
+  readonly name: string;
+  entry(now: Situation): Readiness;
+  reached(now: Situation): boolean;
+  model(now: Situation, going: Going): Terms;
+  walk(now: Situation): ReturnType<Walker["toward"]>;
+}
 
 /**
- * **Move to a goal** (`Goal`) by `going`'s gait, facing the focus (`toGoal`): footwork, on
- * offer where the legs can carry the body (`legsReadiness`), at a focus out of the goal's band, run its course once in the band, kept out of every fallen body's reach (`Walker.kept`); it
- * always yields and asks for no blow. Its model: the walk to the band's nearer end at the gait's
- * pace, through the blow coming and the focus's pressure while it walks within the focus's reach
- * (`threatened`), leaving the body there as the gait leaves it (`Going`); a walk that ends out of a
- * clinch (`CLINCH`) leaves its chance of going down behind.
+ * **A goal as a destination** (`Goal`), named `name`: a place to walk to with a focus out of its
+ * band, reached within it; the walk to the band's nearer end at the gait's pace, through the blow
+ * coming and the focus's pressure while it walks within the focus's reach (`threatened`), leaving
+ * the body there as the gait leaves it (`Going`); a walk that ends out of a clinch (`CLINCH`)
+ * leaves its chance of going down behind. It walks facing the focus (`toGoal`).
  */
-export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Option {
+export function toGoalOf(name: string, goal: Goal, walk: Walker): Destination {
   const UNFIT = blocked("no focus"), THERE = blocked("within its band");
   return {
-    name: named(name, going), claims: LEGS, state: {},
-    entry: (now) => {
-      const legs = legsReadiness(now.sight.view);
-      if (legs.kind !== "ready") return legs;
-      return !now.focus ? UNFIT : within(now, goal) ? THERE : READY;
-    },
-    status: (now) => within(now, goal) ? "over" : "yields",
-    begin() {},
-    end() {},
-    model: (now): Terms => {
+    name,
+    entry: (now) => !now.focus ? UNFIT : within(now, goal) ? THERE : READY,
+    reached: (now) => within(now, goal),
+    model: (now, going) => {
       const apart = now.range, near = goal.near(now), far = near + goal.width(now);
       const to = apart < near ? near : apart > far ? far : apart, pace = walk.pace(now, going.gait);
       return walkTo(now, to, Math.abs(to - apart) / pace, pace, going);
     },
-    step: (now) => ({ asked: walk.kept(now, { ...toGoal(now, goal, walk), actions: [], gait: going.gait }), holds: LEGS }),
+    walk: (now) => walk.kept(now, toGoal(now, goal, walk)),
   };
 }
 
@@ -111,33 +116,52 @@ function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["to
 }
 
 /**
- * **Into a strike's window** (`StrikeOption.window`) by `going`'s gait: footwork, on offer while
- * the legs can carry the body (`legsReadiness`) and `strike` has a window its legs are to be brought to and no limb ready, run its course once a limb
- * is; it always yields and asks for no blow. It walks to the window's middle at the orders' pace,
- * turning to the target (`approachActionWindow`), kept out of every fallen body's reach but the
- * focus's (`Walker.kept`). It is worth the strike it brings
- * (`StrikeOption.through`: the walk, braced, then the blow): between bodies alike the exchange at the window, its strikes' less the foe's
- * (`pressing`, `pressure`), comes to about nothing, so a walk priced by the place alone is never
- * worth taking.
+ * **A strike's window as a destination** (`StrikeOption.window`): a place to walk to while
+ * `strike` has a window its legs are to be brought to and no limb ready, reached once a limb is.
+ * It walks to the window's middle at the orders' pace, turning to the target
+ * (`approachActionWindow`), kept out of every fallen body's reach but the focus's (`Walker.kept`).
+ * It is worth the strike it brings (`StrikeOption.through`: the walk, braced, then the blow):
+ * between bodies alike the exchange at the window, its strikes' less the foe's (`pressing`,
+ * `pressure`), comes to about nothing, so a walk priced by the place alone is never worth taking.
  */
-export function toWindow(strike: StrikeOption, walk: Walker, going: Going): Option {
+export function toWindowOf(strike: StrikeOption, walk: Walker): Destination {
   const UNFIT = blocked(`no window to walk to for ${strike.name}`);
   return {
-    name: named(`into ${strike.name}'s window`, going), claims: LEGS, state: {},
+    name: `into ${strike.name}'s window`,
+    entry: (now) => strike.window(now) === null ? UNFIT : READY,
+    reached: (now) => strike.window(now) === null,
+    model: (now, going) => strike.through(now, going),
+    walk: (now) => {
+      const window = strike.window(now);
+      const asked = window ? approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity) : { move: null, face: walk.facing(now) };
+      return walk.kept(now, asked, now.focus?.id ?? null);
+    },
+  };
+}
+
+/**
+ * **Move by `going`'s gait**: footwork, one option a gait, run at whichever of `destinations` it is
+ * worth most to walk to (its targets, `Option.targets`, priced and chosen by the chooser): on offer
+ * where the legs can carry the body (`legsReadiness`) and its destination is a place to walk to
+ * (`Destination.entry`), run its course once there; it always yields and asks for no blow. Its
+ * model and walk are its destination's, by the gait. Named for the gait and where it goes. Its
+ * memory is which destination it runs at.
+ */
+export function moveBy(going: Going, destinations: readonly Destination[]): Option {
+  const state = { at: 0 }, gait = GAITS[going.gait].label.toLowerCase();
+  const to = (): Destination => destinations[state.at]!;
+  return {
+    get name() { return `${gait} ${to().name}`; },
+    claims: LEGS, state, targets: destinations.map((one) => one.name),
+    aim(index) { state.at = index; },
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
-      if (legs.kind !== "ready") return legs;
-      return strike.window(now) === null ? UNFIT : READY;
+      return legs.kind !== "ready" ? legs : to().entry(now);
     },
-    status: (now) => strike.window(now) === null ? "over" : "yields",
+    status: (now): Status => to().reached(now) ? "over" : "yields",
     begin() {},
     end() {},
-    model: (now) => strike.through(now, going),
-    step: (now) => {
-      const window = strike.window(now);
-      const asked = window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
-        : { move: null, face: walk.facing(now), actions: [], gait: going.gait };
-      return { asked: walk.kept(now, asked, now.focus?.id ?? null), holds: LEGS };
-    },
+    model: (now) => to().model(now, going),
+    step: (now) => ({ asked: { ...to().walk(now), actions: [], gait: going.gait }, holds: LEGS }),
   };
 }
