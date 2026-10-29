@@ -1,5 +1,5 @@
-import type { GaitName } from "../../skills/gaits.ts";
-import { deepFreeze } from "../../state.ts";
+import type { GaitName } from "../../../skills/gaits.ts";
+import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import { dealtAt } from "./percepts.ts";
 import { CLINCH } from "./value.ts";

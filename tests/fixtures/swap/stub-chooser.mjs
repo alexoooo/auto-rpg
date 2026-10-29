@@ -4,7 +4,7 @@
  * test can read that the chooser a config names is the chooser the mind made through the lookup.
  */
 import { anyBody } from "../../../src/core/mind/parts.ts";
-import { chooser } from "../../../src/core/mind/options/chooser.ts";
+import { chooser } from "../../../src/core/entrants/kinetic/options/chooser.ts";
 
 export const STUB_CHOOSER = Object.freeze({
   role: "chooser", label: "Counted chooser (stub)", stage: "experimental", fields: [], slots: [],

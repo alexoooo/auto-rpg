@@ -1,17 +1,17 @@
-import type { TargetRef } from "../../skills/action.ts";
-import type { BodySpec, Side } from "../../spec/body.ts";
-import { deepFreeze } from "../../state.ts";
-import { awaits, firstEdges, graphWork, toStanding, type GraphFailure, type GraphTechnique } from "../ground/graph.ts";
-import { GROUND_MODES, sideEffector, type GroundExecutor, type GroundMode } from "../ground/held.ts";
-import type { GroundReading, Position } from "../ground/reading.ts";
-import { standReady, tumbling } from "../ground/reading.ts";
-import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../ground/stand-up.ts";
-import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
-import { edgeExpected } from "../profile.ts";
+import type { TargetRef } from "../../../skills/action.ts";
+import type { BodySpec, Side } from "../../../spec/body.ts";
+import { deepFreeze } from "../../../state.ts";
+import { awaits, firstEdges, graphWork, toStanding, type GraphFailure, type GraphTechnique } from "../../../mind/ground/graph.ts";
+import { GROUND_MODES, sideEffector, type GroundExecutor, type GroundMode } from "../../../mind/ground/held.ts";
+import type { GroundReading, Position } from "../../../mind/ground/reading.ts";
+import { standReady, tumbling } from "../../../mind/ground/reading.ts";
+import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../../../mind/ground/stand-up.ts";
+import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../../../mind/ground/technique.ts";
+import { edgeExpected } from "../../../mind/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
-import type { Sight } from "../tactics.ts";
+import type { Sight } from "../../../mind/tactics.ts";
 
 /** What a rise is priced at where no route it takes is measured to standing: 5 s, standing at the end seven times in ten, keeping off none of a near focus's blows. */
 const BY_HAND: DownModel = deepFreeze({ seconds: 5, stands: .7, shelter: 0 });

@@ -20,7 +20,6 @@ import type { GAITS } from "../reptile/gaits.ts";
 import type { BITES } from "../reptile/bites.ts";
 import type { QUADRUPED_PLANNERS } from "../reptile/planners.ts";
 import type { Region } from "../skills/action.ts";
-import type { CHOOSERS } from "./options/choosers.ts";
 
 /** **A stock sub-mind's config**, by kind (`SUB_MINDS`). */
 export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
@@ -84,8 +83,6 @@ export interface ActionConfig {
 }
 
 
-/** **A chooser's config**, by kind (`CHOOSERS`). */
-export type ChooserConfig = ConfigOf<typeof CHOOSERS>;
 
 /** **A stock guard's config**, by kind (`GUARDS`). */
 export type GuardConfig = ConfigOf<typeof GUARDS>;

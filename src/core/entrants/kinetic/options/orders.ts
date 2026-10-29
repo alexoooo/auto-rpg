@@ -1,15 +1,15 @@
-import { NO_COVER } from "../intent.ts";
-import { orderedIntent } from "../ordered.ts";
+import { NO_COVER } from "../../../mind/intent.ts";
+import { orderedIntent } from "../../../mind/ordered.ts";
 import { asking, blocked, READY, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
 import type { Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import type { ActionConfig } from "../config.ts";
-import { remainingOf } from "../movement.ts";
-import { regionSegments } from "../action-aim.ts";
+import type { ActionConfig } from "../../../mind/config.ts";
+import { remainingOf } from "../../../mind/movement.ts";
+import { regionSegments } from "../../../mind/action-aim.ts";
 import { around } from "./strike.ts";
-import type { ActionRequest } from "../../skills/action.ts";
+import type { ActionRequest } from "../../../skills/action.ts";
 
 /** How far ahead following orders is priced, s. */
 const AHEAD = 1;

@@ -1,9 +1,9 @@
-import type { Readiness } from "../../skills/action.ts";
-import { GAIT_NAMES, GAITS } from "../../skills/gaits.ts";
-import type { BodySpec } from "../../spec/body.ts";
-import { dataOf } from "../../data/store.ts";
-import { approachActionWindow } from "../action-window.ts";
-import { gaitDigest, measuredOn, profileFor, readProfile } from "../profile.ts";
+import type { Readiness } from "../../../skills/action.ts";
+import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
+import type { BodySpec } from "../../../spec/body.ts";
+import { dataOf } from "../../../data/store.ts";
+import { approachActionWindow } from "../../../mind/action-window.ts";
+import { gaitDigest, measuredOn, profileFor, readProfile } from "../../../mind/profile.ts";
 import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";

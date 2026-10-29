@@ -1,5 +1,5 @@
-import type { Resource, TargetRef } from "../../skills/action.ts";
-import { deepFreeze } from "../../state.ts";
+import type { Resource, TargetRef } from "../../../skills/action.ts";
+import { deepFreeze } from "../../../state.ts";
 import { asking, blocked, READY, WHOLE, type GroundOption, type Situation, type StandingOption } from "./option.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { here } from "./position.ts";

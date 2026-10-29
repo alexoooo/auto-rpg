@@ -1,12 +1,14 @@
-import { randomStream } from "../../math/random.ts";
-import { deepFreeze } from "../../state.ts";
-import type { PartField } from "../fields.ts";
-import type { PartLookup } from "../lookup.ts";
-import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts.ts";
+import { randomStream } from "../../../math/random.ts";
+import { deepFreeze } from "../../../state.ts";
+import type { PartField } from "../../../mind/fields.ts";
+import type { PartLookup } from "../../../mind/lookup.ts";
+import type { ChooserPart } from "../../../mind/chooser-part.ts";
+import { anyBody, type PartConfig } from "../../../mind/parts.ts";
+import type { Offer } from "../../../mind/tactics.ts";
 import { onOffer, overlaps, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
 import { FEW_TERMS } from "./position.ts";
-import { OBEDIENCE, STEADY, worth, type ObedienceLevel, type Terms } from "./value.ts";
+import { OBEDIENCE, STEADY, worth, type ObedienceLevel } from "./value.ts";
 
 /** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
 export interface Deciding { readonly rethink: number }
@@ -20,18 +22,6 @@ export interface Chance { readonly margin: number; readonly seed: number }
 
 /** How a chooser decides (`Deciding`), by rank or by worth. */
 const DECIDING: Deciding = Object.freeze({ rethink: .2 });
-
-/**
- * An option's worth at a decision, the terms it was weighed from, how much it changes the position
- * and what letting it go costs, running (`worth`); none for a fixed worth, which costs nothing to let go.
- */
-export interface Offer {
-  readonly name: string;
-  readonly worth: number;
-  readonly terms: Terms | null;
-  readonly moves: number | null;
-  readonly letGo: number;
-}
 
 /** How a chooser prices the option at `i` of its options, now. */
 export type Appraise = (option: Option, i: number, now: Situation) => Offer;
@@ -135,18 +125,17 @@ function drawn(values: readonly number[], floor: number, best: number, next: () 
   return best;
 }
 
-/** **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes the chooser over a body's options. */
-export interface ChooserPart<C extends PartConfig = PartConfig> extends Part<C> {
-  readonly role: "chooser";
-  readonly keys: KeysOf<C>;
-  /** The chooser over `options`, its chances drawn from `seed` (`BodyHost.seed`). */
-  make(config: C, options: readonly Option[], seed: number): Chooser;
-}
+/** **A kind of Kinetic's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
+export type KineticChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
 
-/** The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`. */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser => parts.of("chooser", config).make(config, options, seed);
+/**
+ * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
+ * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Kinetic's are.
+ */
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
+  parts.of("chooser", config).make(config, options, seed) as Chooser;
 
-/** How many options ahead a chooser looks: one, until its options' profiles are measured (the Options plan's depth 2). */
+/** How many options ahead a chooser looks: one, until its options' profiles are measured. */
 const DEPTH = 1;
 
 /** A depth other than the one a chooser looks (`DEPTH`), as a fault. */
@@ -175,7 +164,7 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
 };
 
 /** **Valued**: each option worth its model's terms (`Terms`) in life beside the position held (`worth`, by the few terms, `FEW_TERMS`), its orders at its obedience. */
-export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
+export const VALUED_CHOOSER: KineticChooserPart<ValuedConfig> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: { kind: "valued", depth: DEPTH },
   keys: { kind: true, depth: true, obedience: true, margin: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(config),
@@ -195,7 +184,7 @@ export const VALUED_CHOOSER: ChooserPart<ValuedConfig> = deepFreeze({
 interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 
 /** **Ranked**: each option worth its place, the first the most. */
-export const RANKED_CHOOSER: ChooserPart<RankedConfig> = deepFreeze({
+export const RANKED_CHOOSER: KineticChooserPart<RankedConfig> = deepFreeze({
   role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults,
   make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), DECIDING),

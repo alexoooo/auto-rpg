@@ -1,6 +1,6 @@
-import type { Readiness, Resource } from "../../skills/action.ts";
-import type { Cover, Intent } from "../intent.ts";
-import type { Sight } from "../tactics.ts";
+import type { Readiness, Resource } from "../../../skills/action.ts";
+import type { Cover, Intent } from "../../../mind/intent.ts";
+import type { Sight } from "../../../mind/tactics.ts";
 import type { Percepts } from "./percepts.ts";
 import type { Terms } from "./value.ts";
 
@@ -29,7 +29,7 @@ interface OptionBase {
   entry(now: Situation): Readiness;
   /**
    * Its exit, now: `ready` where the body can be handed to another option here, else why not; null
-   * where it names none. What a chooser looking past it reads (the Options plan's depth 2).
+   * where it names none. What a chooser looking past it reads.
    */
   exit(now: Situation): Readiness | null;
   /** Whether, running, it may give way to another now. */

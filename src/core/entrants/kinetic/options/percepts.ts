@@ -1,18 +1,18 @@
-import type { MotorUnmet } from "../../control/motor.ts";
-import { paceToward, stanceEnvelopeOf } from "../../control/stance-envelope.ts";
-import type { StancePhase } from "../../control/stance.ts";
-import { hypot } from "../../math/real.ts";
-import type { Rulebook } from "../../rules/rulebook.ts";
-import type { LegsUnmet } from "../../skills/skill.ts";
-import { rangeOf } from "../../skills/strike.ts";
-import type { BodySpec, Side } from "../../spec/body.ts";
-import { deepFreeze } from "../../state.ts";
-import type { Cover } from "../intent.ts";
-import type { Orders } from "../orders.ts";
-import { profilesOn, readProfile, sameReaction, type Profile, type ProfileReading } from "../profile.ts";
-import type { BodySense } from "../senses.ts";
-import type { Sight } from "../tactics.ts";
-import { READINGS, threatReader, type ThreatView } from "../threat.ts";
+import type { MotorUnmet } from "../../../control/motor.ts";
+import { paceToward, stanceEnvelopeOf } from "../../../control/stance-envelope.ts";
+import type { StancePhase } from "../../../control/stance.ts";
+import { hypot } from "../../../math/real.ts";
+import type { Rulebook } from "../../../rules/rulebook.ts";
+import type { LegsUnmet } from "../../../skills/skill.ts";
+import { rangeOf } from "../../../skills/strike.ts";
+import type { BodySpec, Side } from "../../../spec/body.ts";
+import { deepFreeze } from "../../../state.ts";
+import type { Cover } from "../../../mind/intent.ts";
+import type { Orders } from "../../../mind/orders.ts";
+import { profilesOn, readProfile, sameReaction, type Profile, type ProfileReading } from "../../../mind/profile.ts";
+import type { BodySense } from "../../../mind/senses.ts";
+import type { Sight } from "../../../mind/tactics.ts";
+import { foePhase, threatReader, type FoePhase } from "../../../mind/threat.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
 import { blowLife, record } from "./value.ts";
@@ -70,32 +70,6 @@ type Bearing = "both" | "left" | "right" | "none";
 /** The feet `touching` says the ground bears. */
 const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
   touching.left ? touching.right ? "both" : "left" : touching.right ? "right" : "none";
-
-/**
- * **What a foe's body is doing**, read from what is sensed of it: striking, a blow of its predicted
- * to reach the head (`READINGS.predicted`); down by its spec's rule (`BodySense.down`), and rising,
- * down with its centre of mass going up faster than `RISING`; else clear.
- */
-type FoePhase = "striking" | "down" | "rising" | "clear";
-
-/** How fast a fallen body's centre of mass goes up for it to read as rising, m/s. */
-const RISING = 0.2;
-
-/** The phase (`FoePhase`) of `focus`, `blow` the blow predicted to reach the head; clear with no focus. */
-function foePhase(focus: BodySense | null, blow: Seen["blow"]): FoePhase {
-  if (!focus) return "clear";
-  if (focus.down) return focus.velocity.y > RISING ? "rising" : "down";
-  return blow?.foe.id === focus.id ? "striking" : "clear";
-}
-
-/**
- * **The `phase` percept of a body that senses as `view` does, its focus the body `focus` names**
- * (`foePhase`, the blow predicted as the situation predicts it, `READINGS.predicted`): the rule a
- * reader outside the mind reads it by, a drill's record of where its strike began.
- */
-export function sensedPhase(view: ThreatView, focus: string): FoePhase {
-  return foePhase(view.senses.others.find((other) => other.id === focus) ?? null, threatReader().blowOf(view, READINGS.predicted));
-}
 
 /** Whether `spec` has both hands to strike with: what the reach readings measure. */
 const twoHanded = (spec: BodySpec): boolean => ["hand.left", "hand.right"].every((hand) => spec.effectors?.some((effector) => effector.segment === hand) ?? false);

@@ -1,6 +1,6 @@
-import { cos, sin } from "../../math/real.ts";
-import type { BodySpec, Side } from "../../spec/body.ts";
-import { coveringHand } from "../cover-hand.ts";
+import { cos, sin } from "../../../math/real.ts";
+import type { BodySpec, Side } from "../../../spec/body.ts";
+import { coveringHand } from "../../../mind/cover-hand.ts";
 import { blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { here } from "./position.ts";
 

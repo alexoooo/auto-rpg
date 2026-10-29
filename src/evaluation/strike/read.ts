@@ -10,7 +10,7 @@ import { rigidPoints } from "../../core/build/rigid.ts";
 import { jointAngles } from "../../core/build/joint-state.ts";
 import { regionSegments } from "../../core/mind/action-aim.ts";
 import type { DrillPhase } from "../../core/mind/drill-tactics.ts";
-import { sensedPhase } from "../../core/mind/options/percepts.ts";
+import { sensedPhase } from "../../core/mind/threat.ts";
 import { centreReading } from "../../core/observation.ts";
 import { aimOf } from "../../core/skills/strikes.ts";
 import { acos, cos } from "../../core/math/real.ts";

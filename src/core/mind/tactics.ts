@@ -1,6 +1,5 @@
 import type { Clearance } from "./clear-step.ts";
 import type { Body, BodyView } from "../body.ts";
-import type { Offer } from "./options/chooser.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
@@ -12,6 +11,32 @@ export interface TacticalDecision {
   readonly focus?: string | null;
   readonly evading?: boolean;
   readonly approach?: Window | null;
+}
+
+/**
+ * What an offer was weighed from, as a readout shows it, each in life (a share of a body's full
+ * life) or its own unit: how long it runs, s; the life it deals and takes; the metres of the orders
+ * it carries out; and where it leaves the body, the range head to head, m, and the chance it is down.
+ */
+export interface OfferTerms {
+  readonly duration: number;
+  readonly dealt: number;
+  readonly taken: number;
+  readonly orders: number;
+  readonly exit: { readonly apart: number; readonly down: number };
+}
+
+/**
+ * **An option's worth at a decision** (`Engagement.offers`), the terms it was weighed from, how
+ * much it changes the position and what letting it go costs, running; no terms for a fixed worth,
+ * which costs nothing to let go.
+ */
+export interface Offer {
+  readonly name: string;
+  readonly worth: number;
+  readonly terms: OfferTerms | null;
+  readonly moves: number | null;
+  readonly letGo: number;
 }
 
 /** A declared operational field; a null or false value still supplies the capability. */
@@ -46,8 +71,8 @@ export interface EngagementDetail {
  * **What a planner reports doing** (`Tactics.engagement`): what every planner may say, its phase
  * (shown by its part's label, `Part.phases`), its focus and whether it lost it, and its own
  * details, which any planner publishes as it likes and a readout shows as they are (`details`).
- * The stock planners add what is theirs: the options controller the offers it chose among
- * (`offers`), the action controller its candidates and the one it pursues (`candidates`, `pending`).
+ * The planners add what is theirs: a chooser over options the offers it chose among (`offers`),
+ * the action controller its candidates and the one it pursues (`candidates`, `pending`).
  */
 export interface Engagement {
   readonly phase: string;
