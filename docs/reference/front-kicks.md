@@ -63,18 +63,23 @@ back, 0.8 to 1.2 m off).
 
 | Setting | Value | Why |
 | --- | ---: | --- |
-| over | 1 | The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8 the stroke came in straighter and faster on the Warrior, and 5 to 7 trials of 12 fell |
-| windup / soleTurn | 0 m / 0 | No draw back and no turn of the sole: a stroke straight down |
-| lift | 0.5 m | The chamber this far over the strike site, clear of a lying trunk |
+| over | 1 | The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8, 3 trials of 12 fell, and at 0.4 to 0.6 under a 0.7 m lift the chamber was out of reach (9 to 11 abandoned) |
+| windup / soleTurn | 0 m / 0 | No draw back and no turn of the sole: a stroke straight down; a sole held flat through the stroke (soleTurn 0.001 to 0.1) met the trunk with its toes, 3.6 to 5.3 J at the median |
+| lift | 0.7 m | The chamber this far over the strike site: a longer stroke down; at 0.6 the median blow was 4.9 J, at 0.8 9.1 J (within a trial's spread of 0.7's, with less reach to spare), and at 0.9 the chamber went out of reach (5 of 12 abandoned) |
 | top | 0.4 | The height band's top low over the sole: a lying body's trunk, never a standing one's |
-| alongNear / alongFar / across | 0.4 / 0.7 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle; nearer, no place is |
-| contactSpeed / swingSeconds | 3 m/s / 0.3 s | At 2 m/s over 0.4 s the stroke only touched (under 2 J); at 5 m/s over 0.25 s, 6 trials of 12 fell after it |
+| alongNear / alongFar / across | 0.55 / 0.8 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle: at 0.4 / 0.7, 4 trials of 12 never reached the window; at 0.5 / 0.75, 2 refused and 1 to 2 fell |
+| contactSpeed / swingSeconds | 5 m/s / 0.25 s | A faster stroke; 6 m/s over 0.2 s and 5 m/s over 0.3 s read the same within a trial's spread |
+| returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; at 0.04, 6 trials of 12 ended stalled, at 0.1, 4 |
 
-Its trials (`ff7651ed`'s rung): 6 of 12 landed and 1 more met the mark short of its action's end, 1
-fell, and 4 never reached the window or were never admitted; the stroke takes about 5.7 s from
-admission to recentred, most of it the kick's preparation. The fall comes after the stroke: the
-blow pushes the body back over its one bearing foot while the other is still in the air. A return
-and placement twice as quick (0.3 / 0.5 s) and a forward lean of 0.15 rad did not keep it up.
+Its trials (`4157f5d4`'s rung): 9 of 12 landed, 1 weak, 2 met the body elsewhere, none fell; the
+blow's energy 7.6 J at the median (3.9 to 10.4 J between the quartiles, 17.2 J the most), its
+speed 2.9 m/s and the mass behind the foot 2.4 kg; 0.04 to 0.10 HP dealt a trial. The blow is
+weak beside the punch's (25 to 42 J) for the little mass behind the foot: it meets the trunk
+pointed down, the ankle plantarflexed about 40 degrees, and the push turns it about the ankle; the
+blow with 13.5 kg behind it, the knee bent 26 degrees, was worth 46 J. Its profile's trials take
+9.6 to 15.5 s from ready to their end: about 1.6 s settling the feet, 0.6 s chambering, and in a
+third of them a placement that lands the foot short of its place and waits out `placeLimit` (6 s),
+the leg locked straight at its knee's stop, which its reach's solve cannot bend.
 
 ## Harness and qualification
 

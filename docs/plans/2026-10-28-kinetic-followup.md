@@ -312,11 +312,13 @@ where both feet stand clear of its limbs (`Window.on`, `approachActionWindow`), 
 the place it walks to (`MovementRequest`'s `by`) so navigation does not keep it off as a fallen
 one. The Strike drill strikes with a hand or a foot, and its `stomping` rung throws each foot at a
 Warrior and a Skeleton lying limp on their backs; each reading records the target's posture and
-range, which the profiles cut their cells by. At `8e6a1d26` the rung lands 6 of 12, 1 falls, 4 never
-reach the window; the stomp's own blows deal 0.01 to 0.07 HP (the punch's 0.2 to 1.3), its stroke
-meeting the trunk near 1.5 m/s, and faster strokes fell 5 to 7 trials of 12 after the blow. Its
-profile (`4121445e`) prices it below holding, so Kinetic does not stomp. Left: a stroke fast enough
-to matter that the body stays up through, and the downward blow from low support.
+range, which the profiles cut their cells by. A kick returns to its chamber, carried with the
+pelvis, before it is placed, so a stomp's foot is withdrawn clear of the body it struck. At
+`4157f5d4` the rung lands 9 of 12 and none falls; the blow is 7.6 J at the median (17.2 J the most),
+0.04 to 0.10 HP a trial (the punch's 0.2 to 1.3), and its profile (`3cbe501f`) has Kinetic stomp a
+lying body under its own chooser. Left: a heavier blow (the foot meets the trunk pointed down, about
+2 kg behind it), a stroke quicker than 10 to 15 s (its placement waits out its deadline in a third
+of trials, the leg locked straight), and the downward blow from low support.
 
 Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
 fallen Duellist Skeleton in the Arena.
