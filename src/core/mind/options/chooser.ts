@@ -57,18 +57,17 @@ export interface Chooser {
 /**
  * **A chooser one option deep**: of `options`, the one the body runs, by its worth as `appraise`
  * prices it. Once a control step (`decide`), on an event, when the running option is over or out
- * of its entry, or `rethink` s on, it takes the option on offer (`onOffer`) of the highest worth,
+ * of its entry, when it reaches its exit, or `rethink` s on, it takes the option on offer (`onOffer`) of the highest worth,
  * the running one's raised by `keep`, the first of equals, or one drawn by `chance` where it gives
  * a margin; a running option that does not yield is kept while it goes on. Standing, it takes one
  * only worth more than the defaults holding the position, none; down there are no defaults, and it
- * takes the best. Its memory is which
- * option runs (its place in `options`, or -1), when it decided, when it next rethinks, the event it
- * decided on, the offers it chose from, and, where it draws, its stream's word.
+ * takes the best. Its memory is which option runs (its place in `options`, or -1), when it decided, when it next rethinks, the event it
+ * decided on, whether the running option was at its exit, the offers it chose from, and, where it draws, its stream's word.
  */
 export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
-  const state = { running: -1, decided: -Infinity, next: -Infinity, event: "", offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
+  const state = { running: -1, decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
   const values: number[] = [];
   const current = (): Option | null => state.running < 0 ? null : options[state.running]!;
   return {
@@ -80,8 +79,10 @@ export function chooser(options: readonly Option[], appraise: Appraise, deciding
       state.decided = now.time;
       const event = eventOf(now), running = current();
       const over = running !== null && (running.ended(now) || !onOffer(running, now));
-      if (!over && event === state.event && now.time < state.next) return running;
+      const exiting = running !== null && !over && running.exit(now)?.kind === "ready";
+      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return running;
       state.event = event;
+      state.exiting = exiting;
       state.next = now.time + deciding.rethink;
       if (running && !over && !running.yields(now)) return running;
       if (running && over) { running.end(); state.running = -1; }

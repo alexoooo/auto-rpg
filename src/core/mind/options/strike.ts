@@ -45,8 +45,11 @@ export interface StrikeOption extends StandingOption {
  * where it `closes`, else the first its executor would admit from a window, which its legs are
  * brought to first (`approach`). It asks for the blow once the limb is ready, and goes on asking
  * until the blow is over: then it has run its course. A blow asked for and refused, every limb out
- * of its entry, or `PATIENCE` s without a blow also end it. It yields until its blow is committed,
- * and holds what its blow holds (`asking`). Its exit is its stroke's end (the blow's `release`).
+ * of its entry, or `PATIENCE` s without a blow also end it. It yields until its blow is committed
+ * (let go, the blow is dropped) and again from its exit, its stroke's end (the blow's `release`):
+ * there, given up, it asks no more and its executor may hand the arm to the guard; kept, it strikes
+ * again, its blow let go and the next asked of the first limb ready. It holds what its blow holds
+ * (`asking`).
  * The region struck is what the orders name on the focus, else the first of the action's regions
  * the focus has.
  *
@@ -101,7 +104,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     name: action.name, posture: "standing", layer: "commitment", state,
     entry,
     exit: (now) => live(now)?.phase === "release" ? READY : STROKE,
-    yields: (now) => (live(now)?.phase ?? "prepare") === "prepare",
+    yields: (now) => (live(now)?.phase ?? "prepare") !== "commit",
     ended: () => state.over,
     holds: asking,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
@@ -126,6 +129,8 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
       const running = live(now);
+      // Kept at its exit, it strikes again: the blow under way is let go, and the next is asked once a limb is ready.
+      if (running?.phase === "release") { state.id = null; state.since = now.time; return still; }
       if (running) return { ...still, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };
       if (state.id !== null || !state.target || now.time - state.since >= PATIENCE) { state.over = true; return still; }
       const chosen = limbFor(now, state.target);

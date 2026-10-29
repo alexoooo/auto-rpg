@@ -513,6 +513,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
       const request = continued.find(one => one.id === live.request.id);
       if (!request) live.withdrawn = true;
+      // Its stroke's end is its exit: let go in its return, it hands the arm to the guard at once.
+      if (live.phase === "release" && live.withdrawn) { state.live = null; technique.end(); return [{ id: live.request.id, ending: live.ending }]; }
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
       else if (requireArmAim && live.phase === "commit" && live.time < settings.lead && !at) release({ kind: "completed" });
