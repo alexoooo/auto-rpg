@@ -76,17 +76,17 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 export const FEW_TERMS: PositionValue = deepFreeze({
   name: "few terms",
   of(now: Situation, place: Place, seconds: number): number {
-    const lead = now.lead, fallen = place.down * now.downCost, focus = now.focus;
+    const lead = now.lead, fallen = place.down * now.predictions.downCost, focus = now.focus;
     if (!focus || focus.down || !Number.isFinite(place.apart)) return lead - fallen;
     const { theirs, mine } = now.reach;
-    const exchange = dealtAt(now.pressing, now, place.apart, mine, Math.max(0, TERMS.held - (place.braced ?? 0))) - dealtAt(now.pressure, now, place.apart, theirs, TERMS.held);
+    const exchange = dealtAt(now.predictions.pressing, now, place.apart, mine, Math.max(0, TERMS.held - (place.braced ?? 0))) - dealtAt(now.predictions.pressure, now, place.apart, theirs, TERMS.held);
     const stake = lead > 0 ? place.apart <= theirs ? lead : 0 : place.apart <= mine ? 0 : -lead;
     return lead - fallen + (1 - place.down) * (exchange - lateness(now, seconds) * stake);
   },
   rate(now: Situation): number {
     const focus = now.focus;
     if (!focus || focus.down) return 0;
-    const clinch = !now.down && now.apart < CLINCH.within ? now.downCost * CLINCH.falls : 0;
-    return -dealtAt(now.pressure, now, now.reach.apart, now.reach.theirs, 1) - clinch;
+    const clinch = !now.down && now.apart < CLINCH.within ? now.predictions.downCost * CLINCH.falls : 0;
+    return -dealtAt(now.predictions.pressure, now, now.reach.apart, now.reach.theirs, 1) - clinch;
   },
 });

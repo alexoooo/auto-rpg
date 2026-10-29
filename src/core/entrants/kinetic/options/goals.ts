@@ -27,20 +27,20 @@ export function within(now: Situation, goal: Goal): boolean {
 }
 
 /**
- * **How far the focus's pressure reaches** (`Situation.pressure`), m head to head: its modelled
+ * **How far the focus's pressure reaches** (`Predictions.pressure`), m head to head: its modelled
  * strikes' farthest range at the body's phase (`ProfileReading.reach`), as the range now places
  * it; built by hand, the focus's hands' reach (`Reach.theirs`).
  */
 export function pressureEdge(now: Situation): number {
-  const { model, phase } = now.pressure;
+  const { model, phase } = now.predictions.pressure;
   if (model.length === 0) return now.reach.theirs;
   let range = -Infinity;
   for (const reading of model) range = Math.max(range, reading.reach(phase));
   return now.reach.apart + range - now.apart;
 }
 
-/** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Situation.closes`). */
-export const OUT_OF_PRESSURE: Goal = Object.freeze({ near: (now: Situation) => pressureEdge(now) + now.closes, width: () => Infinity });
+/** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Predictions.closes`). */
+export const OUT_OF_PRESSURE: Goal = Object.freeze({ near: (now: Situation) => pressureEdge(now) + now.predictions.closes, width: () => Infinity });
 
 /**
  * **Each gait** (`GAITS`) as a body of `spec` goes by it at `hz`, stopping to throw the strike of
@@ -94,7 +94,7 @@ function walkTo(now: Situation, to: number, duration: number, pace: number, goin
   const apart = now.reach.apart;
   const nearer = Math.min(apart, to), inReach = Math.max(0, Math.min(Math.max(apart, to), now.reach.theirs) - nearer) / pace;
   const leaves = now.apart + to - apart >= CLINCH.within;
-  return { duration, dealt: 0, taken: now.danger + threatened(now, inReach, nearer), orders: 0,
+  return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearer), orders: 0,
     exit: fromHere(now, { apart: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), braced: going.braced }) };
 }
 

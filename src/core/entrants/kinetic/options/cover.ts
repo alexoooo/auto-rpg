@@ -43,7 +43,7 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
       name: `cover ${side}`, claims: Object.freeze([hand]), state: {},
       entry: (now) => handAt(now) !== side ? OFF : now.sight.report.actions.some((action) => action.holds.includes(hand)) ? HELD : READY,
       status: () => "yields", begin() {}, end() {},
-      model: (now) => ({ duration: 0, dealt: 0, taken: (1 - STOPS) * now.danger, orders: 0, exit: here(now) }),
+      model: (now) => ({ duration: 0, dealt: 0, taken: (1 - STOPS) * now.predictions.danger, orders: 0, exit: here(now) }),
       step: (now) => ({ asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: now.incoming! } }, holds: NOTHING }),
     };
   };

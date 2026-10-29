@@ -63,7 +63,7 @@ export function worth(terms: Terms, now: Situation, obedience: Obedience, positi
   const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0), rate = position.rate(now);
   const letGo = terms.letGo ? Math.max(0, terms.letGo.taken + rate * terms.letGo.seconds) : 0;
   const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id;
-  return { worth: terms.dealt * (named ? 1 + obedience.foe : 1) - (terms.taken - now.danger) + obedience.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
+  return { worth: terms.dealt * (named ? 1 + obedience.foe : 1) - (terms.taken - now.predictions.danger) + obedience.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
 }
 
 /** How fast a hand closes on a head in a blow not under way to measure, m/s. */

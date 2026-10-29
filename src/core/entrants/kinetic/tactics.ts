@@ -57,7 +57,7 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
  */
 function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Situation): EngagementDetail {
   const own = strikes.map((option) => `${option.name}: ${option.priced(now)}`);
-  return { label: "Profiles", value: [...own, `foe: ${now.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
+  return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
 }
 
 /**

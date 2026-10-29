@@ -1,13 +1,17 @@
 import type { Readiness, Resource } from "../../../skills/action.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../../../mind/intent.ts";
 import type { Sight } from "../../../mind/tactics.ts";
-import type { Percepts } from "./percepts.ts";
+import type { Percepts, Predictions } from "./percepts.ts";
 import type { Terms } from "./value.ts";
 
-/** **What a decision reads**, once a control step: the body and its skills as the last step left them, and each percept (`PERCEPTS`). */
+/**
+ * **What a decision reads**, once a control step: the body and its skills as the last step left
+ * them, each percept (`PERCEPTS`), and the predictions, read as they are asked (`PREDICTIONS`).
+ */
 export interface Situation extends Percepts {
   readonly sight: Sight;
   readonly time: number;
+  readonly predictions: Predictions;
 }
 
 /**

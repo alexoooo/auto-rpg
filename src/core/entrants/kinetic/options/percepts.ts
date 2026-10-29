@@ -203,7 +203,7 @@ export const dealtAt = (pressure: Pressure, now: Situation, apart: number, reach
   pressure.model.length ? pressureAt(pressure, now.apart + apart - now.reach.apart, seconds) : apart <= reach ? pressureAt(pressure, 0, seconds) : 0;
 
 /** **The own life `seconds` s cost under the focus's pressure** (`Pressure`, `dealtAt`), standing `apart` m from it head to head. */
-export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.pressure, now, apart, now.reach.theirs, seconds);
+export const threatened = (now: Situation, seconds: number, apart = now.reach.apart): number => dealtAt(now.predictions.pressure, now, apart, now.reach.theirs, seconds);
 
 /**
  * **The own life `blow` is expected to take**: modelled (`foeModel`, its striker's), the most its
@@ -238,23 +238,19 @@ function downCostOf(seen: Seen): number {
 }
 
 /**
- * **Every percept Kinetic reads**, by name, in the order they are read: whether the
- * body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its focus; how
- * far off the focus is, centre to centre across the ground (Infinity with none); a foe's blow
- * predicted to reach the head (`READINGS.predicted`); the own life that blow is expected to take
- * (`lifeOf`), 0 with none; the reach head to head (`Reach`:
- * Infinity and noughts with no focus); what a standing focus is expected to deal the body
- * (`Pressure`), and what its own strikes are expected to deal the focus (`pressingOf`); what a fall
- * would cost (`downCostOf`), own life; how late the
- * senses show the focus (`reactionOf`), s, and how far it walks in that time (`closesOf`), m; the lead (its own life less the focus's, 0 with none)
- * and the time left before the clock's verdict (`Senses.ends`, Infinity where none ends it), s;
- * and the focus's life a blow of each hand at its head takes by the rules (`blowLife`), 0 with no
- * focus. The gait's: where the stance is in a step (`StanceReading.phase`),
- * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
- * the controllers did not carry out: the legs' (`SkillReport.legs`) and the motor's
- * (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the blow it
- * strikes with, s (Infinity with none). Its cues: going down or getting up, braced, other orders,
- * another focus, a threat or a blow coming.
+ * **Every percept Kinetic reads**, by name, in the order they are read: what it reads of the senses
+ * and its own body with fixed geometry and kinematics, the same whatever a drill or the rules give.
+ * Whether the body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its
+ * focus; how far off the focus is, centre to centre across the ground (Infinity with none); a foe's
+ * blow predicted to reach the head (`READINGS.predicted`); the reach head to head (`Reach`:
+ * Infinity and noughts with no focus); how late the senses show the focus (`reactionOf`), s; the
+ * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
+ * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
+ * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
+ * over the ground, m/s. What the controllers did not carry out: the legs' (`SkillReport.legs`) and
+ * the motor's (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the
+ * blow it strikes with, s (Infinity with none). Its cues: going down or getting up, braced, other
+ * orders, another focus, a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
@@ -263,22 +259,15 @@ export const PERCEPTS = Object.freeze({
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
-  danger: { read: (seen) => lifeOf(seen, seen.blow) } as Percept<number>,
   reach: { read: ({ focus, sight, spec }): Reach => {
     if (!focus) return { apart: Infinity, theirs: 0, mine: 0 };
     const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
     return { apart: hypot(theirs.x - mine.x, theirs.z - mine.z), theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0,
       mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
   } } as Percept<Reach>,
-  pressure: { read: pressureOf } as Percept<Pressure>,
-  pressing: { read: pressingOf } as Percept<Pressure>,
-  downCost: { read: downCostOf } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
-  closes: { read: closesOf } as Percept<number>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,
-  blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
-    right: focus ? blowLife(rules, spec, "right", focus.spec) : 0 }) } as Percept<Readonly<Record<Side, number>>>,
   stride: { read: ({ sight }) => sight.view.stance.phase } as Percept<StancePhase>,
   bearing: { read: ({ sight }) => bearingOf(sight.view.stance.touching) } as Percept<Bearing>,
   speed: { read: ({ sight }) => hypot(sight.view.stance.velocity.x, sight.view.stance.velocity.z) } as Percept<number>,
@@ -287,6 +276,59 @@ export const PERCEPTS = Object.freeze({
   phase: { read: ({ focus, blow }) => foePhase(focus, blow) } as Percept<FoePhase>,
   contact: { read: ({ focus, blow }) => focus && blow?.foe.id === focus.id ? blow.seconds : Infinity } as Percept<number>,
 });
+
+/**
+ * **A prediction**: what data a drill, a training run or the rules make says of the situation,
+ * stale with that data; read when an option or the position value asks for it, once a step at most
+ * (`predictor`).
+ */
+export interface Prediction<V> {
+  read(seen: Seen): V;
+}
+
+/**
+ * **Every prediction Kinetic reads**, by name: the own life the blow coming is expected to take
+ * (`lifeOf`), 0 with none; what a standing focus is expected to deal the body (`Pressure`), and
+ * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
+ * (`downCostOf`), own life; how far the focus walks in the time the senses show it late
+ * (`closesOf`), m; and the focus's life a blow of each hand at its head takes by the rules
+ * (`blowLife`), 0 with no focus.
+ */
+export const PREDICTIONS = Object.freeze({
+  danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
+  pressure: { read: pressureOf } as Prediction<Pressure>,
+  pressing: { read: pressingOf } as Prediction<Pressure>,
+  downCost: { read: downCostOf } as Prediction<number>,
+  closes: { read: closesOf } as Prediction<number>,
+  blows: { read: ({ focus, spec, rules }): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec) : 0,
+    right: focus ? blowLife(rules, spec, "right", focus.spec) : 0 }) } as Prediction<Readonly<Record<Side, number>>>,
+});
+
+/** What each prediction says, by its name. */
+export type Predictions = { readonly [K in keyof typeof PREDICTIONS]: typeof PREDICTIONS[K] extends Prediction<infer V> ? V : never };
+
+/** The predictions' names, in their order. */
+const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof typeof PREDICTIONS)[]);
+
+/**
+ * **One body's predictions** (`Predictions`), each read from the step's `Seen` (`reset`) the first
+ * time it is asked that step and kept until the next. One object serves every step, so a situation
+ * kept past its step reads the latest step's.
+ */
+export function predictor() {
+  let seen: Seen | null = null;
+  const values: unknown[] = PREDICTED.map(() => undefined), read: boolean[] = PREDICTED.map(() => false);
+  const predictions = {} as Predictions;
+  PREDICTED.forEach((name, i) => Object.defineProperty(predictions, name, { enumerable: true, get() {
+    if (!read[i]) { values[i] = PREDICTIONS[name].read(seen!); read[i] = true; }
+    return values[i];
+  } }));
+  return {
+    predictions,
+    /** The step's `Seen`, each prediction to be read afresh. */
+    reset(next: Seen): void { seen = next; read.fill(false); },
+  };
+}
 
 /** What each percept reads, by its name. */
 export type Percepts = { readonly [K in keyof typeof PERCEPTS]: typeof PERCEPTS[K] extends Percept<infer V> ? V : never };

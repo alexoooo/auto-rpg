@@ -145,13 +145,13 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     if (e) {
       const left = Math.max(0, e.seconds - progress), share = e.seconds > 0 ? left / e.seconds : 0, duration = walking + left;
       const letGo = running?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
-      return { duration, dealt: met ? 0 : e.dealt, taken: now.danger + e.taken * share + threatened(now, walkingInReach, from),
+      return { duration, dealt: met ? 0 : e.dealt, taken: now.predictions.danger + e.taken * share + threatened(now, walkingInReach, from),
         orders: 0, exit: fromHere(now, { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
     }
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
-    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
+    const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.predictions.blows[limb.slice(5) as Side] : 0));
     const left = Math.max(0, seconds - progress), dealt = met ? 0 : throws * lands * blow, duration = walking + left;
-    return { duration, dealt, taken: now.danger + threatened(now, left + walkingInReach, from), orders: 0, exit: fromHere(now, { apart: from, down: Math.max(fell, clinched(now, duration)) }) };
+    return { duration, dealt, taken: now.predictions.danger + threatened(now, left + walkingInReach, from), orders: 0, exit: fromHere(now, { apart: from, down: Math.max(fell, clinched(now, duration)) }) };
   };
   return {
     name: action.name, claims: Object.freeze(["legs", "trunk"]), state,
