@@ -110,8 +110,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
       const sensed = view.senses.solids ?? NO_SOLIDS;
       let solids = printsOf(sensed, centre.y, view.stance.support?.y);
-      // The fallen bodies, foe or friend, are fixed solids to route round, but the body it ranges about.
-      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null, state.lying);
+      // The fallen bodies, foe or friend, are fixed solids to route round, but the body it ranges about or goes to a place by.
+      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : request?.kind === "place" ? request.by ?? null : null, state.lying);
       const lying = fallen.length ? footprints(fallen, centre.y, view.stance.support?.y) : NO_SOLIDS;
       if (lying.length) solids = [...solids, ...lying];
       const radius = radiusOf(view);

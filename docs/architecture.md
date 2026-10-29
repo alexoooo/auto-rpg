@@ -229,7 +229,10 @@ a stance goal) into muscle commands.
   (knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
   minimum-jerk paths to places in the body frame (`EffectorGoal`). One place puts a point there; two
   lay a line (`solveReach`); `EffectorGoal.orientation` aims a face. A path may
-  run past its place (`through`) or be the same path with its end moved (`follows`). The body frame
+  run past its place (`through`) or be the same path with its end moved (`follows`). A goal driven
+  `firm` gives its freedoms their muscles' full strength toward the speed the servo asks, so a limb
+  is braced through what it strikes; one that may `unbend` lets the solve take a chain straight at a
+  stop off it where its place is nearer (`ReachWays`). The body frame
   is the root's (`BodyView.root`; `intoFrameToRef` turns a world point into it).
 - **The bearing solve** (`bearing.ts`) carries a body on the ground through limbs (`Limb`: a chain
   from the root to a segment, bearing on a `Patch` or free). `carryRoot` asks the wrench the
@@ -849,9 +852,17 @@ or a goal that moves is
 neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
 route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
 else to the spot it chose last, carried with the body it ranges about while that spot is open and
-its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body.
+its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body. A place
+may name the body it is by (`MovementRequest`'s `by`): that body is not kept off as a fallen one,
+and the place's points are the way round it. A walk into an action's window on a body lying
+(`Window.on`, `approachActionWindow`, `src/core/mind/action-window.ts`) stands beside that body:
+of the places about the window's target at `LYING.bearings` turns from along the body
+(`lyingAxis`), those where each foot keeps `LYING.footRadius` clear of its colliders up to the knee
+(`sensedFootClearance`), the one whose way round it (`groundRoute`, clear over the same column)
+and turn to its facing cost least, reckoned `LYING.lead` s along the body's motion, so the place
+it set off for stays its choice.
 **The bodies about it** (`src/core/mind/crowd.ts`): a fallen body, of either side but the one it
-ranges about, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
+ranges about or goes to a place by, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
 changes no route; and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
@@ -1208,9 +1219,15 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   no return (`DrillTacticsConfig.letGo`, the condition's `letGo`), read for when the hand was back
   at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
-  its bout against a game mind on the Warrior's body, which fights on; landed (on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
+  its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
+  each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
+  (the condition's `target`) lying limp on its back under the bare mind with no network, walked
+  round to from 0.8 to 1.2 m; each trial's reading records the target's posture and the range
+  centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
+  landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
-  straight, the chest upright; `BAR`, `strike/read.ts`), weak (on the mark, short of it), guarded
+  straight, the chest upright; `BAR`, `strike/read.ts`; a foot, which the bar sets no test for, on
+  the mark at all, its fastest touch read), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
   refused or waiting, fell, or a fight that never came to its moment); `gait` (a mind going at a
   still Warrior by each gait at each speed under the drill's tactics, `drill-gait`, stopping where

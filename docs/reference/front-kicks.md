@@ -15,8 +15,11 @@ gate).
 
 Transfer needs measured centre-of-mass support inside the bearing sole, and the free foot at zero
 ground load for 0.05 s before it chambers. Stance owns the bearing leg and corrects its captured
-sole through muscles; IK owns the free leg; both arms stay in the ordinary guard. No pose,
-velocity, strength or assistance is added. The bearing sole may rock during a stroke; flat, quiet
+sole through muscles; IK owns the free leg; both arms stay in the ordinary guard. The stroke and a
+held contact drive the free leg firm (`EffectorGoal.firm`): the motion the servo asks, at the
+muscles' full strength, so the leg is braced through the blow; the return and the placing may bend
+a leg the stroke left straight off its knee's stop (`EffectorGoal.unbend`). No pose, velocity,
+strength or assistance is added. The bearing sole may rock during a stroke; flat, quiet
 double support is required before preparation and after placement.
 
 | Setting | Value | Meaning |
@@ -25,11 +28,16 @@ double support is required before preparation and after placement.
 | lower / lean / transferSeconds | 0.05 m / 0 rad / 0.2 s | Supported lowering, pitch and response |
 | transferSlow | 0.12 m/s | Quiet capture, transfer and recentring |
 | lift / windup | 0.45 / 0.15 m | Chamber offset from the captured strike site |
+| over | 0 | Where the chamber sits across the ground, as a share of the way from the captured strike site to the target: 0 over the foot (a front kick), 1 over the target (a stomp) |
+| top | 1 | The height band's top over the kicking sole, as a share of the leg's reach (hip to sole); its bottom is `near` under the sole |
+| alongNear / alongFar / across | 0.25 / 0.65 / 0.16 m | The window: the target this far ahead of the kicking sole's place on the body, and within this much either side of it |
+| facing / admitSpeed | 0.4 rad / 0.5 m/s | The window's facing toward the target, and the ground speed at most it admits |
 | chamberSeconds / swingSeconds / returnSeconds | 0.6 / 0.4 / 0.6 s | Shared tracker paths |
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
 | soleTurn | 0.2 | Fraction of a quarter turn during the stroke |
 | prepareLimit / returnLimit | 4 / 2 s | Measured preparation and withdrawal deadlines |
-| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission; the home's height over the strike point |
+| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission |
+| returnNear | 0.04 m | How near the chamber the stroke's return comes to be done: the chamber where it lay from the pelvis as the stroke began, carried with the pelvis however the blow moved it, so the foot is withdrawn clear of what it struck before it is placed |
 | hover | 0.08 m | The lifted foot's height over where it stood, before the chamber and a set-down: clear of the ground at the toes with the foot pitched as the trunk leans on one leg |
 | followSeconds | 0.04 s | Finite ordinary follow-through |
 | impactSeconds / impactTravel / normalAlignment | 0.04 s / 0.04 m / 0.5 | Matched-contact ceilings and directional cosine |
@@ -47,6 +55,43 @@ and rotation, positive ground load and quiet motion. Recentring needs quiet doub
 the centre of mass within 2 cm of the soles' midpoint. Only the whole sequence counts a returned
 kick: a deadline counts a failure, cancellation before a stroke an interruption. Recovery takeover
 discards the foot path through the common skill resume list.
+
+## Stomp settings
+
+Kinetic's stomp (`STOMP`, `src/core/entrants/kinetic/mind.ts`) is the front kick's executor with
+these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
+of a blow down on a body lying ahead; no source pins them. Read on the Strike drill's `stomping`
+rung (Node stand, Rapier, 120 Hz; 12 trials, each foot at a limp Warrior and Skeleton lying on its
+back, 0.8 to 1.2 m off).
+
+| Setting | Value | Why |
+| --- | ---: | --- |
+| over | 1 | The chamber over the target, so the stroke comes down on it; at 0.6 to 0.8, 3 trials of 12 fell, and at 0.4 to 0.6 under a 0.7 m lift the chamber was out of reach (9 to 11 abandoned) |
+| windup / soleTurn | 0 m / 0 | No draw back and no turn of the sole: a stroke straight down; a sole held flat through the stroke (soleTurn 0.001 to 0.1) met the trunk with its toes, 3.6 to 5.3 J at the median; braced, a sole turned either way through the stroke (0.1 to 0.25 of a quarter turn, toes down or up in the pelvis's frame, which a stomp tilts) met it with the toes too, and 3 to 4 trials of 12 fell |
+| lift | 0.7 m | The chamber this far over the strike site: a longer stroke down; at 0.6 the median blow was 4.9 J, at 0.8 9.1 J (within a trial's spread of 0.7's, with less reach to spare), and at 0.9 the chamber went out of reach (5 of 12 abandoned) |
+| top | 0.4 | The height band's top low over the sole: a lying body's trunk, never a standing one's |
+| alongNear / alongFar / across | 0.55 / 0.8 / 0.2 m | The nearest places where both feet stand clear of a lying Warrior's splayed limbs are about 0.55 m from its trunk's middle: at 0.4 / 0.7, 4 trials of 12 never reached the window; at 0.5 / 0.75, 2 refused and 1 to 2 fell |
+| contactSpeed / swingSeconds | 7 m/s / 0.25 s | A faster stroke, the leg braced: the best blow's median 16.7 J and 13.4 kg, against 13.0 J and 9.3 kg at 5 m/s; 6 m/s, and 0.2 s at 5 or 7 m/s, read within a trial's spread of it |
+| returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; at 0.04, 6 trials of 12 ended stalled, at 0.1, 4 |
+
+Its trials (`9ead992f`'s rung): 10 of 12 landed, 2 met the body elsewhere (its lower trunk), none
+fell or stalled. A trial's best blow: 16.2 kg behind the foot at the median, 16.7 J, 2.9 m/s; on the
+Warrior 36 J at the median (9.5 to 70 J), the punch's 25 to 42; on the Skeleton 4.7 J (1.7 to
+15.9 J), its light trunk meeting the foot with little mass of its own. 0.14 to 0.61 HP dealt a
+trial on the Warrior, 0.09 to 0.11 on the Skeleton; the profile's trials take 9.4 to 12.3 s from
+ready to their end.
+
+- **Braced** (`firm`): under the servo's computed torques a leg coasting down at speed met the trunk
+  at activations of 0.03 to 0.3, and the blow found 2 to 6 kg behind the foot, its joints all but
+  free; at full strength, 6 to 47 kg. The one blow before that reached 13.5 kg had the hip and knee
+  at full activation by chance.
+- **Unbent** (`unbend`): the stroke leaves the leg straight at the knee's stop, where the reach's
+  solve sees no way to shorten it; the return or the placing then waited out its deadline in 4
+  trials of 12, and with the knee begun off its stop in none.
+- **Tried and not kept**: the stroke's end held within 0.95 or 1 of the leg's length from the hip,
+  so the knee is still bent at contact (1 to 2 trials of 12 fell, no stronger blow); a nearer window
+  (0.3 to 0.5 / 0.55 to 0.75 m), whose blows with the knee bent 43 to 66 degrees reached 47 to 126 J,
+  but where 2 to 3 trials of 12 fell and 2 to 10 never reached the window.
 
 ## Harness and qualification
 

@@ -98,8 +98,8 @@ function paceOf(spec: BodySpec): number | null {
   return pace;
 }
 
-/** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`). */
-const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number => Math.max(blowLife(rules, striker, "left", struck), blowLife(rules, striker, "right", struck));
+/** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`): two bodies trading blows trade them with their hands. */
+const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number => Math.max(blowLife(rules, striker, "hand.left", struck), blowLife(rules, striker, "hand.right", struck));
 
 /** How late the senses show the focus, s: the senses' time less the focus's; null with no focus, or one sensed without its time. */
 const reactionOf = ({ focus, sight }: Seen): number | null => focus?.time === undefined ? null : sight.view.senses.time - focus.time;
@@ -259,7 +259,7 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   if (!blow) return 0;
   const centre = sight.view.stance.centre, range = hypot(blow.foe.centre.x - centre.x, blow.foe.centre.z - centre.z), phase = ownPhase(seen);
   const measured = foeModel(seen, blow.foe.spec).readings;
-  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.hand, spec, blow.closing), 1)];
+  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, `hand.${blow.hand}`, spec, blow.closing), 1)];
   let most = 0;
   for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase }, spec)?.dealt ?? 0);
   return most;
@@ -347,7 +347,7 @@ export interface Prediction<V> {
  * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
  * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late
- * (`closesOf`), m; and the focus's life a blow of each hand at a segment of its takes by the rules
+ * (`closesOf`), m; and the focus's life a blow of a limb at a segment of its takes by the rules
  * (`blowLife`), 0 with no focus.
  */
 export const PREDICTIONS = Object.freeze({
@@ -357,8 +357,7 @@ export const PREDICTIONS = Object.freeze({
   downCost: { read: (seen) => downCostAtOf(seen)(FALLEN) } as Prediction<number>,
   downCostAt: { read: downCostAtOf } as Prediction<(posture: Position) => number>,
   closes: { read: closesOf } as Prediction<number>,
-  blows: { read: ({ focus, spec, rules }) => (segment: string): Readonly<Record<Side, number>> => ({ left: focus ? blowLife(rules, spec, "left", focus.spec, undefined, segment) : 0,
-    right: focus ? blowLife(rules, spec, "right", focus.spec, undefined, segment) : 0 }) } as Prediction<(segment: string) => Readonly<Record<Side, number>>>,
+  blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,
 });
 
 /** What each prediction says, by its name. */

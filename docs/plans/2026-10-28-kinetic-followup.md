@@ -308,6 +308,23 @@ floor).
   predicted rise is worth the blow on a standing foe, as the body's own rise is priced (`riseFrom`),
   so a stomp 10 m off is worth less than one at hand.
 
+In part: the stomp is built and measured. It is the front kick with its settings as config keys
+(`KICK_PART`), its chamber over the target and its height band low
+([stomp settings](../reference/front-kicks.md#stomp-settings)), among Kinetic's actions with either
+foot at the trunk's middle. A walk into a window on a lying body goes round it to a place beside it
+where both feet stand clear of its limbs (`Window.on`, `approachActionWindow`), the body named by
+the place it walks to (`MovementRequest`'s `by`) so navigation does not keep it off as a fallen
+one. The Strike drill strikes with a hand or a foot, and its `stomping` rung throws each foot at a
+Warrior and a Skeleton lying limp on their backs; each reading records the target's posture and
+range, which the profiles cut their cells by. A kick returns to its chamber, carried with the
+pelvis, before it is placed, so a stomp's foot is withdrawn clear of the body it struck; its stroke
+is braced (`EffectorGoal.firm`), and a leg it leaves straight is bent to come back
+(`EffectorGoal.unbend`). At `9ead992f` the rung lands 10 of 12, none falls or stalls; the best blow
+has 16.2 kg behind the foot at the median, 36 J on the Warrior and 4.7 J on the light Skeleton,
+0.14 to 0.61 HP a trial on the Warrior (the punch's 0.2 to 1.3), and its profile (`d792fdd3`) has
+Kinetic stomp a lying body under its own chooser. Left: a stroke quicker than its 9 to 12 s from
+ready, and the downward blow from low support.
+
 Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
 fallen Duellist Skeleton in the Arena.
 

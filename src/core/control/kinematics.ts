@@ -233,6 +233,9 @@ interface ReachFreedom {
   readonly preferred: number;
 }
 
+/** What a solve may do beside its passes: take a chain straight at a stop off it where the place is nearer (`unbent`). */
+export interface ReachWays { readonly unbend?: boolean }
+
 /** How a solve ended: the passes it took, and whether it stopped of itself (no angle moved `IK_TOLERANCE` in its last pass) or at `IK_PASSES`. */
 export interface ReachEnd { passes: number; still: boolean }
 
@@ -319,9 +322,12 @@ export function reachWork(freedoms: number): ReachWork {
  * A range that reaches a half turn is taken `IK_SHORT` short of it: a joint's angles read within
  * a half turn (`rotationOfToRef`), so a limit at one or beyond never acts, and an angle there
  * has no rotation.
+ *
+ * With `ways.unbend`, a chain straight at a stop is first taken off it where the place is nearer
+ * (`unbent`).
  */
 export function solveReach(chain: readonly JointKinematics[], angles: number[][], free: readonly ReachFreedom[], tasks: readonly ReachTask[],
-  end?: ReachEnd, work: ReachWork = reachWork(free.length), orientation?: ReachOrientation): number {
+  end?: ReachEnd, work: ReachWork = reachWork(free.length), orientation?: ReachOrientation, ways?: ReachWays): number {
   if (tasks.length !== 1 && tasks.length !== 2) throw new Error(`a reach is one task or two, not ${tasks.length}`);
   if (orientation && (tasks.length !== 1 || !(orientation.lever > 0))) throw new Error("an oriented reach needs one point and a positive lever");
   const n = free.length;
@@ -338,7 +344,11 @@ export function solveReach(chain: readonly JointKinematics[], angles: number[][]
     taken++;
     walkTo(walk, chain, angles, free);
     // The held angles place the chain's base, and the first walk is at them.
-    if (taken === 1) near = placesTo(work, chain, free, tasks);
+    if (taken === 1) {
+      near = placesTo(work, chain, free, tasks);
+      walkedPointToRef(walk, chain, first.point, at);
+      if (ways?.unbend && unbent(work, chain, free, angles, first.point, at)) walkTo(walk, chain, angles, free);
+    }
     walkedPointToRef(walk, chain, first.point, at);
     e[0] = goal[0]! - at.x; e[1] = goal[1]! - at.y; e[2] = goal[2]! - at.z;
     left = hypot(first.target[0] - at.x, first.target[1] - at.y, first.target[2] - at.z);
@@ -480,6 +490,38 @@ function placesTo(work: ReachWork, chain: readonly JointKinematics[], free: read
   return near;
 }
 
+/**
+ * Whether a freedom was moved off a stop so the solve can bring the first point (`point`, at `at`)
+ * nearer the chain's base: a chain straight at a stop (a knee locked straight) has no column along
+ * the line from its base, and its solve sees no way to shorten it. Where the point is near the
+ * chain's full stretch (`IK_NEAR`, as `placesTo` reads a place) and the first place (`work.goal`)
+ * is nearer the base than it, each free freedom at an end of its range whose preferred angle lies
+ * inside it is begun `IK_ESCAPE` toward it; the solve takes the way from there.
+ */
+function unbent(work: ReachWork, chain: readonly JointKinematics[], free: readonly ReachFreedom[], angles: number[][], point: Vec3, at: Vector3): boolean {
+  const { goal, walk, least, most } = work;
+  let base = chain.length - 1;
+  for (let k = 0; k < free.length; k++) base = Math.min(base, free[k]!.joint);
+  if (base === chain.length - 1) return false;
+  let stretch = 0, link = 0;
+  for (let j = base; j < chain.length; j++) {
+    const c = chain[j]!.spec.centre.value, next = j + 1 < chain.length ? chain[j + 1]!.spec.centre.value : point;
+    link = hypot(next[0] - c[0], next[1] - c[1], next[2] - c[2]);
+    stretch += link;
+  }
+  const from = walk.centre[base]!, apart = hypot(at.x - from.x, at.y - from.y, at.z - from.z);
+  if (!(apart > stretch - IK_NEAR * link) || !(hypot(goal[0]! - from.x, goal[1]! - from.y, goal[2]! - from.z) < apart)) return false;
+  let moved = false;
+  for (let k = 0; k < free.length; k++) {
+    const f = free[k]!, row = angles[f.joint]!, angle = row[f.k]!;
+    if (angle <= least[k]! && f.preferred > least[k]!) row[f.k] = Math.min(least[k]! + IK_ESCAPE, f.preferred);
+    else if (angle >= most[k]! && f.preferred < most[k]!) row[f.k] = Math.max(most[k]! - IK_ESCAPE, f.preferred);
+    else continue;
+    moved = true;
+  }
+  return moved;
+}
+
 /** `(x, y, z)` scaled to a unit, into `out`: `normalize`'s arithmetic (`src/core/spec/vec.ts`). */
 function unitTo(x: number, y: number, z: number, out: Float64Array): void {
   const length = hypot(x, y, z);
@@ -516,9 +558,11 @@ function solveTo(work: ReachWork, rows: number, A: Float64Array, y: Float64Array
  * its length sets the reach that costs. Then how the damping's square grows near full stretch for
  * each metre of error, m, so a step on a place the ranges keep out of reach does not overshoot.
  * What they were read on: `docs/reference/step-cost.md#the-reach-solver-near-full-stretch`.
+ * Last, how far inside its range a freedom at a stop is begun where the place asks the chain
+ * shorter (`unbent`), rad.
  */
 const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_DAMPING = 0.01, IK_SHORT = 0.1, IK_BLIND = 1e-5;
-const IK_NEAR = 0.2, IK_STRETCH = 0.04, IK_DAMPING_GROWTH = 0.1;
+const IK_NEAR = 0.2, IK_STRETCH = 0.04, IK_DAMPING_GROWTH = 0.1, IK_ESCAPE = 0.05;
 /**
  * What shapes the path an arm takes to a place: the share of the way to the preferred angles each
  * pass asks in the null space, and the most any angle turns in one pass (rad). Set

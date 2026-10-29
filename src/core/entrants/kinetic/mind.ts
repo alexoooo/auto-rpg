@@ -54,12 +54,24 @@ const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch",
 const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
+/**
+ * **The stomp's stroke**: the front kick's, its chamber high over the target, its height band low,
+ * so it strikes down on a body lying ahead and nothing standing, from a window out where both feet
+ * stand clear of a lying body's limbs ([stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)).
+ */
+const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "front-kick",
+  over: 1, windup: 0, lift: .7, soleTurn: 0, top: .4, alongNear: .55, alongFar: .8, across: .2, contactSpeed: 7, swingSeconds: .25, returnNear: .1 });
+
+/** **The stomp**: its stroke with either foot at the trunk's middle, aimed at its centre. */
+const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
+  aim: { kind: "centre", lead: 0 } });
+
 /** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
-/** As it starts: by worth, the learned punch, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
+/** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
 const KINETIC: KineticConfig = deepFreeze({ kind: "kinetic", chooser: { kind: "valued", depth: 1 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH], actions: [STRAIGHT_PUNCH_ACTION], ground: STAND_UP.techniques });
+  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
