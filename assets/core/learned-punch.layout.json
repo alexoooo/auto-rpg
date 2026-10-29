@@ -54,7 +54,11 @@
     "speed shoulder.right flexion",
     "speed shoulder.right abduction",
     "speed shoulder.right internal rotation",
-    "speed elbow.right flexion"
+    "speed elbow.right flexion",
+    "near foot bearing",
+    "far foot bearing",
+    "stance shifting",
+    "stance swinging"
   ],
   "leg": 0.8815024260685317,
   "outputs": [
@@ -68,6 +72,7 @@
     {"term": "pushes", "channel": "shoulder.right flexion"},
     {"term": "pushes", "channel": "shoulder.right abduction"},
     {"term": "pushes", "channel": "shoulder.right internal rotation"},
-    {"term": "pushes", "channel": "elbow.right flexion"}
+    {"term": "pushes", "channel": "elbow.right flexion"},
+    {"term": "walk"}
   ]
 }

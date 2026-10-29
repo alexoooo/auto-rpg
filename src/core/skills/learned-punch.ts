@@ -35,10 +35,13 @@ export const PUNCH_DECIDE = 1 / 60;
  * m; the fist's velocity and the centre of mass's in the body frame, m/s; whether the hand
  * touches; the arm's straight length, shoulder to knuckles, and the height the body stands at
  * (`BodyView.standing`), m, which tell one body from another; the target's velocity in the body
- * frame, m/s (`aimed`, a foe coming on or going off). `across` is toward the punching hand's side.
+ * frame, m/s (`aimed`, a foe coming on or going off); and the gait's phase (`StanceReading`): whether
+ * the foot on the punching hand's side (`near`) and the other (`far`) bear, 1 or 0, and whether the
+ * stance is shifting its weight or swinging a foot, 1 or 0 (neither, it stands). `across` is toward
+ * the punching hand's side.
  */
 const READINGS: readonly string[] = ["drive age", ...["target from shoulder", "fist from target", "fist velocity", "centre velocity"].flatMap(axes),
-  "touching", "arm length", "standing height", ...axes("target velocity")];
+  "touching", "arm length", "standing height", ...axes("target velocity"), "near foot bearing", "far foot bearing", "stance shifting", "stance swinging"];
 
 function axes(name: string): string[] {
   return [`${name} across`, `${name} up`, `${name} ahead`];
@@ -48,12 +51,14 @@ function axes(name: string): string[] {
  * One output of a learned punch's steer (`PunchLayout`): a push on a named channel (the right
  * hand's punch's), the legs goal's heading turned the punching shoulder forward, rad, or its
  * centre of mass moved ahead along the way the punch faces or across it toward the punching hand's
- * side, m; each its output times its full scale, a distance's in proportion to the body's leg.
+ * side, m, each its output times its full scale, a distance's in proportion to the body's leg; or
+ * the walk under way kept (above 0) or halted (`walk`, `keepsWalk`).
  */
 export type PunchOutput =
   | { readonly term: "pushes"; readonly channel: string }
   | { readonly term: "heading"; readonly full: number }
-  | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number };
+  | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number }
+  | { readonly term: "walk" };
 
 /**
  * **A learned punch's layout** (`assets/core/learned-punch.layout.json`): its inputs by name, each a
@@ -75,7 +80,7 @@ function checked(layout: PunchLayout): PunchLayout {
   }
   for (const output of layout.outputs) {
     const term: string = output.term;
-    if (term !== "pushes" && term !== "heading" && term !== "centre") throw new Error(`the learned punch steers no ${term}`);
+    if (term !== "pushes" && term !== "heading" && term !== "centre" && term !== "walk") throw new Error(`the learned punch steers no ${term}`);
   }
   return layout;
 }
@@ -107,6 +112,7 @@ export function punchChannels(hand: Side, leg: number): PunchChannels {
     heading: outputs.findIndex((o) => o.term === "heading"),
     ahead: outputs.findIndex((o) => o.term === "centre" && o.along === "ahead"),
     across: outputs.findIndex((o) => o.term === "centre" && o.along === "across"),
+    walk: outputs.findIndex((o) => o.term === "walk"),
     side: hand === "right" ? 1 : -1,
   };
 }
@@ -116,8 +122,8 @@ export function punchChannels(hand: Side, leg: number): PunchChannels {
  * `READINGS` (-1 for a channel's), its channel, the hand's (null for a reading), its sense, and
  * whether it reads the channel's speed. Each output: the channel it pushes (null for an ask of the
  * legs), its sense, and its full scale on this body. Where among the outputs the legs goal's
- * heading, centre ahead and centre across are (-1 with none), and the hand's side, 1 right and -1
- * left.
+ * heading, centre ahead and centre across are, and the walk's keep (-1 with none), and the hand's
+ * side, 1 right and -1 left.
  */
 export interface PunchChannels {
   readonly readings: readonly number[];
@@ -130,6 +136,7 @@ export interface PunchChannels {
   readonly heading: number;
   readonly ahead: number;
   readonly across: number;
+  readonly walk: number;
   readonly side: number;
 }
 
@@ -167,6 +174,9 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   framed(view, target[0]!, target[1]!, target[2]!, point);
   framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
+  const touched = view.stance.touching, phase = view.stance.phase;
+  read[k++] = touched[hand] ? 1 : 0; read[k++] = touched[hand === "right" ? "left" : "right"] ? 1 : 0;
+  read[k++] = phase === "shift" ? 1 : 0; read[k++] = phase === "swing" ? 1 : 0;
   const { readings, inputs, inputSenses, speeds } = channels;
   for (let i = 0; i < readings.length; i++) {
     const name = inputs[i];
@@ -214,4 +224,12 @@ export function stanceAsks(channels: PunchChannels, steer: readonly number[], fa
     shift[0] = ahead * s + across * c; shift[1] = ahead * c - across * s;
   }
   return heading < 0 ? 0 : steer[heading]! * full[heading]! * sense;
+}
+
+/**
+ * Whether `steer` keeps the walk under way (its `walk` output above 0) or halts it: null where
+ * `channels` have no such output, or before the steer is set.
+ */
+export function keepsWalk(channels: PunchChannels, steer: readonly number[]): boolean | null {
+  return channels.walk < 0 || steer.length <= channels.walk ? null : steer[channels.walk]! > 0;
 }

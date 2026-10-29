@@ -13,7 +13,7 @@ import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
-import { PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
+import { keepsWalk, PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
 import { learnerOf } from "../mind/learner.ts";
 import { legOf } from "./gait-scale.ts";
 
@@ -56,7 +56,8 @@ import { legOf } from "./gait-scale.ts";
  * state's `features`) and adds its state's `steer` to the pushes of its trunk and arm
  * (`steerPushes`) and asks the stance with it (`stanceAsks`): a turn added to the legs' heading
  * (`LegsGoal.heading`) and a shift of its centre from the support's middle (`LegsGoal.centre`),
- * as its layout lays the steer out (`PUNCH_LAYOUT`); the steer is its trainer's to set, and none
+ * and keeps a walk under way or halts it in place of `halts` (`keepsWalk`), as its layout lays
+ * the steer out (`PUNCH_LAYOUT`); the steer is its trainer's to set, and none
  * at the drive's start.
  */
 export interface StraightPunch {
@@ -555,8 +556,10 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const turn = live.phase === "commit" ? stanceAsks(technique.steeredChannels[live.hand], motion.learner.outputs, motion.face, sense, shift) : 0;
       // The hips turned from the legs' heading, and the weight moved from the middle of the soles the stance stands on.
       const steer = live.phase === "commit" ? sense * settings.hips + turn : 0, support = view.stance.support;
+      // A walk under way kept where the steer keeps it (`keepsWalk`), else stood, and halted where the steer or `halts` says.
+      const keeps = live.phase === "commit" ? keepsWalk(technique.steeredChannels[live.hand], motion.learner.outputs) : null;
       return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),
-        legs: { walk: null, face: motion.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower,
+        legs: { ...(keeps ? {} : { walk: null }), face: motion.face, ...((keeps === null ? settings.halts : !keeps) ? { halt: true } : {}), height: view.standing - live.lower,
           ...(steer ? { heading: around.heading + steer } : {}),
           ...(shift[0] === 0 && shift[1] === 0 ? {} : { centre: [support.x + shift[0], support.z + shift[1]] as const }) } };
     },
