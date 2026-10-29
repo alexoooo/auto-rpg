@@ -4,7 +4,8 @@
 case each, beside a list or a copy. This plan makes each claim true as stated, mostly by deleting
 code: the values read from the rules and the records, not copies of them; one profile interface;
 rest and footwork as options the chooser weighs; the rise chosen by the chooser; letting go
-measured across the wind-up; one stand-up bed; one trainer for any part. It lands before Kinetic
+measured across the wind-up; one stand-up bed; one trainer for any part; the legs bearing on
+whichever ends the body has. It lands before Kinetic
 step 13, which builds on its goals and options, and before any training run, which optimises
 against its values.
 
@@ -57,6 +58,10 @@ after skills are trained against it.
   mind's inputs, it finds minds only in duels and lone bodies (`combatantsOf`), it holds no cases
   out, and no environment file names a layout. The speed figure was read on the punch's cheaper
   defaults, not `research/environments/punch.json`, and without the trainer's update.
+- **Bearing ends are sides.** `BearingEnd` is `Side` (`src/core/spec/body.ts`), so a legs goal
+  cannot ask for hands or knees; a ground technique holds the whole body and pushes every muscle
+  as its run drives it (`groundExecutor`), and whether the legs can bear on hands and knees is
+  open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
 
 ## Steps
 
@@ -166,6 +171,22 @@ rewards at the commit before to the bit on the same seeds; the trainer's speed r
 [trainer's speed](../reference/learned-punch.md#the-trainers-speed) and the plan's hours figure
 corrected to it.
 
+### 9. Bearing ends from the body
+
+The ends a body can bear on are its spec's, beside its `marks` (`BodySpec`,
+`src/core/spec/body.ts`): a biped's feet, hands and knees. `BearingEnd` names one of them, not a
+`Side`, and the swing, the footing and the pose's anchors are keyed by it. The legs bear on any set
+of them, carrying the root over them as the ground techniques do now (`carryRoot`, `bearLimbs`,
+`src/core/control/bearing.ts`), or report an end they cannot bear on unmet. A ground technique asks
+its bearing ends in its legs goal and holds only the limbs it moves, so an arm it does not use goes
+to the guard, and no technique writes the muscles itself (`groundExecutor`,
+`src/core/mind/ground/held.ts`).
+
+Check: the probes ask the Warrior to bear on each set of ends (standing, kneeling, on hands and
+knees), each borne or reported unmet; the baseline's flat-footed stand-up stands its 32 falls, in
+no longer a median, paired against its record; the owner looks at a rise in the Lab's Stand-up
+mode, its unused arm at the guard.
+
 ## Not here
 
 - The gait chosen by worth in place of Move's rules, and the covers as options: Kinetic step 13.
@@ -180,5 +201,7 @@ wherever it is read, its phase the percept the chooser reads; the chooser has no
 no fixed default after it, and footwork goals made from the skills' entries and the foe's
 pressure; the rise is chosen among every admitted option by its time to standing; letting go is
 measured across the wind-up and a running option priced from where it is; every mind is felled
-and stood on one bed; and one case environment trains any part on any world kind from a file, the
-punch's own environment deleted, at a speed read on what it trains.
+and stood on one bed; one case environment trains any part on any world kind from a file, the
+punch's own environment deleted, at a speed read on what it trains; and the legs bear on the ends
+the body's spec names, so a ground technique holds only the limbs it moves and writes no muscle
+itself.
