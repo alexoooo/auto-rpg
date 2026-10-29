@@ -2,7 +2,7 @@ import { deepFreeze } from "../../state.ts";
 import { VALUED_CHOOSER, chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { stepSet } from "./options/option.ts";
-import { guard, hold } from "./options/rest.ts";
+import { guardOf, hold } from "./options/rest.ts";
 import { situationReader } from "./options/situation.ts";
 import { walker } from "./options/walk.ts";
 import { anyBody } from "../../mind/parts.ts";
@@ -21,7 +21,7 @@ interface CoverDrillConfig { readonly kind: "drill-cover" }
  */
 function coverDrill(making: TacticsMaking): Tactics {
   const walk = walker(making.spec), hands = covers(making.spec);
-  const options = [hold(walk), ...hands.options, ...[...new Set((making.spec.effectors ?? []).map((effector) => effector.segment))].map(guard)];
+  const options = [hold(walk), ...hands.options, ...guardOf(making.spec)];
   const chosen = chooserOf(making.parts, VALUED_CHOOSER.defaults, options, 0);
   let reader: ReturnType<typeof situationReader> | null = null;
   const state = { chooser: chosen.state, cover: hands.state, situation: null as object | null, covering: false };

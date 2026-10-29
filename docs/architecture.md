@@ -596,16 +596,19 @@ stroke's end, its blow's `release`: kept there, it throws its next blow), or ove
 before its blow's `commit`, its point of no return; a goal, a cover, the orders and a rest option
 always yield; a ground option where its run says it may. An option's entry is its skill's
 readiness: a strike's its limbs' (its executor refuses a body down and a target out of its band); a
-walk's, holding the position's, following orders' and a hand at its guard's the legs'
+walk's, holding the position's, following orders' and the guard's the legs'
 (`legsReadiness`, `src/core/skills/locomotion.ts`: a body down cannot walk), and brace's the
-reverse; a hand's cover is on offer down or standing where no action holds the hand. Each claims
-resources while it runs (`claims`: a strike what its blow needs with the limb it strikes with,
-`Sight.needs`; a walk to a goal the legs; a ground option the whole body, `WHOLE`). A strike never
-walks: a walk into its window is a goal's (`toWindow`, below), priced over the walk into the window
-(`windowDistance`, `src/core/mind/action-window.ts`). The rest options (`rest.ts`), worth nothing,
-take what nothing else is worth more on: hold the position facing the focus (`hold`, the legs),
-each hand at its guard (`guard`), and down, brace (`brace`, the whole body, priced as the rise that
-never stands from where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
+reverse; the cover is on offer down or standing where no action holds the hand it covers with.
+Each claims resources while it runs (`claims`: a strike what its blow needs with the limb it
+strikes with, `Sight.needs`; the cover the hand on the blow's side; a gait's walk the legs; a
+ground option the whole body, `WHOLE`). An option may have targets to run at (`Option.targets`, a
+gait's destinations), which the chooser prices it at, aiming it at the best (`Option.aim`). A
+strike never walks: a walk into its window is a gait's, to a destination (`toWindowOf`, below),
+priced over the walk into the window (`windowDistance`, `src/core/mind/action-window.ts`). The rest
+options (`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position
+facing the focus (`hold`, the legs), the hands at their guard (`guard`, over the body's hands,
+`guardOf`), and down, brace (`brace`, the whole body, priced as the rise that never stands from
+where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
 A ground option (`groundOptions`, `ground.ts`) is carried out through the skills as an action of
 the ground executor (`groundExecutor`, `ground/held.ts`): each technique of a list, the
 repositions, flatten, and brace, land and steady (brace and the steady with its climb in
@@ -679,16 +682,17 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   parts that read them declare (`Part.reads`); an entrant's own profiles would be a key of their
   own. Each reader says how it is priced: a strike (`StrikeOption.priced`), the pressure, the rise
   (`Ground.priced`); Kinetic reports them (`Profiles`).
-- **Goals** (`Goal`, `goals.ts`): a band of the range to the focus whose ends are read each step,
-  never metres written down. `toGoal` walks to one, facing the focus; `moveTo` is the footwork
-  option of one, priced by where it leaves the body. The goals made from the skills: into a
-  strike's window (`toWindow`, on offer while its limbs have a window, `StrikeOption.window`, and
-  none is ready; it walks as `approachActionWindow` does and is worth the strike walked there,
-  `StrikeOption.through`), and out of the foe's pressure (`OUT_OF_PRESSURE`: past its modelled
-  strikes' reach, `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the
-  reaction time). Each goes by each gait (`goings`, a `Going`): at the gait's pace, asking it
-  (`Intent.gait`), and leaving the body unbraced for the seconds the Gait drill measured the gait
-  stopping to strike, at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once).
+- **Footwork** (`goals.ts`): an option a gait (`moveBy`), run at whichever destination
+  (`Destination`) it is worth most to walk to: into each strike's window (`toWindowOf`, a place to
+  walk to while its limbs have a window, `StrikeOption.window`, and none is ready; it walks as
+  `approachActionWindow` does and is worth the strike walked there, `StrikeOption.through`), and
+  out of the foe's pressure (`toGoalOf` of `OUT_OF_PRESSURE`: past its modelled strikes' reach,
+  `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the reaction time). A goal
+  (`Goal`) is a band of the range to the focus whose ends are read each step, never metres written
+  down; `toGoal` walks to one, facing the focus, priced by where it leaves the body. A gait
+  (`goings`, a `Going`) goes at its pace, asking it (`Intent.gait`), and leaves the body unbraced
+  for the seconds the Gait drill measured it stopping to strike, at its share fallen
+  (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a destination; another gait, an option.
 - **The value of a position** (`PositionValue`, `position.ts`): what a place is worth in life
   (`Place`: a prediction of the percepts an option leaves, each by its name: the range head to head
   to the focus, `range`, the chance the body is down there, the seconds until it is braced there,
@@ -712,6 +716,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   it ran at where none is worth more (`Chosen.at`); then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
+  A rest option is chosen with whichever of its claims are still free, any other with all of its
+  claims or not at all. An option with targets is priced at each and aimed at the best.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
   `SelectedAsk`, `src/core/mind/intent.ts`): the walk and facing of the one claiming the legs,
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
@@ -731,11 +737,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   every fallen body's reach but the one it means to be near, the focus where it walks to strike
   (`Walker.kept`, by navigation's `keepOut`, `clear-step.ts`); the strike's exit prices the clinch
   it walks into (`clinched`).
-- **The covers** (`covers`, `cover.ts`): an option a hand, on offer while it is the hand on the
-  side a blow predicted to reach the head comes from (`incoming`, `READINGS.predicted`) and no
-  action under way holds it, at most a second a run of blows; it claims its hand, asks it between
-  the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS` of
-  `danger`, that blow's life), so it outbids the hand's guard while a blow comes.
+- **The cover** (`covers`, `cover.ts`): one option, its target a blow predicted to reach the head
+  (`incoming`, `READINGS.predicted`), on offer while the hand on the side the blow comes from has
+  no action under way holding it, at most a second a run of blows; it claims that hand, asks it
+  between the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS`
+  of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
 - Its defaults are `KINETIC` (`mind.ts`). A drill drives it by its config (`drilled`): its options
   one script of the drill's tactics (`scripted`, `kinds.ts`), chosen by its chooser and reporting
   the drill's phase in its place. The Cover drill's tactics (`drill-cover.ts`), a part of its own,

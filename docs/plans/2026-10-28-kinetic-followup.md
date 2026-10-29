@@ -6,9 +6,10 @@ code. Kinetic decides by one mechanism: **options, and one policy that selects a
 available each step** ([the design](#the-design)). Everything it chooses (a strike, a cover, where
 to go and at what gait, the rise, holding still) is an option; nothing is chosen beside the policy
 (built: the set by claims, `Chooser.decide`, the rest options, `rest.ts`, the rise as options,
-`groundOptions`, each edge priced by its expected time to standing; each hand's cover, `covers`,
-priced by the share of the blow on the head it keeps off; and the goals made from the skills,
-`toWindow` and `OUT_OF_PRESSURE`).
+`groundOptions`, each edge priced by its expected time to standing; the cover, `covers`,
+priced by the share of the blow on the head it keeps off; and an option a gait walking where it
+is worth most of the destinations made from the skills, `moveBy`, `toWindowOf` and
+`OUT_OF_PRESSURE`).
 The values the options are priced by are read from the rules and the records, not copies of them
 (built: a blow's life is the rules' damage, `blowLife` and the drill's recorded contacts; the
 orders one weight), through one profile interface (built: `readProfile`, the profiles mind data);
@@ -42,9 +43,11 @@ after skills are trained against it.
   not listed. A skill whose behaviour differs (its profile, its entry, its exit) is its own option;
   a target is a dimension of its profile. The gaits stay the two the legs have, braced and run.
 - **The policy selects a set**: the best option, then the best of the rest whose resources
-  (`claims`) are still free, until every resource is held, a rest option taking a resource nothing
-  else is worth more on. A strike holding the legs and the trunk runs beside the hands' covers, a
-  cover giving way where the strike's blow holds its hand; between strikes, a gait toward a goal runs beside both hands' covers. By worth or
+  (`claims`) are still free, until every resource is held, a rest option taking whichever of its
+  resources nothing else is worth more on. A strike holding the legs and the trunk runs beside the
+  cover and the guard on the hand it does not strike with; between strikes, a gait toward a goal
+  runs beside them. An option with a choice of targets (a gait's destinations, `Option.targets`)
+  is priced at each and run at the best. By worth or
   by rank are two configurations of the one policy (`chooserOf`); by worth breaks a tie by rank,
   a rest option first, so options priced alike, the unmeasured, are taken in rank order.
 - **Below the options, not chosen**: what they read (the situation and its percepts); what prices
@@ -134,7 +137,7 @@ committed, yields, at its exit, or over; `begin` and `end` stay its memory's). I
 it asks and what that holds (`Step`), and Kinetic's intent is the set it selected, each member's
 claims, holds and asks (`SelectedAsk`), made one intent by the toolkit (`intentOfSet`,
 `src/core/mind/intent.ts`); other minds write the intent as before. `posture` and `near` went:
-nothing read them. A strike never walks: reaching a window is `toWindow`'s, and the sub-mind
+nothing read them. A strike never walks: reaching a window is a gait's (`toWindowOf`), and the sub-mind
 option went with the options fighter. `rest` stays the option's own mark: by rank the rest options
 are last, the floor, and by worth a rest option wins a tie, so neither its rank nor its model
 (brace is priced as a rise that never stands) can say it.

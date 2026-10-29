@@ -64,14 +64,15 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * at the foe it is worth most to act on (`Chooser.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
- * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and the goals
- * made from them, each worth where it leaves the body: a walk into each strike's window
- * (`toWindow`), and one out of the foe's pressure (`moveTo`, `OUT_OF_PRESSURE`), each by each gait
- * (`goings`: its pace, and the seconds it leaves the body unbraced); and, down, the rise's options
- * (`groundOptions`), which count the body down on its feet until their steady braces it (`here`),
- * and price a fall (`downCost`); and the rest options, worth nothing, which take what nothing else is worth more on:
- * hold the position, each hand at its guard, and, down, brace (`hold`, `guard`, `brace`), which a
- * hand's cover outbids while a blow closes on the head (`covers`). The set's step is its members'
+ * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
+ * option a gait (`moveBy`, `goings`: its pace, and the seconds it leaves the body unbraced) walking
+ * where it is worth most, each destination worth where it leaves the body: into each strike's
+ * window (`toWindowOf`), and out of the foe's pressure (`toGoalOf`, `OUT_OF_PRESSURE`); and, down,
+ * the rise's options (`groundOptions`), which count the body down on its feet until their steady
+ * braces it (`here`), and price a fall (`downCost`); and the rest options, worth nothing, which
+ * take what nothing else is worth more on: hold the position, the hands at their guard, and, down,
+ * brace (`hold`, `guard`, `brace`), which the cover outbids on the hand on a blow's side while it
+ * closes on the head (`covers`). The set's step is its members'
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options

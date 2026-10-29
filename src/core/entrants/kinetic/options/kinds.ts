@@ -7,12 +7,12 @@ import type { Tactics } from "../../../mind/tactics.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { covers } from "./cover.ts";
-import { moveTo, OUT_OF_PRESSURE, toWindow } from "./goals.ts";
+import { moveBy, OUT_OF_PRESSURE, toGoalOf, toWindowOf } from "./goals.ts";
 import type { Ground } from "./ground.ts";
 import { asking, READY, WHOLE, type Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
 import type { Going } from "./position.ts";
-import { guard, hold, still } from "./rest.ts";
+import { guardOf, hold, still } from "./rest.ts";
 import type { StrikeOption } from "./strike.ts";
 import type { Walker } from "./walk.ts";
 
@@ -47,21 +47,27 @@ export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followO
 /** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
-/** **Footwork**: by each gait, a walk into each strike's window (`toWindow`), then out of the focus's pressure (`moveTo`, `OUT_OF_PRESSURE`). */
-export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) =>
-  given.gaits.flatMap((going) => [...given.strikes.map((one) => toWindow(one, given.walk, going)), moveTo("out of pressure", OUT_OF_PRESSURE, given.walk, going)]));
+/**
+ * **Footwork**: an option a gait (`moveBy`), each going where it is worth most of the destinations:
+ * into each strike's window (`toWindowOf`), and out of the focus's pressure (`toGoalOf`,
+ * `OUT_OF_PRESSURE`).
+ */
+export const FOOTWORK_OPTION = kind("footwork", "Footwork", (given) => {
+  const destinations = [...given.strikes.map((one) => toWindowOf(one, given.walk)), toGoalOf("out of pressure", OUT_OF_PRESSURE, given.walk)];
+  return given.gaits.map((going) => moveBy(going, destinations));
+});
 
 /** **The rise**: down, the ground's options (`groundOptions`). */
 export const RISE_OPTION = kind("rise", "Rise", (given) => given.ground.options);
 
-/** **A hand's cover** of the head while a blow closes on it (`covers`). */
-export const COVER_OPTION = kind("covers", "Covers", (given) => given.hands.options);
+/** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
+export const COVER_OPTION = kind("covers", "Cover", (given) => given.hands.options);
 
 /** **Hold the position** (`hold`), a rest option. */
 export const HOLD_OPTION = kind("hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
-/** **Each hand at its guard** (`guard`), rest options. */
-export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => [...new Set((given.spec.effectors ?? []).map((effector) => effector.segment))].map(guard));
+/** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
+export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
 
 /** **Brace**, down (`Ground.rest`), a rest option. */
 export const BRACE_OPTION = kind("brace", "Brace", (given) => [given.ground.rest]);

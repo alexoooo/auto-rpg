@@ -195,13 +195,16 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   /** Where `one` goes from `from`: its edge from there (flatten, the lie); null where it has none. */
   const toOf = (one: Technique, from: Position, g: GroundReading): Position | null => one.part ? one.part.edges.find((edge) => edge.from === from)?.to ?? null : g.lie;
 
-  /** An option that asks the ground action `name` on the side `side` gives, doing what `begin` and `step` do as it is begun and each step. */
+  /**
+   * An option that asks the ground action `name` on the side `side` gives, doing what `begin` and
+   * `step` do as it is begun and each step; named `label` where the action's name does not say it.
+   */
   const acting = (name: string, side: (now: Situation) => Side, entry: (now: Situation) => ReturnType<Option["entry"]>, status: (now: Situation, ended: boolean) => Status,
-    model: Option["model"], begin?: (now: Situation) => void, step?: (now: Situation) => void): Option => {
+    model: Option["model"], begin?: (now: Situation) => void, step?: (now: Situation) => void, label = name): Option => {
     const memory = { id: null as number | null };
     const live = (now: Situation) => memory.id === null ? undefined : now.sight.report.actions.find((action) => action.id === memory.id);
     return {
-      name, claims: WHOLE, state: memory, entry, model,
+      name: label, claims: WHOLE, state: memory, entry, model,
       status: (now) => status(now, live(now)?.stage.startsWith("ended:") ?? false),
       begin(now) { memory.id = null; begin?.(now); },
       end() { memory.id = null; },
@@ -271,7 +274,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     (now) => { const g = live(now); return g && !onFeet(g) && !calm(g) ? READY : NOT_TUMBLING; },
     () => "yields",
     (now) => downTerms({ seconds: Math.max(dt, BY_HAND.braced - state.tumbled), stands: 0, shelter: 0 }, now.sight.view.ground?.position ?? "between")(now),
-    undefined, () => { state.tumbled += dt; });
+    undefined, () => { state.tumbled += dt; }, "brace while tumbling");
 
   /** The rise from where the body lies now that never stands: what brace is priced at. */
   const lying = (now: Situation): DownModel => {

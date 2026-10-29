@@ -52,17 +52,17 @@ export interface StrikeOption extends Option {
   /**
    * The window its legs are to be brought to for it now (`Readiness`'s `position`): the first of
    * its limbs' that has one, where none is ready and no blow of its own is under way; null where a
-   * limb is ready, or none has a window. What a walk into it goes to (`toWindow`).
+   * limb is ready, or none has a window. What a walk into it goes to (`toWindowOf`).
    */
   window(now: Situation): Window | null;
-  /** Its model walked into its window first by `going`, wherever the body stands, braced there before it strikes: what a walk into it is worth (`toWindow`). */
+  /** Its model walked into its window first by `going`, wherever the body stands, braced there before it strikes: what a walk into it is worth (`toWindowOf`). */
   through(now: Situation, going: Going): Terms;
 }
 
 /**
  * **Strike**: `action` at the focus with the first of its limbs that is ready, on offer where one
  * is (its executor's readiness, which refuses a body down and a target out of its band). It
- * never walks: a walk into its window is another option's (`toWindow`). It asks for the blow once
+ * never walks: a walk into its window is a gait's, to a destination (`toWindowOf`). It asks for the blow once
  * the limb is ready, and goes on asking until the blow is over: then it has run its course. A blow
  * asked for and refused, every limb out of its entry, or `PATIENCE` s without a blow also end it.
  * It yields until its blow is committed (let go, the blow is dropped) and again from its exit, its
