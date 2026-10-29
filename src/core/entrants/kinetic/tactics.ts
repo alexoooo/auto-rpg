@@ -7,7 +7,7 @@ import type { MindWiring } from "../../mind/minds.ts";
 import { approach } from "../../mind/options/approach.ts";
 import { chooserOf } from "../../mind/options/chooser.ts";
 import { cover } from "../../mind/options/cover.ts";
-import { GOALS, toGoal } from "../../mind/options/goals.ts";
+import { moveTo } from "../../mind/options/goals.ts";
 import type { Asked, Situation, StandingOption } from "../../mind/options/option.ts";
 import { followOrders } from "../../mind/options/orders.ts";
 import { situationReader } from "../../mind/options/situation.ts";
@@ -29,15 +29,8 @@ export interface Deciding {
   readonly subs: readonly PartConfig[];
 }
 
-/**
- * **The default footwork**: `at the edge` of a standing, two-handed focus's reach (`GOALS`),
- * facing it; with no such focus, standing, facing the focus or the way it faces.
- */
-function footwork(now: Situation, walk: Walker): Omit<Asked, "actions"> {
-  const focus = now.focus;
-  if (!focus || focus.down || now.reach.theirs === 0) return { move: null, face: walk.facing(now) };
-  return toGoal(now, GOALS["at the edge"], walk);
-}
+/** **The default footwork**: the position held, standing, facing the focus or the way it faces. */
+const footwork = (now: Situation, walk: Walker): Omit<Asked, "actions"> => ({ move: null, face: walk.facing(now) });
 
 /**
  * What the controllers did not carry out last step, as an engagement's detail: the legs goal's
@@ -63,8 +56,10 @@ function profileDetail(strikes: readonly StrikeOption[], now: Situation): Engage
 /**
  * **Kinetic's tactics**: the options fighter's chooser (`chooserOf`) over its commitments,
  * following orders and a strike of each blow thrown standing (`strike`, which closes into its
- * window, `approach`, and is priced by its measured profile where it has one, `strikeMeasure`);
- * with none running, the default footwork (`footwork`). A free hand covers (`cover`); the walk keeps
+ * window, `approach`, and is priced by its measured profile where it has one, `strikeMeasure`), and
+ * its footwork, a move to each of three named goals (`moveTo`: close, at the edge, out of reach),
+ * each worth where it leaves the body; with none worth more than the position held, the default
+ * footwork (`footwork`). A free hand covers (`cover`); the walk keeps
  * out of a fallen body's reach and a solid's clearance (`keepOut`); an order to face is followed.
  * What it reports doing is the running commitment's name, the offers it chose among, what its
  * controllers did not carry out as it last decided (`unmetDetail`) and how its strikes were priced
@@ -76,12 +71,12 @@ export function kineticTactics(spec: BodySpec, hz: number, deciding: Deciding, w
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
   const walk = walker(spec), reader = situationReader(spec, hz, measures.flatMap((measure) => measuredProfile(measure) ?? []), (sight) => wiring.orders(sight.view.senses), downs);
   const strikes = standing.map((action, i) => strike(action, walk, true, blowsOf(parts, deciding.executors, action), measures[i]!));
-  const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes];
+  const options: readonly StandingOption[] = [followOrders(walk, standing), ...strikes, moveTo("close", walk), moveTo("at the edge", walk), moveTo("out of reach", walk)];
   const chosen = chooserOf(parts, deciding.chooser, options, seed), hands = cover(spec);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
-    get phase() { return chosen.running?.name ?? "guard"; },
+    get phase() { return chosen.running?.name ?? "hold"; },
     get offers() { return chosen.offers; },
     get details() { return last && lastNow ? [unmetDetail(last.report.legs, last.view.unmet), profileDetail(strikes, lastNow)] : []; },
   };
