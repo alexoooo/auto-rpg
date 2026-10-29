@@ -54,16 +54,19 @@ const LEFT = 0.01;
 const RAISED = 0.1;
 
 /**
- * How a body lies, by its root segment `root`: its forward (the reference pose's +z) against up
- * says back or front, and between them the side its left (the reference pose's -x) is under.
- * `work` carries nothing between calls.
+ * **How a body lies** by how far its root's forward (the reference pose's +z) and its left (the
+ * reference pose's -x) point up, of 1: forward against up says back or front (`LIE_UP`), and
+ * between them the side its left is under.
+ */
+export const lieBy = (forward: number, left: number): Lie => forward > LIE_UP ? "back" : forward < -LIE_UP ? "front" : left < 0 ? "left" : "right";
+
+/**
+ * How a body lies, by its root segment `root` (`lieBy`). `work` carries nothing between calls.
  */
 export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
   const turn = turnOfToRef(root, work.turn), way = work.way;
   const forward = way.set(0, 0, 1).applyRotationQuaternionToRef(turn, way).y;
-  if (forward > LIE_UP) return "back";
-  if (forward < -LIE_UP) return "front";
-  return way.set(-1, 0, 0).applyRotationQuaternionToRef(turn, way).y < 0 ? "left" : "right";
+  return lieBy(forward, way.set(-1, 0, 0).applyRotationQuaternionToRef(turn, way).y);
 }
 
 /**
