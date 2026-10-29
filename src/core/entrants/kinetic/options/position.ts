@@ -4,7 +4,7 @@ import { anyBody } from "../../../mind/parts.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import type { Percepts } from "./percepts.ts";
-import { dealtAt } from "./percepts.ts";
+import { dealtAt, edgeOf } from "./percepts.ts";
 import { CLINCH } from "./value.ts";
 
 /**
@@ -70,7 +70,8 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 
 /**
  * **The position's few terms**: the lead; a fall's cost (`downCost`) at the chance the body is
- * down there; and, standing at a standing focus, the range against both reaches: what its own
+ * down there; and, standing at a standing focus, the range against how far each side's strikes
+ * reach (`edgeOf`): what its own
  * strikes deal the focus there over the time a place is held once it is braced (`pressing`), less
  * what the focus's deal it over all of it (`pressure`), and late in the bout the lead at stake: a lead held within the focus's
  * reach, or a lead behind kept out of its own.
@@ -84,7 +85,7 @@ export const FEW_TERMS: PositionValue = deepFreeze({
   of(now: Situation, place: Place, seconds: number): number {
     const lead = now.lead, fallen = place.down * (place.posture ? now.predictions.downCostAt(place.posture) : now.predictions.downCost), focus = now.focus;
     if (!focus || focus.down || !Number.isFinite(place.range)) return lead - fallen;
-    const { theirs, mine } = now.reach;
+    const theirs = edgeOf(now, now.predictions.pressure), mine = edgeOf(now, now.predictions.pressing);
     const exchange = dealtAt(now.predictions.pressing, now, place.range, Math.max(0, TERMS.held - atExit(now, place, "unbraced"))) - dealtAt(now.predictions.pressure, now, place.range, TERMS.held);
     const stake = lead > 0 ? place.range <= theirs ? lead : 0 : place.range <= mine ? 0 : -lead;
     return lead - fallen + (1 - place.down) * (exchange - lateness(now, seconds) * stake);

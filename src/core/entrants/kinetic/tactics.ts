@@ -62,8 +62,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 /**
  * **Kinetic's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
  * the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
- * following orders (to move, stand or face), a strike of each blow thrown standing (`strike`, from
- * a limb ready, priced by its measured profile where it has one, `strikeMeasure`), and the goals
+ * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
+ * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and the goals
  * made from them, each worth where it leaves the body: a walk into each strike's window
  * (`toWindow`), and one out of the foe's pressure (`moveTo`, `OUT_OF_PRESSURE`), each by each gait
  * (`goings`: its pace, and the seconds it leaves the body unbraced); and, down, the rise's options
@@ -80,14 +80,14 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 export function kineticTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Tactics {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
-  const standing = deciding.actions.filter((action) => action.lower === undefined);
-  const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
+  const actions = deciding.actions;
+  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
     ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced });
-  const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
+  const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
   const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "", tables.gaits);
-  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, standing, strikes, gaits, ground, hands, making });
+  const options = optionsOf((config) => parts.of("option", config) as KineticOptionPart, deciding.options ?? OPTIONS, { spec, walk, actions, strikes, gaits, ground, hands, making });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;

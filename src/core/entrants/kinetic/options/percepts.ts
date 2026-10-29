@@ -54,9 +54,6 @@ export interface Percept<V> {
   cue?(value: V): unknown;
 }
 
-/** The most at which the focus's hands reach this body's head, and this body's reach its, m head to head across the ground. */
-export interface Reach { readonly theirs: number; readonly mine: number }
-
 /** This body's head, and the focus's (its `marks.high`, else its centre). */
 const heads = ({ focus, sight }: Seen) => ({ mine: sight.view.head, theirs: focus ? focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre : null });
 
@@ -75,11 +72,20 @@ type Bearing = "both" | "left" | "right" | "none";
 const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
   touching.left ? touching.right ? "both" : "left" : touching.right ? "right" : "none";
 
-/** Whether `spec` has both hands to strike with: what the reach readings measure. */
-const twoHanded = (spec: BodySpec): boolean => ["hand.left", "hand.right"].every((hand) => spec.effectors?.some((effector) => effector.segment === hand) ?? false);
-
-/** How far a hand of `striker` reaches a head `up` m over its own, m head to head across the ground: its range's outer bound. */
-const outer = (striker: BodySpec, up: number): number => { const range = rangeOf(striker, "right", up); return range.reach + range.along[1]; };
+/**
+ * How far the hands of `striker` reach a head `up` m over its own, m head to head across the
+ * ground: the farthest of its hands' ranges' outer bounds (`rangeOf`, what one body knows of
+ * another's blow by what it sees of it), 0 with no hand to strike with.
+ */
+function handsReach(striker: BodySpec, up: number): number {
+  let most = 0;
+  for (const side of ["left", "right"] as const) {
+    if (!striker.effectors?.some((effector) => effector.segment === `hand.${side}`)) continue;
+    const range = rangeOf(striker, side, up);
+    most = Math.max(most, range.reach + range.along[1]);
+  }
+  return most;
+}
 
 /** Each spec's fastest walk forward measured on its body, m/s, found once: a spec is immutable, and so is what is read from it; null where none was measured. */
 const PACES = new WeakMap<BodySpec, number | null>();
@@ -186,14 +192,16 @@ function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, 
 function pressureOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(seen, foeModel(seen, focus.spec), ownPhase(seen), focus.spec, spec, centred(seen, PERCEPTS.reach.read(seen).theirs));
+  const { mine, theirs } = heads(seen);
+  return pressureBy(seen, foeModel(seen, focus.spec), ownPhase(seen), focus.spec, spec, centred(seen, theirs ? handsReach(focus.spec, mine.y - theirs.y) : 0));
 }
 
 /** **The pressure** (`Pressure`) the body's own strikes put on a standing focus: its measured strikes (`Seen.strikes`) fresh at the senses' reaction time, read at the focus's phase (`FoePhase`). */
 function pressingOf(seen: Seen): Pressure {
   const { focus, spec } = seen;
   if (!focus || focus.down) return NO_PRESSURE;
-  return pressureBy(seen, ownModel(seen), foePhase(focus, seen.blow), spec, focus.spec, centred(seen, PERCEPTS.reach.read(seen).mine));
+  const { mine, theirs } = heads(seen);
+  return pressureBy(seen, ownModel(seen), foePhase(focus, seen.blow), spec, focus.spec, centred(seen, theirs ? handsReach(spec, theirs.y - mine.y) : 0));
 }
 
 /**
@@ -208,6 +216,17 @@ export function pressureAt(pressure: Pressure, range: number, seconds: number): 
     if (expected) rate = Math.max(rate, expected.dealt / expected.seconds);
   }
   return rate * seconds;
+}
+
+/**
+ * **How far `pressure` reaches**, m head to head: its strikes' farthest range at its phase
+ * (`ProfileReading.reach`), as the range now places it; 0 with no strikes.
+ */
+export function edgeOf(now: Pick<Situation, "range" | "apart">, pressure: Pressure): number {
+  if (pressure.model.length === 0) return 0;
+  let range = -Infinity;
+  for (const reading of pressure.model) range = Math.max(range, reading.reach(pressure.phase));
+  return now.range + range - now.apart;
 }
 
 /** **The life `seconds` s cost the struck body under `pressure`** with the two `apart` m head to head: at the range centre to centre that leaves (`pressureAt`). */
@@ -262,8 +281,7 @@ const FALLEN: Position = "back";
  * it is braced (`Seen.unbraced`); its orders; its focus; how far off the focus is, centre to centre
  * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
  * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
- * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); the reach
- * head to head (`Reach`: noughts with no focus); how late the senses show the focus (`reactionOf`), s; the
+ * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); how late the senses show the focus (`reactionOf`), s; the
  * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
  * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
@@ -288,11 +306,6 @@ export const PERCEPTS = Object.freeze({
     const to = { x: sight.view.stance.centre.x - focus.centre.x, z: sight.view.stance.centre.z - focus.centre.z };
     return atan2(ahead.z * to.x - ahead.x * to.z, ahead.x * to.x + ahead.z * to.z);
   } } as Percept<number>,
-  reach: { read: (seen): Reach => {
-    const { mine, theirs } = heads(seen), { focus, spec } = seen;
-    if (!focus || !theirs) return { theirs: 0, mine: 0 };
-    return { theirs: twoHanded(focus.spec) ? outer(focus.spec, mine.y - theirs.y) : 0, mine: twoHanded(spec) ? outer(spec, theirs.y - mine.y) : 0 };
-  } } as Percept<Reach>,
   reaction: { read: reactionOf } as Percept<number | null>,
   lead: { read: ({ focus, sight }) => focus ? sight.view.senses.life - focus.life : 0 } as Percept<number>,
   left: { read: ({ sight }) => (sight.view.senses.ends ?? Infinity) - sight.view.senses.time } as Percept<number>,

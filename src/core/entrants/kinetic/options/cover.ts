@@ -17,7 +17,7 @@ const STOPS = .6;
 /**
  * **The covers**: an option for each hand of `spec`, its target the blow predicted to reach the
  * head (`Situation.incoming`, `READINGS.predicted`). A hand's is on offer while it is the one on the side the blow closes from
- * (`coveringHand`) and no action under way holds it, for at most `LONGEST` s of one run of blows,
+ * (`coveringHand`) and no action under way holds it, down or standing, for at most `LONGEST` s of one run of blows,
  * then not until the threat has gone. It claims its hand, asks it between the blow and the head,
  * and is priced by the share of the blow's life it keeps off (`STOPS` of `Situation.danger`),
  * leaving the body where it is. It always yields. Their memory is when the run began and whether
@@ -30,7 +30,7 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
     if (state.read === now.time) return state.hand;
     state.read = now.time; state.hand = null;
     const threat = now.incoming;
-    if (now.down || !threat) { state.since = null; state.spent = false; return null; }
+    if (!threat) { state.since = null; state.spent = false; return null; }
     if (state.spent) return null;
     state.since ??= now.time;
     if (now.time - state.since >= LONGEST) { state.spent = true; return null; }

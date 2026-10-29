@@ -1,5 +1,6 @@
 import { NO_COVER } from "../../../mind/intent.ts";
 import { orderedIntent } from "../../../mind/ordered.ts";
+import { legsReadiness } from "../../../skills/locomotion.ts";
 import { asking, blocked, READY, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
@@ -16,8 +17,8 @@ const AHEAD = 1;
 
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing admitted blows
- * and asking for a ready standing action against the explicitly selected foe. On offer while
- * the body stands and has an explicit movement, stop or facing order. It claims the legs and the
+ * and asking for a ready action against the explicitly selected foe. On offer while the legs can
+ * carry the body (`legsReadiness`) and it has an explicit movement, stop or facing order. It claims the legs and the
  * trunk, and holds the legs and what its blows hold (a cover of a hand a blow holds dropped,
  * `stepSet`); it always yields. Its
  * model: a walk ordered goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is
@@ -32,7 +33,11 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
   const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
     name: "follow orders", claims, state: {},
-    entry: (now) => !now.down && now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED,
+    entry: (now) => {
+      const legs = legsReadiness(now.sight.view);
+      if (legs.kind !== "ready") return legs;
+      return now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED;
+    },
     status: () => "yields",
     begin() {},
     end() {},
