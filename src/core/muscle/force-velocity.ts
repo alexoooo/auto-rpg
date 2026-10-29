@@ -39,10 +39,12 @@ export function forceVelocityFactor(shortening: number, curve: ForceVelocityCurv
  *
  *     T / T0 = e - (e - 1) / (1 + s r),   s = ratio (1 + 1/k) / (e - 1)
  *
- * so the two branches meet at rest with no step, and the slope's jump there is the stated ratio.
+ * so the two branches meet at rest with no step, and the slope's jump there is the stated ratio. A
+ * ceiling of 1 is a flat branch: no more than at rest.
  */
 function eccentric(r: number, curve: ForceVelocityCurve): number {
   const e = curve.eccentricCeiling;
+  if (e === 1) return 1;
   const s = curve.eccentricSlopeRatio * (1 + 1 / curve.curvature) / (e - 1);
   return e - (e - 1) / (1 + s * r);
 }

@@ -87,8 +87,8 @@ from it:
 | Hands | open or a fist, the closed hand's hull, the art's hand being always closed; it bears at the palmar patch and strikes where the line from the wrist through the middle knuckle leaves it; the grip's capsule is as wide as the bones' spread (3.4 cm) |
 | Feet | the box on the foot bones, heel to toe |
 
-The muscle is men's at the body's 15 kg, so each torque is 15/79 of the typical man's at the same
-reach. Its standing centre of mass is 0.85 m up, the Warrior's 1.01.
+Its strength is men's at the body's 15 kg, so each torque is 15/79 of the typical man's at the same
+reach, driven by [motors](#motors-not-muscles). Its standing centre of mass is 0.85 m up, the Warrior's 1.01.
 
 Asked to crouch 0.43 m or more (`Intent.lower`), it folds at the hips until its ribcage rests on its
 thighs, its head under its pelvis, and does not settle; at 0.35 m it holds. Its foot's heel, the
@@ -107,6 +107,54 @@ it fell before any contact in 2 of the 8 starts, walking in, at 3.5 and 3.9 s, d
 until it went over; with men's shares and the bones' centres and inertia, in none. The old skeleton
 (a 79 kg man on the bind's boxes) fell in none of the six 15 s bouts at 3 to 5 m, the bones' shares
 in five (two before contact), men's shares in three (all after contact).
+
+## Motors, not muscles
+
+The owner's decision (`owner-skeleton-motor`, 2026-10-29): the skeleton's joints are robot-like
+motors. `skeletonMotors` (`src/core/human/skeleton.ts`) turns each freedom's muscle into one
+motor, still driven by the muscle driver:
+
+| What | Muscle (the humans) | Motor (the skeleton) |
+| --- | --- | --- |
+| Peak | each side its own | the stronger side's, both ways |
+| Torque with speed | Hill's hyperbola, curvature 0.25 (Thelen's) for most | a straight line, curvature 1000 |
+| Unloaded speed | each side its own, 34 to 68 rad/s | the speed at which the line gives the muscle's peak power, 0.38 of the muscle's at curvature 0.25: 9.4 to 26 rad/s |
+| Turned back | up to 1.4 x the peak | no more than the peak |
+| Tendons | none | none |
+
+| Joint | Peak, N m | Unloaded speed, rad/s |
+| --- | --- | --- |
+| Neck flexion | 10.1 | 26.0 |
+| Thoracic flexion | 24.1 | 26.0 |
+| Shoulder flexion | 18.7 | 19.8 |
+| Elbow flexion | 14.3 | 24.4 |
+| Hip flexion / abduction | 103.1 / 109.8 | 20.6 |
+| Knee flexion | 77.7 | 23.1 |
+| Ankle dorsiflexion | 79.4 | 15.3 |
+
+In bouts on the Node stand (Rapier, 120 Hz, `duellist` both sides, 15 s, gaps 3 to 6 m, against
+the Warrior and a skeleton, 8 bouts), the skeleton fell 4 times on muscles and 3 on motors, every
+fall after contact.
+
+Vanguard's Skeleton fails its [standing miss return](../reference/vanguard.md#standing-miss-return)
+on motors: after the left-hand miss its feet slide 11 to 15 cm while its stance stands, and
+its hand settles 0.114 m from its guard at the 1.2 s deadline (0.03 m/s, planted). On muscles its
+feet slide 0.3 m on the same miss and its hand passes within 0.05 m of the guard it left.
+
+### Tried and not kept
+
+On the same miss fixture (Node stand, Rapier, 120 Hz, `vanguard-skeleton`):
+
+| Change | Result |
+| --- | --- |
+| The straight line at the muscle's unloaded speed | its feet rock, never both flat: 0.108 m, 0.60 m/s at the deadline |
+| Curvature 1, 2 | falls at 4.8 s, 3.0 s |
+| Curvature 4, 10, 30 | 0.10 to 0.12 m at the deadline |
+| Turned back up to 1.4 x, 1.8 x the peak | falls at 4.0 s, 3.3 s |
+| Vanguard's Skeleton punch: the plain punch's lead, a 0.05 s or no lead, no drive anchor | falls, or 0.10 to 0.11 m |
+| Its punch's trunk turn and hips at 0.4 / 0.2, 0.3 / 0.15, 0.2 / 0.1, 0 / 0 | falls; passes; 0.098 m; 0.084 m |
+
+The one pass sits between a fall and two misses, so it is not kept.
 
 ## Rebuilding the GLB
 

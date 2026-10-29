@@ -185,6 +185,12 @@ export const SOURCES = Object.freeze({
       + "and low-polygon.",
     record: "docs/art/skeleton.md#the-body-fitted-to-the-bones",
   },
+  "owner-skeleton-motor": {
+    kind: "decision", date: "2026-10-29",
+    decided: "The skeleton's joints are motors, not muscles: torque falling in a straight line with speed, "
+      + "no more held turned back than at rest, the same strength and speed both ways, each at the muscle's peak power, no tendons.",
+    record: "docs/art/skeleton.md#motors-not-muscles",
+  },
   "skeleton-bind": {
     kind: "asset", file: "assets/skeleton/bind.json",
     what: "The skeleton's parts as its art was fitted to them: for each build, each part's position and turn "

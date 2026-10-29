@@ -7,7 +7,7 @@ import { physiqueFigure, type Physique } from "./physique.ts";
 import { peakTorque } from "./muscle.ts";
 import { WORKSHOP_MODELS, type WorkshopModel } from "./rig.ts";
 import { humanSegments } from "./segments.ts";
-import { SKELETON_MODEL, skeletonFigure } from "./skeleton.ts";
+import { SKELETON_MODEL, skeletonFigure, skeletonMotors } from "./skeleton.ts";
 import { jointSpeed } from "./speed.ts";
 import { toedFigure } from "./toes.ts";
 import { workshopFigure } from "./workshop.ts";
@@ -28,9 +28,9 @@ export const humanSpec = (model: WorkshopModel, physique?: Physique, haste?: num
 export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
 export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
-/** **A core body by model**, whole, with `physique`, `haste` and `settings` where they are given. */
+/** **A core body by model**, whole, with `physique`, `haste` and `settings` where they are given; the skeleton's joints are motors (`skeletonMotors`). */
 export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number, settings: HumanSettings = {}): BodySpec {
-  return model === SKELETON_MODEL ? shapedSpec(skeletonFigure(), physique, haste, settings) : humanSpec(model, physique, haste, settings);
+  return model === SKELETON_MODEL ? skeletonMotors(shapedSpec(skeletonFigure(), physique, haste, settings)) : humanSpec(model, physique, haste, settings);
 }
 
 /** `figure`'s body: its toes first, so that a physique's size scales them, then its physique and haste. */

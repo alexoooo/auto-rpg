@@ -109,10 +109,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The reaction time, 0.15 s ([play](reference/play.md#reaction-time)): a bout under it
   (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=kinetic,duellist`) beside one
   at 0 (`&senseDelay=0`); one that plays wrong changes the one number.
-- The skeleton's look in play, on its 15 kg body fitted to its bones
+- The skeleton's look in play, on its 15 kg body fitted to its bones and its robot-like motors
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
-  [record](art/skeleton.md#the-body-fitted-to-the-bones)): it goes down more often after contact,
-  and folds onto its thighs crouched past 0.43 m.
+  [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
+  it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
@@ -291,6 +291,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
+- Vanguard's Skeleton slides its feet on a standing miss and its left hand misses its guard
+  ([record](reference/vanguard.md#standing-miss-return)): the gate's one red check.
 - **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
   an opponent outside Kinetic that the baseline evaluation fights

@@ -1735,8 +1735,11 @@ pass. The rejected source variants and guard configuration are removed.
 ## Standing miss return
 
 The standing punch regains its physical guard and planted stance after an unloaded miss with
-each hand on the Warrior, Rogue and Skeleton. All six strokes commit, complete and return without
-falls. `RETURN_LIMITS` in `tests/entrant-vanguard.test.mjs` keeps the criterion fixed: the striking
+each hand on the Warrior and Rogue, and with the right hand on the Skeleton. All six strokes
+commit and complete without falls. The Skeleton's left hand does not return: its feet slide 11 to
+15 cm while its stance stands, and the hand settles 0.1143 m from its guard at the deadline
+(0.029 m/s, planted), on its [motors](../art/skeleton.md#motors-not-muscles).
+`RETURN_LIMITS` in `tests/entrant-vanguard.test.mjs` keeps the criterion fixed: the striking
 point is within 0.05 m of the settled guard, world speed at most 0.6 m/s, and both feet carry a
 quiet upright base without substitute support for 0.05 s, within 1.2 s after lifecycle completion.
 These are the [shared path return limits](combat-strikes.md#trajectory-settings), applied to the
@@ -1752,7 +1755,7 @@ fixture before the recovery assertions. No body pose, velocity, strength or assi
 | --- | --- | --- |
 | Warrior | 0.2583 / 0.2750 s | 0.0320 / 0.0312 m |
 | Rogue | 0.2833 / 0.2833 s | 0.0309 / 0.0285 m |
-| Skeleton | 0.3250 / 0.2083 s | 0.0432 / 0.0477 m |
+| Skeleton | 1.0167 s / fails | 0.0441 / 0.1143 m |
 
 Harness: Node core stand, vendored `rapier-coordinate`, 120 Hz, default attributes, empty hands,
 Balance 0. Complete recipes, declared limits, records and source remain in

@@ -6,7 +6,7 @@ import type { Extents } from "./envelope.ts";
 import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
 import { dividedTrunk } from "./landmarks.ts";
-import type { Side } from "../spec/body.ts";
+import type { BodySpec, ForceVelocitySpec, MuscleSpec, Side } from "../spec/body.ts";
 
 /**
  * **The crypt skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
@@ -194,4 +194,46 @@ export function skeletonFigure(): HumanFigure {
     hp: placeholder(6, "HP", "the Warrior's hit points"),
     balance: placeholder(0, "%", "the Warrior's balance"), haste: HUMAN_HASTE,
   };
+}
+
+/** How a motor's torque falls with speed: Hill's a / T0 so large the curve is the straight line 1 - w / w0 within a thousandth. */
+const MOTOR_CURVATURE = sourced(1000, "1", "owner-skeleton-motor", "the motor's torque falling in a straight line with speed");
+/** A motor holds no more torque while it is turned back than at rest. */
+const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more torque turned back than at rest");
+
+/**
+ * **The skeleton's joints as motors** (`owner-skeleton-motor`): each freedom of `spec` pushes as
+ * hard and as fast either way, at its stronger side's peak and its more powerful side's speed; its
+ * torque falls in a straight line with speed, as an electric motor's does, where a muscle's falls
+ * along Hill's hyperbola; it holds no more turned back than at rest; and it has no tendon.
+ *
+ * A side's motor gives the muscle's peak power (`samePower`). Kept at the muscle's unloaded speed,
+ * the straight line would give over twice that power and fall off far more slowly with speed, and
+ * the stance rocks on it.
+ */
+export function skeletonMotors(spec: BodySpec): BodySpec {
+  const joints = spec.joints.map((joint) => ({ ...joint, dofs: joint.dofs.map((dof) => {
+    const { peakPositive, peakNegative, speedPositive, speedNegative } = dof.muscle;
+    const peak = derive("N m", "the stronger side's peak, either way", [peakPositive, peakNegative], Math.max);
+    const speed: ForceVelocitySpec = {
+      unloadedSpeed: derive("rad/s", "the more powerful side's motor speed, either way",
+        [samePower(speedPositive), samePower(speedNegative)], Math.max),
+      curvature: MOTOR_CURVATURE, eccentricCeiling: MOTOR_ECCENTRIC_CEILING, eccentricSlopeRatio: speedPositive.eccentricSlopeRatio,
+    };
+    const muscle: MuscleSpec = { peakPositive: peak, peakNegative: peak, speedPositive: speed, speedNegative: speed };
+    return { ...dof, muscle };
+  }) }));
+  return { ...spec, joints };
+}
+
+/**
+ * The unloaded speed at which a straight line gives the peak power of `curve`'s Hill curve, rad/s.
+ * Hill's power over T0 w0 is r (1 - r) / (1 + r / k), greatest at r = sqrt(k^2 + k) - k; a straight
+ * line's is a quarter at half its unloaded speed.
+ */
+function samePower(curve: ForceVelocitySpec): Quantity<number> {
+  return derive("rad/s", "a straight line's unloaded speed for Hill's peak power", [curve.unloadedSpeed, curve.curvature], (w0, k) => {
+    const r = Math.sqrt(k * k + k) - k;
+    return 4 * w0 * r * (1 - r) / (1 + r / k);
+  });
 }
