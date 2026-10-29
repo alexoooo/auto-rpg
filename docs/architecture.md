@@ -613,19 +613,26 @@ What happened since the last step (`since`: an attempt ended, a hand-back) is re
 percept is. Once down,
 the body reads the ground while no stance is asked (`BodyView.ground`).
 
-- **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what a mind perceives: each step
-  `situationReader` (`situation.ts`) reads every named percept once into the `Situation` (down,
-  the seconds until the body is braced, orders, focus, distance, threat, the blow coming and its cost, reach, the focus's pressure and
-  this body's on it, what a fall costs, how fast the two close, how late the senses show the focus,
-  the lead and the time left before the clock's verdict, each hand's blow; the
-  gait's phase, bearing feet and speed; what the legs and the motor did not carry out; the focus's
-  phase, striking, down, rising or clear, `foePhase` in `src/core/mind/threat.ts`, and its blow's
-  time to contact); a percept's cue is what a
-  chooser watches (`eventOf`). Reach is read head to head: the focus's and this body's. The pressure (`Pressure`) is what a standing focus is expected to
-  deal the body a second, over the range: measured from the strike profiles on the focus's body
-  where there are any (`profilesOn`), else by hand within its reach, and says how it is priced
-  (`Pressure.priced`); an option is charged it for its time near the focus (`threatened`). The
-  body's own strikes press the focus the same way (`pressing`).
+- **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what Kinetic perceives with fixed
+  geometry and kinematics: each step `situationReader` (`situation.ts`) reads every named percept
+  once into the `Situation` (down, the seconds until the body is braced, orders, focus, distance,
+  the blow coming, reach, how late the senses show the focus, the lead and the time left before the
+  clock's verdict; the gait's phase, bearing feet and speed; what the legs and the motor did not
+  carry out; the focus's phase, striking, down, rising or clear, `foePhase` in
+  `src/core/mind/threat.ts`, and its blow's time to contact); a percept's cue is what a chooser
+  watches (`eventOf`). Reach is read head to head: the focus's and this body's.
+- **Predictions** (`PREDICTIONS`, `percepts.ts`): what data a drill, a training run or the rules
+  make says of the situation, stale with that data, read through one object
+  (`Situation.predictions`, `predictor`) the first time it is asked in a step: the blow coming's
+  cost (`danger`), the focus's pressure and this body's on it, what a fall costs, how far the focus
+  closes while the senses show it late, each hand's blow. The pressure (`Pressure`) is what a
+  standing focus is expected to deal the body a second, over the range: measured from the strike
+  profiles on the focus's body where there are any (`profilesOn`), else this body's own, and says
+  how it is priced (`Pressure.priced`); an option is charged it for its time near the focus
+  (`threatened`). The body's own strikes press the focus the same way (`pressing`). A model no
+  drill measured is its prior, read as a measured one is: the pressure's and the danger's a profile
+  of one cell (`prior`), the strike's its cell's expectation (`StrikeOption`'s `priorOf`), a gait's
+  braced at once and up, the rise's `BY_HAND`.
 - **Profiles** (`src/core/mind/profile.ts`): what a skill's drill measured it to bring, in one type
   for every skill: cells over the range and the foe's phase as the striker sensed it where the
   trial began (`sensedPhase`), each the share done, the hit points dealt and lost, the seconds and
@@ -684,7 +691,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
-  blow (the rules' damage of each contact the drill recorded) and built by hand from the fight's
+  blow (the rules' damage of each contact the drill recorded) and its prior from the fight's
   rules where none does (`blowLife`: the blow's energy, the struck face's share of it and the
   rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as

@@ -130,27 +130,24 @@ Check: the gate; the fingerprint against the commit before, Kinetic's cases unmo
 
 ### 13. Percepts and predictions
 
-A percept reads the senses and the body's own state with fixed geometry and kinematics, and stays
-the same when a profile is regenerated or the rules change: `down`, `orders`, `focus`, `apart`,
-`reach`, `lead`, `left`, the gait's, the unmet, `reaction`, and the threat's estimates `incoming`,
-`phase` and `contact`. Its value is a number or a name, so a cue, an entry, a profile's cell and a
-learned part's input layout read the same thing. A prediction reads data a drill, a training run or
-the rules make, and goes stale with it.
+Built: a percept reads the senses and the body's own state with fixed geometry and kinematics
+(`PERCEPTS`, `src/core/entrants/kinetic/options/percepts.ts`); a prediction reads data a drill, a
+training run or the rules make (`PREDICTIONS`: `danger`, `pressure`, `pressing`, `downCost`,
+`closes`, `blows`), read through one object (`predictor`, `Situation.predictions`) the first time an
+option or the position value asks for it in a step. Each hand-built model is a prior read as a
+measured one is: the pressure's and the danger's a profile of one cell (`prior`), the strike's its
+cell's expectation (`priorOf`), the gait's braced at once and up (`UNMEASURED`); the fall's cost
+already was one (`BY_HAND`, `ground.ts`). So the strike, the pressure, the danger and the gaits keep
+one branch each.
 
-The predictions go behind one interface, asked when an option or the position value needs them,
-never read each step: what a skill brings at a target from here (`readProfile`'s `expect`), what the
-focus deals a second at a range and its reach (`pressure`, `pressing`), what a blow coming costs
-(`danger`), what a fall costs (`downCost`), a hand's blow by the rules (`blows`), and how far the
-focus closes while the senses show it late (`closes`). The hand-built models are its prior, a
-profile like any measured one, so the strike, the pressure, the danger, the fall's cost and the
-gaits keep one branch each. `unbraced` goes: how long until braced is an exit's (`Place.braced`).
-An input layout may name a prediction as a derived input, read through the interface and stale
-with its profile. The readers outside Kinetic (the executors' entry conditions, `CONDITIONS`, the
-threat readings) are other minds' too and keep their own readings.
+A percept's value is a number, a name, or a record of them; `focus` and `orders` stay what the
+senses give (a foe's sense, the orders), since the options read their fields, and their cues are
+names. `unbraced` stays until step 16: it reads the rise's steady, which becomes an option there.
+A skill's own profile reading (`readProfile`'s `expect`) stays the option's: it is read at the
+option's progress and range, not the situation's.
 
-Check: the gate; the fingerprint against the commit before, its message naming the cases that
-move (a prior a profile rounds as the hand-built arithmetic did, or names the cell that moves);
-the step's time read before and after.
+Check: the gate; the fingerprint against the commit before, the cases that move named; the step's
+time read before and after.
 
 ### 14. Where an option leaves the body
 
