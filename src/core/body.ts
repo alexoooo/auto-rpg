@@ -173,7 +173,11 @@ export interface BodyView {
   readonly standing: number;
   /** Whether the body is down (`uprightness`, `src/core/control/ground.ts`): true while it is, false once it is up again. */
   readonly down: boolean;
-  /** Current physical ground support while down or released to a sub-mind; null while the host stands. */
+  /**
+   * Current physical ground support while down, released to a sub-mind, or, once down, while the
+   * command asks no stance (an action that holds the legs and asks none, `ActionClaim.legs`); null
+   * while the host stands.
+   */
   readonly ground: GroundReading | null;
   /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
   readonly resumed: boolean;
@@ -294,8 +298,8 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
       if (!(segment in goals)) throw new Error(`no effector ${segment}`);
       if (goal && command.stance?.feet.some(side => segment === `foot.${side}`)) throw new Error(`two controllers own ${segment}`);
     }
-    // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up.
-    for (const push of command.pushes) if (!Number.isFinite(push.level) || (push.speed !== undefined && !Number.isFinite(push.speed))) throw new Error(`a push on ${push.channel} needs a finite level and speed`);
+    // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up; an unbounded speed is directional (`MusclePush`).
+    for (const push of command.pushes) if (!Number.isFinite(push.level) || Number.isNaN(push.speed)) throw new Error(`a push on ${push.channel} needs a finite level and a speed`);
     if (command.handPoses) own.requestHandPoses(Object.entries(command.handPoses).map(([segment, pose]) => {
       const hand = posable.get(segment);
       if (!hand) throw new Error(`no posable hand ${segment}`);
@@ -340,7 +344,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     motor.stance.read();
     const standing = motor.standing;
     state.down = upright.down(standing?.height, standing?.pose !== undefined);
-    state.groundActive = state.down || state.subOwned;
+    state.groundActive = state.down || state.subOwned || state.groundActive && standing === null;
     if (state.groundActive) ground.read();
     else ground.reset();
   };

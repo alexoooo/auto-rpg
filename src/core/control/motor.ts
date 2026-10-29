@@ -20,7 +20,8 @@ export type Pose = Readonly<Record<string, number>>;
  * (0 to 1), a torque source at their ceiling, while the servo solves every other freedom around it.
  * With `speed`, they drive the freedom toward that speed (rad/s, its positive sense) instead, giving
  * no more than `level` of their strength either way: a damper the solver holds within the step,
- * as a torque source given at a step's end is not.
+ * as a torque source given at a step's end is not. An unbounded speed (+-Infinity) gives `level`
+ * of their strength toward its sign and none against it, as the servo's own torques do.
  */
 export interface MusclePush {
   readonly channel: string;

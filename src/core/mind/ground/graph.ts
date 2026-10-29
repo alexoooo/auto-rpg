@@ -74,6 +74,15 @@ function price(order: readonly string[], techniques: Registry, failures: readonl
 }
 
 /**
+ * **The expected seconds to standing from `from`** (`price`), Infinity where no priced route goes:
+ * what a rise from there is priced at.
+ */
+export function toStanding(order: readonly string[], from: Position, techniques: Registry, failures: readonly GraphFailure[], retries: number, work: Work): number {
+  price(order, techniques, failures, retries, work.time);
+  return work.time[index(from)]!;
+}
+
+/**
  * **The priced route**, into `work.route`: the edge that admits the body as it is read with the
  * least expected seconds to standing (`price`), the first in `order` of equals, then the cheapest
  * edge on from each posture it reaches; false, the route left empty, where no priced edge admits it

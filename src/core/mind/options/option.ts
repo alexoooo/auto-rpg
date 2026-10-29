@@ -16,7 +16,7 @@ export type ModelKind = "hand-built";
 
 /**
  * Where an option runs in the intent (`layered`): a **commitment** holds the whole body or several
- * of its parts (a strike, the low strike, orders carried out, a down option), and **footwork**
+ * of its parts (a strike, the low strike, orders carried out, a ground or down option), and **footwork**
  * holds the legs alone. A free hand is the hand layer's (`cover`).
  */
 export type Layer = "commitment" | "footwork";
@@ -59,14 +59,23 @@ interface OptionBase {
  */
 export type Asked = Omit<Intent, "guard"> & { readonly approach?: Window };
 
-/** An option the body carries out standing, through its skills. */
-export interface StandingOption extends OptionBase {
-  readonly posture: "standing";
+/** An option the body carries out through its skills. */
+interface SkillOption extends OptionBase {
   step(now: Situation, dt: number): Asked;
   /** What it holds in a step it asked `asked` (`Sight.needs`), by resource. */
   holds(now: Situation, asked: Asked): readonly Resource[];
   /** The body it means to be near, whose reach its walk need not keep out of (`keepOut`); none where absent. */
   near?(now: Situation): string | null;
+}
+
+/** An option the body carries out standing, through its skills. */
+export interface StandingOption extends SkillOption {
+  readonly posture: "standing";
+}
+
+/** An option the body carries out on the ground, through its skills (`groundOptions`): a commitment of the whole body. */
+export interface GroundOption extends SkillOption {
+  readonly posture: "ground";
 }
 
 /** An option a body carries out down, by the sub-mind it hands its body to: a commitment of the whole body. */
@@ -75,7 +84,7 @@ export interface DownOption extends OptionBase {
   readonly mind: SubMind;
 }
 
-export type Option = StandingOption | DownOption;
+export type Option = StandingOption | GroundOption | DownOption;
 
 /** An entry or exit that admits. */
 export const READY: Readiness = Object.freeze({ kind: "ready" });

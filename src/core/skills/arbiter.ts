@@ -49,6 +49,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
+    /** Whether last step an action held the legs with no stance (`ActionClaim.legs` null): the services resume when none does. */
+    unstanced: false,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
     walkable: true };
   const claims: { id: number; claim: ActionClaim; controls: readonly string[]; unwritten: readonly string[] }[] = [];
@@ -93,6 +95,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const key in state.reservations) delete state.reservations[key];
       for (const control of allControls) state.owners[control] = "default";
       state.walkable = true;
+      state.unstanced = false;
     },
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
@@ -128,7 +131,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         if (held) points.push(held);
       }
       const legOwner = claims.find(item => item.controls.includes("stance"));
-      const asked = legOwner?.claim.legs ?? (available("stance") ? {} : null);
+      const asked = legOwner?.claim.legs !== undefined ? legOwner.claim.legs : available("stance") ? {} : null;
+      const unstanced = legOwner?.claim.legs === null;
+      if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
+      state.unstanced = unstanced;
       let stance: StanceGoal | null = null;
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
@@ -231,14 +237,15 @@ function navigated(navigation: Navigator | null, sight: NavigationSight, legs: P
   return requested;
 }
 
-/** The step's command frozen through: its readers share it without freezing an executor's own motion state. */
+/** The step's command frozen through: its readers share it without freezing an executor's own motion state. Its numbers are finite, but a push's speed, which may be unbounded (`MusclePush`). */
 function immutableCommand(command: BodyCommand): Readonly<BodyCommand> {
-  const copy = <T>(value: T): T => {
-    if (typeof value === "number" && !Number.isFinite(value)) throw new Error("an action command needs finite numbers");
-    if (Array.isArray(value)) return Object.freeze(value.map(item => copy(item))) as T;
+  // `push`: the value is a push's, whose speed may be unbounded.
+  const copy = <T>(value: T, push = false, unbounded = false): T => {
+    if (typeof value === "number" && (unbounded ? Number.isNaN(value) : !Number.isFinite(value))) throw new Error("an action command needs finite numbers");
+    if (Array.isArray(value)) return Object.freeze(value.map(item => copy(item, push))) as T;
     if (value !== null && typeof value === "object") {
       const result: Record<string, unknown> = {};
-      for (const key in value) if (Object.hasOwn(value, key)) result[key] = copy(value[key]);
+      for (const key in value) if (Object.hasOwn(value, key)) result[key] = copy(value[key], key === "pushes", push && key === "speed");
       return Object.freeze(result) as T;
     }
     return value;

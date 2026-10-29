@@ -368,7 +368,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     assert.equal(state.mind.preparation.focus, state.mind.tactics.inner.decision.focus, "preparation reads the live operational context");
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
     const standUp = state.body.mind.subs[0];
-    assert.equal(standUp.motor.stub, "stub-motor", "the stand-up is made with the configured motor");
+    assert.equal(standUp.steady.motor.stub, "stub-motor", "the stand-up's steady is made with the configured motor");
     assert.equal(standUp.techniques["step-up"].motor.stub, "stub-motor", "its technique is made with the configured motor");
     assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
     assert.ok(state.lines.includes(`Decided: ${state.mind.tactics.steps} steps`), `the readout shows the planner's own detail of what it reports: ${state.lines.join(" | ")}`);

@@ -118,8 +118,12 @@ export interface ActionClaim {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Hand poses by the hand's segment (`BodyCommand.handPoses`). */
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
-  /** With the legs held, the legs goal (`LegsGoal`), which the legs complete. */
-  readonly legs?: LegsGoal;
+  /**
+   * With the legs held, the legs goal (`LegsGoal`), which the legs complete; null, no stance at
+   * all: the legs' muscles are the claim's own (pushed), and the legs, the guard, low support and
+   * navigation resume once no claim holds them so.
+   */
+  readonly legs?: LegsGoal | null;
 }
 
 /** Continuous context at the start of a control step. */

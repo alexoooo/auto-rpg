@@ -2,6 +2,7 @@ import { SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
+import type { ActionBinding, ExecutorBinding } from "../skills/action-instances.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
 import type { FighterConfig, SkillKit } from "./config.ts";
@@ -55,14 +56,24 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   return skills;
 }
 
-/** The skills `config` names, each part the one `parts` finds, a mind's own included; action aims read the body's `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+/** Executors a mind makes itself beside those its config names, and their actions (`fighterSkills`). */
+export interface MoreSkills {
+  readonly executors: readonly ExecutorBinding[];
+  readonly actions: readonly ActionBinding[];
+}
+
+/** No executor beyond the config's. */
+const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
+
+/** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims read the body's `ledger`. */
+export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[],
+  more: MoreSkills = NO_MORE): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   return skillSet(made, driving, {
     legs: legsOf(parts, made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
-    executors: configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger),
-    actions: config.actions,
+    executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger), ...more.executors],
+    actions: [...config.actions, ...more.actions],
   });
 }
 
