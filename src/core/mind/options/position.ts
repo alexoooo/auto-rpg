@@ -26,8 +26,14 @@ export interface Going {
   readonly down: number;
 }
 
-/** **The place the body holds now** (`Place`). */
-export const here = (now: Situation): Place => ({ apart: now.reach.apart, down: now.down ? 1 : 0 });
+/**
+ * **The place the body holds now** (`Place`): down, or on its feet while its rise runs, counted
+ * down until the rise braces it (`Situation.unbraced`).
+ */
+export const here = (now: Situation): Place => ({ apart: now.reach.apart, down: now.down || now.unbraced > 0 ? 1 : 0, braced: now.unbraced });
+
+/** **Where a standing option leaves the body**, from here: `place`, counted down as the body is here, which only its rise stands. */
+export const fromHere = (now: Situation, place: Place): Place => ({ ...place, down: Math.max(place.down, here(now).down) });
 
 /**
  * **The value of a position**: what a place is worth to the body, in life (the verdict's unit), the

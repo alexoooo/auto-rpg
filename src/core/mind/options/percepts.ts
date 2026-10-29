@@ -37,6 +37,8 @@ export interface Seen {
   readonly blow: ReturnType<Threats["blowOf"]>;
   readonly threats: Threats;
   readonly downs: readonly DownModel[];
+  /** The seconds until the body is braced (`Reading.unbraced`). */
+  readonly unbraced: (sight: Sight) => number;
 }
 
 type Threats = ReturnType<typeof threatReader>;
@@ -264,8 +266,8 @@ function downCostOf(seen: Seen): number {
 
 /**
  * **Every percept the options fighter reads**, by name, in the order they are read: whether the
- * body is down; its orders; its focus; how far off the focus is, centre to centre across the
- * ground (Infinity with none); a foe's blow closing on the head (`READINGS.threat`) and one
+ * body is down, and the seconds until it is braced (`Seen.unbraced`); its orders; its focus; how
+ * far off the focus is, centre to centre across the ground (Infinity with none); a foe's blow closing on the head (`READINGS.threat`) and one
  * predicted to reach it (`READINGS.predicted`); the own life that blow is expected to take
  * (`lifeOf`), 0 with none, and the one closing on it; the reach head to head (`Reach`:
  * Infinity and noughts with no focus); what a standing focus is expected to deal the body
@@ -278,11 +280,12 @@ function downCostOf(seen: Seen): number {
  * which feet the ground bears (`Bearing`) and the centre of mass's speed over the ground, m/s. What
  * the controllers did not carry out: the legs' (`SkillReport.legs`) and the motor's
  * (`BodyView.unmet`). The focus's phase (`FoePhase`), and the time to contact of the blow it
- * strikes with, s (Infinity with none). Its cues: going down or getting up, other orders, another
- * focus, a threat or a blow coming.
+ * strikes with, s (Infinity with none). Its cues: going down or getting up, braced, other orders,
+ * another focus, a threat or a blow coming.
  */
 export const PERCEPTS = Object.freeze({
   down: { read: (seen) => seen.sight.view.down, cue: (down) => down } as Percept<boolean>,
+  unbraced: { read: (seen) => seen.unbraced(seen.sight), cue: (seconds) => seconds > 0 } as Percept<number>,
   orders: { read: (seen) => seen.orders, cue: (orders) => orders } as Percept<Orders | null>,
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,

@@ -7,6 +7,7 @@ import type { ActionConfig } from "../config.ts";
 import { groundPosition } from "../ground-position.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
+import { fromHere } from "./position.ts";
 import { around } from "./strike.ts";
 import { record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
@@ -49,7 +50,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     near: (now) => now.focus?.id ?? null,
     model: (now): Terms => {
       const { lands, seconds } = record(now.sight.report.ledger, action.name), dealt = lands * Math.max(now.blows.left, now.blows.right);
-      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: 0, exit: { apart: now.reach.apart, down: FOLD_FALLS } };
+      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: 0, exit: fromHere(now, { apart: now.reach.apart, down: FOLD_FALLS }) };
     },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;

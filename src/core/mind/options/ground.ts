@@ -12,6 +12,7 @@ import { edgeExpected } from "../profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
+import type { Sight } from "../tactics.ts";
 
 /** What a rise is priced at where no route it takes is measured to standing: Stand up's own price (`SubMindPart.down`). */
 const { name: _, ...BY_HAND } = STAND_UP_PART.down!;
@@ -25,7 +26,10 @@ interface Offered { readonly side: Side; readonly from: Position; readonly to: P
 /** An edge or a reposition under way, the instance that carries it out (null until it is asked). */
 interface Attempt { readonly technique: string; readonly side: Side; readonly from: Position; readonly to: Position; id: number | null }
 
-/** **The ground's options and what they read**: the options (`GroundOption`), the rise's price (`DownModel`), and the situation as the rise reads it (`read`). */
+/**
+ * **The ground's options and what they read**: the options (`GroundOption`), the rise's price
+ * (`DownModel`), and the seconds the rise leaves the body unbraced (`unbraced`).
+ */
 export interface Ground {
   readonly options: readonly GroundOption[];
   /** The rest option down (`brace`): the ground's brace, priced as the rise that never stands. */
@@ -36,8 +40,8 @@ export interface Ground {
   readonly priced: string;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
-  /** `now`, the body down while its rise runs, though up on its feet: what its options and the others' are chosen by. */
-  read(now: Situation): Situation;
+  /** The seconds until the body is braced: on its feet while its rise runs, the steady's left; else none. */
+  unbraced(sight: Sight): number;
 }
 
 /**
@@ -48,8 +52,8 @@ export interface Ground {
  * `standUp`): a rise begins when the body goes down and ends handed back from its steady; a
  * technique begun runs to its end; without a ground reading, brace; tumbling, every edge whose
  * entry reads motion (`TechniquePart.moving`) that admits it, else brace, for no longer than
- * `BRACE_LIMIT`; on its feet, steady, handed back once standing ready (`READY_HOLD`), or after
- * `STEADY_LIMIT` on its feet standing up, else tried elsewhere; still landing, land; else every
+ * `BRACE_LIMIT`; on its feet, steady, handed back once standing ready (`READY_HOLD`) whatever
+ * ran, or after `STEADY_LIMIT` on its feet standing up, else tried elsewhere; still landing, land; else every
  * edge that admits it on a route to standing (`firstEdges`), else a reposition, else back off for
  * `BACKOFF`. An edge fails `RETRIES` times from a position before it is given up there. Each mode
  * counts its time against its limit as it runs (`modeStep`). A mode yields; a technique where its
@@ -59,7 +63,9 @@ export interface Ground {
  * (`firstEdges`, by the edges' profiles, `EDGE_PROFILES`), so the policy takes the cheapest; the
  * rest by the rise's price (`down`): its expected seconds to standing from the back, where its edges
  * are measured to standing, else by hand, as Stand up is, so that unmeasured, as on toes, they go by
- * rank. The rest option down, brace (`Ground.rest`), is the ground's brace priced as the cheapest
+ * rank; the steady at the seconds it has left (`unbraced`), the body on its feet counted down until
+ * then (`here`), so that a standing option is priced from there. The rest option down, brace
+ * (`Ground.rest`), is the ground's brace priced as the cheapest
  * offer that never stands. Its memory is the rise's: whether it runs, its mode and time in it, the
  * attempt under way, the failures, the repositions and steadies tried.
  */
@@ -88,7 +94,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     current: null as Attempt | null, failures: [] as GraphFailure[], reposition: [] as string[], steadyTried: [] as Position[],
   };
   // What is on offer this step, by option name.
-  const lie = { read: -Infinity, offers: new Map<string, Offered>() };
+  const lie = { read: -Infinity, since: -Infinity, offers: new Map<string, Offered>() };
   const clear = (): void => { state.failures.length = 0; state.reposition.length = 0; state.steadyTried.length = 0; };
   const mode = (next: Mode): void => { state.mode = next; state.time = 0; };
   const finish = (end: TechniqueEnd): void => {
@@ -100,6 +106,8 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     state.current = null; state.braceUsed = false; state.time = 0;
   };
   const handBack = (): void => { state.active = false; clear(); };
+  /** The seconds the steady has left at most: its limit, less what it has run. */
+  const steadyLeft = (): number => STEADY_LIMIT - (state.mode === "steady" ? state.time : 0);
   const offerMode = (name: GroundMode, g: GroundReading | null): void => {
     const at = g?.position ?? "between";
     lie.offers.set(name, { side: "left", from: at, to: at, seconds: NaN, reposition: false });
@@ -108,20 +116,17 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     for (const edge of firstEdges(order, g, techniques, state.failures, RETRIES, work)) lie.offers.set(edge.technique, { ...edge, reposition: false });
   };
   /**
-   * What the rise offers at `now`, once a step. First what happened since the last: the attempt
-   * under way ended or was let go; the steady's last step handed the body back standing ready, or
-   * after its limit standing up, or left that position tried; the body went down. Then, while the
-   * rise runs: the attempt under way alone; without a ground reading, brace; backing off, back off;
-   * tumbling, the edges whose entry reads motion that admit it, else brace; on its feet, steady;
-   * the edges whose entry reads motion that admit it; still landing, land; the edges that admit it;
-   * a reposition; else back off.
+   * What happened since the last step, once a step: the attempt under way ended or was let go; the
+   * steady's last step handed the body back standing ready, or after its limit standing up, or left
+   * that position tried; the body, standing ready with no attempt under way, handed back whatever
+   * ran; the body went down.
    */
-  const offered = (now: Situation): ReadonlyMap<string, Offered> => {
-    if (lie.read === now.time) return lie.offers;
-    lie.read = now.time; lie.offers.clear();
-    const view = now.sight.view, g = view.ground;
+  const since = (sight: Sight): void => {
+    if (lie.since === sight.view.time) return;
+    lie.since = sight.view.time;
+    const view = sight.view, g = view.ground;
     if (state.current && state.current.id !== null) {
-      const live = now.sight.report.actions.find((action) => action.id === state.current!.id);
+      const live = sight.report.actions.find((action) => action.id === state.current!.id);
       if (!live) finish("interrupted");
       else if (live.stage.startsWith("ended:")) finish(live.stage.slice("ended:".length) as TechniqueEnd);
     }
@@ -134,11 +139,21 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
           else { state.steadyTried.push(g.position); mode("execute"); }
         }
       }
-    }
-    if (!state.active) {
-      if (!view.down) return lie.offers;
-      state.active = true; clear(); state.current = null; state.braceUsed = false; state.ready = 0; mode("brace");
-    }
+    } else if (state.active && !state.current && g && !view.down && state.ready >= READY_HOLD) handBack();
+    if (!state.active && view.down) { state.active = true; clear(); state.current = null; state.braceUsed = false; state.ready = 0; mode("brace"); }
+  };
+  /**
+   * What the rise offers at `now`, once a step, after what happened since the last (`since`):
+   * while the rise runs, the attempt under way alone; without a ground reading, brace; backing off,
+   * back off; tumbling, the edges whose entry reads motion that admit it, else brace; on its feet,
+   * steady; the edges whose entry reads motion that admit it; still landing, land; the edges that
+   * admit it; a reposition; else back off.
+   */
+  const offered = (now: Situation): ReadonlyMap<string, Offered> => {
+    if (lie.read === now.time) return lie.offers;
+    lie.read = now.time; lie.offers.clear(); since(now.sight);
+    const view = now.sight.view, g = view.ground;
+    if (!state.active) return lie.offers;
     if (state.current) { lie.offers.set(state.current.technique, { ...state.current, seconds: NaN, reposition: state.mode === "reposition" }); return lie.offers; }
     if (!g) { offerMode("brace", g); return lie.offers; }
     state.ready = standReady(view) ? state.ready + dt : 0;
@@ -150,7 +165,10 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
       if (lie.offers.size === 0) offerMode("brace", g);
       return lie.offers;
     }
-    if (onFeet && !state.steadyTried.includes(g.position)) { offerMode("steady", g); return lie.offers; }
+    if (onFeet && !state.steadyTried.includes(g.position)) {
+      lie.offers.set("steady", { side: "left", from: g.position, to: g.position, seconds: steadyLeft(), reposition: false });
+      return lie.offers;
+    }
     // An edge that reads motion and admits the body is taken first. Short of one, no edge is offered
     // on a body whose position has not been read yet, or, where one of them is listed, on a body
     // still landing with no support or one it is begun from but too fast for: the command carries
@@ -245,6 +263,6 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const options = [...order, ...Object.keys(runs).filter((name) => !order.includes(name)), ...GROUND_MODES].map(option);
   return {
     options, rest: brace(cheapest, { action: "brace", effector: sideEffector("left") }), down, priced: pricedBy, state: { plan: state, options: options.map((one) => one.state) },
-    read(now) { offered(now); return state.active && !now.down ? { ...now, down: true } : now; },
+    unbraced(sight) { since(sight); return state.active && !sight.view.down ? steadyLeft() : 0; },
   };
 }

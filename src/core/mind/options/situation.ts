@@ -14,7 +14,8 @@ import { PERCEPTS, type Seen } from "./percepts.ts";
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
  * (`BodyHost.rules`), its own strikes measured (`strikes`, `measuredProfile`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
- * through `ordersOf`, and the prices of its ways up from the ground (`downs`).
+ * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
+ * it is braced as its rise reads them (`unbraced`; absent, braced at once).
  */
 export interface Reading {
   readonly spec: BodySpec;
@@ -24,6 +25,7 @@ export interface Reading {
   readonly measured: readonly Profile[];
   readonly ordersOf: (sight: Sight) => Orders | null;
   readonly downs: readonly DownModel[];
+  readonly unbraced?: (sight: Sight) => number;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface Reading {
  * Its memory is the focus's id.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, rules, strikes, measured, ordersOf, downs } = reading;
+  const { spec, hz, rules, strikes, measured, ordersOf, downs } = reading, unbraced = reading.unbraced ?? (() => 0);
   const threats = threatReader(), state = { focus: null as string | null };
   const focusOf = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { senses, stance } = sight.view;
@@ -54,7 +56,7 @@ export function situationReader(reading: Reading) {
     read(sight: Sight): Situation {
       const orders = ordersOf(sight), focus = focusOf(sight, orders);
       state.focus = focus?.id ?? null;
-      const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, downs };
+      const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, downs, unbraced };
       const read: Record<string, unknown> = { sight, time: sight.view.time };
       for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
       return read as unknown as Situation;

@@ -9,7 +9,7 @@ import type { Sight } from "../tactics.ts";
 import { asking, blocked, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
-import type { Going } from "./position.ts";
+import { fromHere, type Going } from "./position.ts";
 import type { Walker } from "./walk.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 
@@ -147,12 +147,12 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const duration = walking + e.seconds;
       const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: e.letGo } : {};
       return { duration, dealt: e.dealt, taken: now.danger + e.taken + threatened(now, walkingInReach, from),
-        orders: 0, exit: { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }, ...letGo };
+        orders: 0, exit: fromHere(now, { apart: from, down: Math.max(e.down, fell, clinched(now, duration)) }), ...letGo };
     }
     const { lands, seconds } = record(now.sight.report.ledger, action.name);
     const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
     const dealt = throws * lands * blow, duration = walking + seconds;
-    return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: { apart: from, down: Math.max(fell, clinched(now, duration)) } };
+    return { duration, dealt, taken: now.danger + threatened(now, seconds + walkingInReach, from), orders: 0, exit: fromHere(now, { apart: from, down: Math.max(fell, clinched(now, duration)) }) };
   };
   return {
     name: action.name, posture: "standing", claims: Object.freeze(["legs", "trunk"]), state,

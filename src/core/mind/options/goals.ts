@@ -6,7 +6,7 @@ import { approachActionWindow } from "../action-window.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile } from "../profile.ts";
 import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
 import { threatened } from "./percepts.ts";
-import type { Going } from "./position.ts";
+import { fromHere, type Going } from "./position.ts";
 import type { StrikeOption } from "./strike.ts";
 import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
@@ -100,7 +100,7 @@ function walkTo(now: Situation, to: number, duration: number, pace: number, goin
   const nearer = Math.min(apart, to), inReach = Math.max(0, Math.min(Math.max(apart, to), now.reach.theirs) - nearer) / pace;
   const leaves = now.apart + to - apart >= CLINCH.within;
   return { duration, dealt: 0, taken: now.danger + threatened(now, inReach, nearer), orders: 0,
-    exit: { apart: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), braced: going.braced } };
+    exit: fromHere(now, { apart: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), braced: going.braced }) };
 }
 
 /**

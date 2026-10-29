@@ -1,5 +1,6 @@
 import { atan2, cos, hypot, sin } from "../../math/real.ts";
 import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
+import { fromHere } from "./position.ts";
 import { threatened } from "./percepts.ts";
 import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
@@ -92,7 +93,7 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
       const d = apart(now), to = d < goal.near + BAND ? goal.near + BAND : d > goal.far - BAND ? goal.far - BAND : d;
       const duration = goal.correcting ? Math.abs(to - d) / walk.pace(now) : AHEAD, after = now.reach.apart + to - d;
       const leaves = goal.correcting && goal.near >= CLINCH.within;
-      return { duration, dealt: 0, taken: now.danger + threatened(now, duration, Math.min(now.reach.apart, after)), orders: 0, exit: { apart: after, down: leaves ? 0 : clinched(now, duration) } };
+      return { duration, dealt: 0, taken: now.danger + threatened(now, duration, Math.min(now.reach.apart, after)), orders: 0, exit: fromHere(now, { apart: after, down: leaves ? 0 : clinched(now, duration) }) };
     },
     step(now) {
       const d = apart(now), focus = now.focus!, centre = now.sight.view.stance.centre;

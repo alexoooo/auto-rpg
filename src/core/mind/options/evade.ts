@@ -1,4 +1,5 @@
 import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
+import { fromHere } from "./position.ts";
 import type { Walker } from "./walk.ts";
 import type { Terms } from "./value.ts";
 
@@ -24,7 +25,7 @@ export function evade(walk: Walker): StandingOption {
     begin() {},
     end() {},
     model: (now): Terms => ({ duration: STEP.seconds, dealt: 0, taken: now.danger * (1 - STEP.saves), orders: 0,
-      exit: { apart: now.reach.apart + walk.pace(now) * STEP.seconds, down: 0 } }),
+      exit: fromHere(now, { apart: now.reach.apart + walk.pace(now) * STEP.seconds, down: 0 }) }),
     step(now) {
       const focus = now.focus!, centre = now.sight.view.stance.centre;
       return { ...walk.toward(now, centre.x - focus.centre.x, centre.z - focus.centre.z, walk.facing(now)), actions: [] };
