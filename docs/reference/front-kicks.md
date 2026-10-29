@@ -11,7 +11,9 @@ both were qualified. The force they deliver against trained adults is
 tracker and finite strike cycle shared with punching. Ordinary gait places both soles under the
 hip centres; both feet settle before their landing pose is captured (capturing the first gait
 contact can keep transient floor penetration and reject a quiet landing by 0.2 mm at the 2 cm
-gate).
+gate). Setup squares the stance in one step: the kicking foot stays where it stands, where the
+strike's window was read from, and the bearing foot steps a hip's width beside it, square to the
+heading, until each is within `near` of its place.
 
 Transfer needs measured centre-of-mass support inside the bearing sole, and the free foot at zero
 ground load for 0.05 s before it chambers. Stance owns the bearing leg and corrects its captured
@@ -74,12 +76,15 @@ back, 0.8 to 1.2 m off).
 | contactSpeed / swingSeconds | 7 m/s / 0.25 s | A faster stroke, the leg braced: the best blow's median 16.7 J and 13.4 kg, against 13.0 J and 9.3 kg at 5 m/s; 6 m/s, and 0.2 s at 5 or 7 m/s, read within a trial's spread of it |
 | returnNear | 0.1 m | The leg comes to rest 0.04 to 0.08 m from the chamber after a blow; at 0.04, 6 trials of 12 ended stalled, at 0.1, 4 |
 
-Its trials (`9ead992f`'s rung): 10 of 12 landed, 2 met the body elsewhere (its lower trunk), none
-fell or stalled. A trial's best blow: 16.2 kg behind the foot at the median, 16.7 J, 2.9 m/s; on the
-Warrior 36 J at the median (9.5 to 70 J), the punch's 25 to 42; on the Skeleton 4.7 J (1.7 to
-15.9 J), its light trunk meeting the foot with little mass of its own. 0.14 to 0.61 HP dealt a
-trial on the Warrior, 0.09 to 0.11 on the Skeleton; the profile's trials take 9.4 to 12.3 s from
-ready to their end.
+Its trials (`2c92392a`'s rung): 10 of 12 landed, 2 met the body elsewhere (its lower trunk), none
+fell or stalled. A trial's best blow: 17.6 kg behind the foot at the median, 23.6 J; on the Warrior
+37 J at the median (12 to 63 J), the punch's 25 to 42; on the Skeleton 13 J (1.1 to 23.8 J), its
+light trunk meeting the foot with little mass of its own. 0.22 to 0.43 HP dealt a trial on the
+Warrior, 0.11 to 0.12 on the Skeleton. The kick takes 5.8 s from its start to its end at the
+median: 0.84 s squaring the stance, 0.6 s shifting the weight, 0.6 s chambering, the stroke, then
+0.6 to 1.6 s returning, 1.45 s placing and 0.8 s recentring. The profile's trials take 8.8 to
+11.2 s from ready to their end, of which 2 to 7.5 s are the drill's walk to its window's middle
+before it asks.
 
 - **Braced** (`firm`): under the servo's computed torques a leg coasting down at speed met the trunk
   at activations of 0.03 to 0.3, and the blow found 2 to 6 kg behind the foot, its joints all but
@@ -88,7 +93,14 @@ ready to their end.
 - **Unbent** (`unbend`): the stroke leaves the leg straight at the knee's stop, where the reach's
   solve sees no way to shorten it; the return or the placing then waited out its deadline in 4
   trials of 12, and with the knee begun off its stop in none.
-- **Tried and not kept**: the stroke's end held within 0.95 or 1 of the leg's length from the hip,
+- **Squared in one step**: setting both feet a hip's width about their midpoint took two steps,
+  1.6 s of the 3.2 s from the kick's start to its blow; the kicking foot kept, one step brings the
+  blow 0.8 s sooner. The bearing foot kept and the kicking foot stepped instead moved the kicking
+  foot off where its window was read: 1 trial of 12 fell, 1 stalled, the median blow 13.9 J.
+- **Tried and not kept**: a looser square (`near` of 0.08 m changed nothing; at 0.15 m none was
+  set, the weight's shift took longer and 6 trials of 12 missed); a shorter chamber (0.4 s) or
+  placing (0.6 s), each alone with 1 to 2 trials of 12 fallen, for 0.3 s;
+  the stroke's end held within 0.95 or 1 of the leg's length from the hip,
   so the knee is still bent at contact (1 to 2 trials of 12 fell, no stronger blow); a nearer window
   (0.3 to 0.5 / 0.55 to 0.75 m), whose blows with the knee bent 43 to 66 degrees reached 47 to 126 J,
   but where 2 to 3 trials of 12 fell and 2 to 10 never reached the window.

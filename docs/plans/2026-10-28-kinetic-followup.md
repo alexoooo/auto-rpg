@@ -315,11 +315,11 @@ Warrior and a Skeleton lying limp on their backs; each reading records the targe
 range, which the profiles cut their cells by. A kick returns to its chamber, carried with the
 pelvis, before it is placed, so a stomp's foot is withdrawn clear of the body it struck; its stroke
 is braced (`EffectorGoal.firm`), and a leg it leaves straight is bent to come back
-(`EffectorGoal.unbend`). At `9ead992f` the rung lands 10 of 12, none falls or stalls; the best blow
-has 16.2 kg behind the foot at the median, 36 J on the Warrior and 4.7 J on the light Skeleton,
-0.14 to 0.61 HP a trial on the Warrior (the punch's 0.2 to 1.3), and its profile (`d792fdd3`) has
-Kinetic stomp a lying body under its own chooser. Left: a stroke quicker than its 9 to 12 s from
-ready, and the downward blow from low support.
+(`EffectorGoal.unbend`); a kick squares its stance in one step. At `2c92392a` the rung lands 10 of
+12, none falls or stalls; the best blow has 17.6 kg behind the foot at the median, 37 J on the
+Warrior and 13 J on the light Skeleton, 0.22 to 0.43 HP a trial on the Warrior (the punch's 0.2 to
+1.3), the kick 5.8 s from its start to its end, and its profile (`2d80df8e`) has
+Kinetic stomp a lying body under its own chooser. Left: the downward blow from low support.
 
 Check: the gate; the drill's rungs, the failures watched; the owner watches Kinetic against a
 fallen Duellist Skeleton in the Arena.
