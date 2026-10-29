@@ -11,8 +11,10 @@ import { here, type Place, type PositionValue } from "./position.ts";
  * **What running an option from now is expected to bring**, over its run, in life (a share of a
  * body's full life, the verdict's unit) where it is a payoff: how long it runs, s; the focus's life
  * its blows take; its own life the blows it takes take, the blow coming included; its progress on
- * the orders, a metre walked as ordered (`ORDERED`); and where it leaves the body (`Place`: how far
- * from the focus, and the chance it is down).
+ * the orders, a metre walked as ordered (`ORDERED`); where it leaves the body (`Place`: how far
+ * from the focus, and the chance it is down); and, where it runs and may be let go now, before its
+ * point of no return, what letting it go leaves: the seconds until its body could begin it again,
+ * and its own life lost meanwhile.
  */
 export interface Terms {
   readonly duration: number;
@@ -20,6 +22,7 @@ export interface Terms {
   readonly taken: number;
   readonly orders: number;
   readonly exit: Place;
+  readonly letGo?: { readonly seconds: number; readonly taken: number };
 }
 
 /**
@@ -40,11 +43,14 @@ export const STEADY = OBEDIENCE[1]![2];
  * (the focus's life it takes less its own it loses beyond the blow coming, which holding takes as
  * well, and its progress on the orders at `obedience`, life a metre), the position where it leaves
  * the body less the position now, and its time at the rate of play. With it, how much the position
- * changes (`moves`).
+ * changes (`moves`), and what letting it go now costs (`letGo`): the life it loses while it comes
+ * back beyond what holding the position as long costs, none below nothing, and none where it may
+ * not be let go.
  */
-export function worth(terms: Terms, now: Situation, obedience: number, position: PositionValue): { readonly worth: number; readonly moves: number } {
-  const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0);
-  return { worth: terms.dealt - (terms.taken - now.danger) + obedience * terms.orders + moves - position.rate(now) * terms.duration, moves };
+export function worth(terms: Terms, now: Situation, obedience: number, position: PositionValue): { readonly worth: number; readonly moves: number; readonly letGo: number } {
+  const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0), rate = position.rate(now);
+  const letGo = terms.letGo ? Math.max(0, terms.letGo.taken + rate * terms.letGo.seconds) : 0;
+  return { worth: terms.dealt - (terms.taken - now.danger) + obedience * terms.orders + moves - rate * terms.duration, moves, letGo };
 }
 
 /** The rules a fight is played by, whose arithmetic prices a blow (`blowDamage`). */

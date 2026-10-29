@@ -58,7 +58,8 @@ export interface StrikeOption extends StandingOption {
  * is one, then the profile's cell nearest the range (to its farthest measured), the closing speed
  * and the focus's phase (`expect`): the focus's life its blows took, its own the drill took (the
  * foe's reply while it struck), how long it ran and its chance of ending down; through the blow
- * coming, and the focus's pressure while it walks within the focus's reach (`threatened`). Else
+ * coming, and the focus's pressure while it walks within the focus's reach (`threatened`); and,
+ * its blow begun and not yet committed, what letting it go cost there (`ProfileCell.letGo`). Else
  * built by hand: walking into the window until the focus is in its reach, then `throws` blows from
  * its stronger hand, each landing as often as its record says (`record`, which is of the hand it is
  * asked for), within the focus's reach from where it stands or the focus would reach it while it
@@ -117,9 +118,10 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const e = profile && focus ? expect(profile, { range: Math.min(now.apart, farthest(profile, now.phase)), closing: now.closing, phase: now.phase }) : null;
       const from = walks ? Math.min(apart, mine) : apart;
       if (e && focus) {
-        const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds;
-        return { duration, dealt, taken: now.danger + e.taken / measure.spec.wounds.hp.value + threatened(now, walkingInReach, from),
-          orders: orderedDealt(now, dealt), exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) } };
+        const dealt = e.dealt / focus.spec.wounds.hp.value, duration = walking + e.seconds, hp = measure.spec.wounds.hp.value;
+        const letGo = live(now)?.phase === "prepare" && e.letGo ? { letGo: { seconds: e.letGo.seconds, taken: e.letGo.taken / hp } } : {};
+        return { duration, dealt, taken: now.danger + e.taken / hp + threatened(now, walkingInReach, from),
+          orders: orderedDealt(now, dealt), exit: { apart: from, down: Math.max(e.down, clinched(now, duration)) }, ...letGo };
       }
       const { lands, seconds } = record(now.sight.report.ledger, action.name);
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
