@@ -46,10 +46,8 @@ to it. `skeletonFigure` takes the rows of the fist build:
 
 - the joint centres are the parts' ends along each part's y (the thigh's top is the hip, the
   upper arm's bottom the elbow, the neck's bottom the cervicale);
-- the trunk segments are the hull of the core and pelvis boxes' corners, sliced at de Leva's trunk
-  landmarks;
-- the feet are the foot boxes;
-- what the art does not give (mass, strength tables, hit points, the fists' turn) is a named
+- the body is its bones ([below](#the-body-fitted-to-the-bones));
+- what the bones do not give (strength tables, hit points, balance, the fists' turn) is a named
   placeholder, `skeleton-placeholders` in `SOURCES`.
 
 The skeleton's reference pose is the bind itself: standing, elbows at a right angle, forearms
@@ -70,6 +68,45 @@ sockets. The arena (`src/arena/main.ts`), the crypt (`src/dungeon/main.ts`) and 
 
 `bind.json` is fixed: nothing in the repository regenerates it, and both the art and the core
 skeleton read it. Moving a joint means refitting the art as well.
+
+## The body fitted to the bones
+
+The owner's decision (`owner-skeleton-body`, 2026-10-29): human-shaped, 15 kg, its body fitted to
+its bones, approximate and low-polygon. `scripts/skeleton/bone-fit.mjs --write` measures the art
+at its bind and writes `assets/skeleton/bones.json` (`skeleton-bones`); `skeletonFigure` reads it
+into the figure's `fitted` segments, and the human body plan (`src/core/human/segments.ts`) builds
+from it:
+
+| What | From the bones |
+| --- | --- |
+| Mass | 15 kg in men's shares (de Leva's): the walk carries them ([below](#mass-in-the-bones-shares)) |
+| Centre of mass, inertia | the bones' solid's centroid and spread about the segment's axes, at the segment's mass |
+| Head, upper arms, forearms, thighs | the hull of the bones' farthest vertices along 42 directions (30 to 39 corners, about 90 % of the bones' whole convex hull) |
+| Trunk | the same hulls: the ribcage with the collars and shoulder blades, the lumbar spine, the pelvis |
+| Shanks | capsules as wide as the bones' spread (2.9 cm): a knee bears on a shank's end in the rise |
+| Hands | open or a fist, the closed hand's hull, the art's hand being always closed; it bears at the palmar patch and strikes where the line from the wrist through the middle knuckle leaves it; the grip's capsule is as wide as the bones' spread (3.4 cm) |
+| Feet | the box on the foot bones, heel to toe |
+
+The muscle is men's at the body's 15 kg, so each torque is 15/79 of the typical man's at the same
+reach. Its standing centre of mass is 0.85 m up, the Warrior's 1.01.
+
+Asked to crouch 0.43 m or more (`Intent.lower`), it folds at the hips until its ribcage rests on its
+thighs, its head under its pelvis, and does not settle; at 0.35 m it holds. Its foot's heel, the
+bones', is 5 cm behind the ankle (the bind's box: 7.7).
+
+Weight x1.1 fits; at x1.2 the broadened pelvis meets a forearm, and the character resolver
+refuses it.
+
+### Mass in the bones' shares
+
+Tried and not kept: each segment's share of the 15 kg as its bones' share of their solid volume
+(5.78 l, 2.6 g/cm3): head 16 %, upper trunk 19 %, middle trunk 2.8 %, pelvis 15 %, each upper arm
+3.3 %, forearm 2.4 %, hand 1.0 %, thigh 6.7 %, shank 7.0 %, foot 3.4 %. In bouts on the Node stand
+(Rapier, 120 Hz, `duellist` both sides, 12 s, gaps 3 to 6 m, against the Warrior and a skeleton),
+it fell before any contact in 2 of the 8 starts, walking in, at 3.5 and 3.9 s, drifting sideways
+until it went over; with men's shares and the bones' centres and inertia, in none. The old skeleton
+(a 79 kg man on the bind's boxes) fell in none of the six 15 s bouts at 3 to 5 m, the bones' shares
+in five (two before contact), men's shares in three (all after contact).
 
 ## Rebuilding the GLB
 
@@ -96,5 +133,7 @@ After a rebuild, look at the skeleton in the lab and the crypt.
 
 ## Where the art and the colliders differ
 
-The hand's collider runs to the fist box's far side, about 7 cm past the drawn knuckles, so a
-punch lands ahead of the visible fist.
+The colliders are convex: a hull spans the gaps between the ribs, the pelvis's basin and the
+femur's neck, so a blow meets them where the drawn bone shows a gap. The shanks' capsules are rounder
+than the tibia, and the foot's box squarer than its bones. The hand's segment line still runs to
+the fist box's far side, but its collider is the drawn hand.

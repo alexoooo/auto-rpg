@@ -57,12 +57,14 @@ model's default mind and what its right hand holds.
 | Model | Built from |
 |---|---|
 | `workshop-fighter` (the Warrior), `workshop-rogue` (the Rogue) | `figureSpec(workshopFigure(...))`, `src/core/human/spec.ts` |
-| `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`) |
+| `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`) for its joints, its bones (`assets/skeleton/bones.json`, [record](art/skeleton.md#the-body-fitted-to-the-bones)) for its masses and colliders, 15 kg |
 | `reptile` | an independently authored quadruped (`assets/reptile/body.json`, [record](reference/reptile.md)) |
 
 `figureSpec` takes a `HumanFigure` and lays out 16 segments and 15 joints from published tables
 (de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness
-(`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)). A humanoid's feet may wear a shoe's
+(`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)); a fitted figure's segments
+(`HumanFigure.fitted`, the skeleton's) take their mass, inertia and colliders from its measured
+solids instead of de Leva's rows. A humanoid's feet may wear a shoe's
 sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it. They may have
 toes (`toedFigure`, `src/core/human/toes.ts`), a character's setting: a slab ahead of the foot's box,
 cut short by it, and a toed ankle's stop at 0.8 rad ([toes](reference/toes.md)).

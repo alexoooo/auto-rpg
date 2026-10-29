@@ -26,6 +26,7 @@ type Value = number | Vec3;
 type Unit =
   | "1" | "%"
   | "m" | "mm" | "cm"
+  | "m2"
   | "kg" | "kg m2"
   | "kg/m3" | "g/cm3"
   | "m3" | "l"

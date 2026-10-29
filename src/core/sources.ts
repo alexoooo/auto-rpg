@@ -173,6 +173,18 @@ export const SOURCES = Object.freeze({
       + "and on the definition of weight; conventional value of gn, 980.665 cm/s2.",
     link: "https://www.bipm.org/en/committees/cg/cgpm/3-1901/resolution-",
   },
+  "skeleton-bones": {
+    kind: "asset", file: "assets/skeleton/bones.json",
+    what: "The skeleton's bones measured from its art at its bind, body frame, metres: each segment's bones' "
+      + "solid volume, centroid, second moment per unit volume about the centroid and low-polygon hull; each "
+      + "hand's hull, palm and strike; each foot's extents. Written by scripts/skeleton/bone-fit.mjs --write.",
+  },
+  "owner-skeleton-body": {
+    kind: "decision", date: "2026-10-29",
+    decided: "The skeleton is human-shaped, weighs 15 kg, and its body is fitted to its bones, approximate "
+      + "and low-polygon.",
+    record: "docs/art/skeleton.md#the-body-fitted-to-the-bones",
+  },
   "skeleton-bind": {
     kind: "asset", file: "assets/skeleton/bind.json",
     what: "The skeleton's parts as its art was fitted to them: for each build, each part's position and turn "

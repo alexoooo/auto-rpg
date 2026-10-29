@@ -42,6 +42,12 @@ export interface HumanFigure {
    * at its density.
    */
   readonly widest?: Readonly<Partial<Record<DeLevaSegment, Quantity<number>>>>;
+  /**
+   * Each segment measured from what it is made of, by segment name (the skeleton's bones,
+   * `skeleton.ts`): its centre of mass, inertia and collider come from it in place of de Leva's
+   * rows, its share of the mass from his. Every segment has one, or none does.
+   */
+  readonly fitted?: Readonly<Record<string, FittedSegment>>;
   /** The body mass its regional muscle is a share of (`peakTorque`), kg at x1; absent, `mass`. */
   readonly muscled?: Quantity<number>;
   /** How much broader than de Leva's rows each segment is across its long axis; absent, 1. */
@@ -56,6 +62,21 @@ export interface HumanFigure {
   readonly balance: Quantity<number>;
   /** The body's haste, per cent over a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`); 0 is a human's. */
   readonly haste: Quantity<number>;
+}
+
+/**
+ * **A segment measured from its solid** (`HumanFigure.fitted`), body frame, at the figure's
+ * authored size: its centroid, the centre of mass; and its second moment per unit volume about the
+ * centroid (`spread`, m2: xx, yy and zz, then xy, yz and zx), which a uniform density makes its
+ * inertia per unit mass. `hull` is the collider's corners in place of a capsule of the body plan;
+ * absent, the capsule is as wide as the solid (`segments.ts`), as a hand's must be for a grip to
+ * seat against it and a shank's for a knee to bear on its end. A trunk segment's collider is
+ * `HumanFigure.hulls`, a foot's `feet` and a hand's poses `hands`.
+ */
+export interface FittedSegment {
+  readonly centroid: Quantity<Vec3>;
+  readonly spread: { readonly diagonal: Quantity<Vec3>; readonly off: Quantity<Vec3> };
+  readonly hull?: readonly Quantity<Vec3>[];
 }
 
 /**

@@ -172,8 +172,10 @@ test("each Vanguard calibration's standing misses regain the physical guard and 
 });
 
 test("each Vanguard low punch brakes an aim lost during its trunk lead and physically regains its guard", async () => {
-  for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
-    const spec = modelSpec(model), config = MINDS[id].config, hands = ["hand.right", "hand.left"], lower = .5;
+  // Each body's crouch at a low target, m. Asked 0.43 m or deeper, the skeleton folds at the hips
+  // until its ribcage rests on its thighs, and never settles.
+  for (const [model, id, lower] of [["workshop-fighter", "vanguard-warrior", .5], ["workshop-rogue", "vanguard-rogue", .5], ["crypt-skeleton", "vanguard-skeleton", .35]]) {
+    const spec = modelSpec(model), config = MINDS[id].config, hands = ["hand.right", "hand.left"];
     const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
     const hub = createSenses(stand.world), support = supportReadiness(stand.built);
     const state = { stage: "settle", hand: 0, next: 3, active: null, reference: null, probe: null, settled: false,

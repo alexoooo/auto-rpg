@@ -1,37 +1,40 @@
 import bind from "../../../assets/skeleton/bind.json" with { type: "json" };
+import bones from "../../../assets/skeleton/bones.json" with { type: "json" };
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
-import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
-import type { HumanFigure, LimbFigure } from "./figure.ts";
+import type { Extents } from "./envelope.ts";
+import type { FittedSegment, HandFigure, HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
 import { dividedTrunk } from "./landmarks.ts";
 import type { Side } from "../spec/body.ts";
 
 /**
- * **The crypt skeleton as a human figure.** Its shape is its art's: Blender Studio's realistic
- * human skeleton (`public/assets/skeleton/README.md`), fitted onto a set of box parts whose places
- * `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body frame at
- * x1, and its box in its own frame). Its reference pose is that bind: standing, the
+ * **The crypt skeleton as a human figure, fitted to its bones.** Its art is Blender Studio's
+ * realistic human skeleton (`public/assets/skeleton/README.md`), whose pieces ride the parts whose
+ * places `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body
+ * frame at x1, and its box in its own frame). Its reference pose is that bind: standing, the
  * elbows bent at a right angle with the forearms forward and the fists thumb up, so each piece of
  * the art rides its segment exactly (`src/render/skeleton-skin.ts`).
  *
  * - **Joint centres** are the parts' ends, along each part's y: the thigh's top the hip, its bottom
  *   the knee, the shank's bottom the ankle; the upper arm's top the shoulder, its bottom the elbow;
  *   the forearm and its roll ring the forearm, whose far end is the wrist; the wrist link the palm,
- *   whose far end is the knuckles; and the fist the fingers, whose far side ends the hand. The fist
- *   is a cube, so the little finger's knuckle, where a grip ends (`grip.ts`), is its half-width from
- *   the middle one toward the little finger. The neck's bottom is the cervicale and the head box's
- *   top the vertex.
- * - **The trunk** is the bind's trunk boxes (the core and the pelvis), sliced at de Leva's trunk
- *   landmarks: each segment the hull of the boxes' corners within its span.
- * - **The feet** are the foot boxes; a foot runs from its box's back to its front, at its middle.
- * - **What the art does not give** is a placeholder (`skeleton-placeholders`): a typical man in the
- *   skeleton's shape, with men's tables, the typical man's mass and the Warrior's hit points; and
- *   the fists thumb up, which the bind's guard shows but no number states.
- * - **Its upper arms are no wider than clears them** (`skeleton-limbs-clear`): the typical man's at
- *   his densities, beside its trunk, would overlap the trunk as built. Its upper arms hang straight
- *   from its shoulders, so the room is read across, in x. Its thighs, as every human's, leave the
- *   stride's room between them (`segments.ts`).
+ *   whose far end is the knuckles; and the fist the fingers, whose far side ends the hand's line. The
+ *   fist box is a cube, so the little finger's knuckle, where a grip ends (`grip.ts`), is its
+ *   half-width from the middle one toward the little finger. The neck's bottom is the cervicale and
+ *   the head box's top the vertex. The trunk is divided at de Leva's trunk landmarks.
+ * - **The body is its bones** (`skeleton-bones`, `scripts/skeleton/bone-fit.mjs`): each segment's
+ *   centre of mass and inertia are its bones' solid's (`HumanFigure.fitted`), with men's share of
+ *   the mass, which the walk carries (`docs/art/skeleton.md#the-body-fitted-to-the-bones`); its
+ *   collider the low-polygon hull of its bones (the trunk's the ribcage with the
+ *   shoulder girdle, the lumbar spine and the pelvis; the head's the skull and the neck), but a
+ *   shank, a capsule as wide as its bones (`HULLED`); a foot the box on its bones, running from
+ *   their back to their front at their middle; a hand, open or closed, the hull of the closed hand
+ *   the art always shows, and for a grip a capsule as wide as its bones.
+ * - **It weighs 15 kg** (`owner-skeleton-body`), and its muscle is that mass's at men's shares.
+ * - **What the bones do not give** is a placeholder (`skeleton-placeholders`): men's tables for its
+ *   muscle and joints, the Warrior's hit points and balance, and the fists thumb up, which the
+ *   bind's guard shows but no number states.
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
  * (`GUARD`) bends the skeleton's elbows past its stop from here. A posture written from each
@@ -94,60 +97,60 @@ function end(p: Part, sign: 1 | -1, what: string): Quantity<Vec3> {
       add(position, turn([x, y, z, w], [0, length, 0])));
 }
 
-/** A box part's corner, body frame: its turn is none, which the bind's boxes hold (checked below). */
-function unturned(p: Part): Part {
-  const [x, y, z, w] = p.rotation.map((q) => q.value);
-  if (x !== 0 || y !== 0 || z !== 0 || w !== 1) throw new Error(`${p.key} is turned in the bind; its box is not the body frame's`);
-  return p;
+/** A number of the bones' measure, at its JSON pointer. */
+const measured = <V extends number | Vec3>(value: V, unit: "m" | "m2", where: string): Quantity<V> =>
+  sourced(value, unit, "skeleton-bones", where);
+const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
+const corners = (points: readonly (readonly number[])[], at: string) => points.map((p, i) => measured(vector(p), "m", `${at}/${i}`));
+
+type SegmentFile = { readonly centroid: readonly number[]; readonly hull: readonly (readonly number[])[];
+  readonly spread: { readonly diagonal: readonly number[]; readonly off: readonly number[] } };
+const SEGMENTS = bones.segments as Readonly<Record<string, SegmentFile>>;
+
+/**
+ * The segments whose collider is their bones' hull in place of the body plan's capsule. A hand's
+ * and a shank's stay capsules as wide as their bones: a grip seats against the one, and a knee
+ * bears on the other's end (`src/core/mind/rise/stages.ts`).
+ */
+const HULLED = new Set(["head", ...(["left", "right"] as const).flatMap((side) => ["upperArm", "forearm", "thigh"].map((row) => `${row}.${side}`))]);
+
+function fittedSegment(name: string): FittedSegment {
+  const file = SEGMENTS[name];
+  if (!file) throw new Error(`the skeleton's bones have no ${name}`);
+  const at = `/segments/${name}`;
+  return {
+    centroid: measured(vector(file.centroid), "m", `${at}/centroid`),
+    spread: { diagonal: measured(vector(file.spread.diagonal), "m2", `${at}/spread/diagonal`), off: measured(vector(file.spread.off), "m2", `${at}/spread/off`) },
+    ...(HULLED.has(name) && { hull: corners(file.hull, `${at}/hull`) }),
+  };
 }
 
-function boxExtents(p: Part, what: string): Extents {
-  const axis = (k: 0 | 1 | 2, name: string): Extent => ({
-    min: derive("m", `${what}: ${p.key}'s ${name} min, its position plus its box's`, [p.position, p.min[k]!], (at, m) => at[k] + m),
-    max: derive("m", `${what}: ${p.key}'s ${name} max, its position plus its box's`, [p.position, p.max[k]!], (at, m) => at[k] + m),
-  });
-  unturned(p);
-  return { x: axis(0, "x"), y: axis(1, "y"), z: axis(2, "z") };
+/** A foot's bones' extents, body frame. */
+function footExtents(side: Side): Extents {
+  const { min, max } = bones.feet[side], at = `/feet/${side}`;
+  const axis = (k: 0 | 1 | 2) => ({ min: measured(min[k]!, "m", `${at}/min/${k}`), max: measured(max[k]!, "m", `${at}/max/${k}`) });
+  return { x: axis(0), y: axis(1), z: axis(2) };
 }
 
-/** The corners of the trunk boxes that lie between `below` and `above` (either may be absent: unbounded). */
-function slice(boxes: readonly Part[], name: TrunkSegment, below?: Quantity<Vec3>, above?: Quantity<Vec3>): Quantity<Vec3>[] {
-  const corners: Quantity<Vec3>[] = [];
-  for (const box of boxes.map(unturned)) {
-    const bounds = [below, above].filter((q): q is Quantity<Vec3> => q !== undefined);
-    const bottom = box.position.value[1] + box.min[1]!.value, top = box.position.value[1] + box.max[1]!.value;
-    const lo = Math.max(bottom, below?.value[1] ?? -Infinity), hi = Math.min(top, above?.value[1] ?? Infinity);
-    if (!(hi > lo)) continue;
-    for (const height of ["low", "high"] as const) {
-      for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as const) {
-        corners.push(derive("m", `the ${name} trunk's corner: ${box.key}'s box, ${sx < 0 ? "left" : "right"} ${sz < 0 ? "back" : "front"}, `
-          + `${height === "low" ? "at its bottom or the segment's lower landmark, whichever is higher" : "at its top or the segment's upper landmark, whichever is lower"}`,
-        [box.position, box.min[0]!, box.max[0]!, box.min[1]!, box.max[1]!, box.min[2]!, box.max[2]!, ...bounds],
-        (at, x0, x1, y0, y1, z0, z1, ...landmarks) => {
-          const lower = below ? landmarks[0]![1] : -Infinity, upper = above ? landmarks[landmarks.length - 1]![1] : Infinity;
-          const y = height === "low" ? Math.max(at[1] + y0, lower) : Math.min(at[1] + y1, upper);
-          return [at[0] + (sx < 0 ? x0 : x1), y, at[2] + (sz < 0 ? z0 : z1)];
-        }));
-      }
-    }
-  }
-  if (corners.length === 0) throw new Error(`the skeleton's ${name} trunk holds no box`);
-  return corners;
+/** A hand's measure: the closed hand's hull, open or a fist, where it bears and where it strikes. */
+function hand(side: Side): HandFigure {
+  const file = bones.hands[side], at = `/hands/${side}`, hull = corners(file.hull, `${at}/hull`);
+  return { palm: { hull, centre: measured(vector(file.palm), "m", `${at}/palm`) }, fist: { hull, strike: measured(vector(file.strike), "m", `${at}/strike`) } };
 }
 
-const placeholder = <V extends number | Vec3>(value: V, unit: "kg" | "m" | "HP" | "1" | "%", where: string): Quantity<V> =>
+const placeholder = <V extends number | Vec3>(value: V, unit: "HP" | "1" | "%", where: string): Quantity<V> =>
   sourced(value, unit, "skeleton-placeholders", where);
 
-function limb(side: Side): LimbFigure {
+function limb(side: Side, feet: Extents): LimbFigure {
   const legs = side === "left" ? "L" : "R", arm = side === "right" ? "primary" : "secondary";
-  const thigh = part(`legs.thigh${legs}`), shin = part(`legs.shin${legs}`), foot = unturned(part(`legs.foot${legs}`));
+  const thigh = part(`legs.thigh${legs}`), shin = part(`legs.shin${legs}`);
   const upperArm = part(`${arm}.upperArm`), rollRing = part(`${arm}.rollRing`), wrist = part(`${arm}.wrist`), fist = part(`${arm}.fist`);
   const WJC = end(rollRing, -1, "WJC"), MET3 = end(wrist, -1, "MET3");
   // Thumb up: toward the thumb on the right hand, toward the little finger (down) on the left.
   const handRight = placeholder<Vec3>(side === "right" ? [0, 1, 0] : [0, -1, 0], "1", `the ${side} fist thumb up, as the bind's guard holds it`);
-  const footEnd = (sign: 1 | -1, what: string) => derive("m", `${what}: ${foot.key}'s box, its middle across and up, its ${sign > 0 ? "front" : "back"}`,
-    [foot.position, foot.min[0]!, foot.max[0]!, foot.min[1]!, foot.max[1]!, sign > 0 ? foot.max[2]! : foot.min[2]!],
-    (at, x0, x1, y0, y1, z) => [at[0] + (x0 + x1) / 2, at[1] + (y0 + y1) / 2, at[2] + z]);
+  const footEnd = (front: boolean, what: string) => derive("m", `${what}: the foot bones' box, its middle across and up, its ${front ? "front" : "back"}`,
+    [feet.x.min, feet.x.max, feet.y.min, feet.y.max, front ? feet.z.max : feet.z.min],
+    (x0, x1, y0, y1, z) => [(x0 + x1) / 2, (y0 + y1) / 2, z]);
   return {
     HJC: end(thigh, 1, "HJC"),
     KJC: end(thigh, -1, "KJC"),
@@ -158,8 +161,8 @@ function limb(side: Side): LimbFigure {
     MET3,
     DAC3: derive("m", `DAC3: ${fist.key}'s far side, its centre on along the hand's line by half its box`,
       [fist.position, fist.max[1]!, WJC, MET3], (at, half, w, k) => add(at, scale(normalize(sub(k, w)), half))),
-    HEEL: footEnd(-1, "HEEL"),
-    TTIP: footEnd(1, "TTIP"),
+    HEEL: footEnd(false, "HEEL"),
+    TTIP: footEnd(true, "TTIP"),
     handRight,
     little: side === "right"
       ? derive("m", `the little finger's knuckle: ${fist.key}'s half-width from the middle knuckle, against the hand's right`,
@@ -169,33 +172,25 @@ function limb(side: Side): LimbFigure {
   };
 }
 
-/** **The crypt skeleton's figure**, at x1: the bind is authored at the game's size. */
+/** **The crypt skeleton's figure**, at x1: the bind and the bones are authored at the game's size. */
 export function skeletonFigure(): HumanFigure {
   const neck = part("head.neck"), head = part("head.head");
   const CERV = end(neck, -1, "CERV"), VERT = end(head, 1, "VERT");
-  const limbs = { left: limb("left"), right: limb("right") };
+  const feet = { left: footExtents("left"), right: footExtents("right") };
+  const limbs = { left: limb("left", feet.left), right: limb("right", feet.right) };
   const MIDH = derive("m", "MIDH: between the hip joint centres", [limbs.left.HJC, limbs.right.HJC], (l, r) => midpoint(l, r));
   const trunk = dividedTrunk("male", VERT, CERV, MIDH);
-  const boxes = [part("trunk.core"), part("legs.pelvis")];
-  const hulls = {
-    upper: slice(boxes, "upper", trunk.XYPH),
-    middle: slice(boxes, "middle", trunk.OMPH, trunk.XYPH),
-    lower: slice(boxes, "lower", undefined, trunk.OMPH),
-  };
-  const room = sourced(0.004, "m", "skeleton-limbs-clear", "the room a limb keeps from what it shares no joint with");
+  const fitted = Object.fromEntries(Object.keys(SEGMENTS).map((name) => [name, fittedSegment(name)]));
+  const trunkHull = (name: string) => corners(SEGMENTS[name]!.hull, `/segments/${name}/hull`);
   return {
     model: SKELETON_MODEL, substance: "bone", sex: "male",
-    mass: placeholder(79, "kg", "the typical man's mass"),
+    mass: sourced(15, "kg", "owner-skeleton-body", "the skeleton's mass"),
     stature: derive("m", "the vertex's height over the soles", [VERT], (v) => v[1]),
     trunk, limbs,
-    hulls,
-    feet: { left: boxExtents(part("legs.footL"), "the left foot"), right: boxExtents(part("legs.footR"), "the right foot") },
-    widest: {
-      // The upper arm's parent is the upper trunk; the middle and lower trunks share no joint with it.
-      upperArm: derive("m", "the nearer shoulder's distance out from the middle and lower trunks' widest, less the room",
-        [limbs.left.SJC, limbs.right.SJC, room, ...hulls.middle, ...hulls.lower],
-        (l, r, gap, ...corners) => Math.min(Math.abs(l[0]), Math.abs(r[0])) - Math.max(...corners.map((c) => Math.abs(c[0]))) - gap),
-    },
+    hulls: { upper: trunkHull("upperTrunk"), middle: trunkHull("middleTrunk"), lower: trunkHull("lowerTrunk") },
+    feet,
+    hands: { left: hand("left"), right: hand("right") },
+    fitted,
     hp: placeholder(6, "HP", "the Warrior's hit points"),
     balance: placeholder(0, "%", "the Warrior's balance"), haste: HUMAN_HASTE,
   };

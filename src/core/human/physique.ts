@@ -98,7 +98,7 @@ const one = sourced(1, "1", "owner-physique", "an attribute left out");
  * `points` broadened by `breadth` about the line along `axis` (proximal to distal) through their
  * centroid, and the same map, which carries a point on their surface to the broadened surface.
  */
-function broadHull(points: readonly Quantity<Vec3>[], [proximal, distal]: readonly [Quantity<Vec3>, Quantity<Vec3>], breadth: Quantity<number>) {
+export function broadHull(points: readonly Quantity<Vec3>[], [proximal, distal]: readonly [Quantity<Vec3>, Quantity<Vec3>], breadth: Quantity<number>) {
   const centroid = derive("m", "the mean of the hull's corners", points, (...corners: Vec3[]) =>
     scale(corners.reduce((sum, c) => add(sum, c), [0, 0, 0] as Vec3), 1 / corners.length));
   const map = (point: Quantity<Vec3>) => derive("m", "broadened about the line along the segment through the hull's centroid",
