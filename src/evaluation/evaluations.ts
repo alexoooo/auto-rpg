@@ -4,6 +4,7 @@ import { BUCKLER } from "./buckler/index.ts";
 import { COURT } from "./court/index.ts";
 import { CROWD } from "./crowd/index.ts";
 import { COVER } from "./cover/index.ts";
+import { GAIT } from "./gait/index.ts";
 import { CRYPT_CLEAR } from "./crypt-clear/index.ts";
 import type { Evaluation } from "./evaluation.ts";
 import { EQUIPPED_RISE } from "./equipped-rise/index.ts";
@@ -30,6 +31,7 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,
   strike: STRIKE as unknown as Evaluation,
   cover: COVER as unknown as Evaluation,
+  gait: GAIT as unknown as Evaluation,
   locomotion: LOCOMOTION as unknown as Evaluation,
   rise: RISE as unknown as Evaluation,
 });

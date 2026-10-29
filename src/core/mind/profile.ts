@@ -9,10 +9,12 @@
  * chooser prices that skill by hand.
  *
  * Profiles are data scripts write from drill records: the strikes' from the Strike drill
- * (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`) and the ground edges' from
- * the Rise drill (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`). A mind reaches
- * them as mind data (`dataOf("strike-profiles")`, `dataOf("edge-profiles")`), which the parts that
- * read them declare (`Part.reads`), and reads one through `readProfile`, never a skill's code.
+ * (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`), the ground edges' from the
+ * Rise drill (`research/edge-profiles.mjs`, `assets/core/edge-profiles.json`) and the gaits' from
+ * the Gait drill (`research/gait-profiles.mjs`, `assets/core/gait-profiles.json`). A mind reaches
+ * them as mind data (`dataOf("strike-profiles")`, `"edge-profiles"`, `"gait-profiles"`), which the
+ * parts that read them declare (`Part.reads`), and reads one through `readProfile`, never a skill's
+ * code.
  */
 import { dataOf } from "../data/store.ts";
 import { bodyKey, type BodySpec } from "../spec/body.ts";
@@ -225,6 +227,9 @@ export function skillDigest(parts: PartLookup, executors: readonly ExecutorEntry
 
 /** A ground technique's digest: its config, as its stand-up holds it. */
 export const techniqueDigest = (technique: PartConfig): string => digestOf(technique);
+
+/** A gait's digest: its legs' config (`GAITS`) and the digest of the strike its drill stops to throw (`skillDigest`), whose readiness ends the time it leaves the body unbraced. */
+export const gaitDigest = (legs: PartConfig, strike: string): string => digestOf({ legs, strike });
 
 /** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), must have been measured on. */
 export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null): Measured =>
