@@ -25,6 +25,10 @@ double support is required before preparation and after placement.
 | lower / lean / transferSeconds | 0.05 m / 0 rad / 0.2 s | Supported lowering, pitch and response |
 | transferSlow | 0.12 m/s | Quiet capture, transfer and recentring |
 | lift / windup | 0.45 / 0.15 m | Chamber offset from the captured strike site |
+| over | 0 | Where the chamber sits across the ground, as a share of the way from the captured strike site to the target: 0 over the foot (a front kick), 1 over the target (a stomp) |
+| top | 1 | The height band's top over the kicking sole, as a share of the leg's reach (hip to sole); its bottom is `near` under the sole |
+| alongNear / alongFar / across | 0.25 / 0.65 / 0.16 m | The window: the target this far ahead of the kicking sole's place on the body, and within this much either side of it |
+| facing / admitSpeed | 0.4 rad / 0.5 m/s | The window's facing toward the target, and the ground speed at most it admits |
 | chamberSeconds / swingSeconds / returnSeconds | 0.6 / 0.4 / 0.6 s | Shared tracker paths |
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
 | soleTurn | 0.2 | Fraction of a quarter turn during the stroke |

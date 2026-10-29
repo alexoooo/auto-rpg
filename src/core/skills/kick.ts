@@ -20,7 +20,7 @@ export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, tra
   prepareLimit: 4, returnLimit: 2, near: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
-  recenterLimit: 4, startup: 2, cooldown: 1 });
+  recenterLimit: 4, startup: 2, cooldown: 1, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
 export type KickTuning = {
   readonly [K in keyof typeof KICK_PATH]: number;
 };
@@ -28,7 +28,8 @@ export function validKickTuning(tuning: KickTuning): boolean {
   return Object.values(tuning).every(v => Number.isFinite(v) && v >= 0)
     && [tuning.setupLimit, tuning.transferLimit, tuning.transferSeconds, tuning.chamberSeconds, tuning.swingSeconds, tuning.returnSeconds, tuning.prepareLimit,
       tuning.returnLimit, tuning.hold, tuning.response, tuning.placeSeconds, tuning.placeLimit, tuning.recenterLimit].every(v => v > 0)
-    && tuning.contactSpeed > 0 && tuning.normalAlignment <= 1 && tuning.rotationError <= 1 && tuning.soleTurn <= 1;
+    && tuning.contactSpeed > 0 && tuning.normalAlignment <= 1 && tuning.rotationError <= 1 && tuning.soleTurn <= 1
+    && tuning.over <= 1 && tuning.top > 0 && tuning.top <= 1 && tuning.alongFar > tuning.alongNear && tuning.across > 0 && tuning.facing > 0;
 }
 type Rotation = readonly [number, number, number, number];
 /** One named kick executor shares its support transfer and cooldown between its actions. */
@@ -49,11 +50,17 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   };
   const coordinates = (point: Vector3): Vec3 => [point.x, point.y, point.z];
   const worldPoint = (view: BodyView, point: Vector3): Vec3 => coordinates(point.applyRotationQuaternionToRef(view.root.rotation, world).addInPlace(view.root.position));
-  const capture = (view: BodyView, foot: Side, heading: number) => {
+  /**
+   * Where `foot` stands now and its stroke's chamber: `lift` over the point `over` of the way from
+   * its strike point to `target` across the ground (0 over the foot, a front kick's; 1 over the
+   * target, a stomp's), `windup` back along `heading`.
+   */
+  const capture = (view: BodyView, foot: Side, heading: number, target: Vec3) => {
     const effector = view.effectors[`foot.${foot}`]!, sole = worldPoint(view, effector.points.sole!), strike = worldPoint(view, effector.points.strike!);
     view.root.rotation.multiplyToRef(effector.rotation, turn).normalize();
+    const x = strike[0] + tuning.over * (target[0] - strike[0]), z = strike[2] + tuning.over * (target[2] - strike[2]);
     return { sole, rotation: [turn.x, turn.y, turn.z, turn.w] as Rotation,
-      chamber: [strike[0] + tuning.windup * sin(heading), strike[1] + tuning.lift, strike[2] + tuning.windup * cos(heading)] as Vec3,
+      chamber: [x + tuning.windup * sin(heading), strike[1] + tuning.lift, z + tuning.windup * cos(heading)] as Vec3,
       home: [strike[0], strike[1] + tuning.near, strike[2]] as Vec3 };
   };
   type Motion = { request: ActionRequest; foot: Side; stage: "admitting" | "setup" | "transfer" | "unload" | "strike" | "place" | "recenter";
@@ -103,11 +110,12 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const sole = body.built.spec.segments.find(segment => segment.name === `foot.${foot}`)!.distal.value;
       const reach = hypot(hip[0] - sole[0], hip[1] - sole[1], hip[2] - sole[2]);
       const soleAt = view.stance.soles[foot];
-      if (at[1] < soleAt.y - tuning.near || at[1] > soleAt.y + reach) return { kind: "blocked", reason: "target is outside the leg's height band" };
+      if (at[1] < soleAt.y - tuning.near || at[1] > soleAt.y + tuning.top * reach) return { kind: "blocked", reason: "target is outside the leg's height band" };
       const dx = soleAt.x - view.stance.centre.x, dz = soleAt.z - view.stance.centre.z;
       const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
       // The low-kick entry uses the tracking selection's reach; admission can brake an ordinary walk.
-      const window = { at, along: [ahead + .25, ahead + .65] as const, across: [across - .16, across + .16] as const, facing: .4, speed: .5 };
+      const window = { at, along: [ahead + tuning.alongNear, ahead + tuning.alongFar] as const, across: [across - tuning.across, across + tuning.across] as const,
+        facing: tuning.facing, speed: tuning.admitSpeed };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready" };
     },
@@ -117,7 +125,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const foot = sideOf(request.effector), other = foot === "left" ? "right" : "left";
       const target = resolve(view, request.target, request.action, request.effector);
       if (!target) throw new Error("kick target has no aim");
-      const initial = capture(view, foot, around.heading), bearing = capture(view, other, around.heading);
+      const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
       const x = (view.stance.soles.left.x + view.stance.soles.right.x) / 2, z = (view.stance.soles.left.z + view.stance.soles.right.z) / 2;
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
         height: view.standing - around.lower - tuning.lower, target: [...target], initial, withdrawn: false, ending: { kind: "completed" },
@@ -152,8 +160,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
           if (!live.setting) live.setting = far("left") > tuning.near ? "left" : far("right") > tuning.near ? "right" : null;
           live.held = !live.setting && plantedSupport(support.state) && view.stance.phase === "stand" && support.state.speed <= tuning.transferSlow ? live.held + dt : 0;
           if (live.held >= tuning.hold) {
-            live.initial = capture(view, foot, live.heading);
-            const captured = capture(view, other, live.heading); live.bearing = captured.sole; live.bearingRotation = captured.rotation;
+            live.initial = capture(view, foot, live.heading, live.target);
+            const captured = capture(view, other, live.heading, live.target); live.bearing = captured.sole; live.bearingRotation = captured.rotation;
             stage("transfer");
           }
           break;
