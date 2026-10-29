@@ -1,19 +1,23 @@
-import type { GaitName } from "../../skills/gaits.ts";
-import { deepFreeze } from "../../state.ts";
+import type { GaitName } from "../../../skills/gaits.ts";
+import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
+import type { Percepts } from "./percepts.ts";
 import { dealtAt } from "./percepts.ts";
 import { CLINCH } from "./value.ts";
 
 /**
- * **Where an option leaves the body**, as a position reads it: the range head to head to the focus,
- * m (`Reach.apart`'s; Infinity with no focus), the chance it is down there, and the seconds until it
- * is braced there, its strikes ready (a gait's, `Going`; absent, braced at once).
+ * **Where an option leaves the body**: a prediction of the percepts it leaves, each by its name
+ * (`PERCEPTS`): the range head to head to the focus (`range`, m; Infinity with no focus), the
+ * chance it is down there (`down`'s), and the seconds until it is braced there, its strikes ready
+ * (`unbraced`, a gait's, `Going`); and any other percept it says it changes (`posture`, `around`).
+ * A percept it does not name is as it is now (`atExit`).
  */
-export interface Place {
-  readonly apart: number;
-  readonly down: number;
-  readonly braced?: number;
-}
+export type Place = { readonly range: number; readonly down: number }
+  & { readonly [K in Exclude<keyof Percepts, "range" | "down">]?: Percepts[K] };
+
+/** **A percept where `place` leaves the body** (`Place`): its prediction, where it names one; else as it is now. */
+export const atExit = <K extends Exclude<keyof Percepts, "range" | "down">>(now: Situation, place: Place, name: K): Percepts[K] =>
+  (place[name] ?? now[name]) as Percepts[K];
 
 /**
  * **A gait an option goes by**: its name (`GAITS`), and what it leaves the body once stopped from
@@ -30,7 +34,7 @@ export interface Going {
  * **The place the body holds now** (`Place`): down, or on its feet while its rise runs, counted
  * down until the rise braces it (`Situation.unbraced`).
  */
-export const here = (now: Situation): Place => ({ apart: now.reach.apart, down: now.down || now.unbraced > 0 ? 1 : 0, braced: now.unbraced });
+export const here = (now: Situation): Place => ({ range: now.range, down: now.down || now.unbraced > 0 ? 1 : 0 });
 
 /** **Where a standing option leaves the body**, from here: `place`, counted down as the body is here, which only its rise stands. */
 export const fromHere = (now: Situation, place: Place): Place => ({ ...place, down: Math.max(place.down, here(now).down) });
@@ -76,17 +80,17 @@ const lateness = (now: Situation, seconds: number): number => Math.min(1, Math.m
 export const FEW_TERMS: PositionValue = deepFreeze({
   name: "few terms",
   of(now: Situation, place: Place, seconds: number): number {
-    const lead = now.lead, fallen = place.down * now.downCost, focus = now.focus;
-    if (!focus || focus.down || !Number.isFinite(place.apart)) return lead - fallen;
+    const lead = now.lead, fallen = place.down * now.predictions.downCost, focus = now.focus;
+    if (!focus || focus.down || !Number.isFinite(place.range)) return lead - fallen;
     const { theirs, mine } = now.reach;
-    const exchange = dealtAt(now.pressing, now, place.apart, mine, Math.max(0, TERMS.held - (place.braced ?? 0))) - dealtAt(now.pressure, now, place.apart, theirs, TERMS.held);
-    const stake = lead > 0 ? place.apart <= theirs ? lead : 0 : place.apart <= mine ? 0 : -lead;
+    const exchange = dealtAt(now.predictions.pressing, now, place.range, Math.max(0, TERMS.held - atExit(now, place, "unbraced"))) - dealtAt(now.predictions.pressure, now, place.range, TERMS.held);
+    const stake = lead > 0 ? place.range <= theirs ? lead : 0 : place.range <= mine ? 0 : -lead;
     return lead - fallen + (1 - place.down) * (exchange - lateness(now, seconds) * stake);
   },
   rate(now: Situation): number {
     const focus = now.focus;
     if (!focus || focus.down) return 0;
-    const clinch = !now.down && now.apart < CLINCH.within ? now.downCost * CLINCH.falls : 0;
-    return -dealtAt(now.pressure, now, now.reach.apart, now.reach.theirs, 1) - clinch;
+    const clinch = !now.down && now.apart < CLINCH.within ? now.predictions.downCost * CLINCH.falls : 0;
+    return -dealtAt(now.predictions.pressure, now, now.range, 1) - clinch;
   },
 });

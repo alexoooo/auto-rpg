@@ -1,10 +1,9 @@
-import type { Readiness } from "../../skills/action.ts";
-import { GAIT_NAMES, GAITS } from "../../skills/gaits.ts";
-import type { BodySpec } from "../../spec/body.ts";
-import { dataOf } from "../../data/store.ts";
-import { approachActionWindow } from "../action-window.ts";
-import { gaitDigest, measuredOn, profileFor, readProfile } from "../profile.ts";
-import { blocked, LEGS, READY, type Situation, type StandingOption } from "./option.ts";
+import { GAIT_NAMES, GAITS } from "../../../skills/gaits.ts";
+import type { BodySpec } from "../../../spec/body.ts";
+import { dataOf } from "../../../data/store.ts";
+import { approachActionWindow } from "../../../mind/action-window.ts";
+import { gaitDigest, measuredOn, profileFor, readProfile } from "../../../mind/profile.ts";
+import { blocked, LEGS, READY, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { StrikeOption } from "./strike.ts";
@@ -12,7 +11,7 @@ import { CLINCH, clinched, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 
 /**
- * **A goal**: a band of the range head to head to the focus (`Reach.apart`), from `near` and
+ * **A goal**: a band of the range head to head to the focus (`Situation.range`), from `near` and
  * `width` m past it, each read each step from the bodies, so a resized body, a longer weapon or
  * another foe moves it and no number is retuned.
  */
@@ -23,37 +22,40 @@ export interface Goal {
 
 /** Whether the range head to head to the focus is within `goal`'s band. */
 export function within(now: Situation, goal: Goal): boolean {
-  const near = goal.near(now), apart = now.reach.apart;
+  const near = goal.near(now), apart = now.range;
   return apart >= near && apart <= near + goal.width(now);
 }
 
 /**
- * **How far the focus's pressure reaches** (`Situation.pressure`), m head to head: its modelled
- * strikes' farthest range at the body's phase (`ProfileReading.reach`), as the range now places
- * it; built by hand, the focus's hands' reach (`Reach.theirs`).
+ * **How far the focus's pressure reaches** (`Predictions.pressure`), m head to head: its strikes'
+ * farthest range at the body's phase (`ProfileReading.reach`), as the range now places it; with no
+ * standing focus, the focus's hands' reach (`Reach.theirs`).
  */
 export function pressureEdge(now: Situation): number {
-  const { model, phase } = now.pressure;
+  const { model, phase } = now.predictions.pressure;
   if (model.length === 0) return now.reach.theirs;
   let range = -Infinity;
   for (const reading of model) range = Math.max(range, reading.reach(phase));
-  return now.reach.apart + range - now.apart;
+  return now.range + range - now.apart;
 }
 
-/** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Situation.closes`). */
-export const OUT_OF_PRESSURE: Goal = Object.freeze({ near: (now: Situation) => pressureEdge(now) + now.closes, width: () => Infinity });
+/** **Out of the focus's pressure**: past where its pressure reaches (`pressureEdge`) by as far as it walks in the time the senses show it late (`Predictions.closes`). */
+export const OUT_OF_PRESSURE: Goal = Object.freeze({ near: (now: Situation) => pressureEdge(now) + now.predictions.closes, width: () => Infinity });
+
+/** A gait's prior, where no profile measures it, the owner's decision: braced at once, and up. */
+const UNMEASURED = Object.freeze({ seconds: 0, down: 0 });
 
 /**
  * **Each gait** (`GAITS`) as a body of `spec` goes by it at `hz`, stopping to throw the strike of
  * digest `strike` (`skillDigest`): what its profile measured it to leave the body (`Going`, the
- * cell of `dataOf("gait-profiles")` measured as the body reads it, `gaitDigest`); braced at once
- * and up where none is.
+ * cell of `dataOf("gait-profiles")` measured as the body reads it, `gaitDigest`); its prior
+ * (`UNMEASURED`) where none is.
  */
 export function goings(spec: BodySpec, hz: number, strike: string): readonly Going[] {
   return GAIT_NAMES.map((gait): Going => {
     const found = profileFor(dataOf("gait-profiles"), measuredOn(spec, gaitDigest(GAITS[gait].legs, strike), hz, null));
-    const expected = found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null;
-    return Object.freeze({ gait, braced: expected?.seconds ?? 0, down: expected?.down ?? 0 });
+    const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
+    return Object.freeze({ gait, braced: expected.seconds, down: expected.down });
   });
 }
 
@@ -68,24 +70,20 @@ const named = (name: string, going: Going): string => going.gait === "braced" ? 
  * (`threatened`), leaving the body there as the gait leaves it (`Going`); a walk that ends out of a
  * clinch (`CLINCH`) leaves its chance of going down behind.
  */
-export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): StandingOption {
+export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): Option {
   const UNFIT = blocked("no standing focus"), THERE = blocked("within its band");
-  const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not in its band" });
   return {
-    name: named(name, going), posture: "standing", claims: LEGS, state: {},
+    name: named(name, going), claims: LEGS, state: {},
     entry: (now) => now.down || !now.focus || now.focus.down ? UNFIT : within(now, goal) ? THERE : READY,
-    exit: (now) => within(now, goal) ? READY : AWAY,
-    holds: () => LEGS,
-    yields: () => true,
-    ended: (now) => within(now, goal),
+    status: (now) => within(now, goal) ? "over" : "yields",
     begin() {},
     end() {},
     model: (now): Terms => {
-      const apart = now.reach.apart, near = goal.near(now), far = near + goal.width(now);
+      const apart = now.range, near = goal.near(now), far = near + goal.width(now);
       const to = apart < near ? near : apart > far ? far : apart, pace = walk.pace(now, going.gait);
       return walkTo(now, to, Math.abs(to - apart) / pace, pace, going);
     },
-    step: (now) => ({ ...toGoal(now, goal, walk), actions: [], gait: going.gait }),
+    step: (now) => ({ asked: { ...toGoal(now, goal, walk), actions: [], gait: going.gait }, holds: LEGS }),
   };
 }
 
@@ -96,11 +94,11 @@ export function moveTo(name: string, goal: Goal, walk: Walker, going: Going): St
  * chance of going down behind.
  */
 function walkTo(now: Situation, to: number, duration: number, pace: number, going: Going): Terms {
-  const apart = now.reach.apart;
+  const apart = now.range;
   const nearer = Math.min(apart, to), inReach = Math.max(0, Math.min(Math.max(apart, to), now.reach.theirs) - nearer) / pace;
   const leaves = now.apart + to - apart >= CLINCH.within;
-  return { duration, dealt: 0, taken: now.danger + threatened(now, inReach, nearer), orders: 0,
-    exit: fromHere(now, { apart: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), braced: going.braced }) };
+  return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearer), orders: 0,
+    exit: fromHere(now, { range: to, down: Math.max(going.down, leaves ? 0 : clinched(now, duration)), unbraced: going.braced }) };
 }
 
 /**
@@ -109,8 +107,8 @@ function walkTo(now: Situation, to: number, duration: number, pace: number, goin
  * focus where the heads stand farther apart than the band reaches even with the centres together;
  * back from nearer than its near end; and standing within.
  */
-export function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["toward"]> {
-  const face = walk.facing(now), apart = now.reach.apart, outside = goal.near(now), band = goal.width(now);
+function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Walker["toward"]> {
+  const face = walk.facing(now), apart = now.range, outside = goal.near(now), band = goal.width(now);
   const focus = now.focus!, centre = now.sight.view.stance.centre;
   if (apart > outside + band) {
     const near = outside + now.apart - apart, far = near + band;
@@ -130,23 +128,20 @@ export function toGoal(now: Situation, goal: Goal, walk: Walker): ReturnType<Wal
  * (`pressing`, `pressure`), comes to about nothing, so a walk priced by the place alone is never
  * worth taking.
  */
-export function toWindow(strike: StrikeOption, walk: Walker, going: Going): StandingOption {
+export function toWindow(strike: StrikeOption, walk: Walker, going: Going): Option {
   const UNFIT = blocked(`no window to walk to for ${strike.name}`);
-  const AWAY: Readiness = Object.freeze({ kind: "waiting", reason: "not in its window" });
   return {
-    name: named(`into ${strike.name}'s window`, going), posture: "standing", claims: LEGS, state: {},
+    name: named(`into ${strike.name}'s window`, going), claims: LEGS, state: {},
     entry: (now) => now.down || strike.window(now) === null ? UNFIT : READY,
-    exit: (now) => strike.window(now) === null ? READY : AWAY,
-    holds: () => LEGS,
-    yields: () => true,
-    ended: (now) => strike.window(now) === null,
+    status: (now) => strike.window(now) === null ? "over" : "yields",
     begin() {},
     end() {},
     model: (now) => strike.through(now, going),
     step: (now) => {
       const window = strike.window(now);
-      return window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
+      const asked = window ? { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, now.orders?.pace ?? Infinity), actions: [], gait: going.gait }
         : { move: null, face: walk.facing(now), actions: [], gait: going.gait };
+      return { asked, holds: LEGS };
     },
   };
 }

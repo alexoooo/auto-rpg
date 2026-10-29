@@ -1,21 +1,20 @@
-import type { TargetRef } from "../../skills/action.ts";
-import type { BodySpec, Side } from "../../spec/body.ts";
-import { deepFreeze } from "../../state.ts";
-import { awaits, firstEdges, graphWork, toStanding, type GraphFailure, type GraphTechnique } from "../ground/graph.ts";
-import { GROUND_MODES, sideEffector, type GroundExecutor, type GroundMode } from "../ground/held.ts";
-import type { GroundReading, Position } from "../ground/reading.ts";
-import { standReady, tumbling } from "../ground/reading.ts";
-import { STAND_UP_PART } from "../ground/stand-up-part.ts";
-import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../ground/stand-up.ts";
-import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../ground/technique.ts";
-import { edgeExpected } from "../profile.ts";
+import type { TargetRef } from "../../../skills/action.ts";
+import type { BodySpec, Side } from "../../../spec/body.ts";
+import { deepFreeze } from "../../../state.ts";
+import { awaits, firstEdges, graphWork, toStanding, type GraphFailure, type GraphTechnique } from "../../../mind/ground/graph.ts";
+import { GROUND_MODES, sideEffector, type GroundExecutor, type GroundMode } from "../../../mind/ground/held.ts";
+import type { GroundReading, Position } from "../../../mind/ground/reading.ts";
+import { standReady, tumbling } from "../../../mind/ground/reading.ts";
+import { BACKOFF, BRACE_LIMIT, LANDING, READY_HOLD, RETRIES, STEADY_LIMIT, type Mode } from "../../../mind/ground/stand-up.ts";
+import type { TechniqueConfig, TechniqueEnd, TechniquePart } from "../../../mind/ground/technique.ts";
+import { edgeExpected } from "../../../mind/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
-import { asking, blocked, READY, WHOLE, type GroundOption, type Situation } from "./option.ts";
-import type { Sight } from "../tactics.ts";
+import { asking, blocked, READY, WHOLE, type Option, type Situation } from "./option.ts";
+import type { Sight } from "../../../mind/tactics.ts";
 
-/** What a rise is priced at where no route it takes is measured to standing: Stand up's own price (`SubMindPart.down`). */
-const { name: _, ...BY_HAND } = STAND_UP_PART.down!;
+/** What a rise is priced at where no route it takes is measured to standing: 5 s, standing at the end seven times in ten, keeping off none of a near focus's blows. */
+const BY_HAND: DownModel = deepFreeze({ seconds: 5, stands: .7, shelter: 0 });
 
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
@@ -27,13 +26,13 @@ interface Offered { readonly side: Side; readonly from: Position; readonly to: P
 interface Attempt { readonly technique: string; readonly side: Side; readonly from: Position; readonly to: Position; id: number | null }
 
 /**
- * **The ground's options and what they read**: the options (`GroundOption`), the rise's price
+ * **The ground's options and what they read**: the options (`Option`), the rise's price
  * (`DownModel`), and the seconds the rise leaves the body unbraced (`unbraced`).
  */
 export interface Ground {
-  readonly options: readonly GroundOption[];
+  readonly options: readonly Option[];
   /** The rest option down (`brace`): the ground's brace, priced as the rise that never stands. */
-  readonly rest: GroundOption;
+  readonly rest: Option;
   /** What a fall is priced at, getting up (`downCost`). */
   readonly down: DownModel;
   /** How the rise is priced, a sentence: each edge of its route measured, or not and why (`edgeExpected`). */
@@ -222,16 +221,14 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     }
   };
   const isMode = (name: string): name is GroundMode => (GROUND_MODES as readonly string[]).includes(name);
-  const option = (name: string): GroundOption => {
+  const option = (name: string): Option => {
     const memory = { id: null as number | null };
     const UNOFFERED = blocked(`the rise does not offer ${name} now`);
     const live = (now: Situation) => memory.id === null ? undefined : now.sight.report.actions.find((action) => action.id === memory.id);
     return {
-      name, posture: "ground", claims: WHOLE, state: memory,
+      name, claims: WHOLE, state: memory,
       entry: (now) => offered(now).has(name) ? READY : UNOFFERED,
-      exit: () => null,
-      yields: () => isMode(name) || state.current?.technique === name && runs[name]!.yields,
-      ended: (now) => live(now)?.stage.startsWith("ended:") ?? false,
+      status: (now) => live(now)?.stage.startsWith("ended:") ? "over" : isMode(name) || state.current?.technique === name && runs[name]!.yields ? "yields" : "committed",
       begin(now) {
         memory.id = null;
         if (isMode(name) || state.current?.technique === name) return;
@@ -249,9 +246,9 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
           memory.id = now.sight.instance();
           if (state.current?.technique === name && state.current.id === null) state.current.id = memory.id;
         }
-        return { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action: name, effector: sideEffector(picked.side), target: HERE }] };
+        const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action: name, effector: sideEffector(picked.side), target: HERE }] };
+        return { asked, holds: asking(now, asked) };
       },
-      holds: asking,
     };
   };
   /** The rise at its cheapest offer now: a fall's price at the least expected seconds to standing on offer, else the rise's. */

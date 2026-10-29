@@ -55,7 +55,7 @@ after skills are trained against it.
   differ in worth, it is an option; how a chosen thing is done is below them.
 - **A gait's cost is its exit.** A run leaves the body unbraced until its next landing, so a strike
   or a cover from there waits; the place an option leaves the body names the seconds until it is
-  braced (`Place`, `src/core/mind/options/position.ts`), and the position's exchange there is
+  braced (`Place`, `src/core/entrants/kinetic/options/position.ts`), and the position's exchange there is
   discounted by them. A run is taken only where arriving sooner is worth more than arriving
   unready; no distance chooses it.
 
@@ -65,21 +65,20 @@ after skills are trained against it.
   (`BodySpec.ends`), but the legs bear only on its feet and report the rest unmet; a ground
   technique holds the whole body and pushes every muscle as its run drives it (`groundExecutor`),
   and whether the legs can bear on hands and knees is open ([one path](2026-10-27-kinetic.md#one-path-for-every-motion)).
-- **An option's shape is wide.** An option has `entry`, `exit`, `yields`, `ended`, `begin`, `end`,
-  `claims`, `holds`, `near`, `rest`, `posture`, `model` and `step` (`src/core/mind/options/option.ts`);
-  its `posture` names a sub-mind variant (`DownOption`) that only the options fighter makes. The
-  strike walks to its window where it `closes`, as `toWindow` does, and Kinetic turns that off.
+- **An option is narrow** (step 12, built): its entry, claims, model, step and one status
+  (`src/core/entrants/kinetic/options/option.ts`), and Kinetic's intent is the set it selected,
+  made one intent by the toolkit (`intentOfSet`).
 - **Percepts hold predictions.** Beside readings of the senses, `PERCEPTS`
-  (`src/core/mind/options/percepts.ts`) computes from the profiles and the rules every step:
+  (`src/core/entrants/kinetic/options/percepts.ts`) computes from the profiles and the rules every step:
   `danger`, `pressure` and `pressing` (which carry profile readings), `downCost`, `blows` and
   `closes`; and `unbraced` reads the rise's own state. Each of those, the strike's model and the
   gaits' has a measured branch and a hand-built one.
 - **A place is a range.** Where an option leaves the body (`Place`,
-  `src/core/mind/options/position.ts`) is the range head to head, the chance it is down and the
+  `src/core/entrants/kinetic/options/position.ts`) is the range head to head, the chance it is down and the
   seconds until braced, so no position value can price a bearing, a wall, a second foe or the
   posture lying.
 - **Kinetic's deciding parts are code.** The valued chooser prices by `FEW_TERMS` alone
-  (`src/core/mind/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
+  (`src/core/entrants/kinetic/options/chooser.ts`), the options are listed in `kineticTactics`, `PERCEPTS` is
   one frozen literal, and a profile is read only by `readProfile`. A drill drives Kinetic by
   swapping its whole policy for tactics (`KineticConfig.tactics`).
 - **The rise's options are offered by Stand up's supervisor.** `groundOptions` offers, in a fixed
@@ -117,50 +116,59 @@ owner looks at a rise in the Lab's Stand-up mode, its unused arm at the guard.
 
 ### 12. The option's shape
 
-An option is its entry, its claims, its model, its step and one status: committed, yields, at
-its exit, or over (for `exit`, `yields`, `ended`; `begin` and `end` stay its memory's). `rest` is
-its model's worth of nothing and its rank, `posture` its entry's; the sub-mind variant
-(`DownOption`) is the options fighter's own option, in its files, not a case of the shared shape.
-A strike never walks: its approach (`closes`, `approach`, `position` in its model) goes, and
-reaching a window is `toWindow`'s, the options fighter's included.
+Built: an option is its entry, its claims, its model, its step and one status (`Status`:
+committed, yields, at its exit, or over; `begin` and `end` stay its memory's). Its step returns what
+it asks and what that holds (`Step`), and Kinetic's intent is the set it selected, each member's
+claims, holds and asks (`SelectedAsk`), made one intent by the toolkit (`intentOfSet`,
+`src/core/mind/intent.ts`); other minds write the intent as before. `posture` and `near` went:
+nothing read them. A strike never walks: reaching a window is `toWindow`'s, and the sub-mind
+option went with the options fighter. `rest` stays the option's own mark: by rank the rest options
+are last, the floor, and by worth a rest option wins a tie, so neither its rank nor its model
+(brace is priced as a rise that never stands) can say it.
 
-Check: the gate; the fingerprint against the commit before, Kinetic's cases unmoved and the
-options fighter's moved cases named.
+Check: the gate; the fingerprint against the commit before, Kinetic's cases unmoved.
 
 ### 13. Percepts and predictions
 
-A percept reads the senses and the body's own state with fixed geometry and kinematics, and stays
-the same when a profile is regenerated or the rules change: `down`, `orders`, `focus`, `apart`,
-`reach`, `lead`, `left`, the gait's, the unmet, `reaction`, and the threat's estimates `incoming`,
-`phase` and `contact`. Its value is a number or a name, so a cue, an entry, a profile's cell and a
-learned part's input layout read the same thing. A prediction reads data a drill, a training run or
-the rules make, and goes stale with it.
+Built: a percept reads the senses and the body's own state with fixed geometry and kinematics
+(`PERCEPTS`, `src/core/entrants/kinetic/options/percepts.ts`); a prediction reads data a drill, a
+training run or the rules make (`PREDICTIONS`: `danger`, `pressure`, `pressing`, `downCost`,
+`closes`, `blows`), read through one object (`predictor`, `Situation.predictions`) the first time an
+option or the position value asks for it in a step. Each hand-built model is a prior read as a
+measured one is: the pressure's and the danger's a profile of one cell (`prior`), the strike's its
+cell's expectation (`priorOf`), the gait's braced at once and up (`UNMEASURED`); the fall's cost
+already was one (`BY_HAND`, `ground.ts`). So the strike, the pressure, the danger and the gaits keep
+one branch each.
 
-The predictions go behind one interface, asked when an option or the position value needs them,
-never read each step: what a skill brings at a target from here (`readProfile`'s `expect`), what the
-focus deals a second at a range and its reach (`pressure`, `pressing`), what a blow coming costs
-(`danger`), what a fall costs (`downCost`), a hand's blow by the rules (`blows`), and how far the
-focus closes while the senses show it late (`closes`). The hand-built models are its prior, a
-profile like any measured one, so the strike, the pressure, the danger, the fall's cost and the
-gaits keep one branch each. `unbraced` goes: how long until braced is an exit's (`Place.braced`).
-An input layout may name a prediction as a derived input, read through the interface and stale
-with its profile. This is the registry Kinetic step 13's consumers move to.
+A percept's value is a number, a name, or a record of them; `focus` and `orders` stay what the
+senses give (a foe's sense, the orders), since the options read their fields, and their cues are
+names. `unbraced` stays until step 16: it reads the rise's steady, which becomes an option there.
+A skill's own profile reading (`readProfile`'s `expect`) stays the option's: it is read at the
+option's progress and range, not the situation's.
 
-Check: the gate; the fingerprint against the commit before, its message naming the cases that
-move (a prior a profile rounds as the hand-built arithmetic did, or names the cell that moves);
-the step's time read before and after.
+Check: the gate; the fingerprint against the commit before, the cases that move named; the step's
+time read before and after. Read: no pose moved; a 30 s bout of Kinetic against itself, the
+Warrior against the Rogue with clubs (Node, Rapier, 120 Hz, the least of five playings a step),
+3.079 and 3.055 ms a step before (c8f56406), 3.062 and 2.947 ms after (2704ba4e).
 
 ### 14. Where an option leaves the body
 
-An option's exit is a prediction of the percepts it leaves (`Place` widened): the range, the
-bearing around the focus, the posture lying or standing, the seconds until braced and the chance
-of being down, each a percept by name, the rest as now. A position value reads the exit as it
-reads the situation, so a learned one is given every percept and the few terms keep to those they
-read. A profile's cell names the exit percepts its trials ended in, as an edge's `ends` name its
-postures.
+Built: an option's exit (`Place`, `src/core/entrants/kinetic/options/position.ts`) is a
+prediction of the percepts it leaves, each by its name: the range head to head (the percept
+`range`), the chance of `down`, the seconds `unbraced`, and any other percept it names (`posture`,
+lying or standing, `Position`; `around`, the bearing around the focus); a percept it does not
+name is as now (`atExit`). The position value reads the exit as it reads the situation, so a
+learned one is given every percept and `FEW_TERMS` keeps to the range, the chance down and the
+seconds unbraced. `posture` is read by the rise's edges (step 16); `around` waits for a position
+value that prices a bearing. A profile's cell names the percepts its trials ended in
+(`ProfileCell.exit`): the Strike drill records the range head to head where the strike ended, and
+a strike leaves the body at its cell's range; an edge's postures are its `ends`.
 
 Check: the gate; the fingerprint against the commit before, the cases that move named; the Strike,
-Gait and Cover drills' rungs paired with the step before.
+Gait and Cover drills' rungs paired with the step before. Read: no pose moved at any commit of the
+step (bbd81957 against 3e9b1fe9, where the profiles were measured again on the trained punch); the
+Cover drill's punched and swung rungs play the same; the Strike and Gait drills drive Kinetic by
+their own tactics, which read no exit.
 
 ### 15. Kinetic's parts by configuration
 
@@ -191,9 +199,8 @@ fall; by worth, paired against its record; the owner looks at a rise in the Lab'
 
 - A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
   where a drill shows a place the two lose.
-- Other minds' deciding: the options fighter keeps its own parts (its hand-built strike prices, its
-  edge-hold) and other minds their Move rules and Stand up, changed only where they share the
-  toolkit.
+- Other minds' deciding: other minds keep their Move rules, Stand up, their conditions and the
+  intent they write, changed only where they share the toolkit.
 
 ## Done when
 

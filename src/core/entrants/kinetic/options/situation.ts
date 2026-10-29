@@ -1,14 +1,14 @@
-import { hypot } from "../../math/real.ts";
-import type { Rulebook } from "../../rules/rulebook.ts";
-import type { BodySpec } from "../../spec/body.ts";
-import type { Orders } from "../orders.ts";
-import type { Profile } from "../profile.ts";
-import type { BodySense } from "../senses.ts";
-import type { Sight } from "../tactics.ts";
-import { READINGS, threatReader } from "../threat.ts";
+import { hypot } from "../../../math/real.ts";
+import type { Rulebook } from "../../../rules/rulebook.ts";
+import type { BodySpec } from "../../../spec/body.ts";
+import type { Orders } from "../../../mind/orders.ts";
+import type { Profile } from "../../../mind/profile.ts";
+import type { BodySense } from "../../../mind/senses.ts";
+import type { Sight } from "../../../mind/tactics.ts";
+import { READINGS, threatReader } from "../../../mind/threat.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
-import { PERCEPTS, type Seen } from "./percepts.ts";
+import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
@@ -29,13 +29,14 @@ export interface Reading {
 }
 
 /**
- * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`) read once. The focus is the foe the orders name; else the one
+ * **A body's situation reader** (`Situation`) with `reading` (`Reading`): each percept (`PERCEPTS`) read once a step, and
+ * the predictions (`predictor`) read as they are asked. The focus is the foe the orders name; else the one
  * it fought, while it is still in the fight; else the nearest, a standing one where any stands.
  * Its memory is the focus's id.
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, rules, strikes, measured, ordersOf, downs } = reading, unbraced = reading.unbraced ?? (() => 0);
-  const threats = threatReader(), state = { focus: null as string | null };
+  const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor();
   const focusOf = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { senses, stance } = sight.view;
     const foe = (id: string | null) => id === null ? null : senses.others.find((other) => other.id === id && !other.out && other.side !== senses.side) ?? null;
@@ -57,7 +58,8 @@ export function situationReader(reading: Reading) {
       const orders = ordersOf(sight), focus = focusOf(sight, orders);
       state.focus = focus?.id ?? null;
       const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow: threats.blowOf(sight.view, READINGS.predicted), threats, downs, unbraced };
-      const read: Record<string, unknown> = { sight, time: sight.view.time };
+      predicting.reset(seen);
+      const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions };
       for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
       return read as unknown as Situation;
     },

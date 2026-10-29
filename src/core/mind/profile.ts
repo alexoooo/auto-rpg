@@ -66,6 +66,12 @@ export interface ProfileCell {
    * hit points its body lost meanwhile; absent where no drill let it go.
    */
   readonly letGo?: readonly { readonly progress: number; readonly seconds: number; readonly taken: number }[];
+  /**
+   * The percepts its trials ended in where the skill did, by name, each over the trials that
+   * recorded it (a strike's range head to head to the foe, `range`, m); absent where none did.
+   * The postures an edge leaves are its `ends`.
+   */
+  readonly exit?: Readonly<Record<string, number>>;
 }
 
 export interface Profile {
@@ -98,6 +104,8 @@ export interface Expected {
   readonly down: number;
   readonly ends: ProfileCell["ends"];
   readonly letGo?: { readonly seconds: number; readonly taken: number };
+  /** The percepts it is expected to leave the body in, by name (`ProfileCell.exit`); absent where its cell names none. */
+  readonly exit?: ProfileCell["exit"];
 }
 
 /**
@@ -155,7 +163,7 @@ export function readProfile(profile: Profile, striker: BodySpec): ProfileReading
       let letGo: NonNullable<ProfileCell["letGo"]>[number] | null = null;
       for (const one of best.letGo ?? []) if (!letGo || Math.abs(one.progress - progress) < Math.abs(letGo.progress - progress)) letGo = one;
       return { done: best.done, dealt: struck ? best.dealt / struck.wounds.hp.value : 0, taken: best.taken / own, seconds: best.seconds, down: best.down, ends: best.ends,
-        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}) };
+        ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(best.exit ? { exit: best.exit } : {}) };
     },
     peak(phase, struck) {
       const at = phaseOf(phase), hp = struck.wounds.hp.value;

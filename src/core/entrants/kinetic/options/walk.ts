@@ -1,11 +1,11 @@
-import { atan2, hypot } from "../../math/real.ts";
-import type { BodySpec } from "../../spec/body.ts";
-import { paceToward } from "../../control/stance-envelope.ts";
-import type { GaitName } from "../../skills/gaits.ts";
-import { keepOut } from "../clear-step.ts";
-import { directMovement } from "../movement.ts";
+import { atan2, hypot } from "../../../math/real.ts";
+import type { BodySpec } from "../../../spec/body.ts";
+import { paceToward } from "../../../control/stance-envelope.ts";
+import type { GaitName } from "../../../skills/gaits.ts";
+import { keepOut } from "../../../mind/clear-step.ts";
+import { directMovement } from "../../../mind/movement.ts";
 import type { Situation } from "./option.ts";
-import type { Intent } from "../intent.ts";
+import type { Intent } from "../../../mind/intent.ts";
 
 /** What an option asks of the legs: a movement goal under a ceiling, and a facing. */
 type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">;
@@ -39,12 +39,9 @@ export function walker(_spec: BodySpec) {
     },
     /** A walk along the ground direction (`x`, `z`), facing `face`. */
     toward,
-    /**
-     * `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and a
-     * fallen body's reach, but `near`'s (the body it means to be near), at the orders' pace.
-     */
-    kept<A extends Walk>(now: Situation, asked: A, near: string | null): A {
-      return keepOut(now.sight.view, now.sight.clearance, asked, near, now.orders?.pace);
+    /** `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and a fallen body's reach, at the orders' pace. */
+    kept<A extends Walk>(now: Situation, asked: A): A {
+      return keepOut(now.sight.view, now.sight.clearance, asked, null, now.orders?.pace);
     },
     /** Seek a reachable centre-distance band around the sensed focus, keeping tactical facing. */
     range(now: Situation, near: number, far: number, face: number): Walk {

@@ -12,7 +12,7 @@ import type { TechniquePart } from "./ground/technique.ts";
 import type { GuardPart } from "../skills/guard-part.ts";
 import type { SupportPart } from "../skills/support-part.ts";
 import type { MoveRulePart } from "../skills/move-rule-part.ts";
-import type { ChooserPart } from "./options/chooser.ts";
+import type { ChooserPart } from "./chooser-part.ts";
 import type { AimPart } from "./aim-part.ts";
 import type { BitePart, GaitPart, QuadrupedTacticsPart, SupportMotorPart } from "../reptile/parts.ts";
 

@@ -26,13 +26,13 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
   schedule: "versus",
   analysis: {
     /**
-     * The default panel: eight minds, each character and loadout of the field at least once, from
-     * 1779 to the 10-hour record's lower middle (1385); chosen for variety, not strength.
+     * The default panel: eight minds, each character and loadout of the field at least once;
+     * chosen for variety, not strength.
      */
     panel: [
       "duellist/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
       "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/crypt-skeleton/empty,empty",
-      "options/workshop-rogue/empty,club", "duellist/crypt-skeleton/empty,sword",
+      "classic/workshop-rogue/empty,club", "duellist/crypt-skeleton/empty,sword",
     ],
     /**
      * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at

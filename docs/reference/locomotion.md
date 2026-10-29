@@ -300,7 +300,7 @@ with the club; on the whole speed it falls in none, nor does any other body, in 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while
 it stands or a standing foe is within 5 m; otherwise by the walk and run
 ([above](#the-walk-and-run)), which runs once the speed rule's speed is past its walk's. A rule lets
-go of its gait half a metre past its distance. Classic and the options fighter get about by it (the
+go of its gait half a metre past its distance. Classic gets about by it (the
 Scrapper by the stride); an Arena bout opens at 4 m, so it fights braced from its first step. Every
 goal, a tactic's, the Crypt's and the Lab's orders and a person's keys alike, goes at the speed
 rule's speed; Shift in the Arena caps it at the plain walk forward (`Orders.walk`). The walk and the

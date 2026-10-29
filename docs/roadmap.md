@@ -54,10 +54,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Kinetic](plans/2026-10-27-kinetic.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Kinetic, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Kinetic's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind (built), what footwork and the guard ask of the legs and the hands (in part: covers take the blow predicted to reach the head; the legs ask and the intent's form left past the time box), the design read whole (the fights read, 0.68); few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
-| [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) | Kinetic decides by one policy over options, each a skill applied to a target, selected as a set by their resources (built: rest, the rise, covers, the goals made from the skills and the gaits toward them as options, nothing chosen beside it); life read from the rules and the records (built), one profile interface (built), one stand-up bed (built), letting go measured across the wind-up (built), one trainer for any part (built), the legs bearing on the ends the body's spec names (in part: a legs goal names them, the legs stand on feet and report the rest unmet; bearing on hands and knees, and a technique holding only the limbs it moves, left past the time box); then a narrower option shape, a strike that never walks, percepts apart from predictions behind one interface whose prior is a profile, an exit as the percepts it leaves, Kinetic's position value, predictions, options and percepts by configuration, and the rise chosen by the policy with no supervisor |
+| [Kinetic follow-up](plans/2026-10-28-kinetic-followup.md) | Kinetic decides by one policy over options, each a skill applied to a target, selected as a set by their resources (built: rest, the rise, covers, the goals made from the skills and the gaits toward them as options, nothing chosen beside it); life read from the rules and the records (built), one profile interface (built), one stand-up bed (built), letting go measured across the wind-up (built), one trainer for any part (built), the legs bearing on the ends the body's spec names (in part: a legs goal names them, the legs stand on feet and report the rest unmet; bearing on hands and knees, and a technique holding only the limbs it moves, left past the time box); a narrower option shape and a strike that never walks (built, with Kinetic's options in its own folder and the options fighter deleted); percepts apart from predictions behind one interface whose prior is a profile, and an exit as the percepts it leaves (built); then Kinetic's position value, predictions, options and percepts by configuration, and the rise chosen by the policy with no supervisor |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Kinetic: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Kinetic's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 
 1. **Now: Kinetic's design**, before any training run (worth in life, measured profiles, the
    value of a position, exits and letting go, the stand-up as a chain are built): the
@@ -164,7 +164,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
     `loadData`), once the screen is in use and a live run would save a trip to the command line;
   - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
     a chooser scored by regret, when a tactics question needs one; its value unit is life
-    (`worth`, `src/core/mind/options/value.ts`), and it waits on how a chooser ranks responses.
+    (`worth`, `src/core/entrants/kinetic/options/value.ts`), and it waits on how a chooser ranks responses.
 
 ### Body and motor control
 
@@ -180,8 +180,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **The stance on a lying body.** Asked a stand while the body lies with no ground action holding
   it, the stance's plan takes what the ground missed (`plan.missed`, `advancePlan`) unbounded and
   runs to NaN in seconds, which the action command refuses as a throw; no mind asks it now
-  (Kinetic's brace holds the body by the ground's brace), and the options fighter's brace with no
-  sub-mind wanting the body would.
+  (Kinetic's brace holds the body by the ground's brace).
 - **The body layer's probes** ([architecture](architecture.md#skills)) found what the stance does
   not carry out and does not report: legs asked to bear on one foot while the centre of mass is
   not over it fall, the other leg left to the posture (an action shifts the weight first, as the
@@ -218,7 +217,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([toes](reference/toes.md)). The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
-  punch lands 92 % of 320 held-out still trials and 3 of 56 fight moments; the Rogue has none at
+  punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of
+  the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue has none at
   its bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
   [Punch](plans/2026-10-28-punch.md)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.

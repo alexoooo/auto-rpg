@@ -7,7 +7,6 @@ import type { MOTORS } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
-import { COMBINATION } from "../skills/combination.ts";
 import type { LOCOMOTIONS } from "./locomotions.ts";
 import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
 import type { PLANNERS } from "./planners.ts";
@@ -21,7 +20,6 @@ import type { GAITS } from "../reptile/gaits.ts";
 import type { BITES } from "../reptile/bites.ts";
 import type { QUADRUPED_PLANNERS } from "../reptile/planners.ts";
 import type { Region } from "../skills/action.ts";
-import type { CHOOSERS } from "./options/choosers.ts";
 
 /** **A stock sub-mind's config**, by kind (`SUB_MINDS`). */
 export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
@@ -85,8 +83,6 @@ export interface ActionConfig {
 }
 
 
-/** **A chooser's config**, by kind (`CHOOSERS`). */
-export type ChooserConfig = ConfigOf<typeof CHOOSERS>;
 
 /** **A stock guard's config**, by kind (`GUARDS`). */
 export type GuardConfig = ConfigOf<typeof GUARDS>;
@@ -122,19 +118,6 @@ export type SkillKit = Pick<FighterConfig, "locomotion" | "navigation" | "guard"
  * fight passes one through and reads nothing in it.
  */
 export interface MindConfig { readonly kind: string }
-
-/**
- * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a chooser over options,
- * carried out through its skills (`SkillKit`). A person sets its chooser (by
- * worth, with the obedience `OBEDIENCE`, or by rank) and its parts.
- */
-export interface OptionsConfig extends SkillKit {
-  readonly kind: "options";
-  /** How it chooses among its options (`Chooser`). */
-  readonly chooser: ChooserConfig | PartConfig;
-  /** What it does down, by rank: each a sub-mind it prices as a down option (`SubMindPart.down`). */
-  readonly subs: readonly SubMindConfig[];
-}
 
 export type SupportMotorConfig = ConfigOf<typeof SUPPORT_MOTORS>;
 export type GaitConfig = ConfigOf<typeof GAITS>;
@@ -237,37 +220,6 @@ export const PATH_STRIKES = deepFreeze({
   actions: (["straight", "cross", "hook", "downward"] as const).map(family => ({ name: family, executor: "paths", family, ...(family === "downward" ? { lower: .5 } : {}),
     effectors: ["hand.right", "hand.left"] as const, regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
   support: { kind: "support-fold" as const } });
-
-/** The path strikes' low blow, thrown from low support. */
-const LOW = (() => {
-  const low = PATH_STRIKES.actions.find((action) => action.lower !== undefined);
-  if (!low) throw new Error("the path strikes have no low blow");
-  return low;
-})();
-
-/** A one-two: a combination (`COMBINATION`) at the head, either hand first, as the Counter-puncher's punch aims. */
-const ONE_TWO: ActionConfig = (() => {
-  const punch = COUNTER_PUNCHER.actions[0];
-  if (!punch) throw new Error("the Counter-puncher has no punch");
-  return { ...punch, name: "one-two", executor: "combination" };
-})();
-
-/**
- * **The options fighter's config** (`createOptionsFighter`). Its skills are the Counter-puncher's (`COUNTER_PUNCHER`), its straight
- * punch with either hand thrown as a combination of one drive (`COMBINATION`), which waits for its
- * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); for a low foe, the
- * path strikes' low blow and the support fold it is thrown from (`PATH_STRIKES`); and Classic's gaits (`MOVE`):
- * braced near, and farther the walk that runs where it asks a run's pace. Its standing blows aim
- * at an opening in the foe's guard (`surface`). It chooses by worth (`VALUED_CHOOSER`), and its
- * free hands cover (`cover`).
- */
-export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
-  executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
-    { name: "combination", kind: "combination" as const, ...COMBINATION },
-    ...PATH_STRIKES.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
-  actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: PATH_STRIKES.support, chooser: { kind: "valued", depth: 1 },
-  subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [

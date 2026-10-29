@@ -1,4 +1,4 @@
-import type { ActionRequest } from "../skills/action.ts";
+import type { ActionRequest, Resource } from "../skills/action.ts";
 import type { GaitName } from "../skills/gaits.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
@@ -60,3 +60,35 @@ export const NO_COVER: Intent["guard"] = Object.freeze({});
 
 /** Standing in guard, facing `face`. */
 export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
+
+/**
+ * **What one option of a set a mind selected asks this step**: the resources it claims while it
+ * runs (`*`, the whole body), what its asks hold (`Sight.needs`), and its asks: the walk and facing
+ * where it claims the legs, its actions and its hands' covers.
+ */
+export interface SelectedAsk {
+  readonly claims: readonly Resource[];
+  readonly holds: readonly Resource[];
+  readonly asked: Omit<Intent, "guard"> & { readonly guard?: Readonly<Record<string, Cover>> };
+}
+
+/** Whether `claims` hold the legs, the whole body holding every resource. */
+const claimsLegs = (claims: readonly Resource[]): boolean => claims.includes("legs") || claims.includes("*");
+
+/**
+ * **The intent of a set selected** (`SelectedAsk`, a mind's intent as the options it selected): the
+ * asks of the first member that claims the legs, its walk and facing, else `idle`'s; every member's
+ * actions; and every member's covers of a hand no member's asks hold.
+ */
+export function intentOfSet(set: readonly SelectedAsk[], idle: () => Omit<Intent, "guard" | "actions">): Intent {
+  let legs: SelectedAsk["asked"] | null = null;
+  const actions: ActionRequest[] = [], held: Resource[] = [], guard: Record<string, Cover> = {};
+  for (const { claims, holds, asked } of set) {
+    for (const action of asked.actions) actions.push(action);
+    for (const resource of holds) if (!held.includes(resource)) held.push(resource);
+    if (asked.guard) Object.assign(guard, asked.guard);
+    if (legs === null && claimsLegs(claims)) legs = asked;
+  }
+  for (const hand of Object.keys(guard)) if (held.includes(hand)) delete guard[hand];
+  return { ...(legs ?? idle()), actions, guard: { ...NO_COVER, ...guard } };
+}

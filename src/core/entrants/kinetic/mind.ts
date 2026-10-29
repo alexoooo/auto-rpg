@@ -18,6 +18,8 @@ import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
+import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
+import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { kineticTactics } from "./tactics.ts";
 
 /**
@@ -94,10 +96,11 @@ function createKinetic(host: BodyHost, given: KineticConfig, wiring: MindWiring)
   return { skills, state: skills.state };
 }
 
-/** **Kinetic** as an entrant: Options' chooser and percepts over the toolkit's body layer. */
+/** **Kinetic** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers and the Cover drill's tactics. */
 export const KINETIC_MIND = controller<KineticConfig>({
   role: "mind", label: "Kinetic", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: KINETIC,
   keys: { kind: true, chooser: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, ground: true, motor: true },
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, COVER_DRILL_TACTICS],
   uses: () => REPOSITION,
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
   fits: fitsAll<KineticConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),

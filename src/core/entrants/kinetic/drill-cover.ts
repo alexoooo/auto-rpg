@@ -1,14 +1,13 @@
-import { deepFreeze } from "../state.ts";
-import { NO_COVER } from "./intent.ts";
+import { deepFreeze } from "../../state.ts";
 import { VALUED_CHOOSER, chooserOf } from "./options/chooser.ts";
 import { covers } from "./options/cover.ts";
 import { stepSet } from "./options/option.ts";
 import { guard, hold } from "./options/rest.ts";
 import { situationReader } from "./options/situation.ts";
 import { walker } from "./options/walk.ts";
-import { anyBody } from "./parts.ts";
-import type { Tactics } from "./tactics.ts";
-import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";
+import { anyBody } from "../../mind/parts.ts";
+import type { Tactics } from "../../mind/tactics.ts";
+import type { TacticsMaking, TacticsPart } from "../../mind/tactics-part.ts";
 
 /** **The Cover drill's tactics**: stand and cover, and nothing else. */
 interface CoverDrillConfig { readonly kind: "drill-cover" }
@@ -16,7 +15,7 @@ interface CoverDrillConfig { readonly kind: "drill-cover" }
 /**
  * Stands where it is, facing its focus or the way it faces with none (`Walker.facing`), asks no
  * action, and chooses by worth (`VALUED_CHOOSER`) between each hand's guard and its cover
- * (`covers`), on the situation the options read (`situationReader`, with no strikes of its own):
+ * (`covers`), on the situation Kinetic's options read (`situationReader`, with no strikes of its own):
  * what the Cover drill reads of a body's covers. Its memory is the chooser's, the situation's and
  * the covers'.
  */
@@ -33,9 +32,9 @@ function coverDrill(making: TacticsMaking): Tactics {
       // The situation is read at the world's rate, which the first decision's step gives.
       reader ??= situationReader({ spec: making.spec, hz: Math.round(1 / dt), rules: making.rules, strikes: [], measured: [], ordersOf: () => null, downs: [] });
       state.situation = reader.state;
-      const now = reader.read(sight), { asked } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
-      state.covering = Object.keys(asked.guard ?? {}).length > 0;
-      return { move: null, face: walk.facing(now), guard: { ...NO_COVER, ...asked.guard }, actions: [] };
+      const now = reader.read(sight), { guard } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
+      state.covering = Object.keys(guard).length > 0;
+      return { move: null, face: walk.facing(now), guard, actions: [] };
     },
   };
 }

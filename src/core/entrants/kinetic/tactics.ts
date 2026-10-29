@@ -1,21 +1,20 @@
 import { dataOf } from "../../data/store.ts";
 import { blowsOf } from "../../mind/action-config.ts";
 import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
-import { NO_COVER } from "../../mind/intent.ts";
 import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
-import { chooserOf } from "../../mind/options/chooser.ts";
-import { covers } from "../../mind/options/cover.ts";
-import { goings, moveTo, OUT_OF_PRESSURE, toWindow } from "../../mind/options/goals.ts";
-import { stepSet, type Option, type Situation } from "../../mind/options/option.ts";
-import { guard, hold } from "../../mind/options/rest.ts";
+import { chooserOf } from "./options/chooser.ts";
+import { covers } from "./options/cover.ts";
+import { goings, moveTo, OUT_OF_PRESSURE, toWindow } from "./options/goals.ts";
+import { stepSet, type Option, type Situation } from "./options/option.ts";
+import { guard, hold } from "./options/rest.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
 import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
-import { groundOptions, type Ground } from "../../mind/options/ground.ts";
-import { followOrders } from "../../mind/options/orders.ts";
-import { situationReader } from "../../mind/options/situation.ts";
-import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "../../mind/options/strike.ts";
-import { walker } from "../../mind/options/walk.ts";
+import { groundOptions, type Ground } from "./options/ground.ts";
+import { followOrders } from "./options/orders.ts";
+import { situationReader } from "./options/situation.ts";
+import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./options/strike.ts";
+import { walker } from "./options/walk.ts";
 import type { PartConfig } from "../../mind/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
@@ -58,7 +57,7 @@ function unmetDetail(legs: LegsUnmet, motor: MotorUnmet): EngagementDetail {
  */
 function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Situation): EngagementDetail {
   const own = strikes.map((option) => `${option.name}: ${option.priced(now)}`);
-  return { label: "Profiles", value: [...own, `foe: ${now.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
+  return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
 }
 
 /**
@@ -83,7 +82,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
   const measures = standing.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: dataOf("strike-profiles"),
     ordersOf: (sight) => wiring.orders(sight.view.senses), downs: [ground.down], unbraced: ground.unbraced });
-  const strikes = standing.map((action, i) => strike(action, walk, false, blowsOf(parts, deciding.executors, action), measures[i]!));
+  const strikes = standing.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   // Each gait as the drill measured it stopping to throw its first strike.
   const hands = covers(spec), gaits = goings(spec, hz, measures[0]?.measured.skill ?? "");
   const options: readonly Option[] = [followOrders(walk, standing), ...strikes,
@@ -103,8 +102,7 @@ export function kineticTactics(spec: BodySpec, hz: number, rules: Rulebook, deci
     decide(seen: Sight, dt: number) {
       last = seen;
       const now = lastNow = reader.read(seen);
-      const { asked, near } = stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) }));
-      return { ...walk.kept(now, asked, near), guard: { ...NO_COVER, ...asked.guard } };
+      return walk.kept(now, stepSet(chosen.decide(now), now, dt, () => ({ move: null, face: walk.facing(now) })));
     },
   };
 }

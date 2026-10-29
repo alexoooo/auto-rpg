@@ -13,7 +13,7 @@ export function engagementLines(engagement: Engagement): string[] {
   for (const { label, value } of engagement.details ?? []) lines.push(`${label}: ${value}`);
   for (const offer of engagement.offers ?? []) {
     const terms = offer.terms, percent = (life: number) => `${(life * 100).toFixed(1)} %`;
-    lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${terms ? `${percent(offer.worth)} · ${terms.duration.toFixed(1)} s, dealt ${percent(terms.dealt)}, taken ${percent(terms.taken)}, orders ${terms.orders.toFixed(2)} m, position ${percent(offer.moves ?? 0)} to ${terms.exit.apart.toFixed(2)} m, down ${terms.exit.down.toFixed(2)}${offer.letGo ? `, let go ${percent(offer.letGo)}` : ""}`
+    lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${terms ? `${percent(offer.worth)} · ${terms.duration.toFixed(1)} s, dealt ${percent(terms.dealt)}, taken ${percent(terms.taken)}, orders ${terms.orders.toFixed(2)} m, position ${percent(offer.moves ?? 0)} to ${terms.exit.range.toFixed(2)} m, down ${terms.exit.down.toFixed(2)}${offer.letGo ? `, let go ${percent(offer.letGo)}` : ""}`
       : offer.worth.toFixed(2)}`);
   }
   for (const candidate of engagement.candidates ?? []) {

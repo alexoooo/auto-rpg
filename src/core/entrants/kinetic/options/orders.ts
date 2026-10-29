@@ -1,15 +1,15 @@
-import { NO_COVER } from "../intent.ts";
-import { orderedIntent } from "../ordered.ts";
-import { asking, blocked, READY, type StandingOption } from "./option.ts";
+import { NO_COVER } from "../../../mind/intent.ts";
+import { orderedIntent } from "../../../mind/ordered.ts";
+import { asking, blocked, READY, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
 import type { Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import type { ActionConfig } from "../config.ts";
-import { remainingOf } from "../movement.ts";
-import { regionSegments } from "../action-aim.ts";
+import type { ActionConfig } from "../../../mind/config.ts";
+import { remainingOf } from "../../../mind/movement.ts";
+import { regionSegments } from "../../../mind/action-aim.ts";
 import { around } from "./strike.ts";
-import type { ActionRequest } from "../../skills/action.ts";
+import type { ActionRequest } from "../../../skills/action.ts";
 
 /** How far ahead following orders is priced, s. */
 const AHEAD = 1;
@@ -27,23 +27,20 @@ const AHEAD = 1;
  * it is priced as leaving the body where it is, and what it follows as the share of it the body is
  * up there (`here`): a body counted down while its rise runs follows none.
  */
-export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
+export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): Option {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
   const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
-    name: "follow orders", posture: "standing", claims, state: {},
+    name: "follow orders", claims, state: {},
     entry: (now) => !now.down && now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED,
-    exit: () => null,
-    holds: (now, asked) => [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")],
-    yields: () => true,
-    ended: () => false,
+    status: () => "yields",
     begin() {},
     end() {},
     model: (now): Terms => {
       const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view, at = here(now);
       const left = orders.move ? remainingOf(orders.move, view.stance.centre, view.senses.others) : 0;
       const followed = left > 0 ? Math.min(kept, left) : kept;
-      return { duration: AHEAD, dealt: 0, taken: now.danger + threatened(now, AHEAD), orders: followed * (1 - at.down), exit: at };
+      return { duration: AHEAD, dealt: 0, taken: now.predictions.danger + threatened(now, AHEAD), orders: followed * (1 - at.down), exit: at };
     },
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
@@ -59,7 +56,8 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
           break outer;
         }
       }
-      return { ...ordered, actions: asks };
+      const asked = { ...ordered, actions: asks };
+      return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
     },
   };
 }

@@ -93,6 +93,33 @@ export function threatReader() {
 }
 
 /**
+ * **What a foe's body is doing**, read from what is sensed of it: striking, a blow of its predicted
+ * to reach the head (`READINGS.predicted`); down by its spec's rule (`BodySense.down`), and rising,
+ * down with its centre of mass going up faster than `RISING`; else clear. What a profile's cells are
+ * indexed by (`ProfileCell.phase`).
+ */
+export type FoePhase = "striking" | "down" | "rising" | "clear";
+
+/** How fast a fallen body's centre of mass goes up for it to read as rising, m/s. */
+const RISING = 0.2;
+
+/** The phase (`FoePhase`) of `focus`, `blow` the blow predicted to reach the head (`blowOf`); clear with no focus. */
+export function foePhase(focus: BodySense | null, blow: ReturnType<ReturnType<typeof threatReader>["blowOf"]>): FoePhase {
+  if (!focus) return "clear";
+  if (focus.down) return focus.velocity.y > RISING ? "rising" : "down";
+  return blow?.foe.id === focus.id ? "striking" : "clear";
+}
+
+/**
+ * **The phase of the body `focus` names to a body that senses as `view` does** (`foePhase`, the
+ * blow predicted, `READINGS.predicted`): the rule a reader outside the mind reads it by, a drill's
+ * record of where its strike began.
+ */
+export function sensedPhase(view: ThreatView, focus: string): FoePhase {
+  return foePhase(view.senses.others.find((other) => other.id === focus) ?? null, threatReader().blowOf(view, READINGS.predicted));
+}
+
+/**
  * The cover a body's senses ask for: of every other side's body still in the fight, the point
  * each hand strikes with (`aimOf`, placed by the hand's sensed frame, moving with its sensed
  * velocity and spin) that closes fastest on this body's head, if it is a threat (`counts`:

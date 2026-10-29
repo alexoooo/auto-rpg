@@ -14,7 +14,8 @@
  * A cell's trials: the share that landed; the hit points the rules took from the target in every
  * contact of the striker's on it (`StrikeContact.damage`), and those the striker lost in them; the seconds from the first step the
  * strike could be thrown to its end, over the trials that could (a cell with none, the trials'
- * own length); and the share that ended down. Its cost of letting go, by progress, over the trials
+ * own length); the share that ended down; and the range head to head where its strike ended
+ * (`exit.range`), over the trials whose strike did. Its cost of letting go, by progress, over the trials
  * let go there: the seconds from the let-go until the hand was back at its guard (the trial's end
  * where it was not), and the hit points the striker lost meanwhile.
  *
@@ -73,7 +74,7 @@ for (const path of paths) {
     const phase = row.reading.foePhase;
     if (phase === null) continue;
     const cellKey = JSON.stringify([row.condition.gap, phase]);
-    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, lets: new Map() };
+    const cell = profile.cells.get(cellKey) ?? { range: row.condition.gap, phase, trials: 0, done: 0, dealt: 0, taken: 0, timed: 0, seconds: 0, length: 0, down: 0, ranged: 0, exitRange: 0, lets: new Map() };
     profile.cells.set(cellKey, cell);
     const r = row.reading;
     if (drill.letGo !== undefined) {
@@ -89,6 +90,7 @@ for (const path of paths) {
     for (const contact of r.contacts) cell.dealt += contact.damage;
     cell.taken += r.taken ?? 0;
     if (r.down) cell.down++;
+    if (r.exit) { cell.ranged++; cell.exitRange += r.exit.range; }
     if (r.ready !== null && r.ended !== null) { cell.timed++; cell.seconds += r.ended - r.ready; }
     cell.length += (r.ended ?? r.seconds) - r.handed;
   }
@@ -97,7 +99,7 @@ for (const path of paths) {
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
   cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
     range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
-    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [],
+    seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [], ...(c.ranged ? { exit: { range: round(c.exitRange / c.ranged) } } : {}),
     ...(c.lets.size ? { letGo: [...c.lets].sort(([a], [b]) => a - b).map(([progress, at]) => ({ progress: round(progress), seconds: round(at.seconds / at.n), taken: round(at.taken / at.n) })) } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz, senses ${profile.measured.reaction} s late)`);
