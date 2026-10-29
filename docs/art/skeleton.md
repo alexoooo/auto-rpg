@@ -136,10 +136,11 @@ In bouts on the Node stand (Rapier, 120 Hz, `duellist` both sides, 15 s, gaps 3 
 the Warrior and a skeleton, 8 bouts), the skeleton fell 4 times on muscles and 3 on motors, every
 fall after contact.
 
-Vanguard's Skeleton fails its [standing miss return](../reference/vanguard.md#standing-miss-return)
-on motors: after the left-hand miss its feet slide 11 to 15 cm while its stance stands, and
-its hand settles 0.114 m from its guard at the 1.2 s deadline (0.03 m/s, planted). On muscles its
-feet slide 0.3 m on the same miss and its hand passes within 0.05 m of the guard it left.
+Vanguard's punch throws the Skeleton off balance on a left-hand miss
+([standing miss return](../reference/vanguard.md#standing-miss-return)), on motors: thrown after
+the right, its stance centre moves 0.40 m before both feet plant, and its hand settles 0.114 m from
+its guard at the 1.2 s deadline (0.03 m/s, planted); thrown first, it falls at 3.14 s. On muscles
+its feet slide 0.3 m on the same miss and its hand passes within 0.05 m of the guard it left.
 
 ### Tried and not kept
 

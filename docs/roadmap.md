@@ -291,8 +291,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
-- Vanguard's Skeleton slides its feet on a standing miss and its left hand misses its guard
-  ([record](reference/vanguard.md#standing-miss-return)): the gate's one red check.
+- Vanguard's punch throws the 15 kg Skeleton off balance on a left-hand miss: its stance moves
+  0.4 m, and thrown first from a fresh stance it falls
+  ([record](reference/vanguard.md#standing-miss-return)).
 - **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
   an opponent outside Kinetic that the baseline evaluation fights
