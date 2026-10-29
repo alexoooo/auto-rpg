@@ -8,7 +8,7 @@
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-99b30cde.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-188d93e5.jsonl",
       "assets/evaluations/strike/2026-10-29-c5c4bbb0-76592539.jsonl",
-      "assets/evaluations/strike/2026-10-29-8e6a1d26-efb0e795.jsonl"
+      "assets/evaluations/strike/2026-10-29-4157f5d4-cd3cfe40.jsonl"
     ]
   },
   "profiles": [
@@ -185,7 +185,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "b9a35e60f7b2de3e",
+        "skill": "adeba5eec6f691a8",
         "hz": 120,
         "reaction": 0.15
       },
@@ -195,30 +195,18 @@
       },
       "cells": [
         {
-          "range": 0.5,
-          "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.1158,
-          "taken": 0.1553,
-          "seconds": 14,
-          "down": 1,
-          "ends": [],
-          "postures": {
-            "own": "standing",
-            "target": "back"
-          }
-        },
-        {
           "range": 0.6,
           "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.0011,
-          "taken": 0.0087,
-          "seconds": 14,
+          "trials": 2,
+          "done": 1,
+          "dealt": 0.0999,
+          "taken": 0.0287,
+          "seconds": 10.825,
           "down": 0,
           "ends": [],
+          "exit": {
+            "range": 0.6161
+          },
           "postures": {
             "own": "standing",
             "target": "back"
@@ -227,15 +215,15 @@
         {
           "range": 0.7,
           "phase": "down",
-          "trials": 2,
+          "trials": 1,
           "done": 1,
-          "dealt": 0.015,
-          "taken": 0.0049,
-          "seconds": 9.275,
+          "dealt": 0.0717,
+          "taken": 0.01,
+          "seconds": 15.4,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7328
+            "range": 0.6356
           },
           "postures": {
             "own": "standing",
@@ -245,13 +233,16 @@
         {
           "range": 0.8,
           "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.0038,
-          "taken": 0.0038,
-          "seconds": 14,
+          "trials": 2,
+          "done": 1,
+          "dealt": 0.0979,
+          "taken": 0.0144,
+          "seconds": 9.6208,
           "down": 0,
           "ends": [],
+          "exit": {
+            "range": 0.826
+          },
           "postures": {
             "own": "standing",
             "target": "back"
@@ -261,12 +252,15 @@
           "range": 0.9,
           "phase": "down",
           "trials": 1,
-          "done": 0,
-          "dealt": 0.0418,
-          "taken": 0.057,
-          "seconds": 25,
+          "done": 1,
+          "dealt": 0.0614,
+          "taken": 0.0201,
+          "seconds": 10.3583,
           "down": 0,
           "ends": [],
+          "exit": {
+            "range": 0.4712
+          },
           "postures": {
             "own": "standing",
             "target": "back"
@@ -278,7 +272,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "b9a35e60f7b2de3e",
+        "skill": "adeba5eec6f691a8",
         "hz": 120,
         "reaction": 0.15
       },
@@ -288,53 +282,17 @@
       },
       "cells": [
         {
-          "range": 0.5,
-          "phase": "down",
-          "trials": 1,
-          "done": 1,
-          "dealt": 0.0346,
-          "taken": 0.048,
-          "seconds": 12.0917,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.4993
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
-          }
-        },
-        {
-          "range": 0.6,
-          "phase": "down",
-          "trials": 2,
-          "done": 0.5,
-          "dealt": 0.033,
-          "taken": 0.0141,
-          "seconds": 14.4167,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 0.6531
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
-          }
-        },
-        {
           "range": 0.7,
           "phase": "down",
-          "trials": 1,
-          "done": 1,
-          "dealt": 0.0719,
-          "taken": 0.0121,
-          "seconds": 10.5083,
+          "trials": 4,
+          "done": 0.5,
+          "dealt": 0.0621,
+          "taken": 0.0308,
+          "seconds": 14.1583,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.3197
+            "range": 1.0528
           },
           "postures": {
             "own": "standing",
@@ -344,31 +302,20 @@
         {
           "range": 0.8,
           "phase": "down",
-          "trials": 1,
-          "done": 1,
-          "dealt": 0.0104,
-          "taken": 0.0105,
-          "seconds": 8.2,
+          "trials": 2,
+          "done": 0.5,
+          "dealt": 0.0442,
+          "taken": 0.0152,
+          "seconds": 14.475,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.4087
+            "range": 0.6949
           },
           "postures": {
             "own": "standing",
             "target": "back"
           }
-        },
-        {
-          "range": 1.2,
-          "phase": "clear",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0,
-          "taken": 0,
-          "seconds": 14,
-          "down": 0,
-          "ends": []
         }
       ]
     }
