@@ -1,4 +1,6 @@
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import type { HostedBody } from "../core/body.ts";
+import type { World } from "../core/world.ts";
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { recoveryMeasurement } from "../core/control/recovery-measurement.ts";
 import { observeBody } from "../core/observation.ts";
@@ -42,7 +44,7 @@ const ROUND_FIRST = 1, ROUND_REST = 1, ROUND_UNFELLED = 3;
  * the body holds it, at most `most` shoves in all: the target's falls are falls, and a body whose
  * stance holds one shove has no stand-up to read.
  */
-const SHOVED = { first: 1, again: 1.5, most: 3 } as const;
+export const SHOVED = deepFreeze({ first: 1, again: 1.5, most: 3 });
 /** When a shoved start's body not taken over is counted as not felled, s: `ROUND_UNFELLED` after its last shove. */
 export const SHOVED_UNFELLED = SHOVED.first + SHOVED.again * (SHOVED.most - 1) + ROUND_UNFELLED;
 /** How long a round waits after a verdict for a body still down to get up, s, before it ends there. */
@@ -62,15 +64,27 @@ export const targetImpulse = (built: BuiltBody): number => TARGET_SHOVE * [...bu
  * Where a stand's verification is: not taken over, rising, holding, walking, or its verdict: stood,
  * down after it was verified, up but not its host's at the end, or not quiet by the cap.
  */
-type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fell after verification" | "failed" | "cap";
+export type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fell after verification" | "failed" | "cap";
+
+/** What a stand's verification reads of a body: it, its muscles and world, when its rise has taken it over, and whether its host has it at the end. */
+export interface Checked {
+  readonly body: Pick<HostedBody, "built" | "muscles">;
+  readonly world: World;
+  takenOver(): boolean;
+  inCommand(): boolean;
+}
+
+/** The Lab actor's body as a stand's verification reads it: taken over while a sub-mind has it, its host's again in command. */
+const actorChecked = ({ body, world }: Actor): Checked =>
+  ({ body, world, takenOver: () => body.has !== "command" && body.has !== "nobody", inCommand: () => body.has === "command" });
 
 /**
- * A stand's verification (`STAND_CHECK`), read once a step after the meter: what the Lab's
- * readout shows and the rising bed counts. `orders` are what the check asks of the host: standing,
- * then the walk.
+ * **A stand's verification** (`STAND_CHECK`) of `checked`, read once a step after the meter: what
+ * the Lab's readout shows and the fall beds count. `orders` are what the check asks of the body's
+ * mind: standing, then the walk.
  */
-function standCheck(actor: Actor, cap: number) {
-  const { body, world } = actor, built = body.built;
+export function standCheck(checked: Checked, cap: number) {
+  const { body, world } = checked, built = body.built;
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const fresh = () => ({ takeover: null as number | null, verifiedAt: null as number | null, verified: null as number | null, quiet: 0,
     walkFrom: null as readonly number[] | null, walked: null as number | null, stage: "standing" as CheckStage });
@@ -84,7 +98,7 @@ function standCheck(actor: Actor, cap: number) {
     reset() { Object.assign(state, fresh()); orders = STAND_ORDERS; },
     sample() {
       if (done()) return;
-      if (body.has !== "command" && body.has !== "nobody" && state.takeover === null) { state.takeover = world.time; state.stage = "rising"; }
+      if (state.takeover === null && checked.takenOver()) { state.takeover = world.time; state.stage = "rising"; }
       const reading = measure();
       if (state.takeover !== null && state.verifiedAt === null) {
         state.quiet = reading.ready ? state.quiet + world.dt : 0;
@@ -98,7 +112,7 @@ function standCheck(actor: Actor, cap: number) {
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing + STAND_CHECK.walking) {
           const centre = reading.observation.centre, from = state.walkFrom!;
           state.walked = hypot(centre[0] - from[0], centre[2] - from[2]);
-          state.stage = body.has === "command" ? "stood" : "failed"; orders = STAND_ORDERS;
+          state.stage = checked.inCommand() ? "stood" : "failed"; orders = STAND_ORDERS;
           return;
         }
       }
@@ -128,7 +142,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   const dummy = address.ground.foe ? hangDummy(world, dummySpec(body.built.spec), [0, .5, address.ground.foe], rulebook("arena")) : null;
   const sound = dummy ? options.hears?.(dummy.fighter.built) : null;
   if (dummy) hub.add({ id: "ground-foe", side: "ground-foe", built: dummy.fighter.built, out: () => false });
-  const check = standCheck(actor, options.cap ?? STAND_CHECK.cap);
+  const check = standCheck(actorChecked(actor), options.cap ?? STAND_CHECK.cap);
   const skills = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });

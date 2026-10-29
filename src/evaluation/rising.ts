@@ -31,7 +31,7 @@ import type { Actor } from "../lab/actor.ts";
 import { GROUND_LEVELS, type GroundLevel } from "../lab/ground-environment.ts";
 import { groundPlacement, groundPostures } from "../lab/ground-starts.ts";
 import type { LabAddress } from "../lab/scenarios.ts";
-import { buildFall, checkFall, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
+import { buildStandFall, checkFall, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { cos, sin } from "../core/math/real.ts";
 
 /** The riser a fall is hosted by: the bed's host with its recovery. */
@@ -106,7 +106,7 @@ export async function risingTrial(job: RisingJob, { subs, stop }: {
   const balance = job.balance ?? 0;
   const start = fallStart(fall);
   if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
-  const built = await buildFall(fall, "rapier", { start, ...(subs ? { subs } : {}) });
+  const built = await buildStandFall(fall, "rapier", { start, ...(subs ? { subs } : {}) });
   try {
     while (!built.ended) {
       built.world.step();

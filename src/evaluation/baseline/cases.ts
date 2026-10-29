@@ -5,10 +5,9 @@
  * - `walk`: the Locomotion drill's screen (`LOCOMOTION_CASES`);
  * - `punch`: the Strike drill's still and walk rungs (`STRIKE_CASES`), thrown by the mind's first
  *   action;
- * - `stand-up`: the owner's target's falls (`RISING_TARGET_CASES`) risen by the whole mind, on the
- *   bed that plays it (`buildFall`): a mind that takes the Lab's script on the stand bed, its stand
- *   verified; any other on the lone-body bed, shoved by `FELLING` and stood by the fight's down
- *   rule;
+ * - `stand-up`: the owner's target's falls (`RISING_TARGET_CASES`) risen by the whole mind on the
+ *   fall bed (`buildFall`), as every mind is: shoved by the target's impulse, again while it holds
+ *   it, its stand verified;
  * - `fight`: the standard match's bouts (`MATCH`'s loadouts, level and gaps) against each opponent,
  *   a mind's preset (`OPPONENTS`), on each side, under the game's verdict.
  *
@@ -99,17 +98,10 @@ const punchCases = (): Cases<Json, BaselineReading, BuiltCase> => {
   };
 };
 
-/**
- * The shove a fall on the lone-body bed is given, N s: the target's shove (1.5 N s a kg) on the
- * 79 kg Warrior twice over, the owner's decision, so that a mind that holds its feet as a fighter
- * does still falls ([the baseline](../../../docs/reference/baseline.md#what-is-used)).
- */
-const FELLING = 237;
-
 const standUpCases = (): Cases<Json, BaselineReading, BuiltCase> => {
   const inner = RISING_TARGET_CASES.standard!;
   return {
-    arity: 1, play: { "stand-up": inner.play, riser: "the whole mind", felling: FELLING }, seconds: inner.seconds, engine: inner.engine!,
+    arity: 1, play: { "stand-up": inner.play, riser: "the whole mind" }, seconds: inner.seconds, engine: inner.engine!,
     conditions: inner.conditions.filter((one) => one.model === BODY) as unknown as Json[],
     faults: (value, condition, subject) => {
       const { held } = condition as TargetCondition;
@@ -117,7 +109,7 @@ const standUpCases = (): Cases<Json, BaselineReading, BuiltCase> => {
       return mindFaults(value as unknown as MindConfig, modelHolding(BODY, { left: "empty", right: held }, subject?.character), { entry: [] });
     },
     world: ([value], condition, engine, [character]) => ({ kind: "fall", engine,
-      fall: { ...(condition as TargetCondition), impulse: FELLING, mind: value as unknown as MindConfig, ...(character && Object.keys(character).length > 0 ? { character } : {}) } }),
+      fall: { ...(condition as TargetCondition), mind: value as unknown as MindConfig, ...(character && Object.keys(character).length > 0 ? { character } : {}) } }),
     read: (built) => tagged("stand-up", readFall(built as never)),
   };
 };

@@ -140,7 +140,7 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
 }
 
 /** Queue a level impulse on the middle trunk before physics, relative to the supplied heading. */
-export function shoveBody(body: HostedBody, world: World, heading: () => number,
+export function shoveBody(body: Pick<HostedBody, "built">, world: World, heading: () => number,
   pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void) {
   const built = body.built;
   const trunk = built.segments.get("middleTrunk");

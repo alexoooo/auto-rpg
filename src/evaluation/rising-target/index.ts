@@ -27,14 +27,18 @@ export function riserSubjects(choice: SubjectChoice): readonly Subject[] {
     : (() => { throw new Error(`${one} is no riser: support-recovery, stand-up, staged or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
 }
 
-/** A fall's time to its verified stand, s; a fall not stood counts at the cap. */
-const timeOf = (r: FallReading): number => r.stood && r.verified !== null ? r.verified : FALL_CAP;
+/** Whether a fall was made: the body was taken over by its rise; one not made did not reach its case. */
+const made = (r: FallReading): boolean => r.takeover !== null;
 
-/** What a riser is read by over falls: stood within 6 s, stood at all, and the failure-inclusive median. */
+/** A fall's time to its verified stand, s; a fall made and not stood counts at the cap; none for one not made. */
+const timeOf = (r: FallReading): number | null => !made(r) ? null : r.stood && r.verified !== null ? r.verified : FALL_CAP;
+
+/** What a riser is read by: the falls made; and over those, stood within 6 s, stood at all, and the failure-inclusive median. */
 export const FALL_FIGURES: readonly Figure<FallReading>[] = [
-  { name: "within 6 s", unit: "share of falls", kind: "rate", better: "higher", of: (r) => timeOf(r) <= 6 },
-  { name: "stood", unit: "share of falls", kind: "rate", better: "higher", of: (r) => r.stood && r.verified !== null },
-  { name: "time to stand", unit: "s, a fall not stood at the cap", kind: "median", better: "lower", of: timeOf },
+  { name: "falls made", unit: "share of shoves", kind: "rate", better: "higher", of: made },
+  { name: "within 6 s", unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? timeOf(r)! <= 6 : null },
+  { name: "stood", unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? r.stood && r.verified !== null : null },
+  { name: "time to stand", unit: "s, a fall made and not stood at the cap", kind: "median", better: "lower", of: timeOf },
 ];
 
 /** The bed's report (`risingReport`) for each subject's falls, its gates on the target: lines by group, and the reports without their rows. */

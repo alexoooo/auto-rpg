@@ -1,11 +1,12 @@
 /**
  * **A fall as a case**: one body, any model under any mind, in a world of its own with the arena's
- * solids. A fighter on a body the command layers read falls on the Lab's stand bed: shoved, dropped
- * or placed on the ground of the Stand-up mode (`startGround`, `src/lab/ground-mode.ts`), its stand
- * verified as the Lab verifies it; the rising bed (`rising.ts`) and the fall evaluations play it.
- * Any other falls on the lone-body bed (`buildLoneFall`): built standing as a fight builds it,
- * shoved (a target's fall by the target's impulse), and read by the fight's down rule. It is not bit-equal between JavaScript engines: the starts and the shove
- * (`src/lab/ground-starts.ts`, `stance-mode.ts`) use arithmetic each engine rounds its own way.
+ * solids. Every evaluated fall is played on one bed (`buildFall`): the body enlisted as a fight
+ * enlists it, shoved as the owner's target shoves, and its stand verified as the Lab verifies one,
+ * whatever its mind. The research rising bed (`rising.ts`) plays a fighter on the Lab's stand bed
+ * (`buildStandFall`): shoved, dropped or placed on the ground of the Stand-up mode (`startGround`,
+ * `src/lab/ground-mode.ts`), its sub-minds replaceable and its actor read. It is not bit-equal
+ * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
+ * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
 import type { BodyOptions } from "../core/body.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -18,21 +19,23 @@ import { takesScript } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
-import { commandable } from "../core/body.ts";
+import { commandable, type HostedBody } from "../core/body.ts";
 import { enlist } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { STAND_ORDERS } from "../core/mind/orders.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { labActor, type Actor } from "../lab/actor.ts";
 import { groundPlacement } from "../lab/ground-starts.ts";
-import { groundShove, SHOVED_UNFELLED, startGround, targetImpulse } from "../lab/ground-mode.ts";
+import { groundShove, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../lab/ground-mode.ts";
+import { groundMeter } from "../lab/ground-meter.ts";
+import { shoveBody } from "../lab/stance-mode.ts";
+import { startWind } from "../lab/wind.ts";
 import type { GroundLevel } from "../lab/ground-environment.ts";
 import { loadoutSpec } from "../lab/loadout.ts";
 import { labAddress, type LabAddress } from "../lab/scenarios.ts";
 import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
-import { cos, sin } from "../core/math/real.ts";
 
 /**
  * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`,
@@ -63,8 +66,8 @@ export interface FallCase {
   readonly mind: MindConfig;
 }
 
-/** Whether `fall` is played on the Lab's stand bed: a mind that takes the Lab's script (`takesScript`), on a body the command layers read; otherwise on the lone-body bed. */
-export const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && commandable(modelSpec(fall.model));
+/** Whether the Lab's stand bed can play `fall`: a mind that takes the Lab's script (`takesScript`), on a body the command layers read. */
+const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && commandable(modelSpec(fall.model));
 
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;
@@ -127,7 +130,7 @@ export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec
 export interface BuiltFall {
   readonly world: World;
   readonly body: BuiltBody;
-  /** The Lab's actor on the stand bed; null on the lone-body bed. */
+  /** The Lab's actor on the stand bed; null on the fall bed. */
   readonly actor: Actor | null;
   readonly ended: boolean;
   afterStep(): void;
@@ -136,16 +139,15 @@ export interface BuiltFall {
 }
 
 /**
- * `fall`'s world on `engine`, from its start (`fallStart`'s, unless given): the body built in its
- * placement, its mind hosted as the Lab hosts it (`subs` in place of the config's sub-minds, an
- * experiment's) with its balance's assist, and the Stand-up mode started. It ends once the stand is
- * verified or failed (`target`, `obstacle`, `equipped`), else at hand-back or when the run stops;
- * at `FALL_AFTER` s past the cap in any case.
+ * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
+ * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
+ * it (`subs` in place of the config's sub-minds, an experiment's) with its balance's assist, and the
+ * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`,
+ * `equipped`), else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
  */
-export async function buildFall(fall: FallCase, engine: EngineName, given: {
+export async function buildStandFall(fall: FallCase, engine: EngineName, given: {
   start?: ReturnType<typeof fallStart>; subs?: BodyOptions["subs"];
 } = {}): Promise<BuiltFall> {
-  if (!onStandBed(fall)) return buildLoneFall(fall, engine);
   const { start = fallStart(fall), subs } = given;
   const { spec, placement } = start;
   if ("refused" in placement) throw new Error(placement.refused);
@@ -188,32 +190,27 @@ export async function buildFall(fall: FallCase, engine: EngineName, given: {
   };
 }
 
-/** Why the lone-body bed cannot play `fall`, each a sentence: a start other than a shove, or a verification by an obstacle or an item. */
-function loneFaults(fall: Pick<FallCase, "start" | "obstacle" | "equipped">): readonly string[] {
-  return [...fall.start !== "shoved" ? [`a ${fall.start} start is installed for the humanoid's postures: the lone-body bed shoves`] : [],
-    ...fall.obstacle || fall.equipped ? ["the stand verification walks the command layers' stand: the lone-body bed reads the fight's down rule"] : []];
+/** Why the fall bed cannot play `fall`, each a sentence: a start other than a shove, a floor other than the open one, or an obstacle. */
+function bedFaults(fall: Pick<FallCase, "start" | "obstacle" | "level">): readonly string[] {
+  return [...fall.start !== "shoved" ? [`a ${fall.start} start is installed for the humanoid's postures: the fall bed shoves`] : [],
+    ...fall.level && fall.level !== "open" || fall.obstacle ? ["the fall bed plays the open floor"] : []];
 }
 
-/** Why a suite of falls cannot read `fall` on the lone-body bed: its own faults, or a target's stand, which the suite reads verified (`FallReading.verified`). */
-const loneSuiteFaults = (fall: Pick<FallCase, "start" | "target" | "obstacle" | "equipped">): readonly string[] =>
-  [...loneFaults(fall), ...fall.target ? ["the stand verification walks the command layers' stand: the lone-body bed reads the fight's down rule"] : []];
-
-/** How long a body on the lone-body bed stays up after it was down before it has stood, s. */
-const LONE_STOOD = 1;
-
 /**
- * **The lone-body bed**: `fall`'s body built standing in its mind's posture and enlisted as a fight
- * enlists it (`enlist`), alone, with no orders; at 1 s its root is shoved by the fall's impulse
- * (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from its
- * seed) at its degrees from +z. Taken over when it is first
- * down by the fight's rule (`PhysicalBody.down`), it has stood once it has been up `LONE_STOOD` s
- * since: a target's fall is read by this rule, not verified. It ends as the stand bed's does. Only
- * a shove: a dropped or placed start is installed for the humanoid's postures, and the stand
- * verification walks the command layers' stand.
+ * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
+ * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
+ * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
+ * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
+ * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
+ * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
+ * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
+ * taken over by `SHOVED_UNFELLED` s was not felled: the trial did not reach its case ("no
+ * takeover"). Its ground history (`groundMeter`) is read where its mind hosts a body (a view); its
+ * assist is metered either way.
  */
-export async function buildLoneFall(fall: FallCase, engine: EngineName): Promise<BuiltFall> {
+export async function buildFall(fall: FallCase, engine: EngineName): Promise<BuiltFall> {
   checkFall(fall);
-  const refused = loneFaults(fall)[0];
+  const refused = bedFaults(fall)[0];
   if (refused) throw new Error(refused);
   const factor = fall.factor ?? 1;
   if (!Number.isFinite(factor) || factor < 1 || factor > 2) throw new Error("research strength factor stays between 1 and 2");
@@ -221,40 +218,38 @@ export async function buildLoneFall(fall: FallCase, engine: EngineName): Promise
   const babylon = new NullEngine(), scene = new Scene(babylon);
   const world = createWorld(scene, await loadEngine(engine));
   addArenaSolids(world.physics);
+  const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
+  let check: ReturnType<typeof standCheck> | null = null;
   const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, at: [0, 0, 0],
-    senses: createSenses(world), out: () => false, orders: () => null, balance: fall.balance ?? 0 });
+    senses: createSenses(world), out: () => false, orders: () => check?.orders() ?? STAND_ORDERS, balance: fall.balance ?? 0 });
+  const body = fighter.body;
+  check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
   const defaults = labAddress("?scenario=ground");
   const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
   const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
-  const root = fighter.built.segments.get(spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name)!;
-  const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP), at = new Vector3(), turn = new Quaternion();
-  const state = { shoved: false, takeover: null as number | null, up: null as number | null, stood: null as number | null, ended: false };
-  // After the body's control, before the solver: the bed's hand on the world, at the root's centre of mass.
-  const shoving = world.beforeStep(() => {
-    if (state.shoved || world.time < 1) return;
-    state.shoved = true;
-    const a = degrees * Math.PI / 180, centre = root.rigid.centre, origin = root.frame.origin;
-    root.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(root.rest), turn);
-    at.set(centre[0] - origin[0], centre[1] - origin[1], centre[2] - origin[2]).applyRotationQuaternionToRef(turn, at).addInPlace(root.node.position);
-    root.body.applyImpulse(new Vector3(impulse * sin(a), 0, impulse * cos(a)), at);
-  });
+  const shoving = shoveBody(body, world, () => 0);
+  const wind = startWind(fighter.built, world, fall.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, fall.seed);
+  const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
+  const state = { shoves: 0, shovedAt: null as number | null, ended: false };
   return {
     world, body: fighter.built, actor: null,
     get ended() { return state.ended; },
     afterStep() {
-      const down = fighter.body.down;
-      if (state.shoved && state.takeover === null && down) state.takeover = world.time;
-      if (state.takeover !== null && state.stood === null) {
-        if (down) state.up = null;
-        else if ((state.up ??= world.time) <= world.time - LONE_STOOD) state.stood = state.up;
-      }
-      if (state.stood !== null || state.takeover === null && world.time >= 4
-        || state.takeover !== null && world.time - state.takeover >= cap || world.time >= cap + FALL_AFTER) state.ended = true;
+      meter?.sample();
+      check!.sample();
+      const { takeover } = check!.state;
+      const held = state.shovedAt !== null && takeover === null && !body.down && state.shoves < SHOVED.most && world.time - state.shovedAt >= SHOVED.again;
+      if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(impulse, degrees); state.shovedAt = world.time; state.shoves++; }
+      if (check!.done() || takeover === null && world.time >= SHOVED_UNFELLED || world.time >= cap + FALL_AFTER) state.ended = true;
     },
-    reading: () => ({ status: state.stood !== null ? "stood" : state.takeover === null ? "no takeover" : "failed", stood: state.stood !== null,
-      handback: state.stood === null || state.takeover === null ? null : state.stood - state.takeover, handBackReason: null, takeover: state.takeover,
-      verified: null, walked: null, trail: [], attempts: [], phases: {}, assist: null }),
-    dispose() { shoving.dispose(); fighter.body.dispose(); fighter.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
+    reading() {
+      const c = check!.state, stood = c.stage === "stood", frame = meter?.frame();
+      return { status: stood ? "stood" : c.takeover === null ? "no takeover" : c.stage === "fell after verification" ? "fell after verification" : "failed",
+        stood, handback: frame?.handback ?? null, handBackReason: frame?.handBackReason ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
+        trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts ?? []) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
+        assist: (frame?.assist ?? null) as unknown as Json };
+    },
+    dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
   };
 }
 
@@ -263,15 +258,12 @@ export function readFall(built: BuiltFall): Reader<FallReading> {
   return { afterStep: () => built.afterStep(), get ended() { return built.ended; }, reading: () => built.reading() };
 }
 
-/**
- * A suite of falls as a protocol: each fall a condition, played on Rapier as the rising bed plays
- * it, the riser's mind the subject: a fighter's on the stand bed, any other on the lone-body bed.
- */
+/** A suite of falls as a protocol: each fall a condition, played on Rapier on the fall bed (`buildFall`), the riser's mind the subject. */
 export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, conditions: readonly C[]): Cases<C, FallReading, BuiltFall> {
   return {
     arity: 1, play, conditions, engine: "rapier", seconds: FALL_CAP + FALL_AFTER,
     faults: (value, condition) => typeof value !== "object" || value === null || Array.isArray(value) ? ["a riser is a mind's config"]
-      : onStandBed({ model: condition.model, mind: value as unknown as MindConfig }) ? [] : loneSuiteFaults(condition),
+      : bedFaults(condition),
     world: ([mind], condition, engine) => ({ kind: "fall", engine, fall: { ...(condition as Omit<FallCase, "mind">), mind: mind as unknown as MindConfig } }),
     read: (built) => readFall(built),
   };
