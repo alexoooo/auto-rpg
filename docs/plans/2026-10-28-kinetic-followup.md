@@ -205,7 +205,23 @@ the Arena and the link carries them.
 
 ### 16. The rise chosen by the policy
 
-Each ground technique's entry is its own (`TechniqueRun.admits` on the body as it lies);
+Built: no supervisor offers Kinetic's rise (`groundOptions`,
+`src/core/entrants/kinetic/options/ground.ts`). A technique is on offer where its own entry admits
+the body as it lies, once its position is read; a body tumbling is braced its second first
+(`BY_HAND.braced`), the one count kept, read from the body: begun on a body still rolling, the
+step-up fails more often than begun a second on. Brace, land and steady are options; every way up
+is worth where it leaves the body by the position value, a lying posture worth the rise from it
+(`riseFrom`, `downCostAt`); a failed attempt moves its way's share done by the rise's record
+(`recorded`), in place of `RETRIES` and the back-off. Stand up's supervisor keeps its own; its
+search to standing (`toStanding`, `firstEdges`) and the back-off mode went with Kinetic's use.
+
+Read: the gate; the fingerprint against 3e9b1fe9 moves the Kinetic v Kinetic arena case
+(empty-handed) and reshapes the club case's state; a bout's step 2.19 ms against 2.13 ms. The
+flat-footed stand-up is no longer read (the owner: Kinetic stands on toes); on toes the baseline's
+stand-up stands 0 of 32, as before the step: the step-up reaches a crouch and fails, each attempt
+priced dearer and tried again. What stands it is the legs bearing on hands and knees (step 11).
+
+The step as asked: each ground technique's entry is its own (`TechniqueRun.admits` on the body as it lies);
 brace, land and steady are options worth their models (what a brace saves while tumbling, what the
 steady's seconds cost); a failure is the edge's expected cost from that posture, read from its
 profile and the attempt's record, in place of `RETRIES` and the back-off; and an edge is worth the

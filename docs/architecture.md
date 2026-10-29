@@ -593,24 +593,28 @@ limbs; a walk to a goal the legs; a ground option the whole body, `WHOLE`). A st
 walk into its window is a goal's (`toWindow`, below). The rest options (`rest.ts`), worth nothing,
 take what nothing else is worth more on: hold the position facing the focus (`hold`, the legs),
 each hand at its guard (`guard`), and down, brace (`brace`, the whole body, priced as the rise that
-never stands, `downTerms`, asking the ground's brace, `Ground.rest`). A ground option
-(`GroundOption`, `groundOptions`, `ground.ts`) is carried out through the skills as an action of the ground executor (`groundExecutor`,
-`ground/held.ts`): each technique of a list, flatten, and the modes brace, back off, land and
-steady (`GROUND_MODES`; brace and the steady with its climb in `ground/steady.ts`, shared with
-Stand up), each run on the body held whole, holding every resource, asking no stance and pushing
-every muscle as its run drives it. Each is on offer where the body as it lies admits it, read
-once a step where Stand up's supervisor (`standUp`) would run it (`offered`): every edge that
-admits the body on a route to standing (`firstEdges`), else a reposition, and each mode where the
-supervisor runs it, counting its time against its limit as it runs. A mode yields, a technique
-where its run says it may. An edge is priced as a fall (`downTerms`) at its expected seconds to
-standing through it, by its profile where measured, so the policy takes the cheapest; the rest at
-the rise's price (`Ground.down`: its route to standing from the back, `toStanding`, where its edges
-are measured, else its price by hand, `BY_HAND`), so unmeasured they go by rank. On its feet
+never stands from where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
+A ground option (`groundOptions`, `ground.ts`) is carried out through the skills as an action of
+the ground executor (`groundExecutor`, `ground/held.ts`): each technique of a list, the
+repositions, flatten, and brace, land and steady (brace and the steady with its climb in
+`ground/steady.ts`, shared with Stand up), each run on the body held whole, holding every
+resource, asking no stance and pushing every muscle as its run drives it. No supervisor offers
+them: a technique is on offer where its own entry admits the body as it lies
+(`TechniqueRun.admits`) once its position is read, on a body tumbling only once braced its second
+(`BY_HAND.braced`); brace while the body tumbles off its feet short of that, the steady on its
+feet, land while its position is unread. A technique begun runs to its end, yielding where its run
+says it may; the others yield. Each is priced where it leaves the body (`downTerms` with its
+`Place.posture`): an edge its expected seconds and, in its share done, the posture it reaches, the
+rest down where its failures come to rest; a lying posture is worth the rise from it
+(`Ground.riseFrom`, the prediction `downCostAt`), the least expected seconds to standing over the
+edges from it and the steady's. A way's share done is its profile's, by hand where none is
+measured (`BY_HAND`), moved by the rise's record of its attempts from that posture (`recorded`),
+so a way that fails is priced the dearer and another is taken. A rise runs from the step the body
+goes down until it stands ready with nothing under way and the steady not climbing. On its feet
 while the rise runs, the body is counted down until the steady braces it (`Ground.unbraced`: the
 steady's seconds left, the percept `unbraced`; `here`), and a standing option leaves it counted
-down (`fromHere`), so only the rise stands it; the steady is priced at the seconds it has left.
-What happened since the last step (`since`: an attempt ended, a hand-back) is read before the
-percept is. Once down,
+down (`fromHere`), so only the rise stands it. What happened since the last step (`since`: an
+attempt ended, the rise begun or over) is read before the percept is. Once down,
 the body reads the ground while no stance is asked (`BodyView.ground`).
 
 - **Percepts** (`PERCEPTS`, `percepts.ts`), the registry of what Kinetic perceives with fixed
@@ -699,7 +703,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
   ordered, and a named foe's life worth more; the position where it leaves the body less the
-  position now (`FEW_TERMS`), a fall's chance there at what a fall costs (`downCost`: the blows of
+  position now (`FEW_TERMS`), a fall's chance there at what lying there costs (`downCostAt` of the posture the place names, else `downCost`, a fall onto the back: the blows of
   a foe standing over the body, the focus's, down or not, and with none one of its own kind, over
   its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
