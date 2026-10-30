@@ -55,6 +55,21 @@ const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch",
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
 /**
+ * **The club's blow**: the recipe strike (`recipe-strike`), its recipes the toed Warrior's searched
+ * on the Strike drill holding the buckler and the club (`assets/core/strikes.json`), thrown from a
+ * quarter second stood still and from where the body stands within 0.12 m along and 0.2 m across
+ * of a recipe's window, as they were searched; armed only, so an empty hand throws the punch.
+ */
+const CLUB: ExecutorEntry = deepFreeze({ name: "club", kind: "recipe-strike", armed: true, stand: .25, slack: { along: .12, across: .2 } });
+
+/**
+ * **The club blow**: the club's with the hand that holds it, at the head, aimed at its centre; the
+ * head alone, where its blow lands at both physics rates (`docs/reference/blows.md#the-toed-warriors-club-blow`).
+ */
+const CLUB_ACTION: ActionConfig = deepFreeze({ name: "club-blow", executor: "club", effectors: ["hand.right", "hand.left"],
+  regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } });
+
+/**
  * **The stomp's stroke**: the front kick's, its chamber high over the target, its height band low,
  * so it strikes down on a body lying ahead and nothing standing, from a window out where both feet
  * stand clear of a lying body's limbs ([stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)).
@@ -76,9 +91,9 @@ const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise:
  */
 const ON_TOES: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }]);
 
-/** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and its edges up on toes. */
+/** As it starts: by worth, the learned punch, the club blow, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and its edges up on toes. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: ON_TOES });
+  executors: [PUNCH, CLUB, STOMP], actions: [STRAIGHT_PUNCH_ACTION, CLUB_ACTION, STOMP_ACTION], ground: ON_TOES });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
