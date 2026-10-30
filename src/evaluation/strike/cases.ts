@@ -18,7 +18,7 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { drilledBy } from "../../core/mind/catalog.ts";
+import { drilledBy, fightOf } from "../../core/mind/catalog.ts";
 import type { DrillTacticsConfig } from "../../core/mind/drill-tactics.ts";
 import type { PartConfig } from "../../core/mind/parts.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
@@ -52,7 +52,7 @@ export function striker({ mind, action }: StrikeSubject, effector: string, mark:
   { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {}): MindConfig {
   const tactics: DrillTacticsConfig = { kind: "drill", action, effector, mark, after, ...(pace === undefined ? {} : { pace }), ...(walking ? { walking: true } : {}),
     ...(letGo === undefined ? {} : { letGo }),
-    ...(moment === undefined ? {} : { fight: ("tactics" in mind ? mind.tactics : null) as PartConfig, moment }) };
+    ...(moment === undefined ? {} : { fight: fightOf(mind) as PartConfig, moment }) };
   const drilled = drilledBy(mind, tactics);
   if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
   return deepFreeze(drilled);

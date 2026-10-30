@@ -67,6 +67,8 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly scripted?: Scripted;
   /** A config of it driven by a drill's `tactics`; absent, a drill puts them in its `tactics` slot (`drilledBy`). */
   drilled?(config: C, tactics: PartConfig): C;
+  /** The tactics a drill fights by until its moment (`DrillTacticsConfig.fight`): its own fight as one tactics; absent, its `tactics` slot's (`fightOf`). */
+  fight?(config: C): PartConfig;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 

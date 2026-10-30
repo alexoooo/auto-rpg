@@ -97,6 +97,13 @@ export function drilledBy(mind: MindConfig, tactics: PartConfig): MindConfig | n
   return "tactics" in mind ? { ...mind, tactics } as MindConfig : null;
 }
 
+/** **The tactics `mind` fights by**, as one tactics a drill fights by until its moment: its controller's (`Controller.fight`), else its `tactics` slot's; null where it has neither. */
+export function fightOf(mind: MindConfig): PartConfig | null {
+  const controller = isKind(mind.kind) ? CONTROLLERS[mind.kind] : undefined;
+  if (controller?.fight) return controller.fight(mind as never);
+  return "tactics" in mind ? mind.tactics as PartConfig : null;
+}
+
 /** **The first part of kind `kind` in `config`'s tree**, as plain data (a drill's tactics in a record's mind, wherever its kind puts them); null where none is. */
 export function partIn(config: unknown, kind: string): PartConfig | null {
   if (!config || typeof config !== "object") return null;
