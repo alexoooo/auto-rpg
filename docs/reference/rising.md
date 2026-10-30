@@ -1218,6 +1218,69 @@ The Warrior empty-handed is at the edge of the spread (13 of 16 once, the median
 roll takes a mean 3.2 s against 4.0 s at rest; the Rogue's down fails 63 times of 167 against 12 of
 38.
 
+## The sit-back
+
+From hands and knees on toes the sit-back stands the Warrior 31 of 32 within 6 s, a median of
+3.78 s, and with the club 30 of 32, 3.80 s: an edge from `fours` to standing (`sit-back`,
+`src/core/mind/ground/staged-edges.ts`), its recipe `SIT_BACK` (`src/core/mind/rise/stages.ts`)
+played by the staged player, then the stance's climb and steadying (`stanceSteady`). It needs toes
+([toes](toes.md)): without them the same rise stands none.
+
+| Stage | Drive | Ends |
+|---|---|---|
+| `plant` | `FOURS` with the ankles at 0.7 rad, 2 rad/s | each foot's ball within 0.01 m of the ground, 0.1 s; at most 1 s |
+| `sit` | `TUCK_SIT`: on the heels, hips 0.7 rad, arms forward, 3 rad/s | both knees past 2.5 rad, 0.05 s; at most 1.5 s |
+| `up` | `UPRIGHT` paced: 1.6 of the way a second, 2 rad/s | 0.85 of the way and slower than 0.3 m/s, 0.05 s; at most 4 s |
+
+- **The way up is paced by the balls of the feet** (`Pace`): the posture moves on from where `up`
+  begins only while both balls are within 0.03 m of the ground and the centre of mass is slower
+  than 0.3 m/s, and each hip is flexed 8 rad a metre its foot's ball stands over half that: a
+  rising heel is a ball lifting, and the hip turns it back down. Without that press the rise stands
+  1 of 32; it is what keeps the weight over the toes.
+- **A stage ends on what the body has done** (`Until`), each reading held a moment, its time the
+  most it may take, past which the attempt is over. The plant ends on the balls down, not on the
+  feet's load: a foot can touch without bearing 5 per cent of the weight, and by load the plant
+  times out on 2 starts of 32 that the balls read planted.
+- **The ground is the body's lowest point raised by its deepest ground contact's gap**
+  (`groundLevel`, `staged.ts`): a loaded hand sinks up to 0.013 m into the solver's ground, and
+  read against the lowest point alone the balls never read down on 2 starts of 32.
+- **Its pose drive asks each joint as the joint turns** (`PoseStage.drive.turning`, as
+  `poseDrive`): 31 of 32 and 30 of 32 with the club, against 30 and 29 asked freedom by freedom.
+  Step up's stages keep the drive they were searched with.
+- **The steady fails off the feet, not off both feet** (`GroundReading.onFeet`, `STEADY_OFF`):
+  the stance carries the body up from the sit-back stepping from foot to foot, read between
+  positions, and failing that ended most attempts that failed. A knee, the trunk or nothing
+  bearing for 0.3 s fails it; no fingerprint case's motion moves.
+
+Measured by its reproduction (`research/sit-back.mjs`: Node, core world, Rapier, 120 Hz, calm, no
+assist), from the toes' hands-and-knees starts at rest (`placement("push-off-bear")`,
+`research/rise-witness.mjs`), seeds 1 to 32, timed to verified standing (`STAND_CHECK`):
+
+| Body | Stood within 6 s | Median, s | Not standing |
+|---|---|---|---|
+| Warrior, empty | 31/32 | 3.78 | 28: run away in the steady |
+| Warrior, club | 30/32 | 3.80 | 13: plant timed out; 15: run away in the steady |
+
+The Rogue on toes has no stance envelope (`stance-envelope.ts`) and is not read.
+
+The rise is the toes' stand-up harness's (`research/stand-controller/c/sitback.mjs`, 30 of 32, a
+median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each part removed where
+32 starts stood as many without it (the harness, Warrior, empty):
+
+| Removed or changed | Stood within 6 s | Median, s |
+|---|---|---|
+| none (the harness as measured) | 30 | 3.98 |
+| the sit's bearing solve, a pose in its place | 30 | 3.88 |
+| the plant's ankle feedback | 30 | 4.14 |
+| the plant's hip press | 29 | 3.98 |
+| the rise's rate graded by the ball's height, a rate on or off in its place | 30 | 4.33 |
+| all three of the last, together | 30 | 3.73 |
+| the plant ending on the balls down, not on the feet's load | 32 | 3.55 |
+| the rise's end needing the centre of mass within 0.5 m of the feet | 30 | 3.73 (unchanged) |
+| the plant | 0 | – |
+| the rise paced by the feet's load, not the balls' height | 14 | – |
+| the rise's hip press | 1 | – |
+
 ## The Rise drill
 
 Each edge of the staged route played alone on a body, begun once its entry admits the body, and

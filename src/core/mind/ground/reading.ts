@@ -19,6 +19,8 @@ export interface GroundReading {
   readonly flat: Uint8Array;
   /** The two feet's shares of body weight, left then right. */
   readonly footLoad: Float64Array;
+  /** Whether the body bears on a foot, and on nothing but its feet and hands: a crouch's supports, on one foot or both. Read every step. */
+  onFeet: boolean;
   /** Sole corners in world coordinates, for the hand-back's support polygon. */
   readonly soles: readonly { readonly corners: readonly Vector3[] }[];
   readonly centre: Vector3;
@@ -60,7 +62,7 @@ export function groundReading(built: ReadBody, dt: number) {
   const feetUp = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
   const reading: GroundReading = {
     load: new Float64Array(parts.length), sole: new Float64Array(2), flat: new Uint8Array(2), footLoad: new Float64Array(2),
-    soles: feet.map(f => ({ corners: f.corners })), centre: new Vector3(), velocity: new Vector3(),
+    soles: feet.map(f => ({ corners: f.corners })), onFeet: false, centre: new Vector3(), velocity: new Vector3(),
     lie: "front", height: 0, upright: 0, spin: 0, raw: "between", position: "between", settled: false, side: null,
   };
   const state = { reading, candidate: "between" as Position, steps: 0 };
@@ -146,6 +148,7 @@ export function groundReading(built: ReadBody, dt: number) {
         }
         reading.flat[i] = front && back ? 1 : 0;
       }
+      reading.onFeet = (bears(indices[0]!) || bears(indices[1]!)) && only(allowed.crouch);
       massCentreToRef(parts, mass, reading.centre, work.vector, reading.velocity);
       reading.height = low.height() / low.standing;
       centreOfToRef(upper, work.upper); centreOfToRef(root, work.lower);

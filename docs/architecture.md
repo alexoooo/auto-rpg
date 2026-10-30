@@ -798,7 +798,8 @@ data-reading mind (the stand and the bout among them).
 `BodyView.ground` (`mind/ground/reading.ts`) reads each segment's fixed-contact load, sole support
 and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the
 centre of mass inside it. **The riser plays a recipe** (`RISE`, `rise/stages.ts`): plain data of
-pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`) and bearing stages
+pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`; timed, or ended by
+what the body has done, `Until`, and paced by the balls of the feet, `Pace`) and bearing stages
 (`BearStage`, its limbs the body's bearing ends, `BodySpec.ends`, made by `riseLimbs`), after reading how the body lies (`lieOf`). `stageFaults` says
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).

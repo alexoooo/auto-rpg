@@ -24,9 +24,11 @@ export interface PoseStage {
   readonly seconds: number;
   /**
    * How hard it drives: each freedom asked the speed that would close its error in `within` s, no
-   * faster than `speed`, rad/s; absent, the player's own pose drive.
+   * faster than `speed`, rad/s, and with `turning`, that speed asked of its joint through the way
+   * the joint turns its freedoms (`MuscleDriver.turning`, as `poseDrive`); absent, the player's
+   * own pose drive.
    */
-  readonly drive?: { readonly speed: number; readonly within: number };
+  readonly drive?: { readonly speed: number; readonly within: number; readonly turning?: boolean };
   /**
    * In a roll, the side it turns the body over: the side that goes under. A body rolled from its
    * back that comes onto its other side goes on over that one, by that side's roll.
@@ -37,6 +39,38 @@ export interface PoseStage {
    * pelvis's axis toward its other side points up, of 1), and at most `most` times `seconds`.
    */
   readonly hold?: { readonly turned: number; readonly most: number };
+  /** What ends it, read each step; `seconds` is then the longest it may take, past which the attempt is over. Absent, its time ends it. */
+  readonly until?: Until;
+  /** Its posture approached at a pace the feet allow; absent, driven toward at once. */
+  readonly pace?: Pace;
+}
+
+/**
+ * **What ends a pose stage**: every reading it names, held `for` s: each foot's ball (its sole's
+ * front edge) within `balls` m of the ground; each channel of `past` at least its angle, rad, from
+ * its own zero; the centre of mass slower than `slow`, m/s; a paced stage at least `along` of its way.
+ */
+export interface Until {
+  readonly balls?: number;
+  readonly past?: Posture;
+  readonly slow?: number;
+  readonly along?: number;
+  readonly for: number;
+}
+
+/**
+ * **A paced pose**: the posture approached from the one the stage begins in along a way from 0 to
+ * 1, at `rate` of it a second while each foot's ball is within `lift` m of the ground and the
+ * centre of mass is slower than `slow`, m/s, and held where it is otherwise. Each channel of
+ * `press`, written `name.@ motion` for a foot's own side, is asked past the way's posture by its
+ * rad a metre that foot's ball stands over half `lift`: what turns a rising foot's ball back down
+ * (`docs/reference/rising.md#the-sit-back`).
+ */
+export interface Pace {
+  readonly rate: number;
+  readonly lift: number;
+  readonly slow: number;
+  readonly press: Readonly<Record<string, number>>;
 }
 
 /**
@@ -403,6 +437,43 @@ export const CONTACT_RISE: Recipe = deepFreeze({
 });
 
 /**
+ * Sat back on the heels, the toes tucked under, the hips flexed to bring the trunk up over the
+ * feet and the arms forward (`docs/reference/rising.md#the-sit-back`).
+ */
+const TUCK_SIT = {
+  "thoracic flexion": 0.1, "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.3, "hip.@ flexion": 0.7,
+  "hip.@ abduction": 0.15, "knee.@ flexion": 2.55, "ankle.@ dorsiflexion": 0.3,
+};
+/**
+ * Kneeling up toward the feet, the toes tucked, the trunk over the hips and the arms a little
+ * forward as a counterweight (`docs/reference/rising.md#the-sit-back`).
+ */
+const UPRIGHT = {
+  "thoracic flexion": 0.1, "shoulder.@ flexion": 0.2, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.4, "hip.@ flexion": 0.6,
+  "hip.@ abduction": 0.15, "knee.@ flexion": 2.567, "ankle.@ dorsiflexion": 0.7,
+};
+
+/**
+ * **The sit-back**: from hands and knees on toes, the toes planted under the feet, sat back onto the
+ * heels and the hands off, then the weight brought up over the feet at the pace their balls stay
+ * down, where the stance takes the body to standing (`docs/reference/rising.md#the-sit-back`). For
+ * a body with toes, on the game's humans' names.
+ */
+export const SIT_BACK: Recipe = deepFreeze({
+  ...RISE,
+  roll: { back: [], left: [], right: [] },
+  rise: [
+    // The ankles bent until each foot's ball is on the ground.
+    { kind: "pose", name: "plant", posture: bothSides({ ...FOURS, "ankle.@ dorsiflexion": 0.7 }), seconds: 1, drive: { speed: 2, within: 0.2, turning: true }, until: { balls: 0.01, for: 0.1 } },
+    { kind: "pose", name: "sit", posture: bothSides(TUCK_SIT), seconds: 1.5, drive: { speed: 3, within: 0.2, turning: true }, until: { past: bothSides({ "knee.@ flexion": 2.5 }), for: 0.05 } },
+    {
+      kind: "pose", name: "up", posture: bothSides(UPRIGHT), seconds: 4, drive: { speed: 2, within: 0.2, turning: true },
+      pace: { rate: 1.6, lift: 0.03, slow: 0.3, press: { "hip.@ flexion": 8 } }, until: { along: 0.85, slow: 0.3, for: 0.05 },
+    },
+  ],
+});
+
+/**
  * **A lowering**: how a body standing comes down to bear on `ends` (`BodySpec.ends`' names): its
  * feet set at `footing` first, each foot's end that far ahead of where it stands along the way the
  * body faces, m, then `recipe`'s rise played from its first stage and its last held. Borne so, its
@@ -577,10 +648,28 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
   for (const stage of stagesOf(recipe)) {
     if (!(stage.seconds > 0)) faults.push(`stage ${stage.name} lasts ${stage.seconds} s`);
     switch (stage.kind) {
-      case "pose":
+      case "pose": {
         postureFaults(stage, stage.posture);
         if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
+        const { until, pace } = stage;
+        if (until && stage.hold) faults.push(`stage ${stage.name} is both held and ended by a reading`);
+        if (until) {
+          if (!(until.for >= 0) || !Number.isFinite(until.for)) faults.push(`stage ${stage.name} holds its end ${until.for} s`);
+          for (const [name, value] of Object.entries({ balls: until.balls, slow: until.slow })) {
+            if (value !== undefined && !(value > 0 && Number.isFinite(value))) faults.push(`stage ${stage.name} ends at ${name} ${value}`);
+          }
+          if (until.along !== undefined && !(pace && until.along > 0 && until.along <= 1)) faults.push(`stage ${stage.name} ends ${until.along} along a way it has none of`);
+          for (const channel of Object.keys(until.past ?? {})) if (!ranges.has(channel)) faults.push(`stage ${stage.name} ends past ${channel}, which ${spec.model} lacks`);
+        }
+        if (pace) {
+          if (!(pace.rate > 0 && pace.lift > 0 && pace.slow > 0) || ![pace.rate, pace.lift, pace.slow].every(Number.isFinite)) faults.push(`stage ${stage.name} paces at ${pace.rate} within ${pace.lift} m under ${pace.slow} m/s`);
+          for (const channel of Object.keys(pace.press)) {
+            if (!channel.includes("@")) faults.push(`stage ${stage.name} presses ${channel}, which names no foot's side`);
+            for (const side of SIDES) if (!ranges.has(channel.replace("@", side))) faults.push(`stage ${stage.name} presses ${channel.replace("@", side)}, which ${spec.model} lacks`);
+          }
+        }
         break;
+      }
       case "bear": {
         if (stage.postureSeconds !== undefined && (!(stage.postureSeconds > 0) || !Number.isFinite(stage.postureSeconds)))
           faults.push(`stage ${stage.name} drives its posture within ${stage.postureSeconds} s`);

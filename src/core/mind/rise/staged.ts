@@ -11,7 +11,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { riseLimbs } from "./limbs.ts";
-import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage } from "./stages.ts";
+import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../read-body.ts";
 
 /**
@@ -52,6 +52,8 @@ const LEFT = 0.01;
  * (`docs/reference/rising.md#the-abort`).
  */
 const RAISED = 0.1;
+/** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
+const GROUND_UP = 0.7;
 
 /**
  * **How a body lies** by how far its root's forward (the reference pose's +z) and its left (the
@@ -139,7 +141,22 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
    * stage leaves it. `keeps`: it leaves none.
    */
   const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>();
+  /** Each foot's ball: the middle of its sole's front edge with its toes bent (`FootState.fits`), in the foot's own frame. */
+  const balls = feet.map((foot) => { const { sole, ahead } = foot.fits.bent; return sole[ahead[0]!]!.add(sole[ahead[1]!]!).scaleInPlace(0.5); });
+  /** A channel's index by name. */
+  const channelOf = (name: string): number => muscles.channels.findIndex((channel) => channel.name === name);
+  /** For a pose stage ended by its channels' angles, each one's index and angle as the muscles read it. */
+  const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
+  /** For a paced pose stage, by foot, each channel it presses and how hard, rad a metre. */
+  const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
   for (const stage of stagesOf(recipe)) {
+    if (stage.kind === "pose" && stage.until?.past) {
+      pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - muscles.channels[index]!.dof.spec.bind.value }; }));
+    }
+    if (stage.kind === "pose" && stage.pace) {
+      const press = stage.pace.press;
+      pressOf.set(stage, feet.map((foot) => Object.entries(press).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
+    }
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(muscles.channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
     if (stage.kind !== "bear") continue;
@@ -154,6 +171,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     lie: "front" as Lie,
     /** The stage under way, in the roll or the rise; the time in it, s; how long it has lain still, s; how long a bearing stage's body has rested short of its aims, s. */
     stage: 0, time: 0, still: 0, rested: 0,
+    /** A pose stage's reading held toward its end, s; a paced one's way along, of 1, and whether it has read the posture it began in, `from`. */
+    reached: 0, along: 0, paced: false, from: new Float64Array(count),
     /** How many attempts this fall has had, and the furthest stage of the rise any reached, -1 for none. */
     tries: 0, furthest: -1,
     /** Whether the bearing stage under way has let go the limbs it leaves: the centre of mass has been over the others. */
@@ -180,6 +199,31 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const work = {
     place: new Vector3(), target: new Vector3(), across: new Vector3(), spin: new Vector3(), rootSpin: new Vector3(),
     turn: new Quaternion(), yaw: new Quaternion(), pitch: new Quaternion(), moved: new Uint8Array(count),
+    ball: new Vector3(), heights: new Float64Array(feet.length), goals: new Float64Array(count), rates: new Float64Array(count),
+  };
+  /** Whether a contact is with the ground under the body: a fixed collider below it. */
+  const underfoot = (other: unknown): boolean => other === null;
+  /**
+   * The ground's level, m: the body's lowest point raised by how far it is pressed into the ground,
+   * its ground contacts' deepest gap (a loaded hand sinks a centimetre into the solver's ground).
+   */
+  const groundLevel = (): number => {
+    let deepest = 0;
+    for (const segment of own.built.segments.values()) {
+      for (const contact of own.built.physics.contactManifoldsOf(segment.body, underfoot)) {
+        if (contact.fixed === null || -contact.normal[1] < GROUND_UP) continue;
+        for (const point of contact.points) if (point.distance < deepest) deepest = point.distance;
+      }
+    }
+    return upright.lowest() - deepest;
+  };
+  /** Each foot's ball's height over the ground, into `work.heights`. */
+  const readBalls = (): void => {
+    const ground = groundLevel();
+    feet.forEach((foot, k) => {
+      const node = foot.segment.node;
+      work.heights[k] = balls[k]!.applyRotationQuaternionToRef(node.rotationQuaternion!, work.ball).y + node.position.y - ground;
+    });
   };
 
   const slack = (): void => {
@@ -204,16 +248,55 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     state.stage = index;
     state.time = 0;
     state.rested = 0;
+    state.reached = 0;
+    state.along = 0;
+    state.paced = false;
     state.lifted = false;
     state.transfer.setAll(0);
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
-  const pose = (stage: PoseStage): void => {
-    const goals = goalsOf.get(stage)!, top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS;
+  const pose = (stage: PoseStage, dt: number): void => {
+    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, pace = stage.pace;
+    let goals = goalsOf.get(stage)!;
+    if (pace) {
+      // The way on from the posture it began in, while the balls are down and the body slow; each lifting ball's channels pressed.
+      if (!state.paced) { for (let i = 0; i < count; i++) state.from[i] = muscles.angle(i); state.paced = true; }
+      const v = view.stance.velocity;
+      let down = v.x * v.x + v.y * v.y + v.z * v.z < pace.slow * pace.slow;
+      for (let k = 0; k < feet.length; k++) if (work.heights[k]! >= pace.lift) down = false;
+      if (down) state.along = Math.min(1, state.along + pace.rate * dt);
+      const paced = work.goals;
+      for (let i = 0; i < count; i++) paced[i] = state.from[i]! + (goals[i]! - state.from[i]!) * state.along;
+      pressOf.get(stage)!.forEach((press, k) => {
+        const over = Math.max(0, work.heights[k]! - pace.lift / 2);
+        for (const { index, gain } of press) paced[index] += gain * over;
+      });
+      for (let i = 0; i < count; i++) { const dof = muscles.channels[i]!.dof.spec; paced[i] = Math.max(dof.min.value, Math.min(dof.max.value, paced[i]!)); }
+      goals = paced;
+    }
     for (let i = 0; i < goals.length; i++) {
       muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
       muscles.activation[i] = 1;
     }
+    if (!stage.drive?.turning) return;
+    // Each freedom's rate asked of its joint as the joint turns it.
+    const rates = work.rates;
+    rates.set(muscles.velocity);
+    for (let i = 0; i < count; i++) {
+      const channel = muscles.channels[i]!, first = i - channel.index;
+      let speed = 0;
+      for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * rates[first + k]!;
+      muscles.velocity[i] = speed;
+    }
+  };
+  /** Whether the readings `until` names hold for pose `stage`, its balls read this step. */
+  const endsAt = (stage: PoseStage, until: Until): boolean => {
+    if (until.balls !== undefined) for (let k = 0; k < feet.length; k++) if (work.heights[k]! >= until.balls) return false;
+    const v = view.stance.velocity;
+    if (until.slow !== undefined && v.x * v.x + v.y * v.y + v.z * v.z >= until.slow * until.slow) return false;
+    if (until.along !== undefined && state.along < until.along) return false;
+    for (const { index, angle } of pastOf.get(stage) ?? []) if (muscles.angle(index) < angle) return false;
+    return true;
   };
   /** Whether pose `stage` is held past its time: its body not yet turned onto its side by the hold's turn, within the hold's time. */
   const held = (stage: PoseStage, dt: number): boolean => {
@@ -372,11 +455,21 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           }
           // A time summed from steps falls a rounding short of a whole number of them: to the nearest step.
           switch (stage.kind) {
-            case "pose":
-              pose(stage);
+            case "pose": {
+              if (stage.pace || stage.until?.balls !== undefined) readBalls();
+              pose(stage, dt);
               state.time += dt;
+              if (stage.until) {
+                // Ended by its reading, held; past its time, the attempt is over.
+                const now = endsAt(stage, stage.until);
+                state.reached = now ? state.reached + dt : 0;
+                if (now && state.reached + dt / 2 >= stage.until.for) enter(state.phase, state.stage + 1);
+                else if (state.time + dt / 2 >= stage.seconds) settle();
+                return;
+              }
               if (state.time + dt / 2 >= stage.seconds && !held(stage, dt)) enter(state.phase, state.stage + 1);
               return;
+            }
             case "bear": {
               const there = bear(stage, dt);
               state.time += dt;

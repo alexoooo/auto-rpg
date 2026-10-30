@@ -215,12 +215,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   cardinal direction in every group, a failure-inclusive median at most 4 s, unassisted. Step-up,
   the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
   edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
-  Rogue with the club (9 and 10 of 16 against 11 and 12). No fast edge yet
-  ([Recovery](plans/2026-10-23-recovery.md), step 2): from hands and knees
-  the bearing solve does not balance on the feet alone
-  ([tried and not kept](reference/rising.md#tried-and-not-kept)); with toes and the ankle's stop
-  at 0.8 rad a research stand-up from hands and knees stands 30 of 32 in a median of 3.98 s
-  ([toes](reference/toes.md)). The Rise drill's reel waits on a page that plays a technique case
+  Rogue with the club (9 and 10 of 16 against 11 and 12). The fast edge from hands and knees on
+  toes, `sit-back` ([the sit-back](reference/rising.md#the-sit-back)), stands the Warrior 31 of 32
+  from rest in a median of 3.78 s, 30 of 32 with the club; it joins Option Mind's rise next
+  ([Recovery](plans/2026-10-23-recovery.md), step 2). The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of

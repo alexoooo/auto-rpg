@@ -8,7 +8,7 @@ import { atan2 } from "../../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../src/core/math/turn.ts";
 import type { OwnBody } from "../mind.ts";
 import { riseLimbs } from "../../src/core/mind/rise/limbs.ts";
-import { RISE } from "../../src/core/mind/rise/stages.ts";
+
 import { quietOnFeet, type GroundReading, type Position } from "../../src/core/mind/ground/reading.ts";
 import { poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../src/core/mind/ground/technique.ts";
 
@@ -51,8 +51,8 @@ const HOLD_LIMIT = 2, CROUCH = .9;
  * `REACHED_SECONDS`; failed where the hold finds the body lying; timed out after `HOLD_LIMIT` s of hold.
  */
 export function phasedRun(own: OwnBody, view: BodyView, rise: PhasedRise, admits: TechniqueRun["admits"]): TechniqueRun {
-  const muscles = own.muscles, root = muscles.dynamics.root.segment, low = uprightness(own.built), made = riseLimbs(own, RISE), drive = poseDrive(muscles);
-  const kinds = RISE.limbs.map(limb => limb.name.split(".")[0] as "shin" | "hand" | "foot");
+  const muscles = own.muscles, root = muscles.dynamics.root.segment, low = uprightness(own.built), made = riseLimbs(own), drive = poseDrive(muscles);
+  const kinds = (own.spec.ends ?? []).map(end => end.name.split(".")[0] as "shin" | "hand" | "foot");
   const timed = rise.phases.reduce((sum, phase) => sum + phase.duration, 0);
   const state = { ended: null as TechniqueEnd | null, elapsed: 0, phase: -1, heading: 0, reached: 0, toward: [0, 1],
     bearing: { tasks: made.tasks, memory: made.limbs.map(limb => limb.memory), root: new Float64Array(6),

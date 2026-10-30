@@ -176,7 +176,7 @@ const STEADY_LIMIT = 3;
 export const LOW = .5;
 /** How long a body read between positions waits for its reading to settle before taking the whole route, s. */
 const JOIN_WAIT = .25;
-/** How long the steadying stance may be read off its two feet, s (a foot unloaded as the body sways), before the attempt has failed. */
+/** How long the steadying stance may be read off its feet, s (`GroundReading.onFeet`: a knee or the trunk down), before the attempt has failed. */
 const STEADY_OFF = .3;
 type Entry = "whole" | "other" | keyof typeof JOINS;
 type Phase = "rise" | "steady";
@@ -185,7 +185,8 @@ type Phase = "rise" | "steady";
  * **The stance's climb and steadying after a rise**: from the height the rise leaves the body at
  * over its lower sole, the stance's goal raised to standing height over `climb` s on a smoothstep,
  * on both feet, heading the way the pelvis faces. Done once the body has been ready to hand back
- * (`standReady`) `REACHED_SECONDS`; failed once off its feet `STEADY_OFF` after its first 0.5 s;
+ * (`standReady`) `REACHED_SECONDS`; failed once off its feet (`GroundReading.onFeet`) `STEADY_OFF`
+ * after its first 0.5 s;
  * timed out past `STEADY_LIMIT`.
  */
 export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stance">, climb: number) {
@@ -205,7 +206,7 @@ export function stanceSteady(own: OwnBody, view: BodyView, motor: Carrying<"stan
     },
     step(g: GroundReading, dt: number): TechniqueEnd | null {
       state.time += dt;
-      state.off = g.position !== "standing" && g.position !== "crouch" ? state.off + dt : 0;
+      state.off = g.onFeet ? 0 : state.off + dt;
       if (state.off > STEADY_OFF && state.time > .5) return "failed";
       if (state.time > STEADY_LIMIT) return "timed-out";
       const w = Math.min(1, state.time / climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;

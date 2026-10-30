@@ -45,8 +45,8 @@ rebuild its toes every step.
 ## Measurement
 
 The stand-up harness (`research/stand-controller/c/sitback.mjs`, its settings `BASE` and `NOW` in
-`c/.runvar.sh`, the foot `dorsi0.8+toe0.06` of `bodies.mjs`; it runs at commit 20ea40e6 and
-replays these figures there, not at later commits; Node, `rapier` engine, 120 Hz), the workshop fighter
+`c/.runvar.sh`, the foot `dorsi0.8+toe0.06` of `bodies.mjs`; read at commit 20ea40e6, its first
+row replayed at the sit-back's commit; Node, `rapier` engine, 120 Hz), the workshop fighter
 empty-handed, dorsiflexion stop 0.8 rad, toes 0.06 m long and 0.025 m thick. It starts from the
 game's hands and knees and runs plant, sit back, watched rise, handover to the stance, then a
 closing step. 32 starts, unassisted, timed to the standing check; read with the stance's foot
@@ -58,7 +58,8 @@ reading of flat toes (`fitSole`), which moves none of these figures.
 | The box whole, no toes | 0/32 | – | – |
 | Toes, but the game's ankle stop (0.36 rad) | 20/32 | 4.47 | 5.82 |
 
-The two starts that fail with toes time out in the plant, before the stance takes over. Neither
+The two starts that fail with toes time out in the plant, before the stance takes over. The game's
+rise from hands and knees is this one's simplest form ([the sit-back](rising.md#the-sit-back)). Neither
 a bend step a quarter as large (0.005 rad: 30/32, 4.09 s) nor toes that ignore the foot's roll
 (30/32, 3.98 s) changes this.
 

@@ -5,7 +5,7 @@ import type { Side } from "../../spec/body.ts";
 import type { MindKit } from "../kit.ts";
 import type { OwnBody } from "../mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import type { Recipe } from "../rise/stages.ts";
+import { SIT_BACK, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { LIMIT, LOW, stanceSteady, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
@@ -35,13 +35,15 @@ const handsOver = (g: GroundReading): boolean =>
 const SAT_BACK = .22;
 
 /**
- * **A part of step up's route** (`stepUp`): where in its rise it begins (none: the roll alone), the
+ * **A part of a staged route**: the recipe it plays (absent, step up's, `stepUp`), where in its rise
+ * it begins (none: the roll alone), the
  * stage before that it begins at instead on a body not yet sat back (`SAT_BACK`), the positions it
  * is begun from, the one it takes the body to, and how slow a body it is begun on is: `moving`,
  * under `HAND_OVER`; `still`, under the speed its body's step up lies still at before it reads its
  * lie (`STEP_UP`'s `settle`).
  */
 interface Part {
+  readonly recipe?: Recipe;
   readonly first: string | null;
   readonly unsat?: string;
   readonly from: readonly Position[];
@@ -56,6 +58,7 @@ const PARTS = Object.freeze({
   "staged-kneel-up": { first: "kneel 0", unsat: "sit", from: ["fours"], to: "kneeling", entry: "moving" },
   "staged-step-through": { first: "shift", from: ["kneeling"], to: "half-kneel", entry: "moving" },
   "staged-lunge": { first: "lunge 0", from: ["half-kneel"], to: "standing", entry: "moving" },
+  "sit-back": { recipe: SIT_BACK, first: "plant", from: ["fours"], to: "standing", entry: "moving" },
 } as const satisfies Record<string, Part>);
 type StagedKind = keyof typeof PARTS;
 
@@ -94,15 +97,15 @@ const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Si
  */
 function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind): TechniqueRun {
   const part: Part = PARTS[kind];
-  const model = own.spec.model, tuning = stepUpTuning(model), whole = stepUpRecipe(tuning);
+  const model = own.spec.model, tuning = stepUpTuning(model), whole = part.recipe ?? stepUpRecipe(tuning);
   const at = (name: string): number => {
     const index = whole.rise.findIndex(stage => stage.name === name);
-    if (index < 0) throw new Error(`step up's rise has no ${JSON.stringify(name)} stage`);
+    if (index < 0) throw new Error(`the rise has no ${JSON.stringify(name)} stage`);
     return index;
   };
   const first = part.first === null ? whole.rise.length : at(part.first);
-  /** The cuts this part may end at, by the index of the stage each is read after. */
-  const cuts = CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
+  /** The cuts this part may end at, by the index of the stage each is read after: step up's, on its own recipe. */
+  const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
   const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
   const from = (index: number): Recipe => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) });
   // `other`: the roll over the other side; for a part with an `unsat` stage, its rise from there.
@@ -194,6 +197,8 @@ export const STAGED_KNEEL_UP = routeTechnique("staged-kneel-up", "Staged kneel-u
 export const STAGED_STEP_THROUGH = routeTechnique("staged-step-through", "Staged step-through");
 /** **Staged lunge**: from half kneeling up the lunge to standing, climbed and steadied. */
 export const STAGED_LUNGE = routeTechnique("staged-lunge", "Staged lunge");
+/** **Sit back**: from hands and knees on toes, sat back onto the heels and up over the feet (`SIT_BACK`), climbed and steadied. */
+export const SIT_BACK_EDGE = routeTechnique("sit-back", "Sit back");
 
 /** **The staged route**: step up's parts in route order, then step up from whatever they do not take. */
 export const STAGED_ROUTE: readonly TechniqueName[] = Object.freeze(["staged-roll", "staged-down", "staged-kneel-up", "staged-step-through", "staged-lunge", "step-up"]);
