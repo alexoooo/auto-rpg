@@ -8,8 +8,9 @@ import type { Offer } from "../mind/tactics.ts";
 import type { Resource } from "../skills/action.ts";
 import { NOTHING, onOffer, overlaps, placed, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
-import { FEW_TERMS_PART, type Place, type PositionValue } from "./position.ts";
-import { OBEDIENCE, STEADY, worth, type Obedience, type ObedienceLevel } from "./value.ts";
+import { FEW_TERMS_PART, type Objective } from "./objective.ts";
+import type { Place } from "./position.ts";
+import { OBEDIENCE, STEADY, type Obedience, type ObedienceLevel } from "./value.ts";
 
 /** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
 export interface Deciding { readonly rethink: number }
@@ -65,12 +66,14 @@ export interface Chooser {
  * nothing else is worth more on: a rest option is chosen with whichever of its claims are still
  * free, the others all of theirs or not at all. Its memory is which options run (their places in `options`, the
  * first chosen first), when it decided, when it next rethinks, the event it decided on, whether the
- * first chosen was at its exit, the offers it chose from, and, where it draws, its stream's word.
+ * first chosen was at its exit, the offers it chose from, where it draws, its stream's word, and the
+ * memory of the `objective` it prices by, where that keeps one (`Objective.state`).
  */
-export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
+export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }, objective: Objective | null = null): Chooser {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
-  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
+  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}),
+    ...(objective?.state ? { objective: objective.state } : {}) };
   const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: Option[] = [];
   const current = (): readonly Option[] => { set.length = 0; for (const i of state.running) set.push(options[i]!); return set; };
   /** Whether what the options chosen hold overlaps `claims`. */
@@ -207,7 +210,7 @@ const depthFaults = (depths: readonly number[]) => (config: { readonly depth: nu
 
 /**
  * **What looking one option past an option adds to its worth**, life, over `options` priced at
- * `obedience` by `position` (`worth`): where the option leaves the body at a spot (`Place.at`, a
+ * `obedience` by `objective` (`Objective.worth`): where the option leaves the body at a spot (`Place.at`, a
  * walk's), the best worth of the options that answer there (`Option.at`, at the situation the place
  * predicts, `placed`), none below nothing (the rest options' floor), at the chance the body is up
  * there; less the best of them on offer here, so the option is priced against them as they stand
@@ -215,12 +218,12 @@ const depthFaults = (depths: readonly number[]) => (config: { readonly depth: nu
  * stands, and the best there is the best here. It reads the options' models at the place, never
  * the world. Its memory is the best here, for the situation it was read at.
  */
-function lookingPast(options: readonly Option[], obedience: Obedience, position: PositionValue): (now: Situation, exit: Place) => number {
+function lookingPast(options: readonly Option[], obedience: Obedience, objective: Objective): (now: Situation, exit: Place) => number {
   const past = options.filter((option) => option.at !== undefined), memo = { now: null as Situation | null, here: 0 };
   const here = (now: Situation): number => {
     if (memo.now === now) return memo.here;
     let best = 0;
-    for (const option of past) if (onOffer(option, now)) best = Math.max(best, worth(option.model(now), now, obedience, position).worth);
+    for (const option of past) if (onOffer(option, now)) best = Math.max(best, objective.worth(option.model(now), now, obedience).worth);
     memo.now = now; memo.here = best;
     return best;
   };
@@ -229,7 +232,7 @@ function lookingPast(options: readonly Option[], obedience: Obedience, position:
     let best = 0;
     for (const option of past) {
       const terms = option.at!(now, there, exit);
-      if (terms) best = Math.max(best, worth(terms, there, obedience, position).worth);
+      if (terms) best = Math.max(best, objective.worth(terms, there, obedience).worth);
     }
     return (1 - exit.down) * best - here(now);
   };
@@ -238,10 +241,10 @@ function lookingPast(options: readonly Option[], obedience: Obedience, position:
 /**
  * **The valued chooser's config**: its depth (`VALUED_DEPTHS`), what a metre walked as ordered is worth, life
  * (`obedience`, a level of `OBEDIENCE`; steady, `STEADY`, unless given), the margin of worth, life,
- * within which it chooses by chance (`Chance`), none unless given, and the position value it prices
- * places by (`position`, a part of role `position`; the few terms, `FEW_TERMS`, unless given).
+ * within which it chooses by chance (`Chance`), none unless given, and the objective it prices
+ * options by (`objective`, a part of role `objective`; the few terms, `FEW_TERMS`, unless given).
  */
-interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly position?: PartConfig | null }
+interface ValuedConfig { readonly kind: "valued"; readonly depth: number; readonly obedience?: ObedienceLevel; readonly margin?: number; readonly objective?: PartConfig | null }
 
 /**
  * The valued chooser's obedience (`OBEDIENCE`): a choice written as its level's value, the steady
@@ -259,25 +262,25 @@ const OBEDIENCE_FIELD: PartField<ValuedConfig> = {
 };
 
 /**
- * **Valued**: each option worth its model's terms (`Terms`) in life beside the position held
- * (`worth`, by its position value), its orders at its obedience; at depth 2, a walk worth as well the
+ * **Valued**: each option worth its model's terms (`Terms`) in life beside the position held, by
+ * its objective (`Objective.worth`), its orders at its obedience; at depth 2, a walk worth as well the
  * best option where it leaves the body (`lookingPast`).
  */
 export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
-  role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [slotOne("position", "Position value", "position", true, FEW_TERMS_PART.defaults)],
-  defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, obedience: true, margin: true, position: true }, fits: anyBody,
+  role: "chooser", label: "By worth", stage: "game", fields: [OBEDIENCE_FIELD], slots: [slotOne("objective", "Objective", "objective", true, FEW_TERMS_PART.defaults)],
+  defaults: { kind: "valued", depth: 2 }, keys: { kind: true, depth: true, obedience: true, margin: true, objective: true }, fits: anyBody,
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
     ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]],
   make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup) => {
-    const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.position ?? FEW_TERMS_PART.defaults;
-    const position = parts.of("position", given).make(given) as PositionValue, past = config.depth >= 2 ? lookingPast(options, obedience, position) : null;
+    const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.objective ?? FEW_TERMS_PART.defaults;
+    const objective = parts.of("objective", given).make(given) as Objective, past = config.depth >= 2 ? lookingPast(options, obedience, objective) : null;
     return chooser(options, (option, _, now) => {
-      const terms = option.model(now), { worth: own, moves, letGo } = worth(terms, now, obedience, position);
+      const terms = option.model(now), { worth: own, moves, letGo } = objective.worth(terms, now, obedience);
       const value = past && terms.exit.at ? own + past(now, terms.exit) : own;
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
-    }, DECIDING, { margin: config.margin ?? 0, seed });
+    }, DECIDING, { margin: config.margin ?? 0, seed }, objective);
   },
 });
 

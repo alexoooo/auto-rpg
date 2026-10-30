@@ -2,17 +2,25 @@ import type { Readiness, Resource } from "../skills/action.ts";
 import { intentOfSet, type Intent, type SelectedAsk } from "../mind/intent.ts";
 import type { Sight } from "../mind/tactics.ts";
 import type { Percepts, Predictions } from "./percepts.ts";
+import type { PartConfig } from "../parts/parts.ts";
 import type { Place } from "./position.ts";
 import type { Terms } from "./value.ts";
 
 /**
  * **What a decision reads**, once a control step: the body and its skills as the last step left
- * them, each percept (`PERCEPTS`), and the predictions, read as they are asked (`PREDICTIONS`).
+ * them, each percept (`PERCEPTS`), and the predictions, read as they are asked (`PREDICTIONS`);
+ * and, by its config, a percept or prediction part's reading, read as it is asked: one an option
+ * kind or an objective names in its `uses`. Those parts have no cue, and a place (`Place`) leaves
+ * them as they are now.
  */
 export interface Situation extends Percepts {
   readonly sight: Sight;
   readonly time: number;
   readonly predictions: Predictions;
+  /** What the percept part `config` names reads now (`PerceptPart`). */
+  perceive<V>(config: PartConfig): V;
+  /** What the prediction part `config` names predicts now (`PredictionPart`). */
+  predict<V>(config: PartConfig): V;
 }
 
 /**

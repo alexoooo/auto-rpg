@@ -132,11 +132,13 @@ nothing is evaluated between steps 2 and 8 unless a decision needs it.
    model it gains (blows by any limb, a second standing's worth, the ward); the Arena offers each
    preset to its body and a Crypt run plays.
 6. **The objective, percepts and option kinds are parts** (neutral). Roles `percept` and
-   `prediction`, the situation reader reading only what its option kinds and objective name, a
-   situation's percepts read by name; the objective (the position value's role) prices an option's
-   model (duration, payoff, exit), combat's few terms its toolkit implementation; each option kind
-   builds what it needs from the body, `optionTactics` no longer building walking, cover, the rise
-   and strikes for every mind.
+   `prediction`, read by config only where an option kind or objective asks, each named in its
+   `uses`; the situation's own percepts stay its vocabulary, which the chooser's cues read. The
+   objective (the position value's role) prices an option's model (duration, payoff, exit), combat's
+   few terms its toolkit implementation, its memory kept in its chooser's. Each option kind is given
+   the body's materials and builds what it needs (footwork its gaits, the cover its covers); the
+   walk, the strikes and the rise stay the mind's, which its situation and its default step read.
+   The swap fixture holds a stub objective reading a stub percept and prediction.
 7. **The core's mind, control and skills in folders** (neutral).
    - `mind/` keeps the body's seam with a mind (mind, host, hosted, direct, minds, controller,
      sub-mind, senses, object-senses, equipment-port, body-actions, actions, motion, held-body,

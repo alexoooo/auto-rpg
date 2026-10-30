@@ -10,7 +10,7 @@ import { rigidPoints } from "../build/rigid.ts";
 import { effectorAim } from "../control/effectors.ts";
 import { deepFreeze } from "../state.ts";
 import type { Situation } from "./option.ts";
-import { here, type Place, type PositionValue } from "./position.ts";
+import type { Place } from "./position.ts";
 import { segmentOf } from "../spec/body.ts";
 
 /**
@@ -55,24 +55,7 @@ export const OBEDIENCE: readonly (readonly [value: ObedienceLevel, name: string,
 export const STEADY: Obedience = OBEDIENCE[1]![2];
 
 /** Orders first: the level firm orders are carried out at (`Orders.firm`), whatever the chooser's own. */
-const FIRST: Obedience = OBEDIENCE[2]![2];
-
-/**
- * **An option's worth beside the defaults holding the position**, life, by `position`: its payoff
- * (the focus's life it takes, more where the orders name the focus, less its own it loses beyond
- * the blow coming, which holding takes as well, and the metres it walks as ordered, each at
- * `obedience`), the position where it leaves
- * the body less the position now, and its time at the rate of play. With it, how much the position
- * changes (`moves`), and what letting it go now costs (`letGo`): the life it loses while it comes
- * back beyond what holding the position as long costs, none below nothing, and none where it may
- * not be let go.
- */
-export function worth(terms: Terms, now: Situation, obedience: Obedience, position: PositionValue): { readonly worth: number; readonly moves: number; readonly letGo: number } {
-  const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0), rate = position.rate(now);
-  const letGo = terms.letGo ? Math.max(0, terms.letGo.taken + rate * terms.letGo.seconds) : 0;
-  const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id, obeying = now.orders?.firm ? FIRST : obedience;
-  return { worth: terms.dealt * (named ? 1 + obeying.foe : 1) - (terms.taken - now.predictions.danger) + obeying.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
-}
+export const FIRST: Obedience = OBEDIENCE[2]![2];
 
 /** How fast a limb closes on what it strikes in a blow not under way to measure, m/s. */
 const BLOW_SPEED = 5;

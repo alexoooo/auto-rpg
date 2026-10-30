@@ -28,14 +28,40 @@ export interface OptionPart<C extends PartConfig = PartConfig, G = unknown, O = 
 }
 
 /**
- * **A kind of position value**: a part of role `position` that owns its config's keys and faults,
- * and makes what a place is worth (`V`), read by the mind whose slot holds the part as its own.
+ * **A kind of objective**: a part of role `objective` that owns its config's keys and faults, and
+ * makes what an option's model is worth to the body (`V`), read by the mind whose slot holds the part
+ * as its own. The percepts and predictions it reads beyond the situation's own it names in `uses`.
  */
-export interface PositionPart<C extends PartConfig = PartConfig, V = unknown> extends Part<C> {
-  readonly role: "position";
+export interface ObjectivePart<C extends PartConfig = PartConfig, V = unknown> extends Part<C> {
+  readonly role: "objective";
   readonly keys: KeysOf<C>;
-  /** The position value a config of it names. */
+  /** The objective a config of it names. */
   make(config: C): V;
+}
+
+/**
+ * **A kind of percept**: a part of role `percept` that owns its config's keys and faults, and makes
+ * a reading of what the body senses (`P`), which a situation reads where an option or an objective
+ * asks for it by its config (`Situation.perceive`); the part that asks names it in `uses`.
+ */
+export interface PerceptPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
+  readonly role: "percept";
+  readonly keys: KeysOf<C>;
+  /** The percept a config of it names. */
+  make(config: C): P;
+}
+
+/**
+ * **A kind of prediction**: a part of role `prediction` that owns its config's keys and faults, and
+ * makes what a situation predicts from what the body senses and the data it was given (`P`), read
+ * where an option or an objective asks for it by its config (`Situation.predict`); the part that
+ * asks names it in `uses`.
+ */
+export interface PredictionPart<C extends PartConfig = PartConfig, P = unknown> extends Part<C> {
+  readonly role: "prediction";
+  readonly keys: KeysOf<C>;
+  /** The prediction a config of it names. */
+  make(config: C): P;
 }
 
 /**
@@ -55,7 +81,9 @@ declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly chooser: ChooserPart;
     readonly option: OptionPart;
-    readonly position: PositionPart;
+    readonly objective: ObjectivePart;
+    readonly percept: PerceptPart;
+    readonly prediction: PredictionPart;
     readonly predictions: PredictionsPart;
   }
 }

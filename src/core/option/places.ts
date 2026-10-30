@@ -4,6 +4,8 @@ import { approachActionWindow, approachSpot, windowSpot, type Spot } from "../mi
 import type { PartConfig } from "../parts/parts.ts";
 import type { Readiness } from "../skills/action.ts";
 import type { GaitName } from "../skills/gaits.ts";
+import type { LocomotionConfig } from "../mind/config.ts";
+import { gaitsOfMove, type MoveConfig } from "../skills/move-part.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../mind/profile.ts";
 import { legsReadiness } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
@@ -22,6 +24,12 @@ export interface GaitOf {
   readonly name: GaitName | null;
   readonly label: string;
   readonly legs: PartConfig;
+}
+
+/** **The gaits `legs` go by**: Move's (`gaitsOfMove`), else the legs as one gait that names none. */
+export function gaitsOf(legs: LocomotionConfig): readonly GaitOf[] {
+  if (legs.kind === "move") return gaitsOfMove(legs as MoveConfig);
+  return [{ name: null, label: "Walk", legs }];
 }
 
 /** A strike a gait's profile stops to throw: its action's name and its digest (`skillDigest`). */

@@ -24,9 +24,9 @@ const STOPS = .6;
  * between the foe's weapon and the body, `Situation.ward`, as a shield's guard meets it), and is priced by the share of
  * the blow's life it keeps off (`STOPS` of `Situation.danger`), leaving the body where it is. It
  * always yields. Its memory is when the run began, whether it is spent, and the hand, read once a
- * step.
+ * step. None for a body without hands.
  */
-export function covers(spec: BodySpec): { readonly options: readonly Option[]; readonly state: object } {
+export function covers(spec: BodySpec): readonly Option[] {
   const state = { read: -Infinity, since: null as number | null, spent: false, hand: null as Side | null };
   /** The run of blows at `now`, once a step: which hand covers it, or null where none does. */
   const handAt = (now: Situation): Side | null => {
@@ -44,7 +44,7 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
   const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze(["hand.left"]), right: Object.freeze(["hand.right"]) };
   const sides = (["left", "right"] as const).filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`)), shields = shieldHands(spec);
   const option: Option = {
-    name: "cover", state: {},
+    name: "cover", state,
     /** The hand on the blow's side, as the entry last read it. */
     get claims() { return state.hand ? claims[state.hand] : NOTHING; },
     entry: (now) => {
@@ -59,5 +59,5 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
       return { asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: shields.includes(hand) ? now.ward ?? now.incoming! : now.incoming! } }, holds: NOTHING };
     },
   };
-  return { options: sides.length ? [option] : [], state };
+  return sides.length ? [option] : [];
 }

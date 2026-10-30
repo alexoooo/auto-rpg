@@ -1,9 +1,6 @@
 import { blowsOf } from "../mind/action-config.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../mind/config.ts";
-import { gaitsOfMove, type MoveConfig } from "../skills/move-part.ts";
 import { chooserOf } from "./chooser.ts";
-import { covers } from "./cover.ts";
-import { goings, type GaitOf } from "./places.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
 import { stepSet, type Situation } from "./option.ts";
@@ -31,12 +28,6 @@ export interface Deciding {
   readonly locomotion: LocomotionConfig;
   /** Its techniques for getting up, in rank order. */
   readonly ground: readonly TechniqueConfig[];
-}
-
-/** **The gaits `legs` go by**: Move's (`gaitsOfMove`), else the legs as one gait that names none. */
-function gaitsOf(legs: LocomotionConfig): readonly GaitOf[] {
-  if (legs.kind === "move") return gaitsOfMove(legs as MoveConfig);
-  return [{ name: null, label: "Walk", legs }];
 }
 
 /** What it rises by: the ground executor (`groundExecutor`) of the techniques it was made with, `registry`. */
@@ -71,7 +62,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 /**
  * **Option Mind's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
  * at the foe it is worth most to act on (`Chooser.decide`, each foe's situation read by
- * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given):
+ * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
+ * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb
  * ready, a low one from its low support, priced by its measured profile where it has one, `strikeMeasure`), and an
  * option a gait of its legs (`walkBy`, `gaitsOf`, `goings`: its pace, and the seconds it leaves each
@@ -94,13 +86,12 @@ export function optionTactics(making: TacticsMaking, hz: number, deciding: Decid
   const actions = deciding.actions;
   const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
   const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
-    ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced });
+    ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
-  // Each gait as the drill measured it stopping to throw each strike.
-  const hands = covers(spec), gaits = goings(spec, hz, gaitsOf(deciding.locomotion), actions.map((action, i) => ({ name: action.name, skill: measures[i]!.measured.skill })), tables.gaits);
-  const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS, { spec, walk, actions, strikes, gaits, ground, hands });
+  const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
+    { spec, hz, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
-  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), cover: hands.state, ground: ground.state };
+  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
     get phase() { return chosen.running[0]?.name ?? "hold"; },

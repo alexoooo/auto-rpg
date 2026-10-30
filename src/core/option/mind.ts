@@ -87,7 +87,7 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   return { skills, state: skills.state };
 }
 
-/** **Option Mind**: a chooser over its options, on its percepts, over the toolkit's body layer. Its choosers, kinds of option, position values and predictions are the toolkit's role lists (`CHOOSERS`, `OPTION_KINDS`, `POSITIONS`, `PREDICTIONS`). */
+/** **Option Mind**: a chooser over its options, on its percepts, over the toolkit's body layer. Its choosers, kinds of option, objectives and predictions are the toolkit's role lists (`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`). */
 export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },

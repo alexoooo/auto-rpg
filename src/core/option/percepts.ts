@@ -15,6 +15,8 @@ import { foePhase, sensedPosture, threatReader, type FoePhase } from "../mind/th
 import type { Position } from "../mind/ground/reading.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { PartConfig } from "../parts/parts.ts";
 import { blowLife, limbReach, record, strikersOf } from "./value.ts";
 
 /**
@@ -390,10 +392,12 @@ const PREDICTED = Object.freeze(Object.keys(PREDICTIONS) as (keyof typeof PREDIC
 
 /**
  * **One body's predictions** (`Predictions`), each read from the step's `Seen` (`reset`) the first
- * time it is asked that step and kept until the next. One object serves every step, so a situation
- * kept past its step reads the latest step's.
+ * time it is asked that step and kept until the next; and the percept and prediction parts an option
+ * or an objective asks for by config (`perceive`, `predict`: a `PerceptPart`'s or `PredictionPart`'s,
+ * made once a config through `parts`), read the same way. One object serves every step, so a
+ * situation kept past its step reads the latest step's.
  */
-export function predictor() {
+export function predictor(parts?: PartLookup) {
   let seen: Seen | null = null;
   const values: unknown[] = PREDICTED.map(() => undefined), read: boolean[] = PREDICTED.map(() => false);
   const predictions = {} as Predictions;
@@ -401,10 +405,25 @@ export function predictor() {
     if (!read[i]) { values[i] = PREDICTIONS[name].read(seen!); read[i] = true; }
     return values[i];
   } }));
+  const made = new Map<PartConfig, Percept<unknown>>(), asked = new Map<PartConfig, unknown>();
+  /** What the part of `role` that `config` names reads now, once a step. */
+  const readPart = (role: "percept" | "prediction", config: PartConfig): unknown => {
+    if (asked.has(config)) return asked.get(config);
+    if (!parts) throw new Error(`a ${role} part read with no part lookup: ${config.kind}`);
+    let reading = made.get(config);
+    if (!reading) made.set(config, reading = parts.of(role, config).make(config) as Percept<unknown>);
+    const value = reading.read(seen!);
+    asked.set(config, value);
+    return value;
+  };
   return {
     predictions,
+    /** What the percept part `config` names reads now (`PerceptPart`). */
+    perceive: <V>(config: PartConfig): V => readPart("percept", config) as V,
+    /** What the prediction part `config` names predicts now (`PredictionPart`). */
+    predict: <V>(config: PartConfig): V => readPart("prediction", config) as V,
     /** The step's `Seen`, each prediction to be read afresh. */
-    reset(next: Seen): void { seen = next; read.fill(false); },
+    reset(next: Seen): void { seen = next; read.fill(false); asked.clear(); },
   };
 }
 

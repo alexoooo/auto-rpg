@@ -8,7 +8,7 @@ simple, general, extendable.
 
 A first attempt at a Skeleton entrant copied the whole Option Mind package (about 2,600 lines,
 its part kinds renamed `skeleton-*`) to change a preset, a guard and one valuation term. Three
-things made the copy look necessary; the first two are fixed:
+things made the copy look necessary, each fixed:
 
 - **Two bugs in the shared model**, each read as a Skeleton need. Where no drill measured a foe,
   its prior struck with two hands only, so a body without hands dealt nothing; and lying down cost
@@ -16,25 +16,21 @@ things made the copy look necessary; the first two are fixed:
   (`19da6608`, `946530a2`), each read on the fingerprint.
 - **Toes were optional**, so the Skeleton rose by step-up on flat feet. Every humanoid now has
   toes and the game's Stand up is the toed rise ([Recovery](2026-10-23-recovery.md) step 3).
-- **An entrant cannot build on another's code.** A preset and a controller's parts live in that
-  controller's own file, part kinds are global, and `scripts/entrant-check.mjs` keeps each change
-  to one entrant's folder. A second entrant could only define a controller, and reusing Option
-  Mind's parts collided on their kinds. The [AI testbed layout](2026-10-30-ai-testbed-layout.md)
-  fixes it.
+- **An entrant could not build on shared code.** A preset and a controller's parts lived in that
+  controller's own file and part kinds were global, so reusing Option Mind's parts collided on
+  their kinds. The [AI testbed layout](2026-10-30-ai-testbed-layout.md) puts the framework in the
+  toolkit and makes each entrant a manifest of presets and scoped parts; the Skeleton is a preset.
 
 The decision mechanism is already body-agnostic: options with claims, entry, status and a model;
 the chooser's set selection by claims, commitment, rethinking on cues and a period, letting go,
-chance and the look past a walk; part roles for the chooser, the options, the position value and
-the predictions. What is fixed to one body and one purpose:
+chance and the look past a walk; part roles for the chooser, the options, the objective, percepts and
+predictions. What is fixed to one body and one purpose:
 
 | Gap | Where | General form |
 | --- | --- | --- |
-| The framework and Option Mind's content are one entrant's package | `src/entrants/option/` | The framework and its standard parts in the toolkit; an entrant is a preset and parts of its own |
-| A preset lives in its controller's file | `Controller.presets`, `MIND_KINDS` | Presets are data an entrant's folder holds, each naming the kind of mind it configures |
-| A controller's parts are offered only in its own slots | `Controller.parts`, `kindsFor` | Parts register by role; any mind whose slot takes the role offers them |
-| Combat is written into worth: `dealt`, `taken`, `orders`, obedience | `value.ts`, `chooser.ts` | An option's model is its duration, its payoff and where it leaves the body; the objective (the position part) prices both. Combat's few terms are one objective |
-| The percepts and predictions are fixed tables; a place's fields are combat percepts | `percepts.ts`, `position.ts` | Option kinds and the objective declare what they read; the reader computes those |
-| Every mind builds walking, cover, rise and strikes whatever its options | `optionTactics` | Each option kind makes what it needs from the body |
+| Combat is written into an option's model: `dealt`, `taken`, `orders` | `Terms`, `value.ts` | An option's model is its duration, its payoff and where it leaves the body; the objective prices both. Combat's few terms are one objective (`FEW_TERMS`, `objective.ts`) |
+| A place's fields are combat percepts | `Place`, `position.ts` | A place names any percept it changes, a part's included |
+| Every mind builds walking, the rise and strikes, which its situation reads, whatever its options | `optionTactics` | The situation reads what its option kinds and objective declare, and each kind makes what it needs |
 | The threat reader senses hands only | `src/core/mind/threat.ts` | A foe's blow by any limb it strikes with (`strikersOf`) |
 | A skill's settings are one body's, thrown by every body | the front kick, the stomp, the path strike, the blades, Vanguard's punch | A record per skill and body, as the straight punch's (`PunchRecord`); a body without one does not use the skill |
 

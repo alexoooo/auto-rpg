@@ -583,7 +583,7 @@ mind, and each entrant's parts (`Entrant.parts`), read once on first use so that
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
 `src/core/mind/`; `MOTORS` and `BALANCES` in `src/core/control/`; `MOVE_RULES` in
-`src/core/skills/`; `CHOOSERS`, `OPTION_KINDS`, `POSITIONS` and `PREDICTIONS` in `src/core/option/`), so a case's code begins each part's own
+`src/core/skills/`; `CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES` and `PREDICTIONS` in `src/core/option/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry.
@@ -592,7 +592,8 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
 looked up as (`mind`, `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`,
 `motor`, `balance`, `aim`, and a skill's: `locomotion`, `guard`, `executor`, `support`). A package with
 roles of its own adds them where it declares their interfaces, by augmenting `RoleParts`: the option
-framework's `chooser`, `option`, `position` and `predictions` (`src/core/option/parts.ts`), the
+framework's `chooser`, `option`, `objective`, `percept`, `prediction` and `predictions`
+(`src/core/option/parts.ts`), the
 quadruped's `support-motor`, `gait`, `bite` and `quadruped-tactics` (`src/core/reptile/parts.ts`).
 A role is a string at run time; the list is the compiler's, so a new role edits no toolkit file.
 
@@ -681,6 +682,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   head: the focus's and this body's. The focus is the foe the orders name, else the one the chooser
   last ran its set at while it is in the fight, else the nearest; the reader reads the situation at
   each other foe the orders leave open as the chooser asks (`others`).
+- **Percept and prediction parts** (`PerceptPart`, `PredictionPart`, `src/core/option/parts.ts`):
+  what a situation reads beyond its own, each a part of role `percept` or `prediction` read from
+  the step's `Seen` by its config (`Situation.perceive`, `Situation.predict`), once a step and only
+  where asked, through the predictor (`predictor`). The option kind or objective that reads one
+  names it in its `uses`, so its tree names it. They have no cue, and a place leaves them as now.
 - **Predictions** (`PREDICTIONS`, `percepts.ts`): what data a drill, a training run or the rules
   make says of the situation, stale with that data, read through one object
   (`Situation.predictions`, `predictor`) the first time it is asked in a step: the blow coming's
@@ -736,14 +742,18 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
   gait, an option of each kind; another source of places, a kind. What a walk's place is worth
   beyond the position is the chooser's to look past (below).
-- **The value of a position** (`PositionValue`, `position.ts`): what a place is worth in life
-  (`Place`: a prediction of the percepts an option leaves, each by its name: the range head to head
-  to the focus, `range`, the chance the body is down there, the seconds until it is braced there,
-  `unbraced`, and any other percept it names, `posture` or `around`; one it does not name is as
-  now, `atExit`), the lead
-  expected at the verdict from there, and the rate of play, what a second of the fight is worth
-  with the defaults holding the position. One interface; its first implementation is a few terms
-  (`FEW_TERMS`): the lead, a fall's cost at the chance of being down, the range against how far each
+- **The objective** (`Objective`, `objective.ts`), a part of role `objective` (`ObjectivePart`)
+  in the valued chooser's `objective` slot, each a line in `OBJECTIVES`: what an option's model
+  (`Terms`: its duration, payoff and exit) is worth to the body in life beside its defaults holding
+  the position, its orders at its obedience (`Objective.worth`); its memory, where it keeps one,
+  in its chooser's state (`Objective.state`). Its exit is a `Place` (`position.ts`): a prediction
+  of the percepts an option leaves, each by its name (the range head to head to the focus,
+  `range`, the chance the body is down there, the seconds until it is braced there, `unbraced`,
+  and any other percept it names, `posture` or `around`; one it does not name is as now,
+  `atExit`). Combat's objective is a few terms (`FEW_TERMS`): what a place is worth
+  (`placeWorth`), the lead expected at the verdict from there, and the rate of play
+  (`rateOfPlay`), what a second of the fight is worth with the defaults holding the position; the
+  place's terms are the lead, a fall's cost at the chance of being down, the range against how far each
   side's modelled strikes reach (`edgeOf`; the body's own pressure on the focus there over a held place's time once braced, less the
   focus's on it once it has turned to face the body, `turning`),
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
@@ -765,7 +775,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   claims or not at all. An option with targets is priced at each and aimed at the best.
   The set's step is its members' made one intent by the toolkit (`stepSet`, `intentOfSet` and
   `SelectedAsk`, `src/core/mind/intent.ts`): the walk and facing of the one claiming the legs,
-  every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`worth`, `value.ts`), in life, a share of a body's full life, the
+  every member's actions and covers (`Asked.guard`), less a cover of a hand a member's ask holds. Valued worth (`Objective.worth`; the few terms', `fewTermsWorth`, `objective.ts`), in life, a share of a body's full life, the
   verdict's unit, beside the position held: each option's `Terms`, the focus's life its blows take
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
   blow (the rules' damage of each contact the drill recorded) and its prior from the fight's
@@ -773,7 +783,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
   ordered, and a named foe's life worth more; the position where it leaves the body less the
-  position now (`FEW_TERMS`), a fall's chance there at what lying there costs (`downCostAt` of the posture the place names, else `downCost`, a fall onto the back: the blows of
+  position now (`placeWorth`), a fall's chance there at what lying there costs (`downCostAt` of the posture the place names, else `downCost`, a fall onto the back: the blows of
   a foe standing over the body, the focus's, down or not, and with none one of its own kind, over
   its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
@@ -953,8 +963,12 @@ its own (`node scripts/entrant-check.mjs`).
    the core, in a change of its own read on the fingerprint across every entrant.
 
 The Option framework (`src/core/option/`) is the toolkit's example of a kind of mind with roles of
-its own: its choosers, kinds of option, position values and predictions each a role list
-(`CHOOSERS`, `OPTION_KINDS`, `POSITIONS`, `PREDICTIONS`). `tests/swap.test.mjs` registers a fixture
+its own: its choosers, kinds of option, objectives and predictions each a role list
+(`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`), and percepts and predictions of an
+entrant's own read by config (`PerceptPart`, `PredictionPart`). A kind of option makes its options
+from what the mind gives it (`OptionsGiven`: the body, its legs, executors, actions and profile
+tables, the walk, the strikes and the rise) and builds what else it needs, as footwork builds its
+gaits and the cover its hands' covers. `tests/swap.test.mjs` registers a fixture
 entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: a fighter, an Option Mind and a
 quadruped of its own) and holds a stub of each role to it: chosen by config, run, forked, replayed
 and linked.

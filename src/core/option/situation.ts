@@ -10,6 +10,7 @@ import { shieldHands } from "../mind/cover-hand.ts";
 import type { DownModel } from "./down.ts";
 import type { Position } from "../mind/ground/reading.ts";
 import type { Situation } from "./option.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
 
 /**
@@ -17,7 +18,8 @@ import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
  * (`BodyHost.rules`), its own strikes measured (`strikes`, `measuredProfile`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
  * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
- * it is braced as its rise reads them (`unbraced`; absent, braced at once).
+ * it is braced as its rise reads them (`unbraced`; absent, braced at once), and the lookup its
+ * percept and prediction parts are found by (`parts`).
  */
 export interface Reading {
   readonly spec: BodySpec;
@@ -28,6 +30,7 @@ export interface Reading {
   readonly ordersOf: (sight: Sight) => Orders | null;
   readonly riseFrom?: (posture: Position) => DownModel | null;
   readonly unbraced?: (sight: Sight) => number;
+  readonly parts: PartLookup;
 }
 
 /**
@@ -41,7 +44,7 @@ export interface Reading {
  */
 export function situationReader(reading: Reading) {
   const { spec, hz, rules, strikes, measured, ordersOf } = reading, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
-  const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor(), shielded = shieldHands(spec).length > 0;
+  const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor(reading.parts), shielded = shieldHands(spec).length > 0;
   /** Whether `other` is a foe in the fight that `orders` let the body focus on. */
   const candidate = (sight: Sight, orders: Orders | null, other: BodySense): boolean =>
     !other.out && other.side !== sight.view.senses.side && (orders?.foe === undefined || other.id === orders.foe);
@@ -60,7 +63,7 @@ export function situationReader(reading: Reading) {
   const at = (sight: Sight, orders: Orders | null, focus: BodySense | null, blow: Seen["blow"], ward: Seen["ward"], predicting: ReturnType<typeof predictor>): Situation => {
     const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow, ward, threats, riseFrom, unbraced };
     predicting.reset(seen);
-    const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions };
+    const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions, perceive: predicting.perceive, predict: predicting.predict };
     for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);
     return read as unknown as Situation;
   };
@@ -80,7 +83,7 @@ export function situationReader(reading: Reading) {
       const { sight, orders, focus, blow, ward } = last;
       let others: Situation[] | null = null;
       for (const other of sight.view.senses.others)
-        if (other !== focus && candidate(sight, orders, other)) (others ??= []).push(at(sight, orders, other, blow, ward, predictor()));
+        if (other !== focus && candidate(sight, orders, other)) (others ??= []).push(at(sight, orders, other, blow, ward, predictor(reading.parts)));
       return others ?? NONE;
     },
     /** Keep `now`'s focus: the one it reads at while it is in the fight. */

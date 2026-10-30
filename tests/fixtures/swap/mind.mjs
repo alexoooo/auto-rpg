@@ -24,6 +24,9 @@ import { STUB_TACTICS } from "./stub-tactics.mjs";
 import { STUB_OPTION } from "./stub-option.mjs";
 import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 import { STUB_CHOOSER } from "./stub-chooser.mjs";
+import { STUB_OBJECTIVE } from "./stub-objective.mjs";
+import { STUB_PERCEPT } from "./stub-percept.mjs";
+import { STUB_PREDICTION } from "./stub-prediction.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
 import { STUB_TAKEOVER } from "./stub-takeover.mjs";
 import { STUB_BALANCE } from "./stub-balance.mjs";
@@ -60,6 +63,9 @@ export const STUBS = Object.freeze([
   { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${BLADE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
     read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "swap:stub-takeover") },
   { part: STUB_CHOOSER, mind: "swap-option", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
+  ...[[STUB_OBJECTIVE, (objective) => objective], [STUB_PERCEPT, (objective) => objective.percept], [STUB_PREDICTION, (objective) => objective.prediction]].map(([part, of]) => (
+    { part, mind: "swap-option", at: "chooser.objective", place: (config) => ({ ...config, chooser: { ...config.chooser, objective: STUB_OBJECTIVE.defaults } }),
+      read: (state) => of(state.tactics.chooser.inner.objective) })),
   { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.tactics.options.at(-1).counts },
   { part: STUB_BALANCE, mind: "swap-option", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
