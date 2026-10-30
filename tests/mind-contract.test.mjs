@@ -48,11 +48,12 @@ const modelFor = (preset) => BODY_MODELS.find((candidate) => presetFitsModel(pre
 /** A recipe's attributes for both sides as `character`, or none. */
 const bothAs = (character) => character ? { attributes: { left: character, right: character } } : {};
 
-/** Step `duel` to `until` bout steps, taking each of `traces` and the peaks after each. */
-function stepTo(world, duel, until, traces, peak) {
+/** Step `duel` to `until` bout steps, taking each of `traces` and the peaks after each, and calling `after`. */
+function stepTo(world, duel, until, traces, peak, after = () => {}) {
   const v = new Vector3(), momentum = new Vector3();
   while (duel.steps < until) {
     world.step();
+    after();
     for (const trace of traces) trace.take();
     for (const side of SIDES) {
       let mass = 0;
@@ -69,16 +70,24 @@ function stepTo(world, duel, until, traces, peak) {
   }
 }
 
-/** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked. */
-async function played(recipe, hooks, fork) {
+/** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked; with `read`, each side's whole report read after every step. */
+async function played(recipe, hooks, fork, { read = false } = {}) {
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
-    const peak = { segment: 0, body: 0, unfinite: [] };
-    stepTo(world, duel, FORK, [trace], peak);
+    const peak = { segment: 0, body: 0, unfinite: [] }, reading = { menus: 0, kit: 0 };
+    const after = !read ? undefined : () => {
+      for (const side of SIDES) {
+        const report = duel.duelists[side].minded.report;
+        if (!report) continue;
+        JSON.stringify({ engagement: report.engagement, heading: report.heading, navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
+        reading.menus += JSON.parse(JSON.stringify(report.menu ?? [])).length; reading.kit += report.kit?.length ?? 0;
+      }
+    };
+    stepTo(world, duel, FORK, [trace], peak, after);
     const saved = fork ? duel.save() : null;
-    stepTo(world, duel, STEPS, [trace, tail], peak);
+    stepTo(world, duel, STEPS, [trace, tail], peak, after);
     const end = { digest: trace.digest(), tail: tail.digest(), physics: Buffer.from(world.physics.save()).toString("base64") };
     let resumed = null;
     if (saved) {
@@ -88,13 +97,13 @@ async function played(recipe, hooks, fork) {
       resumed = again.digest();
     }
     const sheets = Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets]));
-    return { end, peak, resumed, sheets, minds: SIDES.map((side) => duel.duelists[side].minded.kind), blows: duel.blows.length };
+    return { end, peak, resumed, sheets, minds: SIDES.map((side) => duel.duelists[side].minded.kind), blows: duel.blows.length, reading };
   } finally { dispose(); }
 }
 
 for (const [id, preset] of MINDS) {
   const { config } = preset, model = modelFor(preset);
-  test(`${id} on ${model ?? "no allowed body"}: a short bout runs, stays finite, flings nobody, forks and resumes, and replays from its order sheets`, async () => {
+  test(`${id} on ${model ?? "no allowed body"}: a short bout runs, stays finite, flings nobody, forks and resumes, replays from its order sheets, and plays the same read`, async () => {
     assert.ok(model, `${id} fits no body allowed by its calibration`);
     assert.ok(presetFitsModel(preset, model), "the replay fixture uses an allowed body");
     const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [], ...bothAs(preset.character) };
@@ -107,6 +116,11 @@ for (const [id, preset] of MINDS) {
     assert.deepEqual(replay.minds, ["replay", "replay"]);
     assert.equal(replay.end.digest, first.end.digest, "the replay's poses are the bout's, step by step");
     assert.equal(replay.end.physics, first.end.physics, "the replay's physical state is the bout's to the bit");
+    // Its whole report read after every step, its menu of choices with it, changes nothing of the bout.
+    const read = await played(recipe, {}, false, { read: true });
+    assert.ok(read.reading.kit === 0 || read.reading.menus > 0, `a mind with a kit has choices to read (${read.reading.menus} read)`);
+    assert.equal(read.end.digest, first.end.digest, "the bout read is the bout, step by step");
+    assert.equal(read.end.physics, first.end.physics, "the bout read is the bout's physical state to the bit");
   });
 }
 

@@ -68,7 +68,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     const sight = { view, bite: snap.state.cycle };
     published = {
       get engagement() { return { phase: tactics.state.phase ?? (tactics.state.target ? "stalk" : "wait"), focus: tactics.state.target?.foe ?? null, details: [{ label: "Gait", value: gait.kind }] }; },
-      get heading() { return look.yaw; }, gait: null, navigation: null,
+      get heading() { return look.yaw; }, gait: null, navigation: null, kit: null, actions: null, ended: null, menu: null,
     };
     read(senses()); for (const s of skills) s.resume(view);
     const host: HostMind = { name: "crawl", state: { motor: motor.state, travel: travel.state, crawl: creep.state, gait, bite: snap.state, tactics: tactics.state, tracker: tracker.state, feedback: feedback.state, look }, look: read,
@@ -129,5 +129,6 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     } };
     return { host, subs: [recover(own, motor, tracker, paws, view)] };
   });
-  return { state: {}, report: { get engagement() { return published?.engagement ?? null; }, get heading() { return published?.heading ?? null; }, gait: null, navigation: null } satisfies MindReport };
+  return { state: {}, report: { get engagement() { return published?.engagement ?? null; }, get heading() { return published?.heading ?? null; }, gait: null, navigation: null,
+    kit: null, actions: null, ended: null, menu: null } satisfies MindReport };
 }

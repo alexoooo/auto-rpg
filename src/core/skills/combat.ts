@@ -59,8 +59,8 @@ export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnS
   const guard = guardSkill(body.built.spec);
   return {
     legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, turnLimit, turnStartup), navigation: null, guard,
-    executors: [{ name: "paths", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) },
-      ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick, pointTarget) }] : [])],
+    executors: [{ name: "paths", kind: "path-strike", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) },
+      ...(kick ? [{ name: "kicks", kind: "front-kick", executor: kickExecutor(body, ["kick"], kick, pointTarget) }] : [])],
     actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),
       ...(kick ? [{ name: "kick", executor: "kicks", effectors: ["foot.left", "foot.right"] }] : [])],
     support: ground ? supportFold(body) : null,

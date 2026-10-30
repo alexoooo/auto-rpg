@@ -1,7 +1,7 @@
 import { copyActionTarget, sameActionIdentity } from "./action.ts";
 import type { BodyView } from "../body.ts";
 import type { ContactTarget } from "../control/effector-feedback.ts";
-import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Resource, TargetRef } from "./action.ts";
+import type { ActionAround, ActionEnding, ActionRequest, ActionStatus, ContactKind, Ended, Executor, LifecycleUpdate, Observation, Phase, Readiness, Region, Resource, TargetRef } from "./action.ts";
 import type { ResourceMap } from "./action-resources.ts";
 import { deepFreeze } from "../state.ts";
 
@@ -17,10 +17,10 @@ export const blocked = (record: Pick<ActionStatus, "contacts">): boolean => reco
 /** A completed commitment with no loaded committed interval is a clean miss. */
 export const cleanMiss = (record: Ended): boolean => record.ending.kind === "completed" && record.committed && !record.contacts.loadedInCommit;
 
-/** An action's named executor and permitted anatomical endpoints. */
-export interface ActionBinding { readonly name: string; readonly executor: string; readonly effectors: readonly string[] }
-/** An executor is registered once, even when several actions share it. */
-export interface ExecutorBinding { readonly name: string; readonly executor: Executor }
+/** An action's named executor, permitted anatomical endpoints and the regions it aims at (none: it acts on the body itself). */
+export interface ActionBinding { readonly name: string; readonly executor: string; readonly effectors: readonly string[]; readonly regions?: readonly Region[] }
+/** An executor is registered once, even when several actions share it; its kind says what skill it is (`recipe-strike`, `straight-punch`), alike across minds. */
+export interface ExecutorBinding { readonly name: string; readonly kind: string; readonly executor: Executor }
 
 const counts = () => ({ target: 0, block: 0, incidental: 0, world: 0 });
 const summary = () => ({ counts: { prepare: counts(), commit: counts(), release: counts() }, loadedInCommit: false, blockedSegments: [] as string[], lastTarget: null as number | null });

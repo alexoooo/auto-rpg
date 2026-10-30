@@ -30,7 +30,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const actions = [{name:'strike',executor:'paths',effectors:[`hand.${hand}`],family,armExtension,...(sharedSupport?{lower:support.lower}:{})}];
  const guard = guardSkill(body.built.spec);
  const skills = skillSet(body, {}, {legs:locomotion(body.envelope),guard,navigation:null,support:sharedSupport?supportFold(body):null,
-  executors:[{name:'paths',executor:pathExecutor(body,guard.posture,actions,{paths:{...ATTACK_PATH,...tuning},resolve:pointTarget})}],actions}), cycles=actionCycles(skills), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
+  executors:[{name:'paths',kind:'path-strike',executor:pathExecutor(body,guard.posture,actions,{paths:{...ATTACK_PATH,...tuning},resolve:pointTarget})}],actions}), cycles=actionCycles(skills), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
  if(!['front','top','bottom'].includes(surface))throw new Error('unknown stand surface');
  const obstacle = mode==='hit' ? surface!=='front' ? s.world.physics.addFixedBox([target[0],target[1]+(surface==='bottom'?.04:-.04),target[2]],[.2,.08,.2])
   : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;

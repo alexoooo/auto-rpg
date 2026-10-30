@@ -140,5 +140,5 @@ export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock,
   if (faults.length) throw new Error(faults.join("; "));
   const aims = configuredAims(parts, body.built.spec, executors, actions);
   const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger()) ?? null };
-  return executors.map(config => ({ name: config.name, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
+  return executors.map(config => ({ name: config.name, kind: config.kind, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
 }
