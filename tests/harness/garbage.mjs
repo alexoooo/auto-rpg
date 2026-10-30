@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { Session } from "node:inspector/promises";
 import { fileURLToPath } from "node:url";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -95,8 +95,23 @@ function allocationOf(profile) {
  * of its own: what a step allocates depends on how far V8 has optimized the code it runs, so a
  * reading after another fixture in one process reads less than one alone.
  */
-export function stepAllocation(fixture) {
-  const child = spawnSync(process.execPath, [fileURLToPath(new URL("./step-allocation.mjs", import.meta.url)), fixture], { encoding: "utf8" });
+export function stepAllocation(fixture, ...args) {
+  const child = spawnSync(process.execPath, [ALLOCATION, fixture, ...args], { encoding: "utf8" });
   if (child.status !== 0) throw new Error(child.stderr);
   return Number(child.stdout);
 }
+
+/** `stepAllocation` read in a process of its own without waiting on it: several at once. */
+export function stepAllocationAsync(fixture, ...args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [ALLOCATION, fixture, ...args]);
+    let out = "", err = "";
+    child.stdout.on("data", (data) => { out += data; });
+    child.stderr.on("data", (data) => { err += data; });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(Number(out)) : reject(new Error(`${fixture} ${args.join(" ")}: ${err}`)));
+  });
+}
+
+/** The fixture script a reading runs. */
+const ALLOCATION = fileURLToPath(new URL("./step-allocation.mjs", import.meta.url));

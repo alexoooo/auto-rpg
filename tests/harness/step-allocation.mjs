@@ -3,16 +3,18 @@
  * (`tests/harness/garbage.mjs`) runs it in a process of its own. Node, the core world, Rapier,
  * 120 Hz.
  *
- *   node tests/harness/step-allocation.mjs standing|standing-array|down|bout
+ *   node tests/harness/step-allocation.mjs standing|standing-array|down|mind <id> <model> <held>
  *
  * - `standing`: two skeletons standing (`standBodies`), 240 steps read from 3 s.
  * - `standing-array`: the same, with one `new Array(4096)` made first in every step.
- * - `bout`: the Warrior against the Rogue with swords, 480 steps read from 2 s.
  * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
+ * - `mind`: the mind `id` (`MINDS`) on both sides of a bout of `model`s 3 m apart, each holding
+ *   `held` in its right hand under its preset's character, 240 steps read from 2 s.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { buildBout } from "../../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../../research/bout.mjs";
+import { MINDS } from "../../src/core/mind/controllers.ts";
 import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 
 // Babylon greets every engine it makes on the console.
@@ -29,8 +31,10 @@ async function standing(hook) {
   } finally { dispose(); }
 }
 
-async function bout() {
-  const steps = 480, { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue" }, { engine: BOUT_ENGINE });
+async function mind(id, model, held) {
+  const { config, character = {} } = MINDS[id], loadout = { left: "empty", right: held };
+  const steps = 240, { world, duel, dispose } = await buildBout({ left: model, right: model, gap: 3, minds: { left: config, right: config },
+    loadouts: { left: loadout, right: loadout }, attributes: { left: character, right: character } }, { engine: BOUT_ENGINE });
   try {
     world.step(2 * world.hz);
     const { bytes } = await allocatedIn(() => world.step(steps));
@@ -54,7 +58,7 @@ async function down() {
 let kept = null;
 const fixture = process.argv[2];
 const kib = fixture === "standing" ? await standing() : fixture === "standing-array" ? await standing(() => { kept = new Array(4096); })
-  : fixture === "bout" ? await bout() : fixture === "down" ? await down() : null;
+  : fixture === "mind" ? await mind(...process.argv.slice(3)) : fixture === "down" ? await down() : null;
 if (kib === null) throw new Error(`no fixture ${fixture}`);
 if (fixture === "standing-array" && !kept) throw new Error("the hook never ran");
 process.stdout.write(String(kib));

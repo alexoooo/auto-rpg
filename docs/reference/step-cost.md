@@ -24,22 +24,31 @@ node research/blow-cost.mjs
 
 ## Allocation ceilings
 
-`tests/harness/step-allocation.mjs`: two standing skeletons, 240 steps after 3 s; the Warrior
-against the Rogue with swords, 480 steps after 2 s; each reading in its own process. A ceiling is
-the highest of five readings plus a quarter, rounded up: `CEILING` is 140 standing, 1262 in the
-bout, 206 for a down body (KiB a body a step).
+`tests/harness/step-allocation.mjs`, Node 24.19.0: two standing skeletons, 240 steps after 3 s;
+each game mind on both sides of a bout of the first body it fits, holding the first of a sword,
+nothing and a club it takes, 3 m apart, 240 steps after 2 s; each reading in its own process. A
+ceiling is the highest of five readings plus a quarter, rounded up: `CEILING` is 140 standing, 917
+for every mind's bout, 206 for a down body (KiB a body a step). One ceiling holds every mind, so a
+mind added is read without a number of its own; the [plan](../plans/2026-10-30-garbage-free-step.md)
+lowers it.
 
 | Fixture | KiB per body per step | Ceiling |
 |---|---|---|
 | Standing (Node 24.15.0) | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
-| Bout, the Duellist with swords (Node 24.19.0) | 995.50, 997.93, 1009.60, 997.33, 998.36 | 1262 |
+| Option Mind, Warrior, sword | 703.6, 700.0, 696.4, 733.4, 699.9 | 917 |
+| Duellist, Warrior, sword | 615.7, 615.0, 615.1, 611.5, 610.2 | 917 |
+| Behaviours, Warrior, sword | 556.7, 559.0, 557.1, 553.0, 555.3 | 917 |
+| Classic, Warrior, sword | 543.2, 545.2, 546.1, 545.0, 540.0 | 917 |
+| Puncher, Warrior, sword | 414.2, 409.5, 412.7, 412.7, 407.7 | 917 |
+| Counter, Warrior, sword | 408.6, 410.3, 412.9, 414.5, 415.5 | 917 |
+| Option Skeleton, Skeleton, empty | 325.2, 326.4, 326.2, 324.1, 324.3 | 917 |
+| Crawl, reptile, empty | 286.7, 285.9, 288.2, 286.8, 285.0 | 917 |
 
-The bout plays each model's own mind and loadout, the Duellist thrusting with a sword. Of its
-998 KiB, the opening selector's own frame (`openingSelector`, `src/core/mind/openings.ts`) makes
-366: a closure for each segment it weighs (`consider`), the capsule's three points and the
-obstacles' ends, on every readiness the thrust asks, many a step. Moving them into work arrays is
-open ([roadmap](../roadmap.md)). Next come the reach solves (`solveReach`, 56) and Rapier's contact
-pairs (`pairWith`, 34).
+**The opening selector** (`openingSelector`, `src/core/mind/openings.ts`) works in arrays made once
+a selector and reads every list by index: a call makes only the opening it returns. A `for…of` over
+a frozen array allocates at every element, optimized or not, and its loop over a hull's 194 planes
+for each of 18 candidates made 318 KB a call; the Duellist read 1115 KiB a body a step before and
+615 after, Option Mind 989 and 700, with every fingerprint case unchanged.
 
 The Duellist's reach
 (`effectorTracker`, `src/core/control/effector-tracker.ts`) solves each hand's path three times a

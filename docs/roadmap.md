@@ -62,6 +62,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
+| [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
 | [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks: the skills free of the decider's memory, report and decision, a neutral `Decider` seam, the part framework under every layer, tactics a package with the fighter kind, each layer's config with its layer, scripts driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
@@ -355,8 +356,6 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - Ground positioning's foot-clearance probes (`sensedFootClearance`, `clearFootTranslation`,
   `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
-- The opening selector (`openingSelector`, `src/core/mind/openings.ts`) makes a closure and small
-  arrays on every call: 366 of the sword bout's 998 KiB a body a step ([step cost](reference/step-cost.md#allocation-ceilings)).
 - The oracle, offline research only: its next spaces are a longer horizon, a response held
   longer, two decisions ahead and strikes by name ([oracle](reference/oracle.md)); what it finds
   reaches a mind as profiles and a position's value.

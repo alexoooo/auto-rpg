@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
+import { attackPathToRef, attackPathWork, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
 import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "../skills/attack-path.ts";
@@ -300,15 +300,21 @@ interface Opening {
   readonly score: number;
 }
 
-/** Whether the segment from `a` to `b` passes within any of `obstacles`' radii of its centre line. */
-function crosses(obstacles: readonly { readonly a: Vec3; readonly b: Vec3; readonly radius: number }[], a: Vec3, b: Vec3): boolean {
-  for (const o of obstacles) if (segmentDistanceSquared(a, b, o.a, o.b) <= o.radius * o.radius) return true;
+/** A guarding limb's centre line, world, and how near a blow's line may pass it: a work entry of the selector's own. */
+interface Obstacle { readonly a: [number, number, number]; readonly b: [number, number, number]; radius: number }
+
+/** Whether the segment from `a` to `b` passes within any of the first `count` of `obstacles`' radii of its centre line. */
+function crosses(obstacles: readonly Obstacle[], count: number, a: Vec3, b: Vec3): boolean {
+  for (let k = 0; k < count; k++) { const o = obstacles[k]!; if (segmentDistanceSquared(a, b, o.a, o.b) <= o.radius * o.radius) return true; }
   return false;
 }
 
 /** Each repertoire's blow families (`openingSelector`). */
 const LINEAR: readonly BlowFamily[] = Object.freeze(["straight"]), MIXED: readonly BlowFamily[] = Object.freeze(["straight", "hook"]);
 const VERTICAL: readonly BlowFamily[] = Object.freeze(["straight", "hook", "overhand"]), BOXING: readonly BlowFamily[] = Object.freeze(["straight", "hook", "uppercut"]);
+/** Each family alone: what a call that names its family weighs. */
+const FAMILY: Readonly<Record<BlowFamily, readonly BlowFamily[]>> = Object.freeze({ straight: LINEAR, cross: Object.freeze<BlowFamily[]>(["cross"]), hook: Object.freeze<BlowFamily[]>(["hook"]),
+  downward: Object.freeze<BlowFamily[]>(["downward"]), overhand: Object.freeze<BlowFamily[]>(["overhand"]), uppercut: Object.freeze<BlowFamily[]>(["uppercut"]) });
 
 /** Each spec's guarding limbs (its hands and forearms with a centre line), read once: what a blow's path must clear. */
 const GUARDS = new WeakMap<BodySpec, readonly { readonly name: string; readonly local: NonNullable<ReturnType<typeof capsule>> }[]>();
@@ -338,47 +344,163 @@ const NO_OFFSET: readonly number[] = Object.freeze([0]);
 /** A point path's start velocity: at rest. */
 const AT_REST: Vec3 = Object.freeze([0, 0, 0]) as unknown as Vec3;
 
-/** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */
+/** Each spec's segments by name, read once. */
+const SEGMENTS = new WeakMap<BodySpec, ReadonlyMap<string, SegmentSpec>>();
+function segmentsOf(spec: BodySpec): ReadonlyMap<string, SegmentSpec> {
+  let byName = SEGMENTS.get(spec);
+  if (!byName) SEGMENTS.set(spec, byName = new Map(spec.segments.map((segment) => [segment.name, segment])));
+  return byName;
+}
+
+/** Each hand's effector by side. */
+const HANDS: Readonly<Record<Side, string>> = Object.freeze({ left: "hand.left", right: "hand.right" });
+
+/** A sensed segment's pose and motion, as a foe's senses give it. */
+type Sensed = BodySense["segments"] extends ReadonlyMap<string, infer S> ? S : never;
+
+/**
+ * **A call's search**, as the candidates it weighs read it: plain fields the selector sets each
+ * call. The segment weighed: its name, its sensed pose and whether it was blocked last. The best so
+ * far: whether there is one, and its family, segment, blocked, reach, score and vertical sense; its
+ * target is the selector's `bestTarget`.
+ */
+interface Search {
+  view: BodyView;
+  hand: Side;
+  aim: string;
+  families: readonly BlowFamily[];
+  linear: boolean;
+  ahead: number;
+  obstacles: number;
+  name: string;
+  sensed: Sensed;
+  repeated: boolean;
+  found: boolean;
+  family: BlowFamily;
+  segment: string;
+  blocked: boolean;
+  reach: number;
+  score: number;
+  vertical: number;
+}
+
+/**
+ * A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy
+ * or health. A call allocates only the opening it returns: its candidates, paths and obstacles are
+ * worked in arrays made once a selector and read by index, since a `for…of` over a frozen array
+ * allocates at every element.
+ */
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
   /** The preference for a part by its segment's name (`OpeningTuning`'s `head`, `upperTrunk`, `middleTrunk`); none, 0. */
   const preference: Readonly<Record<string, number | undefined>> = settings;
-  const headOffsets = settings.headLateral ? [-settings.headLateral, 0, settings.headLateral] : [0];
+  const headOffsets: readonly number[] = settings.headLateral ? [-settings.headLateral, 0, settings.headLateral] : [0];
   const scratch = new Vector3(), inverse = new Quaternion();
   // What a family asks of a blow, read once a family: the settings do not change.
   const terms = new Map<BlowFamily, ReturnType<typeof familyTerms>>();
   const termsOf = (family: BlowFamily) => { let found = terms.get(family); if (!found) terms.set(family, found = familyTerms(family, settings)); return found; };
+  // How near a blow's line may pass a guarding limb beyond its radius, by hand: a share of that hand's own radius.
+  const marginOf = (hand: Side): number => {
+    const handShape = segmentsOf(spec).get(HANDS[hand])!.shape;
+    return (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
+  };
+  const margins: Readonly<Record<Side, number>> = { left: marginOf("left"), right: marginOf("right") };
   // A path's samples, in work arrays of this selector's own that carry nothing between calls.
   const along: [number, number, number] = [0, 0, 0], work: [number, number, number] = [0, 0, 0];
   const previous: [number, number, number] = [0, 0, 0], next: [number, number, number] = [0, 0, 0];
   // A candidate's face point, its predicted target and a hull's aim, likewise.
   const front: [number, number, number] = [0, 0, 0], target: [number, number, number] = [0, 0, 0], toward: [number, number, number] = [0, 0, 0];
-  // A path's ends and contact direction in the body's frame, and where its point path starts, likewise.
+  // A path's ends and contact direction in the body's frame, its path, and where its point path starts, likewise.
   const home: [number, number, number] = [0, 0, 0], end: [number, number, number] = [0, 0, 0], direction: [number, number, number] = [0, 0, 0];
-  const from: { position: Vec3; readonly velocity: Vec3 } = { position: AT_REST, velocity: AT_REST };
+  const from: { position: Vec3; readonly velocity: Vec3 } = { position: AT_REST, velocity: AT_REST }, path = attackPathWork();
   // The striking shoulder, world, and a candidate face's outward normal, likewise.
   const shoulder: [number, number, number] = [0, 0, 0], normal: [number, number, number] = [0, 0, 0];
+  // Where the hand starts, world; that start in a hull's frame; a capsule's ends and middle, world; and the best target found.
+  const start: [number, number, number] = [0, 0, 0], inside: [number, number, number] = [0, 0, 0], bestTarget: [number, number, number] = [0, 0, 0];
+  const capsuleA: [number, number, number] = [0, 0, 0], capsuleB: [number, number, number] = [0, 0, 0], capsuleMiddle: [number, number, number] = [0, 0, 0];
+  const capsuleParts: readonly Vec3[] = [capsuleA, capsuleMiddle, capsuleB];
+  // The guarding limbs a call's paths must clear, grown to the most a foe has.
+  const obstacles: Obstacle[] = [];
+  const search: Search = { view: undefined as unknown as BodyView, hand: "right", aim: "", families: LINEAR, linear: true, ahead: 0, obstacles: 0,
+    name: "", sensed: undefined as unknown as Sensed, repeated: false, found: false, family: "straight", segment: "", blocked: false, reach: 0, score: 0, vertical: 0 };
   /** `at`, in the frame of sensed segment `sensed`, into `out` in the world's. */
   const pointToRef = (sensed: { readonly position: Vector3; readonly rotation: Quaternion }, at: Vec3, out: [number, number, number]) => {
-    scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
+    scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
     out[0] = scratch.x; out[1] = scratch.y; out[2] = scratch.z;
   };
-  const point = (foe: BodySense, name: string, at: Vec3): Vec3 => {
-    const sensed = foe.segments.get(name)!;
-    scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
-    return [scratch.x, scratch.y, scratch.z];
+  /** `at`, in `view`'s root frame, into `out` in the world's. */
+  const worldToRef = (view: BodyView, at: Vec3, out: [number, number, number]) => {
+    scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.root.position);
+    out[0] = scratch.x; out[1] = scratch.y; out[2] = scratch.z;
+  };
+  /**
+   * Each blow at `front`, a point on the searched segment's face (its top or bottom for an overhand
+   * or an uppercut, its side for any other), scored: in the order the faces are found, so that a tie
+   * keeps the first. The target is read into a work array, and copied only into the best.
+   */
+  const consider = (front: Vec3, face: "side" | "top" | "bottom", outward: Vec3 | null = null) => {
+    const view = search.view, hand = search.hand, sensed = search.sensed, name = search.name, ahead = search.ahead;
+    const spin = sensed.spin, velocity = sensed.velocity;
+    const lx = front[0] - sensed.centre.x, ly = front[1] - sensed.centre.y, lz = front[2] - sensed.centre.z;
+    target[0] = front[0] + (velocity.x + (spin.y * lz - spin.z * ly)) * ahead;
+    target[1] = front[1] + (velocity.y + (spin.z * lx - spin.x * lz)) * ahead;
+    target[2] = front[2] + (velocity.z + (spin.x * ly - spin.y * lx)) * ahead;
+    const armReach = placedReach(spec, hand, target[1] - view.head.y);
+    const flat = hypot(target[0] - view.head.x, target[1] - target[1], target[2] - view.head.z);
+    let off = 0;
+    if (settings.square && outward) {
+      const lx = target[0] - shoulder[0], ly = target[1] - shoulder[1], lz = target[2] - shoulder[2], line = hypot(lx, ly, lz);
+      if (line > 0) off = settings.square * (1 + (lx * outward[0] + ly * outward[1] + lz * outward[2]) / line);
+    }
+    const families = search.families;
+    for (let f = 0; f < families.length; f++) {
+      const family = families[f]!;
+      if ((family === "overhand") !== (face === "top")) continue;
+      if ((family === "uppercut") !== (face === "bottom")) continue;
+      const terms = termsOf(family), reach = Math.max(0, armReach - terms.reserve);
+      let blocked: boolean;
+      if (search.linear) blocked = crosses(obstacles, search.obstacles, start, target);
+      else {
+        intoFrameToRef(view.root, target, scratch); end[0] = scratch.x; end[1] = scratch.y; end[2] = scratch.z;
+        const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
+          .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
+        if (contactDirection) { direction[0] = contactDirection.x; direction[1] = contactDirection.y; direction[2] = contactDirection.z; }
+        const p = view.effectors[HANDS[hand]]!.points[search.aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
+        attackPathToRef(home, end, hand, family, paths, contactDirection ? direction : undefined, path);
+        from.position = path.chamber;
+        worldToRef(view, path.chamber, previous); blocked = false;
+        const curve = path.curved ? path.curve : undefined;
+        for (let sample = 1; sample <= settings.pathSamples; sample++) {
+          pointPathTargetToRef(from, end, path.seconds * sample / settings.pathSamples, path.seconds, along, work, path.contactVelocity, curve);
+          worldToRef(view, along, next);
+          if (crosses(obstacles, search.obstacles, previous, next)) { blocked = true; break; }
+          previous[0] = next[0]; previous[1] = next[1]; previous[2] = next[2];
+        }
+      }
+      const score = (preference[name] ?? 0) + (search.repeated ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
+        + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost + off;
+      if (!search.found || score < search.score) {
+        search.found = true; bestTarget[0] = target[0]; bestTarget[1] = target[1]; bestTarget[2] = target[2];
+        search.segment = name; search.family = family; search.blocked = blocked; search.reach = reach; search.score = score; search.vertical = terms.vertical;
+      }
+    }
   };
   return (view: BodyView, foe: BodySense, hand: Side, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear",
-    selection?: { readonly family: BlowFamily; readonly segments: readonly string[]; readonly blocked?: readonly string[] }) => {
-    const handShape = spec.segments.find(s => s.name === `hand.${hand}`)!.shape;
-    const margin = (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
-    const fist = view.fists[hand].position;
-    const observed = view.effectors[`hand.${hand}`]!.feedback?.point ?? [fist.x, fist.y, fist.z];
-    const start: Vec3 = [observed[0], observed[1], observed[2]];
-    const obstacles = guardsOf(foe.spec).flatMap(({ name, local }) =>
-      foe.segments.has(name) ? [{ a: point(foe, name, local.a), b: point(foe, name, local.b), radius: local.radius + margin }] : []);
-    let best: Opening | null = null;
+    selection?: { readonly family: BlowFamily; readonly segments: readonly string[]; readonly blocked?: readonly string[] }): Opening | null => {
+    const margin = margins[hand];
+    const observed = view.effectors[HANDS[hand]]!.feedback?.point;
+    if (observed) { start[0] = observed[0]; start[1] = observed[1]; start[2] = observed[2]; }
+    else { const fist = view.fists[hand].position; start[0] = fist.x; start[1] = fist.y; start[2] = fist.z; }
+    const guards = guardsOf(foe.spec);
+    let count = 0;
+    for (let k = 0; k < guards.length; k++) {
+      const guard = guards[k]!, sensed = foe.segments.get(guard.name);
+      if (!sensed) continue;
+      const obstacle = obstacles[count] ??= { a: [0, 0, 0], b: [0, 0, 0], radius: 0 };
+      pointToRef(sensed, guard.local.a, obstacle.a); pointToRef(sensed, guard.local.b, obstacle.b); obstacle.radius = guard.local.radius + margin;
+      count++;
+    }
     let families: readonly BlowFamily[];
     switch (repertoire) {
       case "linear": families = LINEAR; break;
@@ -387,110 +509,72 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       case "boxing": families = BOXING; break;
       default: { const never: never = repertoire; throw new Error(`unknown repertoire ${never}`); }
     }
-    if (selection) families = [selection.family];
-    const { high } = foe.spec.marks;
-    const ahead = OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time)), aim = aimOf(spec, hand);
+    if (selection) families = FAMILY[selection.family];
+    const high = foe.spec.marks.high;
+    search.view = view; search.hand = hand; search.aim = aimOf(spec, hand); search.families = families; search.linear = repertoire === "linear";
+    search.ahead = OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time)); search.obstacles = count; search.found = false;
     if (settings.square) {
-      scratch.set(...shoulderFromHead(spec, hand)).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.head);
+      const at = shoulderFromHead(spec, hand);
+      scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.head);
       shoulder[0] = scratch.x; shoulder[1] = scratch.y; shoulder[2] = scratch.z;
     }
-    /** `at`, in the body's root frame, into `out` in the world's. */
-    const worldToRef = (at: Vec3, out: [number, number, number]) => {
-      scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.root.position);
-      out[0] = scratch.x; out[1] = scratch.y; out[2] = scratch.z;
-    };
-    for (const name of selection?.segments ?? targetsOf(foe.spec)) {
-      const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+    const names = selection?.segments ?? targetsOf(foe.spec), byName = segmentsOf(foe.spec);
+    for (let n = 0; n < names.length; n++) {
+      const name = names[n]!, segment = byName.get(name), sensed = foe.segments.get(name);
       const local = segment && capsule(segment), poly = segment && polyhedron(segment);
-      if ((!local&&!poly) || !sensed) continue;
+      if ((!local && !poly) || !sensed) continue;
       const top = selection?.family === "overhand" || repertoire === "vertical" ? upperSurface(foe, name, start) : null;
       const bottom = selection?.family === "uppercut" || repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
-      const spin = sensed.spin, velocity = sensed.velocity, repeated = name === blockedSurface || selection?.blocked?.includes(name);
-      /**
-       * Each blow at `front`, a point on the segment's face (its top or bottom for an overhand or an
-       * uppercut, its side for any other), scored: in the order the faces are found, so that a tie
-       * keeps the first. The target is read into a work array, and copied only into the best.
-       */
-      const consider = (front: Vec3, face: "side" | "top" | "bottom", outward: Vec3 | null = null) => {
-        const lx = front[0] - sensed.centre.x, ly = front[1] - sensed.centre.y, lz = front[2] - sensed.centre.z;
-        target[0] = front[0] + (velocity.x + (spin.y * lz - spin.z * ly)) * ahead;
-        target[1] = front[1] + (velocity.y + (spin.z * lx - spin.x * lz)) * ahead;
-        target[2] = front[2] + (velocity.z + (spin.x * ly - spin.y * lx)) * ahead;
-        const armReach = placedReach(spec, hand, target[1] - view.head.y);
-        const flat = hypot(target[0] - view.head.x, target[1] - target[1], target[2] - view.head.z);
-        let off = 0;
-        if (settings.square && outward) {
-          const lx = target[0] - shoulder[0], ly = target[1] - shoulder[1], lz = target[2] - shoulder[2], line = hypot(lx, ly, lz);
-          if (line > 0) off = settings.square * (1 + (lx * outward[0] + ly * outward[1] + lz * outward[2]) / line);
-        }
-        for (const family of families) {
-          if ((family === "overhand") !== (face === "top")) continue;
-          if ((family === "uppercut") !== (face === "bottom")) continue;
-          const terms = termsOf(family), reach = Math.max(0, armReach - terms.reserve);
-          let blocked: boolean;
-          if (repertoire === "linear") blocked = crosses(obstacles, start, target);
-          else {
-            intoFrameToRef(view.root,target,scratch);end[0] = scratch.x; end[1] = scratch.y; end[2] = scratch.z;
-            const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
-              .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
-            if (contactDirection) { direction[0] = contactDirection.x; direction[1] = contactDirection.y; direction[2] = contactDirection.z; }
-            const p = view.effectors[`hand.${hand}`]!.points[aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
-            const path = attackPath(home,end,hand,family,paths, contactDirection ? direction : undefined);
-            from.position = path.chamber;
-            worldToRef(path.chamber, previous); blocked = false;
-            for(let sample=1;sample<=settings.pathSamples;sample++) {
-              pointPathTargetToRef(from,end,path.seconds*sample/settings.pathSamples,path.seconds,along,work,path.contactVelocity,path.curve);
-              worldToRef(along, next);
-              if(crosses(obstacles,previous,next)){blocked=true;break;}
-              previous[0] = next[0]; previous[1] = next[1]; previous[2] = next[2];
-            }
+      search.name = name; search.sensed = sensed; search.repeated = name === blockedSurface || !!selection?.blocked?.includes(name);
+      if (poly) {
+        scratch.set(start[0], start[1], start[2]).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation, inverse), scratch);
+        inside[0] = scratch.x; inside[1] = scratch.y; inside[2] = scratch.z;
+        const planes = poly.planes;
+        for (let v = 0; v < ELEVATIONS.length; v++) for (let l = 0; l < ELEVATIONS.length; l++) {
+          const vertical = ELEVATIONS[v]!, lateral = ELEVATIONS[l]!;
+          toward[0] = poly.middle[0] + lateral * poly.extent[0] / 2; toward[1] = poly.middle[1] + vertical * poly.extent[1] / 2; toward[2] = poly.middle[2] + 0;
+          const entry = hullEntry(planes, inside, toward);
+          if (!entry) continue;
+          pointToRef(sensed, entry, front);
+          let facing = planes[0]!, nearest = -Infinity;
+          for (let k = 0; k < planes.length; k++) {
+            const plane = planes[k]!, n = plane.normal, d = (n[0] * entry[0] + n[1] * entry[1] + n[2] * entry[2]) - plane.offset;
+            if (d > nearest) { nearest = d; facing = plane; }
           }
-          const score = (preference[name] ?? 0) + (repeated ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-            + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost + off;
-          if (!best || score < best.score) best = { hand, target: [target[0], target[1], target[2]], segment: name, family, blocked, reach, score,
-            ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
-        }
-      };
-      if(poly) {
-        scratch.set(...start).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
-        const from:Vec3 = [scratch.x,scratch.y,scratch.z];
-        for(const vertical of ELEVATIONS)for(const lateral of ELEVATIONS) {
-          toward[0]=poly.middle[0]+lateral*poly.extent[0]/2; toward[1]=poly.middle[1]+vertical*poly.extent[1]/2; toward[2]=poly.middle[2]+0;
-          const entry=hullEntry(poly.planes,from,toward);
-          if(entry){
-            pointToRef(sensed,entry,front);
-            let facing=poly.planes[0]!, nearest=-Infinity;
-            for(const plane of poly.planes){const n=plane.normal,d=(n[0]*entry[0]+n[1]*entry[1]+n[2]*entry[2])-plane.offset;if(d>nearest){nearest=d;facing=plane;}}
-            scratch.set(...facing.normal).applyRotationQuaternionToRef(sensed.rotation,scratch);normal[0]=scratch.x;normal[1]=scratch.y;normal[2]=scratch.z;
-            consider(front,"side",normal);
-          }
+          scratch.set(facing.normal[0], facing.normal[1], facing.normal[2]).applyRotationQuaternionToRef(sensed.rotation, scratch);
+          normal[0] = scratch.x; normal[1] = scratch.y; normal[2] = scratch.z;
+          consider(front, "side", normal);
         }
       }
-      if(local) {
-       const a = point(foe, name, local.a), b = point(foe, name, local.b), radius = local.radius;
-       // The centre line's axis, and each candidate in numbers: this runs for every candidate blow each control step.
-       const ax = b[0] - a[0], ay = b[1] - a[1], az = b[2] - a[2], squared = ax * ax + ay * ay + az * az;
-       for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of ELEVATIONS)
-         for (const lateral of name === high ? headOffsets : NO_OFFSET) {
-        const w0 = start[0] - part[0], w2 = start[2] - part[2], far = hypot(w0, 0, w2), flatRadius = radius * Math.sqrt(1 - elevation * elevation);
-        const c = Math.sqrt(1 - lateral * lateral);
-        let cx = part[0], cy = part[1], cz = part[2];
-        if (far > 0 && lateral === 0) { cx = part[0] + w0 * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + w2 * flatRadius / far; }
-        else if (far > 0) { cx = part[0] + (w0 * c + w2 * lateral) * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + (w2 * c - w0 * lateral) * flatRadius / far; }
-        const fraction = squared ? Math.max(0, Math.min(1, ((cx - a[0]) * ax + (cy - a[1]) * ay + (cz - a[2]) * az) / squared)) : 0;
-        const nx = a[0] + ax * fraction, ny = a[1] + ay * fraction, nz = a[2] + az * fraction;
-        const mx = cx - nx, my = cy - ny, mz = cz - nz, normalLength = hypot(mx, my, mz);
-        if (normalLength > 0) {
-          const out = radius / normalLength; front[0] = nx + mx * out; front[1] = ny + my * out; front[2] = nz + mz * out;
-          normal[0] = mx / normalLength; normal[1] = my / normalLength; normal[2] = mz / normalLength;
-          consider(front, "side", normal);
-        } else { front[0] = cx; front[1] = cy; front[2] = cz; consider(front, "side"); }
-       }
+      if (local) {
+        const a = capsuleA, b = capsuleB, radius = local.radius;
+        pointToRef(sensed, local.a, a); pointToRef(sensed, local.b, b);
+        capsuleMiddle[0] = (a[0] + b[0]) * (1 / 2); capsuleMiddle[1] = (a[1] + b[1]) * (1 / 2); capsuleMiddle[2] = (a[2] + b[2]) * (1 / 2);
+        // The centre line's axis, and each candidate in numbers: this runs for every candidate blow each control step.
+        const ax = b[0] - a[0], ay = b[1] - a[1], az = b[2] - a[2], squared = ax * ax + ay * ay + az * az;
+        const offsets = name === high ? headOffsets : NO_OFFSET;
+        for (let q = 0; q < capsuleParts.length; q++) for (let e = 0; e < ELEVATIONS.length; e++) for (let o = 0; o < offsets.length; o++) {
+          const part = capsuleParts[q]!, elevation = ELEVATIONS[e]!, lateral = offsets[o]!;
+          const w0 = start[0] - part[0], w2 = start[2] - part[2], far = hypot(w0, 0, w2), flatRadius = radius * Math.sqrt(1 - elevation * elevation);
+          const c = Math.sqrt(1 - lateral * lateral);
+          let cx = part[0], cy = part[1], cz = part[2];
+          if (far > 0 && lateral === 0) { cx = part[0] + w0 * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + w2 * flatRadius / far; }
+          else if (far > 0) { cx = part[0] + (w0 * c + w2 * lateral) * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + (w2 * c - w0 * lateral) * flatRadius / far; }
+          const fraction = squared ? Math.max(0, Math.min(1, ((cx - a[0]) * ax + (cy - a[1]) * ay + (cz - a[2]) * az) / squared)) : 0;
+          const nx = a[0] + ax * fraction, ny = a[1] + ay * fraction, nz = a[2] + az * fraction;
+          const mx = cx - nx, my = cy - ny, mz = cz - nz, normalLength = hypot(mx, my, mz);
+          if (normalLength > 0) {
+            const out = radius / normalLength; front[0] = nx + mx * out; front[1] = ny + my * out; front[2] = nz + mz * out;
+            normal[0] = mx / normalLength; normal[1] = my / normalLength; normal[2] = mz / normalLength;
+            consider(front, "side", normal);
+          } else { front[0] = cx; front[1] = cy; front[2] = cz; consider(front, "side"); }
+        }
       }
       if (top) consider(top, "top");
       if (bottom) consider(bottom, "bottom");
     }
-    // Assigned in `consider`, which the checker does not follow.
-    return best as Opening | null;
+    if (!search.found) return null;
+    return { hand, target: [bestTarget[0], bestTarget[1], bestTarget[2]], segment: search.segment, family: search.family, blocked: search.blocked, reach: search.reach,
+      score: search.score, ...(search.vertical !== 0 ? { direction: [0, search.vertical, 0] as Vec3 } : {}) };
   };
 }

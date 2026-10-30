@@ -3,31 +3,54 @@
  * can hold it; what it allocates is the same on every machine, and it is what a `map` put back
  * into a dear loop shows up as. Read by V8's sampling heap profiler, in KiB a body a step, each
  * reading in a process of its own (`stepAllocation`): two skeletons standing, the Warrior lying
- * under its ground reader, and the Warrior against the Rogue with swords. Node, the core world,
+ * under its ground reader, and each game mind fighting itself (`GAME_MINDS`). Node, the core world,
  * Rapier, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { centreOfToRef } from "../src/core/control/support.ts";
-import { standBodies, stepAllocation } from "./harness/garbage.mjs";
+import { availableParallelism } from "node:os";
+import { standBodies, stepAllocation, stepAllocationAsync } from "./harness/garbage.mjs";
+import { MINDS } from "../src/core/mind/controllers.ts";
+import { partOf } from "../src/core/mind/catalog.ts";
+import { controlsFor } from "../src/arena/matchup.ts";
+import { BODY_MODELS } from "../src/core/models.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 
 /**
  * The most a body's step may allocate, KiB, by fixture: the highest of five readings when it was
- * last set, and a quarter. A change that goes over it takes its allocation out of the step or,
- * where the allocation is the feature's, raises the ceiling and says why in its commit.
+ * last set, and a quarter; `mind` is every game mind's, the highest of them. A change that goes
+ * over it takes its allocation out of the step or, where the allocation is the feature's, raises
+ * the ceiling and says why in its commit.
  */
-const CEILING = { standing: 140, bout: 1262, down: 206 };
+const CEILING = { standing: 140, mind: 917, down: 206 };
+
+/** What a fighter's right hand may hold in a mind's bout, the first its body and mind take: the left is empty. */
+const HELDS = Object.freeze(["sword", "empty", "club"]);
+
+/**
+ * **Every game mind** (`MINDS` whose part is the game's), each with the first body it fits and the
+ * first of `HELDS` it fights with there: the bouts each mind's steady state is read in.
+ */
+const GAME_MINDS = Object.entries(MINDS).filter(([, preset]) => partOf(preset.config).stage === "game").flatMap(([id]) => {
+  for (const model of BODY_MODELS) for (const held of HELDS) if (controlsFor(model, { left: "empty", right: held }).includes(id)) return [{ id, model, held }];
+  return [];
+});
 
 test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
   const kib = stepAllocation("standing");
   assert.ok(kib <= CEILING.standing, `${kib.toFixed(0)} KiB a body a step, over ${CEILING.standing}`);
 });
 
-test("a_bout_s_step_allocates_no_more_than_its_ceiling", () => {
-  const kib = stepAllocation("bout");
-  assert.ok(kib <= CEILING.bout, `${kib.toFixed(0)} KiB a body a step, over ${CEILING.bout}`);
+test("every_game_mind_s_step_allocates_no_more_than_the_ceiling", async () => {
+  assert.ok(GAME_MINDS.length > 0, "the fixture found a game mind with a body to fight in");
+  const lanes = Math.max(1, availableParallelism() - 1), readings = [];
+  for (let k = 0; k < GAME_MINDS.length; k += lanes)
+    readings.push(...await Promise.all(GAME_MINDS.slice(k, k + lanes).map(({ id, model, held }) => stepAllocationAsync("mind", id, model, held))));
+  const over = GAME_MINDS.map((mind, k) => ({ ...mind, kib: readings[k] })).filter(({ kib }) => !(kib <= CEILING.mind));
+  assert.deepEqual(over.map(({ id, model, held, kib }) => `${id} on ${model} holding ${held}: ${kib.toFixed(0)} KiB a body a step`), [],
+    `over the ceiling of ${CEILING.mind}`);
 });
 
 test("a_down_body_s_step_allocates_no_more_than_its_ceiling", () => {
