@@ -31,12 +31,13 @@ import type { LabAddress } from "../lab/scenarios.ts";
 import type { CaseWorld, Json, Reader, WorldKind } from "./evaluation.ts";
 
 /**
- * One case, as plain data: the body, what its right hand holds, its start (placed in `posture`, or
+ * One case, as plain data: the body, whether its feet have toes, what its right hand holds, its start (placed in `posture`, or
  * standing in guard and shoved at 1 s toward `degrees` from +z by 1.5 s of its weight a kg), the
  * seed that moves a placed start's joints, and the techniques played in turn, the last the one read.
  */
 export interface TechniqueCase {
   readonly model: HumanoidModel;
+  readonly toes?: boolean;
   readonly held: Held;
   readonly seed: number;
   readonly start: { readonly kind: "placed"; readonly posture: (typeof GROUND_POSTURES)[number] } | { readonly kind: "shoved"; readonly degrees: number };
@@ -87,8 +88,9 @@ export interface BuiltTechnique {
   dispose(): void;
 }
 
-/** The body a case plays: the model, armed in its right hand. */
-export const techniqueSpec = (one: Pick<TechniqueCase, "model" | "held">): BodySpec => armedWith(humanoidSpec(one.model), "right", one.held);
+/** The body a case plays: the model, on toes where it asks, armed in its right hand. */
+export const techniqueSpec = (one: Pick<TechniqueCase, "model" | "toes" | "held">): BodySpec =>
+  armedWith(humanoidSpec(one.model, undefined, undefined, { toes: one.toes ?? false }), "right", one.held);
 
 /** Where a case's body is built, or why its start is refused, a sentence. */
 export function techniquePlacement(one: TechniqueCase): ReturnType<typeof groundPlacement> {

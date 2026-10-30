@@ -147,15 +147,15 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const channelOf = (name: string): number => muscles.channels.findIndex((channel) => channel.name === name);
   /** For a pose stage ended by its channels' angles, each one's index and angle as the muscles read it. */
   const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
-  /** For a paced pose stage, by foot, each channel it presses and how hard, rad a metre. */
+  /** For a pose stage that presses, by foot, each channel it presses and how hard, rad a metre. */
   const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
   for (const stage of stagesOf(recipe)) {
     if (stage.kind === "pose" && stage.until?.past) {
       pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - muscles.channels[index]!.dof.spec.bind.value }; }));
     }
-    if (stage.kind === "pose" && stage.pace) {
-      const press = stage.pace.press;
-      pressOf.set(stage, feet.map((foot) => Object.entries(press).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
+    if (stage.kind === "pose" && stage.press) {
+      const gains = stage.press.gains;
+      pressOf.set(stage, feet.map((foot) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
     }
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(muscles.channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
@@ -256,23 +256,27 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage, dt: number): void => {
-    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, pace = stage.pace;
+    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press } = stage;
     let goals = goalsOf.get(stage)!;
-    if (pace) {
-      // The way on from the posture it began in, while the balls are down and the body slow; each lifting ball's channels pressed.
-      if (!state.paced) { for (let i = 0; i < count; i++) state.from[i] = muscles.angle(i); state.paced = true; }
-      const v = view.stance.velocity;
-      let down = v.x * v.x + v.y * v.y + v.z * v.z < pace.slow * pace.slow;
-      for (let k = 0; k < feet.length; k++) if (work.heights[k]! >= pace.lift) down = false;
-      if (down) state.along = Math.min(1, state.along + pace.rate * dt);
-      const paced = work.goals;
-      for (let i = 0; i < count; i++) paced[i] = state.from[i]! + (goals[i]! - state.from[i]!) * state.along;
-      pressOf.get(stage)!.forEach((press, k) => {
-        const over = Math.max(0, work.heights[k]! - pace.lift / 2);
-        for (const { index, gain } of press) paced[index] += gain * over;
+    if (pace || press) {
+      const asked = work.goals;
+      asked.set(goals);
+      if (pace) {
+        // The way on from the posture it began in, while the balls are down and the body slow.
+        if (!state.paced) { for (let i = 0; i < count; i++) state.from[i] = muscles.angle(i); state.paced = true; }
+        const v = view.stance.velocity;
+        let down = v.x * v.x + v.y * v.y + v.z * v.z < pace.slow * pace.slow;
+        for (let k = 0; k < feet.length; k++) if (work.heights[k]! >= pace.lift) down = false;
+        if (down) state.along = Math.min(1, state.along + pace.rate * dt);
+        for (let i = 0; i < count; i++) asked[i] = state.from[i]! + (goals[i]! - state.from[i]!) * state.along;
+      }
+      // Each ball that is up presses its channels.
+      if (press) pressOf.get(stage)!.forEach((gains, k) => {
+        const over = Math.max(0, work.heights[k]! - press.above);
+        for (const { index, gain } of gains) asked[index] += gain * over;
       });
-      for (let i = 0; i < count; i++) { const dof = muscles.channels[i]!.dof.spec; paced[i] = Math.max(dof.min.value, Math.min(dof.max.value, paced[i]!)); }
-      goals = paced;
+      for (let i = 0; i < count; i++) { const dof = muscles.channels[i]!.dof.spec; asked[i] = Math.max(dof.min.value, Math.min(dof.max.value, asked[i]!)); }
+      goals = asked;
     }
     for (let i = 0; i < goals.length; i++) {
       muscles.velocity[i] = Math.max(-top, Math.min(top, (goals[i]! - muscles.angle(i)) / within));
@@ -456,7 +460,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           // A time summed from steps falls a rounding short of a whole number of them: to the nearest step.
           switch (stage.kind) {
             case "pose": {
-              if (stage.pace || stage.until?.balls !== undefined) readBalls();
+              if (stage.pace || stage.press || stage.until?.balls !== undefined) readBalls();
               pose(stage, dt);
               state.time += dt;
               if (stage.until) {

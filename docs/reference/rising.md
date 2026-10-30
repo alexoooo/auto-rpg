@@ -1232,10 +1232,16 @@ played by the staged player, then the stance's climb and steadying (`stanceStead
 | `sit` | `TUCK_SIT`: on the heels, hips 0.7 rad, arms forward, 3 rad/s | both knees past 2.5 rad, 0.05 s; at most 1.5 s |
 | `up` | `UPRIGHT` paced: 1.6 of the way a second, 2 rad/s | 0.85 of the way and slower than 0.3 m/s, 0.05 s; at most 4 s |
 
+From the front, `front-sit-back` plays the game's rise onto hands and knees first (`fold`, `tuck`,
+`prop`, and its bearing stage on them asking the ankles 0.7 rad, timed as step up's), then the
+same stages, the plant allowed 2 s: the bearing stage leaves the trunk low, and the plant raises it
+as it brings the balls down. The game's `down` hands over sat back on the heels with the toes let
+out from under the feet, which the sit-back does not stand from.
+
 - **The way up is paced by the balls of the feet** (`Pace`): the posture moves on from where `up`
   begins only while both balls are within 0.03 m of the ground and the centre of mass is slower
-  than 0.3 m/s, and each hip is flexed 8 rad a metre its foot's ball stands over half that: a
-  rising heel is a ball lifting, and the hip turns it back down. Without that press the rise stands
+  than 0.3 m/s, and each hip is flexed 8 rad a metre its foot's ball stands over 0.015 m (`Press`):
+  a rising heel is a ball lifting, and the hip turns it back down. Without that press the rise stands
   1 of 32; it is what keeps the weight over the toes.
 - **A stage ends on what the body has done** (`Until`), each reading held a moment, its time the
   most it may take, past which the attempt is over. The plant ends on the balls down, not on the
@@ -1286,7 +1292,9 @@ median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each p
 Each edge of the staged route played alone on a body, begun once its entry admits the body, and
 read by whether it takes the body to its posture and how fast: `npm run evaluate -- rise`
 (`src/evaluation/rise/`, on techniques in turn, `src/evaluation/technique.ts`; Node, core world,
-Rapier, 120 Hz). The Warrior and the Rogue empty-handed, six seeds each. A technique waits up to
+Rapier, 120 Hz). The Warrior on toes, empty-handed, six seeds: no edge is worked on flat feet, and
+the Rogue joins once its stance is measured on toes (`stance-envelope.ts`); the flat feet's figures
+below are both bodies' at the commit their records name. A technique waits up to
 2 s for its entry, runs up to 16 s, and one that stands the body is watched 2 s on its feet
 (`TECHNIQUE_LIMITS`). Its summary is each edge's profile: begun, done, the median time, by body and
 by the speed it was begun at. An edge that ends not done leaves the body slack until it comes to

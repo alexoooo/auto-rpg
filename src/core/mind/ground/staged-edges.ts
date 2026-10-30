@@ -59,6 +59,7 @@ const PARTS = Object.freeze({
   "staged-step-through": { first: "shift", from: ["kneeling"], to: "half-kneel", entry: "moving" },
   "staged-lunge": { first: "lunge 0", from: ["half-kneel"], to: "standing", entry: "moving" },
   "sit-back": { recipe: SIT_BACK, first: "plant", from: ["fours"], to: "standing", entry: "moving" },
+  "front-sit-back": { recipe: SIT_BACK, first: "fold", from: ["front"], to: "standing", entry: "still" },
 } as const satisfies Record<string, Part>);
 type StagedKind = keyof typeof PARTS;
 
@@ -97,7 +98,7 @@ const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Si
  */
 function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind): TechniqueRun {
   const part: Part = PARTS[kind];
-  const model = own.spec.model, tuning = stepUpTuning(model), whole = part.recipe ?? stepUpRecipe(tuning);
+  const model = own.spec.model, tuning = stepUpTuning(model), whole = stepUpRecipe(tuning, part.recipe);
   const at = (name: string): number => {
     const index = whole.rise.findIndex(stage => stage.name === name);
     if (index < 0) throw new Error(`the rise has no ${JSON.stringify(name)} stage`);
@@ -199,6 +200,8 @@ export const STAGED_STEP_THROUGH = routeTechnique("staged-step-through", "Staged
 export const STAGED_LUNGE = routeTechnique("staged-lunge", "Staged lunge");
 /** **Sit back**: from hands and knees on toes, sat back onto the heels and up over the feet (`SIT_BACK`), climbed and steadied. */
 export const SIT_BACK_EDGE = routeTechnique("sit-back", "Sit back");
+/** **Sit back from the front**: onto hands and knees as step up comes, and on through the sit-back without a stop (`SIT_BACK`). */
+export const FRONT_SIT_BACK = routeTechnique("front-sit-back", "Sit back from the front");
 
 /** **The staged route**: step up's parts in route order, then step up from whatever they do not take. */
 export const STAGED_ROUTE: readonly TechniqueName[] = Object.freeze(["staged-roll", "staged-down", "staged-kneel-up", "staged-step-through", "staged-lunge", "step-up"]);

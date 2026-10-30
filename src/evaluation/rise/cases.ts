@@ -4,7 +4,8 @@
  * position the edge is begun from, placed there at rest (`groundPlacement`, a seed moving its joints).
  * Rung `moving`: after the edges before it on the route, from the nearest begun lying, placed there
  * at rest, the first edge after a shove from standing: entered as the route hands the body over, at
- * the speeds the edge before leaves it. The Warrior and the Rogue, empty-handed, six seeds each.
+ * the speeds the edge before leaves it. The Warrior on toes, empty-handed, six seeds: no edge is
+ * worked on flat feet, and the Rogue joins once its stance is measured on toes.
  */
 import type { TechniqueName } from "../../core/mind/ground/technique.ts";
 import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
@@ -17,18 +18,19 @@ import { readTechnique, techniquePlacement, TECHNIQUE_LIMITS, type BuiltTechniqu
 /** An edge drilled, by its technique; the edge before it on the route, none for the first. */
 export const EDGES: Readonly<Record<string, TechniqueName | null>> = Object.freeze({
   "staged-roll": null, "staged-down": "staged-roll", "staged-kneel-up": "staged-down", "staged-step-through": "staged-kneel-up", "staged-lunge": "staged-step-through",
+  "sit-back": "staged-down", "front-sit-back": "staged-roll",
 });
 /** The edges drilled, in route order. */
 export const DRILLED: readonly TechniqueName[] = Object.freeze(Object.keys(EDGES) as TechniqueName[]);
 
 type Posture = (typeof GROUND_POSTURES)[number];
 /** A placed trial: the body, its start's posture and seed. */
-export type PlacedCondition = { readonly model: HumanoidModel; readonly held: Held; readonly posture: Posture; readonly seed: number };
+export type PlacedCondition = { readonly model: HumanoidModel; readonly toes: boolean; readonly held: Held; readonly posture: Posture; readonly seed: number };
 /** A trial after the edge before: the body and the seed of that edge's start. */
-export type MovingCondition = { readonly model: HumanoidModel; readonly held: Held; readonly seed: number };
+export type MovingCondition = { readonly model: HumanoidModel; readonly toes: boolean; readonly held: Held; readonly seed: number };
 export type RiseCondition = PlacedCondition | MovingCondition;
 
-const MODELS: readonly HumanoidModel[] = ["workshop-fighter", "workshop-rogue"];
+const MODELS: readonly HumanoidModel[] = ["workshop-fighter"];
 const SEEDS = [1, 2, 3, 4, 5, 6];
 /** The positions the staged edges are begun from, as placed starts. */
 const POSTURES: readonly Posture[] = ["back", "left", "right", "front", "fours", "kneeling", "half-kneel"];
@@ -50,7 +52,7 @@ const LYING: readonly string[] = ["back", "left", "right", "front"];
  * from (by the seed); for the first edge, standing and shoved toward one of six directions by the seed.
  */
 export function riseCase(edge: TechniqueName, condition: RiseCondition): TechniqueCase {
-  const body = { model: condition.model, held: condition.held, seed: condition.seed };
+  const body = { model: condition.model, toes: condition.toes, held: condition.held, seed: condition.seed };
   if ("posture" in condition) return { ...body, start: { kind: "placed", posture: condition.posture }, chain: [edge] };
   if (EDGES[edge] === null) return { ...body, start: { kind: "shoved", degrees: (condition.seed - 1) * 60 }, chain: [edge] };
   const chain: TechniqueName[] = [edge];
@@ -70,7 +72,7 @@ const seconds = TECHNIQUE_LIMITS.admit * (DRILLED.length + 1) + TECHNIQUE_LIMITS
 export const RISE_CASES: Readonly<Record<"placed" | "moving", Cases<RiseCondition, TechniqueReading & Json, BuiltTechnique>>> = Object.freeze({
   placed: {
     arity: 1, play: play("placed"), engine: "rapier", seconds,
-    conditions: MODELS.flatMap((model) => POSTURES.flatMap((posture) => SEEDS.map((seed): PlacedCondition => ({ model, held: "empty", posture, seed })))),
+    conditions: MODELS.flatMap((model) => POSTURES.flatMap((posture) => SEEDS.map((seed): PlacedCondition => ({ model, toes: true, held: "empty", posture, seed })))),
     faults(value, condition) {
       const edge = edgeOf(value);
       if (!isEdge(edge)) return [edge];
@@ -83,7 +85,7 @@ export const RISE_CASES: Readonly<Record<"placed" | "moving", Cases<RiseConditio
   },
   moving: {
     arity: 1, play: play("moving"), engine: "rapier", seconds,
-    conditions: MODELS.flatMap((model) => SEEDS.map((seed): MovingCondition => ({ model, held: "empty", seed }))),
+    conditions: MODELS.flatMap((model) => SEEDS.map((seed): MovingCondition => ({ model, toes: true, held: "empty", seed }))),
     faults(value, condition) {
       const edge = edgeOf(value);
       if (!isEdge(edge)) return [edge];
