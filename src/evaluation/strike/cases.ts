@@ -79,7 +79,7 @@ const STILL = deepFreeze({
 
 /**
  * Rung 5, struck from a walk: the still rung's target and striker set farther apart than the
- * striker's window, so it walks in, on the Warrior's body at the middle mark; each trial played
+ * striker's window, so it walks in, on the Warrior's body at the head and the middle mark; each trial played
  * twice, its `start` `settled` (the drill walks to the window's middle and asks once settled, as
  * the still rung does) and `walking` (it asks the first step it is ready, still walking). The two
  * are read alike from the first step the drill is ready (`StrikeReading.ready`).
@@ -87,7 +87,7 @@ const STILL = deepFreeze({
 const WALK = deepFreeze({ ...STILL,
   models: ["workshop-fighter"] as BodyModel[],
   gaps: [16, 18, 20, 22, 24, 26, 28, 30].map((tenths) => tenths / 10),
-  marks: ["middle"] as Mark[],
+  marks: ["high", "middle"] as Mark[],
   starts: ["settled", "walking"] as Start[],
 });
 
