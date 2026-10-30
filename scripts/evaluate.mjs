@@ -2,8 +2,8 @@
  * **Evaluate**: an evaluation's cases for its subjects, each played only where no row has its key,
  * on worker threads; then what the complete rows give each subject, and the evaluation's summary.
  *
- *   npm run evaluate -- <evaluation> [subject ...] [--subjects a,b] [--mind <file.json>] [--protocol <name>]
- *     [--against default|<id,...>] [--previous <id>] [--ablate <slot>=<JSON> ...] [--shard k/n] [--workers N] [--engine <name>]
+ *   npm run evaluate -- <evaluation> [subject ...] [--subjects <id> ...] [--mind <file.json>] [--protocol <name>]
+ *     [--against default|<id> ...] [--previous <id>] [--ablate <slot>=<JSON> ...] [--shard k/n] [--workers N] [--engine <name>]
  *     [--case-minutes 30] [--write] [--json <file>]
  *   npm run match -- <mind> <mind> [...]: the same for `match`
  *   npm run evaluate -- tournament --notes: the newest tournament pool's ratings into assets/minds/notes.json
@@ -11,7 +11,7 @@
  *
  * A subject is a name the evaluation's catalogue resolves (a mind's id or kind), a JSON file, or
  * JSON; `--mind` names a file to put first. `--against` plays each subject against a panel (the
- * evaluation's own, `default`, or the ids given) and not the panel among itself; an evaluation
+ * evaluation's own, `default`, or the ids given, one per flag) and not the panel among itself; an evaluation
  * whose schedule is a panel is played no other way. Rows are kept as they come in
  * `research/runs/evaluations/<evaluation>/` (every file there is read, so machines merge by copying)
  * and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
@@ -49,7 +49,7 @@ import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { caseNames, partNames } from "../src/evaluation/code.ts";
 import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
-import { belongsTo, resolveSubjects, subjectIdsOf, subjectOf } from "./evaluation-subjects.mjs";
+import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -205,9 +205,9 @@ function reportLines(report, rule, { spent, lost }) {
 
 async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
-    subjects: { type: "string" }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
+    subjects: { type: "string", multiple: true }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
     shard: { type: "string" }, workers: { type: "string" }, engine: { type: "string" }, "case-minutes": { type: "string", default: "30" },
-    write: { type: "boolean" }, json: { type: "string" }, against: { type: "string" }, import: { type: "string" }, notes: { type: "boolean" },
+    write: { type: "boolean" }, json: { type: "string" }, against: { type: "string", multiple: true }, import: { type: "string" }, notes: { type: "boolean" },
     until: { type: "string" }, budget: { type: "string", default: "10" }, ablate: { type: "string", multiple: true },
   } });
   if (values.import) {
@@ -239,14 +239,14 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
   const { choice, subjects: chosen } = resolveSubjects(evaluation,
-    [...(values.mind ?? []), ...named, ...(values.subjects ? subjectIdsOf(values.subjects) : [])], values.previous, values.ablate);
+    [...(values.mind ?? []), ...named, ...(values.subjects ?? [])], values.previous, values.ablate);
   let schedule = { kind: "all" }, panel = [];
   if (values.against) {
-    const members = values.against === "default" ? evaluation.analysis.panel : subjectIdsOf(values.against);
+    const members = [...new Set(values.against.flatMap((id) => id === "default" ? evaluation.analysis.panel ?? [] : [id]))];
     if (!Array.isArray(members) || members.length === 0) throw new Error(`${id} has no default panel`);
     panel = evaluation.subjects(members);
     schedule = { kind: "versus", panel: panel.map((member) => member.id) };
-  } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or --against <id,...>`);
+  } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or repeat --against <id>`);
   if (values.until !== undefined && values.until !== "settled") throw new Error("--until takes settled");
   const records = recordsOf(id);
   const { baseline, counterpart, revived } = values.previous && values.against ? baselineOf(evaluation, choice[0], values.previous, chosen, records)
