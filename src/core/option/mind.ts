@@ -27,7 +27,7 @@ import { optionTactics } from "./tactics.ts";
  * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
  * unless given), the parts its body layer is made from (legs, navigation, guard, low support,
  * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
- * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
+ * rank order.
  */
 export interface OptionMindConfig {
   readonly kind: "option";
