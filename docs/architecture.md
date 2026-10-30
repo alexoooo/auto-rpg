@@ -561,7 +561,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| option | `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| option | `src/core/option/` (the toolkit's); its preset `option` in `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); the preset adds the learned punch and the stomp, on the Warrior |
 | option-skeleton | `src/core/entrants/option-skeleton/` | a copy of Option Mind's package for the empty-handed Skeleton, its own chooser, options, predictions and blade guard, rising by the game's Stand up; replaced by a preset ([generalization](plans/2026-10-30-option-mind-generalization.md)) |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
@@ -576,7 +576,7 @@ mind, and each mind's own parts (`Controller.parts`), read once on first use so 
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
 `src/core/mind/`; `MOTORS` and `BALANCES` in `src/core/control/`; `MOVE_RULES` in
-`src/core/skills/`), so a case's code begins each part's own
+`src/core/skills/`; `CHOOSERS`, `OPTION_KINDS`, `POSITIONS` and `PREDICTIONS` in `src/core/option/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry.
@@ -616,7 +616,7 @@ or a test may still name it. An arena recipe may name each side's mind (`DuelRec
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
 
-**Option Mind's options** (`src/core/entrants/option/options/`). An `Option` (`option.ts`) is a
+**Option Mind's options** (`src/core/option/`). An `Option` (`option.ts`) is a
 skill applied to a target in one shape: its entry (`Readiness`: ready, else waiting or blocked and
 why), its claims, its model (`Terms`, with where it leaves the body, `Place`, and, where it may be
 let go now, what letting it go leaves), its step (`Step`: what it asks and what its asks hold, the
@@ -742,7 +742,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
-  `src/core/option/parts.ts`) in Option Mind's `chooser` slot, its own parts (`valued`, `ranked`;
+  `src/core/option/parts.ts`) in Option Mind's `chooser` slot, each a line in `CHOOSERS` (`valued`, `ranked`;
   `depth`, `chooserOf`), takes the option on offer of highest
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
@@ -919,8 +919,9 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `ENTRANTS`
 (`src/entrants/index.ts`).
-Option Mind (`entrants/option/mind.ts`), the toolkit's skills under a chooser and tactics of its own,
-is the reference example.
+The Option framework (`src/core/option/`) is the reference example of a kind of mind: the toolkit's
+skills under a chooser and tactics of its own, its choosers, kinds of option, position values and
+predictions each a role list (`CHOOSERS`, `OPTION_KINDS`, `POSITIONS`, `PREDICTIONS`).
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
    faults and its maker, written as one controller (`controller<C>({ ... })`).

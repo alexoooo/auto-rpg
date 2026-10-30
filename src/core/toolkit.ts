@@ -10,6 +10,10 @@ import { GUARDS } from "./mind/guards.ts";
 import { MIND_KINDS } from "./mind/kinds.ts";
 import { LOCOMOTIONS } from "./mind/locomotions.ts";
 import { NAVIGATIONS } from "./mind/navigations.ts";
+import { CHOOSERS } from "./option/choosers.ts";
+import { OPTION_KINDS } from "./option/option-kinds.ts";
+import { POSITIONS } from "./option/positions.ts";
+import { PREDICTIONS } from "./option/predictions.ts";
 import type { NavigationConfig } from "./mind/navigator.ts";
 import { PLANNERS } from "./mind/planners.ts";
 import { SUB_MINDS } from "./mind/sub-minds.ts";
@@ -48,7 +52,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
  */
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(SUB_MINDS, TECHNIQUES, PLANNERS, BEHAVIOURS, MOVE_RULES, LOCOMOTIONS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
-    SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS);
+    SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, POSITIONS, PREDICTIONS);
   return { minds: MIND_KINDS, parts: [below] };
 }
 

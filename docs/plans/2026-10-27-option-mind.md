@@ -187,13 +187,13 @@ interface Cue {                 // a percept against a limit
 - **One registry is the vocabulary of what a mind perceives**, read by every consumer: the
   chooser's cues, a skill's entry, a profile's variables, a learned skill's inputs (its input
   layout names percepts) and a behaviour list's conditions. The editor's fields for `CONDITIONS`
-  carry over. It is built in the body layer (`PERCEPTS`, `src/core/entrants/option/options/percepts.ts`) with
+  carry over. It is built in the body layer (`PERCEPTS`, `src/core/option/percepts.ts`) with
   its first consumers; the others move to it in step 13.
 - **Every percept is computed each step at first.** Computing only what is watched comes later,
   and only if the step cost shows a need.
 - **A place is made from the skills**, never a bare number with a label: a spot on the ground read
   each step from the bodies and the skills' entries (`Destination`,
-  `src/core/entrants/option/options/places.ts`), so a resized body, a longer weapon or another foe
+  `src/core/option/places.ts`), so a resized body, a longer weapon or another foe
   moves it and no number is retuned. The places on offer are those the skills make:
 
   | Place | Where |
@@ -257,7 +257,7 @@ less its own life it is expected to lose.
 
 ### The value of a position
 
-`PositionValue` (`src/core/entrants/option/options/position.ts`, built): what a place is worth in life, the
+`PositionValue` (`src/core/option/position.ts`, built): what a place is worth in life, the
 lead the mind expects at the verdict from there, read over few percepts (the range against both
 reaches, the body's posture, the lead, the time left before the clock's verdict, which the senses
 give, `Senses.ends`). One interface, as a profile's. Its first implementation is a few terms

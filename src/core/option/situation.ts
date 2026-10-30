@@ -1,14 +1,14 @@
-import { hypot } from "../../../math/real.ts";
-import type { Rulebook } from "../../../rules/rulebook.ts";
-import type { BodySpec } from "../../../spec/body.ts";
-import type { Orders } from "../../../mind/orders.ts";
-import type { Profile } from "../../../mind/profile.ts";
-import type { BodySense } from "../../../mind/senses.ts";
-import type { Sight } from "../../../mind/tactics.ts";
-import { READINGS, threatReader } from "../../../mind/threat.ts";
-import { shieldHands } from "../../../mind/cover-hand.ts";
+import { hypot } from "../math/real.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
+import type { BodySpec } from "../spec/body.ts";
+import type { Orders } from "../mind/orders.ts";
+import type { Profile } from "../mind/profile.ts";
+import type { BodySense } from "../mind/senses.ts";
+import type { Sight } from "../mind/tactics.ts";
+import { READINGS, threatReader } from "../mind/threat.ts";
+import { shieldHands } from "../mind/cover-hand.ts";
 import type { DownModel } from "./down.ts";
-import type { Position } from "../../../mind/ground/reading.ts";
+import type { Position } from "../mind/ground/reading.ts";
 import type { Situation } from "./option.ts";
 import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
 

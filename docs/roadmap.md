@@ -178,7 +178,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
     `loadData`), once the screen is in use and a live run would save a trip to the command line;
   - decisions: a `point` world kind that plays a bout to a step and each response for a horizon,
     a chooser scored by regret, when a tactics question needs one; its value unit is life
-    (`worth`, `src/core/entrants/option/options/value.ts`), and it waits on how a chooser ranks responses.
+    (`worth`, `src/core/option/value.ts`), and it waits on how a chooser ranks responses.
 
 ### Body and motor control
 

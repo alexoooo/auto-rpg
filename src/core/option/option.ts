@@ -1,6 +1,6 @@
-import type { Readiness, Resource } from "../../../skills/action.ts";
-import { intentOfSet, type Intent, type SelectedAsk } from "../../../mind/intent.ts";
-import type { Sight } from "../../../mind/tactics.ts";
+import type { Readiness, Resource } from "../skills/action.ts";
+import { intentOfSet, type Intent, type SelectedAsk } from "../mind/intent.ts";
+import type { Sight } from "../mind/tactics.ts";
 import type { Percepts, Predictions } from "./percepts.ts";
 import type { Place } from "./position.ts";
 import type { Terms } from "./value.ts";

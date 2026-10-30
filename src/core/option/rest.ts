@@ -1,9 +1,9 @@
-import type { Resource, TargetRef } from "../../../skills/action.ts";
-import type { BodySpec } from "../../../spec/body.ts";
-import { deepFreeze } from "../../../state.ts";
-import { legsReadiness } from "../../../skills/locomotion.ts";
-import { shieldHands } from "../../../mind/cover-hand.ts";
-import type { Cover } from "../../../mind/intent.ts";
+import type { Resource, TargetRef } from "../skills/action.ts";
+import type { BodySpec } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
+import { legsReadiness } from "../skills/locomotion.ts";
+import { shieldHands } from "../mind/cover-hand.ts";
+import type { Cover } from "../mind/intent.ts";
 import { asking, blocked, NOTHING, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { here } from "./position.ts";

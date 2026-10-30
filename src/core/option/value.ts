@@ -1,17 +1,17 @@
-import { impactEnergy } from "../../../rules/impact.ts";
-import { sideDamage, type Rulebook } from "../../../rules/rulebook.ts";
-import { energyShares } from "../../../rules/share.ts";
-import { landed } from "../../../skills/action-instances.ts";
-import type { Ended } from "../../../skills/action.ts";
-import type { BodySpec } from "../../../spec/body.ts";
-import type { Vec3 } from "../../../spec/quantity.ts";
-import { distance } from "../../../spec/vec.ts";
-import { rigidPoints } from "../../../build/rigid.ts";
-import { effectorAim } from "../../../control/effectors.ts";
-import { deepFreeze } from "../../../state.ts";
+import { impactEnergy } from "../rules/impact.ts";
+import { sideDamage, type Rulebook } from "../rules/rulebook.ts";
+import { energyShares } from "../rules/share.ts";
+import { landed } from "../skills/action-instances.ts";
+import type { Ended } from "../skills/action.ts";
+import type { BodySpec } from "../spec/body.ts";
+import type { Vec3 } from "../spec/quantity.ts";
+import { distance } from "../spec/vec.ts";
+import { rigidPoints } from "../build/rigid.ts";
+import { effectorAim } from "../control/effectors.ts";
+import { deepFreeze } from "../state.ts";
 import type { Situation } from "./option.ts";
 import { here, type Place, type PositionValue } from "./position.ts";
-import { segmentOf } from "../../../spec/body.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /**
  * **What running an option from now is expected to bring**, over its run, in life (a share of a

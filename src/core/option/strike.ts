@@ -1,18 +1,18 @@
-import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../../skills/action.ts";
-import { STANCE_LOWER } from "../../../skills/locomotion.ts";
-import { regionSegments } from "../../../mind/action-aim.ts";
-import { windowHolds } from "../../../mind/action-window.ts";
-import { orderAllows, orderedRegions } from "../../../mind/orders.ts";
-import type { ActionConfig, ExecutorEntry } from "../../../mind/config.ts";
-import type { PartLookup } from "../../../parts/lookup.ts";
-import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
-import type { Sight } from "../../../mind/tactics.ts";
+import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../skills/action.ts";
+import { STANCE_LOWER } from "../skills/locomotion.ts";
+import { regionSegments } from "../mind/action-aim.ts";
+import { windowHolds } from "../mind/action-window.ts";
+import { orderAllows, orderedRegions } from "../mind/orders.ts";
+import type { ActionConfig, ExecutorEntry } from "../mind/config.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../mind/profile.ts";
+import type { Sight } from "../mind/tactics.ts";
 import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";
 import { fromHere } from "./position.ts";
 import type { Walker } from "./walk.ts";
-import type { BodySpec } from "../../../spec/body.ts";
+import type { BodySpec } from "../spec/body.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;

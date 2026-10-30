@@ -6,7 +6,7 @@
  * (`GaitReading.braced`), and the share that fell. Each names what it was measured on: the body as
  * the drill's recipe resolves it, the gait's legs (its mind's Move's, `gaitsOfMove`) and the strike it stopped to throw
  * (`gaitDigest`), the harness's rate, and no reaction time. Option Mind prices where a gait leaves the
- * body by them (`src/core/entrants/option/tactics.ts`).
+ * body by them (`src/core/option/tactics.ts`).
  *
  *   node research/gait-profiles.mjs [<record.jsonl> ...] [--write]
  *

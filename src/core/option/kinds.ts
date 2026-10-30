@@ -1,8 +1,8 @@
-import type { ActionConfig } from "../../../mind/config.ts";
-import type { OptionPart } from "../../../option/parts.ts";
-import { anyBody, type KeysOf, type PartConfig } from "../../../parts/parts.ts";
-import type { BodySpec } from "../../../spec/body.ts";
-import { deepFreeze } from "../../../state.ts";
+import type { ActionConfig } from "../mind/config.ts";
+import type { OptionPart } from "./parts.ts";
+import { anyBody, type KeysOf, type PartConfig } from "../parts/parts.ts";
+import type { BodySpec } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
 import type { covers } from "./cover.ts";
 import type { Ground } from "./ground.ts";
 import type { Option } from "./option.ts";
@@ -70,9 +70,6 @@ export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => 
 
 /** **Brace**, down (`Ground.rest`), a rest option. */
 export const BRACE_OPTION = kind("brace", "Brace", (given) => [given.ground.rest]);
-
-/** Every kind of Option Mind's options. */
-export const OPTION_KINDS: readonly OptionKindPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]);
 
 /** Its options as it starts, in rank order: orders, strikes, footwork into the windows and out of pressure, the rise, covers, then the rest options. */
 export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]

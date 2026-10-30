@@ -122,7 +122,7 @@ a figure for every run, lost ones below won ones.
 
 ### 2. The chooser shared: set selection in the toolkit
 
-Option Mind's set selection (`chooser`, `src/core/entrants/option/options/chooser.ts`) reads of its
+Option Mind's set selection (`chooser`, `src/core/option/chooser.ts`) reads of its
 options their claims, rest mark, targets and aim, entry (`onOffer`), status, begin and end; of the
 situation its time and its cue (`eventOf`, Option Mind's); and it prices the other targets'
 situations (`others`) and names the target chosen (`Chosen.at`). What an option is worth, the look

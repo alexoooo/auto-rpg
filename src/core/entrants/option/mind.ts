@@ -1,49 +1,7 @@
-import type { Body } from "../../body.ts";
-import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
-import { STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
-import { controller } from "../../mind/controller.ts";
-import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
-import { groundExecutor } from "../../mind/ground/held.ts";
-import { STAND_UP_PART } from "../../mind/ground/stand-up-part.ts";
-import { REPOSITION, techniquesOf } from "../../mind/ground/stand-up.ts";
-import type { TechniqueConfig } from "../../mind/ground/technique.ts";
-import type { BodyHost } from "../../mind/host.ts";
-import { GAME_MOTOR, kitOf } from "../../mind/kit.ts";
-import type { PartLookup } from "../../parts/lookup.ts";
-import type { MindWiring } from "../../mind/minds.ts";
-import { GAME_NAVIGATION } from "../../mind/navigator.ts";
-import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../../parts/parts.ts";
-import type { TacticsMaking } from "../../mind/tactics-part.ts";
-import { driveBy, type Tactics } from "../../mind/tactics.ts";
-import type { Skills } from "../../skills/skills.ts";
+import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
+import type { Controller } from "../../mind/controller.ts";
+import { OPTION_MIND as OPTION_FRAMEWORK, type OptionMindConfig } from "../../option/mind.ts";
 import { deepFreeze } from "../../state.ts";
-import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
-import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
-import { FEW_TERMS_PART } from "./options/position.ts";
-import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
-import { optionTactics } from "./tactics.ts";
-
-/**
- * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
- * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
- * unless given), the parts its body layer is made from (legs, navigation, guard, low support,
- * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
- * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
- */
-interface OptionMindConfig {
-  readonly kind: "option";
-  readonly chooser: PartConfig;
-  readonly options?: readonly PartConfig[] | null;
-  readonly predictions?: PartConfig | null;
-  readonly locomotion: LocomotionConfig;
-  readonly navigation?: PartConfig;
-  readonly guard: PartConfig;
-  readonly support: PartConfig | null;
-  readonly executors: readonly ExecutorEntry[];
-  readonly actions: readonly ActionConfig[];
-  readonly ground: readonly TechniqueConfig[];
-  readonly motor?: PartConfig | null;
-}
 
 /** The straight punch, as its body's record has it (`PunchRecord`): the toed Warrior's is trained. */
 const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch" });
@@ -64,62 +22,10 @@ const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "front-kick",
 const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "centre", lead: 0 } });
 
-/** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
-const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
+/** As it starts: the toolkit's Option Mind (`OPTION_FRAMEWORK`) with the straight punch, the stomp and the support fold. */
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_FRAMEWORK.defaults as OptionMindConfig), support: { kind: "support-fold" },
+  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION] });
 
-/** As it starts: by worth, the straight punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's edges up (`STAND_UP`). */
-const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: STAND_UP.techniques });
-
-/** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
-const SLOTS: readonly Slot[] = Object.freeze([
-  slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults),
-  slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
-  slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotOne("support", "Low support", "support", true), slotList("executors", "Executors", "executor"),
-  slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
-]);
-
-/** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`STAND_UP_PART.faults`). */
-function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
-  const faults = [...kitFaults(config, parts)];
-  if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
-  else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground }, parts).map((fault) => `ground: ${fault}`));
-  return faults;
-}
-
-/**
- * **An Option Mind fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
- * layer (`fighterSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its tactics (`optionTactics`). Its blows are those its body
- * throws as armed (`armedActions`).
- */
-function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
-  const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
-  const body = host.command(fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
-  const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
-  const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
-  let skills: Skills;
-  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
-    { executors: [ground.binding], actions: ground.actions });
-  const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
-  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
-    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  skills = driveBy(body, optionTactics(making, hz, config, host.seed, rising), make);
-  return { skills, state: skills.state };
-}
-
-/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and its predictions. */
-export const OPTION_MIND = controller<OptionMindConfig>({
-  role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
-  keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS],
-  // The options it starts with where its config names none.
-  uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
-  reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
-  fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
-  strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
-  faults: optionMindFaults,
-  presets: deepFreeze({ option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"] } }),
-  builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
-  create: createOptionMind,
-});
+/** **Option Mind** as an entrant: the toolkit's Option Mind, its preset the Warrior's (`option`). */
+export const OPTION_MIND: Controller = Object.freeze({ ...OPTION_FRAMEWORK, defaults: OPTION_DEFAULTS,
+  presets: deepFreeze({ option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"] } }) });

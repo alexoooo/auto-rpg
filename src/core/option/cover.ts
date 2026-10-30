@@ -1,7 +1,7 @@
-import { cos, sin } from "../../../math/real.ts";
-import type { BodySpec, Side } from "../../../spec/body.ts";
-import { coveringHand, shieldHands } from "../../../mind/cover-hand.ts";
-import type { Resource } from "../../../skills/action.ts";
+import { cos, sin } from "../math/real.ts";
+import type { BodySpec, Side } from "../spec/body.ts";
+import { coveringHand, shieldHands } from "../mind/cover-hand.ts";
+import type { Resource } from "../skills/action.ts";
 import { blocked, NOTHING, READY, type Situation, type Option } from "./option.ts";
 import { here } from "./position.ts";
 

@@ -4,7 +4,7 @@
  * options a config names are those the mind decides among.
  */
 import { anyBody } from "../../../src/core/parts/parts.ts";
-import { hold } from "../../../src/core/entrants/option/options/rest.ts";
+import { hold } from "../../../src/core/option/rest.ts";
 
 export const STUB_OPTION = Object.freeze({
   role: "option", label: "Counted hold (stub)", stage: "experimental", fields: [], slots: [],

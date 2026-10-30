@@ -1,15 +1,15 @@
-import type { TargetRef } from "../../../skills/action.ts";
-import type { BodySpec, Side } from "../../../spec/body.ts";
-import { deepFreeze } from "../../../state.ts";
-import { sideEffector, type GroundExecutor } from "../../../mind/ground/held.ts";
-import type { GroundReading, Position } from "../../../mind/ground/reading.ts";
-import { standReady, tumbling } from "../../../mind/ground/reading.ts";
-import type { TechniqueConfig, TechniquePart, TechniqueRun } from "../../../mind/ground/technique.ts";
-import { edgeExpected, type Profile } from "../../../mind/profile.ts";
+import type { TargetRef } from "../skills/action.ts";
+import type { BodySpec, Side } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
+import { sideEffector, type GroundExecutor } from "../mind/ground/held.ts";
+import type { GroundReading, Position } from "../mind/ground/reading.ts";
+import { standReady, tumbling } from "../mind/ground/reading.ts";
+import type { TechniqueConfig, TechniquePart, TechniqueRun } from "../mind/ground/technique.ts";
+import { edgeExpected, type Profile } from "../mind/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
-import type { Sight } from "../../../mind/tactics.ts";
+import type { Sight } from "../mind/tactics.ts";
 
 /**
  * What a way up is taken to do where no drill measured it, the owner's decision: an edge runs 5 s
