@@ -35,6 +35,13 @@ does not.
 
 ### 1. The drills hold the loadout
 
+Built. The reference at `fe0de494` (Node, core world, rapier-coordinate, 120 Hz): the Duellist's
+swing holding the buckler and club on the still rung lands 7 of 16 at the head with the Warrior's
+right hand, at 66 to 165 J, and 1 of 16 at the trunk; the Rogue none, at 3 to 12 J; swing high
+and swing middle read alike, the drill asking the mark. Option Mind on the Cover drill's buckler
+rows takes 0.14 HP a trial punched (0.32 with the club alone) and 0.37 swung (0.26), its cover
+guarding the head alone. The reels play holding both; their motion waits on the owner's eye.
+
 The Strike drill's subject names what its striker holds (`StrikeSubject.held`; a preset's action
 as `<mind>/<action>@<left>,<right>`), empty hands where it names none, so a subject file and a
 learning environment carry it too. A blow from a held blunt item is judged by the club's bar
