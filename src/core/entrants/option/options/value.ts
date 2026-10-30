@@ -4,6 +4,10 @@ import { energyShares } from "../../../rules/share.ts";
 import { landed } from "../../../skills/action-instances.ts";
 import type { Ended } from "../../../skills/action.ts";
 import type { BodySpec } from "../../../spec/body.ts";
+import type { Vec3 } from "../../../spec/quantity.ts";
+import { distance } from "../../../spec/vec.ts";
+import { rigidPoints } from "../../../build/rigid.ts";
+import { effectorAim } from "../../../control/effectors.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import { here, type Place, type PositionValue } from "./position.ts";
@@ -93,6 +97,55 @@ function strikingMass(spec: BodySpec, limb: string): number {
   }
   masses.set(limb, total);
   return total;
+}
+
+/** Each spec's striking limbs, found once: a spec is immutable. */
+const STRIKERS = new WeakMap<BodySpec, readonly string[]>();
+
+/**
+ * **The limbs `spec` strikes with**: the segments of its effectors (`BodySpec.effectors`) that are
+ * not supports, which it can swing at another body: a human's hands and feet, a reptile's mouth.
+ */
+export function strikersOf(spec: BodySpec): readonly string[] {
+  let limbs = STRIKERS.get(spec);
+  if (!limbs) STRIKERS.set(spec, limbs = Object.freeze((spec.effectors ?? []).filter((effector) => !effector.support).map((effector) => effector.segment)));
+  return limbs;
+}
+
+/** Each spec's reach by limb, found once: a spec is immutable. */
+const REACHES = new WeakMap<BodySpec, Map<string, number>>();
+
+/**
+ * **How far `limb` of `spec` reaches**, m across the ground ahead of its centre of mass, as its spec
+ * builds it: the joint its effector's chain leaves its base by (`EffectorSpec.base`), and the chain
+ * from there out to the point it strikes with (`effectorAim`: what it holds, else its own) laid
+ * straight ahead; 0 for a limb that is no effector.
+ */
+export function limbReach(spec: BodySpec, limb: string): number {
+  let reaches = REACHES.get(spec);
+  if (!reaches) REACHES.set(spec, reaches = new Map());
+  const known = reaches.get(limb);
+  if (known !== undefined) return known;
+  const effector = spec.effectors?.find((e) => e.segment === limb), segment = spec.segments.find((one) => one.name === limb);
+  let reach = 0;
+  if (effector && segment) {
+    const joints: Vec3[] = [];
+    for (let at = effector.segment; at !== effector.base;) {
+      const joint = spec.joints.find((one) => one.child === at);
+      if (!joint) break;
+      joints.unshift(joint.centre.value);
+      at = joint.parent;
+    }
+    const point = rigidPoints(spec, segment).get(effectorAim(spec, limb))?.value;
+    if (point && joints.length) {
+      let length = distance(joints[joints.length - 1]!, point), mass = 0, ahead = 0;
+      for (let i = 1; i < joints.length; i++) length += distance(joints[i - 1]!, joints[i]!);
+      for (const one of spec.segments) { mass += one.mass.value; ahead += one.mass.value * one.centreOfMass.value[2]; }
+      reach = Math.max(0, joints[0]![2] - ahead / mass + length);
+    }
+  }
+  reaches.set(limb, reach);
+  return reach;
 }
 
 /** The mass of `spec`'s segment `at`, kg; the body's with no such segment. */

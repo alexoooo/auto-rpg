@@ -4,7 +4,6 @@ import type { StancePhase } from "../../../control/stance.ts";
 import { atan2, hypot } from "../../../math/real.ts";
 import type { Rulebook } from "../../../rules/rulebook.ts";
 import type { LegsUnmet } from "../../../skills/skill.ts";
-import { rangeOf } from "../../../skills/strike.ts";
 import type { BodySpec, Side } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Cover } from "../../../mind/intent.ts";
@@ -16,7 +15,7 @@ import { foePhase, sensedPosture, threatReader, type FoePhase } from "../../../m
 import type { Position } from "../../../mind/ground/reading.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
-import { blowLife, record } from "./value.ts";
+import { blowLife, limbReach, record, strikersOf } from "./value.ts";
 
 /**
  * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
@@ -74,21 +73,6 @@ type Bearing = "both" | "left" | "right" | "none";
 const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
   touching.left ? touching.right ? "both" : "left" : touching.right ? "right" : "none";
 
-/**
- * How far the hands of `striker` reach a head `up` m over its own, m head to head across the
- * ground: the farthest of its hands' ranges' outer bounds (`rangeOf`, what one body knows of
- * another's blow by what it sees of it), 0 with no hand to strike with.
- */
-function handsReach(striker: BodySpec, up: number): number {
-  let most = 0;
-  for (const side of ["left", "right"] as const) {
-    if (!striker.effectors?.some((effector) => effector.segment === `hand.${side}`)) continue;
-    const range = rangeOf(striker, side, up);
-    most = Math.max(most, range.reach + range.along[1]);
-  }
-  return most;
-}
-
 /** Each spec's fastest walk forward measured on its body, m/s, found once: a spec is immutable, and so is what is read from it; null where none was measured. */
 const PACES = new WeakMap<BodySpec, number | null>();
 
@@ -99,9 +83,6 @@ function paceOf(spec: BodySpec): number | null {
   PACES.set(spec, pace);
   return pace;
 }
-
-/** The life the heavier of `striker`'s two hands' blows takes from `struck`'s head, by `rules` (`blowLife`): two bodies trading blows trade them with their hands. */
-const heavier = (rules: Rulebook, striker: BodySpec, struck: BodySpec): number => Math.max(blowLife(rules, striker, "hand.left", struck), blowLife(rules, striker, "hand.right", struck));
 
 /** Each spec's turn standing measured on its body, rad/s, found once; Infinity where none was measured. */
 const TURNS = new WeakMap<BodySpec, number>();
@@ -158,9 +139,6 @@ function prior(striker: BodySpec, struck: BodySpec, range: number, life: number,
     cells: [{ range, phase: "clear", trials: 1, done: 1, dealt: life * struck.wounds.hp.value, taken: 0, seconds, down: 0, ends: [] }] }, striker);
 }
 
-/** How far centre to centre the head-to-head `reach` is with the focus where it stands, m. */
-const centred = (seen: Seen, reach: number): number => PERCEPTS.apart.read(seen) - PERCEPTS.range.read(seen) + reach;
-
 /** Strikes a body is modelled by, each read for its striker (`readProfile`), and how they are priced, a sentence. */
 interface Model { readonly readings: readonly ProfileReading[]; readonly priced: string }
 
@@ -192,9 +170,9 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
  * (`model`, each read through its profile at how the two stand, `ProfileReading`), read at the
  * struck body's phase (`phase`) and in its life (`struck`), the most of them a second at any range
  * (`peak`, the struck body's life), and how it is priced (`priced`, a sentence). With no strike
- * measured, between two standing bodies its model is its prior (`prior`): within the striker's
- * reach, `RATE` blows a second, landing as this body's own do (`record`), each its heavier hand's;
- * a body lying, or struck lying, with no strike measured from there deals none. The focus's on this
+ * measured, between two standing bodies its model is its prior (`prior`): a strike of each limb it
+ * strikes with (`strikersOf`), within that limb's reach (`limbReach`), `RATE` blows a second,
+ * landing as this body's own do (`record`), each that limb's blow (`blowLife`); a body lying, or struck lying, with no strike measured from there deals none. The focus's on this
  * body (`pressure`), and this body's on the focus (`pressing`); none with no focus.
  */
 export interface Pressure {
@@ -209,28 +187,35 @@ export interface Pressure {
 const NO_PRESSURE: Pressure = deepFreeze({ model: [], phase: "clear", struck: null, peak: 0, priced: "no focus" });
 
 /**
- * **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in
- * `phase`; where none is measured, its prior within `reach` m centre to centre, and none where
- * `reach` is null (a posture no prior is of).
+ * Where a prior (`pressureBy`) puts a striker's limbs: each within its reach (`limbReach`) of the
+ * struck body's centre, or each over the struck body, at no range; none where the two stand so
+ * that no prior is of it.
  */
-function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, reach: number | null): Pressure {
-  const readings = model.readings.length || reach === null ? model.readings
-    : [prior(striker, struck, reach, record(seen.sight.report.ledger, null).lands * heavier(seen.rules, striker, struck), 1 / RATE)];
+type Placing = "reach" | "over" | null;
+
+/**
+ * **The pressure** (`Pressure`) of strikes `model` by a body of `striker` on a body of `struck` in
+ * `phase`; where none is measured, its prior: a strike of each limb it strikes with
+ * (`strikersOf`), placed by `placing`.
+ */
+function pressureBy(seen: Seen, model: Model, phase: string, striker: BodySpec, struck: BodySpec, placing: Placing): Pressure {
+  const lands = model.readings.length || placing === null ? 0 : record(seen.sight.report.ledger, null).lands;
+  const readings = model.readings.length || placing === null ? model.readings : strikersOf(striker).map((limb) =>
+    prior(striker, struck, placing === "over" ? 0 : limbReach(striker, limb), lands * blowLife(seen.rules, striker, limb, struck), 1 / RATE));
   let peak = 0;
   for (const reading of readings) peak = Math.max(peak, reading.peak(phase, struck));
   return { model: readings, phase, struck, peak, priced: model.priced };
 }
 
-/** The prior's reach (`pressureBy`) of a body of `striker` at a head `up` m over its own, centre to centre: its hands' (`handsReach`) where the focus is in `posture` standing, else none. */
-const priorReach = (seen: Seen, striker: BodySpec, up: number, posture: string): number | null =>
-  posture === "standing" ? centred(seen, handsReach(striker, up)) : null;
+/** Where a prior puts the limbs of a body striking one whose posture is `posture` (`Placing`): within their reach of a body standing; none of one lying. */
+const placingAt = (posture: string): Placing => posture === "standing" ? "reach" : null;
 
 /** **The pressure** (`Pressure`) the focus puts on the body: its model read at the focus's posture (`sensedPosture`), the body struck as standing. */
 function pressureOf(seen: Seen): Pressure {
-  const { focus, spec } = seen, { mine, theirs } = heads(seen);
-  if (!focus || !theirs) return NO_PRESSURE;
+  const { focus, spec } = seen;
+  if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus);
-  return pressureBy(seen, foeModel(seen, focus.spec, { own: posture, target: "standing" }), ownPhase(seen), focus.spec, spec, priorReach(seen, focus.spec, mine.y - theirs.y, posture));
+  return pressureBy(seen, foeModel(seen, focus.spec, { own: posture, target: "standing" }), ownPhase(seen), focus.spec, spec, placingAt(posture));
 }
 
 /**
@@ -239,10 +224,10 @@ function pressureOf(seen: Seen): Pressure {
  * (`sensedPosture`) and phase (`FoePhase`).
  */
 function pressingOf(seen: Seen): Pressure {
-  const { focus, spec } = seen, { mine, theirs } = heads(seen);
-  if (!focus || !theirs) return NO_PRESSURE;
+  const { focus, spec } = seen;
+  if (!focus) return NO_PRESSURE;
   const posture = sensedPosture(focus);
-  return pressureBy(seen, ownModel(seen, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, priorReach(seen, spec, theirs.y - mine.y, posture));
+  return pressureBy(seen, ownModel(seen, { own: "standing", target: posture }), foePhase(focus, seen.blow), spec, focus.spec, placingAt(posture));
 }
 
 /**
@@ -307,7 +292,7 @@ function downCostAtOf(seen: Seen): (posture: Position) => number {
   return (posture) => {
     const down = seen.riseFrom(posture);
     if (!down || down.stands <= 0) return life;
-    peak ??= pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak;
+    peak ??= pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
     return Math.min(life, peak * down.seconds * (1 - down.shelter) / down.stands);
   };
 }
