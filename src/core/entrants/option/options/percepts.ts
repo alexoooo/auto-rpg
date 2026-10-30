@@ -279,21 +279,33 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
 }
 
 /**
- * **What lying in a posture is expected to cost**, own life: the blows of a foe standing over the
- * body while it is down, at the most they deal (`Pressure.peak`): the focus's, down or not, and
- * with none one of its own kind; over the rise from there (its time down, less the share of blows
- * it keeps off, over its chance of standing, `Seen.riseFrom`); all the life it has where none
- * stands it. It costs something with no foe standing, so that down, a way up is worth more than
- * lying still.
+ * **What a second costs the body down rather than on its feet**, own life a second, against a foe
+ * of `foe`: the blows of the foe standing over it (`Pressure.peak`), and what a second on its feet
+ * is worth: the most its own strikes take of the foe a second less the most the foe's take of it,
+ * none below nothing, since a body on its feet can keep out of reach. Each side's strikes are read
+ * at the phase the other is in now.
+ */
+function downRateOf(seen: Seen, foe: BodySpec): { readonly blows: number; readonly standing: number } {
+  const { focus, spec } = seen, blows = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
+  const own = pressureBy(seen, ownModel(seen), focus ? foePhase(focus, seen.blow) : "clear", spec, foe, "over").peak;
+  return { blows, standing: Math.max(0, own - blows) };
+}
+
+/**
+ * **What lying in a posture is expected to cost**, own life: each second down (`downRateOf`) over
+ * the rise from there, against the focus, and with none one of its own kind: its time down over
+ * its chance of standing (`Seen.riseFrom`), the foe's blows less the share it keeps off; all the
+ * life it has where none stands it. With no foe able to strike, it still costs what the body's own
+ * strikes would take on its feet, so that down, a way up is worth more than lying still.
  */
 function downCostAtOf(seen: Seen): (posture: Position) => number {
   const { focus, spec } = seen, foe = focus?.spec ?? spec, life = seen.sight.view.senses.life;
-  let peak: number | null = null;
+  let rate: ReturnType<typeof downRateOf> | null = null;
   return (posture) => {
     const down = seen.riseFrom(posture);
     if (!down || down.stands <= 0) return life;
-    peak ??= pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
-    return Math.min(life, peak * down.seconds * (1 - down.shelter) / down.stands);
+    rate ??= downRateOf(seen, foe);
+    return Math.min(life, (rate.blows * down.seconds * (1 - down.shelter) + rate.standing * down.seconds) / down.stands);
   };
 }
 
