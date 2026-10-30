@@ -35,25 +35,26 @@ function entrant(id: string, label: string, config: Json, model: BodyModel, load
   };
 }
 
-/** Mind `id`'s entrants: one for each character and representative loadout it fits. */
-export const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>
-  models.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout, character)).map((loadout) => entrant(id, label, config, model, loadout, character)));
+/** Mind `id`'s entrants: one for each character and loadout in `loadouts` it fits. */
+export const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {},
+  { loadouts = TOURNAMENT.loadouts }: { readonly loadouts?: readonly Loadout[] } = {}): Subject[] =>
+  models.flatMap((model) => loadouts.filter((loadout) => fits(model, config, loadout, character)).map((loadout) => entrant(id, label, config, model, loadout, character)));
 
 /**
  * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
  * (`mind/character/left,right`) that one, a mind given whole its entrants. None names the field:
  * every game mind a person may pick (`Part.stage`); an experimental one enters when it is named.
  */
-export function entrantSubjects(choice: SubjectChoice): Subject[] {
+export function entrantSubjects(choice: SubjectChoice, { loadouts = TOURNAMENT.loadouts }: { readonly loadouts?: readonly Loadout[] } = {}): Subject[] {
   const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
   const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game");
   return named.flatMap((one) => {
-    if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value);
+    if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value, BODY_MODELS, {}, { loadouts });
     if (!one.includes("/")) {
       const preset = mind(one);
-      return entrantsOf(one, preset.label, preset.config as unknown as Json, BODY_MODELS.filter(model => presetFitsModel(preset, model)), preset.character);
+      return entrantsOf(one, preset.label, preset.config as unknown as Json, BODY_MODELS.filter(model => presetFitsModel(preset, model)), preset.character, { loadouts });
     }
-    const [id, model, held] = one.split("/"), loadout = TOURNAMENT.loadouts.find((each) => loadoutKey(each) === held);
+    const [id, model, held] = one.split("/"), loadout = loadouts.find((each) => loadoutKey(each) === held);
     const { label, config, character = {} } = mind(id);
     if (!BODY_MODELS.includes(model as BodyModel) || !presetFitsModel(mind(id), model!) || !loadout || !fits(model as BodyModel, config as unknown as Json, loadout, character)) throw new Error(`${one} is no entrant`);
     return [entrant(id, label, config as unknown as Json, model as BodyModel, loadout, character)];

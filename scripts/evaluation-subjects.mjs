@@ -6,6 +6,16 @@ import { replacedAt } from "../src/core/mind/catalog.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 
+/** Comma-separated catalogue ids, retaining the comma inside `mind/body/left,right`. */
+export function subjectIdsOf(text) {
+  const fields = text.split(","), ids = [];
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i].trim();
+    ids.push(field.split("/").length === 3 && i + 1 < fields.length ? `${field},${fields[++i].trim()}` : field);
+  }
+  return ids;
+}
+
 /** The subject `text` names: a JSON file or JSON as given whole, else a name for the catalogue. */
 export function subjectOf(text) {
   if (existsSync(text)) return { id: basename(text).replace(/\.json$/, ""), label: text, value: JSON.parse(readFileSync(text, "utf8")) };

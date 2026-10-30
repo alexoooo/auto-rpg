@@ -49,7 +49,7 @@ import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { caseNames, partNames } from "../src/evaluation/code.ts";
 import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
-import { belongsTo, resolveSubjects, subjectOf } from "./evaluation-subjects.mjs";
+import { belongsTo, resolveSubjects, subjectIdsOf, subjectOf } from "./evaluation-subjects.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -239,10 +239,10 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
   const { choice, subjects: chosen } = resolveSubjects(evaluation,
-    [...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])], values.previous, values.ablate);
+    [...(values.mind ?? []), ...named, ...(values.subjects ? subjectIdsOf(values.subjects) : [])], values.previous, values.ablate);
   let schedule = { kind: "all" }, panel = [];
   if (values.against) {
-    const members = values.against === "default" ? evaluation.analysis.panel : values.against.split(",");
+    const members = values.against === "default" ? evaluation.analysis.panel : subjectIdsOf(values.against);
     if (!Array.isArray(members) || members.length === 0) throw new Error(`${id} has no default panel`);
     panel = evaluation.subjects(members);
     schedule = { kind: "versus", panel: panel.map((member) => member.id) };

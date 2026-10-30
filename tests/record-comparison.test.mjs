@@ -8,6 +8,33 @@ import { recordIdentity, recordedSubject, recordText, readRecord } from "../src/
 import { CONTEST_FIGURES } from "../src/evaluation/contest.ts";
 import { sourceContext } from "../scripts/compare-evaluations.mjs";
 
+test("the combat field expands and constructs legal loadouts beyond the representative set", async () => {
+  const { SKELETON_COMBAT } = await import("../src/evaluation/skeleton-combat/index.ts");
+  const { entrantSubjects } = await import("../src/evaluation/tournament/entrants.ts");
+  const { LOADOUTS, REPRESENTATIVE, loadoutKey } = await import("../src/core/items/held.ts");
+  const { MINDS } = await import("../src/core/mind/controllers.ts");
+  const { modelRefusal } = await import("../src/core/models.ts");
+  const { FIGHT_ENTRY } = await import("../src/core/mind/catalog.ts");
+  const { subjectIdsOf } = await import("../scripts/evaluation-subjects.mjs");
+  const preset = MINDS["vanguard-warrior"], model = preset.models[0];
+  const expected = LOADOUTS.filter((loadout) => modelRefusal(model, preset.config, loadout, FIGHT_ENTRY, preset.character) === null);
+  const rated = new Set(REPRESENTATIVE.map(loadoutKey));
+  assert.ok(expected.some((loadout) => !rated.has(loadoutKey(loadout))), "fixture admits no unrated loadout");
+  const entrants = SKELETON_COMBAT.subjects(["vanguard-warrior"]);
+  assert.deepEqual(entrants.map((one) => one.value.loadout), expected);
+  assert.deepEqual(entrantSubjects(["vanguard-warrior"]).map((one) => one.value.loadout),
+    REPRESENTATIVE.filter((loadout) => modelRefusal(model, preset.config, loadout, FIGHT_ENTRY, preset.character) === null));
+  const own = SKELETON_COMBAT.subjects(["option-skeleton"])[0];
+  for (const foe of entrants) {
+    assert.deepEqual(subjectIdsOf(`puncher,${foe.id},duellist`), ["puncher", foe.id, "duellist"]);
+    assert.deepEqual(SKELETON_COMBAT.subjects(subjectIdsOf(foe.id)), [foe]);
+    const world = SKELETON_COMBAT.protocols.standard.world([own.value, foe.value], { gap: 4 }, "rapier-coordinate", [own.character ?? {}, foe.character ?? {}]);
+    assert.deepEqual(world.recipe.loadouts, { left: own.value.loadout, right: foe.value.loadout });
+    assert.deepEqual(world.recipe.minds, { left: own.value.mind, right: foe.value.mind });
+    assert.deepEqual([world.recipe.left, world.recipe.right], [own.value.model, foe.value.model]);
+  }
+});
+
 const hash = digit => `sha256:${digit.repeat(64)}`;
 const commit = digit => digit.repeat(40);
 const suffix = "/workshop-fighter/empty,empty";

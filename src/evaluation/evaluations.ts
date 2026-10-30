@@ -13,6 +13,7 @@ import { MATCH } from "./match/index.ts";
 import { RISE } from "./rise/index.ts";
 import { RISING_TARGET } from "./rising-target/index.ts";
 import { STRIKE } from "./strike/index.ts";
+import { SKELETON_COMBAT } from "./skeleton-combat/index.ts";
 import { TOURNAMENT } from "./tournament/index.ts";
 import { UNSEEN } from "./unseen/index.ts";
 
@@ -21,6 +22,7 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   baseline: BASELINE as unknown as Evaluation,
   match: MATCH as unknown as Evaluation,
   tournament: TOURNAMENT as unknown as Evaluation,
+  "skeleton-combat": SKELETON_COMBAT as unknown as Evaluation,
   unseen: UNSEEN as unknown as Evaluation,
   "rising-target": RISING_TARGET as unknown as Evaluation,
   "equipped-rise": EQUIPPED_RISE as unknown as Evaluation,
