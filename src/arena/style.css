@@ -84,7 +84,14 @@
 :where(#screen-root[data-screen="arena"]) .hud-choices [data-readiness="ready"] { color: var(--cut); }
 :where(#screen-root[data-screen="arena"]) .hud-choices button { display: block; width: 100%; margin: 4px 0; padding: 5px 8px; border: 1px solid var(--edge); border-radius: 4px;
   background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-:where(#screen-root[data-screen="arena"]) .hud-choices button[data-readiness="ready"] { color: var(--cut); border-color: var(--cut); }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-row { margin: 6px 0; padding-left: 6px; border-left: 2px solid var(--edge); }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-row[data-readiness="ready"] { border-left-color: var(--cut); }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-row[data-readiness="ready"] p { color: var(--cut); }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-row p { color: var(--ink); }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-limbs { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-limbs button { display: inline-block; width: auto; margin: 0; padding: 3px 8px; }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-rest { margin-top: 6px; }
+:where(#screen-root[data-screen="arena"]) .hud-choices .choice-rest summary { font-size: 10px; }
 :where(#screen-root[data-screen="arena"]) .hud-choices button:hover { background: rgba(255, 255, 255, .06); }
 :where(#screen-root[data-screen="arena"]) .hud-choice-setting { pointer-events: auto; color: var(--dim); }
 :where(#screen-root[data-screen="arena"]) .hud-choosing { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 240px; text-align: center; color: var(--hot); }

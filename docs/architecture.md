@@ -1357,7 +1357,7 @@ and `?play=tools`.
 ([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
 facing and a sensed foe and segment (`src/arena/orders-input.ts`), and a click on the floor a go
 there; the Commander's orders reach the side as `Duel.order`. Each side lists its choices, its
-menu (`choicePanel`, `src/arena/choices.ts`); a person picks one of their side's, an attack with
+menu (`choicePanel`, `src/ui/choices.ts`, any screen's); a person picks one of their side's, an attack with
 its action, limb and region, and with pause on choice the bout pauses where their side has a new
 one (`choiceWatch`: an entry an order can name turned ready, an action ended, a foe newly sensed,
 the body down or up), so a bout plays turn by turn and again from its tape. The room's solids (`arenaSolids(level)`)
