@@ -941,6 +941,12 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
   `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
   ([The screens](#the-screens)) shows every record.
+- The Skeleton's combat field (`skeleton-combat`, `src/evaluation/skeleton-combat/`) uses the
+  tournament's Arena bouts with every legal hand assignment (`LOADOUTS`). Its default opponents
+  are the existing game minds, legacy presets included, and offered experiments outside the
+  independent Skeleton. It reports strict wins, draws, losses and intervals per opponent, worst
+  first, including unplayed opponents in a partial batch. The tournament keeps its representative
+  loadouts. The CLI's `subjectIdsOf` keeps `mind/body/left,right` whole in a comma-separated list.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
   part that reads mind data (`DATA_CASES`: the learned punch);

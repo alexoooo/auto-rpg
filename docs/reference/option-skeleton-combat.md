@@ -13,6 +13,10 @@ the work and final field.
 - The game's verdict and cap, reaction delay 0.15 s, seed 0; both sides on the open stage at 4 m.
 - The tournament's eight-member default panel for the initial reading. It is a development
   screen, not the complete Arena field, and omits Vanguard.
+- The `skeleton-combat` evaluation enumerates the complete legal field: 246 opponents across
+  11 mind presets at `c62d0d62`, Vanguard and legacy minds included, under all legal hand
+  assignments. Its standard protocol plays both sides at 4 m on the open stage. The full field
+  has no combat reading yet; the reserved confirmation conditions remain separate work.
 
 ## Measurement
 
@@ -27,6 +31,7 @@ Node core bout world, `rapier-coordinate`, 120 Hz. Each figure below names its c
 | Reptile pair with low kick at `b19f628e` | 1 win, 1 loss; life margins +0.0653 and -0.0973 |
 | Time down in the low-kick pair | 97.7 of 116.1 s on the left; 89.1 of 108.5 s on the right |
 | Reptile pair at `7a4014ab`, including offence foregone while down | 2 wins; life margins +0.1397 and +0.0466; still down 92.3 and 96.2 s |
+| Vanguard's empty-handed Skeleton at `c62d0d62` | 2 wins; mean life margin +0.026 |
 
 The initial panel's [record](../../assets/evaluations/tournament/2026-10-30-0bd473d1-6ae8eb13.jsonl)
 keeps every recipe, trace digest and verdict. Its
@@ -36,6 +41,8 @@ has the same shared context and opponents, verified by `npm run compare` with th
 on both sides. The short screens and the low-kick pair are kept
 locally in `research/runs/option-skeleton-combat/screens.jsonl`, with recipes, per-second
 diagnostics, blows, digests and wall times. The pair takes 25.3 s on two worker threads.
+The exact Vanguard opponent is read through the complete-field evaluation in its
+[record](../../assets/evaluations/skeleton-combat/2026-10-30-c62d0d62-0bd6da30.jsonl).
 
 A 30 s diagnostic at `0bd473d1` shows no attempted action against the Reptile. Against the
 Rogue with sword and buckler, the Skeleton is down by 11 s, and step-up times out after 16 s.
@@ -60,3 +67,6 @@ the same physical conditions. Their rows stay in `research/runs/option-skeleton-
 | Staged recovery alone | Both full Rogue bouts still lose, life margins -0.0113 and -0.0016; not kept |
 | Higher, more upright straight punch | In four 20 s sword screens, none falls, but three exchanges are negative, the Rogue's -0.0323 and -0.0611; not kept |
 | The more upright punch aimed at the belly | In the same four screens, three exchanges are negative, the Rogue's -0.0042 and -0.0523; not kept |
+| Punch settings searched at close range | 48 candidates, four 8 s sword exchanges each at 1.5 m, in 208 s on four workers, no invalid candidate; the best loses three of four full held-out 4 m fights, the Rogue's margins -0.0994 and -0.0173; not kept |
+| Cover the predicted trunk threat | The 30 s Rogue exchanges are unchanged; the full Skeleton sword pair still loses twice, margins -0.0023 and -0.0110; not kept |
+| Preserve a positive lead from the start | The 30 s Rogue exchanges are unchanged; the Skeleton sword exchanges remain negative, -0.0148 and -0.0260; not kept |
