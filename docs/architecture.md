@@ -1304,8 +1304,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   by its strongest loaded shape pair and paid once.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs in
   series, the softer takes more. An item with no stated surface is rigid and takes none; two rigid
-  items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare fist on
-  flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
+  items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare hand or
+  foot on flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
 - **Damage** (`rulebook.ts`): impact energy times the mechanism's worth, 100 J of blunt blow per HP.
   A surface's `directed` edge or point, met square, is priced as a cut or thrust; otherwise blunt.
   Anatomical points wound by sustained load (`pointLoad`, `pointsInto`).

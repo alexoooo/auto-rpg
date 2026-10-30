@@ -588,6 +588,13 @@ export const SOURCES = Object.freeze({
       + "the rest. Against an item it takes its whole share.",
     record: "docs/reference/wounds.md#the-fist",
   },
+  "owner-foot-threshold": {
+    kind: "decision", date: "2026-10-29",
+    decided: "\"yes, give the foot the fist's threshold\": a bare foot meeting a body's own surface takes no wound from "
+      + "the first joules of its share, the fist's (owner-fist-threshold), so that a stomp's share no longer empties "
+      + "the foot and passes on up the leg. A foot is a segment its body names as a foot end (BearingEndSpec).",
+    record: "docs/reference/wounds.md#the-fist",
+  },
   "ochman-2011": {
     kind: "literature",
     cite: "Ochman S, Vordemvenne T, Paletta J, Raschke MJ, Meffert RH, Doht S. Experimental fracture model versus "

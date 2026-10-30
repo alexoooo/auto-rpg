@@ -20,7 +20,8 @@ import { energyShares } from "./share.ts";
  * by compliance and are priced by the strongest pair's directed mechanism. Anatomical points
  * instead injure the opposing body under sustained normal load, once per rigid-body pair and
  * interval, with every qualifying shape included. Held points wound only on impact. Sides and
- * reverse contacts remain blunt. A held item intercepts sustained piercing injury.
+ * reverse contacts remain blunt. A held item intercepts sustained piercing injury. A bare hand or
+ * foot meeting a body's own surface lets the first of its share go (`Rulebook.fist`).
  */
 
 /** A body in the fight: its side, its pool, and what it was built as. */
@@ -168,15 +169,20 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
   };
   const parts = new Map(fighters.flatMap(body => [...body.built.segments.values()].map(segment => [segment.body.id, { body, segment }] as const)));
   const publish = (blow: LandedBlow) => { deepFreeze(blow); blows.push(blow); onBlow?.(blow); };
-  const land = (first: Part<Fighter>, second: Part<Fighter>, pair: ContactPair, location: Pick<ContactPair, "point" | "normal">, energy: number,
+  /** Each fighter's bare limbs, which a blow on a body's own surface spares up to `Rulebook.fist`: its hands and its feet (`owner-foot-threshold`). */
+  const limbs = new Map(fighters.map(fighter => [fighter, new Set([
+    ...fighter.built.spec.segments.filter(segment => segment.handPoses).map(segment => segment.name),
+    ...(fighter.built.spec.ends ?? []).flatMap(end => end.kind === "foot" ? [end.segment] : []),
+  ])]));
+  const land =(first: Part<Fighter>, second: Part<Fighter>, pair: ContactPair, location: Pick<ContactPair, "point" | "normal">, energy: number,
     kg: readonly [number, number], closing: number) => {
     const surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)] as const;
     const shares = energyShares(surfaces.map(surface => surface.stiffness));
     const mechanisms = [mechanismOf(first, surfaces[0], pair.normal, 1), mechanismOf(second, surfaces[1], pair.normal, -1)] as const;
     const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => {
       const name = part.segment.spec.name, share = shares[k]!, mechanism = mechanisms[k === 0 ? 1 : 0];
-      const spared = surfaces[k].item === null && part.segment.spec.handPoses && surfaces[k === 0 ? 1 : 0].item === null ? rules.fist.value : 0;
       const opposing = surfaces[k === 0 ? 1 : 0];
+      const spared = surfaces[k].item === null && opposing.item === null && limbs.get(part.body)!.has(name) ? rules.fist.value : 0;
       const loadPoint = mechanism === "point" && opposing.item === null;
       const damage = loadPoint ? 0 : sideDamage(rules, mechanism, energy, share, spared);
       const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false }) : null;

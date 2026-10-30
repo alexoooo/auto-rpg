@@ -208,6 +208,12 @@ club, a blade, armour) the hand takes its whole share. A Warrior's hand comes of
 = 50 J of its own share, against a head a blow of about 80 J, where a boxer's straight punch
 brings 121 J.
 
+**A bare foot has the fist's threshold** (`owner-foot-threshold`): a foot is a segment its body
+names as a foot end (`BearingEndSpec`), spared as a hand is. A foot shares a blow as a hand does
+(its stiffness is the hand's, [Gaps](#gaps)), so a stomp on a trunk, of which the foot stores
+12 %, costs it nothing below 300 J; one that meets a head, a thigh or a forearm costs it what its
+62 to 67 % brings past 36.8 J. A body that names no foot end, the reptile, spares no foot.
+
 ## Mechanisms
 
 The rulebook's prices are blunt 1 : an edge 5.7 : a point 33, a joule (`MECHANISM_PRICE`,
