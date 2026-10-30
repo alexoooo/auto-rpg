@@ -118,7 +118,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist`): its straight punch, approach and cover; the punch is unlearned and its recovery uses flat-footed step-up.
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist`): its straight punch, approach and cover; the punch is unlearned and its recovery uses flat-footed step-up ([reading](reference/option-skeleton.md)).
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.
