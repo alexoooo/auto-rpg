@@ -8,6 +8,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";
 import { checkedSupportEdge, motionFrameKey, supportEdgeIncludes, supportNormalBounds, type MotionCommand } from "./tasks.ts";
 import type { ReadSegmentBody, ReadPhysics } from "../read-body.ts";
+import { cross, dot } from "../spec/vec.ts";
 
 export interface ContactTrackingSettings {
   /** Optional local lift-off prediction; tolerance is in m/s2 and supplied by the experiment. */
@@ -40,8 +41,6 @@ interface Point {
   readonly across: Vec3;
 }
 const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0, 0, 0];
-const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalized = (v: Vec3): Vec3 => { const length = Math.sqrt(dot(v, v)); return [v[0] / length, v[1] / length, v[2] / length]; };
 const checkSupportBand = (band?: number): void => {
   if (band !== undefined && !(Number.isFinite(band) && band >= 0)) throw new Error("invalid contact support band");

@@ -1016,9 +1016,9 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 - A policy controls it through the granted port (`mind/equipment-port.ts`): immutable item and grip
   descriptions, detached observations, grip requests inside `BodyAction`. An unknown or ungranted
   grip refuses the whole action.
-- Models: `build/articulated-mass.ts` (impact mobility with grips), `build/coupled-dynamics.ts`
-  (tree dynamics with item coordinates and constraint rows), `build/contact-step.ts` (a diagnostic
-  per-point impulse predictor), `build/planar-support.ts` (support features of a shape).
+- Models: `build/coupled-dynamics.ts` (tree dynamics with item coordinates and constraint rows),
+  `build/contact-step.ts` (a diagnostic per-point impulse predictor), `build/planar-support.ts`
+  (support features of a shape).
 - `control/tasks.ts` describes joint, point, orientation and centre objectives; `mind/motion.ts`
   validates a policy's request and, with `wholeBodyTracking`, tracks them by bounded acceleration
   solves with optional sticking contacts, stop prediction and lift-off.
@@ -1045,8 +1045,7 @@ world for learning and search.
   build fingerprint from `Options.buildIdentity`), and only then replaces the live episode.
 - `createReachTask` (`tasks/reach.ts`) is the pinned-reach task shared by
   `research/control-foundation.mjs` and `/control-foundation.html`
-  ([record](reference/control-foundation.md#shared-environment-and-browser-parity));
-  `src/core/tasks/navigation.ts` scores navigation the same way.
+  ([record](reference/control-foundation.md#shared-environment-and-browser-parity)).
 - **A learnable part** keeps a learner in its state (`Learner`, `src/core/mind/learner.ts`): with
   a network it decides by it; with none, each time it decides it publishes its inputs and counts
   the decision, and acts on the outputs its learner holds, which a trainer writes. It runs while it

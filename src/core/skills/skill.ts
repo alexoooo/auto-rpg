@@ -50,20 +50,16 @@ export interface LegsGoal {
 }
 
 /** A supported root pitch as the legs are asked it (`StanceGoal.pose`), each anchor keyed by its end. */
-export type LegsPose = Omit<NonNullable<StanceGoal["pose"]>, "anchors"> & { readonly anchors?: Readonly<Partial<Record<BearingEnd, NonNullable<NonNullable<StanceGoal["pose"]>["anchors"]>[Side]>>> };
+type LegsPose = Omit<NonNullable<StanceGoal["pose"]>, "anchors"> & { readonly anchors?: Readonly<Partial<Record<BearingEnd, NonNullable<NonNullable<StanceGoal["pose"]>["anchors"]>[Side]>>> };
 
 /** A step's swing as the legs are asked it (`SwingGoal`): the end carried, by name. */
-export type LegsSwing = Omit<SwingGoal, "foot"> & { readonly foot: BearingEnd };
+type LegsSwing = Omit<SwingGoal, "foot"> & { readonly foot: BearingEnd };
 
 /** **The ends a stance stands on**, by name: each foot end of a body's spec on a foot the stance has (`foot.left`, `foot.right`), and its side. */
 export type StanceFeet = Readonly<Record<BearingEnd, Side>>;
 
 /** The end a stance's foot on `side` is, as a human's spec names it: for its segment (`foot.left`). */
 export const footEnd = (side: Side): BearingEnd => `foot.${side}`;
-
-/** Each side's place of `footing` (`Footing`, by side) keyed by its foot's end (`footEnd`): a legs goal's footing. */
-export const footingByEnd = (footing: Readonly<Record<Side, readonly [number, number]>>): NonNullable<LegsGoal["footing"]> =>
-  ({ [footEnd("left")]: footing.left, [footEnd("right")]: footing.right });
 
 /** The ends `spec` names that a stance stands on (`StanceFeet`). */
 export function stanceFeetOf(spec: Pick<BodySpec, "ends">): StanceFeet {

@@ -59,7 +59,7 @@ export interface MindReport {
 }
 
 /** What `skills` say of their mind, live (`MindReport`). */
-export function skillsReport(skills: Skills): MindReport {
+function skillsReport(skills: Skills): MindReport {
   return { get engagement() { return skills.report.engagement ?? null; }, get heading() { return skills.report.heading; }, gait: skills.gait,
     get navigation() { return skills.report.navigation ?? null; }, kit: skills.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return skills.menu(); } };

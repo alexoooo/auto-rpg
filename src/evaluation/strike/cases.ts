@@ -152,7 +152,7 @@ export type StillCondition = { readonly model: BodyModel; readonly mark: Mark } 
   readonly across: number; readonly gap: number; readonly start?: Start;
   /** Where the drill lets its strike go, s after it began; absent where it does not. */
   readonly letGo?: number };
-export type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
+type FightCondition = { readonly model: BodyModel; readonly foe: string; readonly mark: Mark; readonly hand: Hand; readonly moment: number };
 export type StrikeCondition = StillCondition | FightCondition;
 
 /** The effector a trial strikes with (`effectorOf`): `hand.right`, `foot.left`. */

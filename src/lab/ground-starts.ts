@@ -11,10 +11,11 @@ import type { LabAddress } from "./scenarios.ts";
 import { groundEnvironment } from "./ground-environment.ts";
 import type { SolidSense } from "../core/mind/object-senses.ts";
 import { cos, sin } from "../core/math/real.ts";
+import { cross, dot } from "../core/spec/vec.ts";
 
 type Placement = Parameters<typeof buildBody>[2];
 /** A start the bed refuses: no clear draw, or one that overlaps the level's furniture; why, a sentence. */
-export interface GroundRefusal { readonly refused: string }
+interface GroundRefusal { readonly refused: string }
 type Point = readonly [number, number, number];
 interface Convex { readonly segment: string; readonly points: readonly Point[]; readonly radius: number }
 /** The placed configurations with installed joint geometry. */
@@ -29,8 +30,6 @@ export function groundPostures(spec: BodySpec): readonly (typeof GROUND_POSTURES
 const add = (a: Point, b: Point): Point => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const neg = (a: Point): Point => [-a[0], -a[1], -a[2]];
 const sub = (a: Point, b: Point): Point => add(a, neg(b));
-const dot = (a: Point, b: Point) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Point, b: Point): Point => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const toward = (edge: Point, origin: Point) => cross(cross(edge, origin), edge);
 
 /** Convex support of a capsule, sphere, box or hull, with no collision-filter assumptions. */
@@ -110,7 +109,7 @@ function geometry(spec: BodySpec, placement: Placement): Convex[] {
 }
 
 /** Nonadjacent shape pairs that penetrate geometrically before the world takes a step. */
-export function groundPlacementFaults(spec: BodySpec, placement: Placement, solids: readonly SolidSense[] = []): string[] {
+function groundPlacementFaults(spec: BodySpec, placement: Placement, solids: readonly SolidSense[] = []): string[] {
   const shapes = geometry(spec, placement), faults: string[] = [];
   for (let a = 0; a < shapes.length; a++) for (let b = a + 1; b < shapes.length; b++) {
     const first = shapes[a]!, second = shapes[b]!;

@@ -15,6 +15,7 @@ import { sin, cos, cosh, exp, hypot, sinh } from "../math/real.ts";
 /** The feet of a stance that hold it (`holding`): a scratch, read before the next call. */
 const HOLDING: FootState[] = [];
 import type { Side } from "../spec/body.ts";
+import { otherSide } from "../spec/body.ts";
 
 /**
  * A walk's step under way, for its re-aim: its foot, the pivot the body falls about, the swing's
@@ -37,7 +38,7 @@ function across(feet: readonly FootState[], heading: number): number {
  * the weight has shifted off it, as a walk's first step does.
  */
 function settleStep(feet: readonly FootState[], last: Side, heading: number, width: number, tuning: GaitTuning): SwingGoal {
-  const side: Side = last === "left" ? "right" : "left", bearer = feet.find((f) => f.side === last)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
+  const side: Side = otherSide(last), bearer = feet.find((f) => f.side === last)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   return { foot: side, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
 }
@@ -406,7 +407,7 @@ function startingSide(feet: readonly FootState[], walk: readonly [number, number
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
-  const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : startingSide(feet, walk, heading));
+  const side: Side = under?.foot ?? (last ? otherSide(last) : startingSide(feet, walk, heading));
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);

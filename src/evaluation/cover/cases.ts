@@ -19,10 +19,10 @@ import { sideAttributes, type Cases, type Json, type Subject } from "../evaluati
 import { readCover, type CoverReading } from "./read.ts";
 
 /** What the subject holds in its right hand: nothing, or a club. */
-export type CoverHeld = "empty" | "club";
+type CoverHeld = "empty" | "club";
 
 /** What the subject holds in its left hand, where it holds anything: a buckler. */
-export type CoverShield = "buckler";
+type CoverShield = "buckler";
 
 /**
  * One trial's conditions, range last: the strip's columns (`Evaluation.outcome`). The left hand is

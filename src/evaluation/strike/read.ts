@@ -71,7 +71,7 @@ export const BAR = Object.freeze({
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
   held: Object.freeze({ energy: 64.8 }),
 });
-export type Bar = typeof BAR;
+type Bar = typeof BAR;
 
 /** A touch of the striker's on the target: when, by which of its segments on which of the target's, and in the rules' units. */
 export type StrikeContact = {
@@ -85,7 +85,7 @@ export type StrikeContact = {
  * its fist's tests; a hand's holding an item against `hard` alone; a foot's, which the bar sets
  * none for, its speed and line alone, its arm's form and its tests null.
  */
-export type StrikeHit = StrikeContact & {
+type StrikeHit = StrikeContact & {
   /** Its strike point's speed over its last `run` m, m/s; null where it travelled less. */
   readonly speed: number | null;
   /** The cosine between that travel and the surface's normal; null where it travelled less. */
@@ -110,7 +110,7 @@ export type StrikeHit = StrikeContact & {
  * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `fell`, the
  * striker down at any time of the trial; `unreached`, a fight that never came to its moment.
  */
-export type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
+type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
 
 /** What a trial came to. */
 export type StrikeReading = {
@@ -173,7 +173,7 @@ export const meetsBar = (hit: StrikeHit): boolean =>
  * it was, against the chest and turned with it, when its action began, and moving against the
  * chest at no more than `still` m/s.
  */
-export const BACK = Object.freeze({ within: .05, still: .3 });
+const BACK = Object.freeze({ within: .05, still: .3 });
 
 /** When a trial ends: the protocol's longest, how long it runs on after the action's end, and how long the striker may wait to be admitted `settled` s after the drill has the body. */
 export interface Ending { readonly seconds: number; readonly settle: number; readonly settled: number; readonly patience: number }

@@ -39,7 +39,7 @@ export function versionOf(value: Json, play: Json, environment: string, code: st
 }
 
 /** Which of a version's parts differ from `parent`'s. */
-export const changesFrom = (version: Version, parent: Version): Change[] =>
+const changesFrom = (version: Version, parent: Version): Change[] =>
   (["own", "protocol", "environment", "code"] as const).filter((kind) => (version[kind] ?? null) !== (parent[kind] ?? null));
 
 /** A version named by its id. */

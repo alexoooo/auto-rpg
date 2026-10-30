@@ -1,10 +1,8 @@
-import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelLoadout, modelRefusal, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, modelInfo, modelLoadout, modelRefusal, type BodyModel } from "../core/models.ts";
 import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
-import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { presetFitsModel } from "../core/mind/controller.ts";
-import { balanceFrom } from "../core/rules/rulebook.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
@@ -32,7 +30,7 @@ export function arenaAttributes(search: string): Readonly<Record<Side, Attribute
 }
 
 /** The Warrior against the Rogue unless a link or a person picks another pair. */
-export const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
+const DEFAULT_MATCHUP: Matchup = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue" });
 
 /** What each model is called on the page. */
 
@@ -81,39 +79,6 @@ export function youSearch(search: string, you: Side | null): string {
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
 
-/** The arena link's parameter for each side's balance, per cent of its weight: `&balance=left,right`, or one number for both. */
-const BALANCE_PARAM = "balance";
-
-/**
- * The balance an address gives each side (`DuelRecipe.balance`): two numbers (`balanceFrom`),
- * left then right, or one number for both; undefined for anything else, and each side's
- * is then its character's.
- */
-export function readBalance(search: string): Readonly<Record<Side, number>> | undefined {
-  const text = new URLSearchParams(search).get(BALANCE_PARAM);
-  if (text === null) return undefined;
-  const parts = text.split(","), given = parts.map(balanceFrom).filter((p) => p !== null);
-  if (parts.length > 2 || given.length !== parts.length) return undefined;
-  return { left: given[0]!, right: given[given.length - 1]! };
-}
-
-/** The arena link's parameter for each side's haste, per cent over a person's speed in its legs: `&haste=left,right`, or one number for both. */
-const HASTE_PARAM = "haste";
-
-/**
- * The haste an address gives each side (`DuelRecipe.haste`): two per cents over a person's (`hasteFrom`), left then right,
- * or one for both, given to a side whose model takes one (`modelHastes`); undefined for anything
- * else, and each side's is then its character's.
- */
-export function readHaste(search: string): Readonly<Partial<Record<Side, number>>> | undefined {
-  const text = new URLSearchParams(search).get(HASTE_PARAM);
-  if (text === null) return undefined;
-  const parts = text.split(","), given = parts.map(hasteFrom).filter((p) => p !== null);
-  if (parts.length > 2 || given.length !== parts.length) return undefined;
-  const models = readMatchup(search);
-  return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };
-}
-
 /** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike; a side the link leaves out carries its model's (`modelLoadout`). */
 export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
   const query = new URLSearchParams(search);
@@ -146,7 +111,7 @@ export function readGap(search: string, level: ArenaLevel): number | undefined {
 }
 
 /** How long an address lets the bout run, s: `&cap=`; undefined, and the bout's own, for anything else. */
-export const readCap = (search: string): number | undefined => readWithin(search, "cap", CAP_RANGE);
+const readCap = (search: string): number | undefined => readWithin(search, "cap", CAP_RANGE);
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
@@ -249,10 +214,10 @@ export function controllerLabel(search: string, side: Side): string {
 }
 
 /** How old what each side sees of the other is, s: `&senseDelay=`, up to a second; undefined, and the rulebook's reaction time, for anything else. */
-export const readSenseDelay = (search: string): number | undefined => readWithin(search, "senseDelay", [0, 1]);
+const readSenseDelay = (search: string): number | undefined => readWithin(search, "senseDelay", [0, 1]);
 
 /** The bout's seed: `&seed=`, a 32-bit word; undefined, and 0, for anything else. */
-export function readSeed(search: string): number | undefined {
+function readSeed(search: string): number | undefined {
   const seed = readWithin(search, "seed", [0, 0xffffffff]);
   return seed !== undefined && Number.isInteger(seed) ? seed : undefined;
 }

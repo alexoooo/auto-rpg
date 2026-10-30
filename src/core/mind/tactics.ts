@@ -18,7 +18,7 @@ export interface TacticalDecision {
  * life) or its own unit: how long it runs, s; the life it deals and takes; the metres of the orders
  * it carries out; and where it leaves the body, the range head to head, m, and the chance it is down.
  */
-export interface OfferTerms {
+interface OfferTerms {
   readonly duration: number;
   readonly dealt: number;
   readonly taken: number;

@@ -104,7 +104,7 @@ const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null &
 type Choice = { readonly action: string; readonly limb: string; readonly region: Region };
 
 /** **The drill Commander** (`DrillCommanderConfig`): it leads its team's first member. */
-export function drillCommander(config: DrillCommanderConfig): Commander {
+function drillCommander(config: DrillCommanderConfig): Commander {
   const state = {
     phase: (config.moment === undefined ? "settling" : "fighting") as DrillPhase, focus: null as string | null,
     /** Why its choice is refused or waits, as its readiness last said; "" where it is neither. */

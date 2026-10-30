@@ -4,15 +4,13 @@ import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { hypot } from "../math/real.ts";
 import { aimOf } from "../skills/strikes.ts";
-import { type Side, frameOf, type BodySpec } from "../spec/body.ts";
+import { type Side, frameOf, type BodySpec, segmentOf } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "./intent.ts";
 import type { BodySense } from "./senses.ts";
 import type { Position } from "./ground/reading.ts";
 import { lieBy } from "./rise/staged.ts";
-import { distance } from "../spec/vec.ts";
-import { placedReach } from "../skills/arm-reach.ts";
 
 /**
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing
@@ -25,17 +23,17 @@ export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
  * body however slowly it closes, so the cover stands between the foe's weapon and the body before
  * any blow begins: 2 m, an arm and a short blade with a step to spare.
  */
-export const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
+const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
 
 /** A blow predicted to land (`threatOf`): a threat's striking point crossing the plane `out` m ahead of the head within `horizon` s. */
-export const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
+const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 
 /**
  * How a threat is read (`threatOf`): what counts as one; with `prediction`, its predicted crossing;
  * with `body`, the body's axis guarded in place of the head; with `hold`, a point with no
  * crossing covered where it is.
  */
-export interface ThreatReading {
+interface ThreatReading {
   readonly counts: Threat;
   readonly prediction?: { readonly out: number; readonly horizon: number };
   readonly body?: boolean;
@@ -61,7 +59,7 @@ const HANDS: readonly Side[] = ["left", "right"];
 /** The point each hand of `spec` strikes with (`aimOf`), in its hand's own frame; null for a hand the spec has not. */
 function strikingPoints(spec: BodySpec): Readonly<Record<Side, Vec3 | null>> {
   const point = (hand: Side): Vec3 | null => {
-    const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
+    const segment = segmentOf(spec, `hand.${hand}`);
     const at = segment && rigidPoints(spec, segment).get(aimOf(spec, hand));
     if (!segment || !at) return null;
     const { origin, x, y, z } = frameOf(segment), from = sub(at.value, origin);
@@ -78,7 +76,7 @@ interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; read
 
 /** A mind's own threat readings (`threatOf`, `incomingThreat`), working in vectors no other mind shares. */
 /** What a threat is read from (`threatOf`): the body's senses, its head and its centre of mass. */
-export interface ThreatView {
+interface ThreatView {
   readonly senses: BodyView["senses"];
   readonly head: BodyView["head"];
   readonly stance: Pick<BodyView["stance"], "centre">;
@@ -114,7 +112,7 @@ const SCRATCH = new Vector3();
  */
 export function sensedPosture(other: BodySense): Position {
   if (!other.down) return "standing";
-  const base = other.spec.segments.find((segment) => segment.name === other.spec.marks.base), rotation = other.segments.get(other.spec.marks.base)?.rotation;
+  const base = segmentOf(other.spec, other.spec.marks.base), rotation = other.segments.get(other.spec.marks.base)?.rotation;
   if (!base || !rotation) return "between";
   const { x, y, z } = frameOf(base);
   return lieBy(upOf(rotation, [x[2], y[2], z[2]]), upOf(rotation, [-x[0], -y[0], -z[0]]));
@@ -230,11 +228,4 @@ function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, le
     }
   }
   return best;
-}
-
-/** Necessary geometric and travel-time checks; physics still determines whether the actual guard holds. */
-export function guardCanReach(view: BodyView, spec: BodySpec, hand: Side, threat: NonNullable<ReturnType<typeof incomingThreat>>): boolean {
-  const target = threat.cover.threat, at = view.fists[hand].position;
-  return distance([at.x, at.y, at.z], target) <= DEFENSE.speed * Math.max(DEFENSE.minimum, threat.seconds)
-    && hypot(target[0] - view.head.x, target[2] - view.head.z) <= placedReach(spec, hand, target[1] - view.head.y) - DEFENSE.reserve;
 }

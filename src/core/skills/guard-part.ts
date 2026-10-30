@@ -20,7 +20,7 @@ export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
 }
 
 /** **The cover guard**: the arms' posture (`guardPosture`), and a guarding hand's cover of what the tactics name (`guardSkill`). */
-export interface CoverGuardConfig {
+interface CoverGuardConfig {
   readonly kind: "cover-guard";
   readonly tuning?: {
     /** The cover in place of `GUARD_COVER`. */
@@ -31,7 +31,7 @@ export interface CoverGuardConfig {
 }
 
 /** A cover guard that also turns an item's declared face toward the threat. */
-export interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
+interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
 
 /** A cover guard's `fits`: a body with a hand that covers (`handsOf`). */
 const coversWithHands = fitsWhen((spec: BodySpec) => handsOf(spec).length > 0, "needs a hand that covers: one with knuckles, or holding an item that says how it covers");

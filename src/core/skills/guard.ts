@@ -9,6 +9,7 @@ import type { BodySpec, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../spec/vec.ts";
 import type { Skill } from "./skill.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /**
  * **The guard**: fists up before the chin, elbows in; the arms' posture when no skill owns them,
@@ -75,7 +76,7 @@ interface Covers {
 }
 
 function coversOf(spec: BodySpec, hand: string): Covers {
-  const segment = spec.segments.find((s) => s.name === hand);
+  const segment = segmentOf(spec, hand);
   if (!segment) throw new Error(`${spec.model} has no ${hand}`);
   const held = spec.held?.find((h) => h.segment === segment.name), points = held?.item.cover ?? ["knuckles"];
   const normal = held?.item.coverNormal, frame = held ? heldFrame(held) : null;
@@ -100,7 +101,7 @@ const NO_HANDS: Readonly<Record<string, EffectorGoal | null>> = Object.freeze({}
  */
 export function handsOf(spec: BodySpec): readonly string[] {
   return (spec.effectors ?? []).map((effector) => effector.segment).filter((name) =>
-    !!spec.segments.find((s) => s.name === name)?.points?.knuckles || spec.held?.some((h) => h.segment === name && h.item.cover !== undefined));
+    !!segmentOf(spec, name)?.points?.knuckles || spec.held?.some((h) => h.segment === name && h.item.cover !== undefined));
 }
 
 /** The body frame's up and right: the ways an item's line is laid when how it lies now says nothing. */
@@ -180,7 +181,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, fac
   };
   return {
     hands, posture: guardPosture(spec), hold,
-    handPose: (hand) => spec.segments.find((s) => s.name === hand)?.handPoses ? "open" : null,
+    handPose: (hand) => segmentOf(spec, hand)?.handPoses ? "open" : null,
     resume() {},
     command(view, guard) {
       let goals: Record<string, EffectorGoal | null> | null = null;

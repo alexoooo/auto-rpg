@@ -20,7 +20,7 @@ const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficien
  * stride brings the knees nearer each other than the hips, and rigid thighs that leave less meet as
  * one swings past the other (`docs/reference/run-body.md`).
  */
-export const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between the thighs");
+const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between the thighs");
 
 /**
  * **A human figure's sixteen segments** (`figure.ts`), at x1: the head, three trunk segments, and

@@ -11,7 +11,7 @@ import type { SensedBody } from "./team.ts";
 const SPREAD = Object.freeze({ load: 3, keep: 1 });
 
 /** An attacker to be given a foe: who it is, where it stands, the foe it fights now, and the foes it sees. */
-export interface Attacker {
+interface Attacker {
   readonly id: string;
   readonly at: GroundPoint;
   readonly current: string | null;

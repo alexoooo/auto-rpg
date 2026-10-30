@@ -5,7 +5,7 @@ const NAME = "lightProxyVertexShader";
 /** The last line of the proxy's rectangle fit in Babylon 9.18.1's GLSL `lightProxy.vertex`. */
 const PROXY_ANCHOR = "projPosition=mix(position.xy,projPosition,greaterThan(cosSq,vec2(0.01)));";
 /** An orthographic projection's last row is (0, 0, 0, 1), a perspective one's (0, 0, +-1, 0). */
-export const PROXY_ORTHOGRAPHIC =
+const PROXY_ORTHOGRAPHIC =
   "if(projection[3][3]>0.5){projPosition=(projection*vec4(viewPosition.xy+position.xy*range,viewPosition.z,1.0)).xy;}";
 
 /**

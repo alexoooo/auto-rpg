@@ -54,14 +54,14 @@ function sameSolids(a: readonly SolidSense[], b: readonly SolidSense[]): boolean
 }
 
 /** A visibility router (`createRouter`), readied from where the body is among the step's solids. */
-export type Router = ReturnType<typeof createRouter>;
+type Router = ReturnType<typeof createRouter>;
 
 /**
  * **How a walker finds a route to a place**: from `here` to `aim` among `solids` (footprints at
  * `height`) for a body of clearance `radius`, empty where it finds none. `router` readies the
  * visibility router from here among them, once a step, for a search that uses it.
  */
-export type PlaceSearch = (here: GroundPoint, aim: GroundPoint, solids: readonly SolidSense[], radius: number, height: number, router: () => Router) => readonly GroundPoint[];
+type PlaceSearch = (here: GroundPoint, aim: GroundPoint, solids: readonly SolidSense[], radius: number, height: number, router: () => Router) => readonly GroundPoint[];
 
 /**
  * **A walker**: a navigator (`Navigator`) for a body of `spec` that keeps a route to a place it

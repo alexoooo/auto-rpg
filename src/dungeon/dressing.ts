@@ -75,7 +75,7 @@ export const muralHeight = (m: { piece: WallPiece; width: number }): number => m
  * edge-on to the camera. Square to the walls, the face looking at the camera scores 1 and the side faces 0
  * (`docs/reference/look.md#crypt-dressing`).
  */
-export const FACING_MIN = 0.35;
+const FACING_MIN = 0.35;
 const facesCamera = (p: Point, toward: Point) => p.x * toward.x + p.z * toward.z >= FACING_MIN;
 /** A web hangs across its corner's diagonal, so its face looks along `into`, a diagonal of unit steps. */
 const webFacesCamera = (into: Point, toward: Point) => (into.x * toward.x + into.z * toward.z) * Math.SQRT1_2 >= FACING_MIN;
@@ -121,9 +121,6 @@ type DressingTable = typeof DRESSING;
 /** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this
  * (`docs/reference/look.md#crypt-dressing`). */
 export const FLOOR_TOP = 0.015;
-/** How far a piece may stand off a wall's face: the sconces' allowance (`SCONCE.proud` in `world.ts`;
- * `docs/art/crypt.md#the-rule-every-piece-keeps`). */
-export const WALL_ALLOWANCE = 0.08;
 /** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many
  * (`docs/reference/look.md#crypt-dressing`). */
 const DECAL_LAYERS = 3;
@@ -131,7 +128,7 @@ const DECAL_LAYERS = 3;
 export const decalHeight = (layer: number): number => FLOOR_TOP + 0.004 + 0.002 * layer;
 
 type FloorDecal = keyof DressingTable["decals"];
-export const FLOOR_DECALS = Object.freeze(Object.keys(DRESSING.decals) as FloorDecal[]);
+const FLOOR_DECALS = Object.freeze(Object.keys(DRESSING.decals) as FloorDecal[]);
 
 /**
  * The dungeon's body-free clutter.
@@ -275,7 +272,6 @@ function innerCorners(map: DungeonMap): { corner: Point; into: Point }[] {
  * murals go on the walls of each room, clear of torches, doorways and each other. All hang only where the camera,
  * standing `toward` of the hero, sees their face (`FACING_MIN`), and roots and murals only where no nearer wall hides
  * them. The dressing is baked once a level, so the page hands its own view.
- * Every placement passes `validateDressing`.
  */
 export function dressingPlacements(map: DungeonMap, seed: number, densities: DressingTable = DRESSING,
   toward: Point = cameraToward(CAMERA_AZIMUTH)): Dressing[] {
@@ -358,8 +354,7 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
 /** A mural's tries at a face before it is given up: a numeric setting, the bound on a search. */
 const MURAL_TRIES = 8;
 
-/** Every reason a wall piece may not hang where it is, apart from its neighbours; empty when it may. The placement
- * and `validateDressing` both ask it. */
+/** Every reason a wall piece may not hang where it is, apart from its neighbours; empty when it may. */
 function muralProblems(map: DungeonMap, m: Extract<Dressing, { kind: "mural" }>, torches: readonly TorchPlacement[], toward: Point): string[] {
   const { cell, facing } = m, name = `a ${m.piece} at (${cell.x}, ${cell.z})`, centre = hungCentre(m), problems: string[] = [];
   if (!WALL_PIECES.includes(m.piece)) return [`${name} is no kind of wall piece`];
@@ -373,52 +368,5 @@ function muralProblems(map: DungeonMap, m: Extract<Dressing, { kind: "mural" }>,
   if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);
   if (!facesCamera(facing, toward)) problems.push(`${name} faces away from the camera`);
   else if (!hungSeen(map, m, m.y, toward)) problems.push(`${name} hangs where a nearer wall hides it`);
-  return problems;
-}
-
-/** Every reason a dressing is not body-free clutter that the colliders allow, or that a camera standing `toward` of
- * the hero would not see; empty when it is. */
-export function validateDressing(map: DungeonMap, dressing: readonly Dressing[], torches: readonly TorchPlacement[],
-  toward: Point = cameraToward(CAMERA_AZIMUTH)): string[] {
-  const problems: string[] = [], doorways = map.doors.flatMap(doorCells);
-  const decals = dressing.filter(d => d.kind === "decal");
-  for (const d of dressing) {
-    if (d.kind === "decal") {
-      const name = `${d.decal} at (${d.at.x.toFixed(2)}, ${d.at.z.toFixed(2)})`, y = decalHeight(d.layer);
-      if (!FLOOR_DECALS.includes(d.decal)) problems.push(`${name} is no kind of marking`);
-      if (!Number.isInteger(d.layer) || d.layer < 0 || d.layer >= DECAL_LAYERS) problems.push(`${name} is on layer ${d.layer}`);
-      if (!(y > FLOOR_TOP && y <= FLOOR_TOP + 0.02)) problems.push(`${name} lies at ${y} m, not on the floor`);
-      if (!onFloor(map, d)) problems.push(`${name} leaves the floor`);
-      if (decalReach(d, map.start) < DRESSING.keepClear || decalReach(d, map.exit) < DRESSING.keepClear) problems.push(`${name} is at the start or the exit`);
-      if (decals.some(o => o !== d && o.layer === d.layer && decalsMeet(o, d))) problems.push(`${name} shares a depth with a marking it overlaps`);
-    } else if (d.kind === "roots") {
-      const { cell, facing } = d, name = `roots at (${cell.x}, ${cell.z})`, centre = hungCentre(d);
-      if (!boundary(map, cell.x, cell.z)) problems.push(`${name} hang on no collider`);
-      if (Math.abs(facing.x) + Math.abs(facing.z) !== 1 || !isFloor(map, cell.x + facing.x, cell.z + facing.z)) problems.push(`${name} face no floor`);
-      if (Math.abs(d.along) + d.width / 2 > 0.5 + 1e-9) problems.push(`${name} leave their cell's face`);
-      if (!(d.drop > 0 && d.drop <= WALL_HEIGHT - 0.4)) problems.push(`${name} drop ${d.drop} m`);
-      if (!(DRESSING.hungProud > 0 && DRESSING.hungProud <= WALL_ALLOWANCE)) problems.push(`${name} stand ${DRESSING.hungProud} m off the wall`);
-      if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) problems.push(`${name} hang at a torch`);
-      if (doorways.some(c => c.x === cell.x + facing.x && c.z === cell.z + facing.z)) problems.push(`${name} hang in a doorway`);
-      if (!facesCamera(facing, toward)) problems.push(`${name} face away from the camera`);
-      else if (!rootsSeen(map, d, toward)) problems.push(`${name} hang where a nearer wall hides them`);
-    } else if (d.kind === "cobweb") {
-      const { corner, into } = d, name = `a web at (${corner.x}, ${corner.z})`, floor = { x: corner.x + into.x / 2, z: corner.z + into.z / 2 };
-      if (Math.abs(into.x) !== 1 || Math.abs(into.z) !== 1 || !Number.isInteger(floor.x) || !Number.isInteger(floor.z)) problems.push(`${name} is not in a corner`);
-      else if (!isFloor(map, floor.x, floor.z) || isFloor(map, floor.x - into.x, floor.z) || isFloor(map, floor.x, floor.z - into.z)
-        || isFloor(map, floor.x - into.x, floor.z - into.z)) problems.push(`${name} is not in an inner corner`);
-      if (!webFacesCamera(into, toward)) problems.push(`${name} faces away from the camera`);
-      // Silk: alpha-tested, so each strand is opaque, but too thin to look solid, and a blade that passes through a web
-      // is what a web allows. Kept within its corner's cell and at least 2 m up, clear of a standing body's head. A
-      // raised weapon still reaches it (`ROOM.maxReachHeight` in `src/arena/room.ts`), which a web allows too.
-      if (!(d.span > 0 && d.span <= 0.6)) problems.push(`${name} spans ${d.span} m`);
-      if (!(d.drop > 0 && WALL_HEIGHT - d.drop >= 2)) problems.push(`${name} hangs down to ${(WALL_HEIGHT - d.drop).toFixed(2)} m`);
-      if (torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);
-    } else {
-      problems.push(...muralProblems(map, d, torches, toward));
-      if (dressing.some(o => o !== d && (o.kind === "roots" || o.kind === "mural") && wallsMeet(o, d)))
-        problems.push(`a ${d.piece} at (${d.cell.x}, ${d.cell.z}) overlaps another piece on its wall`);
-    }
-  }
   return problems;
 }

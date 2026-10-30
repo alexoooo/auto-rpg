@@ -16,7 +16,7 @@ turns the map's walls, doors and obstacles into fixed boxes in the world and lis
 compares the count of `solids` and throws if it changed.
 
 - A wall's art stands inside the rock cells it dresses. A wall-mounted piece (a sconce, roots)
-  stands at most 0.08 m proud of its rock face (`SCONCE.proud`, `WALL_ALLOWANCE`).
+  stands at most 0.08 m proud of its rock face (`SCONCE.proud`, `DRESSING.hungProud`).
 - Floor relief stays within a centimetre of the flat collision floor: it is wear, not terrain.
 - A solid-looking furnishing is an obstacle in the map, and its art is placed with it.
 - Flames, damp, moss and stains are light or surface, with no body.

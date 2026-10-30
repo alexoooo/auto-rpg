@@ -44,7 +44,7 @@ export function bradleyTerry(count: number, games: readonly Game[], { mean = 150
  * refits to the pairings drawn again with replacement: a pair's games stay together, as the pair
  * met. Seeded, so a table is the same each time it is read.
  */
-export function ratingIntervals(count: number, games: readonly Game[], { mean = 1500, iterations = 400, resamples = 200, level = 0.95, seed = 1 } = {}): [number, number][] {
+function ratingIntervals(count: number, games: readonly Game[], { mean = 1500, iterations = 400, resamples = 200, level = 0.95, seed = 1 } = {}): [number, number][] {
   const pairs = new Map<string, Game[]>();
   for (const game of games) {
     const key = game.i < game.j ? `${game.i},${game.j}` : `${game.j},${game.i}`;

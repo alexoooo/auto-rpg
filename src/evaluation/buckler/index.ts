@@ -22,7 +22,7 @@ function coverOf(id: string): Json {
 }
 
 /** A case's summary: its swings, those that touched the defender, those the buckler met first, the wound taken and what each touched first. */
-export function bucklerSummary(reading: BucklerReading) {
+function bucklerSummary(reading: BucklerReading) {
   const touched = reading.swings.filter((swing) => swing.touched);
   return { swings: reading.swings.length, touched: touched.length, met: touched.filter((swing) => swing.met).length,
     wound: reading.swings.reduce((sum, swing) => sum + swing.wound, 0), firsts: touched.map((swing) => swing.first), down: reading.down };

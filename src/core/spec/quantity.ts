@@ -6,8 +6,7 @@ import type { SourceKey } from "../sources.ts";
  * Every number a body is built from is a `Quantity`. It is either taken from a source -- a paper,
  * an asset, a measurement, the owner's decision; `SOURCES` in `src/core/sources.ts` lists them --
  * or derived from other quantities by a named rule. A derivation keeps its inputs and its rule, so
- * the chain from any built number back to what it rests on can be walked
- * (`src/core/spec/provenance.ts`).
+ * the chain from any built number back to what it rests on can be walked.
  *
  * **A derivation's constants are inputs.** A rule's code may use the arithmetic of its own
  * formula (a half, a cube, pi) and nothing else; a factor that is a claim about bodies -- a share,
@@ -43,7 +42,7 @@ type Unit =
   | "HP";
 
 /** A number read from a source: `where` says where in it, as the source is cited. */
-export interface FromSource {
+interface FromSource {
   readonly kind: "source";
   readonly source: SourceKey;
   readonly where: string;
@@ -127,6 +126,3 @@ export function si<V extends Value>(quantity: Quantity<V>): Quantity<V> {
 function scaled(value: Value, factor: number): Value {
   return typeof value === "number" ? value * factor : [value[0] * factor, value[1] * factor, value[2] * factor];
 }
-
-export const isQuantity = (x: unknown): x is Quantity =>
-  typeof x === "object" && x !== null && "value" in x && "unit" in x && "provenance" in x;

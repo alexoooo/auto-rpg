@@ -25,6 +25,9 @@ export function median(values: readonly number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/** The median of `values`; none of none. */
+export const medianOf = (values: readonly number[]): number | null => values.length ? median(values) : null;
+
 /** Uniform numbers in [0, 1) from `seed` (mulberry32): the same draws on every machine. */
 export function draws(seed: number): () => number {
   let a = seed | 0;

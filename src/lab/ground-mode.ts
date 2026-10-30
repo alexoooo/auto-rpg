@@ -64,10 +64,10 @@ export const targetImpulse = (built: BuiltBody): number => TARGET_SHOVE * [...bu
  * Where a stand's verification is: not taken over, rising, holding, walking, or its verdict: stood,
  * down after it was verified, up but not its host's at the end, or not quiet by the cap.
  */
-export type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fell after verification" | "failed" | "cap";
+type CheckStage = "standing" | "rising" | "holding" | "walking" | "stood" | "fell after verification" | "failed" | "cap";
 
 /** What a stand's verification reads of a body: it, its muscles and world, when its rise has taken it over, and whether its host has it at the end. */
-export interface Checked {
+interface Checked {
   readonly body: Pick<HostedBody, "built" | "muscles">;
   readonly world: World;
   takenOver(): boolean;

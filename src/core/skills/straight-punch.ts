@@ -14,6 +14,7 @@ import { closesToStrike } from "./strikes.ts";
 import { keepsWalk, PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
 import { learnerOf } from "../mind/learner.ts";
 import { legOf } from "./gait-scale.ts";
+import { otherSide } from "../spec/body.ts";
 
 /**
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
@@ -93,7 +94,7 @@ export interface StraightPunch {
  * in part pushes for that part (its level times the share of the step covered), so a schedule asks
  * the same impulse at every rate.
  */
-export interface TimedPush { readonly channel: string; readonly level: number; readonly from: number; readonly length: number }
+interface TimedPush { readonly channel: string; readonly level: number; readonly from: number; readonly length: number }
 
 /** Whether `push` is a timed push: a level from -1 to 1, its window finite and not negative. */
 const validPush = (push: TimedPush) => typeof push.channel === "string" && [push.level, push.from, push.length].every(Number.isFinite)
@@ -219,7 +220,7 @@ const AIM_SPEED = 4;
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
  * end. It has the legs from its stand to its return, and the hand is closed throughout.
  */
-export function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
+function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
   const built = body.built, spec = built.spec, sense = { left: turnSense("left"), right: turnSense("right") };
   if (!straightPunchFits(spec)) throw new Error(`${spec.model} cannot throw the straight punch`);
   const effectors = bodyEffectors(built), at = new Vector3(), before = new Vector3();
@@ -422,10 +423,10 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
 }
 
 /** A stopped approach must establish its local stroke within this many seconds. */
-export const PUNCH_PREPARE_LIMIT = 6;
+const PUNCH_PREPARE_LIMIT = 6;
 
 /** Whether the body stands quiet enough to drive a punch: standing, or shifting its weight no faster than `SHIFTING_PACE`. */
-export const quietToPunch = (view: BodyView): boolean =>
+const quietToPunch = (view: BodyView): boolean =>
   view.stance.phase === "stand" || view.stance.phase === "shift" && hypot(view.stance.velocity.x, view.stance.velocity.z) < SHIFTING_PACE;
 
 /**
@@ -433,7 +434,7 @@ export const quietToPunch = (view: BodyView): boolean =>
  * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
  * window, its stand-off on the ground from the target, or the window to walk to.
  */
-export function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number): Readiness {
+function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number): Readiness {
   const reach = technique.standOff(hand, at[1] - view.head.y);
   if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
   const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
@@ -468,7 +469,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
     const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; technique.enter("return");
   };
   const sparse = (posture: Pose, hand: Side): Pose => Object.fromEntries(Object.entries(posture)
-    .filter(([channel]) => !channel.includes(`.${hand === "left" ? "right" : "left"} `)));
+    .filter(([channel]) => !channel.includes(`.${otherSide(hand)} `)));
   return {
     state,
     needs(_action, effector) { return sides[sideOf(effector)]; },

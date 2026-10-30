@@ -6,6 +6,7 @@ import type { Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { GUARD } from "./guard.ts";
 import { sin, cos } from "../math/real.ts";
+import { otherSide } from "../spec/body.ts";
 
 /**
  * **The arms swinging** against the legs, each from the guard (`GUARD`): the upper arm hanging,
@@ -45,7 +46,7 @@ export function armSwing(gain: number, centred = false): (view: BodyView, headin
       return (x - s.centre.x - s.velocity.x * ARM_LEAD) * fx + (z - s.centre.z - s.velocity.z * ARM_LEAD) * fz;
     };
     const flexion = (side: Side): number => {
-      const other = lead(side === "left" ? "right" : "left");
+      const other = lead(otherSide(side));
       return Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * (centred ? (other - lead(side)) / 2 : other)));
     };
     return {

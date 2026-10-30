@@ -47,7 +47,7 @@ export function recordsOf(id: string): Promise<Kept[]> {
  * name), the subject's id and version as its records name them (`RecordedSubject`), the date and
  * what was said. A new version of the subject is not accepted until the owner accepts it.
  */
-export interface Acceptance { readonly protocol: string; readonly subject: string; readonly version: string; readonly date: string; readonly note?: string }
+interface Acceptance { readonly protocol: string; readonly subject: string; readonly version: string; readonly date: string; readonly note?: string }
 
 const ACCEPTED: Readonly<Record<string, readonly Acceptance[]>> = import.meta.glob<readonly Acceptance[]>(
   "../../assets/evaluations/*/accepted.json", { import: "default", eager: true });

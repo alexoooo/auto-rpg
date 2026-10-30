@@ -286,7 +286,7 @@ export type EntryRule = "attacks" | "uses-held";
 export const FIGHT_ENTRY: readonly EntryRule[] = Object.freeze(["attacks", "uses-held"]);
 
 /** **Why the tree `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
-export function entryRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null {
+function entryRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null {
   for (const rule of rules) switch (rule) {
     case "attacks": if (!attacks(spec, config)) return "it strikes with nothing the body has"; break;
     case "uses-held": if (!equipmentSupported(spec, config)) return "it has no use for something the body holds"; break;

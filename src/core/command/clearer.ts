@@ -50,7 +50,7 @@ interface Memory {
  * upon it. It knows what its members sense, the level its host answers and its memory; nobody
  * leads it, and it hears no command.
  */
-export function clearerCommander(host: TeamHost): Commander {
+function clearerCommander(host: TeamHost): Commander {
   const { level } = host;
   const state = {
     members: {} as Record<string, Memory>,

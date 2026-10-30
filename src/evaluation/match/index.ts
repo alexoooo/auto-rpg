@@ -10,6 +10,7 @@ import { mindSubject, type Evaluation, type Json, type Table } from "../evaluati
 import { sha256Text } from "../sha256.ts";
 import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
 import { MATCH_CASES, type MatchCondition } from "./cases.ts";
+import { otherSide } from "../../core/spec/body.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
 
@@ -48,13 +49,12 @@ export const MATCH: Evaluation<MatchCondition, BoutReading> = {
     const [a, b] = subjects;
     const bouts = [...cases.filter((bout) => bout.subjects[0] === a.id), ...cases.filter((bout) => bout.subjects[0] === b.id)]
       .map((bout) => ({ bout, a: (bout.subjects[0] === a.id ? "left" : "right") as Side }));
-    const other = (side: Side): Side => side === "left" ? "right" : "left";
     const by = (key: (one: { bout: Bout; a: Side }) => string) =>
       Object.fromEntries([...new Set(bouts.map(key))].map((k) => [k, tally(bouts.filter((one) => key(one) === k))]));
     const score = {
       all: tally(bouts),
       side: by((one) => one.a),
-      bodies: by(({ bout, a: side }) => `${bout.condition[side]} v ${bout.condition[other(side)]}`),
+      bodies: by(({ bout, a: side }) => `${bout.condition[side]} v ${bout.condition[otherSide(side)]}`),
       loadout: by(({ bout }) => loadoutKey(bout.condition.loadout)),
       level: by(({ bout }) => bout.condition.level),
       gap: by(({ bout }) => `${bout.condition.level} ${bout.condition.gap}`),
@@ -69,7 +69,7 @@ export const MATCH: Evaluation<MatchCondition, BoutReading> = {
       "|---|---|---|---|---|---|---|---|---|---|---|---|",
       ...bouts.map(({ bout: { condition: c, reading: r }, a: side }) => {
         const bars = { left: r.bars[0], right: r.bars[1] };
-        return `| ${c[side]} | ${c[other(side)]} | ${loadoutKey(c.loadout)} | ${c.level} | ${c.gap} | ${side} | ${r.winner === null ? "draw" : r.winner === side ? "a" : "b"} | ${r.ending} | ${r.seconds.toFixed(1)} | ${r.blows} | ${bars[side].toFixed(2)} | ${bars[other(side)].toFixed(2)} |`;
+        return `| ${c[side]} | ${c[otherSide(side)]} | ${loadoutKey(c.loadout)} | ${c.level} | ${c.gap} | ${side} | ${r.winner === null ? "draw" : r.winner === side ? "a" : "b"} | ${r.ending} | ${r.seconds.toFixed(1)} | ${r.blows} | ${bars[side].toFixed(2)} | ${bars[otherSide(side)].toFixed(2)} |`;
       }),
       "",
       "a's score (a win 1, a draw a half), by what the protocol varies:",

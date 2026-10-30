@@ -1,4 +1,3 @@
-import type { Vec3 } from "../spec/quantity.ts";
 import { cos, hypot, sin } from "../math/real.ts";
 
 /** A horizontal world point or direction, m for a point and dimensionless for a direction. */
@@ -70,9 +69,6 @@ export function walkGoal(heading: number, move: readonly [forward: number, right
 
 /** One destination, or the next of a drawn route, is a physical place with an arrival tolerance. */
 export const placeMovement = (at: GroundPoint, near = .2): MovementRequest => ({ kind: "place", points: [{ x: at.x, z: at.z }], near });
-
-/** A world point from a sensed or own-body vector. */
-export const groundPoint = (at: Vec3): GroundPoint => ({ x: at[0], z: at[2] });
 
 /**
  * How far a request has left to go from `here`, m, read from the request itself, never from what a

@@ -17,6 +17,7 @@ import { approachToRef, turnToRef } from "./approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "./swing-path.ts";
 import { swingShiftToRef } from "./swing-leg.ts";
 import type { BuiltDof, ReadBody } from "../read-body.ts";
+import { otherSide } from "../spec/body.ts";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -841,7 +842,7 @@ function pushOff(s: Stance, muscles: MuscleDriver): void {
   const { reading, step, tasks } = s.state, swing = step.swing, launch = swing?.launch;
   if (!swing || !launch) return;
   const side = reading.phase === "shift" && swing.transfer ? swing.foot
-    : reading.phase === "swing" && swing.seconds - step.time <= launch.lead ? (swing.foot === "left" ? "right" : "left") : null;
+    : reading.phase === "swing" && swing.seconds - step.time <= launch.lead ? otherSide(swing.foot) : null;
   const f = s.feet.findIndex((foot) => foot.side === side);
   if (f < 0 || !tasks[f]!.on || !tasks[f]!.bearing) return;
   const foot = s.feet[f]!, i = foot.memory.channels[foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length]!;

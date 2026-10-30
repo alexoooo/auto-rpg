@@ -249,7 +249,7 @@ export function contactMass(built: BuiltBody): ContactMass {
  * the change has reached `most`, the most a blow reads of it (`blowChange`), or every freedom is
  * done changing: its later legs reach impulses no blow carries.
  */
-export function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[],
+function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[],
   most = Infinity): Yield {
   const h = c.length, given = new Array<number>(h).fill(0), turning = new Array<number>(h).fill(0);
   // 0 holds; +1 gives at its high bound, -1 at its low.
@@ -331,7 +331,7 @@ export function blowChange(aKg: number, bKg: number, closing: number, stiffness:
 }
 
 /** The change `y` makes at impulse `P` (`Yield`). */
-export function changeAt(y: Yield, P: number): number {
+function changeAt(y: Yield, P: number): number {
   const last = y.impulse.length - 1;
   if (P >= y.impulse[last]!) return y.change[last]! + y.slope * (P - y.impulse[last]!);
   let k = 0;

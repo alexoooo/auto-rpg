@@ -20,7 +20,7 @@ import { sideAttributes, type Cases, type Json, type Subject } from "../evaluati
 import { readGait, type GaitReading } from "./read.ts";
 
 /** A hand the strike is thrown with. */
-export type GaitHand = "left" | "right";
+type GaitHand = "left" | "right";
 
 /** One trial's conditions: the strip's columns (`Evaluation.outcome`). */
 export type GaitCondition = { readonly model: BodyModel; readonly gait: GaitName; readonly speed: number; readonly hand: GaitHand };
@@ -50,7 +50,7 @@ function actionOf(mind: MindConfig): string | null {
  * led by the drill Commander, which goes at the foe at `speed` (`going`), walks back into the
  * window by the gait no faster, and orders the strike the first step it is ready (`walking`).
  */
-export function goer(mind: MindConfig, gait: GaitName, speed: number, hand: GaitHand): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
+function goer(mind: MindConfig, gait: GaitName, speed: number, hand: GaitHand): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
   const action = actionOf(mind);
   if (action === null) throw new Error(`a ${mind.kind} mind throws nothing standing`);
   const commander: DrillCommanderConfig = { kind: "drill", action, limb: `hand.${hand}`, region: { kind: "mark", mark: "middle" }, after: 0, going: speed, pace: speed, walking: true, gait };

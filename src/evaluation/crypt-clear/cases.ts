@@ -40,7 +40,7 @@ const START_CLEARANCE = 0.5;
  * as generated for trial 0, and otherwise moved `NUDGE` m a trial along one of `NUDGES`, a ring
  * further every four. Throws where the start moved is not open floor.
  */
-export function trialLayout(seed: number, trial: number): CryptLayout {
+function trialLayout(seed: number, trial: number): CryptLayout {
   const map = generateEncounterLevel(seed).map;
   const [x, z] = trial === 0 ? [0, 0] : NUDGES[(trial - 1) % NUDGES.length]!, ring = NUDGE * (1 + Math.floor(Math.max(0, trial - 1) / NUDGES.length));
   const start = { x: map.start.x + x * ring, z: map.start.z + z * ring };

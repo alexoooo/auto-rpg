@@ -4,6 +4,9 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 /** One side of a bilateral body: a hand, a foot, a limb, a corner of a bout. */
 export type Side = "left" | "right";
 
+/** The side across from `side`. */
+export const otherSide = (side: Side): Side => side === "left" ? "right" : "left";
+
 /** An end a body bears its weight on, by its name among its spec's ends (`BodySpec.ends`): a human's `foot.left`, `hand.right`, `shin.left`. */
 export type BearingEnd = string;
 
@@ -279,6 +282,20 @@ export interface SegmentSpec {
   readonly contacts?: readonly ContactRegionSpec[];
   /** A foot's toes, ahead of its box (`src/core/build/toes.ts`). */
   readonly toes?: ToesSpec;
+}
+
+/** Each spec's segments by name, found once: a spec is immutable. */
+const SEGMENTS = new WeakMap<BodySpec, ReadonlyMap<string, SegmentSpec>>();
+
+/** **`spec`'s segment named `name`**, the first of that name; none where it has none. */
+export function segmentOf(spec: BodySpec, name: string): SegmentSpec | undefined {
+  let named = SEGMENTS.get(spec);
+  if (!named) {
+    const found = new Map<string, SegmentSpec>();
+    for (let i = 0; i < spec.segments.length; i++) if (!found.has(spec.segments[i]!.name)) found.set(spec.segments[i]!.name, spec.segments[i]!);
+    SEGMENTS.set(spec, named = found);
+  }
+  return named.get(name);
 }
 
 /**

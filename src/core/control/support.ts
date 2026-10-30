@@ -15,6 +15,7 @@ import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import type { MuscleSpec, Side } from "../spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
+import { dot } from "../spec/vec.ts";
 
 /** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
 export const groundContact = (contact: ReadContact, minUp: number): boolean =>
@@ -777,7 +778,6 @@ function soleCorners(foot: ReadSegment, toesFlat: boolean): Vec3[] {
 /** `foot`'s sole's `corners` (`soleCorners`) in the segment's own frame. */
 function soleOf(foot: ReadSegment, corners: readonly Vec3[]): Vector3[] {
   const { origin, x, y, z } = foot.frame;
-  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
   return corners.map((q) => {
     const o = [q[0] - origin[0], q[1] - origin[1], q[2] - origin[2]];
     return new Vector3(dot(o, x), dot(o, y), dot(o, z));

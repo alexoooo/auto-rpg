@@ -108,7 +108,7 @@ const BY_ORDERS: readonly ScenarioId[] = ["ground"];
  * (`takesScript`); or by orders alone, where it carries them out (`treeObeys`) and the scenario
  * asks nothing else (`BY_ORDERS`).
  */
-export const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean =>
+const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean =>
   takesScript(config) || scenario !== null && BY_ORDERS.includes(scenario) && treeObeys(config);
 
 /** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */

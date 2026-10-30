@@ -4,7 +4,7 @@ import type { Command, DrawnRoute } from "../core/command/commands.ts";
 import { hypot } from "../core/math/real.ts";
 
 interface ControlMode { keyboard: boolean; facing: boolean }
-export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;
+const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;
 
 /** Keys on the screen's axes as a step on the ground, for a camera standing `toward` of the hero: screen up is
  * `-toward`, away from the camera, and screen right is `(-toward.z, toward.x)`. At `CAMERA_AZIMUTH` they are +z and +x. */

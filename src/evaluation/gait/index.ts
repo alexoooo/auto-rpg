@@ -12,7 +12,7 @@ import { GAIT_CASES, type GaitCondition } from "./cases.ts";
 import type { GaitReading } from "./read.ts";
 
 /** What the strip shows a trial as: its outcome, and whether it passed (its strike admitted, the subject up). */
-export const gaitOutcome = (reading: GaitReading) => ({ label: reading.outcome, passed: reading.outcome === "ready" });
+const gaitOutcome = (reading: GaitReading) => ({ label: reading.outcome, passed: reading.outcome === "ready" });
 
 export const GAIT: Evaluation<GaitCondition, GaitReading> = {
   id: "gait",

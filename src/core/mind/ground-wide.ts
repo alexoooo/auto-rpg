@@ -9,6 +9,7 @@ import { upperSurface } from "./openings.ts";
 import { clearFootTranslation, lowOpponent, sensedFootClearance } from "./sensed-bounds.ts";
 import type { BodySense } from "./senses.ts";
 import { lyingAxis } from "./targets.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /** The wider approach's placement, reach and physical probes: `docs/reference/ground-combat.md#policy-settings`. */
 const GROUND_COMBAT = Object.freeze({ across: .1, ahead: .65, reach: .8, footRadius: .12, lookahead: 1, orientations: 8 });
@@ -25,7 +26,7 @@ function routeLength(from: Vec3, route: readonly Vec3[]): number {
 
 /** Side approach, supported lowering, refreshed strokes and standing return behind the neutral intent. */
 export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: number, move: readonly [number, number] | null) => readonly [number, number] | null) {
-  const left = spec.segments.find(s => s.name === "foot.left")!, right = spec.segments.find(s => s.name === "foot.right")!;
+  const left = segmentOf(spec, "foot.left")!, right = segmentOf(spec, "foot.right")!;
   const width = Math.abs(left.centreOfMass.value[0] - right.centreOfMass.value[0]) / 2;
   const state = { phase: "guard" as GroundPhase, stage: "approach" as GroundStage,
     active: false, hand: null as Side | null, foe: null as string | null, face: 0, target: null as Vec3 | null, surface: null as string | null,

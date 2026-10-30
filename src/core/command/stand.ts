@@ -9,7 +9,7 @@ import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from
  * (`Orders.firm`), naming none, so its hands are held from blows (`orderAllows`); how it guards is
  * its mind's. With no foe it stands as it faces. Nobody leads it.
  */
-export function standCommander(): Commander {
+function standCommander(): Commander {
   const state = { targets: {} as Record<string, string | null> };
   return {
     state,

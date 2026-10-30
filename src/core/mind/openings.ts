@@ -6,7 +6,7 @@ import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "../skills/attack-path.ts";
 import { aimOf } from "../skills/strikes.ts";
 import { placedReach, shoulderFromHead } from "../skills/arm-reach.ts";
-import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
+import { type Side, frameOf, type BodySpec, type SegmentSpec, segmentOf } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../spec/vec.ts";
 import { hypot } from "../math/real.ts";
@@ -115,13 +115,13 @@ export function upperSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | 
 }
 
 /** A ray from below onto the actual collider, for an upward attack. */
-export function lowerSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
+function lowerSurface(foe: BodySense, name: string, from?: Vec3): Vec3 | null {
   return verticalSurface(foe, name, from, -1);
 }
 
 /** An exposed capsule side toward an observed point, with its centre line sampled at a world height. */
 export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3, height: number): Vec3 | null {
-  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
   const round = segment && capsule(segment);
   if (!round || !sensed || !Number.isFinite(height) || !from.every(Number.isFinite)) return null;
   const world = (p: Vec3) => new Vector3(...p).applyRotationQuaternionToRef(sensed.rotation, new Vector3()).addInPlace(sensed.position);
@@ -139,7 +139,7 @@ export function capsuleSurfaceAtHeight(foe: BodySense, name: string, from: Vec3,
 
 /** The near face of an observed collider, including limbs below a standing opponent's trunk. */
 export function nearSurface(foe: BodySense, name: string, from: Vec3): Vec3 | null {
-  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
   if (!segment || !sensed) return null;
   const scratch = new Vector3(), inverse = new Quaternion();
   scratch.set(...from).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation, inverse), scratch);
@@ -170,13 +170,13 @@ function entryShapes(segment: SegmentSpec): readonly SegmentSpec[] {
 
 /** A point on or inside any natural collider has no fresh exposed approach from there. */
 export function surfaceContains(foe: BodySense, name: string, at: Vec3): boolean {
-  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
   return !!segment && !!sensed && entryShapes(segment).some(shape => shapeEntry(shape, sensed, at, at) === false);
 }
 
 /** First exposed entry into a sensed segment's primary collider or natural contact regions. */
 export function surfaceEntry(foe: BodySense, name: string, from: Vec3, to: Vec3): { readonly at: Vec3; readonly normal: Vec3 } | null {
-  const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
+  const segment = segmentOf(foe.spec, name), sensed = foe.segments.get(name);
   if (!segment || !sensed) return null;
   let best: { readonly at: Vec3; readonly normal: Vec3 } | null = null, distance = Infinity;
   for (const shape of entryShapes(segment)) {

@@ -26,7 +26,7 @@ export interface ActionEngagement {
 }
 
 /** Conditions share detached facts; distance reads proximity, while target and follow-up read focus. */
-export function actionCondition(condition: ConditionConfig, sight: Sight, orders: Orders | null, focus: BodySense | null): boolean {
+function actionCondition(condition: ConditionConfig, sight: Sight, orders: Orders | null, focus: BodySense | null): boolean {
   let foe = Infinity, sinceTarget = Infinity;
   const centre = sight.view.stance.centre;
   for (const other of sight.view.senses.others) if (!other.out && other.side !== sight.view.senses.side)

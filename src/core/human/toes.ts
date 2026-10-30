@@ -6,7 +6,7 @@ import type { HumanFigure } from "./figure.ts";
  * slab's thickness up from the sole (`ToesSpec`, `src/core/build/toes.ts`). Measured:
  * `docs/reference/toes.md`.
  */
-export const TOES = Object.freeze({
+const TOES = Object.freeze({
   length: sourced(0.06, "m", "owner-toes", "the toes' length back from the boot's toe"),
   thickness: sourced(0.025, "m", "owner-toes", "the toes' slab thickness"),
 });

@@ -2,7 +2,7 @@ import { BODY_MODELS, type BodyModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "./models.ts";
 
 /** Cosmetic choices; supported models are physical bodies, never aliases for these skins. */
-export const APPEARANCES = Object.freeze([
+const APPEARANCES = Object.freeze([
   Object.freeze({ id: "default", name: "Original", models: BODY_MODELS, clothing: true }),
   Object.freeze({ id: "industrial", name: "Industrial", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),
   Object.freeze({ id: "relic", name: "Steampunk", models: Object.freeze(["workshop-fighter"] as const), clothing: false }),

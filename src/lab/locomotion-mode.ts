@@ -178,7 +178,7 @@ interface CourseTactics extends Tactics {
   frame(time: number, x: number, z: number): Omit<LocomotionFrame, "speed" | "time" | "heading" | "fallen" | "walking" | "gait" | "wind" | "gusts">;
 }
 
-export function trackTactics(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): CourseTactics {
+function trackTactics(track: Track, { top, pace: most, turn, facing }: TrackOptions = {}): CourseTactics {
   const turning = turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = facing ?? 0, move: [number, number] = [0, 0];

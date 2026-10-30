@@ -37,7 +37,7 @@ export function mindSubjects(choice: SubjectChoice, none: readonly string[]): re
 }
 
 /** Whether a walk came to its pace: along within 0.8 to 1.25 of it, under a quarter of it across, on its feet. */
-export const onPace = (r: LocomotionReading): boolean => !r.fell && r.along !== null && r.across !== null && r.along >= .8 && r.along <= 1.25 && Math.abs(r.across) < .25;
+const onPace = (r: LocomotionReading): boolean => !r.fell && r.along !== null && r.across !== null && r.along >= .8 && r.along <= 1.25 && Math.abs(r.across) < .25;
 
 /** A figure of the trials of `kinds` alone: null on another kind. */
 const only = <T>(kinds: readonly LocomotionReading["kind"][], of: (r: LocomotionReading) => T) => (r: LocomotionReading): T | null => kinds.includes(r.kind) ? of(r) : null;

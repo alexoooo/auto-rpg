@@ -6,7 +6,7 @@ import { servoAsk, servoSolve } from "../../src/core/control/servo.ts";
 import { turnOfToRef } from "../../src/core/control/support.ts";
 import { atan2 } from "../../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../src/core/math/turn.ts";
-import type { OwnBody } from "../mind.ts";
+import type { OwnBody } from "../../src/core/mind/mind.ts";
 import { riseLimbs } from "../../src/core/mind/rise/limbs.ts";
 
 import { quietOnFeet, type GroundReading, type Position } from "../../src/core/mind/ground/reading.ts";

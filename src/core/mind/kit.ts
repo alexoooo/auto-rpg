@@ -54,7 +54,7 @@ export interface MindKit {
 }
 
 /** The parts of a mind a kit is made from: its motor (the game's where none) and its guard. */
-export interface KitParts {
+interface KitParts {
   readonly motor?: PartConfig | null;
   readonly guard: PartConfig;
 }

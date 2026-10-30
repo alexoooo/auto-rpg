@@ -20,7 +20,7 @@ export interface Clearance {
 }
 
 /** How far a body keeps its centre beyond its sensed clearance (`bodyClearance`), and how far ahead a walk is kept clear, m: the stock navigators'. */
-export const KEEP_CLEAR = Object.freeze({ margin: .08, ahead: .5 });
+const KEEP_CLEAR = Object.freeze({ margin: .08, ahead: .5 });
 
 /** The stock navigators' clearance for a body of `spec` (`Clearance`): its centre `KEEP_CLEAR.margin` m beyond its clearance, over the next `KEEP_CLEAR.ahead` m. */
 export function stockClearance(spec: BodySpec): Clearance {

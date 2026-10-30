@@ -106,7 +106,7 @@ function floorBetween(map: DungeonMap, at: Point, from: Point, least: number, mo
 const PARTY = ["hero", "ally-0", "ally-1", "ally-2"] as const;
 
 /** The case `situation` on `seed` plays, its party under `mind`. */
-export function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptCase {
+function crowdCase(situation: Situation, seed: number, mind: MindConfig): CryptCase {
   const draw = randomStream(seed), jitter = (most: number): number => (draw.next() * 2 - 1) * most, model = CROWD.model;
   const middle = 0.5 + CROWD.room.depth / 2, most = CROWD.most;
   const at = (x: number, z: number): Point => ({ x, z });

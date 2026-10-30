@@ -11,21 +11,21 @@ import { deepFreeze } from "../../state.ts";
  * from `near` to `far` m (`range`), or attacking the foe (`strike`). The foe is the first other body
  * of another side still in the fight.
  */
-export type BeatMove =
+type BeatMove =
   | { readonly kind: "own" }
   | { readonly kind: "stand" }
   | { readonly kind: "range"; readonly near: number; readonly far: number }
   | { readonly kind: "strike" };
 
 /** One beat of a script: its move, for `seconds`. */
-export interface Beat { readonly seconds: number; readonly move: BeatMove }
+interface Beat { readonly seconds: number; readonly move: BeatMove }
 
 /**
  * **The drill opponent's config**: the mind that moves its body (`body`, a mind whose tactics follow
  * orders), and its script, each beat's move given it as orders for the beat's seconds, in turn and
  * round again from the bout's start. With no beats its body's own tactics play throughout.
  */
-export interface DrillOpponentConfig {
+interface DrillOpponentConfig {
   readonly kind: "drill-opponent";
   readonly body: MindConfig;
   readonly beats: readonly Beat[];

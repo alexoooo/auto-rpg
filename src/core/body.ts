@@ -25,6 +25,8 @@ import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
 import type { ReadBody, ReadSegment } from "./read-body.ts";
 import type { BuiltBody } from "./build/build-body.ts";
 import { readView } from "./build/read-view.ts";
+import { dot } from "./spec/vec.ts";
+import { segmentOf } from "./spec/body.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -190,7 +192,7 @@ export interface BodyView {
 }
 
 /** Where a fist's knuckles are and how they move, in the world, as the last step left them. */
-export interface Fist {
+interface Fist {
   readonly position: Vector3;
   readonly velocity: Vector3;
 }
@@ -247,7 +249,7 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, motor: makeMotor }: BodyOptions,
+function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, motor: makeMotor }: BodyOptions,
   dt: number): CommandMind {
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
@@ -387,7 +389,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
  * muscles (`BodyHost.hosted`, `policy`).
  */
 export function commandRefusal(spec: BodySpec): string | null {
-  const segment = (name: string) => spec.segments.find((s) => s.name === name), lacks: string[] = [];
+  const segment = (name: string) => segmentOf(spec, name), lacks: string[] = [];
   for (const side of ["left", "right"] as const) if (!segment(`hand.${side}`)?.points?.knuckles) lacks.push(`a fist at hand.${side}`);
   for (const side of ["left", "right"] as const) if (segment(`foot.${side}`)?.shape.kind !== "box") lacks.push(`a box sole at foot.${side}`);
   if (!segment("head")) lacks.push("a head");
@@ -458,7 +460,6 @@ function fistOf(built: ReadBody, side: Side): { fist: Fist; update(): void } {
   const knuckles = hand?.spec.points?.knuckles;
   if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
   const { origin, x, y, z } = hand.frame;
-  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
   const local = (p: readonly number[]) => { const o = p.map((c, i) => c - origin[i]!); return new Vector3(dot(o, x), dot(o, y), dot(o, z)); };
   // The centre of mass (of the hand and what it holds), and from it to the knuckles, in the hand's own frame.
   const centre = local(hand.rigid.centre);

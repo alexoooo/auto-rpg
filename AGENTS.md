@@ -11,7 +11,7 @@ going.
 npm ci                    # the exact lockfile, never `install`
 npm run dev               # http://localhost:5180, strictPort
 npm run check             # tsc --noEmit
-npm test                  # the gate: step cost, the core's boundary, the Mind and Commander contracts, the probes, no strays
+npm test                  # the gate: step cost, the core's boundary, the Mind and Commander contracts, the probes, script links, no strays
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
@@ -187,13 +187,14 @@ it never imports them.
 
 ## Tests
 
-The gate (`npm test`, every `tests/*.test.mjs`) holds seven contracts: the step's time and
+The gate (`npm test`, every `tests/*.test.mjs`) holds eight contracts: the step's time and
 allocation (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
 (`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`),
 what a Commander may (`tests/command-contract.test.mjs`), a part of each converted role swapped in
 from outside `src/` by configuration alone (`tests/swap.test.mjs`), each legs, balance and motor
-doing or reporting every term of the body layer's vocabulary (`tests/probes.test.mjs`) and a
-working copy with no stray files (`tests/workspace.test.mjs`).
+doing or reporting every term of the body layer's vocabulary (`tests/probes.test.mjs`), research
+scripts and scripts importing what exists (`tests/script-links.test.mjs`) and a working copy with
+no stray files (`tests/workspace.test.mjs`).
 
 - **Tests are a liability; less is more.** A test is added only for a specific need, such as
   reproducing a bug that has been found, never casually or for coverage.

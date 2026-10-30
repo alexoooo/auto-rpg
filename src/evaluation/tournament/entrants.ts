@@ -36,7 +36,7 @@ function entrant(id: string, label: string, config: Json, model: BodyModel, load
 }
 
 /** Mind `id`'s entrants: one for each character and representative loadout it fits. */
-export const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>
+const entrantsOf = (id: string, label: string, config: Json, models: readonly BodyModel[] = BODY_MODELS, character: AttributeOverrides = {}): Subject[] =>
   models.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout, character)).map((loadout) => entrant(id, label, config, model, loadout, character)));
 
 /**

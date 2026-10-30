@@ -7,7 +7,7 @@ import type { MoveRule } from "./move.ts";
 export const GAIT_CHOICES = STOCK_GAITS.map((gait): [GaitName, string] => [gait.name, gait.label]);
 
 /** A rule of Move's config: when it holds, and the gait it chooses then. */
-export interface RuleConfig extends PartConfig { readonly gait: GaitName }
+interface RuleConfig extends PartConfig { readonly gait: GaitName }
 
 /**
  * **A kind of Move rule** (`move`, `skills/move.ts`): a part of role `move-rule` that owns its

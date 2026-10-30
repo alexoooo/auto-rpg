@@ -21,6 +21,7 @@ import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import type { Side } from "../spec/body.ts";
 import { pointTarget, type ActionEnding, type ActionRequest, type Executor, type LifecycleUpdate, type Resource, type TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
+import { otherSide } from "../spec/body.ts";
 
 /** Experimental execution limits, independent of anatomy: `docs/reference/punch-foundation.md#execution-limits`. */
 export const PUNCH_EXECUTION = Object.freeze({ impactSeconds: .04, impactTravel: .04, normalAlignment: .5 });
@@ -142,7 +143,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
     readiness(view, action, effector, requested, around) {
       if (!actions.some(one => one.name === action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
-      const hand = sideOf(effector), other = hand === "left" ? "right" : "left";
+      const hand = sideOf(effector), other = otherSide(hand);
       if (view.down) return { kind: "blocked", reason: "body is down" };
       if (state.lives[hand] || state.lives[other] && (!overlap || state.cycles[other].phase !== "return"))
         return { kind: "waiting", reason: "shared executor is striking" };

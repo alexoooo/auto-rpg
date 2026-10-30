@@ -7,6 +7,7 @@ import { createMotionBody } from "../mind/motion.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 import type { Side } from "../spec/body.ts";
+import { otherSide } from "../spec/body.ts";
 
 /** Upright support experiment inputs, numeric settings (`docs/reference/support-transition.md`). */
 const SETTINGS = deepFreeze({ lower: 0.04, lift: 0.04, placementMargin: 0.002, centreGain: 0.7,
@@ -36,7 +37,7 @@ export function createSupportProbe(scene: Scene, engine: PhysicsEngine, config: 
       angle: Math.max(c.min, Math.min(c.max, /knee/.test(c.name) ? SETTINGS.knee : 0)), rate: 0, acceleration: 0,
       seconds: SETTINGS.jointSeconds, weight: /hip|knee|ankle/.test(c.name) ? SETTINGS.legWeight : SETTINGS.otherWeight }));
     policy = supportTransition({ ...SETTINGS, lift: SETTINGS.lift + config.liftOffset, root: "lowerTrunk",
-      moving: `foot.${config.side}`, support: `foot.${config.side === "left" ? "right" : "left"}`, joints });
+      moving: `foot.${config.side}`, support: `foot.${otherSide(config.side)}`, joints });
     return policy;
   }, { items: [], grants: [], fixed: [], capacity: SETTINGS.capacity, effortCost: SETTINGS.effortCost, contact: SETTINGS.contact });
   const state = { steps: 0, fell: false, completedAt: -1, continuedSteps: 0, peakLift: 0, flightSteps: 0,

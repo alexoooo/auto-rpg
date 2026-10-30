@@ -13,12 +13,13 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { fitsAll, fitsWhen } from "../mind/parts.ts";
 import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 import type { REPTILE_BITE } from "./tuning.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /** How fast a support motor answers, s (`supportedMotor`'s timing). */
 type Response = Pick<Parameters<typeof supportedMotor>[2], "centre" | "endpoint" | "turn" | "posture">;
 
 /** **A motor over a body's support chains** (`supportedMotor`), and the responses it holds still and travels at. */
-export interface SupportMotor {
+interface SupportMotor {
   readonly motor: ReturnType<typeof supportedMotor>;
   readonly hold: Response;
   readonly travel: Response;
@@ -31,7 +32,7 @@ export interface SupportMotorPart<C extends PartConfig = PartConfig> extends Par
 }
 
 /** What a quadruped reads of a gait beside its command: how high it carries the body and how its paws lift, swing and plant. */
-export interface GaitSettings {
+interface GaitSettings {
   readonly crawlHeight: number;
   readonly lift: number;
   readonly plantSpeed: number;
@@ -88,7 +89,7 @@ export interface QuadrupedIntent extends TravelOrders {
 export interface QuadrupedSight { readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }
 
 /** **A quadruped's tactics**: its memory names the target it bites at (a foe's part, a point there and the tooth), which its body forgets when it is taken over. */
-export interface QuadrupedTactics extends Tactics<QuadrupedSight, QuadrupedIntent> {
+interface QuadrupedTactics extends Tactics<QuadrupedSight, QuadrupedIntent> {
   readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null };
 }
 
@@ -122,7 +123,7 @@ export const fitsPaws = fitsWhen((spec: BodySpec) => supportsOf(spec).length >= 
 
 /** A part's `fits` for a body with a jaw: a segment with a bite point hinged to a head with a mouth (`mouthOf`). */
 export const fitsJaw = fitsWhen((spec: BodySpec) => {
-  const jaw = spec.segments.find((s) => s.points?.bite), parent = jaw && above(spec, jaw.name)?.parent, head = spec.segments.find((s) => s.name === parent);
+  const jaw = spec.segments.find((s) => s.points?.bite), parent = jaw && above(spec, jaw.name)?.parent, head = parent === undefined ? undefined : segmentOf(spec, parent);
   return !!head?.points?.mouth && above(spec, head.name) !== undefined;
 }, "needs a jaw with a bite point, hinged to a head with a mouth");
 

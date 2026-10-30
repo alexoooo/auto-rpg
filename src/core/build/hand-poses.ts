@@ -20,7 +20,7 @@ export interface HandPoses {
  * Whether a hand's change of pose to `collider` is blocked this step: a contact pushes on the hand,
  * or the new shape would overlap something.
  */
-export function poseBlocked(world: World, part: BuiltSegment, collider: ColliderShape): boolean {
+function poseBlocked(world: World, part: BuiltSegment, collider: ColliderShape): boolean {
   return world.physics.contactsOf(part.body).some(contact => contact.impulse > 0) || !part.body.canChangeShape(0, collider);
 }
 

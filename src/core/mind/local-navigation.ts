@@ -6,7 +6,7 @@ import type { NavigatorPart } from "./navigator.ts";
 import { anyBody } from "./parts.ts";
 
 /** **Local clearance**: the config of the walker that goes to a place only where the way there is clear. */
-export interface LocalNavigationConfig { readonly kind: "local-navigation" }
+interface LocalNavigationConfig { readonly kind: "local-navigation" }
 
 /** **Local clearance** (`routeWalker`): a place reached straight where the sweep there is clear of the solids sensed, and not otherwise. */
 export const LOCAL_NAVIGATION: NavigatorPart<LocalNavigationConfig> = deepFreeze({

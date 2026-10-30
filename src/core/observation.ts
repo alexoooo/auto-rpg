@@ -91,7 +91,7 @@ const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }
  * (`equipment`), whether the body is down by its host's rule (`down`, else by its own
  * uprightness), and each ground contact's patch (`contactPatches`).
  */
-export interface ObserveOptions {
+interface ObserveOptions {
   readonly equipment?: () => readonly EquipmentObservation[];
   readonly down?: () => boolean;
   readonly contactPatches?: boolean;

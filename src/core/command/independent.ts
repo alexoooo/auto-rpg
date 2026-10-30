@@ -23,7 +23,7 @@ interface Memory {
  * one for `ALERT_SECONDS`, and otherwise goes back home. Nobody leads it; it hears no command.
  * Each look (`TeamView.look`) a member picks again; with no foe in the fight, what it last saw stands.
  */
-export function independentCommander(host: TeamHost): Commander {
+function independentCommander(host: TeamHost): Commander {
   // When each foe lying down went down, by id (`lyingSince`).
   const state = { members: {} as Record<string, Memory>, down: {} as Record<string, number> };
   const memory = (id: string): Memory => state.members[id] ??=

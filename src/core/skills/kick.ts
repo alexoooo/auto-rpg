@@ -14,6 +14,7 @@ import type { Side } from "../spec/body.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { footEnd, type LegsGoal } from "./skill.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
+import { otherSide, segmentOf } from "../spec/body.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
@@ -110,7 +111,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const foot = sideOf(effector), hip = body.built.spec.joints.find(j => j.name === `hip.${foot}`)!.centre.value;
-      const sole = body.built.spec.segments.find(segment => segment.name === `foot.${foot}`)!.distal.value;
+      const sole = segmentOf(body.built.spec, `foot.${foot}`)!.distal.value;
       const reach = hypot(hip[0] - sole[0], hip[1] - sole[1], hip[2] - sole[2]);
       const soleAt = view.stance.soles[foot];
       if (at[1] < soleAt.y - tuning.near || at[1] > soleAt.y + tuning.top * reach) return { kind: "blocked", reason: "target is outside the leg's height band" };
@@ -125,7 +126,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); support.state.quiet = 0; },
     start(view, request, around) {
       if (state.live) throw new Error("kick executor already owns an instance");
-      const foot = sideOf(request.effector), other = foot === "left" ? "right" : "left";
+      const foot = sideOf(request.effector), other = otherSide(foot);
       const target = resolve(view, request.target, request.action, request.effector);
       if (!target) throw new Error("kick target has no aim");
       const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
@@ -142,7 +143,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       const live = state.live;
       if (!live) return [];
       if (view.down) return [finish({ kind: "interrupted", reason: "body is down" })];
-      const foot = live.foot, other = foot === "left" ? "right" : "left", strike = strikes[foot], velocity = strike.read(view, dt);
+      const foot = live.foot, other = otherSide(foot), strike = strikes[foot], velocity = strike.read(view, dt);
       const request = continued.find(one => one.id === live.request.id);
       if (!request) live.withdrawn = true;
       const source = request ?? live.request;
@@ -217,7 +218,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
-      const foot = live.foot, other = foot === "left" ? "right" : "left", strike = strikes[foot];
+      const foot = live.foot, other = otherSide(foot), strike = strikes[foot];
       const centred = live.stage === "admitting" || live.stage === "setup" || live.stage === "recenter";
       const both = centred || live.stage === "transfer";
       const standing: LegsGoal = { walk: null, feet: both ? [footEnd("left"), footEnd("right")] : [footEnd(other)], centre: centred ? null : [live.bearing[0], live.bearing[2]],

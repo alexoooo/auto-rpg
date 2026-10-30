@@ -6,6 +6,7 @@ import { cos, sin } from "../math/real.ts";
 import type { MusclePush } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
+import { otherSide } from "../spec/body.ts";
 
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
 export const PUNCH_DECIDE = 1 / 60;
@@ -36,7 +37,7 @@ function axes(name: string): string[] {
  * side, m, each its output times its full scale, a distance's in proportion to the body's leg; or
  * the walk under way kept (above 0) or halted (`walk`, `keepsWalk`).
  */
-export type PunchOutput =
+type PunchOutput =
   | { readonly term: "pushes"; readonly channel: string }
   | { readonly term: "heading"; readonly full: number }
   | { readonly term: "centre"; readonly along: "ahead" | "across"; readonly full: number }
@@ -47,7 +48,7 @@ export type PunchOutput =
  * reading (`READINGS`) or `angle <channel>` and `speed <channel>`, rad and rad/s, for the right
  * hand's punch; the leg its distances' full scales are for, m (`legOf`); and its outputs.
  */
-export interface PunchLayout {
+interface PunchLayout {
   readonly inputs: readonly string[];
   readonly leg: number;
   readonly outputs: readonly PunchOutput[];
@@ -69,9 +70,6 @@ function checked(layout: PunchLayout): PunchLayout {
 
 /** How many outputs a steered punch's steer has (`PUNCH_LAYOUT`'s outputs). */
 export const PUNCH_ACTIONS = PUNCH_LAYOUT.outputs.length;
-
-/** How many features a steered punch reads (`PUNCH_LAYOUT`'s inputs). */
-export const PUNCH_FEATURES = PUNCH_LAYOUT.inputs.length;
 
 /**
  * `hand`'s punch as its layout lays it out for a body whose leg is `leg` m (`legOf`): the left
@@ -107,7 +105,7 @@ export function punchChannels(hand: Side, leg: number): PunchChannels {
  * heading, centre ahead and centre across are, and the walk's keep (-1 with none), and the hand's
  * side, 1 right and -1 left.
  */
-export interface PunchChannels {
+interface PunchChannels {
   readonly readings: readonly number[];
   readonly inputs: readonly (string | null)[];
   readonly inputSenses: readonly number[];
@@ -157,7 +155,7 @@ export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: 
   framed(view, target[0]! + aimed[0]!, target[1]! + aimed[1]!, target[2]! + aimed[2]!, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
   const touched = view.stance.touching, phase = view.stance.phase;
-  read[k++] = touched[hand] ? 1 : 0; read[k++] = touched[hand === "right" ? "left" : "right"] ? 1 : 0;
+  read[k++] = touched[hand] ? 1 : 0; read[k++] = touched[otherSide(hand)] ? 1 : 0;
   read[k++] = phase === "shift" ? 1 : 0; read[k++] = phase === "swing" ? 1 : 0;
   const { readings, inputs, inputSenses, speeds } = channels;
   for (let i = 0; i < readings.length; i++) {

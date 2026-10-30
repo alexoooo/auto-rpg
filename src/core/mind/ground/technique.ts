@@ -93,7 +93,7 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
 }
 
 /** A technique's `fits`: a body the command layers read (`commandRefusal`), whose limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
-export const fitsHumanoid = (spec: BodySpec): string | null => commandRefusal(spec);
+const fitsHumanoid = (spec: BodySpec): string | null => commandRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own. */
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean }): TechniquePart<{ readonly kind: K }> =>

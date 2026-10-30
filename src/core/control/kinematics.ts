@@ -161,22 +161,6 @@ function walkedColumn(walk: ChainWalk, c: number, joint: number, at: Vector3, ou
 }
 
 /**
- * How `point` (body frame, reference pose, on the chain's last segment) moves for a unit of each
- * of `free`, with the chain at `angles`: `out[c]` is freedom c's column, m/rad, root's frame. One
- * walk of the chain, no differences: the column of freedom k of joint j is w x (p - c_j), p the
- * point as the chain stands, c_j the joint's centre, w the freedom's spin (`walkTo`).
- */
-export function reachJacobianTo(out: number[][], chain: readonly JointKinematics[], angles: readonly (readonly number[])[],
-  free: readonly ReachFreedom[], point: Vec3): number[][] {
-  const walk = chainWalk();
-  walkTo(walk, chain, angles, free);
-  const at = walkedPointToRef(walk, chain, point, scratch.at);
-  out.length = free.length;
-  for (let c = 0; c < free.length; c++) walkedColumn(walk, c, free[c]!.joint, at, (out[c] ??= []), 0);
-  return out;
-}
-
-/**
  * Where `point` (body frame, reference pose, on `segment`) stands now, in `root`'s frame, from the
  * nodes' `position` and `rotationQuaternion` (never the world matrix, which caches per frame): a
  * segment's node carries its reference pose by its turn since then, node times rest^-1.
@@ -306,7 +290,7 @@ export function reachWork(freedoms: number): ReachWork {
  * `IK_DAMPING` so a straight arm does not fling, plus the null space's share of a pull toward the
  * preferred angles, so a redundant arm settles its swing where the posture asks rather than
  * wherever it began; then clamps each to its range. J is the kinematics' own derivative, in
- * closed form (`reachJacobianTo`): read by differences its noise is a thousand times what the
+ * closed form (`walkedColumn`): read by differences its noise is a thousand times what the
  * solve stops at, and a solve at its place never stops.
  * Where the free angles do not outnumber the rows there is no null space, and no pull.
  *

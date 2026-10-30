@@ -48,7 +48,7 @@ export const seriesStiffness = (stiffness: readonly (number | null)[]): number =
   1 / stiffness.reduce<number>((sum, k) => sum + (k === null ? 0 : 1 / k), 0);
 
 /** One side of a blow: the surface that met the other's. */
-export interface BlowSide {
+interface BlowSide {
   readonly fighter: string;
   readonly segment: string;
   /** The held item whose shape was touched, by name; null for the segment's own. */

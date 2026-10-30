@@ -74,7 +74,7 @@ export function entrantParts(id: string): { readonly mind: string; readonly kit:
 }
 
 /** Two minds on common ground: the mean of the first's entrants' ratings less the second's over the kits both have, and how many kits. */
-export interface CommonGround {
+interface CommonGround {
   readonly minds: readonly string[];
   /** By the row mind, then the column mind; null where they share no kit. */
   readonly cells: readonly (readonly ({ readonly difference: number; readonly kits: number } | null)[])[];
@@ -126,7 +126,7 @@ export const conditionFields = (pool: Pool): string[] =>
   [...new Set(pool.cases.flatMap(({ line }) => line.condition !== null && typeof line.condition === "object" && !Array.isArray(line.condition) ? Object.keys(line.condition) : []))];
 
 /** A battery's row: a version, the value of the field read by (or all), how many cases, and each figure. */
-export interface FigureRow {
+interface FigureRow {
   readonly name: string;
   readonly value: string | null;
   readonly cases: number;
@@ -158,7 +158,7 @@ export function batteryRows(evaluation: Evaluation, pool: Pool, by: string | nul
 }
 
 /** A version of an id in its history: where it was rated, and how it stood there. */
-export interface HistoryRow {
+interface HistoryRow {
   readonly version: NamedVersion;
   readonly parent: NamedVersion | null;
   /** Each pool it has cases in, by its index in `pools`: its rank and rating in a contest, its cases. */

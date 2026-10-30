@@ -28,6 +28,7 @@ import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } fr
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { BUILD_IDENTITY } from "../build-identity.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
+import { otherSide } from "../core/spec/body.ts";
 
 /**
  * **A bout in the arena**: two bodies, each carrying what the recipe names (`DuelRecipe.loadouts`,
@@ -179,7 +180,7 @@ export function isOrdersEntry(entry: unknown): entry is OrdersEntry {
 /** The persisted order format, separate from live orders a caller queues with `Duel.play`. */
 export const ORDERS_PROTOCOL = "arena-orders/3";
 
-export interface OrdersRecording {
+interface OrdersRecording {
   readonly identity: RecordingIdentity;
   readonly tape: readonly OrdersEntry[];
 }
@@ -189,7 +190,7 @@ export interface OrdersRecording {
  * names no mind for it either, its model's (`modelLoadout`), which its model's mind fights with;
  * else empty hands.
  */
-export const loadoutIn = (recipe: DuelRecipe, side: Side): Loadout =>
+const loadoutIn = (recipe: DuelRecipe, side: Side): Loadout =>
   recipe.loadouts?.[side] ?? (recipe.minds?.[side] ? EMPTY_LOADOUT : modelLoadout(recipe[side]));
 
 /** A bout at a step, whole: whose bout it is, the physics' bytes and every module's memory. Plain data. */
@@ -363,7 +364,7 @@ export class Duel {
     }
     this.duelists = duelists;
     const spawnFaults = SIDES.flatMap(side => {
-      const observer = duelists[side === "left" ? "right" : "left"];
+      const observer = duelists[otherSide(side)];
       const body = observer.senses().others.find(other => other.id === side)!;
       return spawnClearanceFaults(sensedBounds(body), arenaSolids(level));
     });
@@ -494,7 +495,7 @@ export class Duel {
     if (out.length === 2) return Object.freeze({ winner: null, ending: this.outBy("left")!, time: this.clock });
     if (out.length === 1) {
       const loser = out[0]!;
-      return Object.freeze({ winner: loser === "left" ? "right" : "left", ending: this.outBy(loser)!, time: this.clock });
+      return Object.freeze({ winner: otherSide(loser), ending: this.outBy(loser)!, time: this.clock });
     }
     if (this.clock < this.cap) return null;
     const left = this.life("left"), right = this.life("right");

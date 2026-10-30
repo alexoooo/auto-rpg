@@ -59,7 +59,7 @@ export const validCarriage = (carriage: Carriage): boolean =>
   && (carriage.lead === "left" || carriage.lead === "right");
 
 /** The speed of the centre of mass across the ground under which a stopped walk takes its carriage's footing, m/s. */
-export const CARRIAGE_STILL = 0.1;
+const CARRIAGE_STILL = 0.1;
 
 /** A carriage's walk: the stance's steps (`STANCE_GAIT`) at its width; made once a carriage. */
 const carriageSteps = new WeakMap<Carriage, GaitTuning>();
@@ -75,7 +75,7 @@ const stepsOf = (carriage: Carriage, width: number): GaitTuning => {
  * knees straight under a centre of mass that has not come over the feet, and the body falls
  * (`docs/reference/rising.md#the-handover`).
  */
-export const RISING_SECONDS = 1.3;
+const RISING_SECONDS = 1.3;
 
 /** How fast the stance's walk is asked to slow to a stop, m/s² (`Locomotion.stopping`): a controller setting. */
 export const STANCE_STOPPING = 0.5;
@@ -138,7 +138,7 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
  * off it first); one step a foot for each footing asked. `near` is set, not measured
  * (`docs/reference/human-and-strikes.md#placing`).
  */
-export const PLACING = { near: 0.02 } as const;
+const PLACING = { near: 0.02 } as const;
 
 /**
  * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
@@ -233,7 +233,7 @@ export const stanceOf = (drive: LegsDrive): StanceGoal | null => drive.kind === 
  * asks the height the centre of mass is at, rising to the stance's over `RISING_SECONDS`, its
  * feet where they are. The reference height stays: it is the body's.
  */
-export interface StanceWalk extends Locomotion {
+interface StanceWalk extends Locomotion {
   readonly pace: number;
   /** The centre of mass's height over the soles in the reference pose (`BodyView.standing`), m; null before the body's first step. */
   readonly reference: number | null;

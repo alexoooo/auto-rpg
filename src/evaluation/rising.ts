@@ -33,9 +33,10 @@ import { groundPlacement, groundPostures } from "../lab/ground-starts.ts";
 import type { LabAddress } from "../lab/scenarios.ts";
 import { buildStandFall, checkFall, fallStart, strengthSpec, type FallCase, type FallReading } from "./fall.ts";
 import { cos, sin } from "../core/math/real.ts";
+import { medianOf } from "./stats.ts";
 
 /** The riser a fall is hosted by: the bed's host with its recovery. */
-export type RisingSub = "support-recovery" | "stand-up";
+type RisingSub = "support-recovery" | "stand-up";
 
 /** The bed's host (`PUNCHER`) with `sub` as its one sub-mind; a stand-up offers `techniques`. Gameplay presets are untouched. */
 export function risingMind(sub: RisingSub, techniques: readonly TechniqueName[] = Object.keys(TECHNIQUES) as TechniqueName[]): FighterConfig {
@@ -53,7 +54,7 @@ export function risingMind(sub: RisingSub, techniques: readonly TechniqueName[] 
  * A job of the bed: a fall (`FallCase`, its mind given or named by `sub` and `techniques`), or with
  * `technique` that technique alone (`techniqueTrial`), `after` one before it. `id` orders the rows.
  */
-export type RisingJob = Omit<FallCase, "mind" | "model" | "start"> & {
+type RisingJob = Omit<FallCase, "mind" | "model" | "start"> & {
   readonly model?: HumanoidModel;
   readonly start?: FallCase["start"];
   readonly id?: number;
@@ -236,7 +237,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
 }
 
 /** What the bed plays: its starts, bodies, loadouts, seeds and riser, or a fixed suite (`target`, `obstacles`, `loadouts`). */
-export interface RisingOptions {
+interface RisingOptions {
   readonly starts?: readonly FallCase["start"][];
   readonly models?: readonly HumanoidModel[];
   readonly held?: readonly Held[];
@@ -290,11 +291,6 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
 }
 
 /** The middle value, the mean of the two middle ones for an even count; null for none. */
-const median = (values: readonly number[]): number | null => {
-  const sorted = [...values].sort((a, b) => a - b), mid = sorted.length >> 1;
-  return sorted.length ? (sorted[mid]! + sorted[(sorted.length - 1) >> 1]!) / 2 : null;
-};
-
 /**
  * The bed's report: by start, body and loadout, the falls stood (verified on a fixed suite, else
  * handed back), within 6 and 12 s, the failure-inclusive median (a fall not stood counts at its
@@ -316,7 +312,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
     reached: cases.filter(row => row.reached).length,
     within6: cases.filter(row => successful(row, 6)).length, within12: cases.filter(row => successful(row, 12)).length,
-    median: median(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
+    median: medianOf(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
     noTakeover: cases.filter(row => row.start === "shoved" && row.takeover === null).length,
     landedStanding: cases.filter(row => row.status === "landed standing").length,
     phaseSeconds: Object.fromEntries([...new Set(cases.flatMap(row => Object.keys(row.phases ?? {})))].map(phase => [phase,
@@ -339,7 +335,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
       eachGroup15of16: complete && groups.every(group => group.within6 >= 15),
       total61of64: complete && rows.filter(row => successful(row, 6)).length >= 61,
       allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, 6)),
-      median4: complete && median(rows.map(row => time(row) ?? 30))! <= 4 };
+      median4: complete && medianOf(rows.map(row => time(row) ?? 30))! <= 4 };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
   const obstacles = rows.length > 0 && rows.every(row => row.obstacle), equipped = rows.length > 0 && rows.every(row => row.equipped);

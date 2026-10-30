@@ -22,7 +22,7 @@ export interface PunchRecord {
 export type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
 /** **The bodies with a straight punch record**, known before the records load (`assets/core/straight-punch.meta.json`). */
-export const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);
+const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);
 
 /** Whether a body of `spec` has a straight punch record. */
 export const punchRecorded = (spec: BodySpec): boolean => PUNCH_BODIES.includes(bodyKey(spec));

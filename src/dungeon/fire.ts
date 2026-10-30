@@ -24,7 +24,7 @@ Effect.ShadersStore.dungeonFireFragmentShader = flame.replace(HEAD, `${HEAD} uni
   .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the flame's vertex, the fading fragment. */
-export const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });
+const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });
 
 /**
  * The one material every torch's flame draws with, and each flame's own fade. The fade is written as a flame binds:

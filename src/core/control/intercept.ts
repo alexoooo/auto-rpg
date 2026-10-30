@@ -4,12 +4,12 @@ import { deepFreeze } from "../state.ts";
 import { pointMotion } from "./point-motion.ts";
 import { pointPath } from "./point-path.ts";
 import type { MotionCommand, MotionModel } from "./tasks.ts";
+import { dot } from "../spec/vec.ts";
 
 type Frame = MotionCommand["frames"][number]["frame"];
 interface Sample { readonly time: number; readonly position: Vec3; readonly velocity: Vec3 }
 interface Plane { readonly point: Vec3; readonly normal: Vec3 }
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
-const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const distance = (a: Vec3, b: Vec3) => Math.sqrt(a.reduce((sum, v, k) => sum + (v - b[k]!) * (v - b[k]!), 0));
 
 /** Earliest closing plane crossing under a measured constant acceleration, with sample-age compensation. */

@@ -19,7 +19,7 @@ import type { Cases, Json } from "../evaluation.ts";
 /** The executor each style is thrown by. */
 const KINDS = Object.freeze({ cut: "blade-cut", thrust: "blade-thrust" });
 
-export type BladeStyle = keyof typeof KINDS;
+type BladeStyle = keyof typeof KINDS;
 export type Mark = "high" | "middle" | "legs";
 
 /** A striker whose only blow is `style` (`KINDS`) at `mark`, with the executor's `tuning` over its defaults. */
@@ -48,13 +48,13 @@ const BLADE = deepFreeze({
 export type BladeCondition = { readonly model: BodyModel; readonly style: BladeStyle; readonly mark: Mark };
 
 /** A blow of the striker's blade on the target's body. */
-export type BladeBlow = {
+type BladeBlow = {
   readonly time: number; readonly closing: number; readonly energy: number; readonly region: string | null;
   readonly segment: string; readonly mechanism: string; readonly damage: number; readonly felled: boolean;
 };
 
 /** One of the striker's actions: how it ended, and when it began, committed, released and ended, s. */
-export type BladeAction = {
+type BladeAction = {
   readonly ending: string; readonly committed: number | null; readonly released: number | null;
   readonly began: number; readonly ended: number; readonly returned: number | null;
 };

@@ -35,7 +35,7 @@ export interface CryptLayout {
 }
 
 /** What a leg does as it begins: the person's command to party members, by id, or a member struck dead where it stands. */
-export type CryptAct = { readonly kind: "command"; readonly members: readonly string[]; readonly command: Command }
+type CryptAct = { readonly kind: "command"; readonly members: readonly string[]; readonly command: Command }
   | { readonly kind: "slain"; readonly member: string };
 
 /**
@@ -44,7 +44,7 @@ export type CryptAct = { readonly kind: "command"; readonly members: readonly st
  * held, or not; `seconds` have passed; or `seconds` have passed and an enemy fights nobody
  * (`MemberReport.target`).
  */
-export type CryptUntil = { readonly kind: "arrived"; readonly members: readonly string[] }
+type CryptUntil = { readonly kind: "arrived"; readonly members: readonly string[] }
   | { readonly kind: "gone"; readonly member: string; readonly metres: number }
   | { readonly kind: "held"; readonly enemy: string; readonly held: boolean }
   | { readonly kind: "seconds"; readonly seconds: number }
@@ -96,7 +96,7 @@ export type CryptReading = {
 export const CRYPT_CAP = 200;
 
 /** `layout` as the run's map: the floor rows read, one room the size of the map. */
-export function cryptMap(layout: CryptLayout): DungeonMap {
+function cryptMap(layout: CryptLayout): DungeonMap {
   const size = layout.floor.length, floor = new Uint8Array(size * size);
   layout.floor.forEach((row, z) => { for (let x = 0; x < size; x++) floor[z * size + x] = row[x] === "." ? 1 : 0; });
   return { seed: 0, size, floor, rooms: [{ id: 0, centre: { ...layout.start }, min: { x: 0, z: 0 }, max: { x: size - 1, z: size - 1 } }], doors: layout.doors.map((door) => ({ ...door, point: { ...door.point } })),
@@ -120,7 +120,7 @@ export interface BuiltCrypt {
 }
 
 /** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
-export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
+async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
   const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
   if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) throw new Error("the hero stands at the start");
   const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };

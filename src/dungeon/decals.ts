@@ -7,7 +7,7 @@ import { mulberry32 } from "../rng.ts";
  * Every tile is a shape on a clear ground. The renderer alpha-tests it, so a decal's edge is where its alpha crosses a
  * half, and a tile's outer `ATLAS.rim` pixels are clear so that no filtered sample takes a neighbour's colour.
  */
-export const DECAL_KINDS = Object.freeze(["blood", "crack", "moss", "puddle", "bones", "roots", "cobweb",
+const DECAL_KINDS = Object.freeze(["blood", "crack", "moss", "puddle", "bones", "roots", "cobweb",
   "rubble", "scorch", "straw", "grime", "stain", "lichen", "fissure", "chains", "banner"] as const);
 type DecalKind = (typeof DECAL_KINDS)[number];
 

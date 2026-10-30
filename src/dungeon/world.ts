@@ -20,7 +20,7 @@ import { atan2, hypot } from "../core/math/real.ts";
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. A numeric setting: it changes the
  * count of draws and nothing drawn. */
-export const VISUAL_CHUNK = 16;
+const VISUAL_CHUNK = 16;
 /** A body inside this distance opens a door, m; interaction staging stays inside the same radius. */
 export const DOOR_OPEN_DISTANCE = 2.5;
 /** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured

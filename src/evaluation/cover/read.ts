@@ -13,14 +13,14 @@ import type { Reader } from "../evaluation.ts";
 export type Met = "head" | "guard" | "body";
 
 /** A touch of the opponent's on the subject: when, by which of the opponent's segments or items, where it met, and the hit points it took. */
-export type CoverTouch = { readonly time: number; readonly by: string; readonly on: string; readonly met: Met; readonly damage: number };
+type CoverTouch = { readonly time: number; readonly by: string; readonly on: string; readonly met: Met; readonly damage: number };
 
 /**
  * How a trial came out: `fell`, the subject down at any time of the trial; `hit`, a touch on its
  * head; `struck`, on the rest of it but not its head; `covered`, its guard alone met the touches;
  * `untouched`, nothing of the opponent's met it.
  */
-export type CoverOutcome = "fell" | "hit" | "struck" | "covered" | "untouched";
+type CoverOutcome = "fell" | "hit" | "struck" | "covered" | "untouched";
 
 /** What a trial came to. */
 export type CoverReading = {

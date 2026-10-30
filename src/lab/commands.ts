@@ -11,11 +11,11 @@ import { randomStream } from "../core/math/random.ts";
 /** The square's side the destinations are scattered over by default, m: the scenario's slider sets another. */
 export const COMMANDS_AREA = 10;
 /** The least distance from one destination to the next, m: the shortest walk a command asks. */
-export const LEAST_LEG = 2;
+const LEAST_LEG = 2;
 /** How near a destination the walker has arrived, m: the crypt's for a point (`ARRIVAL.point`). */
 export const ARRIVED = 0.4;
 /** The longest a walker stands at a destination before the next, s: each stands a drawn share of it. */
-export const LONGEST_STAND = 1.5;
+const LONGEST_STAND = 1.5;
 
 /** A destination across the ground (x, z), m, and how long the walker stands once it is there, s. */
 interface Command {

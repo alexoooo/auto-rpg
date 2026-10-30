@@ -14,7 +14,7 @@ import type { LinkedReel } from "./case-link.ts";
 import { isOrdersEntry } from "./duel.ts";
 
 /** A bout case's world: the one kind the Arena opens, bit-equal between JavaScript engines. */
-export type BoutWorld = Extract<CaseWorld, { readonly kind: "bout" }>;
+type BoutWorld = Extract<CaseWorld, { readonly kind: "bout" }>;
 
 /** One case of a reel, ready to play. */
 export interface Trial {

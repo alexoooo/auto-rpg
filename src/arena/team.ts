@@ -8,6 +8,7 @@ import type { Side } from "../core/spec/body.ts";
 import type { Hook } from "../core/world.ts";
 import { cryptModel } from "../dungeon/actors.ts";
 import type { Duel } from "./duel.ts";
+import { otherSide } from "../core/spec/body.ts";
 
 /**
  * The arena's ground as a team of one knows it: every body within range in sight, no door, nothing
@@ -39,7 +40,7 @@ export interface TeamOfOne {
  * raw orders so a reached combat approach can resume without a fresh Commander decision.
  */
 export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): TeamOfOne {
-  const commander = createCommander({ level: OPEN_GROUND }, config), other: Side = side === "left" ? "right" : "left";
+  const commander = createCommander({ level: OPEN_GROUND }, config), other: Side = otherSide(side);
   const duelist = duel.duelists[side], { radius, attackMetres } = cryptModel(duelist.model);
   const at = (of: Side) => { const c = duel.duelists[of].body.physical.centre; return { x: c.x, z: c.z }; };
   const home = at(side);

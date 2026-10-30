@@ -9,6 +9,7 @@ import { SIT_BACK, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { LIMIT, LOW, stanceSteady, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
+import { otherSide } from "../../spec/body.ts";
 
 /**
  * **Where step up's route is cut**: in route order, the stage of its rise (`RISE`) at whose end
@@ -111,12 +112,12 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
   const first = part.first === null ? whole.rise.length : at(part.first);
   /** The cuts this part may end at, by the index of the stage each is read after: step up's, on its own recipe. */
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
-  const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
+  const across = otherSide(tuning.over ?? "right");
   const from = (index: number): Recipe => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) });
   // `other`: the roll over the other side; for a part with an `unsat` stage, its rise from there.
   const begins = { whole: first, other: part.unsat === undefined ? first : at(part.unsat) };
   const rises: Record<"whole" | "other", StepUpRise> = part.first === null
-    ? { whole: stagedRise(own, view, { ...whole, rise: [] }), other: stagedRise(own, view, { ...stepUpRecipe({ ...tuning, over: otherSide }), rise: [] }) }
+    ? { whole: stagedRise(own, view, { ...whole, rise: [] }), other: stagedRise(own, view, { ...stepUpRecipe({ ...tuning, over: across }), rise: [] }) }
     : { whole: stagedRise(own, view, from(first)), other: stagedRise(own, view, from(begins.other)) };
   const motor = part.first === null ? null : carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = motor && stanceSteady(own, view, motor, tuning.climb);

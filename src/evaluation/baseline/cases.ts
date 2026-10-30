@@ -34,6 +34,7 @@ import { RISING_TARGET_CASES, type TargetCondition } from "../rising-target/case
 import { STRIKE_CASES, type StillCondition, type StrikeSubject } from "../strike/cases.ts";
 import type { StrikeReading } from "../strike/read.ts";
 import type { BuiltBout } from "../bout.ts";
+import { otherSide } from "../../core/spec/body.ts";
 
 /** The body every competence is read on. */
 export const BODY: BodyModel = "workshop-fighter";
@@ -47,7 +48,7 @@ type Rung = typeof RUNGS[number];
 
 /** A fight's conditions: the opponent, the subject's side, both sides' loadout, and the gap, m, on the open stage. */
 export type BaselineFight = { readonly foe: string; readonly side: Side; readonly loadout: Loadout; readonly gap: number };
-export type BaselinePunch = StillCondition & { readonly rung: Rung };
+type BaselinePunch = StillCondition & { readonly rung: Rung };
 
 /** What a fight came to for the subject: a win 1, a draw a half; its life less the other's at the verdict; how it ended and when, s; the blows landed. */
 export type FightReading = { readonly score: number; readonly margin: number; readonly won: boolean; readonly ending: string; readonly seconds: number; readonly blows: number };
@@ -133,7 +134,7 @@ const fightCases = (): Cases<Json, BaselineReading, BuiltCase> => {
       return [...fighterFaults(value, loadout, subject ?? {}), ...fighterFaults(other.config as unknown as Json, loadout, other).map((fault) => `${foe}: ${fault}`)];
     },
     world: ([value], condition, engine, [character]) => {
-      const { foe, side, loadout, gap } = condition as BaselineFight, other = MINDS[foe]!, foeSide: Side = side === "left" ? "right" : "left";
+      const { foe, side, loadout, gap } = condition as BaselineFight, other = MINDS[foe]!, foeSide: Side = otherSide(side);
       return { kind: "bout", engine, tape: [], recipe: { level: "open", left: BODY, right: BODY, gap, loadouts: { left: loadout, right: loadout },
         minds: { [side]: value as unknown as MindConfig, [foeSide]: other.config as MindConfig } as Record<Side, MindConfig>, capSeconds: FIGHTS.capSeconds,
         ...sideAttributes({ [side]: character, [foeSide]: other.character }) } };

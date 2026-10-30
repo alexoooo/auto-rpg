@@ -4,7 +4,7 @@ import { cos, hypot, sin } from "../core/math/real.ts";
 
 /** What the fog mask holds for a cell: never seen, seen before, in sight now. A numeric setting: the bytes are an
  * encoding, which the shader reads as none, half and all. */
-export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
+const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
 
 /**
  * How the fog shader reads the mask, which `fogSample` repeats on the CPU for the tests. A fragment reads from a
@@ -134,7 +134,7 @@ export function boundary(map: DungeonMap, x: number, z: number): boolean {
 
 export type WallFace = "top" | "x+" | "x-" | "z+" | "z-";
 interface WallQuad { cell: Point; face: WallFace }
-export const SIDE_FACES = Object.freeze([
+const SIDE_FACES = Object.freeze([
   { face: "x+", dx: 1, dz: 0 }, { face: "x-", dx: -1, dz: 0 }, { face: "z+", dx: 0, dz: 1 }, { face: "z-", dx: 0, dz: -1 },
 ] as const);
 
@@ -151,16 +151,4 @@ export function wallSurface(map: DungeonMap): WallQuad[] {
     for (const { face, dx, dz } of SIDE_FACES) if (!boundary(map, x + dx, z + dz)) quads.push({ cell: { x, z }, face });
   }
   return quads;
-}
-
-/** Every reason the visible walls disagree with the colliders; empty when they agree. */
-export function validateDungeonVisuals(map: DungeonMap, quads: readonly WallQuad[]): string[] {
-  const problems: string[] = [], seen = new Set<string>();
-  for (const { cell, face } of quads) {
-    const name = `${face} at (${cell.x}, ${cell.z})`;
-    if (!boundary(map, cell.x, cell.z)) problems.push(`${name} stands on a cell with no collider`);
-    if (seen.has(name)) problems.push(`${name} is drawn twice`);
-    seen.add(name);
-  }
-  return problems;
 }

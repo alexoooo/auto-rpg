@@ -107,10 +107,10 @@ export interface MotorUnmet {
  * driven points (`Pointing`) and a stance (`Balancing`). A motor says which (`MotorControl.carries`),
  * and what drives it asks for those it needs where it is made (`carrying`).
  */
-export type MotorGoal = "effectors" | "points" | "stance";
+type MotorGoal = "effectors" | "points" | "stance";
 
 /** **A motor that takes effectors to places** (`EffectorGoal`). */
-export interface Reaching {
+interface Reaching {
   /** What it can reach with, in declared order. */
   readonly effectors: readonly EffectorModel[];
   /**
@@ -128,7 +128,7 @@ export interface Reaching {
 }
 
 /** **A motor that drives effectors' points** (`PointTask`). */
-export interface Pointing {
+interface Pointing {
   /**
    * Drive `tasks`' points from `control`'s next call, in place of those before (`PointTask`). It
    * refuses a segment with no effector, a point its rigid body has not, and two tasks on one segment.
@@ -137,7 +137,7 @@ export interface Pointing {
 }
 
 /** **A motor that stands the body on the ground**: its balance (`BalancePart`) carries out a stance goal. */
-export interface Balancing {
+interface Balancing {
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
   /** The stance goal it was last given, or null: what the legs are asked to hold. */

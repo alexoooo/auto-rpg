@@ -7,6 +7,7 @@ import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import { here, type Place, type PositionValue } from "./position.ts";
+import { segmentOf } from "../../../spec/body.ts";
 
 /**
  * **What running an option from now is expected to bring**, over its run, in life (a share of a
@@ -88,7 +89,7 @@ function strikingMass(spec: BodySpec, limb: string): number {
   let total = 0;
   if (effector) for (let at: string | undefined = effector.segment; at !== undefined && at !== effector.base; at = spec.joints.find((joint) => joint.child === at)?.parent) {
     const name = at;
-    total += spec.segments.find((segment) => segment.name === name)?.mass.value ?? 0;
+    total += segmentOf(spec, name)?.mass.value ?? 0;
     for (const item of spec.held ?? []) if (item.segment === name) total += item.item.mass.value;
   }
   masses.set(limb, total);
@@ -96,7 +97,7 @@ function strikingMass(spec: BodySpec, limb: string): number {
 }
 
 /** The mass of `spec`'s segment `at`, kg; the body's with no such segment. */
-const segmentMass = (spec: BodySpec, at: string): number => spec.segments.find((segment) => segment.name === at)?.mass.value ?? spec.mass.value;
+const segmentMass = (spec: BodySpec, at: string): number => segmentOf(spec, at)?.mass.value ?? spec.mass.value;
 
 /** The energy of a blow of `limb` of `striker` on `struck`'s segment `at`, J: as the rules price an impact (`impactEnergy`), closing at `closing` m/s. */
 function blowEnergy(striker: BodySpec, limb: string, struck: BodySpec, at: string, closing: number): number {
@@ -107,7 +108,7 @@ function blowEnergy(striker: BodySpec, limb: string, struck: BodySpec, at: strin
 /** How stiff the face `limb` of `spec` strikes with is, N/m: what it holds, else the limb's own; null for a rigid one. */
 function strikingStiffness(spec: BodySpec, limb: string): number | null {
   const held = spec.held?.find((item) => item.segment === limb);
-  return (held ? held.item.surface : spec.segments.find((one) => one.name === limb)?.surface)?.stiffness.value ?? null;
+  return (held ? held.item.surface : segmentOf(spec, limb)?.surface)?.stiffness.value ?? null;
 }
 
 /**
@@ -119,7 +120,7 @@ function strikingStiffness(spec: BodySpec, limb: string): number | null {
  * its blunt impact, the limb's own model.
  */
 export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
-  const face = struck.segments.find((segment) => segment.name === at)?.surface?.stiffness.value ?? null;
+  const face = segmentOf(struck, at)?.surface?.stiffness.value ?? null;
   const share = energyShares([strikingStiffness(striker, limb), face])[1]!;
   return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) / struck.wounds.hp.value;
 }

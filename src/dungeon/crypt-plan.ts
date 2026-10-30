@@ -4,7 +4,7 @@ import type { TorchPlacement } from "./dressing.ts";
 import type { KitPlacement } from "../environment/furniture.ts";
 
 /** Footprints used by deterministic packing and its coverage checks. */
-export const CRYPT_PAVING: Readonly<Record<string, readonly [number,number]>> = {
+const CRYPT_PAVING: Readonly<Record<string, readonly [number,number]>> = {
   paving0:[1,1],paving1:[1,1],paving2:[1,1],paving3:[1,1],
   'slabs-long':[2,1],'slabs-large':[2,2],'slabs-broken':[2,2],'slabs-fractured':[1,1],
 };

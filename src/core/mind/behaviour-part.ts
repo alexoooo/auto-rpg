@@ -22,7 +22,7 @@ export interface Candidate {
 }
 
 /** What a behaviour asks of the legs: the intent's walking and facing. */
-export type Footwork = Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "walk" | "travelFacing">;
+type Footwork = Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "walk" | "travelFacing">;
 
 /** Footwork checks the next half metre and keeps feet clear of each fallen segment; a band of distance it holds within, m. */
 export const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallen: .9 });
@@ -85,7 +85,7 @@ export interface Turn {
 }
 
 /** What a behaviour is made for: the body, and the actions its mind may choose among. */
-export interface BehaviourMaking {
+interface BehaviourMaking {
   readonly spec: BodySpec;
   readonly actions: readonly ActionConfig[];
 }

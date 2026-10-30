@@ -20,6 +20,7 @@ import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { STANDS } from "../../core/entrants/drill-opponent/mind.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
+import { otherSide } from "../../core/spec/body.ts";
 
 /** The moving target: Behaviours' body of parts, doing only as it is ordered. */
 const WALKS: MindConfig = deepFreeze({ ...BEHAVIOURS, tactics: { ...BEHAVIOURS.tactics, list: [{ kind: "follow-orders" }] }, executors: [], actions: [] });
@@ -46,7 +47,6 @@ export type CourtCondition = { readonly model: BodyModel; readonly gap: number; 
 /** What a case came to: when the striker arrived (null, never), its steps pushing on the furniture, its falls, and the time read to, s. */
 export type CourtReading = { readonly arrived: number | null; readonly contactSteps: number; readonly falls: number; readonly seconds: number };
 
-const other = (side: Side): Side => side === "left" ? "right" : "left";
 
 /** Why `value` is no mind, or what keeps it from sword and buckler on `model` (`mindFaults`). */
 function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
@@ -70,7 +70,7 @@ function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading>
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
     world: ([mind], { model, gap, side, target }, engine, [character]) => {
-      const foe = other(side);
+      const foe = otherSide(side);
       return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],
         // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
         recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),

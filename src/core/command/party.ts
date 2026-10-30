@@ -69,7 +69,7 @@ interface Memory {
 }
 
 /** **The party's config**: whether a member takes on a foe it sees untold (`picks`, the default), or fights only the foe it is told to. */
-export interface PartyConfig {
+interface PartyConfig {
   readonly kind: "party";
   readonly picks?: boolean;
 }

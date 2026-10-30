@@ -11,6 +11,7 @@ import type { Side } from "../../core/spec/body.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";
 import { TOURNAMENT } from "../tournament/cases.ts";
+import { otherSide } from "../../core/spec/body.ts";
 
 /** The opponent: the Duellist with sword and buckler, the sword-and-buckler reference. */
 const OPPONENT = Object.freeze({ mind: "duellist", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });
@@ -26,7 +27,6 @@ export type UnseenCondition = { readonly model: BodyModel; readonly loadout: Loa
 /** A bout as the subject played it: the bout's reading and the subject's side. */
 export type UnseenReading = BoutReading & { readonly side: Side };
 
-const other = (side: Side): Side => side === "left" ? "right" : "left";
 
 /** Whether `value` names a mind's kind. */
 const isMind = (value: Json): boolean => typeof value === "object" && value !== null && !Array.isArray(value)
@@ -51,10 +51,10 @@ export const UNSEEN_CASES: Readonly<Record<string, Cases<UnseenCondition, Unseen
     world: ([mind], { model, loadout, gap, side }, engine, [character]) => ({
       kind: "bout", engine, tape: [], recipe: {
         level: UNSEEN.level, left: model, right: model, gap,
-        loadouts: { [side]: loadout, [other(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
-        minds: { [side]: mind as unknown as MindConfig, [other(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
+        loadouts: { [side]: loadout, [otherSide(side)]: OPPONENT.loadout } as Record<Side, Loadout>,
+        minds: { [side]: mind as unknown as MindConfig, [otherSide(side)]: MINDS[OPPONENT.mind].config } as Record<Side, MindConfig>,
         capSeconds: UNSEEN.capSeconds,
-        ...sideAttributes({ [side]: character, [other(side)]: MINDS[OPPONENT.mind].character }),
+        ...sideAttributes({ [side]: character, [otherSide(side)]: MINDS[OPPONENT.mind].character }),
       },
     }),
     read: (built, { side }): Reader<UnseenReading> => {

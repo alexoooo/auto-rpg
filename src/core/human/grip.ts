@@ -1,4 +1,4 @@
-import { type Side, segmentFrame, type BodySpec, type HeldSpec, type ItemSpec, type SegmentSpec } from "../spec/body.ts";
+import { type Side, segmentFrame, type BodySpec, type HeldSpec, type ItemSpec, type SegmentSpec, segmentOf } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 
@@ -39,7 +39,7 @@ export const canHold = (spec: BodySpec, side: Side): boolean => holdingHand(spec
 
 /** `spec`'s `side` hand if a haft can lie across it: a capsule with its own right and the knuckles a grip is laid by. */
 function holdingHand(spec: BodySpec, side: Side) {
-  const hand = spec.segments.find((segment) => segment.name === `hand.${side}`);
+  const hand = segmentOf(spec, `hand.${side}`);
   const knuckles = hand?.points?.knuckles, little = hand?.points?.little, shape = hand?.shape, right = hand?.right;
   if (!hand || shape?.kind !== "capsule" || !knuckles || !little || !right) return null;
   return { ...hand, shape, right, points: { knuckles, little } } satisfies SegmentSpec;

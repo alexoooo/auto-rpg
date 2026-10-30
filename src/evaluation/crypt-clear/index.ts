@@ -11,17 +11,12 @@ import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { BuiltCrypt } from "../crypt.ts";
 import { CRYPT_CLEAR_CASES, type CryptCondition, type ClearReading } from "./cases.ts";
+import { medianOf } from "../stats.ts";
 
 /** A Commander as a subject. */
 const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `commander:${id}`, value }], value });
 
 /** The median of `values`, or null for none. */
-const median = (values: readonly number[]): number | null => {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b), mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
-};
-
 export const CRYPT_CLEAR: Evaluation<CryptCondition, ClearReading, BuiltCrypt> = {
   id: "crypt-clear",
   title: "Clearing the Crypt",
@@ -56,7 +51,7 @@ export const CRYPT_CLEAR: Evaluation<CryptCondition, ClearReading, BuiltCrypt> =
           ...kinds.map((kind) => {
             const of = own.filter((row) => row.against === kind);
             const mean = (values: readonly number[]) => values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
-            return `| ${kind} | ${of.length} | ${of.filter((row) => row.status === "won").length}/${of.length} | ${median(of.filter((row) => row.status === "won").map((row) => row.seconds))?.toFixed(1) ?? "none"} | ${mean(of.map((row) => row.lost)).toFixed(2)} of ${of[0]?.members ?? 0} | ${mean(of.map((row) => row.enemies ? row.defeated / row.enemies : 0)).toFixed(2)} |`;
+            return `| ${kind} | ${of.length} | ${of.filter((row) => row.status === "won").length}/${of.length} | ${medianOf(of.filter((row) => row.status === "won").map((row) => row.seconds))?.toFixed(1) ?? "none"} | ${mean(of.map((row) => row.lost)).toFixed(2)} of ${of[0]?.members ?? 0} | ${mean(of.map((row) => row.enemies ? row.defeated / row.enemies : 0)).toFixed(2)} |`;
           }),
           "", "| Enemies | Level | Trial | Ended | Seconds | Members lost | Foes defeated |", "|---|---|---|---|---|---|---|",
           ...own.map((row) => `| ${row.against} | ${row.seed} | ${row.trial} | ${row.status} | ${row.seconds.toFixed(1)} | ${row.lost}/${row.members} | ${row.defeated}/${row.enemies} |`),

@@ -149,7 +149,7 @@ function facing(corners: readonly Corner[], outward: Corner): Corner {
  * face and up it over `metresPerRepeat`, shifted by a draw of the block's own, so that no two neighbours show the
  * same patch of the map.
  */
-export function blockQuads(block: Block, metresPerRepeat: number, seed: number): Quad[] {
+function blockQuads(block: Block, metresPerRepeat: number, seed: number): Quad[] {
   const { face, plane, from, to, y0, y1, inset, bevel: b, ends, cell } = block, foot = block.course === 0 ? 0 : b;
   const [fa, ba] = ends[0] === "bevel" ? [from + b, from] : [from + b, from + b];
   const [fe, be] = ends[1] === "bevel" ? [to - b, to] : [to - b, to - b];

@@ -26,7 +26,7 @@ export interface ExecutorMaking {
 }
 
 /** Where `effector` aims at `target` for `action` this step (`Aimed`), or null. */
-export type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector: string) => Aimed | null;
+type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector: string) => Aimed | null;
 
 /** The point `aim` aims at, or null: what an executor that drives at a point reads of it. */
 export const aimedPoint = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.at ?? null;

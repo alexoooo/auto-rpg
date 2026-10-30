@@ -59,7 +59,7 @@ export const TECHNIQUE_LIMITS = Object.freeze({ admit: 2, run: 16, stood: 2, res
 export const TECHNIQUE_SPREAD = .02;
 
 /** How a technique of the chain came to its end: one of its own (`TechniqueEnd`), never admitted, or stood and fallen again. */
-export type LinkEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "not entered" | "fell";
+type LinkEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted" | "not entered" | "fell";
 
 /** What one technique of the chain came to: its end, how long it ran, s, and the body as it began and as it ended. */
 export type LinkReading = {

@@ -55,7 +55,7 @@ export interface BuiltLone {
  * its own with no canvas, its script played: each cue's orders from the step it falls on, and its
  * shove before that step.
  */
-export async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
+async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<BuiltLone> {
   const babylon = new NullEngine(), scene = new Scene(babylon), world = createWorld(scene, await loadEngine(engine));
   try {
     addArenaSolids(world.physics);

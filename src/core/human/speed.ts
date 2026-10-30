@@ -69,7 +69,7 @@ const LEG_SPEED_IN_USE = sourced(1.98, "1", "owner-run-body", "a leg joint's unl
  * curves read stop at 5.2 rad/s (Frey-Law's fastest), where a person's straight punch opens the
  * elbow at 22 to 41.
  */
-export const UPPER_SPEED_IN_USE = sourced(2.5, "1", "owner-punch-body", "an arm's, trunk's or neck's joint's unloaded speed in use over the curve read");
+const UPPER_SPEED_IN_USE = sourced(2.5, "1", "owner-punch-body", "an arm's, trunk's or neck's joint's unloaded speed in use over the curve read");
 export const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze(Object.fromEntries(([
   "hipFlexion", "hipExtension", "hipAbduction", "hipAdduction", "hipExternalRotation", "hipInternalRotation",
   "kneeExtension", "kneeFlexion", "ankleDorsiflexion", "anklePlantarflexion", "footInversion", "footEversion",

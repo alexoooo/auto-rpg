@@ -19,7 +19,7 @@ export interface Corner {
  * arc that begins `room` m before the corner, the arc's radius (speed over turn) times the tangent of
  * half the corner's angle being no more than `room`. A gait that states no envelope turns at any speed.
  */
-export function cornerSpeed(gait: GaitLimits, halfTurn: number, room: number): number {
+function cornerSpeed(gait: GaitLimits, halfTurn: number, room: number): number {
   const envelope = gait.envelope;
   if (!envelope || halfTurn <= 0) return Infinity;
   if (envelope.turns.length === 0) return 0;

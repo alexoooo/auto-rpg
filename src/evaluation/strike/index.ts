@@ -60,7 +60,7 @@ function actionSubject(name: string): Subject {
 }
 
 /** What the strip shows a trial as: its outcome, and whether it passed (landed, the striker on its feet). */
-export const strikeOutcome = (reading: StrikeReading) => ({ label: reading.outcome, passed: reading.outcome === "landed" });
+const strikeOutcome = (reading: StrikeReading) => ({ label: reading.outcome, passed: reading.outcome === "landed" });
 
 export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   id: "strike",

@@ -7,6 +7,7 @@ import { atan2, cos, sin } from "../math/real.ts";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
+import { otherSide } from "../spec/body.ts";
 
 /**
  * **A run that tracks a person's run cycle's settings** (`runCycle`). Angles are rad; times s;
@@ -102,7 +103,7 @@ export const RUN_CYCLE: RunCycleSettings = Object.freeze({
  * to 15 m, fall 25 and 30 times in 40 with the guard's, 8 and 18 with these and the walk after the run
  * holding them).
  */
-export const RUN_ARMS = Object.freeze({ abduction: 0 });
+const RUN_ARMS = Object.freeze({ abduction: 0 });
 
 /** The run's settings, `tuning` over `base` (by default `RUN_CYCLE`). */
 export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}, base: RunCycleSettings = RUN_CYCLE): RunCycleSettings {
@@ -151,7 +152,7 @@ interface Leg {
 }
 
 /** **What the run remembers.** */
-export interface RunCycleMemory {
+interface RunCycleMemory {
   /** The left leg's phase, turns, and how long the phase has waited for a landing, s. */
   phase: number;
   waited: number;
@@ -307,7 +308,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       memory.touching.left = s.touching.left;
       memory.touching.right = s.touching.right;
       memory.phase = next - Math.floor(next);
-      const stanceSide: Side = own("left") < 0.5 ? "left" : "right", swingSide: Side = stanceSide === "left" ? "right" : "left";
+      const stanceSide: Side = own("left") < 0.5 ? "left" : "right", swingSide: Side = otherSide(stanceSide);
       const st = legs[stanceSide], sw = legs[swingSide], out = stanceSide === "left" ? 1 : -1;
       const os = own(stanceSide), ow = own(swingSide);
       const bearing = s.touching[stanceSide] && os < blended.leaves + 0.05;

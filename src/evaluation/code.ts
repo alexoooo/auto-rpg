@@ -9,7 +9,7 @@ import type { CaseWorld, Subject, WorldKind } from "./evaluation.ts";
 import { WORLD_BUILDERS } from "./worlds.ts";
 
 /** The kind of world (a case's, none for a subject), the kinds of mind, the kinds of part in their trees and the mind data keys a case or a subject names. */
-export interface CodeNames {
+interface CodeNames {
   readonly world?: CaseWorld["kind"];
   readonly kinds: readonly string[];
   readonly parts: readonly string[];

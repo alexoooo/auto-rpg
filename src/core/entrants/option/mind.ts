@@ -30,7 +30,7 @@ import { optionTactics } from "./tactics.ts";
  * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
  * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
  */
-export interface OptionMindConfig {
+interface OptionMindConfig {
   readonly kind: "option";
   readonly chooser: PartConfig;
   readonly options?: readonly PartConfig[] | null;

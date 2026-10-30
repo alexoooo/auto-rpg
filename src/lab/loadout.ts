@@ -26,11 +26,6 @@ export function loadoutBalance(balance: number | null, spec: BodySpec): number {
   return balance ?? spec.attributes.balance.value;
 }
 
-/** What the address holds for a `balance` on the body of `spec`: nothing where it is its character's own. */
-export function balanceAddress(balance: number, spec: BodySpec): number | null {
-  return balance === spec.attributes.balance.value ? null : balance;
-}
-
 /** What the core calls a hand holding `held` (`heldIn`). */
 const heldName = (held: Held): string => heldItem(held)?.name ?? FIST;
 

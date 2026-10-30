@@ -132,5 +132,3 @@ export function measuredTorque(exertion: Exertion, sex: Sex): Quantity<number> {
   return derive("N m", "C1 times the group's mean body weight and height", [c1, subjectMass(exertion, sex), STANDARD_GRAVITY, stature],
     (c, m, g, h) => c * m * g * h);
 }
-
-export const EXERTIONS = Object.freeze(Object.keys(PRINTED) as Exertion[]);

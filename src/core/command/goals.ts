@@ -20,7 +20,7 @@ export const onBearing = (at: GroundPoint, bearing: number, metres: number): Gro
  * How long a foe may lie down before a team passes it over, s: the cap the owner's target gives a
  * stand-up (`docs/reference/rising.md#the-owners-target`), past which its rise has failed.
  */
-export const PASS_OVER_DOWN = 30;
+const PASS_OVER_DOWN = 30;
 
 /** Keeps in `since`, by id, when each body of `view` lying down went down; a body up again is dropped. */
 export function lyingSince(since: Record<string, number>, view: TeamView): void {

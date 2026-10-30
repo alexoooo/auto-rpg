@@ -12,6 +12,7 @@ import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
 import { CENTRE_AIM } from "../aims.ts";
 import type { OwnBody } from "../mind.ts";
+import { segmentOf } from "../../spec/body.ts";
 
 /** Bent knees leave the feet available while the forearms' ordinary guard protects the head. */
 export const GROUND_LEGS = deepFreeze({ "hip.left flexion": .8, "hip.right flexion": .8,
@@ -48,7 +49,7 @@ export function groundKick(own: OwnBody): Executor {
       const selected = aim(view, target, effector, []);
       if (!selected) return { kind: "blocked", reason: "target lost" };
       const proximal = own.spec.joints.find(joint => joint.name === `hip.${side}`)!.centre.value;
-      const distal = own.spec.segments.find(part => part.name === effector)!.distal.value;
+      const distal = segmentOf(own.spec, effector)!.distal.value;
       const reach = hypot(proximal[0] - distal[0], proximal[1] - distal[1], proximal[2] - distal[2]);
       hipAt(side);
       if (hypot(selected.at[0] - hip.x, selected.at[1] - hip.y, selected.at[2] - hip.z) > reach + T.near) return { kind: "blocked", reason: "target outside leg reach" };

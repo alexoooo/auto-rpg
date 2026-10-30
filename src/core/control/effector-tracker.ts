@@ -120,7 +120,7 @@ interface ReachMeter { solves: number; passes: number; capped: number }
  * than the posture's, unless a step says otherwise; `seedActual`, a goal's free freedoms begun
  * from their actual angles.
  */
-export interface TrackerSettings { readonly fromActual?: boolean; readonly seedActual?: boolean }
+interface TrackerSettings { readonly fromActual?: boolean; readonly seedActual?: boolean }
 
 /** Named physical endpoint paths and bounded IK, independent of a body's support controller. */
 export function effectorTracker(built: ReadBody, root: ReadSegment, settings: TrackerSettings = {}) {

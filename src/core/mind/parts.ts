@@ -94,24 +94,8 @@ export interface Part<C extends PartConfig = PartConfig> {
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
 export type KeysOf<C> = { readonly [P in keyof C]-?: true };
 
-/** Parts by the kind of their defaults: what a role's list of its kinds is (`partsByKind`). */
-export type ByKind<P extends { readonly defaults: PartConfig }> = { readonly [E in P as E["defaults"]["kind"]]: E };
-
-/** The config of every part a list by kind holds (`ByKind`): the union a role's slot takes. */
+/** The config of every part a list by kind holds: the union a role's slot takes. */
 export type ConfigOf<R> = { [K in keyof R]: R[K] extends { readonly defaults: infer C } ? C : never }[keyof R];
-
-/**
- * **A role's kinds**: `parts` by the kind of their defaults, in their order, frozen; a thrown error
- * for a kind twice. An implementation is its own module and a line in its role's list.
- */
-export function partsByKind<P extends { readonly defaults: PartConfig }>(parts: readonly P[]): ByKind<P> {
-  const byKind: Record<string, P> = {};
-  for (const part of parts) {
-    if (Object.hasOwn(byKind, part.defaults.kind)) throw new Error(`two parts of kind ${JSON.stringify(part.defaults.kind)}`);
-    byKind[part.defaults.kind] = part;
-  }
-  return Object.freeze(byKind) as unknown as ByKind<P>;
-}
 
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });

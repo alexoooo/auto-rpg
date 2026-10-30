@@ -3,6 +3,7 @@ import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
 import { aimOf } from "./strikes.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /**
  * What a hand's reach reads of its arm, from the spec in its reference pose: the shoulder to the
@@ -17,7 +18,7 @@ interface Arm {
 
 function armOf(spec: BodySpec, hand: Side, aim: string): Arm {
   const segment = (name: string) => {
-    const found = spec.segments.find((s) => s.name === name);
+    const found = segmentOf(spec, name);
     if (!found) throw new Error(`${spec.model} has no ${name}`);
     return found;
   };

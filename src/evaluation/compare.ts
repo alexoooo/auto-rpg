@@ -164,7 +164,7 @@ export function panelReport(slots: readonly Slot[], headToHead: readonly Unit[],
 }
 
 /** A battery's change: each figure's mean paired difference, a subject less its baseline, over the conditions both played. */
-export interface BatteryComparison {
+interface BatteryComparison {
   readonly conditions: number;
   /** The conditions only one of the two played. */
   readonly only: { readonly subject: number; readonly baseline: number };

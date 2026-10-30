@@ -25,7 +25,7 @@ body/fixed identity and stored normal impulse before averaging, detached from th
 `contactsOf`'s filtering and reentrancy rules. A positive gap is a speculative contact: neither it
 nor an impulse-free contact proves support, and the impulse is the narrow phase's stored value.
 
-`contactMotionRows` maps each contact to a normal closing-velocity row about a reference point: with
+`contactMotionRows` (`control/contact-motion.ts@277a59d4`) maps each contact to a normal closing-velocity row about a reference point: with
 `r = contactPoint - reference` and normal `n` into the other body, `[r × n, n]` on
 `[angularVelocity, referenceVelocity]`, positive closing. A controller still subtracts the other
 body's point velocity and handles separation and friction; the rows weld nothing.

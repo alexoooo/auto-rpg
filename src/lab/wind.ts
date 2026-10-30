@@ -22,7 +22,7 @@ import type { World } from "../core/world.ts";
  */
 
 /** How long a gust blows, s: rising and falling as a half-sine. */
-export const GUST_SECONDS = 0.3;
+const GUST_SECONDS = 0.3;
 
 /** How often gusts come, and how hard they blow. */
 export interface WindSettings {
@@ -58,7 +58,7 @@ interface Wind {
 }
 
 /** The level force of `gusts` at `time`, N, world (x, z), at `strength` N each at its peak. */
-export function gustForce(gusts: readonly Gust[], time: number, strength: number): [number, number] {
+function gustForce(gusts: readonly Gust[], time: number, strength: number): [number, number] {
   let x = 0, z = 0;
   for (const gust of gusts) {
     const t = time - gust.from;
@@ -89,7 +89,7 @@ export function blow(state: WindState, settings: WindSettings, time: number, dt:
 }
 
 /** A fresh wind's state, drawing from `seed`. */
-export function windState(seed: number): WindState {
+function windState(seed: number): WindState {
   return { word: seed >>> 0, time: 0, gusts: [], force: [0, 0], count: 0 };
 }
 

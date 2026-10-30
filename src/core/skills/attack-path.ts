@@ -32,7 +32,7 @@ export function validAttackTuning(tuning: AttackTuning): boolean {
 }
 
 /** A blow's path written in place (`attackPathToRef`): its chamber, its contact velocity, its hook's curve where `curved`, its torso turn and its swing's seconds. */
-export interface AttackPathWork {
+interface AttackPathWork {
   readonly chamber: [number, number, number];
   readonly contactVelocity: [number, number, number];
   readonly curve: [number, number, number];

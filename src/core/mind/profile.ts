@@ -97,7 +97,7 @@ export interface Profile {
 }
 
 /** Where a skill would begin: the range, m, and the foe's phase. */
-export interface ProfilePlace {
+interface ProfilePlace {
   readonly range: number;
   readonly phase: string;
   /** How far the motion is under way, s from its start; absent, not begun. */

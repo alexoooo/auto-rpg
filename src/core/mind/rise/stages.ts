@@ -5,6 +5,7 @@
  */
 import type { BearingEndSpec, BodySpec, JointSpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
+import { otherSide, segmentOf } from "../../spec/body.ts";
 
 /** How a body lies: on its front, its back, or a side (the side that is down). */
 export type Lie = "front" | "back" | "left" | "right";
@@ -78,7 +79,7 @@ export interface Pace {
  * what brings a foot's ball down, or turns a rising one back down
  * (`docs/reference/rising.md#the-sit-back`).
  */
-export interface Press {
+interface Press {
   readonly above: number;
   readonly gains: Readonly<Record<string, number>>;
 }
@@ -186,7 +187,7 @@ function bothSides(posture: Posture): Posture {
  * side's, the one that goes under, and `name.far motion` the other's, which comes over the top.
  */
 function rollingOver(over: Side, posture: Posture): Posture {
-  const far = over === "left" ? "right" : "left";
+  const far = otherSide(over);
   return Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(".near ", `.${over} `).replace(".far ", `.${far} `), angle]));
 }
 
@@ -514,7 +515,7 @@ const riseStage = (name: string): Stage => RISE.rise.find((stage) => stage.name 
  * lower, until the right knee is at the ground; half kneeling; the step's poses back, which bring
  * the left knee down beside the right; and tall on both knees, borne on the shins and held.
  */
-export const KNEEL_DOWN: Lowering = deepFreeze({
+const KNEEL_DOWN: Lowering = deepFreeze({
   ends: ["shin.left", "shin.right"],
   footing: { "foot.left": 0.35, "foot.right": -0.45 },
   rests: 0.47,
@@ -588,7 +589,7 @@ function limbFaults(spec: BodySpec): string[] {
   const faults: string[] = [], ends = spec.ends ?? [];
   ends.forEach((limb, at) => {
     if (ends.findIndex((other) => other.name === limb.name) !== at) faults.push(`limb ${limb.name} is named twice`);
-    const segment = spec.segments.find((s) => s.name === limb.segment);
+    const segment = segmentOf(spec, limb.segment);
     if (!segment) {
       faults.push(`limb ${limb.name} is on ${limb.segment}, which ${spec.model} lacks`);
       return;

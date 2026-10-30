@@ -30,13 +30,13 @@ const STORED = "lab.closed";
 const CLOSED_FIRST: readonly SectionName[] = ["character", "thinking"];
 
 /** The sections `text` says are closed, among `names`. */
-export function collapsedFrom(text: string | null, names: readonly string[]): string[] {
+function collapsedFrom(text: string | null, names: readonly string[]): string[] {
   const stored = new Set((text ?? "").split(" "));
   return names.filter((name) => stored.has(name));
 }
 
 /** What `collapsedFrom` reads `collapsed` back from. */
-export function collapsedText(collapsed: readonly string[]): string {
+function collapsedText(collapsed: readonly string[]): string {
   return collapsed.join(" ");
 }
 

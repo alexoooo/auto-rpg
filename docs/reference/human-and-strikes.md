@@ -153,7 +153,7 @@ about 15 degrees from straight ([step cost](step-cost.md#the-reach-solver-near-f
 solver's other settings (passes, tolerance, damping and its growth, the margin short of a half
 turn, `IK_BLIND`, `IK_NEAR`) are numerics.
 
-The Jacobian is the kinematics' own derivative in closed form (`reachJacobianTo`), from the
+The Jacobian is the kinematics' own derivative in closed form (`walkedColumn`), from the
 joints' own axes (`motionAxesToRef`, `turningToRef`). A solve says how many passes it took and
 whether it stopped of itself (`ReachEnd`), and motor control counts them (`ReachMeter`); the
 counts in a bout are [step-cost.md](step-cost.md#the-reach-solver-at-its-cap)'s.

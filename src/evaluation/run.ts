@@ -28,7 +28,7 @@ export interface Case {
 export type Unit = readonly Case[];
 
 /** **A condition left unplayed** for its subjects (a contest's pair), and why: each seated subject's faults there (`Cases.faults`), prefixed with its id. */
-export interface Dropped {
+interface Dropped {
   readonly subjects: readonly string[];
   readonly condition: Json;
   readonly reasons: readonly string[];

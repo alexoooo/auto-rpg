@@ -29,7 +29,7 @@ function readinessText(readiness: Readiness): string {
 const NEARNESS: Readonly<Record<Readiness["kind"], number>> = { ready: 0, position: 1, waiting: 2, blocked: 3 };
 
 /** What a person picking a choice orders: an attack on a foe, naming what the choice names of how. */
-export type PickedStrike = StrikeChoice & { readonly foe: string };
+type PickedStrike = StrikeChoice & { readonly foe: string };
 
 /** Whether an order can name `entry`: a strike at a foe's region, not an action on the body itself. */
 const orderable = (entry: MenuEntry): entry is MenuEntry & { readonly foe: string; readonly region: Region } => entry.foe !== null && entry.region !== null;

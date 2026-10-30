@@ -26,9 +26,9 @@ export const DRILLED: readonly TechniqueName[] = Object.freeze(Object.keys(EDGES
 
 type Posture = (typeof GROUND_POSTURES)[number];
 /** A placed trial: the body, what its right hand holds and its left (empty where it names none), its start's posture and seed. */
-export type PlacedCondition = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held; readonly posture: Posture; readonly seed: number };
+type PlacedCondition = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held; readonly posture: Posture; readonly seed: number };
 /** A trial after the edge before: the body, what its hands hold, and the seed of that edge's start. */
-export type MovingCondition = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held; readonly seed: number };
+type MovingCondition = { readonly model: HumanoidModel; readonly held: Held; readonly left?: Held; readonly seed: number };
 export type RiseCondition = PlacedCondition | MovingCondition;
 
 const MODELS: readonly HumanoidModel[] = ["workshop-fighter"];
@@ -54,7 +54,7 @@ const LYING: readonly string[] = ["back", "left", "right", "front"];
  * from the edge before it back to the nearest begun lying, placed in a position that one is begun
  * from (by the seed); for the first edge, standing and shoved toward one of six directions by the seed.
  */
-export function riseCase(edge: TechniqueName, condition: RiseCondition): TechniqueCase {
+function riseCase(edge: TechniqueName, condition: RiseCondition): TechniqueCase {
   const body = { model: condition.model, held: condition.held, ...(condition.left ? { left: condition.left } : {}), seed: condition.seed };
   if ("posture" in condition) return { ...body, start: { kind: "placed", posture: condition.posture }, chain: [edge] };
   if (EDGES[edge] === null) return { ...body, start: { kind: "shoved", degrees: (condition.seed - 1) * 60 }, chain: [edge] };

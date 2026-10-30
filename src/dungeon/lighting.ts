@@ -26,7 +26,7 @@ import type { TorchPlacement } from "./dressing.ts";
  * Generated-dungeon defaults, set by eye (`docs/reference/look.md#crypt-light`). The reference chamber opts into
  * its own profile (`REFERENCE_LIGHT`).
  */
-export const DUNGEON_LOOK = Object.freeze({
+const DUNGEON_LOOK = Object.freeze({
   /** A cold, dim fill from above that leaves the torches to do the work. */
   ambient: Object.freeze({ intensity: 0.18, diffuse: "#7d8fb3", ground: "#1a1614" }),
   /** The arena's HDRI, kept low underground: enough to give bronze and wet stone a reflection. */

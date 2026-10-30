@@ -17,5 +17,5 @@ export function impactEnergy(strikerKg: number, struckKg: number, closing: numbe
 }
 
 /** m M / (m + M), and m when M is `Infinity`. */
-export const reducedMass = (strikerKg: number, struckKg: number): number =>
+const reducedMass = (strikerKg: number, struckKg: number): number =>
   Number.isFinite(struckKg) ? strikerKg * struckKg / (strikerKg + struckKg) : strikerKg;

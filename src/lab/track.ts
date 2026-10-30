@@ -13,7 +13,7 @@ import { cos, sin } from "../core/math/real.ts";
  * A piece of a track: a straight, an arc turning at `curvature` (1/m, positive to the right), or a
  * corner, where the way turns by `turn` (rad, positive to the right) in no length at all.
  */
-export type Piece =
+type Piece =
   | { readonly kind: "straight"; readonly metres: number }
   | { readonly kind: "arc"; readonly metres: number; readonly curvature: number }
   | { readonly kind: "corner"; readonly metres: 0; readonly turn: number };
@@ -109,7 +109,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
  * 0.5 m/s it asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its
  * fastest (`Body.envelope`, `assets/core/stance-envelope.json`). The scenario's slider sets another.
  */
-export const CIRCLE_RADIUS = 4;
+const CIRCLE_RADIUS = 4;
 /**
  * The walking pace of a turn on the stance, m/s: slow enough that `LAB_TURN_RATE`
  * (`stance-mode.ts`) is inside every body's envelope, and that each human takes the Routine's
@@ -118,15 +118,15 @@ export const CIRCLE_RADIUS = 4;
 export const TURN_PACE = 0.3;
 
 /** The shuttle's straight by default, m: the scenario's slider sets another. */
-export const SHUTTLE_METRES = 6;
+const SHUTTLE_METRES = 6;
 /**
  * The shuttle's half-turn's radius, m: the Locomotion scenario's and the Routine's, `TURN_PACE` at
  * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s).
  */
-export const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;
+const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;
 
 /** The square's and the diamond's side by default, m: the scenario's slider sets another. */
-export const SQUARE_SIDE = 6;
+const SQUARE_SIDE = 6;
 
 export const TRACK_IDS = ["circle", "shuttle", "square", "diamond"] as const;
 type TrackId = (typeof TRACK_IDS)[number];

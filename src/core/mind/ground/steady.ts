@@ -14,7 +14,7 @@ import { quietOnFeet } from "./reading.ts";
 import { poseDrive } from "./technique.ts";
 
 /** Protective flexion keeps the chin tucked and the forearms before the face while falling. */
-export const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, "shoulder.right flexion": .8,
+const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, "shoulder.right flexion": .8,
   "elbow.left flexion": 1.7, "elbow.right flexion": 1.7, "hip.left flexion": .8, "hip.right flexion": .8,
   "knee.left flexion": 1.2, "knee.right flexion": 1.2 });
 
@@ -23,7 +23,7 @@ export const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion
  * activation): falling, firmly; backing off after no route stood the body, softly.
  */
 const BRACINGS = deepFreeze({ falling: [.3, 2, .4], "backing off": [.4, 1, .2] } as const);
-export type Bracing = keyof typeof BRACINGS;
+type Bracing = keyof typeof BRACINGS;
 
 /** Drive the brace (`BRACE`) as `how` says, with `drive` (`poseDrive`). */
 export const brace = (drive: ReturnType<typeof poseDrive>, how: Bracing): void => { const [within, top, activation] = BRACINGS[how]; drive(BRACE, within, top, activation); };

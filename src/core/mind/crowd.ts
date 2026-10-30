@@ -37,7 +37,7 @@ interface CrowdView {
 interface Neighbour { readonly x: number; readonly z: number; readonly vx: number; readonly vz: number; readonly room: number }
 
 /** The walk chosen and whether the crowd held it back from the walk asked. */
-export interface CrowdWalk {
+interface CrowdWalk {
   /** The ground velocity, m/s. */
   readonly x: number;
   readonly z: number;

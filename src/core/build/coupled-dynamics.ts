@@ -4,6 +4,7 @@ import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
 import { bodyDynamics } from "./dynamics.ts";
 import { jointAngles } from "./joint-state.ts";
 import type { ReadBody, ReadSegmentBody } from "../read-body.ts";
+import { cross } from "../spec/vec.ts";
 
 interface AttachedItem { readonly body: ReadSegmentBody; motionConstraints(): readonly MotionConstraint[] }
 interface Load { readonly body: ReadSegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }
@@ -14,7 +15,6 @@ const RANK_TOLERANCE = 1e-10;
 const dot = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
   let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i]! * b[i]!; return sum;
 };
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 

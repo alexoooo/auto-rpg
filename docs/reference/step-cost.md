@@ -132,7 +132,7 @@ back, now, a step on), and its rates and accelerations are differences of the th
 200 passes (`IK_PASSES`) or until no angle moves 1e-10 rad (`IK_TOLERANCE`). A solve reports its
 passes and whether it stopped of itself (`ReachEnd`), summed per body (`ReachMeter`).
 
-Its Jacobian is the kinematics' derivative in closed form (`reachJacobianTo`, from `motionAxesToRef`
+Its Jacobian is the kinematics' derivative in closed form (`walkedColumn`, from `motionAxesToRef`
 and `turningToRef`), one walk of the chain a pass: within 9.9e-11 m/rad of central differences over
 200 poses on the Warrior's arm and leg.
 

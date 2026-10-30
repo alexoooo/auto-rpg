@@ -52,12 +52,6 @@ export const SKELETON_PIECES: Readonly<Record<string, { readonly part: string; r
   })),
 });
 
-/** The file's pieces that nothing shows, and why. */
-export const SKELETON_UNSHOWN: Readonly<Record<string, string>> = Object.freeze({
-  "primary.wrist": "the whole closed hand, which the palm and fist pieces split",
-  "secondary.wrist": "the whole closed hand, which the palm and fist pieces split",
-});
-
 /** One piece of the art: its vertices in its part's frame, and the eye sockets' centres on the head. */
 interface SkeletonPiece {
   readonly positions: Float32Array;
@@ -139,14 +133,14 @@ export function loadSkeletonArt(): Promise<SkeletonArt> {
 
 interface BindPart { readonly build: string; readonly id: string; readonly position: readonly number[]; readonly rotation: readonly number[] }
 /** A part's place in the body at the reference pose: the bind's fist build. */
-export function bindMatrix(part: string): Matrix {
+function bindMatrix(part: string): Matrix {
   const row = (bind as readonly BindPart[]).find((p) => p.build === "fist/fist" && p.id === `left.golem.${part}`);
   if (!row) throw new Error(`the skeleton's bind has no ${part}`);
   return Matrix.Compose(Vector3.One(), Quaternion.FromArray(row.rotation), Vector3.FromArray(row.position));
 }
 
 /** Each shown piece's transform in its segment's frame: its bind in the segment's reference frame. */
-export function piecesOnSegments(built: BuiltBody): Map<string, { readonly segment: string; readonly held: Matrix }> {
+function piecesOnSegments(built: BuiltBody): Map<string, { readonly segment: string; readonly held: Matrix }> {
   const out = new Map<string, { segment: string; held: Matrix }>();
   for (const [key, { part, segment }] of Object.entries(SKELETON_PIECES)) {
     const carrier = built.segments.get(segment);

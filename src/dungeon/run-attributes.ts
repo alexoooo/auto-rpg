@@ -7,7 +7,7 @@ import type { Participant } from "./run.ts";
 import { ENCOUNTER_MODELS } from "./encounters.ts";
 
 /** Party overrides belong to a slot; enemy overrides belong to a model's encounter template. */
-export function attributeScope(participant: Participant): string {
+function attributeScope(participant: Participant): string {
   return participant.side === "enemy" ? `enemy.${participant.model}` : participant.id;
 }
 

@@ -12,7 +12,7 @@ import type { Reader } from "../evaluation.ts";
  * How a trial came out: `ready`, its action admitted after it stopped, on its feet; `fell`, down at
  * any time of the trial; `never`, stopped and never admitted; `unreached`, never stopped.
  */
-export type GaitOutcome = "ready" | "fell" | "never" | "unreached";
+type GaitOutcome = "ready" | "fell" | "never" | "unreached";
 
 /** What a trial came to. */
 export type GaitReading = {

@@ -30,7 +30,7 @@ export function facingOf(rotation: Quaternion, rest: Quaternion, last: { x: numb
  * `(x, z)` made a unit bearing on the ground; when it is too short to name one (a pelvis pointing
  * straight up or down), the fallback's bearing, and +z when that is too short as well.
  */
-export function horizontalForward(x: number, z: number, fallbackX: number, fallbackZ: number): { x: number; z: number } {
+function horizontalForward(x: number, z: number, fallbackX: number, fallbackZ: number): { x: number; z: number } {
   const length = Math.hypot(x, z);
   if (length > 1e-6) return { x: x / length, z: z / length };
   const fallbackLength = Math.hypot(fallbackX, fallbackZ);

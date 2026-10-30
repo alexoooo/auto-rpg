@@ -84,7 +84,7 @@ export const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
   },
 };
 
-export const FINGERS = ["index", "middle", "ring", "pinky"] as const;
+const FINGERS = ["index", "middle", "ring", "pinky"] as const;
 const UP = new Vector3(0, 1, 0);
 
 /** The palm's axes in the hand bone's frame. */
@@ -116,7 +116,7 @@ function handSpace(bones: ReadonlyMap<string, RestBone>, hand: string) {
 }
 
 /** The palm's frame of `side`'s hand (`"r"` or `"l"`). */
-export function palmFrame(bones: ReadonlyMap<string, RestBone>, side: "r" | "l"): PalmFrame {
+function palmFrame(bones: ReadonlyMap<string, RestBone>, side: "r" | "l"): PalmFrame {
   const { orientation, head } = handSpace(bones, `hand_${side}`);
   const knuckle = (finger: string) => head.get(`${finger}_01_${side}`)!;
   const forward = knuckle("middle").normalizeToNew();

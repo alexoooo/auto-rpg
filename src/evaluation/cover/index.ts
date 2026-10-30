@@ -13,7 +13,7 @@ import { COVER_CASES, type CoverCondition } from "./cases.ts";
 import type { CoverReading } from "./read.ts";
 
 /** What the strip shows a trial as: its outcome, and whether it passed (nothing on its head, the subject up). */
-export const coverOutcome = (reading: CoverReading) => ({ label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" });
+const coverOutcome = (reading: CoverReading) => ({ label: reading.outcome, passed: reading.outcome === "covered" || reading.outcome === "untouched" });
 
 export const COVER: Evaluation<CoverCondition, CoverReading> = {
   id: "cover",

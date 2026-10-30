@@ -11,7 +11,7 @@ import type { Skills } from "../skills/skills.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
-export interface ActionEstimate {
+interface ActionEstimate {
   readonly unit: "opening" | "net";
   read(view: BodyView, target: TargetRef, effector: string): number | null;
 }

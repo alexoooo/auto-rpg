@@ -14,7 +14,6 @@ import type { Side } from "../spec/body.ts";
  * - A foot is the extents of its boot.
  */
 export type TrunkSegment = "upper" | "middle" | "lower";
-export const TRUNK_SEGMENTS: readonly TrunkSegment[] = Object.freeze(["upper", "middle", "lower"]);
 
 export interface Extent { readonly min: Quantity<number>; readonly max: Quantity<number> }
 export interface Extents { readonly x: Extent; readonly y: Extent; readonly z: Extent }

@@ -32,8 +32,7 @@ the same for `secondary`. `primary` is the body's right (+X), `secondary` its le
   triangles; a piece that skips this draws inside out, which a Blender Workbench preview does not
   show.
 - **Hands.** `*.wrist` is the whole closed hand. `*.wrist.bare` (the palm) and `*.fist` (the
-  fingers) split that same hand. The game shows the split pair and not the whole hand
-  (`SKELETON_UNSHOWN`).
+  fingers) split that same hand. The game shows the split pair and not the whole hand.
 - **Eyes.** `head.head` carries `extras.eyes`, the eye sockets' centres in the head's frame.
 - **Colour.** Occlusion and grime are baked into `COLOR_0`.
 

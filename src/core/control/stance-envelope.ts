@@ -92,7 +92,7 @@ interface GaitTable {
  * slower speed did; 0 if none. `held` is how many held at each speed, null where the battery did
  * not play them all (it gave up on the speed at a trial that did not hold).
  */
-export function fastestEvery(speeds: readonly number[], trials: number, held: readonly (number | null)[]): number {
+function fastestEvery(speeds: readonly number[], trials: number, held: readonly (number | null)[]): number {
   let fastest = 0;
   for (let i = 0; i < speeds.length; i++) if (held[i] === trials) fastest = speeds[i]!;
   return fastest;

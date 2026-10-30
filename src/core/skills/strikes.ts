@@ -1,5 +1,6 @@
 import { effectorAim } from "../control/effectors.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
+import { segmentOf } from "../spec/body.ts";
 
 /** What an empty hand holds, by name (`heldIn`). */
 export const FIST = "fist";
@@ -15,7 +16,7 @@ export function heldIn(spec: BodySpec, hand: Side): string {
  * (`skillSet`).
  */
 export function closesToStrike(spec: BodySpec, hand: Side): boolean {
-  const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
+  const segment = segmentOf(spec, `hand.${hand}`);
   return !!segment?.handPoses && !!segment.points?.strike && holdsNothing(spec, segment.name);
 }
 

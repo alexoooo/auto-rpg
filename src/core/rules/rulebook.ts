@@ -19,7 +19,7 @@ type Mode = "arena" | "dungeon";
  * contact is comes from its physical surface; a club is `blunt`, a forward tooth is `point`.
  */
 export type Mechanism = "blunt" | "edge" | "axe" | "point";
-export const MECHANISMS: readonly Mechanism[] = Object.freeze(["blunt", "edge", "axe", "point"]);
+const MECHANISMS: readonly Mechanism[] = Object.freeze(["blunt", "edge", "axe", "point"]);
 
 export interface Rulebook {
   readonly mode: Mode;

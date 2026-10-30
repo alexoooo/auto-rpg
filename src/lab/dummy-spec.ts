@@ -2,6 +2,7 @@ import { SEGMENT_DENSITY, type DensitySegment } from "../core/human/tables/densi
 import type { BodySpec } from "../core/spec/body.ts";
 import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
+import { segmentOf } from "../core/spec/body.ts";
 
 const densityOf = (part: string) => {
   const kind = part.split(".")[0]!;
@@ -23,7 +24,7 @@ export const dummyPart = (spec: BodySpec, requested?: string | null): string =>
  * the ball itself. The body's frame origin is its centre.
  */
 export function dummySpec(attacker: BodySpec, part: string = attacker.marks.high): BodySpec {
-  const made = attacker.segments.find(segment => segment.name === part);
+  const made = segmentOf(attacker, part);
   if (!made) throw new Error(`${attacker.model} has no ${part} a ball is made of`);
   const mass = derive("kg", `the attacker's ${part}'s mass`, [made.mass], m => m);
   const radius = ((): Quantity<number> => {

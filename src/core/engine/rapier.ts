@@ -49,7 +49,7 @@ export function rapierModule(): Promise<Rapier> {
 }
 
 /** A solver profile: Rapier's coordinate angular limits and per-point contact friction, each off unless named. */
-export interface SolverProfile { readonly coordinateAngularLimits?: boolean; readonly pointContactFriction?: boolean }
+interface SolverProfile { readonly coordinateAngularLimits?: boolean; readonly pointContactFriction?: boolean }
 
 /** Rapier with immutable limit/friction selection, its WASM loaded once. The measured profiles are in docs/reference/contact-friction.md. */
 export async function loadRapier(profile: SolverProfile = {}): Promise<PhysicsEngine> {

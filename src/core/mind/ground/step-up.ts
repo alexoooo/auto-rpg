@@ -13,6 +13,7 @@ import { stagedRise } from "../rise/staged.ts";
 import { RISE, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
+import { otherSide } from "../../spec/body.ts";
 
 /** How one of the recipe's stages is played: its time scaled, and a bearing stage's completion. */
 interface StageTiming { readonly scale: number; readonly progress?: NonNullable<BearStage["progress"]> }
@@ -241,8 +242,8 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
     if (at < 0) throw new Error(`the step-up's rise has no ${JSON.stringify(stage)} stage to join at`);
     return { ...whole, rise: whole.rise.slice(at) };
   };
-  const otherSide: Side = (tuning.over ?? "right") === "right" ? "left" : "right";
-  const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: otherSide }, base)),
+  const across = otherSide(tuning.over ?? "right");
+  const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: across }, base)),
     fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the step-up");
   const steady = stanceSteady(own, view, motor, tuning.climb);

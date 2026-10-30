@@ -42,7 +42,7 @@ const BUCKLER = deepFreeze({
 export type BucklerCondition = { readonly model: BodyModel; readonly angle: number; readonly at: string; readonly own: boolean };
 
 /** One of the attacker's swings: when it committed and ended, s; whether it touched the defender, the buckler first, what first, and the wound, HP. */
-export type BucklerSwing = {
+type BucklerSwing = {
   readonly committed: number; readonly ended: number; readonly touched: boolean; readonly met: boolean;
   readonly first: string | null; readonly wound: number;
 };

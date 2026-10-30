@@ -10,6 +10,7 @@ import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import type { BuiltTechnique, LinkReading, TechniqueReading } from "../technique.ts";
 import { DRILLED, EDGES, RISE_CASES, type RiseCondition } from "./cases.ts";
+import { medianOf } from "../stats.ts";
 
 /** An edge as a subject: its technique's config, whose code the case names. */
 const edgeSubject = (kind: string): Subject => {
@@ -26,7 +27,7 @@ const begun = (reading: TechniqueReading): boolean => drilled(reading).entry !==
 const done = (reading: TechniqueReading): boolean | null => begun(reading) ? drilled(reading).end === "done" : null;
 
 /** What the strip shows a trial as: its edge's end, passed when done or never begun (its own failure is neither). */
-export const riseOutcome = (reading: TechniqueReading) => {
+const riseOutcome = (reading: TechniqueReading) => {
   const link = drilled(reading);
   return { label: link.end, passed: link.end === "done" || link.entry === null };
 };
@@ -34,16 +35,11 @@ export const riseOutcome = (reading: TechniqueReading) => {
 /** The bands of the speed a body was begun at, m/s: still, slow, moving. */
 const BANDS: readonly { readonly name: string; readonly below: number }[] = [{ name: "under 0.1 m/s", below: .1 }, { name: "0.1 to 0.5 m/s", below: .5 }, { name: "0.5 m/s and over", below: Infinity }];
 
-const median = (values: readonly number[]): number | null => {
-  const sorted = [...values].sort((a, b) => a - b), mid = sorted.length >> 1;
-  return sorted.length ? (sorted[mid]! + sorted[(sorted.length - 1) >> 1]!) / 2 : null;
-};
-
 /** An edge's profile over trials: begun, done of those, the median time of those done, s, and the speeds begun at, m/s. */
 function profileOf(links: readonly LinkReading[]) {
   const entered = links.filter((link) => link.entry !== null), finished = entered.filter((link) => link.end === "done");
   const speeds = entered.map((link) => link.entry!.speed);
-  return { trials: links.length, begun: entered.length, done: finished.length, seconds: median(finished.map((link) => link.seconds)),
+  return { trials: links.length, begun: entered.length, done: finished.length, seconds: medianOf(finished.map((link) => link.seconds)),
     speed: speeds.length ? [Math.min(...speeds), Math.max(...speeds)] : null,
     ends: Object.fromEntries([...new Set(entered.map((link) => link.end))].map((end) => [end, entered.filter((link) => link.end === end).length])) };
 }

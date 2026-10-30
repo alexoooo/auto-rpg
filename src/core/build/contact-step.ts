@@ -3,6 +3,7 @@ import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { coupledDynamics } from "./coupled-dynamics.ts";
 import { constrainedMass, type MotionConstraint } from "./constrained-mass.ts";
+import { cross, dot } from "../spec/vec.ts";
 
 interface AngularStop {
   /** Inward angle-rate row; only angular entries are admitted. */
@@ -34,8 +35,6 @@ interface Settings {
   readonly frictionMetric?: "coupled" | "rigid-body";
 }
 const ZERO: Vec3 = [0, 0, 0];
-const dot = (a: ArrayLike<number>, b: ArrayLike<number>) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const subtract = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 

@@ -167,7 +167,7 @@ export function validateRoomPlacements(groups: readonly RoomGroup[], registeredC
 }
 
 /** Whether `mesh` stands for a collider: a fixed collider in the core's world stands behind it (`buildArenaColliders`). */
-export const isCollider = (mesh: AbstractMesh): boolean => mesh.metadata?.isCollider === true;
+const isCollider = (mesh: AbstractMesh): boolean => mesh.metadata?.isCollider === true;
 
 /**
  * Check each pair against the scene's meshes, not the placement table: its collider exists, has a
@@ -343,7 +343,7 @@ interface ArenaColliders {
  * The arena's solids (`arenaSolids`) as fixed colliders in `physics`, and as meshes: the ground and walls invisible,
  * the brazier pedestals drawn.
  */
-export function buildArenaColliders(
+function buildArenaColliders(
   scene: Scene,
   physics: PhysicsWorld,
   materials: RoomMaterials,
@@ -398,7 +398,7 @@ interface CosmeticRoom {
   dispose(): void;
 }
 
-export function buildCosmeticRoom(
+function buildCosmeticRoom(
   scene: Scene,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,

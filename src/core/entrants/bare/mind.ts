@@ -24,14 +24,14 @@ import { NOTHING_SENSED } from "../../mind/senses.ts";
 import { learnerOf, type Learner } from "../../mind/learner.ts";
 
 /** **The bare mind's config**: its network, or none (its pulls written from outside), and how many control steps apart it decides. */
-export interface BareConfig {
+interface BareConfig {
   readonly kind: "bare";
   readonly network: Network | null;
   readonly every: number;
 }
 
 /** The bare mind's memory: control steps taken, and its learner (`Learner`): the inputs it last read, and the pulls it holds, its outputs. */
-export interface BareState {
+interface BareState {
   steps: number;
   readonly learner: Learner;
 }
@@ -46,7 +46,7 @@ const rootOf = (spec: BodySpec): string => {
 };
 
 /** **What a bare mind of a body of `spec` reads and decides**, by name, in order: its inputs and its outputs (a pull a channel). */
-export function bareLayout(spec: BodySpec): { readonly inputs: readonly string[]; readonly outputs: readonly string[] } {
+function bareLayout(spec: BodySpec): { readonly inputs: readonly string[]; readonly outputs: readonly string[] } {
   const channels = channelsOf(spec), frame = (name: string) => [`${name} along`, `${name} up`, `${name} across`];
   return {
     inputs: [...channels.map((c) => `${c} angle`), ...channels.map((c) => `${c} rate`), ...frame("root up"), "centre height", ...frame("root velocity"),

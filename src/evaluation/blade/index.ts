@@ -7,7 +7,7 @@
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
-import { median } from "../stats.ts";
+import { medianOf } from "../stats.ts";
 import { BLADE_CASES, type BladeCondition, type BladeReading } from "./cases.ts";
 
 /** A tuning as a subject: the executors' own when empty. */
@@ -22,15 +22,14 @@ const upper = (segment: string): boolean => /^(head|neck|pelvis)|Trunk$/.test(se
  * that cut nothing counted as none; the wound its cuts did; its actions' endings and longest
  * return; and whether the striker fell.
  */
-export function bladeSummary(reading: BladeReading) {
+function bladeSummary(reading: BladeReading) {
   const swings = reading.actions.filter((action) => action.committed !== null);
   const cuts = swings.map((swing) => reading.blows.filter((blow) => blow.time >= swing.committed! && blow.time <= swing.ended && upper(blow.segment) && blow.mechanism === reading.mechanism)
     .reduce<BladeReading["blows"][number] | null>((best, blow) => best === null || blow.energy > best.energy ? blow : best, null));
   const returns = reading.actions.map((action) => action.returned).filter((value): value is number => value !== null);
-  const middle = (values: number[]) => values.length ? median(values) : null;
   return { blows: reading.blows.length, upper: reading.blows.filter((blow) => upper(blow.segment)).length,
     swings: swings.length, aligned: cuts.filter((cut) => cut !== null).length,
-    closing: middle(cuts.map((cut) => cut?.closing ?? 0)), energy: middle(cuts.map((cut) => cut?.energy ?? 0)), damage: cuts.reduce((sum, cut) => sum + (cut?.damage ?? 0), 0),
+    closing: medianOf(cuts.map((cut) => cut?.closing ?? 0)), energy: medianOf(cuts.map((cut) => cut?.energy ?? 0)), damage: cuts.reduce((sum, cut) => sum + (cut?.damage ?? 0), 0),
     actions: reading.actions.length, completed: reading.actions.filter((action) => action.ending === "completed").length,
     longestReturn: returns.length ? Math.max(...returns) : null, felled: reading.blows.some((blow) => blow.felled) || reading.down };
 }

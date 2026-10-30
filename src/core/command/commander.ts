@@ -8,7 +8,7 @@ export interface CommanderConfig {
 }
 
 /** Which side of a Crypt run a Commander leads: the person's party, or the enemies. */
-export type CommandSide = "party" | "enemies";
+type CommandSide = "party" | "enemies";
 
 /**
  * **A kind of Commander**: what a person calls it, the sides it may lead, its default config, what

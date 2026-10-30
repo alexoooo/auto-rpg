@@ -244,7 +244,7 @@ function addLoops(layout: Layout): void {
 }
 
 /** Rooms a body can only leave the way it came in, other than the start and the exit. */
-export function deadEnds(links: readonly RoomLink[], rooms: number, start: number, exit: number): number {
+function deadEnds(links: readonly RoomLink[], rooms: number, start: number, exit: number): number {
   let count = 0;
   for (let room = 0; room < rooms; room++) {
     if (room === start || room === exit) continue;
@@ -254,7 +254,7 @@ export function deadEnds(links: readonly RoomLink[], rooms: number, start: numbe
 }
 
 /** More loops, fewer dead ends, a longer way to the exit and more rooms score higher. */
-export function levelScore(m: Pick<LevelMetrics, "loops" | "deadEnds" | "exitPath" | "rooms">): number {
+function levelScore(m: Pick<LevelMetrics, "loops" | "deadEnds" | "exitPath" | "rooms">): number {
   const w = LEVEL.score;
   return w.loop * Math.min(m.loops, LEVEL.loops) - w.deadEnd * m.deadEnds + w.exitMetre * m.exitPath + w.room * m.rooms;
 }
@@ -270,7 +270,7 @@ function carve(open: Uint8Array): Uint8Array {
 }
 
 /** 1 for each fine cell a body of `clearance` can stand on, among `cells` (default: all). */
-export function standingMask(map: DungeonMap, clearance = LEVEL.clearance, cells?: readonly number[]): Uint8Array {
+function standingMask(map: DungeonMap, clearance = LEVEL.clearance, cells?: readonly number[]): Uint8Array {
   const n = map.size, out = new Uint8Array(n * n);
   const test = (i: number) => {
     const x = i % n, z = Math.floor(i / n);
@@ -291,7 +291,7 @@ export function standingMask(map: DungeonMap, clearance = LEVEL.clearance, cells
  * `standing_neighbours_need_no_sweep` pins that. Skipping the sweep matters: callers run this
  * hundreds of times per seed.
  */
-export function standingComponents(map: DungeonMap, clearance = LEVEL.clearance, inside?: readonly BlockRect[]): number {
+function standingComponents(map: DungeonMap, clearance = LEVEL.clearance, inside?: readonly BlockRect[]): number {
   const n = map.size, k = LEVEL.block, seen = new Uint8Array(n * n);
   let cells: number[] | undefined;
   if (inside) {
@@ -383,7 +383,7 @@ function hang(links: RoomLink[], random: () => number): Door[] {
  * open list that is a linear scan. `findPath` also pulls its route straight afterwards, so a
  * hero walks a little less than this.
  */
-export function walkField(map: DungeonMap, from: Point, clearance = LEVEL.clearance): Int32Array {
+function walkField(map: DungeonMap, from: Point, clearance = LEVEL.clearance): Int32Array {
   const n = map.size, steps = new Int32Array(n * n).fill(-1), start = Math.round(from.z) * n + Math.round(from.x);
   const stands = standingMask(map, clearance);
   steps[start] = 0;
@@ -400,7 +400,7 @@ export function walkField(map: DungeonMap, from: Point, clearance = LEVEL.cleara
 }
 
 /** The standing cell within `bounds` nearest `target`, or null if none stands. */
-export function standingNear(map: DungeonMap, bounds: { min: Point; max: Point }, target: Point): Point | null {
+function standingNear(map: DungeonMap, bounds: { min: Point; max: Point }, target: Point): Point | null {
   let best: Point | null = null, off = Infinity;
   for (let z = bounds.min.z; z <= bounds.max.z; z++) for (let x = bounds.min.x; x <= bounds.max.x; x++) {
     if (!isFloor(map, x, z) || !walkable(map, { x, z }, LEVEL.clearance)) continue;

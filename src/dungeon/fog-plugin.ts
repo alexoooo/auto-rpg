@@ -29,7 +29,7 @@ const FOG_LOOK = Object.freeze({
  * world position, at spans that share no multiple with the map's, varies the brightness under it. A per-cell UV
  * rotation would do it too, and would put a mip seam on every cell edge.
  */
-export const STONE_LOOK = Object.freeze({
+const STONE_LOOK = Object.freeze({
   /** Albedo is multiplied by between these, by noise at these two spans, weighted 0.65 and 0.35. */
   vary: Object.freeze([0.78, 1.08] as const), spans: Object.freeze([7, 2.3] as const),
   /** A wall's foot darkens to this share of its albedo, rising to full over this height. */
@@ -141,7 +141,7 @@ finalColor.rgb *= smoothstep(0.50, 0.90, dungeonCoverage);
  * of walls in front of the hero. Attached to each dungeon material by `dungeonFog`, never registered globally,
  * so no body's material ever carries it. Node loads this file with `world.ts`: no parameter properties, nothing page-only.
  */
-export class DungeonFogPlugin extends MaterialPluginBase {
+class DungeonFogPlugin extends MaterialPluginBase {
   readonly view: FogView;
 
   readonly stone: StoneRole;

@@ -9,7 +9,7 @@ export const CRYPT_FURNITURE = {
 } as const;
 
 /** Open frames obstruct feet, not vision; this grant is independent of collision height. */
-export const CRYPT_SIGHT = { tomb: false, column: true, altar: false, bench: false, rack: false, cluster: false } as const;
+const CRYPT_SIGHT = { tomb: false, column: true, altar: false, bench: false, rack: false, cluster: false } as const;
 
 export interface KitPlacement { readonly piece: string; readonly x: number; readonly z: number; readonly turn: number; readonly obstacleId?: string }
 

@@ -4,7 +4,7 @@ import type { NavigatorPart } from "./navigator.ts";
 import { anyBody } from "./parts.ts";
 
 /** **Visibility routes**: the config of the walker that routes to a place by the shortest visibility route round what it senses. */
-export interface VisibilityNavigationConfig { readonly kind: "visibility-navigation" }
+interface VisibilityNavigationConfig { readonly kind: "visibility-navigation" }
 
 /** **Visibility routes** (`routeWalker`): a place reached by the shortest route round the solids sensed, corner to corner. */
 export const VISIBILITY_NAVIGATION: NavigatorPart<VisibilityNavigationConfig> = deepFreeze({

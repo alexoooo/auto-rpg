@@ -3,13 +3,11 @@ import type { ReadJoint } from "../read-body.ts";
 import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointAngles, relativeRotationToRef } from "./joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import { cross } from "../spec/vec.ts";
 
 const ZERO: Vec3 = [0, 0, 0];
 const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
 const dot = (a: readonly number[], b: readonly number[]): number => a.reduce((sum, v, i) => sum + v * b[i]!, 0);
-const cross = (a: readonly number[], b: readonly number[]): Vec3 => [
-  a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!,
-];
 
 /**
  * Measured angle motion for one freedom, including residual motion on locked axes. The row reads

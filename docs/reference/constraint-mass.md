@@ -13,9 +13,9 @@ allocates; the game's damage path uses the tree model (`contactMass`).
 - **Rank tolerance**: 1e-10, relative to the largest original whitened row length, a numeric
   setting. Duplicate constraints do not make an item heavier; the second pass limits roundoff on
   nearly dependent rows. The report gives supplied rows, rank and remaining freedoms.
-- `build/articulated-mass.ts` supplies the anatomical joint rows and each item's active grip rows,
-  each joint about the mean of its anchors on its current axes. A common point keeps common rigid
-  rotation free when the solver leaves an anchor gap; the
+- The articulated rows (`build/articulated-mass.ts@277a59d4`): the anatomical joint rows and each
+  item's active grip rows, each joint about the mean of its anchors on its current axes. A common
+  point keeps common rigid rotation free when the solver leaves an anchor gap; the
   [moving-loop check](coupled-dynamics.md) rejects separate-anchor rows.
 - As `contactMass` does, it leaves joints and limits free, floats the body, and omits ground,
   motors and actuator response. Fixed engine bodies are not fixed here unless declared.

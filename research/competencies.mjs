@@ -10,7 +10,7 @@ import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
 import { PLANTED_PUNCH_EXECUTION } from "../src/core/skills/combat.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
-import { PARTS, treeFaults } from "../src/core/mind/catalog.ts";
+import { allParts, treeFaults } from "../src/core/mind/catalog.ts";
 import { HUMAN_PUNCH, punchStand } from "./punch-calibration.mjs";
 import { frontKickStand } from "./front-kicks.mjs";
 import { shove, walk, turn } from "./core-stance-trials.mjs";
@@ -157,12 +157,12 @@ export function competencyJobs({ competency, model, held, seed, physique, blow }
 }
 
 /**
- * The blow part a punch trial throws (`--blow`): `kind`'s defaults (`PARTS`), a path-like blow on
+ * The blow part a punch trial throws (`--blow`): `kind`'s defaults (`allParts`), a path-like blow on
  * the planted cross the default trial throws, with each `path=value` of `settings` (a dotted path,
  * a number, a word or true/false) set on it. A config with faults is refused.
  */
 export function blowConfig(kind, settings = "") {
-  const part = PARTS[kind];
+  const part = allParts()[kind];
   if (!part || part.role !== "executor") throw new Error(`no blow part ${kind}`);
   const config = structuredClone({ ...part.defaults, ...(kind === "path-strike"
     ? { tuning: { paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION } } : {}) });

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidOf, rigidPoints } from "../build/rigid.ts";
-import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, type BodySpec, type SegmentSpec, type ShapeSpec, segmentOf } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, scale, sub } from "../spec/vec.ts";
 
@@ -37,7 +37,7 @@ function supportOf(shape: ShapeSpec, segment: SegmentSpec): { readonly points: r
 export function heldClearance(spec: BodySpec): (view: Sight) => number {
   const names = new Set((spec.held ?? []).map(held => held.segment));
   const carriers = [...names].map(name => {
-    const segment = spec.segments.find(segment => segment.name === name);
+    const segment = segmentOf(spec, name);
     const effector = spec.effectors?.find(effector => effector.segment === name);
     if (!segment || !effector) throw new Error(`${spec.model}: held clearance needs an observed effector for ${name}`);
     const anchor = rigidPoints(spec, segment).get(effector.point)?.value;

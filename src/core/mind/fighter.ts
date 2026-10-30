@@ -57,7 +57,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
 }
 
 /** Executors a mind makes itself beside those its config names, and their actions (`fighterSkills`). */
-export interface MoreSkills {
+interface MoreSkills {
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];
 }
