@@ -78,11 +78,15 @@ const partFrom = (at: Position): StagedKind | undefined =>
   (Object.keys(PARTS) as StagedKind[]).find(kind => (PARTS[kind].from as readonly Position[]).includes(at));
 
 /**
- * **A part's entry**: begun on the left, body `model` read in a position it is begun from (its raw
- * reading, `GroundReading.raw`) and slow enough for it (`Part.entry`), still or not.
+ * **A part's entry**: begun on the left, body `model` read in a position it is begun from, as it
+ * reads this step (`GroundReading.raw`) or as it last settled (`GroundReading.position`, where the
+ * part before it is read to have handed it over, `reads`), and slow enough for it (`Part.entry`),
+ * still or not.
  */
-const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Side): boolean =>
-  side === "left" && (PARTS[kind].from as readonly Position[]).includes(g.raw) && slowFor(kind, model, g);
+const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Side): boolean => {
+  const from: readonly Position[] = PARTS[kind].from;
+  return side === "left" && (from.includes(g.raw) || from.includes(g.position)) && slowFor(kind, model, g);
+};
 
 /**
  * **A part of step up's route as a technique**, its stages timed as step up's (`STEP_UP`), begun on
