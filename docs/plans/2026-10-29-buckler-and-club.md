@@ -30,8 +30,7 @@ A buckler covers when it meets four of five blows that reach the body before the
 
 ## Steps
 
-Steps 2 to 6 wait on Option Mind's design (its steps 13 to 16) as every training run does; step 1
-does not.
+The owner asked for steps 2 to 6 ahead of Option Mind's design steps 13 to 16.
 
 ### 1. The drills hold the loadout
 
@@ -76,6 +75,12 @@ face (`READINGS.ward`), not the blow predicted at the head alone; the share of a
 (`STOPS`) read on the Cover drill's buckler rows. Then Cover's rung 2, cover and a counter, the
 club blow the counter.
 
+Built: with a covering face in a hand, Option Mind's guard holds it between a foe's weapon and the
+body while one is within 2 m (`Situation.ward`), and its cover meets the weapon there. At
+`6bec72f3` (Node, core world, rapier-coordinate, 120 Hz), paired with step 1's records: holding
+the buckler and club, punched 0.24 HP a trial (0.14), swung 0.24 (0.37), the head 0.64 HP over the
+twelve (0.74); the bare and club rows play identically. About even on six trials a side.
+
 Check: the Cover drill's rungs 0 and 1 at the buckler's bar, paired with the step before; rung 2;
 the owner accepts each rung.
 
@@ -83,6 +88,12 @@ the owner accepts each rung.
 
 Option Mind's rise on toes holding the buckler and the club: the Rise drill armed and the
 `equipped-rise` evaluation, both items still held after the rise.
+
+Built: the Rise drill's rungs and the equipped falls hold the buckler and club, the equipped falls
+take a whole mind, and a hand on all fours bears through what it holds. At `621b836e` (Node, core
+world, rapier, 120 Hz), Option Mind's equipped falls stand 15 of 16 holding both (median 11.7 s)
+against 13 of 16 with the club alone. On the Rise drill holding both, the placed sit-back from the
+front is done 2 of 6 and the roll down 4 of 6; after the roll down, the sit-back is begun 1 of 6.
 
 Check: as many of the falls stood holding both as with the club alone; the owner watches a rise.
 
