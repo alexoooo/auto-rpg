@@ -73,7 +73,8 @@ export const RISE: Evaluation<RiseCondition, TechniqueReading & Json, BuiltTechn
     const f = (x: number | null, d = 2) => x === null ? "-" : x.toFixed(d);
     const profiles = subjects.map((subject) => {
       const mine = cases.filter((one) => one.subjects[0] === subject.id);
-      const byModel = [...new Set(mine.map((one) => one.condition.model))].map((model) => ({ model, ...profileOf(mine.filter((one) => one.condition.model === model).map((one) => drilled(one.reading))) }));
+      const bodyOf = (condition: RiseCondition) => `${condition.model}${condition.left || condition.held !== "empty" ? ` holding ${condition.left ?? "empty"},${condition.held}` : ""}`;
+      const byModel = [...new Set(mine.map((one) => bodyOf(one.condition)))].map((model) => ({ model, ...profileOf(mine.filter((one) => bodyOf(one.condition) === model).map((one) => drilled(one.reading))) }));
       const begunLinks = mine.map((one) => drilled(one.reading)).filter((link) => link.entry !== null);
       const bySpeed = BANDS.map((band, k) => ({ band: band.name, ...profileOf(begunLinks.filter((link) => link.entry!.speed < band.below && (k === 0 || link.entry!.speed >= BANDS[k - 1]!.below))) }));
       return { subject: subject.id, label: subject.label, byModel, bySpeed };
