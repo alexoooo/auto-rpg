@@ -128,3 +128,13 @@ export const fitsJaw = fitsWhen((spec: BodySpec) => {
 
 /** The quadruped's `fits`: its paws and its jaw. */
 export const fitsQuadruped = fitsAll(fitsPaws, fitsJaw);
+
+// The quadruped's roles, added to the roles the part lookup knows (`RoleParts`).
+declare module "../mind/lookup.ts" {
+  interface RoleParts {
+    readonly "support-motor": SupportMotorPart;
+    readonly gait: GaitPart;
+    readonly bite: BitePart;
+    readonly "quadruped-tactics": QuadrupedTacticsPart;
+  }
+}

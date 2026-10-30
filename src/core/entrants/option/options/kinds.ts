@@ -1,5 +1,5 @@
 import type { ActionConfig } from "../../../mind/config.ts";
-import type { OptionPart } from "../../../mind/option-part.ts";
+import type { OptionPart } from "../../../option/parts.ts";
 import { anyBody, type KeysOf, type PartConfig } from "../../../mind/parts.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";

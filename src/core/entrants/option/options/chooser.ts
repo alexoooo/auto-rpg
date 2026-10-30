@@ -2,7 +2,7 @@ import { randomStream } from "../../../math/random.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { PartField } from "../../../mind/fields.ts";
 import type { PartLookup } from "../../../mind/lookup.ts";
-import type { ChooserPart } from "../../../mind/chooser-part.ts";
+import type { ChooserPart } from "../../../option/parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../../../mind/parts.ts";
 import type { Offer } from "../../../mind/tactics.ts";
 import type { Resource } from "../../../skills/action.ts";

@@ -411,7 +411,7 @@ test("in the game's source only the mind seam drives muscles", () => {
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/entrants/"];
+const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/option/", "src/core/entrants/"];
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([

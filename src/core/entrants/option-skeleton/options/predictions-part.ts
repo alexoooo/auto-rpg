@@ -1,5 +1,5 @@
 import { dataOf } from "../../../data/store.ts";
-import type { PredictionsPart } from "../../../mind/option-part.ts";
+import type { PredictionsPart } from "../../../option/parts.ts";
 import { anyBody } from "../../../mind/parts.ts";
 import type { Profile } from "../../../mind/profile.ts";
 import { deepFreeze } from "../../../state.ts";

@@ -558,9 +558,8 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
-**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
-`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `chooser`, or a skill's:
-`locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
+**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`Role`: one
+the part lookup knows, `RoleParts`, `lookup.ts`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
@@ -571,7 +570,17 @@ list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `G
 `src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
-the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
+the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry.
+
+**The roles are an open list.** `RoleParts` names the toolkit's roles and the interface each is
+looked up as (`mind`, `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`,
+`motor`, `balance`, `aim`, and a skill's: `locomotion`, `guard`, `executor`, `support`). A package with
+roles of its own adds them where it declares their interfaces, by augmenting `RoleParts`: the option
+framework's `chooser`, `option`, `position` and `predictions` (`src/core/option/parts.ts`), the
+quadruped's `support-motor`, `gait`, `bite` and `quadruped-tactics` (`src/core/reptile/parts.ts`).
+A role is a string at run time; the list is the compiler's, so a new role edits no toolkit file.
+
+Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault, an aim its actions name (`ActionConfig.aim`) as a slot's part.
@@ -724,7 +733,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
-  `src/core/mind/chooser-part.ts`) in Option Mind's `chooser` slot, its own parts (`valued`, `ranked`;
+  `src/core/option/parts.ts`) in Option Mind's `chooser` slot, its own parts (`valued`, `ranked`;
   `depth`, `chooserOf`), takes the option on offer of highest
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,

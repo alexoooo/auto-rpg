@@ -12,12 +12,15 @@ import type { TechniquePart } from "./ground/technique.ts";
 import type { GuardPart } from "../skills/guard-part.ts";
 import type { SupportPart } from "../skills/support-part.ts";
 import type { MoveRulePart } from "../skills/move-rule-part.ts";
-import type { ChooserPart } from "./chooser-part.ts";
-import type { OptionPart, PositionPart, PredictionsPart } from "./option-part.ts";
 import type { AimPart } from "./aim-part.ts";
-import type { BitePart, GaitPart, QuadrupedTacticsPart, SupportMotorPart } from "../reptile/parts.ts";
 
-/** **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker included where the role's parts make themselves. */
+/**
+ * **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker
+ * included where the role's parts make themselves. These are the toolkit's roles; a package with
+ * roles of its own (the option framework's, `src/core/option/parts.ts`; the quadruped's,
+ * `src/core/reptile/parts.ts`) adds them where it declares them, by augmenting this interface, so
+ * that no role is named here for one mind or body.
+ */
 export interface RoleParts {
   readonly mind: Controller;
   readonly "sub-mind": SubMindPart;
@@ -30,17 +33,9 @@ export interface RoleParts {
   readonly guard: GuardPart;
   readonly executor: ExecutorPart;
   readonly support: SupportPart;
-  readonly chooser: ChooserPart;
-  readonly option: OptionPart;
-  readonly position: PositionPart;
-  readonly predictions: PredictionsPart;
   readonly motor: MotorPart;
   readonly balance: BalancePart;
   readonly aim: AimPart;
-  readonly "support-motor": SupportMotorPart;
-  readonly gait: GaitPart;
-  readonly bite: BitePart;
-  readonly "quadruped-tactics": QuadrupedTacticsPart;
 }
 
 /**

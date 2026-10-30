@@ -45,7 +45,8 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
 1. **The framework into the toolkit.** Move the option contract, the choosers, the situation
    reader, worth, the position value and predictions roles, and the standard option kinds into
    `src/core/option/`; the Option controller becomes the toolkit's, configured by Option Mind's
-   preset. No behaviour changes.
+   preset. No behaviour changes. Built: the option framework's role contracts
+   (`src/core/option/parts.ts`), its roles its own (`RoleParts` augmented there).
    Check: the fingerprint moves no case; `npm run check`, `npm test`.
 2. **An entrant is presets and parts.** A preset registry beside `MIND_KINDS` (each preset its
    label, kind, config and models, a line an entrant adds); parts registered by role, owned by no

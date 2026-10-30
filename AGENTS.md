@@ -132,7 +132,7 @@ it never imports them.
   (`Mind.step`, `src/core/mind/equipment-port.ts`). A grip request moves nothing and must pass
   geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
   mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), never the
-  world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `entrants` import
+  world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `option`, `entrants` import
   no engine, world, builder or read-view maker and read no `globalThis`, `Math.random` or clock
   (chance comes from the host's seed, `BodyHost.seed`), beside the adapters the
   boundary test names.
