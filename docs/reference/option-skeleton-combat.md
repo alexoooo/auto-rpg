@@ -1,9 +1,9 @@
 # The independent Skeleton's combat
 
 The independent `option-skeleton` is below the owner's greater-than-90% target against every
-Arena entrant. Its current mixed panel wins 9 of 16, against the initial 6. The low front kick
-and the cost of offence foregone while down win the Reptile pair; both fights still leave the
-Skeleton down for most of the bout. The [campaign](../plans/2026-10-30-option-skeleton.md) defines
+Arena entrant. Its current mixed panel wins 11 of 16, against the initial 6. The blade guard adds
+two narrow wins to the low front kick and the cost of offence foregone while down. Falls and
+recovery remain weaknesses. The [campaign](../plans/2026-10-30-option-skeleton.md) defines
 the work and final field.
 
 ## What is used
@@ -26,6 +26,7 @@ Node core bout world, `rapier-coordinate`, 120 Hz. Each figure below names its c
 | --- | --- |
 | Initial panel at `0bd473d1` | 6 wins, 10 losses, no draws |
 | Panel at `7a4014ab` | 9 wins, 7 losses, no draws; score difference +0.188, 95% interval -0.125 to +0.563 |
+| Panel at `c5ce647b` | 11 wins, 5 losses, no draws; mean life margin +0.017 |
 | Mean life margin, initial / `7a4014ab` | -0.096 / +0.014 |
 | Reptile pair at `0bd473d1` | 2 losses, final life margins -0.8095 and -0.8098 |
 | Reptile pair with low kick at `b19f628e` | 1 win, 1 loss; life margins +0.0653 and -0.0973 |
@@ -52,8 +53,39 @@ The starting isolation check, a ten-second empty-handed Skeleton duel against Du
 the same pose digest for the reference and the independent controller: `0958ea8067b2cb32`.
 The standard fingerprint also records the new entrant at `0bd473d1`.
 
-The fights could not be watched: Chrome's development connection is unavailable, the browser
-access host is unavailable, and native browser launch reports that app approval timed out.
+## Blade guard and first exchange
+
+At `c5ce647b`, the private `skeleton-guard` starts in the ordinary posture and raises its arms
+when a sensed enemy holds an edge or point. It reads physical equipment, never the opponent's
+mind name. Its three arm angles live in `assets/entrants/option-skeleton/guard.json`; its mutable
+posture lives in saved state and remains the same object read by the arbiter and punch. Against
+blades, the chooser values a positive life lead from the start of the fight. Other opponents
+retain the ordinary late-fight lead rule. The body, muscles, assists and default step-up remain
+unchanged.
+
+The [panel record](../../assets/evaluations/tournament/2026-10-30-c5ce647b-5c996c27.jsonl)
+keeps all 16 cases. The ten non-blade bouts have exactly the same pose digests and readings as
+`7a4014ab`. The two added wins are the left-side Rogue with sword and buckler, life margin
++0.0000249, and the right-side Skeleton sword duel, +0.0021186. These leads are fragile;
+the complete field and reserved conditions have no reading on this version.
+
+`npm run compare` reports a descriptive score difference of +0.125 over eight matched opponent
+units, with a 95% interval of 0 to +0.250. Its shared-context check flags the intervening
+complete-field evaluation tooling changes, so this is not an automatically qualified causal
+comparison. The protocol, physical recipes and opponent configurations match; the earlier
+toolkit change also retains the standard fingerprint.
+
+The fixed guard search reads 16 candidates in 83.7 s on four workers, using both Rogue sides
+for 20 s at 4 m. Its winning angles feed the conditional guard. A further adaptive-posture
+search reads 32 candidates in 320.8 s, but its best short-screen pose loses three of four full
+sword confirmations and is rejected. Search rows remain in
+`research/runs/option-skeleton-combat/`; harnesses and logs are in its `exchange/` folder.
+
+The recorded failures are inspected in the browser: at 10 s against the Rogue the Skeleton is
+down while the Rogue stays clear; at 20 s in the Skeleton sword duel both bodies are down and
+struggling to rise. Their health readings match the Node records exactly at those times.
+The baseline Rogue approach and fall are also inspected. These are partial failure-reel
+inspections, not complete-bout viewing or skill qualification.
 
 ## Experimental recovery
 
@@ -99,3 +131,7 @@ the same physical conditions. Their rows stay in `research/runs/option-skeleton-
 | Cover the predicted trunk threat | The 30 s Rogue exchanges are unchanged; the full Skeleton sword pair still loses twice, margins -0.0023 and -0.0110; not kept |
 | Preserve a positive lead from the start | The 30 s Rogue exchanges are unchanged; the Skeleton sword exchanges remain negative, -0.0148 and -0.0260; not kept |
 | Sit-back targets clamped to the Skeleton's joint range | One of two placed front starts reaches standing, but reserved starts and actual fight falls remain unreliable; the symmetric route is not kept |
+| Separate leg-directed kick and earlier kick entry | The four 20 s sword exchanges remain negative; the earlier entry also loses both Rogue screens; not kept |
+| Fixed raised guard and early lead protection against everyone | 8 of 16 panel wins; non-blade regressions reject the universal policy |
+| Raised construction pose, lowering against non-blades | 9 of 16 panel wins, with non-blade regressions; retain ordinary construction instead |
+| Adaptive guard angles selected by four short sword exchanges | Best of 32 candidates wins only one of four full confirmations; retain the earlier guard angles |
