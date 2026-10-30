@@ -174,7 +174,7 @@ function exchange(making: TacticsMaking, given: ExchangeConfig): Tactics {
     return { move: legs?.move ?? null, face: facing ?? legs?.face ?? turn.face, guard: { "hand.left": left ?? null, "hand.right": right ?? null }, actions: requested ?? [],
       ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }),
       ...(legs?.movement === undefined ? {} : { movement: legs.movement }), ...(legs?.pace === undefined ? {} : { pace: legs.pace }),
-      ...(legs?.walk ? { walk: true } : {}), ...(legs?.travelFacing ? { travelFacing: true as const } : {}) };
+      ...(legs?.walk ? { walk: true } : {}), ...(legs?.travelFacing ? { travelFacing: true as const } : {}), ...(orders?.gait === undefined ? {} : { gait: orders.gait }) };
   } };
 }
 
