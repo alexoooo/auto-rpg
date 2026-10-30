@@ -1,18 +1,23 @@
-# The independent empty-handed Skeleton
+# Empty-handed Skeleton combat
 
 ## Why
 
 The owner wants a compartmentalized Option Mind variant, `option-skeleton`, that tries to beat
-every existing Arena entrant more than 90% of the time, armed opponents included. Its runtime
-code belongs to `src/core/entrants/option-skeleton/`, its data to
-`assets/entrants/option-skeleton/`; the shared registry names it. The body's anatomy, attributes,
-assists and fight rules are fixed. Saved recipes and Git retain comparison baselines.
-This campaign is independent of the reference Warrior's design plan.
+every existing Arena entrant more than 90% of the time, armed opponents included. It uses the
+common Option Mind implementation; distinctive configuration and components belong to
+`src/core/entrants/option-skeleton/`, with data in `assets/entrants/option-skeleton/`. The body's
+anatomy, attributes, assists and fight rules are fixed. Saved recipes and Git retain baselines.
+
+This campaign depends on [Option Mind generalization](2026-10-30-option-mind-generalization.md),
+which owns the shared mechanism, configurable models and objectives, and migration away from
+the Skeleton fork. Combat tuning resumes on that rollout. This plan owns skill and policy
+improvement and held-out combat confirmation; generalization does not establish the win target.
 
 ## Steps
 
-1. Register the independent controller and its private parts. Check: the whole gate and build,
-   entrant ownership, and equal starting motion against the reference.
+1. Use the common Option Mind's `option-skeleton` preset after its generalization rollout.
+   Check: the whole gate and build, configuration and body fit, and the rollout's paired reading;
+   no separate controller or copied Option machinery.
 2. Screen a small mixed panel, on both sides, to identify a failure that decides the next change.
    Retain rows and inspect losses. The [combat record](../reference/option-skeleton-combat.md)
    holds the readings and their scope.
@@ -38,7 +43,7 @@ A skill qualification still requires its drill and the owner's acceptance.
 
 ## Done when
 
-The independent entrant runs in the Arena, its configurable private parts and saved state obey
-the common contracts, and held-out evidence supports a strict win rate above 90% against each
-entrant in the declared complete field. The report lists every opponent and all remaining
-failures; a mixed-panel average alone cannot satisfy the target.
+The Skeleton configuration runs on the common Option implementation in the Arena, its parts
+and saved state obey the common contracts, and held-out evidence supports a strict win rate
+above 90% against each entrant in the declared complete field. The report lists every opponent
+and all remaining failures; a mixed-panel average alone cannot satisfy the target.
