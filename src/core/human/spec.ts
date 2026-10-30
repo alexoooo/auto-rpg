@@ -13,29 +13,26 @@ import { toedFigure } from "./toes.ts";
 import { workshopFigure } from "./workshop.ts";
 import { humanWounds } from "./wounds.ts";
 
-/** A human body's settings beyond its physique and haste: whether its feet have toes (`toes.ts`), flat where not given. */
-export interface HumanSettings { readonly toes?: boolean }
-
 /**
  * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
- * attributes, at x1, or with `physique` (`physique.ts`), with `haste` per cent in place of its
- * character's, and with toes where `settings` asks.
+ * attributes, at x1, or with `physique` (`physique.ts`) and with `haste` per cent in place of its
+ * character's; its feet with toes (`toes.ts`).
  */
-export const humanSpec = (model: WorkshopModel, physique?: Physique, haste?: number, settings: HumanSettings = {}): BodySpec =>
-  shapedSpec(workshopFigure(model), physique, haste, settings);
+export const humanSpec = (model: WorkshopModel, physique?: Physique, haste?: number): BodySpec =>
+  shapedSpec(workshopFigure(model), physique, haste);
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
 export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
 export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
-/** **A core body by model**, whole, with `physique`, `haste` and `settings` where they are given; the skeleton's joints are motors (`skeletonMotors`). */
-export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number, settings: HumanSettings = {}): BodySpec {
-  return model === SKELETON_MODEL ? skeletonMotors(shapedSpec(skeletonFigure(), physique, haste, settings)) : humanSpec(model, physique, haste, settings);
+/** **A core body by model**, whole, with `physique` and `haste` where they are given; the skeleton's joints are motors (`skeletonMotors`). */
+export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec {
+  return model === SKELETON_MODEL ? skeletonMotors(shapedSpec(skeletonFigure(), physique, haste)) : humanSpec(model, physique, haste);
 }
 
-/** `figure`'s body: its toes first, so that a physique's size scales them, then its physique and haste. */
-const shapedSpec = (figure: HumanFigure, physique: Physique | undefined, haste: number | undefined, settings: HumanSettings): BodySpec =>
-  figureSpec(hastedFigure(physiqueFigure(settings.toes ? toedFigure(figure) : figure, physique), haste));
+/** `figure`'s body: its toes first (`toedFigure`), so that a physique's size scales them, then its physique and haste. */
+const shapedSpec = (figure: HumanFigure, physique: Physique | undefined, haste: number | undefined): BodySpec =>
+  figureSpec(hastedFigure(physiqueFigure(toedFigure(figure), physique), haste));
 /** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
 function figureSpec(figure: HumanFigure): BodySpec {
   const segments = humanSegments(figure);

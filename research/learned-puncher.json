@@ -140,8 +140,5 @@
    }
   ]
  },
- "action": "strike",
- "character": {
-  "toes": true
- }
+ "action": "strike"
 }

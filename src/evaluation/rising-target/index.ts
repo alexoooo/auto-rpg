@@ -1,8 +1,9 @@
 /**
  * **The owner's stand-up target**: does a riser stand from the target's 64 falls within its bar?
- * A riser is a mind's recovery on the bed's host (`risingMind`): the game's Stand up (`step-up`)
+ * A riser is a mind's recovery on the bed's host (`risingMind`): the game's Stand up (`STAND_UP`)
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
+import { STAND_UP } from "../../core/mind/config.ts";
 import { STAGED_ROUTE } from "../../core/mind/ground/staged-edges.ts";
 import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
 import type { TechniqueName } from "../../core/mind/ground/technique.ts";
@@ -15,16 +16,17 @@ import { RISING_TARGET_CASES, type TargetCondition } from "./cases.ts";
 const riserSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
 
 /**
- * The risers named: `support-recovery`, `stand-up` with every technique, `staged` for a stand-up on
- * the staged route (`STAGED_ROUTE`), a technique's name for a stand-up with it alone, or a mind
- * given whole; the game's Stand up (`step-up`) when none is.
+ * The risers named: `game`, the game's Stand up (`STAND_UP`), `support-recovery`, `stand-up` with
+ * every technique, `staged` for a stand-up on the staged route (`STAGED_ROUTE`), a technique's name
+ * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
  */
 export function riserSubjects(choice: SubjectChoice): readonly Subject[] {
-  return (choice.length > 0 ? choice : ["step-up"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
+  return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
+    : one === "game" ? riserSubject(one, "The game's Stand up", risingMind("stand-up", STAND_UP.techniques.map((technique) => technique.kind as TechniqueName)) as unknown as Json)
     : one === "support-recovery" || one === "stand-up" ? riserSubject(one, one === "stand-up" ? "Stand up, every technique" : "Support recovery", risingMind(one) as unknown as Json)
     : one === "staged" ? riserSubject(one, "Stand up on the staged route", risingMind("stand-up", STAGED_ROUTE) as unknown as Json)
     : Object.hasOwn(TECHNIQUES, one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind("stand-up", [one as TechniqueName]) as unknown as Json)
-    : (() => { throw new Error(`${one} is no riser: support-recovery, stand-up, staged or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
+    : (() => { throw new Error(`${one} is no riser: game, support-recovery, stand-up, staged or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
 }
 
 /** Whether a fall was made: the body was taken over by its rise; one not made did not reach its case. */

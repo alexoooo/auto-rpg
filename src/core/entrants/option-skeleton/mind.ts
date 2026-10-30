@@ -1,6 +1,6 @@
 import type { Body } from "../../body.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
-import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../../mind/config.ts";
+import { STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import { groundExecutor } from "../../mind/ground/held.ts";
@@ -62,10 +62,10 @@ const LOW_KICK_ACTION: ActionConfig = deepFreeze({ name: "low-kick", executor: "
 /** The Skeleton walks braced, with each gait chosen as an option. */
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
-/** The empty-handed Skeleton's own chooser, unlearned punch and flat-footed recovery. */
+/** The empty-handed Skeleton's own chooser, unlearned punch and the game's rise (`STAND_UP`). */
 const OPTION_DEFAULTS: SkeletonOptionConfig = deepFreeze({ kind: "option-skeleton", chooser: { kind: "skeleton-valued", depth: 2 }, options: OPTIONS,
   locomotion: GOING, guard: SKELETON_GUARD.defaults, support: { kind: "support-fold" },
-  executors: [PUNCH, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, LOW_KICK_ACTION], ground: [{ kind: "step-up" }] });
+  executors: [PUNCH, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, LOW_KICK_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
@@ -117,7 +117,7 @@ export const SKELETON_OPTION_MIND = controller<SkeletonOptionConfig>({
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,
   presets: deepFreeze({
-    "option-skeleton": { label: "Option Mind — Skeleton", config: OPTION_DEFAULTS, models: ["crypt-skeleton"], character: { toes: false } },
+    "option-skeleton": { label: "Option Mind — Skeleton", config: OPTION_DEFAULTS, models: ["crypt-skeleton"] },
   }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createOptionMind,

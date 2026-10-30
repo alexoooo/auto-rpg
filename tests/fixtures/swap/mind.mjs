@@ -51,7 +51,7 @@ export const STUBS = Object.freeze([
   { part: STUB_TACTICS, mind: "swap-stub", at: "tactics", place: (config) => ({ ...config, tactics: { ...config.tactics, kind: STUB_TACTICS.defaults.kind } }), read: (state) => state.tactics },
   { part: STUB_BEHAVIOUR, mind: "swap-stub", at: `tactics.list.${BEHAVIOUR_AT}`, place: (config) => ({ ...config, tactics: { ...config.tactics, list: [...config.tactics.list, STUB_BEHAVIOUR.defaults] } }),
     read: (state) => state.tactics.inner.behaviours[BEHAVIOUR_AT] },
-  { part: STUB_TECHNIQUE, mind: "swap-stub", at: "subs.0.techniques.1", place: (config) => ({ ...config, subs: [{ ...STAND_UP, techniques: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }] }),
+  { part: STUB_TECHNIQUE, mind: "swap-stub", at: `subs.0.techniques.${STAND_UP.techniques.length}`, place: (config) => ({ ...config, subs: [{ ...STAND_UP, techniques: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }] }),
     read: (_mind, body) => body.mind.subs[0].techniques["stub-technique"] },
   { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${RECIPE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
     read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "stub-takeover") },

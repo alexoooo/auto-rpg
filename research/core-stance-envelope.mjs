@@ -14,7 +14,7 @@
  *
  *   node research/core-stance-envelope.mjs [--legs stance|walk-run] [--write] [--add] [--out file]
  *     [--models workshop-fighter,...] [--holds empty,club] [--walks] [--gusts 1:5:1,2,3,4] [--workers 30]
- *     [--physique '{"speed":1.25}'] [--toes]
+ *     [--physique '{"speed":1.25}']
  *
  * `--legs` names the walk measured: the stance's own (`stance`, the default), or the walk and run
  * free to run; `--write` writes `assets/core/<legs>-envelope.json`, `--out`
@@ -22,8 +22,7 @@
  * `--walks` measures the walks alone, with no turns. `--gusts rate:strength:seeds` walks each walk
  * calm and again in the lab's gusts (`startWind`) on each seed, and a speed holds only if every one
  * of them held: calm, as asked; in the gusts, standing. `--physique` builds each body of that
- * physique (`Physique`, `src/core/human/physique.ts`) in place of its own, and `--toes` with toes
- * (`src/core/human/toes.ts`). Each body's readings are kept under its key (`bodyKey`).
+ * physique (`Physique`, `src/core/human/physique.ts`) in place of its own. Each body's readings are kept under its key (`bodyKey`).
  *
  * `--add` writes the bodies measured into the asset as it stands, each with the day it was measured,
  * and keeps the others: the asset's grid (speeds, ways, rates, holds and the rest) must be this run's.
@@ -68,15 +67,14 @@ const SENSES = [1, -1];
 const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
 const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, add: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" },
-  out: { type: "string" }, physique: { type: "string" }, toes: { type: "boolean", default: false }, walks: { type: "boolean", default: false }, gusts: { type: "string" },
+  out: { type: "string" }, physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" },
   models: { type: "string" }, holds: { type: "string" } } });
 const legs = values.legs ?? "stance";
 if (!Object.hasOwn(SPEEDS_OF, legs)) throw new Error(`no envelope is measured for legs ${legs}`);
 /** What each trial walks by: the legs' name, none for the stance's own. */
 const walker = legs === "stance" ? null : legs;
-const given = values.physique ? JSON.parse(values.physique) : undefined;
-/** The character each trial's body is built with (`modelSpec`): the physique asked, and toes where asked. */
-const physique = values.toes ? { ...given, toes: true } : given;
+/** The character each trial's body is built with (`modelSpec`): the physique asked. */
+const physique = values.physique ? JSON.parse(values.physique) : undefined;
 /** The key `model`'s readings are kept under: its body's (`bodyKey`). */
 const keyOf = (model) => bodyKey(modelSpec(model, physique));
 /** The winds each walk is walked in: calm, and the gusts on each seed asked. */

@@ -48,7 +48,7 @@ export function characterSection(page: LabPage): readonly Control[] {
         const presets = labPresets(spec, page.shown.scenario, page.shown);
         return choice("Preset", presets.map(preset => ({ value: preset.id, name: preset.label })),
           () => presets.find(preset => writeMind(preset.config) === writeMind(page.shown.mind))?.id ?? "",
-          // A preset's character comes with it (`MindPreset.character`: the Option Mind's toes).
+          // A preset's character comes with it (`MindPreset.character`).
           id => { const preset = presets.find(preset => preset.id === id);
             if (preset) page.load({ ...page.shown, mind: preset.config, ...(preset.character ? { attributes: { ...page.shown.attributes, ...preset.character } } : {}) }); });
       }),

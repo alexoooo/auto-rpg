@@ -1,10 +1,10 @@
-import { CHARACTER_ATTRIBUTES, attributeError, type AttributeName, type AttributeOverrides, type NumberAttribute } from "../core/character-attributes.ts";
+import { CHARACTER_ATTRIBUTES, attributeError, type AttributeName, type AttributeOverrides } from "../core/character-attributes.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 
 /** Flat Balance/Haste parameters accepted by existing Arena and Lab links. */
 export function legacyAttributes(query: URLSearchParams, side = 0): AttributeOverrides {
-  const values: Partial<Record<NumberAttribute, number>> = {};
+  const values: Partial<Record<AttributeName, number>> = {};
   for (const name of ["balance", "haste"] as const) {
     const text = query.get(name);
     if (text === null) continue;
@@ -15,16 +15,14 @@ export function legacyAttributes(query: URLSearchParams, side = 0): AttributeOve
 }
 
 /**
- * A scoped character's overrides from a setup link: a number as written, a switch `true` or
- * `false`. Invalid supplied values remain visible errors (`attributeError`).
+ * A scoped character's overrides from a setup link, each a number as written. Invalid supplied values remain visible errors (`attributeError`).
  */
 export function readAttributes(query: URLSearchParams, scope: string, legacy: AttributeOverrides = {}): AttributeOverrides {
   const values: Record<string, unknown> = { ...legacy };
   for (const name of Object.keys(CHARACTER_ATTRIBUTES) as AttributeName[]) {
     const text = query.get(`${scope}.${name}`);
     if (text === null) continue;
-    values[name] = CHARACTER_ATTRIBUTES[name].kind === "switch" ? (text === "true" ? true : text === "false" ? false : text)
-      : text.trim() === "" ? NaN : Number(text);
+    values[name] = text.trim() === "" ? NaN : Number(text);
   }
   return Object.freeze(values) as AttributeOverrides;
 }

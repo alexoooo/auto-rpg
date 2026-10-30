@@ -46,8 +46,7 @@ export function attributeEditor(character: CharacterConfig, options: {
     const defaults = characterDefaults(model);
     for (const [name, row] of rows) {
       const value = draft[name] ?? base[name] ?? defaults[name];
-      if (typeof value === "boolean") row.input.checked = value;
-      else if (document.activeElement !== row.input) row.input.value = Number.isFinite(value) ? String(value) : "";
+      if (document.activeElement !== row.input) row.input.value = Number.isFinite(value) ? String(value) : "";
       row.reset.disabled = draft[name] === undefined;
     }
     validate();
@@ -55,7 +54,7 @@ export function attributeEditor(character: CharacterConfig, options: {
   const changed = () => {
     refresh(); options.change?.(Object.freeze({ ...draft }), validate());
   };
-  const update = (name: AttributeName, value: number | boolean | undefined) => {
+  const update = (name: AttributeName, value: number | undefined) => {
     const next: Record<string, unknown> = { ...draft };
     if (value === undefined) delete next[name]; else next[name] = value;
     draft = next as AttributeOverrides; changed();
@@ -63,20 +62,18 @@ export function attributeEditor(character: CharacterConfig, options: {
   for (const name of Object.keys(CHARACTER_ATTRIBUTES) as AttributeName[]) {
     const info = CHARACTER_ATTRIBUTES[name], row = document.createElement("div"), label = document.createElement("label");
     row.className = "attribute-field";
-    const named = info.kind === "number" ? `${info.label}, ${info.unit}` : info.label;
+    const named = `${info.label}, ${info.unit}`;
     const text = document.createElement("span"); text.textContent = named;
-    const input = Object.assign(document.createElement("input"), info.kind === "number" ? { type: "number", step: "any", title: info.help } : { type: "checkbox", title: info.help });
+    const input = Object.assign(document.createElement("input"), { type: "number", step: "any", title: info.help });
     input.setAttribute("aria-label", named);
-    input.addEventListener(info.kind === "number" ? "input" : "change", () => update(name, info.kind === "number" ? input.valueAsNumber : input.checked));
+    input.addEventListener("input", () => update(name, input.valueAsNumber));
     input.addEventListener("change", () => input.blur());
     const reset = button("Reset", () => update(name, undefined));
     reset.setAttribute("aria-label", `Reset ${info.label}`);
     label.append(text, input);
-    if (info.kind === "number") {
-      const value = () => (draft[name] ?? base[name] ?? characterDefaults(model)[name]) as number;
-      const increment = (sign: number) => update(name, Number((value() + sign * info.step).toPrecision(12)));
-      row.append(label, button("−", () => increment(-1)), button("+", () => increment(1)), reset);
-    } else row.append(label, reset);
+    const value = () => draft[name] ?? base[name] ?? characterDefaults(model)[name];
+    const increment = (sign: number) => update(name, Number((value() + sign * info.step).toPrecision(12)));
+    row.append(label, button("−", () => increment(-1)), button("+", () => increment(1)), reset);
     rows.set(name, { input, reset }); fields.append(row);
   }
   element.append(fields, button("Reset all", () => { draft = {}; changed(); }), error);

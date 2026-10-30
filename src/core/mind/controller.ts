@@ -13,8 +13,8 @@ import type { Tactics } from "./tactics.ts";
 
 /**
  * A named configuration, optionally calibrated for particular body models and played on a
- * character it chooses: `character` the attributes its bodies take (`toes`), beneath any a person
- * or a link sets.
+ * character it chooses: `character` the attributes its bodies take, beneath any a person or a
+ * link sets.
  */
 export interface MindPreset<C extends MindConfig = MindConfig> {
   readonly label: string;

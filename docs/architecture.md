@@ -65,22 +65,21 @@ model's default mind and what its right hand holds.
 (`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)); a fitted figure's segments
 (`HumanFigure.fitted`, the skeleton's) take their mass, inertia and colliders from its measured
 solids instead of de Leva's rows. A humanoid's feet may wear a shoe's
-sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it. They may have
-toes (`toedFigure`, `src/core/human/toes.ts`), a character's setting: a slab ahead of the foot's box,
-cut short by it, and a toed ankle's stop at 0.8 rad ([toes](reference/toes.md)).
+sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it. They have
+toes (`toedFigure`, `src/core/human/toes.ts`): a slab ahead of the foot's box, cut short by it,
+and a toed ankle's stop at 0.8 rad ([toes](reference/toes.md)).
 
 **Characters.** A game character is a `CharacterConfig` (`src/core/models.ts`): a model plus
-overrides of Size, Weight, Strength, Speed, HP, Balance and Haste, numbers, and Toes, on or off
+overrides of Size, Weight, Strength, Speed, HP, Balance and Haste, each a number
 (`CHARACTER_ATTRIBUTES`, `src/core/character-attributes.ts`). `resolveCharacter` validates them,
-fills defaults (multipliers 1, the model's HP, Balance and Haste 0, flat feet; the reptile takes no
-toes) and returns an immutable resolved config and sourced spec; geometric overrides are checked for nonadjacent intersection
+fills defaults (multipliers 1, the model's HP, Balance and Haste 0) and returns an immutable resolved config and sourced spec; geometric overrides are checked for nonadjacent intersection
 before a world is built. The humanoid adapter is `physiqueFigure`; the reptile adapts its own
 anatomy with the same meanings. One URL codec reads and writes attributes per scope (`left.*`,
 `right.*` in the Arena, `body.*` in the Lab, `hero.*`, `ally-0.*` to `ally-2.*`, `enemy.<model>.*` in the Crypt).
 What is measured on a body (a walk's envelope, a technique's profile, a learned skill's settings,
 the searched strikes) is read under its key (`bodyKey`, `src/core/spec/body.ts`): its model, and
 `+toes` where its feet have toes. A mind's preset may choose its bodies' character
-(`MindPreset.character`; Option Mind's takes toes): the Arena puts a person's attributes over it
+(`MindPreset.character`): the Arena puts a person's attributes over it
 (`controlCharacter`, `src/arena/matchup.ts`, the attribute panel showing it as the base), and an
 evaluation plays a preset's subject on it (`Subject.character`, a part of its own, each case's
 world given its seated subjects' characters). The Crypt plays its minds on its participants' own
@@ -553,7 +552,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | option | `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
-| option-skeleton | `src/core/entrants/option-skeleton/` | independent empty-handed, flat-footed Skeleton; private chooser, options, predictions and blade guard; shared fighter skills and step-up |
+| option-skeleton | `src/core/entrants/option-skeleton/` | a copy of Option Mind's package for the empty-handed Skeleton, its own chooser, options, predictions and blade guard, rising by the game's Stand up; replaced by a preset ([generalization](plans/2026-10-30-option-mind-generalization.md)) |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -589,7 +588,7 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   JavaScript that states none is a fault in every tree that holds it, never a crash.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
-`MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher and Behaviours vary
+`MOVE` and the game's Stand up (`STAND_UP`, the toed rise). Puncher, Counter-puncher and Behaviours vary
 the actions and spacing. The Duellist (`DUELLIST`), a weapon and a cover, is every humanoid's
 default (`modelInfo`). A preset marked `offered: false` (Classic, Counter-puncher, Behaviours) is
 kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
@@ -791,7 +790,7 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`edgeExpected`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; `step-up` (`ground/step-up.ts`) is the game's; its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), is experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`edgeExpected`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; the game's (`STAND_UP`) is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up` (`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), are flat-footed and kept for comparison |
 
 **Mind data loads per use** (`src/core/data/store.ts`). The learned punch's network
 (`assets/core/learned-punch.json`) is a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page

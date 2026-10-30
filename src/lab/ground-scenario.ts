@@ -27,13 +27,13 @@ import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 /** What each way of getting up is called in the menu. */
-const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step up, as the game", staged: "Stand up: the staged route",
+const RISES: Readonly<Record<GroundRise, string>> = { "stand-up": "Stand up, as the game", staged: "Stand up: the staged route",
   "support-recovery": "Support recovery (experimental)", mind: "As its mind says" };
 
 /** The mind `chosen` with its sub-minds those `rise` names: the game's Stand up by one technique or on the staged route, support recovery, or its own. */
 function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
   switch (rise) {
-    case "step-up": return { ...chosen, subs: [STAND_UP] };
+    case "stand-up": return { ...chosen, subs: [STAND_UP] };
     case "staged": { const staged: StandUpConfig = { ...STAND_UP, techniques: STAGED_ROUTE.map((kind) => ({ kind })) }; return { ...chosen, subs: [staged] }; }
     case "support-recovery": return { ...chosen, subs: [{ kind: "support-recovery" }] };
     case "mind": return chosen;

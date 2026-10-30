@@ -2,48 +2,50 @@
 
 ## Why
 
-The owner wants a compartmentalized Option Mind variant, `option-skeleton`, that tries to beat
-every existing Arena entrant more than 90% of the time, armed opponents included. It uses the
-common Option Mind implementation; distinctive configuration and components belong to
-`src/core/entrants/option-skeleton/`, with data in `assets/entrants/option-skeleton/`. The body's
-anatomy, attributes, assists and fight rules are fixed. Saved recipes and Git retain baselines.
+The owner wants an Option Mind entrant, `option-skeleton`, that beats every existing Arena entrant
+more than 90% of the time, armed opponents included. It is a preset of the common Option Mind
+with parts of its own where it needs them, in `src/core/entrants/option-skeleton/` with its data
+in `assets/entrants/option-skeleton/`; nothing of Option Mind is copied. The body's anatomy,
+attributes, assists and fight rules are fixed: the 15 kg Skeleton on toes, rising by the game's
+Stand up. Saved recipes and Git keep the baselines.
 
-This campaign depends on [Option Mind generalization](2026-10-30-option-mind-generalization.md),
-which owns the shared mechanism, configurable models and objectives, and migration away from
-the Skeleton fork. Combat tuning resumes on that rollout. This plan owns skill and policy
-improvement and held-out combat confirmation; generalization does not establish the win target.
+It starts after [Option Mind generalization](2026-10-30-option-mind-generalization.md) step 2,
+which makes an entrant a preset and parts and deletes the copied package. A gap in the shared
+model found here is fixed there, for every mind, never in the preset.
 
 ## Steps
 
-1. Use the common Option Mind's `option-skeleton` preset after its generalization rollout.
-   Check: the whole gate and build, configuration and body fit, and the rollout's paired reading;
-   no separate controller or copied Option machinery.
-2. Screen a small mixed panel, on both sides, to identify a failure that decides the next change.
-   Retain rows and inspect losses. The [combat record](../reference/option-skeleton-combat.md)
+1. **The preset on the common mind.** Its straight punch, the low kick and the game's rise.
+   Check: the gate and build; the preset fits the body and builds in the Arena; no Option
+   machinery in its folder.
+2. **Rising on toes.** The game's Stand up on the Skeleton, read on the stand-up target's falls
+   beside the Warrior ([rising](../reference/rising.md#the-owners-target)); its edges' profiles
+   measured on its body so its route is priced, not guessed.
+   Check: the Skeleton's falls stood and their median, against the Warrior's.
+3. **Screen a small mixed panel**, on both sides, to find the failure that decides the next
+   change. Keep the rows and watch the losses. The [combat record](../reference/option-skeleton-combat.md)
    holds the readings and their scope.
-3. Improve one implementation at a time: low targets, recovery, the punch's exchange, threat
-   prediction, approach and retreat, then option selection as the fights require. Each iteration
-   names its question, changes one implementation, and reads it paired against the version before.
-   Search and training are offline; execution uses the Mind contract and keeps replayable state.
-4. Widen the panel to the complete explicit Arena field: valid mind/body/loadout combinations,
-   including Vanguard, legacy minds and armed loadouts. The representative five loadouts are a
-   development screen; the remaining legal Arena loadouts are part of confirmation. Exclude the
-   candidate itself and drill-only controllers. Play only candidate-versus-field bouts.
-   Use explicit case recipes in the existing evaluation machinery, with field selection and
-   conditions supplied as data rather than an entrant-specific evaluation kind.
-5. Confirm on reserved conditions: both sides, different gaps and bearings, and the obstacle court.
-   Report strict wins and uncertainty per opponent, with draws separate. Deterministic repeats
-   of an unchanged recipe supply no new evidence. Fix the sampling and stopping rule before the
-   confirmation; a field-wide claim accounts for all opponents tested. Watch the worst fights.
+4. **Improve one implementation at a time**: its strikes' profiles measured on its body, low
+   targets, the punch's exchange, threat prediction, approach and retreat, then option selection
+   as the fights require. Each iteration names its question, changes one part, and is read
+   paired against the version before. Search and training are offline; execution keeps to the
+   Mind contract and replayable state.
+5. **Widen the panel to the whole Arena field**: every valid mind, body and loadout, Vanguard,
+   legacy minds and armed loadouts included, the candidate and drill-only controllers excluded,
+   candidate against the field only, as explicit case recipes in the existing evaluation
+   machinery.
+6. **Confirm on reserved conditions**: both sides, other gaps and bearings, and the obstacle
+   court. Strict wins and their uncertainty per opponent, draws apart; an unchanged recipe
+   repeated is no new evidence. The sampling and stopping rule are fixed before the
+   confirmation; a field-wide claim accounts for every opponent tested. Watch the worst fights.
 
-Every run is priced from its initial worker-pool throughput, cut into useful runs of about ten
-minutes or less, and retains its rows. No run over an hour starts without the owner's go-ahead.
-Code changes pass `npm run check`, `npm test` and `npm run build`, and land as separate commits.
-A skill qualification still requires its drill and the owner's acceptance.
+Every run is priced from its first trials' rate, cut into runs of about ten minutes or less, and
+keeps its rows. Code changes pass `npm run check`, `npm test` and `npm run build`, and land as
+separate commits. A skill's qualification still needs its drill and the owner's acceptance.
 
 ## Done when
 
-The Skeleton configuration runs on the common Option implementation in the Arena, its parts
-and saved state obey the common contracts, and held-out evidence supports a strict win rate
-above 90% against each entrant in the declared complete field. The report lists every opponent
-and all remaining failures; a mixed-panel average alone cannot satisfy the target.
+The Skeleton preset runs on the common Option Mind in the Arena, its parts and saved state keep
+the common contracts, and held-out evidence supports a strict win rate above 90% against each
+entrant in the declared field. The report lists every opponent and every failure left; a
+mixed-panel average alone does not meet the target.

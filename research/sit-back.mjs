@@ -6,10 +6,10 @@
  * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints. Node stand, core world, Rapier,
  * 120 Hz, calm, no assist; the stance holds the body once the technique is done.
  *
- *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--flat] [--each]
+ *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each]
  *
  * Prints how many stood within 6 s and the median time to verified standing, failures counted
- * last; `--each` a line a seed; `--flat` plays the body without toes.
+ * last; `--each` a line a seed.
  */
 import "../tests/harness/preload-data.mjs";
 import { parseArgs } from "node:util";
@@ -38,8 +38,8 @@ import { placement } from "./rise-witness.mjs";
 const WITHIN = 6, CAP = 12;
 
 /** One seed: when the technique ended and how, and when the body was verified standing, s from the start; null where it was not. */
-export async function sitBackTrial({ model = "workshop-fighter", held = "empty", toes = true, seed = 1, technique = "sit-back" }) {
-  const spec = armedWith(humanoidSpec(model, undefined, undefined, { toes }), "right", held), placed = placement("push-off-bear", spec, seed);
+export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back" }) {
+  const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
@@ -78,17 +78,17 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
 }
 
 if (process.argv[1]?.endsWith("sit-back.mjs")) {
-  const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, seeds: { type: "string" }, flat: { type: "boolean" },
+  const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, seeds: { type: "string" },
     each: { type: "boolean" }, technique: { type: "string" } } });
   const [lo, hi] = (values.seeds ?? "1-32").split("-").map(Number);
   const rows = [];
   for (let seed = lo; seed <= (hi ?? lo); seed++) {
-    const row = await sitBackTrial({ model: values.model, held: values.held, toes: !values.flat, seed, technique: values.technique });
+    const row = await sitBackTrial({ model: values.model, held: values.held, seed, technique: values.technique });
     rows.push(row);
     if (values.each) console.log(JSON.stringify(row));
   }
   const played = rows.filter((row) => !row.refused), times = played.map((row) => row.verified ?? Infinity).sort((a, b) => a - b), n = times.length;
   const median = (times[(n - 1) >> 1] + times[n >> 1]) / 2;
-  console.log(`${values.model ?? "workshop-fighter"} ${values.held ?? "empty"}${values.flat ? " flat" : ""}: stood within ${WITHIN} s ${times.filter((t) => t <= WITHIN).length} of ${n}, median ${Number.isFinite(median) ? median.toFixed(2) : "none"} s`
+  console.log(`${values.model ?? "workshop-fighter"} ${values.held ?? "empty"}: stood within ${WITHIN} s ${times.filter((t) => t <= WITHIN).length} of ${n}, median ${Number.isFinite(median) ? median.toFixed(2) : "none"} s`
     + `; not standing: ${played.filter((row) => row.verified === null).map((row) => `${row.seed} (${row.end ?? "running"} at ${row.at}, ${row.stages})`).join(", ") || "none"}`);
 }

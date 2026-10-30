@@ -1,84 +1,79 @@
-# Generalize Option Mind and replace the Skeleton fork
+# Option Mind as a framework: entrants built on it, not copied from it
 
 ## Why
 
-The owner wants one Option Mind that can use relevant configured options on any body and for
-different purposes. Option Mind combines a reusable selection mechanism with one combat model
-and humanoid control. Changing its option list still constructs walking, hand-covering and
-recovery machinery; changing prediction data does not replace the prediction formulas.
+The owner wants one Option mechanism that any body and any purpose can build on, and several
+Option Mind implementations entered beside one another, each its own configuration and parts:
+simple, general, extendable.
 
-The Skeleton can use compatible existing humanoid skills. Its copied implementation is
-unnecessary, but replacing it with a preset alone does not make Option Mind body- and
-purpose-agnostic.
+A first attempt at a Skeleton entrant copied the whole Option Mind package (about 2,600 lines,
+its part kinds renamed `skeleton-*`) to change a preset, a guard and one valuation term. Three
+things made the copy look necessary; the first two are fixed:
 
-One implementation separates these responsibilities:
+- **Two bugs in the shared model**, each read as a Skeleton need. Where no drill measured a foe,
+  its prior struck with two hands only, so a body without hands dealt nothing; and lying down cost
+  only the foe's blows, never what a second on one's feet is worth. Fixed in the shared model
+  (`19da6608`, `946530a2`), each read on the fingerprint.
+- **Toes were optional**, so the Skeleton rose by step-up on flat feet. Every humanoid now has
+  toes and the game's Stand up is the toed rise ([Recovery](2026-10-23-recovery.md) step 3).
+- **An entrant cannot build on another's code.** A preset and a controller's parts live in that
+  controller's own file, part kinds are global, and `scripts/entrant-check.mjs` keeps each change
+  to one entrant's folder. A second entrant could only define a controller, and reusing Option
+  Mind's parts collided on their kinds. That is this plan's work.
 
-- **Decision mechanism:** admission, lifecycle, resource conflicts, commitment, selection,
-  reconsideration and seeded randomness, without anatomy or combat assumptions.
-- **Body connection:** observations and execution through existing skills and motors. Humanoid
-  and quadruped connections retain their native control implementations.
-- **Context and models:** what options observe and predict, with individual models such as
-  recovery valuation independently replaceable.
-- **Evaluation:** what outcomes are worth for the configured purpose. Combat valuation and
-  movement toward a destination are separate implementations.
-- **Options:** their requirements, lifecycle, predictions and requests. Only dependencies of
-  the selected configuration are constructed.
+The decision mechanism is already body-agnostic: options with claims, entry, status and a model;
+the chooser's set selection by claims, commitment, rethinking on cues and a period, letting go,
+chance and the look past a walk; part roles for the chooser, the options, the position value and
+the predictions. What is fixed to one body and one purpose:
 
-Use the existing part registry and validation, adding explicit contracts where seams are
-missing. Introduce no second registry or ownership exceptions. Common machinery stays in the
-Option implementation; distinctive configuration and components stay in their packages. A
-skill's anatomical requirements and trained-policy coverage belong to that skill, not the
-selector.
+| Gap | Where | General form |
+| --- | --- | --- |
+| The framework and Option Mind's content are one entrant's package | `src/core/entrants/option/` | The framework and its standard parts in the toolkit; an entrant is a preset and parts of its own |
+| A preset lives in its controller's file | `Controller.presets`, `MIND_KINDS` | Presets are data an entrant's folder holds, each naming the kind of mind it configures |
+| A controller's parts are offered only in its own slots | `Controller.parts`, `kindsFor` | Parts register by role; any mind whose slot takes the role offers them |
+| Combat is written into worth: `dealt`, `taken`, `orders`, obedience | `value.ts`, `chooser.ts` | An option's model is its duration, its payoff and where it leaves the body; the objective (the position part) prices both. Combat's few terms are one objective |
+| The percepts and predictions are fixed tables; a place's fields are combat percepts | `percepts.ts`, `position.ts` | Option kinds and the objective declare what they read; the reader computes those |
+| Every mind builds walking, cover, rise and strikes whatever its options | `optionTactics` | Each option kind makes what it needs from the body |
+| The threat reader senses hands only | `src/core/mind/threat.ts` | A foe's blow by any limb it strikes with (`strikersOf`) |
 
-The [Skeleton combat plan](2026-10-30-option-skeleton.md) depends on this rollout. This plan owns
-generalization and removal of its fork; that plan owns subsequent skill and policy improvement
-and the greater-than-90% combat target. Completing generalization does not complete that campaign.
+Decided here, which the owner may reverse: the framework's package `src/core/option/`; combat's
+few terms stay the reference objective; Option Mind keeps its preset id `option`.
 
 ## Steps
 
-1. **Establish the baseline and boundaries.** Record the current fingerprint and separate
-   selection, combat modeling and body control. Coordinate the decision boundary with
-   [Layering](2026-10-29-layering.md); the [Commander-driven drill migration](2026-10-30-drills-by-orders.md)
-   remains in its existing effort. Check: dependencies and the baseline cases are explicit.
-2. **Separate the mechanism while preserving the Warrior.** Extract body-independent lifecycle
-   and selection code. Move combat observation, valuation, lookahead and command composition
-   into configured components. Keep the Warrior's option order, timing, randomness and behavior.
-   Check: paired fingerprints and the existing gate; investigate unexpected pose changes and
-   report state-layout changes separately.
-3. **Expose hard-coded models.** Make recovery valuation independently selectable. Preserve the
-   Warrior's current model and the Skeleton's lost-offence alternative as explicit
-   configurations. Do not promote the `max(...)` heuristic into a universal fix. Keep missing
-   measurements and fallback assumptions visible in diagnostics. Check: reuse the demonstrated
-   recovery-valuation regression against its extracted model; add no casual unit tests or
-   trajectory expectations.
-4. **Replace the Skeleton fork.** Retain `option-skeleton` as a preset of the common controller,
-   with its unlearned punch configuration, low kick, blade guard, tuning data and flat-footed
-   recovery. Delete copied chooser, options, perception, valuation and assembly code. Its skills
-   remain replaceable; this step qualifies neither its placeholder punch nor its win rate.
-   Check: existing configuration, orders, reporting, fork and replay contracts; no duplicated
-   Option machinery in the Skeleton package.
-5. **Demonstrate four bodies and another purpose.** Require configurations for Warrior, Rogue,
-   Skeleton and Reptile. Preserve the Warrior and Skeleton preset IDs; add Rogue and Reptile
-   configurations using compatible existing skills. Reuse quadruped crawl, bite and recovery
-   without copying their control implementation. Demonstrate destination movement without an
-   opponent or combat-based scoring. Check: existing execution paths and contract checks for
-   the rollout presets, and brief browser inspection of all four bodies and the movement task.
+1. **The framework into the toolkit.** Move the option contract, the choosers, the situation
+   reader, worth, the position value and predictions roles, and the standard option kinds into
+   `src/core/option/`; the Option controller becomes the toolkit's, configured by Option Mind's
+   preset. No behaviour changes.
+   Check: the fingerprint moves no case; `npm run check`, `npm test`.
+2. **An entrant is presets and parts.** A preset registry beside `MIND_KINDS` (each preset its
+   label, kind, config and models, a line an entrant adds); parts registered by role, owned by no
+   controller; `entrant-check` reads an entrant's change as its folder and its registry lines.
+   Option Mind's folder holds its preset. The Skeleton's folder holds its preset (its punch, a low
+   kick, the game's rise) and nothing copied; its guard joins the toolkit's guards without a
+   model fit, or goes where no reading shows it earns its place. Delete the fork, and move its
+   test to the shared predictor (lying down costs something before a foe that cannot strike).
+   Check: the fingerprint moves only the Skeleton's cases; the mind contract and swap tests; the
+   Arena and the Crypt offer both presets.
+3. **The objective and the percepts are parts.** An option's model gives its duration, payoff
+   and exit; the objective part prices them, the few terms its combat implementation; option
+   kinds and the objective name the percepts and predictions they read, and the tactics build
+   only those and what the configured option kinds ask.
+   Check: the fingerprint moves no case.
+4. **A second body family and a second purpose.** A Reptile preset on the framework, its crawl,
+   bite and recovery as option kinds, its host from [Layering](2026-10-29-layering.md) (the body's
+   shape read from its spec); the threat reader sensing any striking limb. A preset whose
+   objective is reaching a place, with no foe, in a Lab scenario.
+   Check: the Reptile fights a Warrior and a Reptile in the Arena; the walker reaches its place;
+   the owner looks at both.
 
-Each landable change passes `npm run check`, the full `npm test` gate and `npm run build` where
-browser code changes. Behavior-preserving stages use paired fingerprints. Existing limits on
-run duration, retained evidence and temporary servers apply. No tournament or new win-rate
-claim is needed for this generalization.
-
-Keep archived measurements tied to their source versions: the historical 11/16 panel does not
-qualify the generalized revision. Keep the README unchanged; update architecture, roadmap and
-campaign descriptions concisely.
+Each change passes `npm run check` and `npm test`, and `npm run build` where browser code
+changes; a toolkit change's message names the cases the fingerprint moves. No tournament or
+rating is part of this plan: how well a preset plays is the [Skeleton
+campaign](2026-10-30-option-skeleton.md)'s and each skill's own.
 
 ## Done when
 
-One Option mechanism runs Warrior, Rogue, Skeleton and Reptile through configured components.
-Models and objectives can be replaced without editing that mechanism. The Skeleton package
-contains no duplicated Option machinery, and the existing state and control contracts hold.
-
-This work reuses native body controls without changing anatomy, physics, muscle limits or
-assists. It does not require every skill to work on every body. Combat qualification remains
-the Skeleton campaign's responsibility.
+The Option framework is the toolkit's; Option Mind and the Skeleton are presets in their own
+folders with no copied code; an objective, a percept or an option kind is replaced by
+configuration without editing the framework; a Reptile and a non-combat preset run on it.

@@ -162,7 +162,7 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   the Warrior, 2.65 for the Rogue, 2.98 for the skeleton (calm, empty-handed and with the club). Its
   stride falls short of the clips' at the cadence it runs, and no leg muscle but the ankles is at
   its ceiling there. Haste and balance move it ([assist](assist.md#haste)).
-- **Envelope**, read on the SIMBICON walk's run (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s
+- **Envelope**, read on the SIMBICON walk's run (`assets/core/simbicon-run-envelope.json@ab3e2370`, each walk set off 10 s and resting 10 s
   after): forward to 4 m/s for the Warrior by the rule, to 1.2 for the Rogue and the skeleton, since
   a few of their trials at every pace fall. Forward at 3 m/s the Warrior held 10 of 10 trials, the
   Rogue 7, the skeleton 10; at 4, 10, 3 and 10.

@@ -7,18 +7,17 @@ it lies along the ground. The foot's box never changes. The toes are a contact r
 and carry no mass.
 
 With the ankle's dorsiflexion stop at 0.8 rad, this is what lets the Warrior stand up from hands
-and knees on its toes. Toes are a setting of a human character (the `toes` attribute,
-`toedFigure`, `src/core/human/toes.ts`): 0.06 m long at size 1, scaled with size, 0.025 m thick,
-ending at the boot's toe, the foot's box cut short by them, and the toed ankle's stop at 0.8 rad
-past the reference pose (`owner-toes`). Option Mind's preset takes them (`MindPreset.character`). No
-game character does yet: on the Warrior and the Rogue the game's step-up stands none of the
-target's 64 falls, against 56 without them, and the run does not hold forward on them, so they go
-on with the stand-up the Recovery plan builds on them ([below](#on-the-game-bodies)).
+and knees on its toes. Every humanoid has them, with no setting to take them away (the owner,
+2026-10-30: a body cannot stand up well without them; `toedFigure`, `src/core/human/toes.ts`):
+0.06 m long at size 1, scaled with size, 0.025 m thick, ending at the boot's toe, the foot's box
+cut short by them, and the toed ankle's stop at 0.8 rad past the reference pose (`owner-toes`).
+The game's Stand up rises on them (`STAND_UP`); step-up, flat-footed, stands none of the target's
+64 falls on them ([below](#on-the-game-bodies)), and the run does not hold forward on them.
 
 What depends on the foot is read under the body's key (`bodyKey`, `src/core/spec/body.ts`), the
 model and `+toes`: the walk's envelopes, the ground techniques' profiles, the learned punch's
-settings and the searched strikes. The game's step-up is tuned by model alone, so a toed body plays
-the flat foot's stages.
+settings and the searched strikes. Step-up is tuned by model alone, so a toed body plays the flat
+foot's stages.
 
 ## What is used
 
@@ -83,7 +82,7 @@ stand-up `npm run evaluate -- rising-target step-up`.
 
 | Foot | Shoves held, Warrior / Rogue, of 176 | Shoved walks fell, Warrior / Rogue, of 120 | Step-up stood, of 64 |
 | --- | --- | --- | --- |
-| The game's (no toes) | 173 / 160 | 0 / 4 | 56 |
+| Flat | 173 / 160 | 0 / 4 | 56 |
 | Toes | 176 / 159 | 1 / 5 | 0 |
 | Toes to the rig's ball (0.074 m) | 175 / 154 | 1 / 9 | – |
 

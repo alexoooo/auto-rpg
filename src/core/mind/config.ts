@@ -182,8 +182,13 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
   executors: [{ name: "recipe", kind: "recipe-strike" }, ...BLADE_EXECUTORS],
   actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }, ...BLADE_ACTIONS], support: null, subs: [{ kind: "lie" }] });
 
-/** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
-export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "step-up" }] });
+/**
+ * **The game's Stand up**: the edges a body rises by on its toes
+ * (`docs/reference/rising.md#the-sit-back`): the roll onto its front, then down onto hands and
+ * knees and the sit-back, or the sit-back from the front, the route each body takes priced by its
+ * edges' profiles.
+ */
+export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }] });
 
 /** The Classic fighter: the recipe fighter, getting about by `MOVE` and standing up once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });

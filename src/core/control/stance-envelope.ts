@@ -1,5 +1,4 @@
 import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
-import runTurnsMeasured from "../../../assets/core/simbicon-run-envelope.json" with { type: "json" };
 import walkRunMeasured from "../../../assets/core/walk-run-envelope.json" with { type: "json" };
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
@@ -262,11 +261,8 @@ export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Objec
 /**
  * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/walk-run.ts`)
  * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
- * (`research/core-stance-envelope.mjs --legs walk-run`), and its turns where it measured them. Where
- * it measured none (`--walks`), its turns are those a run on the same run cycle held
- * (`assets/core/simbicon-run-envelope.json`).
+ * (`research/core-stance-envelope.mjs --legs walk-run`), and its turns.
  */
 export function walkRunEnvelope(spec: BodySpec): StanceEnvelope {
-  const own = envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run");
-  return own.turns.length > 0 ? own : { ...own, turns: envelopeIn(runTurnsMeasured, "simbicon-run-envelope", spec, "the run's turns").turns };
+  return envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run");
 }

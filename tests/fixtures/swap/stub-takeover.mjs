@@ -6,7 +6,7 @@
 import { anyBody } from "../../../src/core/mind/parts.ts";
 
 /** The asks, counted from 1, between which it wants the body: from `FROM` up to but not including `UNTIL`. */
-export const TAKEOVER = Object.freeze({ FROM: 60, UNTIL: 180 });
+export const TAKEOVER = Object.freeze({ FROM: 100, UNTIL: 140 });
 
 export const STUB_TAKEOVER = Object.freeze({
   role: "sub-mind", label: "Takes a window (stub)", stage: "experimental", fields: [], slots: [],

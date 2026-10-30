@@ -149,7 +149,7 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
-export const GROUND_RISES = ["step-up", "staged", "support-recovery", "mind"] as const;
+export const GROUND_RISES = ["stand-up", "staged", "support-recovery", "mind"] as const;
 export type GroundRise = (typeof GROUND_RISES)[number];
 
 /** The Attack field's target count and random seed unless the address supplies them. */
@@ -217,7 +217,7 @@ export function labAddress(search: string): LabAddress {
       level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
-      rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "step-up",
+      rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "stand-up",
       start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: GROUND_POSTURES.find(v => v === query.get("groundPosture")) ?? "back",
       degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
@@ -262,7 +262,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);
   if (address.ground.waypoint !== "none") query.set("groundWaypoint", address.ground.waypoint);
-  if (address.ground.rise !== "step-up") query.set("groundRise", address.ground.rise);
+  if (address.ground.rise !== "stand-up") query.set("groundRise", address.ground.rise);
   if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
   if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
   if (address.ground.degrees !== null) query.set("groundDegrees", String(address.ground.degrees));

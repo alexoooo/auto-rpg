@@ -54,8 +54,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
-| [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Separate selection from body control, models and objectives; demonstrate Warrior, Rogue, Skeleton, Reptile and non-combat movement; replace the Skeleton fork with a configuration of the common implementation. |
-| [Option Skeleton](plans/2026-10-30-option-skeleton.md) | Combat improvement after the generalization rollout, targeting greater than 90% wins against every Arena opponent. Armed exchanges, recovery and full-field confirmation remain open. The simplified revision is unrated; the 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)). |
+| [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Option Mind as a toolkit framework that entrants configure, not copy (built: the shared model's foe prior by every striking limb, lying down priced by the worth of a second standing, toes on every humanoid). Left: the framework into the toolkit; an entrant as presets and parts, the Skeleton fork deleted; the objective and the percepts as parts; a Reptile and a non-combat preset |
+| [Option Skeleton](plans/2026-10-30-option-skeleton.md) | The empty-handed Skeleton preset beating every Arena entrant more than 90% of the time, after generalization step 2: its rise on toes, its strikes measured, a mixed panel, then the whole field and reserved conditions. The 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the Duellist's swing read as the reference, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, the club blow at the head, 10 of 16 on the still rung and 11 of 32 on the walk rung as the drill Commander orders it (15 and 25 with the drill taking the body over; the blow starts from the same place and misses under Option Mind's own handling), 1 of 7 moments reached on the fight rung, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: why the club blow misses more under Option Mind's own handling than under the drill's takeover; Option Mind never strikes a foe pressing to clinch range (footwork to strike a foe walking in), Cover's rung 2 (a protocol to write), a lead over the Duellist; the owner's acceptance of each rung |
 | [Drills by orders](plans/2026-10-30-drills-by-orders.md) | Drills drive any mind by a Commander's orders, not by taking it over (built: steps 1 to 9: the Strike, Gait and Cover drills on the drill and stand Commanders, the takeover deleted, stomping 8 of 12 landed, from 9 to 10; each Arena side's choices, picked as orders, and pause on choice): a bout hosts a Commander per side; a body's menu of choices (each action, limb, foe and region, and whether it could start) in its mind's report and a Commander's view; orders name an action, a limb, a gait and a region by mark, one rule in every mind; the drill Commander; the takeover deleted; the menu in the Arena and play turn by turn. Left: the owner plays a bout turn by turn |
@@ -78,10 +78,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 3. **Beside them:** Drills step 2 (the moving target, overlays and side by
    side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
-   Recovery step 3 once Option Mind's rise stands the target (its speed set aside for now, the
-   owner, 2026-10-29): the game's bodies take toes with it,
-   since on them step-up stands none of the target's falls
-   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+   The rest of Recovery step 3: every humanoid is on toes and rises by Option Mind's rise (the
+   owner, 2026-10-30); the Rogue with the club standing on toes, and step-up removed.
    [Layering](plans/2026-10-29-layering.md) in order, each step bit for bit on the fingerprint;
    its steps 1 to 3 land before the [Commander](plans/2026-10-29-commander.md) begins, which then
    goes in order: the score (step 1) needs nothing of Option Mind; the Option Commander (step 4)
@@ -113,6 +111,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - Option Mind's toed Warrior (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=option,duellist`):
   walking, punching and fighting; its run held to 0.7 m/s forward on toes
   ([on the game bodies](reference/toes.md#on-the-game-bodies)).
+- Every humanoid on toes, rising by the sit-back: the Duellist, Vanguard and the Crypt's party
+  going down and getting up in the Arena and the Crypt.
 - The verdict ([play](reference/play.md#the-bout)): a bout in the Arena, life draining from the
   first minute, ended by two minutes, a fall ending nothing; records read under the old verdict
   are read again before any comparison.
@@ -123,7 +123,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist`): its straight punch, approach and cover; the punch is unlearned and its recovery uses flat-footed step-up ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist`): its straight punch, approach and cover; the punch is unlearned and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
   The level-clearer (`?play=dungeon&party=clearer`) and the mob.

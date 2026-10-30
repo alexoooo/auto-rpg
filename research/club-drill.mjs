@@ -33,7 +33,6 @@ import { decodeHeld, dimensionsHeld, encodeHeld, heldSpec } from "./core-blow.mj
 
 /** The body the recipe is for, what it holds, and the item's name in the repertoire. */
 const MODEL = "workshop-fighter", KEY = "workshop-fighter+toes", HELD = "wooden club", LOADOUT = Object.freeze({ left: "buckler", right: "club" });
-const CHARACTER = Object.freeze({ toes: true });
 /** The repertoire's recipe on the flat-footed Warrior for `band`: where a search starts, and whose place's height and window a candidate keeps. */
 const reference = (band) => REPERTOIRE.find((r) => r.model === MODEL && r.held === HELD && r.band === band);
 /** The ranges the recipe's numbers are read against: the Warrior's joints, the club in its right hand. */
@@ -51,7 +50,7 @@ export function clubSubject(recipe) {
   const mind = { ...base, executors: base.executors.map((one) => one.name === "club" ? { ...one, tuning: { ...one.tuning, repertoire: [recipe] } } : one),
     actions: base.actions.map((one) => one.name === "club-blow" ? { ...one, regions: [{ kind: "mark", mark }] } : one) };
   if (!mind.executors.some((one) => one.name === "club")) throw new Error("Option Mind has no club executor to search the blow of");
-  return { mind, action: "club-blow", held: LOADOUT, character: CHARACTER };
+  return { mind, action: "club-blow", held: LOADOUT };
 }
 
 /** One drill trial of `subject` on `condition` at `hz`: its reading. */

@@ -33,25 +33,22 @@ interface ModelInfo {
 }
 
 /**
- * **A body family's entry** (`FAMILIES`): its unmodified anatomy, that anatomy under a physique,
- * haste and toes, its defaults, whether it takes a haste in place of its character's, and whether
- * its feet can have toes.
+ * **A body family's entry** (`FAMILIES`): its unmodified anatomy, that anatomy under a physique
+ * and haste, its defaults, and whether it takes a haste in place of its character's.
  */
 interface Family {
   spec(model: BodyModel): BodySpec;
-  physique(model: BodyModel, original: BodySpec, physique: Physique, haste: number, settings: { readonly toes: boolean }): BodySpec;
+  physique(model: BodyModel, original: BodySpec, physique: Physique, haste: number): BodySpec;
   readonly info: ModelInfo;
   readonly hastes: boolean;
-  readonly toes: boolean;
 }
 
 const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
-  physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number, settings: { readonly toes: boolean }) =>
-    humanoidSpec(model as HumanoidModel, physique, haste, settings),
-  info: { mind: DUELLIST, held: "club" }, hastes: true, toes: true });
+  physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpec(model as HumanoidModel, physique, haste),
+  info: { mind: DUELLIST, held: "club" }, hastes: true });
 const REPTILE: Family = deepFreeze({ spec: () => reptileSpec(),
   physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
-  info: { mind: QUADRUPED, held: "empty" }, hastes: true, toes: false });
+  info: { mind: QUADRUPED, held: "empty" }, hastes: true });
 
 /** **Every model's family**: the one list a body family is added to in the core. */
 const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE });
@@ -67,7 +64,7 @@ function familyOf(model: BodyModel): Family {
 export function characterDefaults(model: BodyModel): CharacterAttributes {
   const spec = specOf(model);
   return Object.freeze({ size: 1, weight: 1, strength: 1, speed: 1, hp: spec.wounds.hp.value,
-    balance: spec.attributes.balance.value, haste: spec.attributes.haste.value, toes: spec.segments.some((segment) => segment.toes !== undefined) });
+    balance: spec.attributes.balance.value, haste: spec.attributes.haste.value });
 }
 
 /** Geometry validation depends only on geometric modifiers; each model retains its most recent valid configurations. */
@@ -81,9 +78,8 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
     ...Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined)) }) as CharacterAttributes;
   const physique = Object.fromEntries((["size", "weight", "strength", "speed"] as const)
     .filter(key => attributes[key] !== 1).map(key => [key, attributes[key]]));
-  if (attributes.toes && !familyOf(model).toes) throw new Error(`${model} has no feet that take toes`);
-  const changed = Object.keys(physique).length > 0 || attributes.haste !== defaults.haste || attributes.toes !== defaults.toes;
-  let spec = !changed ? specOf(model) : familyOf(model).physique(model, specOf(model), physique, attributes.haste, { toes: attributes.toes });
+  const changed = Object.keys(physique).length > 0 || attributes.haste !== defaults.haste;
+  let spec = !changed ? specOf(model) : familyOf(model).physique(model, specOf(model), physique, attributes.haste);
   if (attributes.hp !== defaults.hp || attributes.balance !== defaults.balance) spec = { ...spec,
     wounds: attributes.hp === defaults.hp ? spec.wounds : { ...spec.wounds, hp: sourced(attributes.hp, "HP", "owner-hp-pool", "a character's configured hit points") },
     attributes: attributes.balance === defaults.balance ? spec.attributes : { ...spec.attributes, balance: sourced(attributes.balance, "%", "owner-balance", "a character's configured balance") },
@@ -110,7 +106,7 @@ export function modelInfo(model: BodyModel): ModelInfo {
 /**
  * Positional construction adapter for scripts and experiments; game setups use `resolveCharacter`.
  */
-export function modelSpec(model: BodyModel, physique?: Physique, attributes: { readonly haste?: number; readonly toes?: boolean } = {}): BodySpec {
+export function modelSpec(model: BodyModel, physique?: Physique, attributes: { readonly haste?: number } = {}): BodySpec {
   return resolveCharacter({ model, attributes: { ...physique, ...attributes } }).spec;
 }
 

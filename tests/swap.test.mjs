@@ -336,9 +336,8 @@ test("a mind that never strikes carries a club on a stand, is refused from a bou
 });
 
 test("each part a bout runs is the one its config names, and the bout forks, resumes, replays and links", async () => {
-  // The Option Mind fixture as Option Mind plays: the Warrior with toes, which its learned punch is trained on.
-  const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTION_DEFAULTS }, attributes = { left: {}, right: CONTROLLERS.option.presets.option.character };
-  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds, attributes };
+  const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTION_DEFAULTS };
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds };
   const played = async (hooks, fork) => {
     const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
     try {
@@ -371,14 +370,16 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
     const standUp = state.body.mind.subs[0];
     assert.equal(standUp.steady.motor.stub, "stub-motor", "the stand-up's steady is made with the configured motor");
-    assert.equal(standUp.techniques["step-up"].motor.stub, "stub-motor", "its technique is made with the configured motor");
+    const motors = Object.entries(standUp.techniques).filter(([, technique]) => technique.motor);
+    assert.ok(motors.length > 0, "the fixture's stand-up has a technique with a motor");
+    for (const [name, technique] of motors) assert.equal(technique.motor.stub, "stub-motor", `its ${name} is made with the configured motor`);
     assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
     assert.ok(state.lines.includes(`Decided: ${state.mind.tactics.steps} steps`), `the readout shows the planner's own detail of what it reports: ${state.lines.join(" | ")}`);
   }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);
   assert.equal(replay.digest, first.digest, "the replay is the bout");
-  for (const side of SIDES) assert.deepEqual(parseMind(writeMind(minds[side]), modelSpec("workshop-fighter", undefined, attributes[side]), FIGHT_ENTRY), { config: minds[side], faults: [] },
+  for (const side of SIDES) assert.deepEqual(parseMind(writeMind(minds[side]), modelSpec("workshop-fighter"), FIGHT_ENTRY), { config: minds[side], faults: [] },
     `${minds[side].kind}'s tree goes through a link unchanged`);
 });
 

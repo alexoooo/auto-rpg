@@ -401,7 +401,7 @@ const DATA_CASES = [
   { name: "data: learned-punch", run: () => {
     const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };
-    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind }, attributes: { left: { toes: true }, right: { toes: true } } });
+    return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */

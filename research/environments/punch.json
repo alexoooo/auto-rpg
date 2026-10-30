@@ -12,7 +12,6 @@
     {"protocol": "walk", "draw": {"model": "workshop-fighter", "mark": ["middle"], "hand": ["right", "left"], "across": {"between": [-0.15, 0.3]}, "gap": {"between": [1.6, 3]}, "start": ["walking"]}}
   ],
   "rates": [120, 480, 480],
-  "character": {"toes": true},
   "pool": 4,
   "refresh": 16,
   "split": "train",

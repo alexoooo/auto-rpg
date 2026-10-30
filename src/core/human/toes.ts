@@ -11,5 +11,5 @@ export const TOES = Object.freeze({
   thickness: sourced(0.025, "m", "owner-toes", "the toes' slab thickness"),
 });
 
-/** **`figure` with toes** (`HumanFigure.toes`), a setting its character chooses. */
+/** **`figure` with toes** (`HumanFigure.toes`): every human foot's, since a body rises from the ground on them (`docs/reference/toes.md`). */
 export const toedFigure = (figure: HumanFigure): HumanFigure => ({ ...figure, toes: TOES });

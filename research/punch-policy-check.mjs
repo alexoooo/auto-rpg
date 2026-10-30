@@ -9,7 +9,7 @@
  *
  *   node research/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
  *
- * The body is the environment's `character` (`{ "toes": true }`: the toed foot).
+ * The body is the environment's `character` (its attributes; none, the model's own).
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
