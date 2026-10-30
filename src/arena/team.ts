@@ -20,7 +20,7 @@ const OPEN_GROUND: TeamLevel = Object.freeze<TeamLevel>({
 });
 
 /** **One side of a bout led as a team of one** (`teamOfOne`): its Commander, and what the person leading it gives. */
-interface TeamOfOne {
+export interface TeamOfOne {
   readonly commander: Commander;
   /** The Commander's memory and its last raw orders, saved together when a team forks. */
   readonly state: { readonly commander: object; orders: Orders | null };

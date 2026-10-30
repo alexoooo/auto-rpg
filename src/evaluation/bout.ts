@@ -40,14 +40,14 @@ export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENG
   } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
 }
 
-/** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`modelInfo`), ended by its recipe's end rules or the game's (`GAME_ENDS`). */
+/** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`modelInfo`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
 export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
   build: (world, options) => buildBout(world.recipe, { engine: world.engine, ...(options?.hz === undefined ? {} : { hz: options.hz }) }),
   start: (built, world) => built.duel.play(world.tape),
   traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
   clock: (built) => built.duel.clock,
   minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? modelInfo(world.recipe[side]).mind),
-  parts: (world) => (world.recipe.ends ?? GAME_ENDS).map((end) => end.kind),
+  parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
   hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
   save: (built) => built.duel.save(),
   load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
