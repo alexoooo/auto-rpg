@@ -8,6 +8,7 @@ import { FIGHTING } from "../../mind/config.ts";
 import { number } from "../../mind/fields.ts";
 import { NO_COVER } from "../../mind/intent.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
+import { orderAllows, orderedRegions, struckKey } from "../../mind/orders.ts";
 import { anyBody, slotList, type PartConfig } from "../../mind/parts.ts";
 import type { BodySense } from "../../mind/senses.ts";
 import { engagementWithDetails, type Sight, type Tactics } from "../../mind/tactics.ts";
@@ -33,7 +34,7 @@ function exchange(making: TacticsMaking, given: ExchangeConfig): Tactics {
   const actions = deepFreeze(structuredConfig(making.actions));
   const made = config.list.map(part => making.parts.of("behaviour", part).make({ spec: making.spec, actions }, part));
   const state = {
-    phase: "guard", focus: null as string | null, lost: false, region: null as string | null,
+    phase: "guard", focus: null as string | null, lost: false, ordered: null as string | null,
     pending: null as { key: string; since: number } | null, awaiting: null as { id: number; key: string } | null,
     candidates: [] as Candidate[], nextTable: 0, sequence: 0, completed: 0,
     ratings: {} as Record<string, { work: number; seconds: number; attempts: number }>,
@@ -132,14 +133,14 @@ function exchange(making: TacticsMaking, given: ExchangeConfig): Tactics {
     learn(sight, dt);
     if (sight.view.senses.out) { turn.interrupt(); state.pending = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: NO_COVER, actions: [] }; }
     const orders = making.orders(sight), focus = selectFocus(sight, orders?.foe);
-    const changed = state.focus !== (focus?.id ?? null) || state.region !== (orders?.region ?? null);
-    state.focus = focus?.id ?? null; state.decision.focus = state.focus; state.region = orders?.region ?? null;
+    const changed = state.focus !== (focus?.id ?? null) || state.ordered !== struckKey(orders);
+    state.focus = focus?.id ?? null; state.decision.focus = state.focus; state.ordered = struckKey(orders);
     if (changed) { state.pending = null; for (const behaviour of made) behaviour.refocus?.(); }
     if (changed || sight.view.time >= state.nextTable) {
       state.candidates.length = 0;
       if (focus) for (const action of actions) if (action.regions) for (const effector of action.effectors) {
-        const regions = orders?.foe === focus.id && orders.region ? [{ kind: "segment" as const, segment: orders.region }] : action.regions;
-        const region = regions.find(r => regionSegments(focus.spec, r).length > 0);
+        if (!orderAllows(orders, focus.id, action.name, effector)) continue;
+        const region = orderedRegions(orders, focus.id, action.regions).find(r => regionSegments(focus.spec, r).length > 0);
         if (!region) continue;
         const target = { kind: "body" as const, body: focus.id, region: { ...region } };
         const one: Candidate = { action: action.name, effector, target, key: keyOf({ action: action.name, effector, target }), eligible: true,

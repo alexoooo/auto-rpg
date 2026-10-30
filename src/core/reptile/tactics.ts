@@ -3,6 +3,7 @@ import type { OwnBody } from "../mind/mind.ts";
 import type { Orders } from "../mind/orders.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import { nearestSurface } from "../mind/targets.ts";
+import { regionSegments } from "../mind/action-aim.ts";
 import { surfaceEntry, surfaceContains } from "../mind/openings.ts";
 import { pointOfToRef } from "../control/support.ts";
 import { pointAtToRef, rootFrameToRef } from "../control/kinematics.ts";
@@ -72,6 +73,12 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     const buried = inside(from);
     const accept = (at: Vec3) => Math.abs(at[1] - mouth.y) <= T.biteElevation;
     const near = nearestSurface(view.senses, from, accept, ordered?.foe, ordered?.region);
+    /** Whether `part` of `foe` lies in the region the orders name, where they name one. */
+    const inRegion = (foe: string, part: string): boolean => {
+      if (ordered?.region === undefined) return true;
+      const sensed = view.senses.others.find((one) => one.id === foe);
+      return sensed !== undefined && regionSegments(sensed.spec, ordered.region).includes(part);
+    };
     rootFrameToRef(head, frame);
     shiftDirection.set(0, 0, 1).applyRotationQuaternionToRef(frame.rotation, shiftDirection);
     const horizontal = Math.sqrt(shiftDirection.x * shiftDirection.x + shiftDirection.z * shiftDirection.z);
@@ -101,7 +108,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
           turnAboutToRef(jawAxis, T.open * (1 - progress / T.biteSamples), jawTurn);
           closing.set(...tooth.direction.value).applyRotationQuaternionToRef(jawTurn, closing).applyRotationQuaternionToRef(frame.rotation, closing);
           const alignment = -(closing.x * exposed.normal[0] + closing.y * exposed.normal[1] + closing.z * exposed.normal[2]);
-          if (alignment >= tooth.alignment.value && accept(exposed.at) && (ordered?.foe === undefined || exposed.foe === ordered.foe) && (ordered?.region === undefined || exposed.part === ordered.region)
+          if (alignment >= tooth.alignment.value && accept(exposed.at) && (ordered?.foe === undefined || exposed.foe === ordered.foe) && inRegion(exposed.foe, exposed.part)
             && (!candidate || Math.abs(shift) < candidate.shift || Math.abs(shift) === candidate.shift && (progress < candidate.progress
               || progress === candidate.progress && alignment > candidate.alignment)))
             candidate = { foe: exposed.foe, part: exposed.part, at: exposed.at, normal: exposed.normal, shift: Math.abs(shift), progress, tooth: toothName, alignment };
@@ -109,7 +116,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
         }
       }
     }
-    if ((sight.bite.phase === null || sight.bite.phase === "chamber") && ordered?.foe !== undefined && (state.target?.foe !== ordered.foe || ordered.region !== undefined && state.target?.part !== ordered.region)) state.target = null;
+    if ((sight.bite.phase === null || sight.bite.phase === "chamber") && ordered?.foe !== undefined && (state.target?.foe !== ordered.foe || state.target !== null && !inRegion(state.target.foe, state.target.part))) state.target = null;
     if (!state.target && candidate) {
       const segment = view.senses.others.find(foe => foe.id === candidate.foe)!.segments.get(candidate.part)!;
       carried.set(...candidate.at).subtractInPlace(segment.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(segment.rotation, inverse), carried);

@@ -9,7 +9,7 @@ import { FIGHTING, type BehavioursConfig, type ConditionConfig } from "./config.
 import { conditionMatches } from "./conditions.ts";
 import { NO_COVER, type Intent } from "./intent.ts";
 import { remainingOf } from "./movement.ts";
-import type { Orders } from "./orders.ts";
+import { orderAllows, orderedRegions, struckKey, type Orders } from "./orders.ts";
 import { orderedFacing } from "./ordered.ts";
 import { slotList, anyBody } from "./parts.ts";
 import type { BodySense } from "./senses.ts";
@@ -59,7 +59,7 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
   const aims = making.aims;
   const made: readonly Behaviour[] = config.list.map(behaviour => making.parts.of("behaviour", behaviour).make({ spec, actions }, behaviour));
   const state = {
-    phase: "guard", focus: null as string | null, orderedRegion: null as string | null, lost: false, nextTable: 0,
+    phase: "guard", focus: null as string | null, ordered: null as string | null, lost: false, nextTable: 0,
     pending: null as { key: string; since: number } | null, candidates: [] as Candidate[],
     awaiting: null as { id: number; key: string } | null, lastStarted: null as string | null,
     sequence: 0, missed: 0, counts: Object.fromEntries(actions.map(action => [action.name, { committed: 0, landed: 0 }])),
@@ -95,8 +95,9 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     state.candidates.length = 0;
     // An action that aims at nothing is not one the tactics choose a target for.
     if (focus) for (const action of actions) if (action.regions) for (const effector of action.effectors) {
+      if (!orderAllows(orders, focus.id, action.name, effector)) continue;
       let found = false;
-      const regions: readonly Region[] = orders?.region && orders.foe === focus.id ? [{ kind: "segment", segment: orders.region }] : action.regions;
+      const regions: readonly Region[] = orderedRegions(orders, focus.id, action.regions);
       for (const region of regions) {
         const target = { kind: "body" as const, body: focus.id, region: { ...region } }, exists = regionSegments(focus.spec, region).length > 0;
         const eligible = !found && exists;
@@ -114,6 +115,8 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
   };
   const ranked = (sight: Sight, focus: BodySense | null, orders: Orders | null): Candidate[] => {
     let candidates = [...state.candidates];
+    // An action the orders name is asked whatever the choice would be: the candidates are its alone.
+    if (focus && orders?.foe === focus.id && orders.action !== undefined) return candidates;
     switch (config.choose.kind) {
       case "first-ready": break;
       case "rotate": {
@@ -155,10 +158,10 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
   return { name: "Actions", state, engagement: state, get decision() { return state.decision; }, decide(sight, dt) {
     state.decision.evading = false; state.decision.approach = null;
     if (sight.view.senses.out) { turn.interrupt(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: NO_COVER, actions: [] }; }
-    const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.orderedRegion !== (orders?.region ?? null);
+    const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.ordered !== struckKey(orders);
     state.focus = focus?.id ?? null;
     state.decision.focus = state.focus;
-    state.orderedRegion = orders?.region ?? null;
+    state.ordered = struckKey(orders);
     if (state.awaiting) {
       const admitted = sight.report.actions.some(action => action.id === state.awaiting!.id)
         || sight.report.ledger.some(record => record.id === state.awaiting!.id && record.ending.kind !== "refused");
