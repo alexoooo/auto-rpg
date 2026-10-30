@@ -3,6 +3,7 @@ import { entries, following, menu, when, type Control, type Named } from "../../
 import type { LabPage } from "./sections.ts";
 import { dummyPart, dummyParts } from "../dummy-spec.ts";
 import { attackTargetWarnings } from "../attack-target.ts";
+import { takesScript } from "../../core/mind/catalog.ts";
 
 const RATES: Named<LabAddress["hz"]> = {
   120: { name: "120 Hz", title: "The game's rate" },
@@ -21,7 +22,7 @@ export function scenarioSection(page: LabPage): readonly Control[] {
     if (next.every((value, index) => value === previous[index])) return;
     previous = next;
     const mind = labMind(page.shown.mind, page.spec, "attack").plays;
-    const warnings = attackTargetWarnings(page.spec, mind, page.shown.targetPart, page.shown.barred);
+    const warnings = takesScript(mind) ? attackTargetWarnings(page.spec, mind, page.shown.targetPart, page.shown.barred) : [];
     feedback.textContent = warnings.join(" "); feedback.hidden = warnings.length === 0;
   } };
   return [

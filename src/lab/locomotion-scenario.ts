@@ -1,4 +1,5 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { takesScript } from "../core/mind/catalog.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
@@ -152,7 +153,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
-    mind: (mind) => legs === "mind" ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
+    mind: (mind) => legs === "mind" || !takesScript(mind) ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ actor, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;

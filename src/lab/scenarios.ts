@@ -7,9 +7,9 @@ import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import { HELD, type Held, type Loadout } from "../core/items/held.ts";
-import { takesScript } from "../core/mind/catalog.ts";
+import { takesScript, treeObeys } from "../core/mind/catalog.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
+import { offered, presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
 import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -20,7 +20,7 @@ import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import type { TechniqueName } from "../core/mind/ground/technique.ts";
 import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { loadoutAttributes } from "./loadout.ts";
+import { loadoutAttributes, loadoutSpec } from "./loadout.ts";
 import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
 import { GROUND_POSTURES } from "./ground-starts.ts";
 import { dummyPart } from "./dummy-spec.ts";
@@ -100,6 +100,17 @@ export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "punc
 /** Named minds come from their registry; the Lab adds its scenario defaults. */
 const LAB_MINDS: Readonly<Record<string, MindPreset>> = Object.freeze({ ...MINDS, ...LAB_PRESETS });
 
+/** The scenarios that ask their body only what game orders say (Stand-up: stand, then walk on). */
+const BY_ORDERS: readonly ScenarioId[] = ["ground"];
+
+/**
+ * Whether the Lab can drive `config` in `scenario`: by its script, where it takes one
+ * (`takesScript`); or by orders alone, where it carries them out (`treeObeys`) and the scenario
+ * asks nothing else (`BY_ORDERS`).
+ */
+export const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean =>
+  takesScript(config) || scenario !== null && BY_ORDERS.includes(scenario) && treeObeys(config);
+
 /** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */
 const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, MindPreset>> =>
   Object.fromEntries(Object.entries(LAB_MINDS).filter(([, preset]) => presetFitsModel(preset, model)));
@@ -115,18 +126,26 @@ const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
 export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
   ? { provides: [], entry: ["attacks"] } : { provides: LAB_PROVIDES, entry: [] };
 
-/** Named calibrations the selected body and scenario can run, including externally registered minds. */
-export const labPresets = (spec: BodySpec, scenario: ScenarioId | null) => Object.entries(labMindsForModel(spec.model))
-  .filter(([, preset]) => takesScript(preset.config) && mindFaults(preset.config, spec, labStaging(scenario)).length === 0)
+/**
+ * Named calibrations the body `spec` and the scenario can run, including externally registered
+ * minds; one driven by orders alone (`labDrives`), only where it is offered on the menus (`offered`).
+ * Given the `loadout` that made `spec`, a preset that brings a character (`MindPreset.character`) is
+ * judged on the body the loadout makes with it, as choosing it loads it.
+ */
+export const labPresets = (spec: BodySpec, scenario: ScenarioId | null, loadout?: LabLoadout) => Object.entries(labMindsForModel(spec.model))
+  .filter(([, preset]) => labDrives(preset.config, scenario) && (takesScript(preset.config) || offered(preset)) && mindFaults(preset.config,
+    loadout && preset.character ? loadoutSpec({ ...loadout, attributes: { ...loadout.attributes, ...preset.character } }) : spec, labStaging(scenario)).length === 0)
   .map(([id, preset]) => ({ id, ...preset }));
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
  * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack and Script elsewhere.
  */
-export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
-  const faults = takesScript(config) ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a mind that takes its script, as a fighter does"];
-  return { plays: takesScript(config) && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
+export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: MindConfig; readonly faults: readonly string[] } {
+  const driven = labDrives(config, scenario);
+  const faults = driven ? mindFaults(config, spec, labStaging(scenario))
+    : [`the Lab drives a mind that takes its script, as a fighter does${scenario !== null && BY_ORDERS.includes(scenario) ? ", or one that carries out orders" : ""}`];
+  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */

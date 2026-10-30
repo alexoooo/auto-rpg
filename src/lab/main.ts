@@ -37,7 +37,7 @@ import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import type { BodySpec } from "../core/spec/body.ts";
-import type { FighterConfig } from "../core/mind/config.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import { treeData } from "../core/mind/catalog.ts";
 import { loadData, type DataKey } from "../core/data/store.ts";
 import { labHref, labMind, labStaging, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
@@ -251,7 +251,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   /** The mind a body of `spec` plays at `to`: the page's choice, as the scenario has it. */
-  function mindAt(to: LabAddress, spec: BodySpec): FighterConfig {
+  function mindAt(to: LabAddress, spec: BodySpec): MindConfig {
     const chosen = labMind(to.mind, spec, to.scenario).plays;
     return scenario.mind?.(chosen, to) ?? chosen;
   }

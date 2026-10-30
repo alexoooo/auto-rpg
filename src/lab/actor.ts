@@ -3,9 +3,9 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { partLookup, partOf, scriptedBy, treeFaults } from "../core/mind/catalog.ts";
-import type { FighterConfig } from "../core/mind/config.ts";
+import type { FighterConfig, MindConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/mind/parts.ts";
-import type { MindWiring } from "../core/mind/minds.ts";
+import { createMind, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { RecipeOptions, Skills } from "../core/skills/skills.ts";
@@ -32,16 +32,23 @@ interface Driving {
 /**
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
  * or an experiment gives a body is given here, and a mode knows none of it. Its mind is one that
- * takes a script (`ActorOptions.mind`, `Controller.scripted`), carrying out game orders or a mode's script. A mode takes its
- * actor over: it disposes it with itself.
+ * takes a script (`ActorOptions.mind`, `Controller.scripted`), carrying out game orders or a mode's
+ * script; or one of its own, made as a fight makes it (`createMind`), carrying out the mode's orders
+ * and given no script. A mode takes its actor over: it disposes it with itself.
  */
 export interface Actor {
   readonly body: HostedBody;
   readonly world: World;
   /** Whether each hand may attack: what it holds is not barred (`ActorOptions.allows`). A mode asks no strike of a hand that may not. */
   readonly strikes: Readonly<Record<Side, boolean>>;
-  /** Hand the body to its mind with orders and senses, or a scenario script. Returns the skills for their report. */
+  /**
+   * Hand the body to its mind with orders and senses, or a scenario script. Returns the skills for
+   * their report. A mind of its own takes the orders and senses, and no script, recipe options,
+   * instrument or log.
+   */
   drive(script?: Tactics, driving?: Driving): Skills;
+  /** Whether its mind gets up by its own skills, no sub-mind taking the body: a mind of its own. */
+  readonly risesItself: boolean;
   /** The skills its mind last drove it with (`drive`), for their report; null before it is driven. */
   readonly skills: Skills | null;
   dispose(): void;
@@ -51,7 +58,7 @@ interface ActorOptions {
   /** An explicit experiment's pre-created sub-minds, in place of the selected mind's. */
   readonly subs?: BodyOptions["subs"];
   /** Its mind: the script on the game's recipe skills, lying still once down (`LAB_PRESETS.script`), unless given. */
-  readonly mind?: FighterConfig;
+  readonly mind?: MindConfig;
   /** The most its assist gives it (`balanceCeiling`); none unless given. */
   readonly assist?: AssistCeiling;
   /** An experiment's stance tuning in place of the stance's constants. */
@@ -114,26 +121,42 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
   };
 }
 
-/** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind that takes no script (`scriptedBy`), or with a fault in its tree (`treeFaults`, given a script), is refused. */
+/**
+ * `built`, a human in its reference pose on the ground of `world`, as a mode's actor. A mind that
+ * takes no script (`scriptedBy`) is made as a fight makes it (`createMind`), refused where it runs
+ * no skills or `subs` would replace its sub-minds; one with a fault in its tree (`treeFaults`, given
+ * a script) is refused.
+ */
 export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, subs }: ActorOptions = {}): Actor {
-  const scripted = scriptedBy(mind);
-  if (!scripted) throw new Error(`${partOf(mind).label} takes no script, so the Lab cannot drive it`);
-  const fault = treeFaults(mind, ["script"])[0];
-  if (fault) throw new Error(fault);
   let input: Driving = {};
   const clock = clockSenses(world);
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
-  const body = createBody(built, world, { ...scripted.body(mind, wiring, partLookup), stance, measuring,
-    ...(subs ? { subs } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
+  const scripted = scriptedBy(mind);
+  if (!scripted) {
+    if (subs) throw new Error(`${partOf(mind).label} takes no script, so the Lab cannot replace its sub-minds`);
+    const own = createMind(built, world, mind, wiring), skills = own.skills;
+    if (!skills || !("view" in own.body)) throw new Error(`${partOf(mind).label} runs no skills the Lab can read`);
+    return {
+      body: own.body as HostedBody, world, strikes, risesItself: true,
+      drive(_script, driving = {}) { input = driving; return skills; },
+      get skills() { return skills; },
+      dispose: () => own.body.dispose(),
+    };
+  }
+  const fighter = mind as FighterConfig;
+  const fault = treeFaults(fighter, ["script"])[0];
+  if (fault) throw new Error(fault);
+  const body = createBody(built, world, { ...scripted.body(fighter, wiring, partLookup), stance, measuring,
+    ...(subs ? { subs } : {}) });
   let driven: Skills | null = null;
   return {
-    body, world, strikes,
+    body, world, strikes, risesItself: false,
     drive(script, driving = {}) {
       input = driving;
       const { skills, watch } = driving;
-      return driven = scripted.drive(body.driver, world, partLookup, tuned(mind, skills), { ...wiring, script }, (tactics) => {
+      return driven = scripted.drive(body.driver, world, partLookup, tuned(fighter, skills), { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;
       });

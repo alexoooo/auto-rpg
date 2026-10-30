@@ -6,7 +6,7 @@ import type { Actor } from "./actor.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
-import type { FighterConfig } from "../core/mind/config.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import type { BodyOptions } from "../core/body.ts";
 
 /**
@@ -26,7 +26,7 @@ export interface LabScenario {
   /** What the transport bar's slider says it steps through. */
   readonly timelineLabel: string;
   /** The mind its body plays at `address`, from the one the page chose; absent, that one. */
-  mind?(chosen: FighterConfig, address: LabAddress): FighterConfig;
+  mind?(chosen: MindConfig, address: LabAddress): MindConfig;
   /** A physical initial pose in place of the shell's standing guard. */
   placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
   /** Explicit standalone experiments may replace the selected fighter's sub-minds. */

@@ -45,10 +45,12 @@ export function characterSection(page: LabPage): readonly Control[] {
     ]),
     group("Mind", [
       following(() => page.spec, spec => {
-        const presets = labPresets(spec, page.shown.scenario);
+        const presets = labPresets(spec, page.shown.scenario, page.shown);
         return choice("Preset", presets.map(preset => ({ value: preset.id, name: preset.label })),
           () => presets.find(preset => writeMind(preset.config) === writeMind(page.shown.mind))?.id ?? "",
-          id => { const preset = presets.find(preset => preset.id === id); if (preset) page.load({ ...page.shown, mind: preset.config }); });
+          // A preset's character comes with it (`MindPreset.character`: the Option Mind's toes).
+          id => { const preset = presets.find(preset => preset.id === id);
+            if (preset) page.load({ ...page.shown, mind: preset.config, ...(preset.character ? { attributes: { ...page.shown.attributes, ...preset.character } } : {}) }); });
       }),
       // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind asks.
       following(() => page.spec, (spec) => switches("Strikes",

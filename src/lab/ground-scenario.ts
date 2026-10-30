@@ -8,7 +8,7 @@ import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import { STAGED_ROUTE } from "../core/mind/ground/staged-edges.ts";
 import type { TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { partLookup, takesScript } from "../core/mind/catalog.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";
@@ -67,10 +67,11 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
-    mind: (chosen, next) => risingBy(chosen, next.ground.rise),
+    // A mind of its own (no script) gets up as it says.
+    mind: (chosen, next) => takesScript(chosen) ? risingBy(chosen, next.ground.rise) : chosen,
     subs(next) {
       const name = next.ground.drive;
-      return name === "mind" ? undefined : [(own, view, clock) => groundTechnique(name, own, view, clock, next.ground.start !== "shoved")];
+      return name === "mind" || !takesScript(next.mind) ? undefined : [(own, view, clock) => groundTechnique(name, own, view, clock, next.ground.start !== "shoved")];
     },
     placement(spec, next) {
       address = next; shown = null; fault = "";
@@ -94,10 +95,12 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
-        following(() => address.model, () => menu("Gets up by", [
+        // A mind of its own (no script) gets up only as it says: nothing replaces its sub-minds.
+        following(() => `${address.model} ${takesScript(address.mind)}`, (key) => menu("Gets up by", key.endsWith("true") ? [
           ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
-          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))],
-        () => address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
+          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))]
+          : [{ value: "rise:mind", name: RISES.mind }],
+        () => !takesScript(address.mind) ? "rise:mind" : address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
         value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),
         when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", menu("Waypoint",
           (["none", "brace", "plant", "transfer", "rise"] as const).map(value => ({ value, name: value === "none" ? "Selected posture" : value })),

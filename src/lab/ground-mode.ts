@@ -74,9 +74,12 @@ export interface Checked {
   inCommand(): boolean;
 }
 
-/** The Lab actor's body as a stand's verification reads it: taken over while a sub-mind has it, its host's again in command. */
-const actorChecked = ({ body, world }: Actor): Checked =>
-  ({ body, world, takenOver: () => body.has !== "command" && body.has !== "nobody", inCommand: () => body.has === "command" });
+/**
+ * The Lab actor's body as a stand's verification reads it: taken over while a sub-mind has it, or,
+ * where its mind gets up by its own skills (`Actor.risesItself`), once it is down; its host's again in command.
+ */
+const actorChecked = ({ body, world, risesItself }: Actor): Checked =>
+  ({ body, world, takenOver: () => body.has !== "command" && body.has !== "nobody" || risesItself && body.down, inCommand: () => body.has === "command" });
 
 /**
  * **A stand's verification** (`STAND_CHECK`) of `checked`, read once a step after the meter: what
