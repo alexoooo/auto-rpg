@@ -62,7 +62,9 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: rea
           break outer;
         }
       }
-      const asked = walk.kept(now, { ...ordered, actions: asks });
+      // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.
+      const move = now.orders?.move, by = move?.kind === "place" ? move.by ?? null : null;
+      const asked = walk.kept(now, { ...ordered, actions: asks }, by);
       return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
     },
   };
