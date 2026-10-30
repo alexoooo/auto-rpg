@@ -126,5 +126,5 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
     interrupt(_view, id) { if (state.live?.id === id) letGo(); },
     resume() { if (state.live) letGo(); state.carried = false; },
   };
-  return { binding: { name: GROUND, executor }, actions: names.map((name) => ({ name, executor: GROUND, effectors: [sideEffector("left"), sideEffector("right")] })), runs, steady: steady.state };
+  return { binding: { name: GROUND, kind: GROUND, executor }, actions: names.map((name) => ({ name, executor: GROUND, effectors: [sideEffector("left"), sideEffector("right")] })), runs, steady: steady.state };
 }

@@ -1,3 +1,4 @@
+import type { KitEntry, MenuEntry } from "./menu.ts";
 import type { Clearance } from "../mind/clear-step.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
@@ -29,6 +30,10 @@ export interface Skills extends Skill {
   readonly state: object;
   instance(): number;
   readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;
+  /** The actions the body has (`KitEntry`). */
+  readonly kit: readonly KitEntry[];
+  /** Its choices as the last step left the body (`menuOf`), from a stance with no walk; reading it changes nothing. */
+  menu(): readonly MenuEntry[];
   /** What `action` holds with `effector` once admitted (`Executor.needs`): none for one it does not bind. */
   needs(action: string, effector: string): readonly Resource[];
   release(view: BodyView, reason?: "takeover" | "idle" | "replaced"): void;
@@ -65,7 +70,7 @@ function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover
   const spec = body.built.spec;
   const guard = guardSkill(spec, cover);
   return { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard,
-    executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture, resolve: pointTarget }) }],
+    executors: [{ name: "recipe", kind: "recipe-strike", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture, resolve: pointTarget }) }],
     actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
 }
 

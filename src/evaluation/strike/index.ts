@@ -3,12 +3,14 @@
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
- * subject is a mind and one of its actions (`puncher/strike`); the drill puts its own tactics in
+ * subject is a mind and one of its actions (`puncher/strike`), and what its striker holds where
+ * it names a loadout (`duellist/swing high@buckler,club`, its left hand first); the drill puts its own tactics in
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
 import { MINDS } from "../../core/mind/controllers.ts";
+import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/items/held.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
@@ -32,16 +34,29 @@ function givenSubject(one: { readonly id: string; readonly label: string; readon
   return { id: one.id, label: one.label, parts: [{ id: `strike:${one.id}`, value: one.value }], value: one.value, ...(character === undefined ? {} : { character }) };
 }
 
-/** A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's name. */
+/** The loadout `key` names, its left hand first (`buckler,club`), as `loadoutKey` writes it. */
+function loadoutNamed(key: string): Loadout {
+  const [left, right, ...more] = key.split(",");
+  const loadout = { left: left as Held, right: right as Held }, faults = more.length || right === undefined ? ["name both hands, left first"] : loadoutFaults(loadout);
+  if (faults.length) throw new Error(`${key} is no loadout: ${faults.join("; ")} (${HELD.join(", ")})`);
+  return loadout;
+}
+
+/**
+ * A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's
+ * name; with `@<left>,<right>`, its striker holding that loadout, a part of its own.
+ */
 function actionSubject(name: string): Subject {
-  const slash = name.indexOf("/"), id = slash < 0 ? name : name.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
-  if (!preset) throw new Error(`${name} is no strike: name a mind and its action, <mind>/<action> (${Object.keys(MINDS).join(", ")})`);
+  const at = name.lastIndexOf("@"), named = at < 0 ? name : name.slice(0, at), held = at < 0 ? undefined : loadoutNamed(name.slice(at + 1));
+  const slash = named.indexOf("/"), id = slash < 0 ? named : named.slice(0, slash), preset = Object.hasOwn(MINDS, id) ? MINDS[id]! : null;
+  if (!preset) throw new Error(`${name} is no strike: name a mind and its action, <mind>/<action>[@<left>,<right>] (${Object.keys(MINDS).join(", ")})`);
   const config = preset.config as { readonly actions?: readonly { readonly name: string }[] }, actions = (config.actions ?? []).map((action) => action.name);
-  const action = slash < 0 ? actions[0] : name.slice(slash + 1);
+  const action = slash < 0 ? actions[0] : named.slice(slash + 1);
   if (action === undefined || !actions.includes(action)) throw new Error(`${id} has no action ${action ?? ""}: one of ${actions.join(", ") || "none"}`);
-  const value = { mind: preset.config as unknown as Json, action };
-  const subject = mindSubject(id, preset.label, value.mind, preset);
-  return { ...subject, id: `${id}/${action}`, label: `${preset.label}: ${action}`, parts: [...subject.parts, { id: "action", value: action }], value };
+  const value = { mind: preset.config as unknown as Json, action, ...(held === undefined ? {} : { held }) };
+  const subject = mindSubject(id, preset.label, value.mind, preset), holding = held === undefined ? "" : loadoutKey(held);
+  return { ...subject, id: `${id}/${action}${held === undefined ? "" : `@${holding}`}`, label: `${preset.label}: ${action}${held === undefined ? "" : `, holding ${holding}`}`,
+    parts: [...subject.parts, { id: "action", value: action }, ...(held === undefined ? [] : [{ id: "held", value: held }])], value };
 }
 
 /** What the strip shows a trial as: its outcome, and whether it passed (landed, the striker on its feet). */

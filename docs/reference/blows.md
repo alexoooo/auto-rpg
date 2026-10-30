@@ -366,6 +366,23 @@ nothing over 16 throws:
 | Warrior | fist | high | 1.08 | 21 / 0 | 26 / 0 | yes |
 | Warrior | fist | middle | 1.17 | 1 / 0 | 6 / 0 | no: window along 0 cm |
 
+### The toed Warrior's club blow
+
+Option Mind's club blow (`club-blow`) on the toed Warrior holding the buckler and the club,
+searched on the Strike drill's still rung (`research/club-drill.mjs`: each candidate thrown by
+the mind through the recipe strike at the rung's 16 places, the bar's score; Node, the bout world,
+Rapier). The head alone is kept:
+
+| Band | Searched | Still rung, 120 Hz | 480 Hz | Held out (gaps 0.65 to 1.25, 0.1 across), 120 / 480 Hz | Kept |
+|---|---|---|---|---|---|
+| high | at 120 Hz | 15 of 16, 68 to 105 J | 14 of 16 | 5 of 7 / 6 of 7 | yes |
+| middle | at 120 Hz | 11 of 16, 74 to 144 J | 0 of 16, 6 to 14 m/s where 12 to 19 | | no: lands through 120 Hz's error |
+| middle | each place at its worse rate | 4 of 16 at both | | | no |
+
+None fell. The high blow's misses glance off the head at 14 to 65 J; its blow comes 1.2 s after
+the action begins. The flat-footed Warrior's middle recipe, thrown the same way, lands 2 of 8 at
+120 Hz and none at 480.
+
 ### Another body's recipe
 
 A hand throws its own body's recipes and no other's (`recipesFor`). A recipe is a table of one

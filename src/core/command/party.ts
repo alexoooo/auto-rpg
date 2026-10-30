@@ -370,7 +370,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
         const face = strike && aim ? direction(member.at, aim) : target ? direction(member.at, target.at) : aim ? direction(member.at, aim) : mind.facing;
         const order = mind.order, pace = target && order.kind !== "force" ? undefined : ceiling(view, order);
         orders.set(member.id, { move, face, ...(pace === undefined ? {} : { pace }), ...(steers && lead?.walk && move ? { walk: true as const } : {}),
-          ...(strike ? { foe: strike.foe, region: strike.region } : order.kind !== "force" && target?.fighting ? { foe: target.id } : {}) });
+          ...(strike ? { foe: strike.foe, region: { kind: "segment", segment: strike.region } } : order.kind !== "force" && target?.fighting ? { foe: target.id } : {}) });
         if (move?.kind === "place") {
           if (mind.opening) state.notice = "Approaching door";
           else if (reportOf(member, move)?.status === "unreachable") state.notice = "Destination unreachable";

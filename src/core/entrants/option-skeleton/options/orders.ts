@@ -9,6 +9,7 @@ import type { Walker } from "./walk.ts";
 import type { ActionConfig } from "../../../mind/config.ts";
 import { remainingOf } from "../../../mind/movement.ts";
 import { regionSegments } from "../../../mind/action-aim.ts";
+import { orderAllows, orderedRegions } from "../../../mind/orders.ts";
 import { around } from "./strike.ts";
 import type { ActionRequest } from "../../../skills/action.ts";
 
@@ -52,11 +53,10 @@ export function followOrders(walk: Pick<Walker, "pace" | "kept">, actions: reado
       const asks: ActionRequest[] = now.sight.report.actions.map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredClone(action.target) }));
       if (now.focus && now.orders?.foe === now.focus.id) outer: for (const action of actions) {
         if (!action.regions) continue;
-        const regions = now.orders.region === undefined ? action.regions : [{ kind: "segment" as const, segment: now.orders.region }];
-        const region = regions.find(region => regionSegments(now.focus!.spec, region).length > 0);
+        const region = orderedRegions(now.orders, now.focus.id, action.regions).find(region => regionSegments(now.focus!.spec, region).length > 0);
         if (!region) continue;
         const target = { kind: "body" as const, body: now.focus.id, region };
-        for (const effector of action.effectors) if (now.sight.readiness(now.sight.view, action.name, effector, target, around(now.sight)).kind === "ready") {
+        for (const effector of action.effectors) if (orderAllows(now.orders, now.focus.id, action.name, effector) && now.sight.readiness(now.sight.view, action.name, effector, target, around(now.sight)).kind === "ready") {
           asks.push({ id: now.sight.instance(), action: action.name, effector, target });
           break outer;
         }

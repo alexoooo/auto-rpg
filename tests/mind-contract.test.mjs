@@ -15,7 +15,7 @@ import { reactionSteps } from "../src/core/rules/rulebook.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelRefusal } from "../src/core/models.ts";
-import { FIGHT_ENTRY } from "../src/core/mind/catalog.ts";
+import { FIGHT_ENTRY, treeObeys } from "../src/core/mind/catalog.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -48,11 +48,12 @@ const modelFor = (preset) => BODY_MODELS.find((candidate) => presetFitsModel(pre
 /** A recipe's attributes for both sides as `character`, or none. */
 const bothAs = (character) => character ? { attributes: { left: character, right: character } } : {};
 
-/** Step `duel` to `until` bout steps, taking each of `traces` and the peaks after each. */
-function stepTo(world, duel, until, traces, peak) {
+/** Step `duel` to `until` bout steps, taking each of `traces` and the peaks after each, and calling `after`. */
+function stepTo(world, duel, until, traces, peak, after = () => {}) {
   const v = new Vector3(), momentum = new Vector3();
   while (duel.steps < until) {
     world.step();
+    after();
     for (const trace of traces) trace.take();
     for (const side of SIDES) {
       let mass = 0;
@@ -69,16 +70,24 @@ function stepTo(world, duel, until, traces, peak) {
   }
 }
 
-/** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked. */
-async function played(recipe, hooks, fork) {
+/** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked; with `read`, each side's whole report read after every step. */
+async function played(recipe, hooks, fork, { read = false } = {}) {
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
-    const peak = { segment: 0, body: 0, unfinite: [] };
-    stepTo(world, duel, FORK, [trace], peak);
+    const peak = { segment: 0, body: 0, unfinite: [] }, reading = { menus: 0, kit: 0 };
+    const after = !read ? undefined : () => {
+      for (const side of SIDES) {
+        const report = duel.duelists[side].minded.report;
+        if (!report) continue;
+        JSON.stringify({ engagement: report.engagement, heading: report.heading, navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
+        reading.menus += JSON.parse(JSON.stringify(report.menu ?? [])).length; reading.kit += report.kit?.length ?? 0;
+      }
+    };
+    stepTo(world, duel, FORK, [trace], peak, after);
     const saved = fork ? duel.save() : null;
-    stepTo(world, duel, STEPS, [trace, tail], peak);
+    stepTo(world, duel, STEPS, [trace, tail], peak, after);
     const end = { digest: trace.digest(), tail: tail.digest(), physics: Buffer.from(world.physics.save()).toString("base64") };
     let resumed = null;
     if (saved) {
@@ -88,13 +97,13 @@ async function played(recipe, hooks, fork) {
       resumed = again.digest();
     }
     const sheets = Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets]));
-    return { end, peak, resumed, sheets, minds: SIDES.map((side) => duel.duelists[side].minded.kind), blows: duel.blows.length };
+    return { end, peak, resumed, sheets, minds: SIDES.map((side) => duel.duelists[side].minded.kind), blows: duel.blows.length, reading };
   } finally { dispose(); }
 }
 
 for (const [id, preset] of MINDS) {
   const { config } = preset, model = modelFor(preset);
-  test(`${id} on ${model ?? "no allowed body"}: a short bout runs, stays finite, flings nobody, forks and resumes, and replays from its order sheets`, async () => {
+  test(`${id} on ${model ?? "no allowed body"}: a short bout runs, stays finite, flings nobody, forks and resumes, replays from its order sheets, and plays the same read`, async () => {
     assert.ok(model, `${id} fits no body allowed by its calibration`);
     assert.ok(presetFitsModel(preset, model), "the replay fixture uses an allowed body");
     const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [], ...bothAs(preset.character) };
@@ -107,6 +116,11 @@ for (const [id, preset] of MINDS) {
     assert.deepEqual(replay.minds, ["replay", "replay"]);
     assert.equal(replay.end.digest, first.end.digest, "the replay's poses are the bout's, step by step");
     assert.equal(replay.end.physics, first.end.physics, "the replay's physical state is the bout's to the bit");
+    // Its whole report read after every step, its menu of choices with it, changes nothing of the bout.
+    const read = await played(recipe, {}, false, { read: true });
+    assert.ok(read.reading.kit === 0 || read.reading.menus > 0, `a mind with a kit has choices to read (${read.reading.menus} read)`);
+    assert.equal(read.end.digest, first.end.digest, "the bout read is the bout, step by step");
+    assert.equal(read.end.physics, first.end.physics, "the bout read is the bout's physical state to the bit");
   });
 }
 
@@ -201,6 +215,50 @@ test("both-hand loadouts fork and replay their physical commands", async () => {
   assert.equal(replay.end.digest, first.end.digest);
   assert.equal(replay.end.physics, first.end.physics);
 });
+
+/** The longest an ordered mind is watched striking, bout steps (8 s), and the strikes it is watched to begin. */
+const ORDERED = Object.freeze({ steps: 960, strikes: 2 });
+/** The foe an ordered mind strikes: one that stands still. */
+const STILL = MINDS.find(([id]) => id === "drill-stand")[1];
+
+/** The strikes the left side begins against a still foe, as many as `strikes`, given `order` after its first step: its menu then, and what it began (null where its report names no action aimed at a body). */
+async function strikesAt(preset, strikes, order = () => null) {
+  const recipe = { left: modelFor(preset), right: modelFor(STILL), gap: GAP, minds: { left: preset.config, right: STILL.config },
+    entry: [], ...(preset.character ? { attributes: { left: preset.character } } : {}) };
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  try {
+    duel.play([]);
+    world.step();
+    const report = duel.duelists.left.minded.report, menu = report.menu ?? [];
+    const orders = order(menu);
+    if (orders) duel.order("left", orders);
+    const struck = new Set((report.kit ?? []).filter((entry) => entry.regions.length > 0).map((entry) => entry.action)), begun = new Map();
+    if (struck.size === 0) return { menu, begun: null };
+    while (duel.steps < ORDERED.steps && begun.size < strikes) {
+      world.step();
+      for (const action of report.actions) if (struck.has(action.action) && !begun.has(action.id))
+        begun.set(action.id, JSON.parse(JSON.stringify({ action: action.action, limb: action.effector, target: action.target })));
+    }
+    return { menu, begun: [...begun.values()] };
+  } finally { dispose(); }
+}
+
+for (const [id, preset] of MINDS.filter(([, preset]) => treeObeys(preset.config))) {
+  test(`${id}: ordered to strike a still foe with a choice of its menu it would not make, it begins that and no other`, async (t) => {
+    const on = `${id} on ${modelFor(preset)}`, own = await strikesAt(preset, 1);
+    if (own.begun === null) { t.skip(`${on} reports no action aimed at a body`); return; }
+    if (own.begun.length === 0) { t.skip(`the fixture does not reach ${on}: unordered, it begins no strike at a still foe in ${ORDERED.steps} steps`); return; }
+    const [first] = own.begun;
+    // The last choice at the foe that its body could start or walk to, other than the strike it begins by itself.
+    const choice = own.menu.filter((entry) => entry.foe === "right" && (entry.readiness.kind === "ready" || entry.readiness.kind === "position")
+      && !(entry.action === first.action && entry.limb === first.limb)).at(-1);
+    if (!choice) { t.skip(`${on} has no choice at a still foe on its menu but the strike it begins by itself`); return; }
+    const asked = { action: choice.action, limb: choice.limb, target: { kind: "body", body: "right", region: choice.region } };
+    const ordered = await strikesAt(preset, ORDERED.strikes, () => ({ foe: "right", region: choice.region, action: choice.action, limb: choice.limb }));
+    assert.ok(ordered.begun.length > 0, `${on}, ordered ${JSON.stringify(asked)}, began no strike in ${ORDERED.steps} steps; unordered it began ${JSON.stringify(first)}`);
+    for (const one of ordered.begun) assert.deepEqual(one, asked, `${on} began what it was not ordered`);
+  });
+}
 
 test("every registered Mind is built on each character and catalog loadout it fits", async () => {
   // Fitting is the promise that a mind can be built and fight there: two cases a bout, one a side.

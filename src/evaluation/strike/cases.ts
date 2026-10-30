@@ -4,7 +4,7 @@
  * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the subject's mind with its tactics a drill
  * (`DRILL_TACTICS`): it turns to the target, walks into its action's window, and asks
  * the one action at one mark with one limb, a hand or a foot, once, the first step its readiness
- * says ready. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent, a mind's configuration
+ * says ready, holding what its subject names (`StrikeSubject.held`). The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent, a mind's configuration
  * (`DRILL_OPPONENT_MIND`'s presets; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
@@ -18,19 +18,29 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { drilledBy } from "../../core/mind/catalog.ts";
+import { drilledBy, fightOf } from "../../core/mind/catalog.ts";
 import type { DrillTacticsConfig } from "../../core/mind/drill-tactics.ts";
 import type { PartConfig } from "../../core/mind/parts.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { modelHolding } from "../../core/models.ts";
+import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
 
-/** A subject's value: a mind given whole, and the name of the action it drills. */
-export type StrikeSubject = { readonly mind: MindConfig; readonly action: string };
+/**
+ * A subject's value: a mind given whole, the name of the action it drills, and what its striker
+ * holds in each hand, empty hands where it names nothing.
+ */
+export type StrikeSubject = { readonly mind: MindConfig; readonly action: string; readonly held?: Loadout };
+
+/**
+ * A bout recipe's `loadouts` for the striker holding what `subject` names, the target empty-handed;
+ * none for a subject that names nothing, so its world is the one an empty-handed subject's always was.
+ */
+const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined ? {} : { loadouts: { left: subject.held, right: EMPTY_LOADOUT } };
 
 /**
  * The mind that drills `action` with `effector` (`hand.right`, `foot.left`) at `mark`: `mind` with a drill in its tactics' slot,
@@ -42,7 +52,7 @@ export function striker({ mind, action }: StrikeSubject, effector: string, mark:
   { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {}): MindConfig {
   const tactics: DrillTacticsConfig = { kind: "drill", action, effector, mark, after, ...(pace === undefined ? {} : { pace }), ...(walking ? { walking: true } : {}),
     ...(letGo === undefined ? {} : { letGo }),
-    ...(moment === undefined ? {} : { fight: ("tactics" in mind ? mind.tactics : null) as PartConfig, moment }) };
+    ...(moment === undefined ? {} : { fight: fightOf(mind) as PartConfig, moment }) };
   const drilled = drilledBy(mind, tactics);
   if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
   return deepFreeze(drilled);
@@ -69,7 +79,7 @@ const STILL = deepFreeze({
 
 /**
  * Rung 5, struck from a walk: the still rung's target and striker set farther apart than the
- * striker's window, so it walks in, on the Warrior's body at the middle mark; each trial played
+ * striker's window, so it walks in, on the Warrior's body at the head and the middle mark; each trial played
  * twice, its `start` `settled` (the drill walks to the window's middle and asks once settled, as
  * the still rung does) and `walking` (it asks the first step it is ready, still walking). The two
  * are read alike from the first step the drill is ready (`StrikeReading.ready`).
@@ -77,7 +87,7 @@ const STILL = deepFreeze({
 const WALK = deepFreeze({ ...STILL,
   models: ["workshop-fighter"] as BodyModel[],
   gaps: [16, 18, 20, 22, 24, 26, 28, 30].map((tenths) => tenths / 10),
-  marks: ["middle"] as Mark[],
+  marks: ["high", "middle"] as Mark[],
   starts: ["settled", "walking"] as Start[],
 });
 
@@ -149,15 +159,21 @@ export type StrikeCondition = StillCondition | FightCondition;
 /** The effector a trial strikes with (`effectorOf`): `hand.right`, `foot.left`. */
 export const limbOf = (condition: StrikeCondition): string => effectorOf(condition);
 
-/** Why `value` is no subject, or what keeps its mind from `model` with empty hands (`mindFaults`). */
+/** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
 function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const given = value as Partial<StrikeSubject> | null;
   if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.action !== "string") return ["a subject is a mind and the action it drills"];
+  if (given.held !== undefined) {
+    const faults = loadoutFaults(given.held);
+    if (faults.length) return faults.map((fault) => `held: ${fault}`);
+  }
   const kind = (given.mind as { kind?: unknown } | undefined)?.kind;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
   if (!drilledBy(given.mind!, { kind: "drill" })) return [`no drill drives a ${kind} mind`];
-  return mindFaults(striker(given as StrikeSubject, "hand.right", "high"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
+  const held = given.held ?? EMPTY_LOADOUT;
+  return mindFaults(striker(given as StrikeSubject, "hand.right", "high"), modelHolding(model, held, subject?.character), { entry: [] })
+    .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
 }
 
 function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
@@ -177,6 +193,7 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
       return { kind: "bout", engine, tape: [],
       // A drill, not a fight: no attack is asked of either side, and nothing ends it but its reader.
       recipe: { left: model, right: target ?? "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
+        ...loadoutsOf(value as unknown as StrikeSubject),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
         minds: { left: striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace, walking: start === "walking", ...(letGo === undefined ? {} : { letGo }) }),
@@ -201,7 +218,7 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
       // A fight on the open stage from its spawns, nothing ending it but the reader.
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
-          ...sideAttributes({ left: character, right: MINDS[foe]!.character }),
+          ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
           minds: { left: striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), right: MINDS[foe]!.config as MindConfig } } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),

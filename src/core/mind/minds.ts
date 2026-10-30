@@ -4,6 +4,8 @@ import type { AssistCeiling } from "../control/assist.ts";
 import { poseAngles } from "../control/kinematics.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
 import type { Skills } from "../skills/skills.ts";
+import type { ActionStatus, Ended } from "../skills/action.ts";
+import type { KitEntry, MenuEntry } from "../skills/menu.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
@@ -40,20 +42,27 @@ export interface MindWiring {
 /**
  * **What a mind publishes of itself** (`MindMade.report`), for a screen and its Commander, never
  * for the rules: what it reports doing (`Engagement`), and where it walks, its heading, its gait's
- * limits (`GaitLimits`) and its navigation's report; null for what it does not say. A mind that
- * runs the game's skills publishes theirs (`skillsReport`); any other may publish its own.
+ * limits (`GaitLimits`) and its navigation's report; the actions its body has (`KitEntry`), those
+ * under way and those ended, and its choices now (`MenuEntry`), read when asked and changing
+ * nothing; null for what it does not say. A mind that runs the game's skills publishes theirs
+ * (`skillsReport`); any other may publish its own.
  */
 export interface MindReport {
   readonly engagement: Engagement | null;
   readonly heading: number | null;
   readonly gait: GaitLimits | null;
   readonly navigation: NavigationReport | null;
+  readonly kit: readonly KitEntry[] | null;
+  readonly actions: readonly ActionStatus[] | null;
+  readonly ended: readonly Ended[] | null;
+  readonly menu: readonly MenuEntry[] | null;
 }
 
 /** What `skills` say of their mind, live (`MindReport`). */
 export function skillsReport(skills: Skills): MindReport {
   return { get engagement() { return skills.report.engagement ?? null; }, get heading() { return skills.report.heading; }, gait: skills.gait,
-    get navigation() { return skills.report.navigation ?? null; } };
+    get navigation() { return skills.report.navigation ?? null; }, kit: skills.kit, get actions() { return skills.report.actions; },
+    get ended() { return skills.report.ledger; }, get menu() { return skills.menu(); } };
 }
 
 /** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */

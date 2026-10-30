@@ -1,6 +1,8 @@
 import { atan2, hypot } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { nearSurface } from "./openings.ts";
+import { regionSegments } from "./action-aim.ts";
+import type { Region } from "../skills/action.ts";
 import type { BodySense, Senses } from "./senses.ts";
 
 /**
@@ -27,9 +29,10 @@ export function nearestFoe(senses: Senses, from: { readonly x: number; readonly 
 interface Surface { readonly at: Vec3; readonly squared: number; readonly foe: string; readonly part: string }
 
 /** **The nearest point of `foe`'s surface** to `from` that `accept` takes, of every segment, if nearer than `best`; `best` otherwise. */
-function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => boolean, best: Surface | null = null, region?: string): Surface | null {
+function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => boolean, best: Surface | null = null, region?: Region): Surface | null {
+  const within = region === undefined ? null : regionSegments(foe.spec, region);
   for (const segment of foe.spec.segments) {
-    if (region !== undefined && segment.name !== region) continue;
+    if (within !== null && !within.includes(segment.name)) continue;
     const at = nearSurface(foe, segment.name, from);
     if (!at || !accept(at)) continue;
     const dx = at[0] - from[0], dy = at[1] - from[1], dz = at[2] - from[2], squared = dx * dx + dy * dy + dz * dz;
@@ -42,7 +45,7 @@ function surfaceOn(foe: BodySense, from: Vec3, accept: (at: Vec3) => boolean, be
  * **The nearest point of a standing foe's surface** to `from` that `accept` takes, of every
  * segment of every one, with its squared distance; null where there is none.
  */
-export function nearestSurface(senses: Senses, from: Vec3, accept: (at: Vec3) => boolean, id?: string, region?: string): Surface | null {
+export function nearestSurface(senses: Senses, from: Vec3, accept: (at: Vec3) => boolean, id?: string, region?: Region): Surface | null {
   let best: Surface | null = null;
   for (const foe of senses.others) if (!foe.out && foe.side !== senses.side && (id === undefined || foe.id === id)) best = surfaceOn(foe, from, accept, best, region);
   return best;

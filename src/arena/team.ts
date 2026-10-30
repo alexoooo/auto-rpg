@@ -20,7 +20,7 @@ const OPEN_GROUND: TeamLevel = Object.freeze<TeamLevel>({
 });
 
 /** **One side of a bout led as a team of one** (`teamOfOne`): its Commander, and what the person leading it gives. */
-interface TeamOfOne {
+export interface TeamOfOne {
   readonly commander: Commander;
   /** The Commander's memory and its last raw orders, saved together when a team forks. */
   readonly state: { readonly commander: object; orders: Orders | null };
@@ -52,7 +52,8 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): Team
   const view = (): TeamView => {
     const report = duelist.minded.report;
     const member: MemberView = { id: side, at: at(side), fighting: !duel.eliminated(side), held: false, vitality: duel.life(side), radius, reach: attackMetres, home,
-      navigation: report?.navigation ?? null, gait: report?.gait ?? null, heading: report?.heading ?? null };
+      navigation: report?.navigation ?? null, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
+      get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; } };
     return { time: duel.clock, look: true, lead: team.lead, members: [member], others: [{ id: other, at: at(other), fighting: !duel.eliminated(other), down: duel.duelists[other].body.down }] };
   };
   const leading: Hook = duel.world.sense(() => {

@@ -11,7 +11,7 @@ const recipe = (config: WeaponConfig): RecipeConfig => ({ ...config, kind: "reci
 /** Held items use the shared recipe executor; an empty hand retains its committed punch. */
 export const VANGUARD_WEAPON: ExecutorPart<WeaponConfig> = {
   role: "executor", label: "Vanguard weapon strike", stage: "experimental",
-  defaults: { kind: "vanguard-weapon", name: "weapon" }, keys: { kind: true, name: true, tuning: true },
+  defaults: { kind: "vanguard-weapon", name: "weapon" }, keys: RECIPE_PART.keys,
   fields: [text("name", "Name")], slots: [], tuning: RECIPE_PART.tuning, effectors: RECIPE_PART.effectors, ...AIMED_ACTIONS,
   fits: (spec, config, parts) => RECIPE_PART.fits(spec, recipe(config), parts),
   faults: (config, parts) => RECIPE_PART.faults(recipe(config), parts),

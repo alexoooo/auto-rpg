@@ -17,7 +17,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 | punch | admitted, of 128 | 96 |
 | punch | fell, of 128 | 0 |
 | stand-up | stood, of the target's 32 Warrior falls, all made | 0 |
-| fight | score against the Duellist and Vanguard, 36 bouts | 0.68 (Duellist 0.72, Vanguard 0.64) |
+| fight | score against the Duellist and Vanguard, 60 bouts | 0.62 (Duellist 0.53, Vanguard 0.70) |
 
 ## What is used
 
@@ -32,7 +32,7 @@ reads what it touches by the same command and pairs it with `npm run compare`.
 
 ## Measurement
 
-Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `cc339f53`, options selected as a set, covers taking the blow predicted to reach the head, the goals made from the skills and the gaits among them, a running option kept by its cost of letting go alone): walk, punch and fight on
+Node, core world, 120 Hz, at `c43aa358` (the punch again at `3e6e204c`, the same trials with the target's sensed phase; the stand-up at `35faee00`, the fall bed; the fight at `d6200840`, options selected as a set, covers taking the blow predicted to reach the head, a covering face held between the foe's weapon and the body, the goals made from the skills and the gaits among them, a running option kept by its cost of letting go alone, the club blow at the head): walk, punch and fight on
 `rapier-coordinate`, stand-up on `rapier` (the falls fix it); reaction time 0.15 s, bout seed 0.
 The records:
 
@@ -41,15 +41,15 @@ The records:
 | walk | `assets/evaluations/baseline/2026-10-28-c43aa358-b68a3e72.jsonl` |
 | punch | `assets/evaluations/baseline/2026-10-29-3e6e204c-1be9aa1c.jsonl` |
 | stand-up | `assets/evaluations/baseline/2026-10-29-35faee00-1e9bfc4d.jsonl` |
-| fight | `assets/evaluations/baseline/2026-10-29-cc339f53-da3510a2.jsonl` |
+| fight | `assets/evaluations/baseline/2026-10-30-d6200840-c9c6450d.jsonl` |
 
-The fights are the standard match's loadouts Option Mind can strike with (empty hands, the club, the
-sword) at gaps 3, 4 and 5 m, on each side; with a buckler it strikes with nothing the body has, so
-those 24 are dropped. By opponent and side: the Duellist 6 of 9 on the left, 7 of 9 on the right;
-Vanguard 6 of 9 on the left, 5 of 9 and a draw on the right. The score is coarse here: many bouts
-end within 0.06 of even. Paired bout by bout with `ddba3991` (0.64, the covers taking the blow
-already closing on the head), the score moved +0.042 (95 % −0.111 to 0.194) and the life margin
-+0.026 (−0.039 to 0.084), 0.064 to 0.089. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
+The fights are the standard match's loadouts (empty hands, the club, the buckler and club, the
+sword, the buckler and sword) at gaps 3, 4 and 5 m, on each side, none dropped. By loadout, of 6
+bouts each against the Duellist and Vanguard: empty-handed 1.00 and 0.33, the club 0.33 and 1.00,
+the buckler and club 0.50 and 0.83, the sword 0.33 and 0.50, the buckler and sword 0.50 and 0.83.
+Holding the buckler and the club it throws the club blow in each of the 11 bouts read, 1 to 9 ended a bout; more
+of its asks stall short of the blow's window than end. The score is coarse here: 6 bouts a cell,
+and many bouts end within 0.06 of even. The walk falls in both turns about 1 s after turning at 1.9 m/s, and
 from a run it is still moving 4 s after the stop is asked. The whole command takes about 5 minutes
 on 12 workers, the fights 4 of them.
 

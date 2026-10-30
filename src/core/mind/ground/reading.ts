@@ -79,6 +79,9 @@ export function groundReading(built: ReadBody, dt: number) {
     sitting: new Set([trunk[0]!, ...indices, ...handsBoth, ...thighs]),
   };
   const bears = (i: number) => i >= 0 && reading.load[i]! >= BEARS;
+  /** Each segment's load through what it holds, as `load`'s: a hand on all fours bears on its shield or its club as on its palm. */
+  const heldLoad = new Float64Array(parts.length);
+  const bearsHolding = (i: number) => bears(i) || i >= 0 && heldLoad[i]! >= BEARS;
   /** Whether foot `f` is ahead of shank `s` the way the pelvis faces (`work.turn`, the root's turn as the lie reads it). */
   const ahead = (f: number, s: number): boolean => {
     centreOfToRef(parts[shank[s]!]!, work.knee);
@@ -103,7 +106,7 @@ export function groundReading(built: ReadBody, dt: number) {
     }
     if (bears(shank[0]!) && bears(shank[1]!)) {
       if (reading.upright >= KNEEL_UP && only(allowed.kneeling)) return "kneeling";
-      if (hands.every(side => side.some(bears)) && only(allowed.fours)) return "fours";
+      if (hands.every(side => side.some(bearsHolding)) && only(allowed.fours)) return "fours";
     }
     if (bears(trunk[0]!) && work.upper.y - work.lower.y >= SITTING && only(allowed.sitting)) return "sitting";
     if (trunk.some(bears)) {
@@ -117,12 +120,12 @@ export function groundReading(built: ReadBody, dt: number) {
     state,
     reset() { state.steps = 0; state.candidate = "between"; reading.position = "between"; reading.settled = false; },
     read(): GroundReading {
-      reading.load.fill(0);
+      reading.load.fill(0); heldLoad.fill(0);
       for (let i = 0; i < parts.length; i++) {
         for (const contact of built.physics.contactsOf(parts[i]!.body, fixed)) {
           if (contact.fixed === null) continue;
-          for (const pair of contact.pairs) if (shapeIsBody[i]![pair.mine] && -pair.normal[1] >= GROUND_UP && pair.impulse > 0 && weight > 0)
-            reading.load[i] += pair.impulse * -pair.normal[1] / (dt * weight);
+          for (const pair of contact.pairs) if (-pair.normal[1] >= GROUND_UP && pair.impulse > 0 && weight > 0)
+            (shapeIsBody[i]![pair.mine] ? reading.load : heldLoad)[i] += pair.impulse * -pair.normal[1] / (dt * weight);
         }
       }
       for (let i = 0; i < feet.length; i++) {

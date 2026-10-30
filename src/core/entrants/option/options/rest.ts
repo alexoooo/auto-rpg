@@ -2,6 +2,8 @@ import type { Resource, TargetRef } from "../../../skills/action.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import { legsReadiness } from "../../../skills/locomotion.ts";
+import { shieldHands } from "../../../mind/cover-hand.ts";
+import type { Cover } from "../../../mind/intent.ts";
 import { asking, blocked, NOTHING, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { here } from "./position.ts";
@@ -27,17 +29,26 @@ export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
 /**
  * **The hands at their guard**, where the legs can carry the body (`legsReadiness`): each of
  * `hands` (effectors, `hand.left`) it is given (a rest option takes whichever are free, `Chooser`)
- * asked for nothing, its guard the body's.
+ * asked for nothing, its guard the body's; each of `shields` among them (a hand holding a covering
+ * face) between a foe's weapon and the body while one is near (`Situation.ward`), as a shield's
+ * guard is held.
  */
-export function guard(hands: readonly Resource[]): Option {
+export function guard(hands: readonly Resource[], shields: readonly Resource[] = NOTHING): Option {
+  const covers: Record<string, Cover> = {};
   return { name: "guard", claims: Object.freeze([...hands]), state: {}, ...RESTING,
-    entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING }) };
+    entry: (now) => legsReadiness(now.sight.view), model: still,
+    step: (now) => {
+      const asked = { move: null, face: now.sight.report.heading, actions: [] };
+      if (!now.ward || !shields.length) return { asked, holds: NOTHING };
+      for (const hand of shields) covers[hand] = now.ward;
+      return { asked: { ...asked, guard: covers }, holds: NOTHING };
+    } };
 }
 
-/** **The guard of `spec`'s hands** (`guard`): over its hands (`hand.left`, `hand.right`), none for a body without. */
+/** **The guard of `spec`'s hands** (`guard`): over its hands (`hand.left`, `hand.right`), those holding a covering face its shields (`shieldHands`); none for a body without. */
 export const guardOf = (spec: BodySpec): readonly Option[] => {
   const hands = (["hand.left", "hand.right"] as const).filter((hand) => spec.segments.some((segment) => segment.name === hand));
-  return hands.length ? [guard(hands)] : [];
+  return hands.length ? [guard(hands, shieldHands(spec).filter((hand) => (hands as readonly string[]).includes(hand)))] : [];
 };
 
 /** A brace's target: none; the body acts on itself. */

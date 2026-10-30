@@ -1,7 +1,8 @@
-import type { ActionAround, Readiness, Region, Resource, TargetRef, Window } from "../../../skills/action.ts";
+import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../../../skills/action.ts";
 import { STANCE_LOWER } from "../../../skills/locomotion.ts";
 import { regionSegments } from "../../../mind/action-aim.ts";
 import { windowHolds } from "../../../mind/action-window.ts";
+import { orderAllows, orderedRegions } from "../../../mind/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../mind/config.ts";
 import type { PartLookup } from "../../../mind/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
@@ -100,8 +101,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
     if (!focus || !action.regions) return null;
-    const ordered = now.orders?.foe === focus.id && now.orders.region !== undefined ? [{ kind: "segment", segment: now.orders.region } as Region] : action.regions;
-    const region = ordered.find((r) => regionSegments(focus.spec, r).length > 0);
+    const region = orderedRegions(now.orders ?? null, focus.id, action.regions).find((r) => regionSegments(focus.spec, r).length > 0);
     return region ? { kind: "body", body: focus.id, region } : null;
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
@@ -111,6 +111,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   const scan = (now: Situation, target: TargetRef): { ready: Limb | null; placed: Limb | null } => {
     let placed: Limb | null = null;
     for (const limb of action.effectors) {
+      if (target.kind === "body" && !orderAllows(now.orders ?? null, target.body, action.name, limb)) continue;
       const ready = readiness(now, limb, target);
       if (ready.kind === "ready") return { ready: { limb, readiness: ready }, placed: null };
       if (ready.kind === "position") placed ??= { limb, readiness: ready };

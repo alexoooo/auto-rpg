@@ -13,12 +13,13 @@ import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../../mind/parts.ts";
-import { prepareTacticsSkills, type TacticsMaking } from "../../mind/tactics-part.ts";
+import { prepareTacticsSkills } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
+import { OPTION_FIGHT, type OptionMaking } from "./fight.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS, scriptsOf } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
@@ -55,6 +56,21 @@ const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch",
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
 /**
+ * **The club's blow**: the recipe strike (`recipe-strike`), its recipes the toed Warrior's searched
+ * on the Strike drill holding the buckler and the club (`assets/core/strikes.json`), thrown from a
+ * quarter second stood still and from where the body stands within 0.12 m along and 0.2 m across
+ * of a recipe's window, as they were searched; armed only, so an empty hand throws the punch.
+ */
+const CLUB: ExecutorEntry = deepFreeze({ name: "club", kind: "recipe-strike", armed: true, stand: .25, slack: { along: .12, across: .2 } });
+
+/**
+ * **The club blow**: the club's with the hand that holds it, at the head, aimed at its centre; the
+ * head alone, where its blow lands at both physics rates (`docs/reference/blows.md#the-toed-warriors-club-blow`).
+ */
+const CLUB_ACTION: ActionConfig = deepFreeze({ name: "club-blow", executor: "club", effectors: ["hand.right", "hand.left"],
+  regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } });
+
+/**
  * **The stomp's stroke**: the front kick's, its chamber high over the target, its height band low,
  * so it strikes down on a body lying ahead and nothing standing, from a window out where both feet
  * stand clear of a lying body's limbs ([stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)).
@@ -76,9 +92,9 @@ const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise:
  */
 const ON_TOES: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }]);
 
-/** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and its edges up on toes. */
+/** As it starts: by worth, the learned punch, the club blow, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and its edges up on toes. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: ON_TOES });
+  executors: [PUNCH, CLUB, STOMP], actions: [STRAIGHT_PUNCH_ACTION, CLUB_ACTION, STOMP_ACTION], ground: ON_TOES });
 
 /** The empty-handed Skeleton: the unlearned straight punch with either hand, and its flat-footed step-up. */
 const SKELETON: OptionMindConfig = deepFreeze({ ...OPTION_DEFAULTS,
@@ -115,23 +131,27 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   let skills: Skills;
   const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions });
-  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
-    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  skills = driveBy(body, optionTactics(making, Math.round(1 / host.clock.dt), config, host.seed, { executor: ground, registry }), (made, driving) =>
+  const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
+  const making: OptionMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
+    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts,
+    fightBy: (options) => optionTactics(making, hz, { ...config, options: options ?? null }, host.seed, rising) };
+  skills = driveBy(body, optionTactics(making, hz, config, host.seed, rising), (made, driving) =>
     scriptsOf(config.options ?? []).reduce((prepared, tactics) => prepareTacticsSkills(making, tactics, prepared, () => driving.decision), make(made, driving)));
   return { skills, state: skills.state };
 }
 
-/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
+/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value, the Cover drill's tactics and its own fight as one tactics, which a drill fights by until its moment. */
 export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS],
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS, OPTION_FIGHT],
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
   // A drill drives it by a script of its tactics in place of its options.
   drilled: (config, tactics) => ({ ...config, options: [{ kind: "scripted", tactics }] }),
+  // A drill fights by its own options until its moment.
+  fight: (config) => ({ kind: "option-fight", ...(config.options ? { options: config.options } : {}) }),
   fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,

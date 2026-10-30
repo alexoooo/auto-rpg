@@ -200,7 +200,7 @@ function bedFaults(fall: Pick<FallCase, "start" | "obstacle" | "level">): readon
  * **The fall bed**, every evaluated fall's whatever its mind: `fall`'s body built standing in its
  * mind's posture, facing +z, and enlisted as a fight enlists it (`enlist`), alone, its orders the
  * stand's verification's; at `SHOVED.first` s its middle trunk is shoved (`shoveBody`) by the fall's
- * impulse (unless given: a target's fall by the target's, `targetImpulse`; else the Lab's draw from
+ * impulse (unless given: a target's fall and an equipped one by the target's, `targetImpulse`; else the Lab's draw from
  * its seed) at its degrees from +z, and again the same way while it holds the shove (`SHOVED`). Its
  * rise has taken it over once it is first down by the fight's rule (`PhysicalBody.down`), and its
  * stand is verified as the Lab verifies one (`standCheck`), the body its own at the end. A body not
@@ -226,7 +226,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);
   const defaults = labAddress("?scenario=ground");
   const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
-  const degrees = drawn.degrees, impulse = fall.target && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
+  const degrees = drawn.degrees, impulse = (fall.target || fall.equipped) && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
   const shoving = shoveBody(body, world, () => 0);
   const wind = startWind(fighter.built, world, fall.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, fall.seed);
   const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;

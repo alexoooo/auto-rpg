@@ -40,6 +40,16 @@ export function windowHolds(window: Window, x: number, z: number, heading: numbe
 }
 
 /**
+ * **Where a body at `from` stands with `window`'s middle on it**, walking straight: the ground point
+ * and the way it faces there, rad. What a body tells of its window, a leader can walk it to.
+ */
+export function straightSpot(window: Window, from: GroundPoint): { readonly x: number; readonly z: number; readonly face: number } {
+  const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
+  const face = atan2(window.at[0] - from.x, window.at[2] - from.z) - atan2(across, along);
+  return { x: window.at[0] - along * sin(face) - across * cos(face), z: window.at[2] - along * cos(face) + across * sin(face), face };
+}
+
+/**
  * **A spot**: where a walk ends on the ground (`x`, `z`) and the way the body faces there (`face`,
  * rad); where the walk goes round a body, the way there (`route`, its last point the spot) and that
  * body (`by`, `MovementRequest`'s).

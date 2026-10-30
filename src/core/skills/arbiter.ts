@@ -1,3 +1,4 @@
+import { kitOf, menuOf } from "./menu.ts";
 import type { GaitName } from "./gaits.ts";
 import { stockClearance } from "../mind/clear-step.ts";
 import type { Intent } from "../mind/intent.ts";
@@ -84,8 +85,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const resume = (view: BodyView): void => {
     instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume();
   };
+  const kit = kitOf(executors, actions);
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
+    kit, menu: () => menuOf(kit, body.view, around, instances.readiness),
     clearance: navigation ?? stockClearance(body.built.spec),
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },

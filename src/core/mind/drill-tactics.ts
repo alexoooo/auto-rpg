@@ -22,7 +22,7 @@ import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "./tactics-par
  * point of no return (its `prepare`): it asks no more, and stands reading the action's readiness
  * until it is ready again (`let go`), then is done; an action past that point it asks to its end.
  * A drill reads the action's own motion from where the body stands. With `fight`, it fights
- * by those tactics until they ask their `moment`th action, and asks its own in that one's place
+ * by those tactics until they ask their `moment`th action of the mind's own (a rise's from the ground not counted), and asks its own in that one's place
  * from that step: a moment of a fight handed to the drill.
  */
 export interface DrillTacticsConfig {
@@ -75,7 +75,7 @@ function standing(window: Window, lean: number): Window {
   return { ...window, along: [window.along[0] - lean, window.along[1] - lean] };
 }
 
-function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactics<Sight, Intent> {
+function drillTactics(config: DrillTacticsConfig, fight: Tactics | null, strikes: ReadonlySet<string>): Tactics<Sight, Intent> {
   const state = { phase: (fight ? "fighting" : "lost") as DrillPhase, reason: "", focus: null as string | null, request: null as ActionRequest | null, started: false, since: null as number | null,
     /** When its action began, and when it let it go: null before. */
     began: null as number | null, let: null as number | null,
@@ -89,11 +89,11 @@ function drillTactics(config: DrillTacticsConfig, fight: Tactics | null): Tactic
     held: false, set: null as number | null,
     /** The actions its fight asked, by id, and how many. */
     asked: [] as number[], fight: fight?.state ?? null };
-  /** The fight's intent this step, or null from the step it asks its `moment`th action. */
+  /** The fight's intent this step, or null from the step it asks its `moment`th action of the mind's own (`TacticsMaking.actions`; not a rise's from the ground). */
   const fighting = (sight: Sight, dt: number): Intent | null => {
     const intent = fight!.decide(sight, dt);
     for (const request of intent.actions) {
-      if (state.asked.includes(request.id)) continue;
+      if (state.asked.includes(request.id) || !strikes.has(request.action)) continue;
       state.asked.push(request.id);
       if (state.asked.length >= (config.moment ?? 1)) { state.phase = "lost"; return null; }
     }
@@ -198,5 +198,5 @@ export const DRILL_TACTICS: TacticsPart<DrillTacticsConfig> = deepFreeze({
   kitFaults: (config, kit, parts) => config.fight ? (parts.of("tactics", config.fight).kitFaults?.(config.fight, kit, parts) ?? []).map((fault) => `fight: ${fault}`) : [],
   decisionCapabilities: (config, parts) => config.fight ? parts.of("tactics", config.fight).decisionCapabilities?.(config.fight, parts) ?? [] : [],
   prepareSkills: (making, config, skills, decision) => config.fight ? prepareTacticsSkills(making, config.fight, skills, decision) : skills,
-  make: (making, config) => drillTactics(config, config.fight ? tacticsOf(making, config.fight) : null),
+  make: (making, config) => drillTactics(config, config.fight ? tacticsOf(making, config.fight) : null, new Set(making.actions.map((action) => action.name))),
 });

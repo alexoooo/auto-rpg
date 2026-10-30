@@ -44,10 +44,10 @@ export const COVER: Evaluation<CoverCondition, CoverReading> = {
         "| Model | Holds | Across, m | Gap, m | Outcome | Head | Guard | Body | Taken | Head taken | Covering, s |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
         ...rows.filter((row) => row.subject === subject.id).map((r) =>
-          `| ${r.model} | ${r.held} | ${r.across} | ${r.gap} | ${r.outcome} | ${r.touches.head} | ${r.touches.guard} | ${r.touches.body} | ${r.taken.toFixed(2)} | ${r.headTaken.toFixed(2)} | ${r.covering.toFixed(2)} |`),
+          `| ${r.model} | ${r.left ? `${r.left}, ` : ""}${r.held} | ${r.across} | ${r.gap} | ${r.outcome} | ${r.touches.head} | ${r.touches.guard} | ${r.touches.body} | ${r.taken.toFixed(2)} | ${r.headTaken.toFixed(2)} | ${r.covering.toFixed(2)} |`),
         "",
       ]),
-      json: rows.map(({ subject, model, held, across, gap, outcome }) => ({ subject, model, held, across, gap, outcome })) as unknown as Json,
+      json: rows.map(({ subject, model, held, left, across, gap, outcome }) => ({ subject, model, held, ...(left ? { left } : {}), across, gap, outcome })) as unknown as Json,
     };
   },
 };
