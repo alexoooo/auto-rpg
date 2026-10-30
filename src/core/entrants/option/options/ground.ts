@@ -155,7 +155,8 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const why = unpriced.length ? `; unmeasured ${unpriced.join("; ")}` : "";
   const pricedBy = back ? `measured from the back${why}` : `by hand, no route measured to standing${why}`;
 
-  const onFeet = (g: GroundReading): boolean => g.position === "standing" || g.position === "crouch";
+  /** On its feet: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between. */
+  const onFeet = (g: GroundReading): boolean => g.onFeet || g.position === "standing" || g.position === "crouch";
   /** Whether a way up may be begun on the body: not tumbling, or braced its while (`BY_HAND.braced`, `state.tumbled`) since the rise began or its last attempt ended. */
   const calm = (g: GroundReading): boolean => !tumbling(g) || state.tumbled >= BY_HAND.braced;
   /**
@@ -198,10 +199,11 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   /**
    * An option that asks the ground action `name` on the side `side` gives, doing what `begin` and
    * `step` do as it is begun and each step; named `label` where the action's name does not say it.
+   * The side is read as the action is issued and kept while it runs: an action's effector is its identity.
    */
   const acting = (name: string, side: (now: Situation) => Side, entry: (now: Situation) => ReturnType<Option["entry"]>, status: (now: Situation, ended: boolean) => Status,
     model: Option["model"], begin?: (now: Situation) => void, step?: (now: Situation) => void, label = name): Option => {
-    const memory = { id: null as number | null };
+    const memory = { id: null as number | null, side: "left" as Side };
     const live = (now: Situation) => memory.id === null ? undefined : now.sight.report.actions.find((action) => action.id === memory.id);
     return {
       name: label, claims: WHOLE, state: memory, entry, model,
@@ -212,10 +214,10 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
         since(now.sight);
         step?.(now);
         if (memory.id === null) {
-          memory.id = now.sight.instance();
+          memory.id = now.sight.instance(); memory.side = side(now);
           if (state.current?.name === name && state.current.id === null) state.current.id = memory.id;
         }
-        const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action: name, effector: sideEffector(side(now)), target: HERE }] };
+        const asked = { move: null, face: now.sight.report.heading, actions: [{ id: memory.id, action: name, effector: sideEffector(memory.side), target: HERE }] };
         return { asked, holds: asking(now, asked) };
       },
     };

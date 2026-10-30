@@ -1,6 +1,6 @@
 import type { Body } from "../../body.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
-import { STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../../mind/config.ts";
+import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import { groundExecutor } from "../../mind/ground/held.ts";
@@ -69,9 +69,16 @@ const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp"
 /** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
-/** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and the game's stand-up's techniques. */
+/**
+ * The edges it rises by on toes (`docs/reference/rising.md#the-sit-back`): the roll onto its front,
+ * then down onto hands and knees and the sit-back, or the sit-back from the front, each priced by
+ * its profile.
+ */
+const ON_TOES: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }]);
+
+/** As it starts: by worth, the learned punch, the stomp, the gaits its options name (`GOING`), the shield guard, the support fold, and its edges up on toes. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: STAND_UP.techniques });
+  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION], ground: ON_TOES });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
