@@ -1327,7 +1327,20 @@ rest (settled and under 0.1 m/s, for up to 2 s), and the trial reads the positio
   shown as not opened. The route's edges are seen in play in the Lab's Stand-up scenario on the
   staged route ([the staged route](#the-staged-route)).
 
-Placed, at the commit the record names (begun, done of those begun, the median time to done):
+On toes, the Warrior at `3c0a093a` (`assets/evaluations/rise/2026-10-30-3c0a093a-356447aa.jsonl`
+placed, `-3cd5c8be.jsonl` moving; begun, done of those begun, the median time to done):
+
+| Edge | Placed | Time, s | Moving | Time, s |
+|---|---|---|---|---|
+| Roll | 18, 18 | 2.62 | 4, 4 | 2.82 |
+| Down | 6, 6 | 2.65 | 6, 5 | 2.79 |
+| Kneel-up | 6, 6 | 3.17 | 3, 3 | 1.68 |
+| Step-through | 5, 0 | | 3, 0 | |
+| Lunge | 2, 0 | | 0 | |
+| Sit-back | 6, 6 | 2.80 | 3, 3 | 2.66 |
+| Front sit-back | 6, 6 | 4.56 | 6, 5 | 4.90 |
+
+On flat feet, placed, at the commit the record names (begun, done of those begun, the median time to done):
 
 | Edge | Warrior | Time, s | Rogue | Time, s |
 |---|---|---|---|---|
