@@ -29,7 +29,7 @@ export function hold(walk: Pick<Walker, "facing" | "kept">): Option {
  * `hands` (effectors, `hand.left`) it is given (a rest option takes whichever are free, `Chooser`)
  * asked for nothing, its guard the body's.
  */
-export function guard(hands: readonly Resource[]): Option {
+function guard(hands: readonly Resource[]): Option {
   return { name: "guard", claims: Object.freeze([...hands]), state: {}, ...RESTING,
     entry: (now) => legsReadiness(now.sight.view), model: still, step: (now) => ({ asked: { move: null, face: now.sight.report.heading, actions: [] }, holds: NOTHING }) };
 }

@@ -1,5 +1,4 @@
 import { atan2 } from "../../../math/real.ts";
-import type { BodySpec } from "../../../spec/body.ts";
 import { paceToward } from "../../../control/stance-envelope.ts";
 import type { GaitName } from "../../../skills/gaits.ts";
 import { keepOut } from "../../../mind/clear-step.ts";
@@ -10,10 +9,10 @@ import type { Intent } from "../../../mind/intent.ts";
 type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">;
 
 /**
- * **How a standing option walks** a body of `spec`: what its gaits hold, under its orders' pace;
+ * **How a standing option walks**: what its gaits hold, under its orders' pace;
  * which way its focus is; and a walk kept clear of what the body must keep clear of.
  */
-export function walker(_spec: BodySpec) {
+export function walker() {
   /**
    * The speed the rule asks going `forward` and `right` (a direction, in the frame of the way the
    * body faces) with nothing ahead to stop for, m/s: what the gait holds that way (`paceToward`),

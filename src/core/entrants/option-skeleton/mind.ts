@@ -18,13 +18,11 @@ import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
-import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS, scriptsOf } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
 import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
 import { optionTactics } from "./tactics.ts";
-import { SKELETON_RECOVERY } from "./recovery.ts";
 import { SKELETON_GUARD } from "./guard.ts";
 
 /**
@@ -34,7 +32,7 @@ import { SKELETON_GUARD } from "./guard.ts";
  * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
  * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
  */
-export interface SkeletonOptionConfig {
+interface SkeletonOptionConfig {
   readonly kind: "option-skeleton";
   readonly chooser: PartConfig;
   readonly options?: readonly PartConfig[] | null;
@@ -45,7 +43,7 @@ export interface SkeletonOptionConfig {
   readonly support: PartConfig | null;
   readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  readonly ground: readonly PartConfig[];
+  readonly ground: readonly TechniqueConfig[];
   readonly motor?: PartConfig | null;
 }
 
@@ -81,8 +79,7 @@ const SLOTS: readonly Slot[] = Object.freeze([
 function optionMindFaults(config: SkeletonOptionConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config, parts)];
   if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
-  // The shared config type names stock techniques; the part lookup also resolves this entrant's own.
-  else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground as readonly TechniqueConfig[] }, parts).map((fault) => `ground: ${fault}`));
+  else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground }, parts).map((fault) => `ground: ${fault}`));
   return faults;
 }
 
@@ -96,7 +93,7 @@ function optionMindFaults(config: SkeletonOptionConfig, parts: PartLookup): read
 function createOptionMind(host: BodyHost, given: SkeletonOptionConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
-  const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground as readonly TechniqueConfig[] });
+  const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills;
   const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
@@ -108,11 +105,11 @@ function createOptionMind(host: BodyHost, given: SkeletonOptionConfig, wiring: M
   return { skills, state: skills.state };
 }
 
-/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and the Cover drill's tactics. */
+/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, options, position value, predictions and guard. */
 export const SKELETON_OPTION_MIND = controller<SkeletonOptionConfig>({
   role: "mind", label: "Option Mind — Skeleton", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS, SKELETON_RECOVERY, SKELETON_GUARD],
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, SKELETON_GUARD],
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],

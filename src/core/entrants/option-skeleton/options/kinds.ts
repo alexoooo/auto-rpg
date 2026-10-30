@@ -21,7 +21,7 @@ import type { Walker } from "./walk.ts";
  * actions it throws and a strike of each (`strike`), each gait as measured (`goings`), the
  * rise (`groundOptions`), the hands' covers (`covers`) and what tactics are made for (`TacticsMaking`, a script's).
  */
-export interface OptionsGiven {
+interface OptionsGiven {
   readonly spec: BodySpec;
   readonly walk: Walker;
   readonly actions: readonly ActionConfig[];
@@ -42,10 +42,10 @@ function kind<K extends string>(kind: K, label: string, make: (given: OptionsGiv
 }
 
 /** **Following the orders** a person gives (`followOrders`). */
-export const ORDERS_OPTION = kind("skeleton-orders", "Follow orders", (given) => [followOrders(given.walk, given.actions)]);
+const ORDERS_OPTION = kind("skeleton-orders", "Follow orders", (given) => [followOrders(given.walk, given.actions)]);
 
 /** **A strike** of each blow it throws (`strike`). */
-export const STRIKE_OPTION = kind("skeleton-strikes", "Strikes", (given) => given.strikes);
+const STRIKE_OPTION = kind("skeleton-strikes", "Strikes", (given) => given.strikes);
 
 /** A kind of footwork, `kind`, labelled `label`: an option a gait (`walkBy`), each going where it is worth most of the places `places` makes. */
 const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
@@ -55,25 +55,25 @@ const footwork = <K extends string>(name: K, label: string, places: (given: Opti
   });
 
 /** **Walking into a strike's window**: footwork to each strike's (`windowPlace`), so a new strike adds its own place. */
-export const WINDOWS_WALK = footwork("skeleton-walk-into-windows", "Walk into strike windows", (given) => given.strikes.map((one) => windowPlace(one, given.walk)));
+const WINDOWS_WALK = footwork("skeleton-walk-into-windows", "Walk into strike windows", (given) => given.strikes.map((one) => windowPlace(one, given.walk)));
 
 /** **Walking out of the focus's pressure**: footwork past where its modelled strikes reach (`outOfPressure`). */
-export const PRESSURE_WALK = footwork("skeleton-walk-out-of-pressure", "Walk out of pressure", (given) => [outOfPressure(given.walk)]);
+const PRESSURE_WALK = footwork("skeleton-walk-out-of-pressure", "Walk out of pressure", (given) => [outOfPressure(given.walk)]);
 
 /** **The rise**: down, the ground's options (`groundOptions`). */
-export const RISE_OPTION = kind("skeleton-rise", "Rise", (given) => given.ground.options);
+const RISE_OPTION = kind("skeleton-rise", "Rise", (given) => given.ground.options);
 
 /** **The cover** of the head by the hand on the side a blow closes from (`covers`). */
-export const COVER_OPTION = kind("skeleton-covers", "Cover", (given) => given.hands.options);
+const COVER_OPTION = kind("skeleton-covers", "Cover", (given) => given.hands.options);
 
 /** **Hold the position** (`hold`), a rest option. */
-export const HOLD_OPTION = kind("skeleton-hold-position", "Hold the position", (given) => [hold(given.walk)]);
+const HOLD_OPTION = kind("skeleton-hold-position", "Hold the position", (given) => [hold(given.walk)]);
 
 /** **The hands at their guard** (`guard`), a rest option over the body's hands, none for a body without. */
-export const GUARD_OPTION = kind("skeleton-hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
+const GUARD_OPTION = kind("skeleton-hands-at-guard", "Hands at guard", (given) => guardOf(given.spec));
 
 /** **Brace**, down (`Ground.rest`), a rest option. */
-export const BRACE_OPTION = kind("skeleton-brace", "Brace", (given) => [given.ground.rest]);
+const BRACE_OPTION = kind("skeleton-brace", "Brace", (given) => [given.ground.rest]);
 
 /** **A script**: the tactics a drill drives the body by (`Controller.drilled`), its orders, run whole. */
 interface ScriptedConfig {
@@ -102,9 +102,9 @@ function scripted(tactics: Tactics): Option {
 }
 
 /** **A script** (`scripted`): the tactics its config names, made as a mind's are (`tacticsOf`). */
-export const SCRIPTED_OPTION: OptionKindPart<ScriptedConfig> = deepFreeze({
+const SCRIPTED_OPTION: OptionKindPart<ScriptedConfig> = deepFreeze({
   role: "option", label: "Script", stage: "experimental", fields: [], slots: [slotOne("tactics", "Tactics", "tactics")],
-  defaults: { kind: "skeleton-scripted", tactics: { kind: "skeleton-drill-cover" } }, keys: { kind: true, tactics: true },
+  defaults: { kind: "skeleton-scripted", tactics: { kind: "stand" } }, keys: { kind: true, tactics: true },
   fits: anyBody, faults: () => [], make: (config: ScriptedConfig, given: OptionsGiven) => [scripted(tacticsOf(given.making, config.tactics))],
 });
 

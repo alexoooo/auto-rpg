@@ -26,7 +26,7 @@ export const around = (sight: Sight): ActionAround => ({ heading: sight.report.h
  * have been measured on (`measuredOn`, no reaction time: the senses give it at each decision), and
  * the strikes' profiles it is looked up among (`ProfileTables.strikes`).
  */
-export interface StrikeMeasure {
+interface StrikeMeasure {
   readonly spec: BodySpec;
   readonly measured: Measured;
   readonly profiles: readonly Profile[];

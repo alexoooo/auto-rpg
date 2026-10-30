@@ -12,23 +12,23 @@ import { FEW_TERMS_PART, type Place, type PositionValue } from "./position.ts";
 import { OBEDIENCE, STEADY, worth, type Obedience, type ObedienceLevel } from "./value.ts";
 
 /** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
-export interface Deciding { readonly rethink: number }
+interface Deciding { readonly rethink: number }
 
 /**
  * **Choosing by chance**: among the options worth more than the best less `margin` (in the worth's unit), one drawn in
  * proportion to what each is worth above that floor, from a stream begun at `seed`. A margin of
  * 0 draws nothing and takes the best.
  */
-export interface Chance { readonly margin: number; readonly seed: number }
+interface Chance { readonly margin: number; readonly seed: number }
 
 /** How a chooser decides (`Deciding`), by rank or by worth. */
 const DECIDING: Deciding = Object.freeze({ rethink: .2 });
 
 /** How a chooser prices the option at `i` of its options, now. */
-export type Appraise = (option: Option, i: number, now: Situation) => Offer;
+type Appraise = (option: Option, i: number, now: Situation) => Offer;
 
 /** **What a chooser decided**: the set running, the first chosen first (empty with none), and the situation it runs at. */
-export interface Chosen {
+interface Chosen {
   readonly set: readonly Option[];
   readonly at: Situation;
 }
@@ -37,7 +37,7 @@ export interface Chosen {
  * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
  * overlap. Its memory is in `state`, plain data.
  */
-export interface Chooser {
+interface Chooser {
   readonly state: object;
   /**
    * The set running and where (`Chosen`), after deciding at `now` if it has not yet this step.
@@ -67,7 +67,7 @@ export interface Chooser {
  * first chosen first), when it decided, when it next rethinks, the event it decided on, whether the
  * first chosen was at its exit, the offers it chose from, and, where it draws, its stream's word.
  */
-export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
+function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }): Chooser {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
   const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}) };
@@ -186,7 +186,7 @@ function drawn(values: readonly number[], floor: number, best: number, next: () 
 }
 
 /** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
-export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
+type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
 
 /**
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:

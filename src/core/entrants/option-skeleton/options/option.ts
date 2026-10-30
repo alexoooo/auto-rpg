@@ -27,7 +27,7 @@ export type Status = "committed" | "yields" | "exit" | "over";
 export type Asked = SelectedAsk["asked"];
 
 /** **An option's step**: what it asks, and what its asks hold (`Sight.needs`, `asking`), by resource. */
-export interface Step {
+interface Step {
   readonly asked: Asked;
   readonly holds: readonly Resource[];
 }

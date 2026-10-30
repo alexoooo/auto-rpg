@@ -25,7 +25,7 @@ export interface GaitOf {
 }
 
 /** A strike a gait's profile stops to throw: its action's name and its digest (`skillDigest`). */
-export interface Stopping {
+interface Stopping {
   readonly name: string;
   readonly skill: string;
 }
@@ -138,7 +138,7 @@ export function outOfPressure(walk: Walker): Destination {
  * (`Predictions.turns`), and as the gait leaves it (`Going`); out of a clinch (`CLINCH`), its chance
  * of going down behind.
  */
-export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker): Terms {
+function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker): Terms {
   const focus = now.focus!, centre = now.sight.view.stance.centre, offset = now.apart - now.range;
   const reach = edgeOf(now, now.predictions.pressure) + offset, points = spot.route ?? [spot];
   let duration = 0, inReach = 0, nearest = Infinity, x = centre.x, z = centre.z;

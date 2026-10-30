@@ -18,7 +18,7 @@ import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
  * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
  * it is braced as its rise reads them (`unbraced`; absent, braced at once).
  */
-export interface Reading {
+interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
   readonly rules: Rulebook;

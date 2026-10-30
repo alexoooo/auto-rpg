@@ -12,7 +12,7 @@ interface Config {
   readonly shoulder: number;
   readonly abduction: number;
   readonly elbow: number;
-  readonly againstBlades?: boolean;
+  readonly againstBlades: boolean;
 }
 
 /** The empty hands' symmetric rest, also used at construction and after a punch. */
@@ -30,7 +30,10 @@ export const SKELETON_GUARD: GuardPart<Config> = deepFreeze({
   fields: [number("shoulder", "Arm elevation", 0, 1.6, .05, "rad"), number("abduction", "Arm width", 0, .6, .05, "rad"), number("elbow", "Elbow bend", 0, 1.6, .05, "rad"),
     toggle("againstBlades", "Raise only against blades")],
   fits: fitsWhen(spec => spec.model === "crypt-skeleton" && !spec.held?.length, "needs an empty-handed Skeleton"),
-  faults: config => [config.shoulder, config.abduction, config.elbow].every(value => Number.isFinite(value) && value >= 0) ? [] : ["guard angles must be finite and nonnegative"],
+  faults: config => [
+    ...[config.shoulder, config.abduction, config.elbow].every(value => Number.isFinite(value) && value >= 0) ? [] : ["guard angles must be finite and nonnegative"],
+    ...typeof config.againstBlades === "boolean" ? [] : ["againstBlades must be a boolean"],
+  ],
   posture: (spec, config) => config.againstBlades ? guardPosture(spec) : posture(config),
   make(built, config) {
     const base = guardSkill(built.spec), raised = posture(config), ordinary = guardPosture(built.spec);

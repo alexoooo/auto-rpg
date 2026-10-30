@@ -3,7 +3,6 @@ import type { Spot } from "../../../mind/action-window.ts";
 import type { PositionPart } from "../../../mind/option-part.ts";
 import { anyBody } from "../../../mind/parts.ts";
 import { deepFreeze } from "../../../state.ts";
-import { hasBlade } from "../weapon.ts";
 import type { Situation } from "./option.ts";
 import type { Percepts } from "./percepts.ts";
 import { dealtAt, edgeOf } from "./percepts.ts";
@@ -23,7 +22,7 @@ export type Place = { readonly range: number; readonly down: number }
   & { readonly at?: Spot; readonly ready?: Readonly<Record<string, number>> };
 
 /** **A percept where `place` leaves the body** (`Place`): its prediction, where it names one; else as it is now. */
-export const atExit = <K extends Exclude<keyof Percepts, "range" | "down">>(now: Situation, place: Place, name: K): Percepts[K] =>
+const atExit = <K extends Exclude<keyof Percepts, "range" | "down">>(now: Situation, place: Place, name: K): Percepts[K] =>
   (place[name] ?? now[name]) as Percepts[K];
 
 /**
@@ -86,14 +85,14 @@ const turning = (now: Situation, place: Place): number => Math.abs(atExit(now, p
  * reach (`edgeOf`): what its own
  * strikes deal the focus there over the time a place is held once it is braced (`pressing`), less
  * what the focus's deal it over that time once it has turned to face the body (`pressure`,
- * `turning`), and the lead at stake: a positive lead risked within a blade's reach throughout
- * the bout, and the lead late in other exchanges, or a deficit kept out of its own reach.
+ * `turning`), and the lead at stake late in the bout: a lead risked within the foe's reach,
+ * or a deficit kept out of its own reach.
  *
  * Its rate of play is what holding the place costs a second: the focus's pressure where it stands,
  * and in a clinch (`CLINCH`) its falls, so an option that leaves the clinch gains what holding it
  * would have cost.
  */
-export const FEW_TERMS: PositionValue = deepFreeze({
+const FEW_TERMS: PositionValue = deepFreeze({
   name: "few terms",
   of(now: Situation, place: Place, seconds: number): number {
     const lead = now.lead, fallen = place.down * (place.posture ? now.predictions.downCostAt(place.posture) : now.predictions.downCost), focus = now.focus;
@@ -102,7 +101,7 @@ export const FEW_TERMS: PositionValue = deepFreeze({
     const exchange = dealtAt(now.predictions.pressing, now, place.range, Math.max(0, TERMS.held - atExit(now, place, "unbraced")))
       - dealtAt(now.predictions.pressure, now, place.range, Math.max(0, TERMS.held - turning(now, place)));
     const stake = lead > 0 ? place.range <= theirs ? lead : 0 : place.range <= mine ? 0 : -lead;
-    return lead - fallen + (1 - place.down) * (exchange - (lead > 0 && hasBlade(focus.spec) ? 1 : lateness(now, seconds)) * stake);
+    return lead - fallen + (1 - place.down) * (exchange - lateness(now, seconds) * stake);
   },
   rate(now: Situation): number {
     const focus = now.focus;

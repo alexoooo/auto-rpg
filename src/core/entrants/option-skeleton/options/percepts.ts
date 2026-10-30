@@ -49,7 +49,7 @@ type Threats = ReturnType<typeof threatReader>;
  * Its cue, where it has one, is what of it a chooser watches (`eventOf`): a change in the cue is an
  * event, on which the chooser decides at once.
  */
-export interface Percept<V> {
+interface Percept<V> {
   read(seen: Seen): V;
   cue?(value: V): unknown;
 }
@@ -195,7 +195,7 @@ const ownPhase = ({ sight }: Seen): string => sight.report.actions.length > 0 ? 
  * a body lying, or struck lying, with no strike measured from there deals none. The focus's on this
  * body (`pressure`), and this body's on the focus (`pressing`); none with no focus.
  */
-export interface Pressure {
+interface Pressure {
   readonly model: readonly ProfileReading[];
   readonly phase: string;
   readonly struck: BodySpec | null;
@@ -359,7 +359,7 @@ export const PERCEPTS = Object.freeze({
  * stale with that data; read when an option or the position value asks for it, once a step at most
  * (`predictor`).
  */
-export interface Prediction<V> {
+interface Prediction<V> {
   read(seen: Seen): V;
 }
 
@@ -371,7 +371,7 @@ export interface Prediction<V> {
  * (`closesOf`), m; how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
-export const PREDICTIONS = Object.freeze({
+const PREDICTIONS = Object.freeze({
   danger: { read: (seen) => lifeOf(seen, seen.blow) } as Prediction<number>,
   pressure: { read: pressureOf } as Prediction<Pressure>,
   pressing: { read: pressingOf } as Prediction<Pressure>,
