@@ -87,24 +87,7 @@ export function partOf<C extends PartConfig>(config: C): Part<C> {
   return part as Part<C>;
 }
 
-/**
- * **`mind` driven by a drill's `tactics`**: as its kind says (`Controller.drilled`), else with them
- * in its `tactics` slot; null for a mind with neither, which no drill drives.
- */
-export function drilledBy(mind: MindConfig, tactics: PartConfig): MindConfig | null {
-  const controller = isKind(mind.kind) ? CONTROLLERS[mind.kind] : undefined;
-  if (controller?.drilled) return controller.drilled(mind as never, tactics);
-  return "tactics" in mind ? { ...mind, tactics } as MindConfig : null;
-}
-
-/** **The tactics `mind` fights by**, as one tactics a drill fights by until its moment: its controller's (`Controller.fight`), else its `tactics` slot's; null where it has neither. */
-export function fightOf(mind: MindConfig): PartConfig | null {
-  const controller = isKind(mind.kind) ? CONTROLLERS[mind.kind] : undefined;
-  if (controller?.fight) return controller.fight(mind as never);
-  return "tactics" in mind ? mind.tactics as PartConfig : null;
-}
-
-/** **The first part of kind `kind` in `config`'s tree**, as plain data (a drill's tactics in a record's mind, wherever its kind puts them); null where none is. */
+/** **The first part of kind `kind` in `config`'s tree**, as plain data (a part in a record's mind, wherever its kind puts it); null where none is. */
 export function partIn(config: unknown, kind: string): PartConfig | null {
   if (!config || typeof config !== "object") return null;
   if (!Array.isArray(config) && (config as { kind?: unknown }).kind === kind) return config as PartConfig;

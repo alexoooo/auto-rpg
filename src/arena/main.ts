@@ -53,6 +53,7 @@ import { physicalReading } from "../core/observation.ts";
 import { arenaPlayback } from "./playback.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
+import { choicePanel, choiceWatch, pickedStrike } from "./choices.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -64,6 +65,11 @@ import { fighterHud } from "./fighter-hud.ts";
  * camera sees the ground, it faces the pointer, the left button attacks where the pointer is, and a
  * click on the floor sends it there. The page turns the keys and the pointer into world directions
  * (`orders-input.ts`) before the Commander reads them, so nothing of the camera reaches a mind.
+ *
+ * Each side shows its choices (`MenuEntry`, `choicePanel`); the person picks one of their side's,
+ * ordered as an attack with its action, limb and region, or lets the mind fight its own way. With
+ * pause on choice, the bout pauses where their side has a new one (`choiceWatch`), so a bout plays
+ * turn by turn, its orders on its tape.
  *
  * The bout is heard until its verdict: each body's touches and its air
  * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCues`). The verdict silences
@@ -391,7 +397,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let hudHook: Hook | null = null;
   /** The person's side as a team of one, while they lead it in the bout under way. */
   let led: ReturnType<typeof teamOfOne> | null = null;
+  /** Whether the bout pauses where the person's side has a new choice, and whether it is paused so now, for the person to pick. */
+  let pauseOnChoice = false, choosing = false;
+  const watch = choiceWatch();
   const end = () => {
+    watch.reset(); choosing = false;
+    for (const row of rows) row.choices.reset();
     hudHook?.dispose(); hudHook = null;
     led?.dispose(); led = null;
     for (const row of rows) row.condition.reset();
@@ -413,15 +424,29 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const condition = fighterHud(ARENA_SIDES[side].label);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
-    column.append(label, bar, condition.element, status, mind); hud.append(column);
-    return { side, label, bar, status, mind, condition, inspector: null as ReturnType<typeof mindInspector> | null };
+    // A pick goes to the person's side as an attack, as their pointer's strike does, and the bout goes on.
+    const choices = choicePanel((foe) => ARENA_SIDES[foe as Side]?.label ?? foe,
+      (entry) => { const strike = pickedStrike(entry); if (!led || !strike) return; led.hear({ kind: "attack", ...strike }); watch.picked(entry); setPaused(false); },
+      (foe) => { if (!led) return; led.hear({ kind: "attack", foe }); setPaused(false); });
+    column.append(label, bar, condition.element, status, choices.element, mind); hud.append(column);
+    return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
   pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
   pauseButton.setAttribute("aria-controls", "pause-menu");
-  clockColumn.append(clock, pauseButton, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  // Pause on choice, while the person leads a side; paused so, what to do and how to go on.
+  const choiceBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: pauseOnChoice });
+  const choiceLabel = document.createElement("label"), choosingLine = document.createElement("div");
+  const goOn = Object.assign(document.createElement("button"), { type: "button", className: "action quiet", textContent: "Go on" });
+  choiceLabel.className = "hud-choice-setting"; choiceLabel.append(choiceBox, " Pause on choice"); choiceLabel.hidden = true;
+  choosingLine.className = "hud-choosing"; choosingLine.hidden = true;
+  choosingLine.append(Object.assign(document.createElement("span"), { textContent: "A new choice: pick one under your side, or go on (Space)" }), goOn);
+  for (const control of [choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
+  choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; watch.reset(); });
+  goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
+  clockColumn.append(clock, pauseButton, choiceLabel, choosingLine, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -432,9 +457,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /** Whether the trial under way has played as long as it was scored, and when the next begins on its own. */
   let trialShown = false, nextTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const setPaused = (value: boolean) => {
+  /** Pauses or resumes the bout: paused for the menu, or for the person to pick a choice (`why: "choice"`), which shows no menu. */
+  const setPaused = (value: boolean, why: "menu" | "choice" = "menu") => {
     paused = value && duel !== null && !duel.verdict;
-    show("pause-menu", paused);
+    choosing = paused && why === "choice";
+    show("pause-menu", paused && !choosing);
+    choosingLine.hidden = !choosing;
     pauseButton.hidden = paused || !duel || !!duel.verdict;
     audio.setActive(!paused && duel !== null && !duel.verdict);
   };
@@ -522,6 +550,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
         if (given) bout.play(given.world.tape);
         else if (you) led = teamOfOne(bout, you, { kind: "party", picks: false });
+        choiceLabel.hidden = !led;
         for (const row of rows) {
           row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !given ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;
@@ -692,6 +721,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         ? `${fighter.body.has}${down !== undefined && duel.recipe.recoverySeconds ? ` - ${Math.max(0, duel.recipe.recoverySeconds - down).toFixed(1)} s recovery left` : " - getting up"}`
         : `${controller} - ${phase}`;
       if (row.mind.open) row.inspector?.refresh();
+      const leads = led !== null && row.side === you && !duel.verdict;
+      row.choices.refresh(fighter.minded.report?.menu ?? null, { picks: leads, opens: leads && choosing });
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
@@ -734,6 +765,10 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const beforePhysics = measurement ? performance.now() : 0;
       playback?.advance(seconds);
       if (measurement) physicsMs = performance.now() - beforePhysics;
+      // A new choice for the person's side pauses the bout for them to pick, where they asked so.
+      const own = you ? duel.duelists[you] : null, report = own?.minded.report;
+      if (pauseOnChoice && led && own && report?.menu && !duel.verdict
+        && watch.changed(report.menu, report.ended ?? [], own.body.down, duel.clock)) setPaused(true, "choice");
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
     if (!paused && !context.busy) arena.fire.burn(seconds);

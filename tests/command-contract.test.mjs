@@ -1,8 +1,8 @@
 /**
  * **What every registered Commander keeps to** (Node, core world, vendored Rapier, 120 Hz): each
  * Commander (`COMMANDERS`) leads the left side of an Arena bout as a team of one, as a person's side
- * is led (`teamOfOne`), until it has sent its member at the foe and the member stands within its
- * reach of it; the bout forks there and goes on to
+ * is led (`teamOfOne`), until it has given orders and its member stands within its reach of the foe,
+ * sent there or come upon; the bout forks there and goes on to
  * the bit with the team's memory and standing orders copied (`TeamOfOne.state`), and plays again to the bit from the orders it
  * gave alone (`Duel.play`), with no Commander. How well a Commander leads is measured apart.
  */
@@ -17,9 +17,9 @@ import { cryptModel } from "../src/dungeon/actors.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { teamOfOne } from "../src/arena/team.ts";
 
-/** The bout: two bodies a little beyond the member's reach, so that its Commander must send it in. */
+/** The bout: two bodies a little beyond the member's reach, so that one of them must close. */
 const RECIPE = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 2.5 });
-/** The longest it may take a Commander to send its member at the foe, s: the bout's own cap. */
+/** The longest it may take the two to close, s: the bout's own cap. */
 const REACH_SECONDS = 10;
 
 /** A bout of `RECIPE` whose left side `kind` leads as a team of one (`teamOfOne`), given its orders each step in the sensing phase, before every Mind. */
@@ -37,9 +37,9 @@ for (const kind of Object.keys(COMMANDERS)) {
     const a = await led(kind);
     let fork;
     try {
-      const closed = () => a.duel.tape.some((entry) => entry.orders?.foe === "right") && a.gap() <= a.reach;
+      const closed = () => a.duel.tape.some((entry) => entry.orders) && a.gap() <= a.reach;
       while (!closed() && a.duel.clock < REACH_SECONDS) { a.world.step(); a.trace.take(); }
-      assert.ok(closed(), `the ${kind} Commander did not bring its member within reach of the foe in ${REACH_SECONDS} s: the fixture did not reach its case`);
+      assert.ok(closed(), `the ${kind} Commander's member did not come within reach of the foe in ${REACH_SECONDS} s: the fixture did not reach its case`);
       // On past the next look, so that the fork decides on the memory it was given until then.
       const steps = a.world.hz;
       fork = { duel: a.duel.save(), team: saveState(a.teamState) };
@@ -64,3 +64,25 @@ for (const kind of Object.keys(COMMANDERS)) {
     } finally { a.dispose(); }
   });
 }
+
+test("a drill Commander orders nothing before its moment: the bout is its member's own to the bit until then", async () => {
+  const { MINDS } = await import("../src/core/mind/controllers.ts");
+  // The Vanguard's planner wraps another and prepares the skills: a mind with every layer a drill once had to pass through.
+  const mind = MINDS["vanguard-warrior"].config, foe = MINDS.counter.config;
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };
+  const plain = await buildBout(recipe, { engine: BOUT_ENGINE }), drilled = await buildBout({ ...recipe, commanders: { left: { kind: "drill", after: 0, pace: 1, moment: 2 } } }, { engine: BOUT_ENGINE });
+  const poses = (built) => SIDES.flatMap((side) => [...built.duel.duelists[side].built.segments.values()]
+    .flatMap(({ node: { position: p, rotationQuaternion: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
+  const task = () => drilled.duel.commanded("left")?.task;
+  try {
+    plain.duel.play([]); drilled.duel.play([]);
+    let steps = 0;
+    for (; task() === "fighting" && steps < 20 * 120; steps++) {
+      plain.world.step(); drilled.world.step();
+      if (task() === "fighting") assert.deepEqual(poses(drilled), poses(plain), `the bouts part at step ${steps + 1}, before the moment`);
+    }
+    assert.notEqual(task(), "fighting", "the fixture's fight never ended its first action in 20 s");
+    // The order the drill gives at its moment is on the tape at the step it was given, the last one played as the mind's own.
+    assert.deepEqual(drilled.duel.tape.filter((entry) => entry.step < steps - 1), [], "no order before the moment");
+  } finally { plain.dispose(); drilled.dispose(); }
+});

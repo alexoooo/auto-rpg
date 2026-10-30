@@ -177,7 +177,7 @@ export function isOrdersEntry(entry: unknown): entry is OrdersEntry {
 }
 
 /** The persisted order format, separate from live orders a caller queues with `Duel.play`. */
-export const ORDERS_PROTOCOL = "arena-orders/2";
+export const ORDERS_PROTOCOL = "arena-orders/3";
 
 export interface OrdersRecording {
   readonly identity: RecordingIdentity;

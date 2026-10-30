@@ -3,6 +3,7 @@ import { DRILL } from "./drill.ts";
 import { INDEPENDENT } from "./independent.ts";
 import { MOB } from "./mob.ts";
 import { PARTY } from "./party.ts";
+import { STAND } from "./stand.ts";
 
 /**
  * **Every Commander, by its kind** (`CommanderEntry`, its defaults' `kind`), in the order a picker
@@ -10,4 +11,4 @@ import { PARTY } from "./party.ts";
  * else: a case's code reads it as where each kind's own code begins (`caseCoder`,
  * `scripts/build-identity.mjs`).
  */
-export const COMMANDERS = { mob: MOB, independent: INDEPENDENT, party: PARTY, clearer: CLEARER, drill: DRILL };
+export const COMMANDERS = { mob: MOB, independent: INDEPENDENT, party: PARTY, clearer: CLEARER, drill: DRILL, stand: STAND };

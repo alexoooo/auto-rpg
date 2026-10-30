@@ -1,6 +1,4 @@
 import { BEHAVIOUR_TACTICS } from "./action-tactics.ts";
-import { GAIT_DRILL_TACTICS } from "./drill-gait.ts";
-import { DRILL_TACTICS } from "./drill-tactics.ts";
 import { SCRIPT_TACTICS } from "./script-tactics.ts";
 import { STAND_TACTICS } from "./stand-tactics.ts";
 
@@ -10,4 +8,4 @@ import { STAND_TACTICS } from "./stand-tactics.ts";
  * list and nothing else: a case's code reads it as where each kind's own code begins (`caseCoder`,
  * `scripts/build-identity.mjs`).
  */
-export const PLANNERS = { script: SCRIPT_TACTICS, stand: STAND_TACTICS, behaviours: BEHAVIOUR_TACTICS, drill: DRILL_TACTICS, "drill-gait": GAIT_DRILL_TACTICS };
+export const PLANNERS = { script: SCRIPT_TACTICS, stand: STAND_TACTICS, behaviours: BEHAVIOUR_TACTICS };

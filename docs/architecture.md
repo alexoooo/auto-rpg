@@ -760,10 +760,10 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   no action under way holding it, at most a second a run of blows; it claims that hand, asks it
   between the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS`
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
-- Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill drives it by its config (`drilled`): its options
-  one script of the drill's tactics (`scripted`, `kinds.ts`), chosen by its chooser and reporting
-  the drill's phase in its place. The Cover drill's tactics (`drill-cover.ts`), a part of its own,
-  stand and cover by its covers, its chooser and its situation.
+- Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill leads it by orders, as it leads any mind
+  (the `drill` and `stand` Commanders); firm orders to move or stand that name no foe keep its
+  follow-orders option running (`followOrders`, `options/orders.ts`), whose blows are those the
+  orders allow and whose ordered way round a body lying is not kept off it.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
@@ -815,11 +815,7 @@ what a body cannot play, and a riser refuses such a recipe. How far it stands ea
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
 posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
 (`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
-guard, behaviours, or a drill (`drill-tactics.ts`: one action at one mark of the nearest foe, asked
-once: it turns to its window, walks there no faster than its `pace` (with none, it never walks),
-and asks once it stands settled at the window's middle, or with `walking` the first step it is
-ready; with `fight`, it fights
-by those tactics until they ask their `moment`th action, and asks its own in that one's place). Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
+guard, or behaviours. Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
 one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
 behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
 `behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `mind/behaviours/`) fills what an
@@ -921,7 +917,7 @@ is the reference example.
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`, layered planner, `vanguard-plan`, contact selector, `vanguard-exchange`, walk,
    `vanguard-walk`, held-item recipe adapter, `vanguard-weapon`, and navigator, `vanguard-navigation`;
-   Option Mind's choosers, `valued` and `ranked`, and the Cover drill's tactics, `drill-cover`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
+   Option Mind's choosers, `valued` and `ranked`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter,
    Option Mind and a quadruped) and holds a stub of each role to it: chosen by config, run,
@@ -970,7 +966,7 @@ down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals
 
 Its host asks it once a step, after the senses and before every Mind. **A person's commands**
 (`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
-sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
+sensed foe (with an action, a limb and a region where it names them, `StrikeChoice`), face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
 The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
 side's Commander its options' config (`party`, `enemies`: the person's party and a mob, `RUN_COMMANDERS`, unless the page's
@@ -989,6 +985,8 @@ together when forked; its tape records delivered orders and replays without a Co
 | `mob` | `mob.ts` | the members that see a foe spread over the foes they see and, several on one, about it (`spread`, `bearings`, `spread.ts`): each makes for its place at its reach on the bearing it is given, by a waypoint halfway round where that is far round, and closes in from there; one that sees none goes on to where it last saw one, else home: the Crypt's enemies |
 | `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies where chosen |
 | `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in, and one held short of its slot by a companion standing near it stands where it is (`CROWDED`); doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
+| `drill` | `drill.ts` | a drill's subject, the team's first member (`DrillCommanderConfig`): one action with one limb at one region of the nearest foe, each named or the first of its member's menu that fits the rest (`MenuEntry`), ordered once its member stands settled in the action's window, walked there by the menu's spot (`MenuEntry.spot`, round a body lying) no faster than `pace`, or gone at from afar at a gait; with `letGo`, a stand ordered that long into the action; with `moment`, its member fights by itself until it begins that action and the drill's is ordered in its place. Its orders are firm (`Orders.firm`); it says its phase as its member's task (`drillTask`). It leads no side of a Crypt run |
+| `stand` | `stand.ts` | each member standing where it is, facing the nearest foe fighting, firmly and naming none, so its hands are held from blows and how it guards is its mind's: the Cover drill's subject. It leads no side of a Crypt run |
 | `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
@@ -1227,14 +1225,14 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
   Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
   the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
-  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, under
-  drill tactics: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
+  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, led by
+  the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
   0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
   `still`), with the hit points the striker lost in its contacts (`taken`); rungs `letgo` and
   `letgo-punched`, the opponent rungs' trials at `drill-stand` and `drill-punch` with the strike
   let go at each point of its wind-up, 0 to 0.15 s after it began, where still before its point of
-  no return (`DrillTacticsConfig.letGo`, the condition's `letGo`), read for when the hand was back
+  no return (`DrillCommanderConfig.letGo`, the condition's `letGo`), read for when the hand was back
   at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
   its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
@@ -1248,12 +1246,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the mark at all, its fastest touch read), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
   refused or waiting, fell, or a fight that never came to its moment); `gait` (a mind going at a
-  still Warrior by each gait at each speed under the drill's tactics, `drill-gait`, stopping where
+  still Warrior by each gait at each speed led by the drill Commander (`going`, `gait`), stopping where
   its first standing strike's window would admit it and striking: rung `stopped`, read for the
   speed it stopped from, the seconds from the stop to its strike admitted and whether it fell,
   `gait/read.ts`; the gaits' profiles regenerate from its records, `research/gait-profiles.mjs`,
   `assets/core/gait-profiles.json`); and `cover` (a mind standing
-  and covering under the drill's tactics, `drill-cover`, against a drill opponent striking on its
+  and covering under the stand Commander's orders, against a drill opponent striking on its
   script: rung `swung`, a club swung on a rhythm, `drill-swing`; rung `punched`, punches,
   `drill-punch`; a Warrior empty-handed or with a club, by offset and range: each touch read by
   where it met the subject, its head, its guard or the rest of it, the hit points it took and
@@ -1358,7 +1356,11 @@ and `?play=tools`.
 **The Arena.** A person may take a side (`&you=left`), which they lead as a team of one
 ([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
 facing and a sensed foe and segment (`src/arena/orders-input.ts`), and a click on the floor a go
-there; the Commander's orders reach the side as `Duel.order`. The room's solids (`arenaSolids(level)`)
+there; the Commander's orders reach the side as `Duel.order`. Each side lists its choices, its
+menu (`choicePanel`, `src/arena/choices.ts`); a person picks one of their side's, an attack with
+its action, limb and region, and with pause on choice the bout pauses where their side has a new
+one (`choiceWatch`: an entry an order can name turned ready, an action ended, a foe newly sensed,
+the body down or up), so a bout plays turn by turn and again from its tape. The room's solids (`arenaSolids(level)`)
 are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and

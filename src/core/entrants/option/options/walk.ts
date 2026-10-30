@@ -26,6 +26,11 @@ export function walker(_spec: BodySpec) {
   };
   return {
     pace,
+    /** The speed its gait holds forward, m/s, before any orders' pace: what a second of carrying out orders is priced by. */
+    stride(now: Situation): number {
+      const envelope = now.sight.envelope;
+      return envelope ? paceToward(envelope, 1, 0) : 0;
+    },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {
       const { focus, sight } = now;
@@ -33,11 +38,13 @@ export function walker(_spec: BodySpec) {
     },
     /**
      * `asked` kept out of what the body must keep clear of (`keepOut`): a solid's clearance and the
-     * reach of every fallen body but `exempt` (the one it means to be near), at the orders' pace.
-     * What each option that asks the legs asks them is kept so: a limit of the walk, not of the choice.
+     * reach of every fallen body but `exempt` (the one it means to be near), at the orders' pace
+     * and by their gait. What each option that asks the legs asks them is kept so: a limit of the
+     * walk, not of the choice.
      */
     kept<A extends Walk>(now: Situation, asked: A, exempt: string | null = null): A {
-      return keepOut(now.sight.view, now.sight.clearance, asked, exempt, now.orders?.pace);
+      const kept = keepOut(now.sight.view, now.sight.clearance, asked, exempt, now.orders?.pace), gait = now.orders?.gait;
+      return gait === undefined ? kept : { ...kept, gait };
     },
   };
 }

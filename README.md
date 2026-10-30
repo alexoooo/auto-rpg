@@ -59,6 +59,7 @@ fighter is doing and whether it connected. The bout is heard: footfalls, swings,
 | Left click on the floor | go there |
 | Middle or right drag, wheel | orbit and zoom the Free camera |
 | Space or Esc | pause and resume |
+| Choices, Pause on choice | what each side could do now; paused at a new choice of your side, a pick orders it, so a bout plays turn by turn |
 | R | the same bout again |
 | ? | the controls |
 

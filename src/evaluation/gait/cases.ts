@@ -1,6 +1,6 @@
 /**
- * **The Gait drill's cases**: the subject goes at a still target by a gait at a speed, stops where
- * its strike's window would admit it, and strikes (`drill-gait`, in its mind's tactics slot); how
+ * **The Gait drill's cases**: the subject's mind, led by the drill Commander, goes at a still target
+ * by a gait at a speed, stops where its strike's window would admit it, and strikes; how
  * long the gait left it unbraced, and whether it fell. The subject's body is the Warrior, its hands
  * empty, the strike its mind's first thrown standing, at the middle mark with each hand; the target
  * a Warrior standing in guard (`drill-stand`), set the protocol's gap ahead on the stage's own axis
@@ -9,8 +9,8 @@
  */
 import { MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { drilledBy } from "../../core/mind/catalog.ts";
-import type { GaitDrillConfig } from "../../core/mind/drill-gait.ts";
+import { treeObeys } from "../../core/mind/catalog.ts";
+import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import { GAIT_NAMES, type GaitName } from "../../core/skills/gaits.ts";
@@ -45,23 +45,25 @@ function actionOf(mind: MindConfig): string | null {
   return actions.find((action) => action.lower === undefined)?.name ?? null;
 }
 
-/** The subject's mind going by `gait` at `speed`, stopping and striking with `hand`: `mind` with the drill in its tactics' slot. */
-export function goer(mind: MindConfig, gait: GaitName, speed: number, hand: GaitHand): MindConfig {
+/**
+ * The subject's side going by `gait` at `speed`, stopping and striking with `hand`: `mind` as given,
+ * led by the drill Commander, which goes at the foe at `speed` (`going`), walks back into the
+ * window by the gait no faster, and orders the strike the first step it is ready (`walking`).
+ */
+export function goer(mind: MindConfig, gait: GaitName, speed: number, hand: GaitHand): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
   const action = actionOf(mind);
   if (action === null) throw new Error(`a ${mind.kind} mind throws nothing standing`);
-  const tactics: GaitDrillConfig = { kind: "drill-gait", action, effector: `hand.${hand}`, mark: "middle", gait, speed };
-  const drilled = drilledBy(mind, tactics);
-  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
-  return deepFreeze(drilled);
+  const commander: DrillCommanderConfig = { kind: "drill", action, limb: `hand.${hand}`, region: { kind: "mark", mark: "middle" }, after: 0, going: speed, pace: speed, walking: true, gait };
+  return deepFreeze({ mind, commander });
 }
 
 /** Why `value` is no subject, or what keeps its mind from `model` with empty hands (`mindFaults`). */
 function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const mind = value as unknown as MindConfig | null;
-  if (!mind || typeof mind !== "object" || !drilledBy(mind, { kind: "drill-gait" })) return ["a subject is a mind a drill drives"];
+  if (!mind || typeof mind !== "object" || !treeObeys(mind)) return ["a subject is a mind that carries out orders, which a drill leads by"];
   if (actionOf(mind) === null) return ["a subject's mind throws a strike standing"];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  return mindFaults(goer(mind, "braced", 1, "right"), modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
+  return mindFaults(mind, modelHolding(model, { left: "empty", right: "empty" }, subject?.character), { entry: [] }).map((fault) => `${model}: ${fault}`);
 }
 
 function gaitCases(protocol: typeof GAITS_ASKED): Cases<GaitCondition, GaitReading> {
@@ -74,12 +76,15 @@ function gaitCases(protocol: typeof GAITS_ASKED): Cases<GaitCondition, GaitReadi
     conditions,
     seconds: protocol.seconds,
     faults: (value, { model }, subject) => faultsOf(value, model, subject),
-    world: ([value], { model, gait, speed, hand }, engine, [character]) => ({ kind: "bout", engine, tape: [],
+    world: ([value], { model, gait, speed, hand }, engine, [character]) => {
+      const going = goer(value as unknown as MindConfig, gait, speed, hand);
+      return { kind: "bout", engine, tape: [],
       // A drill, not a fight: nothing ends it but its reader.
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are.
         start: { left: { at: [-protocol.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [protocol.gap / 2, 0], heading: -Math.PI / 2 } },
-        minds: { left: goer(value as unknown as MindConfig, gait, speed, hand), right: MINDS["drill-stand"]!.config as MindConfig } } }),
+        minds: { left: going.mind, right: MINDS["drill-stand"]!.config as MindConfig }, commanders: { left: going.commander } } };
+    },
     read: (built) => readGait(built, protocol),
   };
 }

@@ -49,6 +49,9 @@ export const OBEDIENCE: readonly (readonly [value: ObedienceLevel, name: string,
 /** The steady level: the valued chooser's own. */
 export const STEADY: Obedience = OBEDIENCE[1]![2];
 
+/** Orders first: the level firm orders are carried out at (`Orders.firm`), whatever the chooser's own. */
+const FIRST: Obedience = OBEDIENCE[2]![2];
+
 /**
  * **An option's worth beside the defaults holding the position**, life, by `position`: its payoff
  * (the focus's life it takes, more where the orders name the focus, less its own it loses beyond
@@ -62,8 +65,8 @@ export const STEADY: Obedience = OBEDIENCE[1]![2];
 export function worth(terms: Terms, now: Situation, obedience: Obedience, position: PositionValue): { readonly worth: number; readonly moves: number; readonly letGo: number } {
   const moves = position.of(now, terms.exit, terms.duration) - position.of(now, here(now), 0), rate = position.rate(now);
   const letGo = terms.letGo ? Math.max(0, terms.letGo.taken + rate * terms.letGo.seconds) : 0;
-  const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id;
-  return { worth: terms.dealt * (named ? 1 + obedience.foe : 1) - (terms.taken - now.predictions.danger) + obedience.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
+  const named = now.orders?.foe !== undefined && now.orders.foe === now.focus?.id, obeying = now.orders?.firm ? FIRST : obedience;
+  return { worth: terms.dealt * (named ? 1 + obeying.foe : 1) - (terms.taken - now.predictions.danger) + obeying.metre * terms.orders + moves - rate * terms.duration, moves, letGo };
 }
 
 /** How fast a limb closes on what it strikes in a blow not under way to measure, m/s. */

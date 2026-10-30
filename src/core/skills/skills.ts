@@ -50,6 +50,8 @@ export interface SkillReport {
   readonly legs: LegsUnmet;
   readonly actions: readonly ActionStatus[];
   readonly ledger: readonly Ended[];
+  /** The hands its guard put a cover before a threat with at its last step, by segment (`Intent.guard`). */
+  readonly covering: readonly string[];
   readonly engagement?: Tactics["engagement"];
   readonly support?: SupportReport;
   readonly holders: Holders;

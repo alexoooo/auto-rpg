@@ -13,15 +13,13 @@ import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../../mind/parts.ts";
-import { prepareTacticsSkills } from "../../mind/tactics-part.ts";
+import type { TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
-import { COVER_DRILL_TACTICS } from "./drill-cover.ts";
-import { OPTION_FIGHT, type OptionMaking } from "./fight.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
-import { OPTION_KINDS, OPTIONS, scriptsOf } from "./options/kinds.ts";
+import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
 import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
 import { optionTactics } from "./tactics.ts";
@@ -115,8 +113,7 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
 /**
  * **An Option Mind fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
  * layer (`fighterSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its tactics (`optionTactics`), the skills prepared for each
- * script among its options (`scriptsOf`, `prepareTacticsSkills`). Its blows are those its body
+ * (`groundExecutor`), decided by its tactics (`optionTactics`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
@@ -128,26 +125,20 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions });
   const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
-  const making: OptionMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
-    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts,
-    fightBy: (options) => optionTactics(making, hz, { ...config, options: options ?? null }, host.seed, rising) };
-  skills = driveBy(body, optionTactics(making, hz, config, host.seed, rising), (made, driving) =>
-    scriptsOf(config.options ?? []).reduce((prepared, tactics) => prepareTacticsSkills(making, tactics, prepared, () => driving.decision), make(made, driving)));
+  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
+    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
+  skills = driveBy(body, optionTactics(making, hz, config, host.seed, rising), make);
   return { skills, state: skills.state };
 }
 
-/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value, the Cover drill's tactics and its own fight as one tactics, which a drill fights by until its moment. */
+/** **Option Mind** as an entrant: a chooser over its options, on its percepts, over the toolkit's body layer. Its own parts are its choosers, its kinds of option, its position value and its predictions. */
 export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS, OPTION_FIGHT],
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS],
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
-  // A drill drives it by a script of its tactics in place of its options.
-  drilled: (config, tactics) => ({ ...config, options: [{ kind: "scripted", tactics }] }),
-  // A drill fights by its own options until its moment.
-  fight: (config) => ({ kind: "option-fight", ...(config.options ? { options: config.options } : {}) }),
   fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,

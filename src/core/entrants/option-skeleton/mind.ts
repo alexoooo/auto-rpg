@@ -13,13 +13,13 @@ import type { PartLookup } from "../../mind/lookup.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../../mind/parts.ts";
-import { prepareTacticsSkills, type TacticsMaking } from "../../mind/tactics-part.ts";
+import type { TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
-import { OPTION_KINDS, OPTIONS, scriptsOf } from "./options/kinds.ts";
+import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
 import { FEW_TERMS_PART } from "./options/position.ts";
 import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
 import { optionTactics } from "./tactics.ts";
@@ -30,7 +30,7 @@ import { SKELETON_GUARD } from "./guard.ts";
  * `OPTIONS` where none are given), what it predicts from (`predictions`, the measured profiles
  * unless given), the parts its body layer is made from (legs, navigation, guard, low support,
  * executors and the actions they carry out, motor) and the techniques it rises by from the ground, in
- * rank order. A drill drives it by its options: a script of the drill's tactics (`drilled`).
+ * rank order.
  */
 interface SkeletonOptionConfig {
   readonly kind: "option-skeleton";
@@ -86,8 +86,7 @@ function optionMindFaults(config: SkeletonOptionConfig, parts: PartLookup): read
 /**
  * **An Option Mind fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
  * layer (`fighterSkills`) and the ground executor of its techniques
- * (`groundExecutor`), decided by its tactics (`optionTactics`), the skills prepared for each
- * script among its options (`scriptsOf`, `prepareTacticsSkills`). Its blows are those its body
+ * (`groundExecutor`), decided by its tactics (`optionTactics`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: SkeletonOptionConfig, wiring: MindWiring) {
@@ -100,8 +99,7 @@ function createOptionMind(host: BodyHost, given: SkeletonOptionConfig, wiring: M
     { executors: [ground.binding], actions: ground.actions });
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
     aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  skills = driveBy(body, optionTactics(making, Math.round(1 / host.clock.dt), config, host.seed, { executor: ground, registry }), (made, driving) =>
-    scriptsOf(config.options ?? []).reduce((prepared, tactics) => prepareTacticsSkills(making, tactics, prepared, () => driving.decision), make(made, driving)));
+  skills = driveBy(body, optionTactics(making, Math.round(1 / host.clock.dt), config, host.seed, { executor: ground, registry }), make);
   return { skills, state: skills.state };
 }
 
@@ -113,8 +111,6 @@ export const SKELETON_OPTION_MIND = controller<SkeletonOptionConfig>({
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
-  // A drill drives it by a script of its tactics in place of its options.
-  drilled: (config, tactics) => ({ ...config, options: [{ kind: "skeleton-scripted", tactics }] }),
   fits: fitsAll<SkeletonOptionConfig>(takesCommands,
     fitsWhen((spec) => spec.model === "crypt-skeleton" && !spec.held?.length, "needs an empty-handed Skeleton"),
     (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),

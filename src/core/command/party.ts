@@ -4,7 +4,7 @@ import { cos, sin } from "../math/real.ts";
 import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import { travelSpeed } from "../mind/travel.ts";
-import type { Command, DrawnRoute, TeamOrder } from "./commands.ts";
+import type { Command, DrawnRoute, StrikeChoice, TeamOrder } from "./commands.ts";
 import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";
 
@@ -37,6 +37,10 @@ const SLOTS = Object.freeze({ apart: 1.3, rings: [1.4, 2.8] });
 const CROWDED = Object.freeze({ metres: 2.5, headway: 0.1, seconds: 3 });
 
 const IDLE: TeamOrder = Object.freeze({ kind: "idle" });
+
+/** What `of` names of how to strike, and nothing it leaves out. */
+const choiceOf = (of: StrikeChoice): StrikeChoice => ({ ...(of.action === undefined ? {} : { action: of.action }),
+  ...(of.limb === undefined ? {} : { limb: of.limb }), ...(of.region === undefined ? {} : { region: structuredClone(of.region) }) });
 
 /** What the party remembers of a member. */
 interface Memory {
@@ -73,7 +77,7 @@ export interface PartyConfig {
 /**
  * **A person's party**: the leader (the team's first member) goes where its person steers or
  * explores by itself; the others follow it at `TRAIL_METRES` or hold where they were last sent.
- * Each fights the foe its order locks, or, unless its config says not (`PartyConfig.picks`), the
+ * Each fights the foe its order locks, struck as the order names (`StrikeChoice`), or, unless its config says not (`PartyConfig.picks`), the
  * nearest it sees; members sent to one point, or along one drawn route, take slots about its end, no
  * faster than the slowest of them goes (`travelSpeed`), so that they arrive together; a member whose
  * way is shut by a door goes to open it first. A person's command (`Command`) replaces what the
@@ -299,7 +303,7 @@ export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
           return;
         }
         case "attack":
-          for (const member of members) ordered(member, { kind: "lock", target: command.foe }).facing = null;
+          for (const member of members) ordered(member, { kind: "lock", target: command.foe, ...choiceOf(command) }).facing = null;
           return;
         case "face":
           for (const member of members) {
@@ -370,7 +374,8 @@ export function partyCommander(host: TeamHost, config: PartyConfig): Commander {
         const face = strike && aim ? direction(member.at, aim) : target ? direction(member.at, target.at) : aim ? direction(member.at, aim) : mind.facing;
         const order = mind.order, pace = target && order.kind !== "force" ? undefined : ceiling(view, order);
         orders.set(member.id, { move, face, ...(pace === undefined ? {} : { pace }), ...(steers && lead?.walk && move ? { walk: true as const } : {}),
-          ...(strike ? { foe: strike.foe, region: { kind: "segment", segment: strike.region } } : order.kind !== "force" && target?.fighting ? { foe: target.id } : {}) });
+          ...(strike ? { foe: strike.foe, region: { kind: "segment", segment: strike.region } } : order.kind !== "force" && target?.fighting
+            ? { foe: target.id, ...(order.kind === "lock" && order.target === target.id ? choiceOf(order) : {}) } : {}) });
         if (move?.kind === "place") {
           if (mind.opening) state.notice = "Approaching door";
           else if (reportOf(member, move)?.status === "unreachable") state.notice = "Destination unreachable";

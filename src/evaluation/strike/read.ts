@@ -9,7 +9,7 @@ import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../../core/build/rigid.ts";
 import { jointAngles } from "../../core/build/joint-state.ts";
 import { regionSegments } from "../../core/mind/action-aim.ts";
-import type { DrillPhase } from "../../core/mind/drill-tactics.ts";
+import { drillTask, type DrillPhase } from "../../core/command/drill.ts";
 import { sensedPhase } from "../../core/mind/threat.ts";
 import { centreReading } from "../../core/observation.ts";
 import { aimOf, holdsNothing } from "../../core/skills/strikes.ts";
@@ -180,8 +180,9 @@ export interface Ending { readonly seconds: number; readonly settle: number; rea
 
 /**
  * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
- * the right side's `mark`, ending as `ending` says, a hand's judged by `bar`. The striker's actions
- * while its drill is fighting (`DrillPhase`) are the fight's, not the drill's.
+ * the right side's `mark`, ending as `ending` says, a hand's judged by `bar`, its side led by the
+ * drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while its drill is
+ * fighting (`DrillPhase`) are the fight's, not the drill's.
  */
 export function readStrike({ world, duel }: { readonly world: World; readonly duel: Duel }, limbAsked: { readonly mark: Mark } & Limb,
   ending: Ending, bar: Bar = BAR): Reader<StrikeReading> {
@@ -279,13 +280,15 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   };
   return {
     afterStep() {
-      if (skills.report.engagement?.phase === "fighting") {
+      const drill = drillTask(duel.commanded("left")?.task ?? "lost");
+      if (drill.phase === "fighting") {
         fought = true;
         for (const one of skills.report.actions) before.add(one.id);
         return;
       }
       if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
-      const action = skills.report.actions.find((one) => !before.has(one.id));
+      // The drill's action: the first with the asked limb at a body that the fight did not ask.
+      const action = skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body");
       if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed(); againstChest(rest); }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
@@ -298,8 +301,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         const dx = tip.x - aimed[0], dy = tip.y - aimed[1], dz = tip.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (nearest === null || apart < nearest) nearest = apart;
       }
-      const drill = skills.report.engagement?.phase;
-      if (drill === "let go" && letAt === null) { letAt = world.time; againstChest(was); }
+      if (drill.phase === "let go" && letAt === null) { letAt = world.time; againstChest(was); }
       else if (letAt !== null && again === null) {
         againstChest(held);
         const moved = Vector3.Distance(held, was) / world.dt;
@@ -307,10 +309,9 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         was.copyFrom(held);
       }
       if (id === null) {
-        const engagement = skills.report.engagement;
-        phase = (engagement?.phase ?? "lost") as DrillPhase;
+        phase = drill.phase;
         if ((phase === "ready" || phase === "striking") && ready === null) { ready = world.time; foeBegan ??= sensed(); }
-        reason = engagement?.details?.find((detail) => detail.label === "readiness")?.value ?? "";
+        reason = drill.reason;
       }
       if (id !== null && times.ended === null) {
         pointOfToRef(limb, aim, point);
