@@ -96,10 +96,6 @@ const ON_TOES: readonly TechniqueConfig[] = deepFreeze([{ kind: "staged-roll" },
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: { kind: "valued", depth: 2 }, options: OPTIONS, locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
   executors: [PUNCH, CLUB, STOMP], actions: [STRAIGHT_PUNCH_ACTION, CLUB_ACTION, STOMP_ACTION], ground: ON_TOES });
 
-/** The empty-handed Skeleton: the unlearned straight punch with either hand, and its flat-footed step-up. */
-const SKELETON: OptionMindConfig = deepFreeze({ ...OPTION_DEFAULTS,
-  executors: [{ ...PUNCH, learned: false }], actions: [STRAIGHT_PUNCH_ACTION], ground: [{ kind: "step-up" }] });
-
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
   slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults),
@@ -155,10 +151,7 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,
-  presets: deepFreeze({
-    option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"], character: { toes: true } },
-    "option-skeleton-reference": { label: "Option Mind — Skeleton reference", config: SKELETON, models: ["crypt-skeleton"], character: { toes: false }, offered: false },
-  }),
+  presets: deepFreeze({ option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"], character: { toes: true } } }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createOptionMind,
 });
