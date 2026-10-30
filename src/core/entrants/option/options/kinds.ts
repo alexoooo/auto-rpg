@@ -1,25 +1,22 @@
 import type { ActionConfig } from "../../../mind/config.ts";
 import type { OptionPart } from "../../../mind/option-part.ts";
-import { anyBody, slotOne, type KeysOf, type PartConfig } from "../../../mind/parts.ts";
-import { tacticsOf, type TacticsMaking } from "../../../mind/tactics-part.ts";
-import type { Cover } from "../../../mind/intent.ts";
-import type { Tactics } from "../../../mind/tactics.ts";
+import { anyBody, type KeysOf, type PartConfig } from "../../../mind/parts.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { covers } from "./cover.ts";
 import type { Ground } from "./ground.ts";
-import { asking, READY, WHOLE, type Option } from "./option.ts";
+import type { Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
 import { outOfPressure, walkBy, windowPlace, type Destination } from "./places.ts";
 import type { Going } from "./position.ts";
-import { guardOf, hold, still } from "./rest.ts";
+import { guardOf, hold } from "./rest.ts";
 import type { StrikeOption } from "./strike.ts";
 import type { Walker } from "./walk.ts";
 
 /**
  * **What Option Mind gives each kind of its options** to make them from: its body's spec, its walk, the
  * actions it throws and a strike of each (`strike`), each gait as measured (`goings`), the
- * rise (`groundOptions`), the hands' covers (`covers`) and what tactics are made for (`TacticsMaking`, a script's).
+ * rise (`groundOptions`) and the hands' covers (`covers`).
  */
 export interface OptionsGiven {
   readonly spec: BodySpec;
@@ -29,7 +26,6 @@ export interface OptionsGiven {
   readonly gaits: readonly Going[];
   readonly ground: Ground;
   readonly hands: ReturnType<typeof covers>;
-  readonly making: TacticsMaking;
 }
 
 /** **A kind of Option Mind's options** (`OptionPart`): made from what Option Mind gives (`OptionsGiven`). */
@@ -75,46 +71,8 @@ export const GUARD_OPTION = kind("hands-at-guard", "Hands at guard", (given) => 
 /** **Brace**, down (`Ground.rest`), a rest option. */
 export const BRACE_OPTION = kind("brace", "Brace", (given) => [given.ground.rest]);
 
-/** **A script**: the tactics a drill drives the body by (`Controller.drilled`), its orders, run whole. */
-interface ScriptedConfig {
-  readonly kind: "scripted";
-  readonly tactics: PartConfig;
-}
-
-/**
- * `tactics` as one option: always on offer and committed, over the whole body, worth keeping the
- * body as it is (`still`); its step is what they decide, and it reports what they do. Its memory is
- * theirs.
- */
-function scripted(tactics: Tactics): Option {
-  return {
-    name: tactics.name, state: tactics.state ?? {}, claims: WHOLE, engagement: tactics.engagement,
-    get decision() { return tactics.decision; },
-    entry: () => READY, status: () => "committed", begin() {}, end() {}, model: still,
-    step(now, dt) {
-      const { guard, ...rest } = tactics.decide(now.sight, dt), covers: Record<string, Cover> = {};
-      // A hand with no cover holds the guard's pose, as one not named does.
-      for (const [hand, cover] of Object.entries(guard)) if (cover) covers[hand] = cover;
-      const asked = { ...rest, guard: covers };
-      return { asked, holds: asking(now, asked) };
-    },
-  };
-}
-
-/** **A script** (`scripted`): the tactics its config names, made as a mind's are (`tacticsOf`). */
-export const SCRIPTED_OPTION: OptionKindPart<ScriptedConfig> = deepFreeze({
-  role: "option", label: "Script", stage: "experimental", fields: [], slots: [slotOne("tactics", "Tactics", "tactics")],
-  defaults: { kind: "scripted", tactics: { kind: "drill-cover" } }, keys: { kind: true, tactics: true },
-  fits: anyBody, faults: () => [], make: (config: ScriptedConfig, given: OptionsGiven) => [scripted(tacticsOf(given.making, config.tactics))],
-});
-
-/** The scripts `configs` name (`SCRIPTED_OPTION`): each one's tactics. */
-export const scriptsOf = (configs: readonly PartConfig[]): readonly PartConfig[] =>
-  configs.flatMap((config) => config.kind === "scripted" ? [(config as ScriptedConfig).tactics] : []);
-
 /** Every kind of Option Mind's options. */
-export const OPTION_KINDS: readonly OptionKindPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION,
-  SCRIPTED_OPTION as OptionKindPart]);
+export const OPTION_KINDS: readonly OptionKindPart[] = Object.freeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]);
 
 /** Its options as it starts, in rank order: orders, strikes, footwork into the windows and out of pressure, the rise, covers, then the rest options. */
 export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]
