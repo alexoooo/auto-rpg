@@ -53,7 +53,7 @@ import { physicalReading } from "../core/observation.ts";
 import { arenaPlayback } from "./playback.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
-import { choicePanel, choiceWatch, pickedStrike } from "./choices.ts";
+import { choicePanel, choiceWatch } from "../ui/choices.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -425,9 +425,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
     // A pick goes to the person's side as an attack, as their pointer's strike does, and the bout goes on.
-    const choices = choicePanel((foe) => ARENA_SIDES[foe as Side]?.label ?? foe,
-      (entry) => { const strike = pickedStrike(entry); if (!led || !strike) return; led.hear({ kind: "attack", ...strike }); watch.picked(entry); setPaused(false); },
-      (foe) => { if (!led) return; led.hear({ kind: "attack", foe }); setPaused(false); });
+    const choices = choicePanel((foe) => ARENA_SIDES[foe as Side]?.name ?? foe,
+      (strike, among) => { if (!led) return; led.hear({ kind: "attack", ...strike }); watch.picked(among); setPaused(false); });
     column.append(label, bar, condition.element, status, choices.element, mind); hud.append(column);
     return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });

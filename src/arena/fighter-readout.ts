@@ -6,6 +6,7 @@ import type { ActionStatus, Ended } from "../core/skills/action.ts";
 import { blocked, cleanMiss, landed } from "../core/skills/action-instances.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import type { Engagement } from "../core/mind/tactics.ts";
+import { partLabel } from "../ui/part-label.ts";
 
 /** A front-facing body; screen left is the fighter's anatomical right. */
 const HUMAN: Readonly<Record<string, string>> = {
@@ -50,14 +51,6 @@ const REPTILE: Readonly<Record<string, string>> = {
 
 /** Every body diagram, each a path by segment name. */
 const DIAGRAMS: readonly Readonly<Record<string, string>>[] = [HUMAN, REPTILE];
-
-/** Anatomical identifiers become readable labels without losing their side. */
-export function partLabel(name: string): string {
-  const words = name.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[.\s_-]+/);
-  const side = words.find(word => word === "left" || word === "right");
-  const label = [...side ? [side] : [], ...words.filter(word => word !== side)].join(" ").replace("shank", "shin");
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
 
 /** Fixed diagram geometry and current damage, keyed by the pool's actual segments. */
 export function damageReadout(spec: BodySpec, pool: Pool) {
