@@ -4,8 +4,8 @@
     "records": [
       "assets/evaluations/rise/2026-10-27-4d8f12c1-177a2639.jsonl",
       "assets/evaluations/rise/2026-10-27-4d8f12c1-c971f11b.jsonl",
-      "assets/evaluations/rise/2026-10-30-8207e3c2-2a8e49c5.jsonl",
-      "assets/evaluations/rise/2026-10-30-8207e3c2-6cfc9ea0.jsonl"
+      "assets/evaluations/rise/2026-10-30-3c0a093a-356447aa.jsonl",
+      "assets/evaluations/rise/2026-10-30-3c0a093a-3cd5c8be.jsonl"
     ]
   },
   "profiles": [
@@ -351,6 +351,74 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
+        "skill": "14d0807c06566d32",
+        "hz": 120,
+        "reaction": null
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 8,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.385,
+          "down": 1,
+          "ends": [
+            {
+              "at": "left",
+              "share": 0.125
+            },
+            {
+              "at": "front",
+              "share": 0.5
+            },
+            {
+              "at": "back",
+              "share": 0.25
+            },
+            {
+              "at": "right",
+              "share": 0.125
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "abf7565249bb0500",
+        "skill": "6b7a484da2ca224f",
+        "hz": 120,
+        "reaction": null
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 2,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.275,
+          "down": 1,
+          "ends": [
+            {
+              "at": "back",
+              "share": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "abf7565249bb0500",
         "skill": "7c4a6391f13be343",
         "hz": 120,
         "reaction": null
@@ -361,17 +429,12 @@
           "range": 0,
           "phase": "clear",
           "trials": 9,
-          "done": 0.7777777777777778,
+          "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 2.558,
-          "down": 0.2222222222222222,
-          "ends": [
-            {
-              "at": "back",
-              "share": 0.2222222222222222
-            }
-          ]
+          "seconds": 2.803,
+          "down": 0,
+          "ends": []
         }
       ]
     },
@@ -389,16 +452,12 @@
           "range": 0,
           "phase": "clear",
           "trials": 12,
-          "done": 0.6666666666666666,
+          "done": 0.9166666666666666,
           "dealt": 0,
           "taken": 0,
-          "seconds": 4.424,
-          "down": 0.33333333333333337,
+          "seconds": 4.356,
+          "down": 0.08333333333333337,
           "ends": [
-            {
-              "at": "fours",
-              "share": 0.25
-            },
             {
               "at": "between",
               "share": 0.08333333333333333
