@@ -21,7 +21,7 @@ export interface MindPreset<C extends MindConfig = MindConfig> {
   readonly config: C;
   readonly models?: readonly BodySpec["model"][];
   readonly character?: AttributeOverrides;
-  /** False: kept off the Arena's and the Crypt's menus (`offered`), which a link, an evaluation or a test may still name. */
+  /** False: kept off the Arena's and the Crypt's menus, and the Lab's where it takes no script (`offered`), which a link, an evaluation or a test may still name. */
   readonly offered?: false;
 }
 

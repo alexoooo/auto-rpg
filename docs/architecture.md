@@ -521,7 +521,9 @@ fight reads. A fight passes the config through and reads nothing in it.
   quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
   or state; a scene that
   drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
-  controller how (`Controller.scripted`, `takesScript`), whatever its kind. A part names the
+  controller how (`Controller.scripted`, `takesScript`), whatever its kind; the Lab's Stand-up,
+  which asks its body only what orders say, also hosts a mind that takes no script but carries
+  them out, made as a fight makes it (`labDrives`, `labActor`). A part names the
   phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`), and whether
   it carries out a person's orders (`Part.obeys`, `treeObeys`): an Arena side a person takes
   under a mind whose tree holds none says that it fights on its own.
