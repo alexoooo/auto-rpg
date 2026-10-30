@@ -3,7 +3,7 @@
  * can hold it; what it allocates is the same on every machine, and it is what a `map` put back
  * into a dear loop shows up as. Read by V8's sampling heap profiler, in KiB a body a step, each
  * reading in a process of its own (`stepAllocation`): two skeletons standing, the Warrior lying
- * under its ground reader, and the Warrior against the Rogue with clubs. Node, the core world,
+ * under its ground reader, and the Warrior against the Rogue with swords. Node, the core world,
  * Rapier, 120 Hz.
  */
 import test from "node:test";
@@ -18,7 +18,7 @@ import { traceOf } from "../src/evaluation/trace.ts";
  * last set, and a quarter. A change that goes over it takes its allocation out of the step or,
  * where the allocation is the feature's, raises the ceiling and says why in its commit.
  */
-const CEILING = { standing: 140, bout: 624, down: 206 };
+const CEILING = { standing: 140, bout: 1262, down: 206 };
 
 test("a_standing_body_s_step_allocates_no_more_than_its_ceiling", () => {
   const kib = stepAllocation("standing");

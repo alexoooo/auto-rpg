@@ -174,7 +174,7 @@ were, so each holds 28 % fewer joules. Read on one tree against `--unit 138.26`:
 ## Placed blows
 
 The first tree where a hand's attack at a target off its recipe's height is a placed blow
-([blows.md](blows.md#placed)). A fighter attacks its foe's head: a fist's blow is placed at a head
+(`blows.md@bca8fc87#placed`). A fighter attacks its foe's head: a fist's blow is placed at a head
 under or over its straight's window (the Warrior's 2 cm under his own head to 10 over, the Rogue's
 6 under to 8 over), and a club's at a head more than 58 cm under its holder's or 20 over, a foe
 going down. The Rogue's head stands 14 cm under the Warrior's and the skeleton's 18.
@@ -205,7 +205,7 @@ winner:
 - **Ten bouts run to the 120 s cap**: the Warrior on the left against the Rogue and the skeleton,
   at every gap, each a fall in 10.7 to 18.7 s before. Their heads are under his straight's window,
   so he places his fists at 0.4 to 0.7 J where the straight landed 6 to 10 J
-  ([blows.md](blows.md#against-a-recipe)); nobody falls, 409 to 1950 blows land, and the bars
+  (`blows.md@bca8fc87#against-a-recipe`); nobody falls, 409 to 1950 blows land, and the bars
   decide.
 - **29 bouts are the bouts they were**: the 15 a Warrior on the right falls out of at 2.9 s, the
   Rogues' five, and nine whose heads stand within each other's straight's window.
@@ -215,7 +215,7 @@ winner:
 ## Searched blows
 
 The first tree whose repertoire is searched for every body, with a fist and with the club, at a
-head and at an upper trunk ([blows.md](blows.md#searched)). A fighter attacks its foe's head with
+head and at an upper trunk (`blows.md@bca8fc87#searched`). A fighter attacks its foe's head with
 the recipe whose window holds that head's height over its own, or placed.
 
 **With clubs**, 45 bouts; 3 are the bouts they were, and 30 keep their winner:
@@ -233,13 +233,13 @@ the recipe whose window holds that head's height over its own, or placed.
 | Bouts won: the Warrior, the Rogue, the skeleton | 23, 11, 11 | 22, 8, 15 |
 
 - **A club lands where there was no club blow.** The Rogue and the skeleton had no club recipe, and
-  their placed club blows passed their targets ([blows.md](blows.md#the-battery-placed)): between
+  their placed club blows passed their targets (`blows.md@bca8fc87#the-battery-placed`): between
   two Rogues the blows took 0.010 HP a bout and take 0.425, between two skeletons 0.072 and 0.670.
   The three bouts that end before a wounding blow are each a Warrior on the right falling at 3.5 to
   3.7 s, from 4.5 m.
 - **A hand in its own side's blow costs more**, most where the skeleton is on the right of the
   Warrior (0.187 HP a bout) and of a skeleton (0.130): its club blow at a head lands its hand
-  ([blows.md](blows.md#on-a-standing-body)).
+  (`blows.md@bca8fc87#on-a-standing-body`).
 
 **Bare hands**:
 
@@ -261,7 +261,7 @@ the recipe whose window holds that head's height over its own, or placed.
   Rogue from 4 m, 1.62 of the 1.89 HP taken were the Warrior's forearm on the Rogue's upper trunk
   (8 blows, to 33.7 J) and head (13, to 18.7 J), and 0.10 its hand on the head in 63 blows.
 - **A fist at a head costs its hand** most of what it does the head, and the hardest more than the
-  hand holds ([blows.md](blows.md#the-searches)).
+  hand holds (`blows.md@bca8fc87#the-searches`).
 - **The 15 bouts a Warrior on the right falls out of at 2.9 s are the bouts they were**: with a bare
   Warrior on the right, the bout is its fall, whoever aims where.
 

@@ -1,4 +1,4 @@
-import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelRefusal, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelLoadout, modelRefusal, type BodyModel } from "../core/models.ts";
 import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
@@ -114,14 +114,14 @@ export function readHaste(search: string): Readonly<Partial<Record<Side, number>
   return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };
 }
 
-/** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike. */
+/** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike; a side the link leaves out carries its model's (`modelLoadout`). */
 export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
   const query = new URLSearchParams(search);
   if (!SIDES.some((side) => query.has(`${side}.loadout`))) return undefined;
   const models = readMatchup(search), loadouts = {} as Record<Side, Loadout>;
   for (const side of SIDES) {
     const text = query.get(`${side}.loadout`);
-    if (text === null) { loadouts[side] = EMPTY_LOADOUT; continue; }
+    if (text === null) { loadouts[side] = modelLoadout(models[side]); continue; }
     const parts = text.split(",").map((part) => part.trim());
     if (parts.length !== 2 || parts.some((part) => !HELD.includes(part as typeof HELD[number]))) return undefined;
     loadouts[side] = modelHolds(models[side]) ? { left: parts[0] as typeof HELD[number], right: parts[1] as typeof HELD[number] } : EMPTY_LOADOUT;
@@ -154,8 +154,11 @@ type Control = string;
 /** The selectable controllers' names on the page, by id. */
 export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(MINDS).map(([id, mind]) => [id, mind.label])));
 
-/** Both fighters' hands, empty unless the link assigns them. */
-const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => readLoadouts(search) ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT };
+/** Both fighters' hands, each its model's (`modelLoadout`) unless the link assigns them. */
+const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => {
+  const models = readMatchup(search);
+  return readLoadouts(search) ?? { left: modelLoadout(models.left), right: modelLoadout(models.right) };
+};
 
 /** Per-side controller choices in a shareable arena recipe: each one its side's body and loadout are offered (`controlsFor`). */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
@@ -256,12 +259,12 @@ export function readSeed(search: string): number | undefined {
 
 /** The bout `search` asks for on `level`, each side's attributes as the page holds them over its mind's character (`controlCharacter`). */
 export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
-  const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search), controls = readControls(search);
+  const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), controls = readControls(search);
   const senseDelay = readSenseDelay(search), seed = readSeed(search);
   return {
     left: matchup.left, right: matchup.right, level, minds: readMinds(search),
     attributes: { left: controlCharacter(controls.left, attributes.left), right: controlCharacter(controls.right, attributes.right) },
-    ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),
+    ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), loadouts: loadoutsOf(search),
     ...(senseDelay !== undefined ? { senseDelay } : {}), ...(seed !== undefined ? { seed } : {}),
   };
 }

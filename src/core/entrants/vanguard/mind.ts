@@ -11,7 +11,6 @@ import { VANGUARD_PUNCH, type VanguardPunchConfig } from "./punch-part.ts";
 import { VANGUARD_PLAN, type VanguardPlanConfig } from "./plan.ts";
 import { VANGUARD_WALK } from "./walk-part.ts";
 import { VANGUARD_EXCHANGE } from "./exchange.ts";
-import { VANGUARD_WEAPON } from "./weapon-part.ts";
 import { VANGUARD_NAVIGATION } from "./navigation-part.ts";
 import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../../skills/blade-part.ts";
 
@@ -35,8 +34,8 @@ const PLAN = deepFreeze({ ...FIGHTING, list: [
   { kind: "break-clinch", metres: .7 }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "ward" },
 ] });
 
-/** Held blunt items use recipe strikes; a blade offers its physical edge and tip actions. */
-const WEAPONS = [VANGUARD_WEAPON.defaults, BLADE_CUT_PART.defaults, BLADE_THRUST_PART.defaults];
+/** A blade offers its physical edge and tip actions; a blunt item none. */
+const WEAPONS = [BLADE_CUT_PART.defaults, BLADE_THRUST_PART.defaults];
 const WEAPON_ACTIONS = WEAPONS.map(executor => ({ name: executor.name, executor: executor.name,
   effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface", tuning: {} } }));
 
@@ -73,7 +72,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
-  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK, VANGUARD_EXCHANGE, VANGUARD_WEAPON, VANGUARD_NAVIGATION],
+  parts: [VANGUARD_PUNCH, VANGUARD_PLAN, VANGUARD_WALK, VANGUARD_EXCHANGE, VANGUARD_NAVIGATION],
   fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),

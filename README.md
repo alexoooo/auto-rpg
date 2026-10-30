@@ -41,7 +41,7 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Duellist (the default), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
+| Controller | the mind: Duellist (the default, with a short sword), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
@@ -81,7 +81,7 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 
 Choose **Dungeon**, pick a hero (Warrior, Rogue or Skeleton), a level, up to three companions, and
 press **Start**. Reach the exit's green ring; the run is lost when the whole party is down.
-Everybody carries a club; skeletons and reptile packs wake as the party comes near, and attack as
+Every humanoid carries a short sword; skeletons and reptile packs wake as the party comes near, and attack as
 a mob, spread over the party.
 
 - **Generated depths** (default): rooms and corridors after Diablo's Cathedral.
@@ -147,9 +147,9 @@ to it through **← Tools**.
 
 ## Status
 
-Working: the Arena and the Crypt with the Warrior, Rogue, Skeleton and Reptile; clubs, buckler and
-sword; fighting on after a fall; the Lab's scenarios. Not yet reliable: getting up from every fall,
-finishing a fight decisively, and AI above a single fighter. See [the roadmap](docs/roadmap.md).
+Working: the Arena and the Crypt with the Warrior, Rogue, Skeleton and Reptile; sword and buckler
+(a club is held, and has no blow yet); fighting on after a fall; the Lab's scenarios. Not yet
+reliable: getting up from every fall, finishing a fight decisively, and AI above a single fighter. See [the roadmap](docs/roadmap.md).
 
 ## Where things are
 

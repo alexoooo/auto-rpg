@@ -7,7 +7,7 @@
  *
  * - `standing`: two skeletons standing (`standBodies`), 240 steps read from 3 s.
  * - `standing-array`: the same, with one `new Array(4096)` made first in every step.
- * - `bout`: the Warrior against the Rogue with clubs, 480 steps read from 2 s.
+ * - `bout`: the Warrior against the Rogue with swords, 480 steps read from 2 s.
  * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";

@@ -364,12 +364,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 
 **Combat skills:**
 
-- **Strike** (`strike.ts`, `strikes.ts`): a searched recipe (a chamber pose and timed pushes, per
-  body, item and height band, `BANDS`) from `assets/core/strikes.json` (`REPERTOIRE`), chosen by
-  whose window holds the target (`recipesFor`, `recipeAt`, `holdsAt`), or a placed blow (`PLACED`)
-  where none does. A recipe is its body's own ([blows](reference/blows.md#another-bodys-recipe));
-  it steers by the target's bearing up to `STEER` ([steered](reference/blows.md#steered)). How
-  recipes are searched: [human and strikes](reference/human-and-strikes.md#windows).
+- **Arm reach** (`arm-reach.ts`): where a hand meets a target with its arm laid straight from the
+  shoulder (`placedReach`, `placedHeightFits`), from the spec's reference pose and the point the
+  hand strikes with (`aimOf`, `strikes.ts`), read once a spec; the openings, threats, the edge and
+  the executors' admission ask it. `strikes.ts` holds what a hand strikes with (`FIST`, `heldIn`,
+  `closesToStrike`, `strikesWithBlunt`).
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
   stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`)
   and each foot of the kick (`kick.ts`, which adds support transfer). A bare
@@ -557,7 +556,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | option-skeleton | `src/core/entrants/option-skeleton/` | a copy of Option Mind's package for the empty-handed Skeleton, its own chooser, options, predictions and blade guard, rising by the game's Stand up; replaced by a preset ([generalization](plans/2026-10-30-option-mind-generalization.md)) |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
-| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
+| vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `chooser`, or a skill's:
@@ -589,11 +588,12 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   every part states its keys (`Part.keys`, `KeysOf`), checked at compile time; a part from plain
   JavaScript that states none is a fault in every tree that holds it, never a crash.
 
-**Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
-`MOVE` and the game's Stand up (`STAND_UP`, the toed rise). Puncher, Counter-puncher and Behaviours vary
-the actions and spacing. The Duellist (`DUELLIST`), a weapon and a cover, is every humanoid's
-default (`modelInfo`). A preset marked `offered: false` (Classic, Counter-puncher, Behaviours) is
-kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
+**Presets.** `BLADE_FIGHTER` is shared action tactics over a blade's cut and thrust, striking with
+nothing empty-handed or holding a blunt item; `CLASSIC` adds `MOVE` and the game's Stand up
+(`STAND_UP`, the toed rise). Puncher (the straight punch as its body's record has it),
+Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUELLIST`), the blade
+thrust and a ward, holding a short sword, is every humanoid's default (`modelInfo`). A preset
+marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
 or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
 `ActorOptions.mind`.
@@ -917,7 +917,7 @@ is the reference example.
 5. A part of its own, of any role (any slot's, an action's aim, the quadruped's motor,
    gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`, layered planner, `vanguard-plan`, contact selector, `vanguard-exchange`, walk,
-   `vanguard-walk`, held-item recipe adapter, `vanguard-weapon`, and navigator, `vanguard-navigation`;
+   `vanguard-walk`, and navigator, `vanguard-navigation`;
    Option Mind's choosers, `valued` and `ranked`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter,
@@ -1226,8 +1226,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
   Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
   the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
-  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike`, led by
-  the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
+  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike` and
+  `vanguard-warrior/strike` drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
   0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
   `still`), with the hit points the striker lost in its contacts (`taken`); rungs `letgo` and
@@ -1253,9 +1253,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `gait/read.ts`; the gaits' profiles regenerate from its records, `research/gait-profiles.mjs`,
   `assets/core/gait-profiles.json`); and `cover` (a mind standing
   and covering under the stand Commander's orders, against a drill opponent striking on its
-  script: rung `swung`, a club swung on a rhythm, `drill-swing`; rung `punched`, punches,
-  `drill-punch`; a Warrior empty-handed or with a club, by offset and range: each touch read by
-  where it met the subject, its head, its guard or the rest of it, the hit points it took and
+  script: rung `punched`, punches, `drill-punch`; a Warrior empty-handed, by offset and range:
+  each touch read by where it met the subject, its head, its guard or the rest of it, the hit points it took and
   whether the subject fell; covered, the guard alone met, `cover/read.ts`). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
@@ -1453,11 +1452,11 @@ sides met with. These seams keep control separate from the contact and damage ru
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) give separate colliders and surfaces; teeth use this path. | The pool: one head. |
 | **Armour** | A worn item, rigid with its segment: it adds mass and one more surface in series (`energyShares` over the layers). A glove protects the puncher by the same rule. | The rule's shape. |
 | **A shield** | A held item with a face: the guard places its points (`ItemSpec.cover`) and orients its face; a bash is a blow. | The guard skill, the rule. |
-| **A staff, a spear in two hands** | An item held by two segments: a joint at the second hand, both arms solved to its points (see [separate equipment](#experimental-separate-equipment)). | Recipes, the rule. |
+| **A staff, a spear in two hands** | An item held by two segments: a joint at the second hand, both arms solved to its points (see [separate equipment](#experimental-separate-equipment)). | The executors, the rule. |
 | **A bow** | A shooting skill in the one list; an arrow is a body, and what it touches is a blow. | Every contact rule. |
 | **A knee** | A shank point struck by `effectorStrike` over the leg's chain. | The rule, the cycle. |
-| **A crouch, a low target** | The stance lowers past `STANCE_LOWER`; a band under the middle one (`BANDS`). | The search, the choice by window. |
-| **Another body** | Its spec with effectors and down rule; the controllers that fit it (`Controller.fits`); its own recipe search. | Everything else. |
+| **A crouch, a low target** | The stance lowers past `STANCE_LOWER`; a mark under the middle one (`BodySpec.marks`). | The executors, the choice of action. |
+| **Another body** | Its spec with effectors and down rule; the controllers that fit it (`Controller.fits`); its own tuning of each skill it uses (a straight punch's record, `PunchRecord`). | Everything else. |
 | **A learned or planning mind** | An entrant ([Adding a Mind](#adding-a-mind)). | The rule, the targets. |
 
 ## Standing decisions
@@ -1473,8 +1472,9 @@ The owner's decisions the code is built on:
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
 - **A person never commands muscles.** A person gives orders (`Orders`); the body's own mind
   carries them out while it defends itself.
-- **Strikes are searched recipes where one lands, and placed blows where none does.** Nothing is
-  built that the next step throws away.
+- **A skill is tuned for each body that uses it.** A body without its own tuning of a skill does
+  not use it: no skill tuned in one context is used in another, and no stand-in is thrown in its
+  place. Nothing is built that the next step throws away.
 - **Sizes and hit points.** x1 is a typical adult, about 1.77 m and 79 kg; the Rogue keeps her own
   proportions. The Warrior has 6 hit points and the Rogue 4.
 - **The skeleton is a family of its own, not a reskin.** Thin colliders though harder to hit; blunt

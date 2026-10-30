@@ -83,8 +83,8 @@ again before it is compared. Failures and external-actuation rejections are repo
 
 The falls a riser is measured on (`research/core-rise-trials.mjs`) and their table
 (`research/core-rise.mjs`). Node, the core world (`src/core/world.ts`), Rapier, 120 Hz, each fall
-in a world of its own with the arena's solids; every body has the game's mind (`RECIPE_FIGHTER`,
-`src/core/mind/config.ts`) or the one `--mind` gives.
+in a world of its own with the arena's solids; every body has the blade fighter's mind
+(`BLADE_FIGHTER`, `src/core/mind/config.ts`) or the one `--mind` gives.
 
 ```powershell
 node research/core-rise.mjs --workers 14 [--mind '<MindConfig JSON>']
@@ -123,7 +123,7 @@ the club shoved right, 3 to 82 weights from 1 to 4 s, past 1e30 at 6 s and 1e100
 
 ## Lying
 
-The recipe fighter (`RECIPE_FIGHTER`, the Lab's minds): from the step a body is down it is
+The blade fighter (`BLADE_FIGHTER`, the Lab's minds): from the step a body is down it is
 `lie`'s (`lying`, `src/core/mind/lie.ts`), which asks its muscles and stance for nothing. At an
 activation of 0 the muscle driver sets each motor to give no torque, which is what releasing the
 muscles does (`Body.dispose`): read with the muscles released in place of `lie`, the seconds each

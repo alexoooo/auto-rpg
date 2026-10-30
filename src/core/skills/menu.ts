@@ -6,7 +6,7 @@ import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
 
 /**
  * **An action a body has**, as its skills bind it: its name, its executor's kind (what the skill
- * is, named alike across minds: `recipe-strike`, `straight-punch`, `front-kick`), the limbs it may
+ * is, named alike across minds: `straight-punch`, `blade-thrust`, `front-kick`), the limbs it may
  * be asked with, and the regions it aims at (none: it acts on the body itself, as a rise does).
  */
 export interface KitEntry {

@@ -4,7 +4,7 @@
  * 0, `still`: a still target; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
  * subject is a mind and one of its actions (`puncher/strike`), and what its striker holds where
- * it names a loadout (`duellist/swing high@buckler,club`, its left hand first); the drill puts its own tactics in
+ * it names a loadout (`vanguard-warrior/strike@buckler,empty`, its left hand first); the drill puts its own tactics in
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
  */
@@ -23,7 +23,7 @@ import { meetsBar, type StrikeReading } from "./read.ts";
 import { barScore } from "./score.ts";
 
 /** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
-const DRILLED = ["puncher/strike", "duellist/swing high", "vanguard-warrior/strike"];
+const DRILLED = ["puncher/strike", "vanguard-warrior/strike"];
 
 /**
  * A subject given whole (a file or JSON): its mind and action, and the character its bodies take

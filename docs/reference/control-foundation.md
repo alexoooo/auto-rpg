@@ -4,11 +4,11 @@ The common task runner (`research/control-foundation.mjs`), its protocol and its
 and the shared environment whose reach settings `src/control-foundation/main.ts` uses. The suites
 built on it (bar, strike, support, posture) have their own records, linked below.
 
-## Protocol 2
+## Protocol 3
 
 `control-foundation.mjs` runs the fixtures in `control-foundation-trials.mjs`, one sequential job
-stream per worker (`control-foundation-worker.mjs`), on the core stand, blow evaluator, recovery
-watch and arena world as they are.
+stream per worker (`control-foundation-worker.mjs`), on the core stand, recovery watch and arena
+world as they are.
 
 ```powershell
 node research/control-foundation.mjs --suite baseline --split development --workers 4
@@ -41,24 +41,19 @@ node research/control-foundation.mjs --suite strike-block --split development --
 another range. Development indices are below 1,000,000, held-out from 1,000,000; a range crossing
 the bound is refused. A seed indexes explicit initial conditions: the fraction
 `(((seed + 1) * 2654435761) >>> 0) / 4294967296` sets the shove's heading over 360 degrees or a
-bout gap over [3, 5) m. Strike perturbations use the robustness battery's bounds (push timing
-+/-1/240 s, activation scale +/-0.02); an offset target lies within +/-0.12 m. Each job stores
-the resolved values. Candidates are frozen before a held-out run.
+bout gap over [3, 5) m. Each job stores the resolved values. Candidates are frozen before a
+held-out run.
 
 ### Tasks and readings
 
 | Task | Fixture | Outcome and denominator |
 |---|---|---|
 | Recovery | `felled` shove: stand 1 s, 1.5 N s/kg, at most 3 s to fall; watch 40 s | Lying and rise-then-steady minds; rose is 2 continuous seconds up, success also up at the end. Denominator: falls. |
-| Strike at place | High-band recipe through `evaluateBlow`, either hand, empty or club | Damage > 0 and no fall, over all trials in the cell. |
-| Strike offset | Same, target offset disclosed at commitment | A displaced stationary target; same success. |
-| Strike at nothing | Same throw, no target | No fall and back in stance phase `stand`. |
 | Guard comparison | Mirror bouts capped at 20 s, both in pose against either side covering, same gap | Head and total damage, falls, duration, preparation; paired by model, loadout, seed and rate. |
 | Pinned shared bar | `tasks/bar.ts` ([motion tracking](motion-tracking.md)) | Capture, movement, contact, release continuity, exact replay; each release its own denominator. |
 | Standing shared items / integrated sequence | none | Explicit unsupported rows, never successes or exclusions. |
 
-Strike follow-through is watched 3 s after the throw, within the evaluator's 8 s cap, stopping on
-a fall. Every task records a digest of sampled segment poses, the largest joint-anchor separation,
+Every task records a digest of sampled segment poses, the largest joint-anchor separation,
 peak segment-centre speed (startup and impact included: diagnostic, not driven), summed normal
 impulse on fixed scenery (once per dynamic segment), and integrals of assist force and moment.
 `World.step` is timed apart from sampling; timings are instrumented, never in digests or success.
@@ -67,8 +62,11 @@ Rates carry counts and Wilson 95 % intervals (z = 1.959963984540054); zero eligi
 
 ## Stock baseline
 
-Harness: Node 24.19.0, core world, Rapier SIMD npm 0.21.0, 120 Hz, four workers, balance 0 %, no
-weapon assist. Development indices 0 and 1, all three bodies, empty or right-hand club in recovery
+The strike tasks of this baseline are those of `research/control-foundation-trials.mjs@bca8fc87`:
+a high-band searched recipe thrown through `evaluateBlow` with either hand at its place, at a target
+up to 0.12 m across disclosed at commitment, and at nothing, each perturbed by up to 1/240 s and
+0.02 of its pushes and watched 3 s after. Harness: Node 24.19.0, core world, Rapier SIMD npm
+0.21.0, 120 Hz, four workers, balance 0 %, no weapon assist. Development indices 0 and 1, all three bodies, empty or right-hand club in recovery
 and bouts, either-hand clubs in strikes: 138 tasks (24 recovery, 72 strikes, 36 bouts, 6
 unsupported). Source SHA256 `2188a9d03283b6207092d6d485a411c34f76ec228760ad9c536978f2bbaaa549`;
 package entry SHA256 `956709f8dccb9cb4d7eb8cd2d7319089fb8864ac7b1a18a605913624c3ec82a1`. Manifest

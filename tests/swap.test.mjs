@@ -32,7 +32,7 @@ const { MINDS } = await import("../src/core/mind/controllers.ts");
 const { createBody } = await import("../src/core/body.ts");
 const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/core/mind/controllers.ts");
-const { RECIPE_FIGHTER, FIGHTING } = await import("../src/core/mind/config.ts");
+const { BLADE_FIGHTER, FIGHTING } = await import("../src/core/mind/config.ts");
 const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
@@ -106,7 +106,8 @@ test("an external preset's model calibration governs Arena, Lab and evaluation c
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
   const evaluation = EVALUATIONS.tournament, panel = "option/workshop-fighter/empty,empty";
   for (const [id, changes] of [["swap-stub", ["tactics.choose.patience=0.5"]],
-    ["swap-unarmed", [`executors=${JSON.stringify(RECIPE_FIGHTER.executors)}`, `actions=${JSON.stringify(RECIPE_FIGHTER.actions)}`]]]) {
+    ["swap-unarmed", [`executors=${JSON.stringify([...MINDS["swap-unarmed"].config.executors, ...BLADE_FIGHTER.executors])}`,
+      `actions=${JSON.stringify([...MINDS["swap-unarmed"].config.actions, ...BLADE_FIGHTER.actions])}`]]]) {
     const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
     const { choice, subjects } = resolveSubjects(evaluation, [], id, changes), candidate = choice[0];
     const kits = (subjects) => subjects.map(({ value: { model, loadout } }) => ({ model, loadout }));
@@ -262,7 +263,7 @@ for (const { part, at, mind, place } of STUBS) {
 
 test("a body without the command layer refuses a mind for what the layer lacks, at construction too, and every legs for what they stand on", async () => {
   const reptile = modelSpec("reptile"), layer = /^the command layer needs /;
-  assert.match(treeRefusal(reptile, RECIPE_FIGHTER) ?? "", layer);
+  assert.match(treeRefusal(reptile, BLADE_FIGHTER) ?? "", layer);
   const legs = kindsFor("locomotion", reptile);
   assert.ok(legs.length > 0, "the fixture offers legs to refuse");
   for (const { kind, reason } of legs) assert.equal(reason, "needs a left and a right foot, each with a box sole", kind);

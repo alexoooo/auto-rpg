@@ -3,7 +3,7 @@
  * their own, every part chosen by its config, their stubs their own parts (`Controller.parts`).
  * They are registered from here by one list line each (`kinds.mjs`), as an entrant's folder is.
  */
-import { COUNTER_PUNCHER, MOVE, QUADRUPED, RECIPE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
+import { COUNTER_PUNCHER, MOVE, QUADRUPED, BLADE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
 import { QUADRUPED_MIND } from "../../../src/core/reptile/kind.ts";
 import { AIMED, STUB_AIM } from "./stub-aim.mjs";
 import { STUB_JAW, STUB_PAW_MOTOR, STUB_STALK, STUB_TROT } from "./stub-quadruped.mjs";
@@ -26,7 +26,7 @@ import { STUB_BALANCE } from "./stub-balance.mjs";
 import { GAME_MOTOR } from "../../../src/core/mind/kit.ts";
 
 /** Where a stub behaviour goes: after the fighter's own. */
-const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
+const BEHAVIOUR_AT = BLADE_FIGHTER.tactics.list.length;
 
 /** Option Mind as it starts. */
 const OPTION_DEFAULTS = OPTION_MIND.defaults;
@@ -53,7 +53,7 @@ export const STUBS = Object.freeze([
     read: (state) => state.tactics.inner.behaviours[BEHAVIOUR_AT] },
   { part: STUB_TECHNIQUE, mind: "swap-stub", at: `subs.0.techniques.${STAND_UP.techniques.length}`, place: (config) => ({ ...config, subs: [{ ...STAND_UP, techniques: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }] }),
     read: (_mind, body) => body.mind.subs[0].techniques["stub-technique"] },
-  { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${RECIPE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
+  { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${BLADE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
     read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "stub-takeover") },
   { part: STUB_CHOOSER, mind: "swap-option", at: "chooser", place: (config) => ({ ...config, chooser: STUB_CHOOSER.defaults }), read: (state) => state.tactics.chooser.counts },
   { part: STUB_OPTION, mind: "swap-option", at: "options.0", place: (config) => ({ ...config, options: [STUB_OPTION.defaults] }), read: (state) => state.tactics.options.at(-1).counts },
@@ -66,13 +66,13 @@ export const STUBS = Object.freeze([
 ].map(Object.freeze));
 
 /** Each fixture mind's game config: where its stubs are placed one at a time. */
-export const GAME_CONFIGS = Object.freeze({ "swap-stub": RECIPE_FIGHTER, "swap-option": OPTION_DEFAULTS, "swap-quadruped": QUADRUPED });
+export const GAME_CONFIGS = Object.freeze({ "swap-stub": BLADE_FIGHTER, "swap-option": OPTION_DEFAULTS, "swap-quadruped": QUADRUPED });
 
 /** A fixture mind's config: `base` under `kind`, every stub of its own placed, then `more`. */
 const withStubs = (kind, base, more) => Object.freeze({ ...STUBS.filter((stub) => stub.mind === kind).reduce((config, stub) => stub.place(config), base), kind, ...more });
 
 /** The fighter fixture: every stub of its own at once, its one blow the stub executor's, standing up once down. */
-export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
+export const SWAP_DEFAULTS = withStubs("swap-stub", BLADE_FIGHTER, {
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 

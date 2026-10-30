@@ -10,7 +10,7 @@ import { HELD, type Held, type Loadout } from "../core/items/held.ts";
 import { takesScript, treeObeys } from "../core/mind/catalog.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { offered, presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
-import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { CLASSIC, PUNCHER, BLADE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -87,14 +87,14 @@ type LabRate = (typeof LAB_RATES)[number];
 
 /**
  * **The minds the Lab names**, by the id its address carries. Attack defaults to Puncher and
- * carries out game orders; Classic offers the game's recipe fighter. Other scenarios default to
+ * carries out game orders; Classic offers the blade fighter. Other scenarios default to
  * Script, which carries out their tactics. Guard stands still. Each tree is editable (`mindEditor`).
  */
 export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "puncher", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
   classic: { label: "Classic", config: CLASSIC },
   puncher: { label: "Puncher", config: PUNCHER },
-  script: { label: "Script", config: { ...RECIPE_FIGHTER, tactics: { kind: "script" } } },
-  guard: { label: "Guard", config: { ...RECIPE_FIGHTER, tactics: { kind: "stand" } } },
+  script: { label: "Script", config: { ...BLADE_FIGHTER, tactics: { kind: "script" } } },
+  guard: { label: "Guard", config: { ...BLADE_FIGHTER, tactics: { kind: "stand" } } },
 });
 
 /** Named minds come from their registry; the Lab adds its scenario defaults. */

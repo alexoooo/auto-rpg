@@ -4,7 +4,7 @@ import type { StancePhase } from "../../../control/stance.ts";
 import { atan2, hypot } from "../../../math/real.ts";
 import type { Rulebook } from "../../../rules/rulebook.ts";
 import type { LegsUnmet } from "../../../skills/skill.ts";
-import { rangeOf } from "../../../skills/strike.ts";
+import { placedReach } from "../../../skills/arm-reach.ts";
 import type { BodySpec, Side } from "../../../spec/body.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Cover } from "../../../mind/intent.ts";
@@ -74,15 +74,14 @@ const bearingOf = (touching: Readonly<Record<Side, boolean>>): Bearing =>
 
 /**
  * How far the hands of `striker` reach a head `up` m over its own, m head to head across the
- * ground: the farthest of its hands' ranges' outer bounds (`rangeOf`, what one body knows of
- * another's blow by what it sees of it), 0 with no hand to strike with.
+ * ground: the farthest of its arms laid straight (`placedReach`, what one body knows of another's
+ * reach by what it sees of it), 0 with no hand to strike with.
  */
 function handsReach(striker: BodySpec, up: number): number {
   let most = 0;
   for (const side of ["left", "right"] as const) {
     if (!striker.effectors?.some((effector) => effector.segment === `hand.${side}`)) continue;
-    const range = rangeOf(striker, side, up);
-    most = Math.max(most, range.reach + range.along[1]);
+    most = Math.max(most, placedReach(striker, side, up));
   }
   return most;
 }

@@ -4,7 +4,7 @@
  * (`Body.setLevel`), its muscles released and every segment fixed where it is; then let go, the
  * same body and mind going on, which says whether a body held and let go still stands; then
  * felled by a shove at the root and still driven; then lying, under the sub-minds the game's mind
- * has (`RECIPE_FIGHTER`); then limp, its muscles released; then held where it lies; then rising, under
+ * has (`BLADE_FIGHTER`); then limp, its muscles released; then held where it lies; then rising, under
  * the riser that plays stages (`stagedRise`), the
  * row saying what part of its steps it lay slack, held a pose, and bore on its limbs. A row is
  * the mean of `--steps` steps: the whole step, the solver's part, and the rest, which is control.
@@ -23,7 +23,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { subMindsOf } from "../src/core/mind/kit.ts";
@@ -76,7 +76,7 @@ async function cost(count) {
   world.step(3 * world.hz);
   rows.push(read("down, driven"));
   for (const { body } of bodies) body.dispose();
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, RECIPE_FIGHTER.subs, RECIPE_FIGHTER)); });
+  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, BLADE_FIGHTER.subs, BLADE_FIGHTER)); });
   world.step(3 * world.hz);
   rows.push(read("down, lying"));
   level("limp");
@@ -86,7 +86,7 @@ async function cost(count) {
   rows.push(read("down, held"));
   level("limp");
   for (const { body } of bodies) body.dispose();
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, [{ kind: "support-recovery" }], RECIPE_FIGHTER)); });
+  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, [{ kind: "support-recovery" }], BLADE_FIGHTER)); });
   world.step(3 * world.hz);
   // What each riser is at, counted over the bodies at every step of the reading.
   const doing = { slack: 0, posing: 0, bearing: 0 };

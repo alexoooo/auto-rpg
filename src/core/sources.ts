@@ -489,12 +489,12 @@ export const SOURCES = Object.freeze({
   },
   "core-club-unit": {
     kind: "measurement",
-    how: "research/core-strike-search.mjs --model workshop-fighter --held 'wooden club' --band high --hz 960: the Warrior's "
-      + "strongest one-handed blow with the wooden club at a head hung at its place (research/core-blow.mjs), thrown "
+    how: "research/core-strike-search.mjs@bca8fc87 --model workshop-fighter --held 'wooden club' --band high --hz 960: the Warrior's "
+      + "strongest one-handed blow with the wooden club at a head hung at its place (research/core-blow.mjs@bca8fc87), thrown "
       + "standing on its own feet, built in the guard it holds (guardPosture), by cross-entropy search (Node core stand, "
       + "Rapier, ground on, no assist), its energy 1/2 mu v^2 from the masses the contact meets. 30 generations of 96 at "
       + "960 Hz, the coarsest rate a standing blow converges at, going on from the blow of "
-      + "research/core-club-unit.json@7601bd36; read again by research/core-club-unit.mjs, eight throws a rate, at "
+      + "research/core-club-unit.json@7601bd36; read again by research/core-club-unit.mjs@bca8fc87, eight throws a rate, at "
       + "1920 Hz, where it agrees with 480, 960 and 3840 Hz to 2 %. Recorded, not asked: the blow's energy is the "
       + "rate-converged reading, not the game's 120 Hz one (87.85 J there, two throws of the eight landing 7 J or less). The blow "
       + "and its readings are research/core-club-unit.json; the search is in docs/reference/blows.md#the-clubs-best-blow.",
@@ -516,16 +516,6 @@ export const SOURCES = Object.freeze({
       + "plays it, with each thing held: the fastest speed, 0.2-4.5 m/s, at which every walk held, calm and in the lab's "
       + "5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs walk-run --walks "
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names. It measured no turns.",
-  },
-  "core-strikes": {
-    kind: "asset", file: "assets/core/strikes.json",
-    what: "The strike skill's repertoire (src/core/skills/strikes.ts): for a body, a thing held and a height "
-      + "band, the right hand's strike found by search (research/core-strike-search.mjs), scored by the hit "
-      + "points it takes from a target body under the rule less those it costs the body that throws it "
-      + "(research/core-blow.mjs), thrown from standing in the guard; with where its target stood, ahead of the "
-      + "head and above it, how it was searched, where about its place it still lands, and what it read on "
-      + "replay; written by research/core-strike-repertoire.mjs --write from the searches' outputs, whose "
-      + "harness it names.",
   },
   "core-grip": {
     kind: "decision", date: "2026-09-29",

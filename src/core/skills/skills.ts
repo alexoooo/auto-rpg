@@ -5,13 +5,11 @@ import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { GaitName } from "./gaits.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import { pointTarget, type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
-import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
-import { guardSkill, type Covering } from "./guard.ts";
+import { type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
+import { skillSet, type Holders } from "./arbiter.ts";
+import { guardSkill } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import { stanceFeetOf, type LegsUnmet, type Skill } from "./skill.ts";
-import { recipeExecutor, type Placed } from "./strike.ts";
-import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
 import type { NavigationReport } from "../mind/navigator.ts";
 import type { GaitLimits } from "../mind/travel.ts";
@@ -59,23 +57,6 @@ export interface SkillReport {
   readonly navigation?: NavigationReport;
 }
 
-/** Immutable experiment settings for the recipe executor and continuous guard. */
-export interface RecipeOptions {
-  readonly repertoire?: Repertoire;
-  readonly placed?: Placed;
-  readonly steer?: number;
-  readonly cover?: Covering;
-}
-
-/** A named recipe action, continuous locomotion and the unreserved hands' guard. */
-function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
-  const spec = body.built.spec;
-  const guard = guardSkill(spec, cover);
-  return { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard,
-    executors: [{ name: "recipe", kind: "recipe-strike", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture, resolve: pointTarget }) }],
-    actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
-}
-
-/** The recipe action's standard services and runtime, with the tactics' state attached for replay. */
-export const recipeSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}, options: RecipeOptions = {}): Skills =>
-  skillSet(body, tactics, recipeParts(body, options));
+/** Continuous locomotion and the guard, with no action: a body's skills where its tactics throw nothing. */
+export const standingSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}): Skills =>
+  skillSet(body, tactics, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });

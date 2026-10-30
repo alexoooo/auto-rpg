@@ -35,7 +35,7 @@ export interface Senses {
  * **Another body, as sensed**: everything physical of it, whether it is still in the fight, and
  * its life as a whole, never a part's hit points. A planner's choice of foe reads `side`, `out` and `centre`
  * (`nearestFoe`, `targets.ts`), and the edge of a foe's reach the spec with what the body holds
- * (`rangeOf`); the segments' poses, velocities and spins are what a mind that attacks a moving
+ * (`placedReach`); the segments' poses, velocities and spins are what a mind that attacks a moving
  * body, blocks or parries reads (`docs/roadmap.md`, The AI).
  */
 export interface BodySense {

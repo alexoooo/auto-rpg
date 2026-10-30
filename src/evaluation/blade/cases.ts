@@ -1,7 +1,7 @@
 /**
  * **The blade task's cases**: a standing striker with sword and buckler whose only blow is one
- * action of its sword hand at one mark (`high`, `middle`, `legs`): the blade's cut or thrust, or
- * the recipe strike's swing (`swing`), against a standing Warrior with empty hands that only
+ * action of its sword hand at one mark (`high`, `middle`, `legs`): the blade's cut or thrust,
+ * against a standing Warrior with empty hands that only
  * stands, on the open stage, for the protocol's seconds, and on until the swing under way has
  * returned if a blow ended the fight. Each blow of the striker's blade on the target's body is
  * read: the closing speed at contact (driven, before the contact's own impulse), the energy and
@@ -17,7 +17,7 @@ import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json } from "../evaluation.ts";
 
 /** The executor each style is thrown by. */
-const KINDS = Object.freeze({ cut: "blade-cut", thrust: "blade-thrust", swing: "recipe-strike" });
+const KINDS = Object.freeze({ cut: "blade-cut", thrust: "blade-thrust" });
 
 export type BladeStyle = keyof typeof KINDS;
 export type Mark = "high" | "middle" | "legs";

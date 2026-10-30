@@ -89,10 +89,9 @@ the option's measured model.
 
 ### One policy selecting a set
 
-Every power strike holds the legs and the trunk with its hand (`straight-punch.ts`, `strike.ts`,
-`blade.ts`), as do a kick and the rise; footwork holds the legs alone, and a cover one hand. So
-one policy selects a set of options whose claims do not overlap (built: `Chooser.decide`,
-`stepSet`, `src/core/entrants/option/options/`): the best option, then the best of the rest whose resources
+Every power strike holds the legs and the trunk with its hand (`straight-punch.ts`, `blade.ts`),
+as do a kick and the rise; footwork holds the legs alone, and a cover one hand. So one policy
+selects a set of options whose claims do not overlap (built: `Chooser.decide`, `stepSet`, `src/core/entrants/option/options/`): the best option, then the best of the rest whose resources
 are still free, until none is left. A strike runs beside the other hand's guard; between strikes,
 footwork runs beside both hands'.
 
@@ -295,7 +294,7 @@ The strikes' (Option Mind's punch) and the ground edges' are measured
 (`assets/core/strike-profiles.json`, `assets/core/edge-profiles.json`). It replaces Option Mind's down
 model (`DownModel`) with the ground skills' (built: its rise's route priced by its edges' profiles
 where they are measured on its body), and the behaviour tactics' `ActionEstimate`, which no Option Mind part
-reads, as the recipe strikes are drilled. A profile is read through one interface (built:
+reads, as the other strikes are drilled. A profile is read through one interface (built:
 `readProfile`, its payoff, duration and exit), so a table from the drills is its first
 implementation and a learned estimate another.
 

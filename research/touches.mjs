@@ -6,7 +6,7 @@
  * character's own unless `--balance` gives another), each case in a stand of its own, and three
  * arena bouts to their verdicts (`buildBout`, `src/evaluation/bout.ts`).
  *
- *   node research/touches.mjs [--case stand,walk,run,shove,fall,routine,blow,bouts] [--model <id>]
+ *   node research/touches.mjs [--case stand,walk,run,shove,fall,bouts] [--model <id>]
  *     [--balance <per cent>] [--floor <J>] [--air <m/s>] [--list]
  *
  * The cases, for each model:
@@ -15,11 +15,6 @@
  * - `run`: the Locomotion scenario on each of its tracks, 30 s (`startLocomotion`).
  * - `shove`: standing 2 s, then a shove of 20 to 60 N s from behind, and 4 s.
  * - `fall`: standing 2 s, then a shove of 80 N s from the front, and 6 s.
- * - `routine`: the Routine to the end of its first loop, or 150 s (`startRoutine`), with the
- *   touches of each target it hangs on the body, which are not the ground's and are no row.
- * - `blow`: each of the Blow's stored blows that is the model's, with what it was found with in
- *   its hand, at its target body (`throwBlow`, `watchBlow`, `LAB_BLOWS`), to 1.5 s after its
- *   pushes begin, where the page pauses it; with the target's touches on the body, as the Routine's.
  * - `bouts`: three arena bouts, a pair of bodies heard once, from its earlier body.
  *
  * It prints the harness and each side's balance, then a markdown table for each case. A row is the
@@ -50,18 +45,13 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { airOf } from "../src/audio/body-sounds.ts";
 import { balanceCeiling, balancePercent, isBalance, rulebook } from "../src/core/rules/rulebook.ts";
-import { FIST } from "../src/core/skills/strikes.ts";
 import { watchTouches } from "../src/core/touches.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { inFrameOf, throwBlow, watchBlow } from "../src/lab/blow.ts";
-import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
-import { startRoutine } from "../src/lab/routine.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { labAddress, MODELS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
-import { hardestOn } from "../src/lab/targets.ts";
 import { TRACK_IDS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -71,11 +61,14 @@ import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 // Each stand's engine prints its banner otherwise, into the table.
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-const KINDS = ["stand", "walk", "run", "shove", "fall", "routine", "blow", "bouts"];
+const KINDS = ["stand", "walk", "run", "shove", "fall", "bouts"];
 const BOUTS = [["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]];
 const WALKS = [0.2, 0.5], SHOVES = [20, 30, 40, 50, 60], FALL_SHOVE = 80;
-/** Seconds after a stored blow's pushes begin for which the instrument watches. */
-const BLOW_HOLD = 1.5;
+/** `point` (body frame, reference pose) in `segment`'s own frame. */
+function inFrameOf(segment, point) {
+  const f = segment.frame, d = [point[0] - f.origin[0], point[1] - f.origin[1], point[2] - f.origin[2]];
+  return new Vector3(...[f.x, f.y, f.z].map((a) => d[0] * a[0] + d[1] * a[1] + d[2] * a[2]));
+}
 /** What a per cent of balance is: the arena's, as the Lab's page has it. */
 const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);
 /** The ground's side on the stand, m: the stand's own. */
@@ -199,20 +192,17 @@ function breathe(world, body) {
 const balanceOf = (spec) => loadoutBalance(balance, spec);
 
 /**
- * One of the Lab's modes on a stand of its own: `model` with `held` in its hands, its mode begun by
- * `start(actor, stand)`, stood `lead` seconds, then `begin(session)` and `seconds` more or until
+ * One of the Lab's modes on a stand of its own: `model` with the loadout its address gives, its
+ * mode begun by `start(actor, stand)`, stood `lead` seconds, then `begin(session)` and `seconds` more or until
  * `until(session)`, a step at a time. Its row: the touches from `begin` on, the seconds its body
  * was up and was down, when it first went down, the strides and recoveries it took and how far its
  * centre went, and `read`'s words about it.
  */
-async function labRun(kind, model, variant, { held = {}, start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
-  const spec = loadoutSpec({ ...labAddress(`?model=${model}`), ...held }), stand = await coreStand(spec, { groundSize: GROUND });
+async function labRun(kind, model, variant, { start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
+  const spec = loadoutSpec(labAddress(`?model=${model}`)), stand = await coreStand(spec, { groundSize: GROUND });
   const actor = labActor(stand.built, stand.world, { assist: balanceCeiling(balanceOf(spec), PERCENT) });
   const { body } = actor, { world } = stand, own = { name: model, built: stand.built, body };
-  // A body the mode hangs beside its own: its touches on the body, read from it. Whether its body was down is the body's own.
-  const struck = [];
-  const hung = (built) => listen(world, [{ name: "target", built, body }, own], (of, on) => of.body !== own && on?.body === own, struck);
-  const session = start(actor, stand, hung);
+  const session = start(actor, stand);
   const heard = listen(world, [own]), breath = breathe(world, { built: stand.built, body });
   const counts = () => ({ strides: body.view.stance.strides, recoveries: body.view.stance.recoveries, x: body.view.stance.centre.x, z: body.view.stance.centre.z });
   try {
@@ -230,7 +220,7 @@ async function labRun(kind, model, variant, { held = {}, start, lead = 0, begin 
     const took = (to) => ({ strides: to.strides - first.strides, recoveries: to.recoveries - first.recoveries, metres: Math.hypot(to.x - first.x, to.z - first.z) });
     const touches = heard.touches.slice(early).map((touch) => ({ ...touch, at: touch.time - from }));
     const run = {
-      kind, model, variant, touches, struck, seconds: { up: steps.up * world.dt, down: steps.down * world.dt },
+      kind, model, variant, touches, seconds: { up: steps.up * world.dt, down: steps.down * world.dt },
       fell: fell && { at: fell.at, ...took(fell) }, took: took(last),
     };
     const before = early > 0 ? `; in the ${lead} s before, ${tally(heard.touches.slice(0, early), (touch) => touch.on ? "on itself" : "on the ground")}` : "";
@@ -242,7 +232,7 @@ async function labRun(kind, model, variant, { held = {}, start, lead = 0, begin 
 const some = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** How a run ended on its feet or off them, in words. */
 const fellWords = (run) => run.fell ? `down at ${run.fell.at.toFixed(2)} s after ${some(run.fell.strides, "stride")}` : "on its feet";
-const whole = (run) => (run.seconds.up + run.seconds.down).toFixed(run.kind === "routine" || run.kind === "blow" ? 1 : 0);
+const whole = (run) => (run.seconds.up + run.seconds.down).toFixed(0);
 
 const stance = (actor) => startStance(actor);
 const LAB = {
@@ -270,30 +260,6 @@ const LAB = {
         + (last ? `, the last at ${last.at.toFixed(2)} s` : "");
     },
   })],
-  routine: (model) => [labRun("routine", model, "", {
-    start: (actor, _, hung) => startRoutine(actor, { hung }), seconds: () => 150, until: (session) => session.tactics.loops >= 1,
-    read: (session, run) => `${whole(run)} s, ${some(session.tactics.loops, "loop")}, ${some(session.readings.length, "target")} `
-      + `(${session.readings.map((r) => `${r.target.stratum}: ${r.strike ? `${r.strike.name} ${r.strike.peak.toFixed(1)} m/s` : "no strike"}${r.blow ? `, ${sig(r.blow.energy)} J` : ""}`).join("; ") || "none"}), `
-      + `${some(run.struck.length, "touch", "touches")} of a target on the body${run.struck.length ? ` (${tally(run.struck, (touch) => touch.on.part)}; ${energies(run.struck)} J)` : ""}, `
-      + `${some(run.took.strides, "stride")}, ${fellWords(run)}`,
-  })],
-  blow: (model) => LAB_BLOWS.filter((stored) => stored.model === model).map((stored) => labRun("blow", model, stored.id, {
-    held: { right: "empty", left: "empty", [stored.hand]: stored.held === FIST ? "empty" : "club" },
-    start(actor, _, hung) {
-      const blow = throwBlow(actor, { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
-      const watch = watchBlow(actor, blow, RULES, { hung });
-      return { blow, watch, dispose() { watch.dispose(); blow.dispose(); } };
-    },
-    seconds: (session) => session.blow.pushing + BLOW_HOLD,
-    read({ watch, blow }, run) {
-      const { reading } = watch, landed = hardestOn(reading.blows, "dummy");
-      return `${whole(run)} s, the pushes at ${blow.pushing.toFixed(2)} s, `
-        + (landed ? `landed ${sig(landed.energy)} J, its hardest of ${some(reading.blows.length, "blow")}: ${sig(reading.done)} HP done, ${sig(reading.cost)} cost`
-          : reading.nearest === null ? "not thrown" : `missed by ${(100 * reading.nearest).toFixed(1)} cm`)
-        + `, ${some(run.struck.length, "touch", "touches")} of the target on the body${run.struck.length ? ` (${tally(run.struck, (touch) => touch.on.part)}; ${energies(run.struck)} J)` : ""}, `
-        + fellWords(run);
-    },
-  })),
 };
 
 /**
@@ -326,12 +292,6 @@ const sorted = (numbers) => [...numbers].sort((a, b) => a - b);
 function median(numbers) {
   const s = sorted(numbers), half = s.length >> 1;
   return s.length % 2 ? s[half] : (s[half - 1] + s[half]) / 2;
-}
-
-/** The least, the median and the most of `touches`' energies, J. */
-function energies(touches) {
-  const s = sorted(touches.map((touch) => touch.energy));
-  return `${sig(s[0])} / ${sig(median(s))} / ${sig(s.at(-1))}`;
 }
 
 /** A row's cells for `touches` over `seconds`: how many, how many a second, their energies, their closing speeds' median, the masses their parts met them with, and how many are quiet. */

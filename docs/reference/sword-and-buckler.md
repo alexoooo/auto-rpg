@@ -14,7 +14,7 @@ off that line as built.
 ## 1. A cut that wounds
 
 `node --test tests/blade-capability.test.mjs@754999fc`: the sword hand's recipe strike (the
-repertoire's short-sword recipes, `assets/core/strikes.json`) at a standing Warrior with empty
+repertoire's short-sword recipes, `assets/core/strikes.json@754999fc`) at a standing Warrior with empty
 hands, 12 s from 1.4 m. Bar: the median swing's edge on the trunk or head carries a third of the
 Warrior's head at the rulebook's price of an edge, 2.59 J; the striker stays up; every swing returns
 within 1 s.

@@ -12,7 +12,7 @@ import type { BodySense } from "./senses.ts";
 import type { Position } from "./ground/reading.ts";
 import { lieBy } from "./rise/staged.ts";
 import { distance } from "../spec/vec.ts";
-import { placedReach } from "../skills/strike.ts";
+import { placedReach } from "../skills/arm-reach.ts";
 
 /**
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing

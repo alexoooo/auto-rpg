@@ -13,7 +13,7 @@ import { guardSkill } from "./guard.ts";
 import { supportFold, supportHeadDrop } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
 import type { Skills } from "./skills.ts";
-import { placedHeightFits, placedReach } from "./strike.ts";
+import { placedHeightFits, placedReach } from "./arm-reach.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
 import { supportReadiness, bearingSupport, STRIKE_SUPPORT } from "../control/support-readiness.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";

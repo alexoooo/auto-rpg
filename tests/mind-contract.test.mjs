@@ -205,7 +205,7 @@ test("a replay refuses a step with no order sheet, so a record that is short is 
 test("both-hand loadouts fork and replay their physical commands", async () => {
   const config = CONTROLLERS.fighter.presets.duellist.config;
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3,
-    loadouts: { left: { left: "club", right: "club" }, right: { left: "club", right: "empty" } },
+    loadouts: { left: { left: "sword", right: "sword" }, right: { left: "buckler", right: "sword" } },
     minds: { left: config, right: config } };
   const first = await played(recipe, { record: true }, true);
   assert.deepEqual(first.peak.unfinite, []);

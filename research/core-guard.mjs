@@ -34,7 +34,7 @@ import { parseArgs } from "node:util";
 import { SIDES } from "../src/arena/duel.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { withParts } from "../tests/fixtures/minds.mjs";
@@ -78,11 +78,11 @@ function sideOf(row, side) {
 }
 
 /** The fighter that covers under `variant`'s experiment: its cover on the guard, its threat on the tactics. */
-const covering = ({ covering, threat }) => withParts(RECIPE_FIGHTER, { tactics: { guard: "cover", tuning: { threat } }, guard: { tuning: { covering } } });
+const covering = ({ covering, threat }) => withParts(BLADE_FIGHTER, { tactics: { guard: "cover", tuning: { threat } }, guard: { tuning: { covering } } });
 
 /** A bout's job, and the record its row becomes: `covers` is the side that covers, or null in the control. */
 function jobOf(seed, held, delay, left, right, variant, covers) {
-  const mind = (side) => side === covers ? covering(variants[variant]) : RECIPE_FIGHTER;
+  const mind = (side) => side === covers ? covering(variants[variant]) : BLADE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, delay, left, right, variant, covers },
     recipe: { left, right, gap: gapOf(seed), senseDelay: delay / 120, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: mind("left"), right: mind("right") } },

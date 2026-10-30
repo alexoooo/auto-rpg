@@ -1,7 +1,6 @@
 /**
  * **The Cover drill**: does a body standing in guard keep a drill opponent's blows off its head,
- * and stay up? Each rung is a protocol (rung 0, `swung`: a club swung on a rhythm; rung 1,
- * `punched`: punches on a rhythm), its trials laid out by body, what the subject holds, offset and
+ * and stay up? Each rung is a protocol (rung 1, `punched`: punches on a rhythm), its trials laid out by body, what the subject holds, offset and
  * range. The subject is a mind; the drill puts its own tactics in the mind's tactics slot, standing
  * and covering as Option Mind does, so the guard and the covers' choice are read on the mind's body and
  * parts.
@@ -22,7 +21,7 @@ export const COVER: Evaluation<CoverCondition, CoverReading> = {
   group: "skills",
   question: "Does a body standing in guard keep a drill opponent's blows off its head, and stay up?",
   protocols: COVER_CASES,
-  defaultProtocol: "swung",
+  defaultProtocol: "punched",
   schedule: "all",
   analysis: {},
   subjects: (choice) => mindSubjects(choice, ["option"]),

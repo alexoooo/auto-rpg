@@ -27,7 +27,7 @@ import { VANGUARD_EXCHANGE } from "../src/core/entrants/vanguard/exchange.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { cos, hypot, sin } from "../src/core/math/real.ts";
 import { armedActions, actionConfigFaults } from "../src/core/mind/action-config.ts";
-import { LOADOUTS, REPRESENTATIVE, withLoadout } from "../src/core/items/held.ts";
+import { LOADOUTS, withLoadout } from "../src/core/items/held.ts";
 import { holdsNothing } from "../src/core/skills/strikes.ts";
 
 test("Vanguard routes held weapons and empty hands through their supported actions", () => {
@@ -44,15 +44,16 @@ test("Vanguard routes held weapons and empty hands through their supported actio
           `${id}, ${JSON.stringify(loadout)}: ${executor.kind} uses the correct physical endpoint`);
       }
     }
-    for (const loadout of REPRESENTATIVE) assert(controlsFor(model, loadout).includes(id), `${id} supports ${JSON.stringify(loadout)}`);
-    const occupied = withLoadout(bare, { left: "buckler", right: "club" });
+    for (const loadout of LOADOUTS) assert.equal(controlsFor(model, loadout).includes(id), armedActions(partLookup, withLoadout(bare, loadout), config.executors, config.actions).length > 0,
+      `${id} is offered with ${JSON.stringify(loadout)} exactly where it has an action`);
+    const occupied = withLoadout(bare, { left: "buckler", right: "sword" });
     assert(armedActions(partLookup, occupied, config.executors, config.actions).some(action => action.effectors.includes("hand.right")),
-      "a shield and club leave a physical weapon action available");
+      "a shield and sword leave a physical weapon action available");
   }
 });
 
 test("Vanguard weapon actions drive a held physical endpoint with both hands occupied", async () => {
-  for (const [held, action] of [["club", "weapon"], ["sword", "cut"], ["sword", "thrust"]]) {
+  for (const [held, action] of [["sword", "cut"], ["sword", "thrust"]]) {
     const config = MINDS["vanguard-warrior"].config, spec = withLoadout(modelSpec("workshop-fighter"), { left: "buckler", right: held });
     const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
     const state = { active: null, target: null, started: false, driven: false, peak: 0 };

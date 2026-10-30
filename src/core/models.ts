@@ -6,7 +6,7 @@ import { stageRefusal, type EntryRule } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
-import { loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
+import { LOADOUTS, loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
 import { validateAttributes, type AttributeOverrides, type CharacterAttributes } from "./character-attributes.ts";
 import { sourced } from "./spec/quantity.ts";
 import { bodyIntersections } from "./spec/clearance.ts";
@@ -45,7 +45,7 @@ interface Family {
 
 const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
   physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpec(model as HumanoidModel, physique, haste),
-  info: { mind: DUELLIST, held: "club" }, hastes: true });
+  info: { mind: DUELLIST, held: "sword" }, hastes: true });
 const REPTILE: Family = deepFreeze({ spec: () => reptileSpec(),
   physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
   info: { mind: QUADRUPED, held: "empty" }, hastes: true });
@@ -102,6 +102,9 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
 export function modelInfo(model: BodyModel): ModelInfo {
   return familyOf(model).info;
 }
+
+/** What a body of `model` carries unless a fight says otherwise: its model's item in its right hand (`ModelInfo.held`), its left empty. */
+export const modelLoadout = (model: BodyModel): Loadout => LOADOUTS.find((loadout) => loadout.left === "empty" && loadout.right === modelInfo(model).held)!;
 
 /**
  * Positional construction adapter for scripts and experiments; game setups use `resolveCharacter`.

@@ -1,7 +1,7 @@
 import type { Clearance } from "./clear-step.ts";
 import type { Body, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
-import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
+import { standingSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
 import type { ActionEngagement } from "./action-tactics.ts";
 import type { Window } from "../skills/action.ts";
@@ -118,12 +118,12 @@ export interface Sight {
 
 /**
  * Hand `body` to `tactics`: each control step they decide on the body's view and the skills'
- * report, and the skills `make` makes (the recipe strike's set, `recipeSkills`, unless given) make the command.
+ * report, and the skills `make` makes (legs and guard with no action, `standingSkills`, unless given) make the command.
  * Returns the skills, for their report. On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the tactics decide, so the report they read
  * is of the body as it is.
  */
-export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
+export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = standingSkills): Skills {
   const skills = make(body, tactics);
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   body.drive((view, dt) => {

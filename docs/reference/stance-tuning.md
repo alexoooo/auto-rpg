@@ -608,7 +608,7 @@ gives. The lever is not a setting: each row had `leverOf` written for it, on con
 The bearing solve's free limb (`boundFree`): its torques solved within its strength together
 (`boundedLeastSquares`), against each freedom clipped alone, read as the stance's swinging leg on
 the bearing solve (`StanceTuning.boundedSwing`). The lab routine from seeded starts
-(`research/core-routine-battery.mjs`: 3 N s at 0.5 s, up to 5 loops; Node core stand, Rapier),
+(`research/core-routine-battery.mjs@bca8fc87`: 3 N s at 0.5 s, up to 5 loops; Node core stand, Rapier),
 without the planning of freedoms held at a torque: loops completed, runs through all five, falls
 walking.
 
@@ -625,7 +625,7 @@ places, steps and stands alike. The tables of `STANCE_SECONDS`, `STANCE_KNEE_BEN
 `STANCE_ANKLE_SPARE`, `STANCE_RECOVERY`, `STANCE_TRACK`, `SOLE_MARGIN` and `SUPPORT_INSET` were read
 clipped alone. Chosen: bounded.
 
-    node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' --seeds 24
+    node research/core-routine-battery.mjs@bca8fc87 --variants '[{}, {"boundedSwing": false}]' --seeds 24
     (and --seeds 12 --hz 480; other flags --loops, --impulse, --models, --workers, --list)
 
 The table was read on a controller never committed. At `3d657452`, which plans the held freedoms,

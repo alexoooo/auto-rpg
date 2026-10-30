@@ -1,6 +1,6 @@
 import { deepFreeze } from "../state.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, type FighterConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, BLADE_FIGHTER, type FighterConfig } from "./config.ts";
 import { controller } from "./controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "./kit.ts";
@@ -21,7 +21,7 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 
 /** **The fighter** (`createFighter`): tactics over skills of each role, built from its slots. */
 export const FIGHTER_MIND = controller<FighterConfig>({
-  role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
+  role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: BLADE_FIGHTER,
   keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
   fits: fitsAll<FighterConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),

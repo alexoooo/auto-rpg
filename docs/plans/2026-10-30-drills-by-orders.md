@@ -62,7 +62,7 @@ Check: the gate; the fingerprint unchanged.
 The mind's report (`MindReport`, made for every mind from its skills by `skillsReport`) gains,
 from the skills, for every mind alike:
 
-- **its kit**: each action it has now, by its name, its executor's kind (`recipe-strike`,
+- **its kit**: each action it has now, by its name, its executor's kind (`blade-thrust`,
   `straight-punch`, `front-kick`: what the skill is, named alike across minds), the limbs it can
   use now (what the hands hold counts: `armedActions`) and the regions it aims at;
 - **what is under way** (`SkillReport.actions`: each action's id, name, limb and phase) and **what
@@ -129,8 +129,7 @@ mind as given (`StrikeSubject`). The reader reads the striker's report and the C
 outcomes keep their names, `outside`, `waiting` and `refused` read from the ordered entry's
 readiness when the patience runs out. Every protocol is new.
 
-Check: the gate; the still and fight rungs of `option/club-blow@buckler,club` and
-`option/straight-punch`, and the fight rung of `duellist/swing high`, read paired against their
+Check: the gate; the still and fight rungs of `option/straight-punch`, read paired against their
 records before (`npm run compare`); each moved figure named; the reels watched.
 
 ### 7. The Gait and Cover drills on it

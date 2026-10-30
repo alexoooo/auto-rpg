@@ -1,7 +1,7 @@
 /**
  * **The buckler task**: does a defender's cover put the buckler in a sword's way before its body?
  * The Duellist with sword and buckler, facing its attacker head on and 45 degrees either way, is
- * swung at the head, the trunk and the sword arm, with and without its own swing under way. The
+ * cut at the head, the trunk and the sword arm, with and without its own thrust under way. The
  * subject is the defender's cover; the reference is the Duellist's.
  */
 import { MINDS } from "../../core/mind/controllers.ts";

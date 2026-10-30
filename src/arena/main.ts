@@ -16,10 +16,10 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolding, modelHolds, modelInfo, resolveCharacter, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, modelInfo, modelLoadout, resolveCharacter, type BodyModel } from "../core/models.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
-import { EMPTY_LOADOUT, HELD, heldItem, type Loadout } from "../core/items/held.ts";
+import { HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
@@ -209,7 +209,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
       picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
       for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: HELD_NAMES[value] }));
-      picker.value = loadoutChoices?.[side][hand] ?? EMPTY_LOADOUT[hand];
+      picker.value = loadoutChoices?.[side][hand] ?? modelLoadout(matchup[side])[hand];
       field.append(picker); controller.before(field); equipment.push(field); hands[hand] = picker;
     }
     loadoutPickers[side] = hands;

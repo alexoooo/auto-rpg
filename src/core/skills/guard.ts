@@ -12,8 +12,7 @@ import type { Skill } from "./skill.ts";
 
 /**
  * **The guard**: fists up before the chin, elbows in; the arms' posture when no skill owns them,
- * rad. Every recipe of `REPERTOIRE` was searched from it, as a body holds it (`guardPosture`), so
- * a change to either voids them (`docs/reference/human-and-strikes.md#guard`).
+ * rad (`docs/reference/human-and-strikes.md#guard`); a body holds it as `guardPosture` says.
  */
 export const GUARD: Pose = Object.freeze({
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,

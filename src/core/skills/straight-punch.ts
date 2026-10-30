@@ -7,7 +7,6 @@ import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
@@ -290,17 +289,6 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
     const ground = Math.sqrt(Math.max(0, length * length - rise * rise));
     return Math.max(0, ahead + Math.sqrt(Math.max(0, ground * ground - across * across)));
   };
-  const report: StrikeReport = {
-    get hand() { return state.hand; },
-    get phase() { return state.phase; },
-    get blow() { return state.phase ? "placed" : null; },
-    get distance() { return state.hand && state.phase ? standOff(state.hand, state.target[1] - state.headY) : null; },
-    get since() { return state.phase === "swing" || state.phase === "return" ? state.now - state.began : -Infinity; },
-    follows: true,
-    thrown: state.thrown,
-    get still() { return state.still; },
-    rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-CROWDED, settings.band] }),
-  };
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; state.learner.running = false; };
   /** The motion enters `phase`: its learner runs through a steered swing alone. */
   const enter = (phase: Phase): void => { state.phase = phase; state.learner.running = settings.steered === true && phase === "swing"; };
@@ -428,7 +416,7 @@ export function straightTechnique(body: Body, guard: Pose, settings: StraightPun
       state.target[i] = at[i]!;
     }
   };
-  return { state, report, end, enter, read, standOff, chamber, drive, sense, steeredChannels, aimAt,
+  return { state, end, enter, read, standOff, chamber, drive, sense, steeredChannels, aimAt,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm
       && (settings.above === undefined || up - state.shoulders[hand][1] <= settings.above) };
 }

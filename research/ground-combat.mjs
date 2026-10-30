@@ -4,7 +4,7 @@ import {turnAboutToRef,spinBetweenToRef} from '../src/core/math/turn.ts';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { combatContact, combatFingerprint } from './arena-combat.mjs';
-import { RECIPE_FIGHTER } from '../src/core/mind/config.ts';
+import { BLADE_FIGHTER } from '../src/core/mind/config.ts';
 import { PATHS } from '../tests/fixtures/minds.mjs';
 import { COMBAT } from '../tests/fixtures/minds.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
@@ -16,7 +16,7 @@ export async function groundFight(options = {}) {
  const side=options.side??'left',other=side==='left'?'right':'left',seconds=options.seconds??45;
  const base=options.candidate??PATHS,candidate={...base,actions:base.actions.map(action=>({...action,effectors:options.hand&&options.hand!=='alternate'?['hand.'+options.hand]:action.effectors}))},recover=options.recover??true;
  const config={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
-  minds:{[side]:candidate,[other]:recover?COMBAT:RECIPE_FIGHTER},gap:options.gap??.8,capSeconds:seconds,recoverySeconds:null};
+  minds:{[side]:candidate,[other]:recover?COMBAT:BLADE_FIGHTER},gap:options.gap??.8,capSeconds:seconds,recoverySeconds:null};
  const fingerprint=combatFingerprint(),bout=await buildBout(config,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=bout.duel.duelists[side],b=bout.duel.duelists[other],skills=a.minded.skills,cycles=actionCycles(skills);
  bout.duel.order(side,STAND_ORDERS);bout.duel.order(other,STAND_ORDERS);

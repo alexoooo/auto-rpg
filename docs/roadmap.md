@@ -57,7 +57,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Option Mind as a toolkit framework that entrants configure, not copy (built: the shared model's foe prior by every striking limb, lying down priced by the worth of a second standing, toes on every humanoid, the straight punch tuned per body). Left: the framework into the toolkit; an entrant as presets and parts, the Skeleton fork deleted; the objective and the percepts as parts; a Reptile and a non-combat preset; every skill tuned per body |
 | [Option Skeleton](plans/2026-10-30-option-skeleton.md) | The empty-handed Skeleton preset beating every Arena entrant more than 90% of the time, after generalization step 2: its rise on toes, its strikes measured, a mixed panel, then the whole field and reserved conditions. The 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
-| [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the Duellist's swing read as the reference, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, the club blow at the head, 10 of 16 on the still rung and 11 of 32 on the walk rung as the drill Commander orders it (15 and 25 with the drill taking the body over; the blow starts from the same place and misses under Option Mind's own handling), 1 of 7 moments reached on the fight rung, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: why the club blow misses more under Option Mind's own handling than under the drill's takeover; Option Mind never strikes a foe pressing to clinch range (footwork to strike a foe walking in), Cover's rung 2 (a protocol to write), a lead over the Duellist; the owner's acceptance of each rung |
+| [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: a club blow trained for the toed Warrior (no mind swings a club until its body has one), up the ladder; the Cover drill's buckler rows against a weapon and rung 2 (protocols to write); a lead over the Duellist; the owner's acceptance of each rung |
 | [Drills by orders](plans/2026-10-30-drills-by-orders.md) | Drills drive any mind by a Commander's orders, not by taking it over (built: steps 1 to 9: the Strike, Gait and Cover drills on the drill and stand Commanders, the takeover deleted, stomping 8 of 12 landed, from 9 to 10; each Arena side's choices, picked as orders, and pause on choice): a bout hosts a Commander per side; a body's menu of choices (each action, limb, foe and region, and whether it could start) in its mind's report and a Commander's view; orders name an action, a limb, a gait and a region by mark, one rule in every mind; the drill Commander; the takeover deleted; the menu in the Arena and play turn by turn. Left: the owner plays a bout turn by turn |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
@@ -235,9 +235,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
   [Punch](plans/2026-10-28-punch.md)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
-  and thrusts, held-item recipes, kicks and low support (a legs-and-trunk commitment that lends the
-  trunk to a low strike) come into Option Mind's shape after the punch, each a configuration of the
-  general trainer where it is learned and drilled as the Strike drill drills the punch.
+  and thrusts, a club blow, kicks and low support (a legs-and-trunk commitment that lends the
+  trunk to a low strike) come into Option Mind's shape after the punch, each tuned for each body
+  that uses it, a configuration of the general trainer where it is learned and drilled as the
+  Strike drill drills the punch.
 - **Holds and equipment.** Shield orientation, weapon lines and coupled two-hand control through
   the same control path, with no controller per loadout; equipped recovery; armour, two-handed
   items and bows, with projectiles in the core. Open before a weapon in both hands: whether the
@@ -274,7 +275,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   held, 55 and 35 N s, have no human reference
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). Set and not swept: `PLACING.near`,
   `ATTACK_METRES`, `EDGE`, `IK_POSTURE_PULL`, `IK_TURN`, `STANCE_LOWER`, a human's `down.fallen`;
-  set on an engine that is gone: `STAND`, `AIM_AHEAD`, the lab's seek budget. Gameplay keeps the
+  set on an engine that is gone: `AIM_AHEAD`, the lab's seek budget. Gameplay keeps the
   symmetric muscle bounds until recovery is corrected ([joint limits](reference/joint-limits.md)).
   A tendon in series with the ankle's plantar flexors is in the core and on no body; on the stride
   it fell more ([locomotion](reference/locomotion.md)).
@@ -328,8 +329,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Tactics**, for any fighter, choosing skills by their entry conditions and profiles
   ([the profile](plans/2026-10-27-option-mind.md#the-profile)), each asked of a concrete
   failure, one decision at a time, and read by the paired report:
-  - the behaviour tactics' recipe estimate (`ActionEstimate`) becomes the recipe strikes' profiles
-    once they are drilled;
+  - the behaviour tactics' estimates (`ActionEstimate`) become the strikes' profiles once they are
+    drilled;
   - targets after a guard: when to change surface, action or approach;
   - spacing and commitment: approach, clinch breaking, circling, follow-up timing; spacing is one
     legs skill, `move(goal)` toward a named range ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
@@ -354,6 +355,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - Ground positioning's foot-clearance probes (`sensedFootClearance`, `clearFootTranslation`,
   `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
+- The opening selector (`openingSelector`, `src/core/mind/openings.ts`) makes a closure and small
+  arrays on every call: 366 of the sword bout's 998 KiB a body a step ([step cost](reference/step-cost.md#allocation-ceilings)).
 - The oracle, offline research only: its next spaces are a longer horizon, a response held
   longer, two decisions ahead and strikes by name ([oracle](reference/oracle.md)); what it finds
   reaches a mind as profiles and a position's value.
@@ -361,29 +364,24 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   understood, with presets that round-trip through the editor, the link and a save.
 - The controls are to be worked over in play: the pointer does nothing while a person's body
   stands still.
-- Retiring what the new skills replace, each with its records, once they do: the strike
-  repertoire and the staged rise.
+- Retiring what the new skills replace, each with its records, once they do: the staged rise.
 - Team bouts in the Arena, N against N.
 
 ### The game
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - few die: the Duellist kills 6 of 128 foes over `crypt-clear`'s 8 runs and clears 2, at
-    `93ea707d` ([in a fight](reference/blows.md#in-a-fight)). Fighting longer does not kill more,
-    and a wider strike slack kills more in the Crypt but loses in the Arena
-    ([tried and not kept](reference/blows.md#tried-and-not-kept)): attacking, a fighter starts a
-    strike every 5 to 7 s, and half of them end at the preparation deadline as it sets its feet, a
-    step's weight shift at a time, after a target that has moved. More die with a strike that
-    needs fewer steps, a faster rise (Recovery), and blows on a body that is down, decided to apply
-    once the rise meets its bar ([Blows and wounds](#blows-and-wounds)). A Crypt fight ends by a mind that kills, not by a rule (the owner, 2026-10-24);
+  - how many die under the Duellist's sword over `crypt-clear` is unread. A Crypt fight ends by a
+    mind that kills, not by a rule (the owner, 2026-10-24); more die with a faster rise (Recovery),
+    and blows on a body that is down, decided to apply once the rise meets its bar
+    ([Blows and wounds](#blows-and-wounds));
   - the stance walk runs away sideways after a half turn, read before the walk steered the way its
     route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;
-  - the party carries only clubs; the Rogue's bow needs projectiles;
+  - the party carries only short swords; the Rogue's bow needs projectiles;
   - the frame rate on the owner's machine is unmeasured, and the triangle budget waits on it
     ([crypt art](art/crypt.md#triangles));
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
@@ -404,10 +402,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 ### Findings
 
-- **What the measurements find short:** the bare fist's striking
-  surface is about 9 cm short of the capsule its recipes were tuned on; the open hand bears on its
-  palm's hull where the rise, the bar, the posture hold and the support entry were tuned on the
-  capsule; the run's legs cost the rise; `docs/reference/native-posture-control.json` names an
+- **What the measurements find short:** the open hand bears on its palm's hull where the rise,
+  the bar, the posture hold and the support entry were tuned on the capsule; the run's legs cost
+  the rise; `docs/reference/native-posture-control.json` names an
   anatomy the body no longer has.
 - **Defects found, cause unknown:** a club at 10 m/s under the lab dummy's ball ends a step
   inside it unread. A limp body's slack hand can be kept turning by the solver

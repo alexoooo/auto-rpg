@@ -30,9 +30,9 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
      * chosen for variety, not strength.
      */
     panel: [
-      "duellist/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
-      "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/crypt-skeleton/empty,empty",
-      "classic/workshop-rogue/empty,club", "duellist/crypt-skeleton/empty,sword",
+      "duellist/workshop-fighter/buckler,sword", "behaviours/crypt-skeleton/buckler,sword", "duellist/workshop-rogue/buckler,sword",
+      "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/workshop-fighter/empty,empty",
+      "vanguard-rogue/workshop-rogue/empty,empty", "duellist/crypt-skeleton/empty,sword",
     ],
     /**
      * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at

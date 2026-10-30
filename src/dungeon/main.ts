@@ -113,7 +113,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const setupQuery = new URLSearchParams(location.search);
   const linkedSeed = setupQuery.get("seed");
   seedInput.value = linkedSeed !== null && /^\d{1,10}$/.test(linkedSeed) && Number(linkedSeed) <= 4294967295 ? linkedSeed : String(randomSeed());
-  /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries a club. */
+  /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries what its model holds (`ModelInfo.held`). */
   const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: MODEL_DISPLAY[model].label }));
   /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
   const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
@@ -420,9 +420,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     stillShown();
     const dress = (actor: DungeonActor) => {
       const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;
-      const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), club = drawHeld(built, scene);
-      page.drawn.push(hands, skin, club);
-      actor.meshes.push(...skin.meshes, ...club.meshes);
+      const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(built, scene);
+      page.drawn.push(hands, skin, held);
+      actor.meshes.push(...skin.meshes, ...held.meshes);
     };
     await stage("Building the dungeon");
     stillShown();

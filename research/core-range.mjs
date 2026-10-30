@@ -28,7 +28,7 @@ import { parseArgs } from "node:util";
 import { SIDES } from "../src/arena/duel.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 /** The experimental edge spacing, patience in seconds and clinch in metres. */
 const EDGE = { band: .25, patience: 4, clinch: .1 };
 import { BOUT_HARNESS } from "./bout.mjs";
@@ -66,7 +66,7 @@ function sideOf(row, side) {
 
 /** A bout's job, and the record its row becomes: `edge` is the side that holds at the edge, or null in the control. */
 function jobOf(seed, held, left, right, at, edge) {
-  const mind = (side) => side === at ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range: "edge", tuning: { edge } } : behaviour) } }) : RECIPE_FIGHTER;
+  const mind = (side) => side === at ? withParts(BLADE_FIGHTER, { tactics: { list: BLADE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range: "edge", tuning: { edge } } : behaviour) } }) : BLADE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, at, edge },
     recipe: { left, right, gap: gapOf(seed), loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: mind("left"), right: mind("right") } },

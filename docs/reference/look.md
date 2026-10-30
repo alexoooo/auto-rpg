@@ -186,8 +186,11 @@ rigid body, in contact once).
 `node research/touches.mjs`: Node core stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, a
 20 m ground, one body, balance 0 %; the bouts are the Node core world's, each side's balance 0 %.
 Every segment is read; a body's air leaves out its first second, in which it takes its guard. The
-script prints every part's row; these are the feet's, the landings' and the bouts'. Standing 10 s,
-no body touches the ground anew and its fastest point moves at 0.02 to 0.03 m/s.
+script prints every part's row; these are the feet's, the landings' and the bouts'. The Routine's
+and the Blow's rows are its `routine` and `blow` cases at `research/touches.mjs@bca8fc87`: the Lab's
+Routine (`src/lab/routine.ts@bca8fc87`) and its stored blows (`src/lab/blows.ts@bca8fc87`), thrown
+as searched recipes. Standing 10 s, no body touches the ground anew and its fastest point moves
+at 0.02 to 0.03 m/s.
 
 A foot on the ground, by a body on its feet (Routine: a loop of 10 targets):
 
@@ -203,11 +206,11 @@ A foot on the ground, by a body on its feet (Routine: a loop of 10 targets):
 | crypt-skeleton | Run, shuttle, 30 s | 78 | 0.0204 / 0.0228 / 0.276 | 0 | 1.87, a foot |
 | crypt-skeleton | Routine, 93.2 s | 135 | 0.00396 / 0.0234 / 0.615 | 1 | 14.3, a hand |
 
-The Routine's targets (`src/lab/targets.ts`) touched the striking body 12 times in the Warrior's
-loop (0.19 to 36.9 J), 11 in the Rogue's (0.15 to 15.1 J) and 8 in the skeleton's (0.15 to
-17.6 J), on the hand or the forearm.
+The Routine's targets (`src/lab/targets.ts@bca8fc87`) touched the striking body 12 times in the
+Warrior's loop (0.19 to 36.9 J), 11 in the Rogue's (0.15 to 15.1 J) and 8 in the skeleton's (0.15
+to 17.6 J), on the hand or the forearm.
 
-The Blow's stored blows (`LAB_BLOWS`), each thrown by its own body at a target body's head (high)
+The Blow's stored blows, each thrown by its own body at a target body's head (high)
 or upper trunk (middle), to 1.5 s after its pushes begin. Every one lands and its body stays up:
 
 | Model | Blow | Its hardest landing, J | Fastest point, m/s |

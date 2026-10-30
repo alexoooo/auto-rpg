@@ -7,7 +7,7 @@ import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
-import { placedHeightFits, placedReach } from "./strike.ts";
+import { placedHeightFits, placedReach } from "./arm-reach.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetResolver } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 
@@ -90,8 +90,8 @@ export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[
       const at = resolve(view, requested, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const up = at[1] - view.head.y;
-      if (!placedHeightFits(spec, hand, up, undefined, end.point)) return { kind: "blocked", reason: "target is outside the blade's height band" };
-      const reach = placedReach(spec, hand, up, undefined, end.point);
+      if (!placedHeightFits(spec, hand, up, end.point)) return { kind: "blocked", reason: "target is outside the blade's height band" };
+      const reach = placedReach(spec, hand, up, end.point);
       const window = { at, along: [Math.max(.1, reach - .5), reach + .1] as const, across: [-.5, .5] as const, facing: .8, speed: .5 };
       return withinActionWindow(view, window, around.heading) ? { kind: "ready", window } : { kind: "position", window };
     },

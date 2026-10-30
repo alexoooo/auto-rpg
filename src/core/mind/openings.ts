@@ -5,7 +5,7 @@ import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "../skills/attack-path.ts";
 import { aimOf } from "../skills/strikes.ts";
-import { placedReach, shoulderFromHead } from "../skills/strike.ts";
+import { placedReach, shoulderFromHead } from "../skills/arm-reach.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../spec/vec.ts";

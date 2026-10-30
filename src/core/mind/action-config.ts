@@ -35,7 +35,7 @@ export function configuredAims(parts: PartLookup, spec: BodySpec, executors: rea
   }));
 }
 
-/** Compile measured recipe values without exposing execution kinds to the selector. */
+/** Compile the executors' measured estimates without exposing execution kinds to the selector. */
 export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): ActionEstimates {
   const providers: Record<string, ActionEstimates[string]> = {};
   for (const action of actions) {

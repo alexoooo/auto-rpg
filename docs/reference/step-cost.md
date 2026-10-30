@@ -24,18 +24,24 @@ node research/blow-cost.mjs
 
 ## Allocation ceilings
 
-`tests/harness/step-allocation.mjs`, Node 24.15.0 (background searches running, so no timing): two
-standing skeletons, 240 steps after 3 s; the Warrior against the Rogue with clubs, 480 steps after
-2 s; each reading in its own process. A ceiling is the highest of five readings plus a quarter,
-rounded up: `CEILING` is 140 standing, 393 in the bout, 206 for a down body (KiB a body a step).
+`tests/harness/step-allocation.mjs`: two standing skeletons, 240 steps after 3 s; the Warrior
+against the Rogue with swords, 480 steps after 2 s; each reading in its own process. A ceiling is
+the highest of five readings plus a quarter, rounded up: `CEILING` is 140 standing, 1262 in the
+bout, 206 for a down body (KiB a body a step).
 
 | Fixture | KiB per body per step | Ceiling |
 |---|---|---|
-| Standing | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
-| Bout, options fighter | 367.46, 369.48, 367.61, 368.14, 366.96 | 393 |
-| Bout, the Duellist | 353.65, 351.25, 354.07, 352.38, 352.39 | 393 |
+| Standing (Node 24.15.0) | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
+| Bout, the Duellist with swords (Node 24.19.0) | 995.50, 997.93, 1009.60, 997.33, 998.36 | 1262 |
 
-The bout plays each model's own mind, the Duellist (Node 24.15.0, readings above). Its reach
+The bout plays each model's own mind and loadout, the Duellist thrusting with a sword. Of its
+998 KiB, the opening selector's own frame (`openingSelector`, `src/core/mind/openings.ts`) makes
+366: a closure for each segment it weighs (`consider`), the capsule's three points and the
+obstacles' ends, on every readiness the thrust asks, many a step. Moving them into work arrays is
+open ([roadmap](../roadmap.md)). Next come the reach solves (`solveReach`, 56) and Rapier's contact
+pairs (`pairWith`, 34).
+
+The Duellist's reach
 (`effectorTracker`, `src/core/control/effector-tracker.ts`) solves each hand's path three times a
 step, a step either side for its rates, at about 40 passes a solve; the solves work in arrays made
 once a limb, and a pass reads each joint's half tangents once (`halfTansToRef`, `walkTo`). Before

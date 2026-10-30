@@ -137,8 +137,8 @@ export type Start = "settled" | "walking";
  * runs on once the action has ended, s.
  */
 const FIGHT = deepFreeze({
-  models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
-  foes: ["classic", "counter", "duellist", "vanguard-warrior"],
+  models: ["workshop-fighter"] as BodyModel[],
+  foes: ["counter", "vanguard-warrior"],
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],

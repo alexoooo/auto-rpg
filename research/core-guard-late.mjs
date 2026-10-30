@@ -17,7 +17,7 @@ import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
@@ -36,7 +36,7 @@ const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */
 async function play(left, right, gap, covers) {
-  const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover", tuning: { threat } } : behaviour) } }) : RECIPE_FIGHTER;
+  const mind = (side) => side === covers ? withParts(BLADE_FIGHTER, { tactics: { list: BLADE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover", tuning: { threat } } : behaviour) } }) : BLADE_FIGHTER;
   const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay / 120, minds: { left: mind("left"), right: mind("right") } }, { engine: BOUT_ENGINE });
   try {
     const me = duel.duelists[covers], { view } = me.body;

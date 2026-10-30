@@ -1,8 +1,8 @@
 # The lab's tuning
 
 The readings behind the lab's constants and the hand poses the skin draws: the club grip and fist
-(`src/render/`), the page's seek budget (`src/lab/main.ts`), the Routine's targets and gait
-(`src/lab/targets.ts`, `routine.ts`, `track.ts`), how far ahead a walker faces
+(`src/render/`), the page's seek budget (`src/lab/main.ts`), a turn's pace (`src/lab/track.ts`),
+how far ahead a walker faces
 (`src/lab/locomotion-mode.ts`), how far off a track the locomotion check lets it go, and what the
 page hears (`src/lab/sound-log.ts`).
 
@@ -40,15 +40,10 @@ depth by kind (`palm-thumb` is the first column), the pad's gap and the pose. Fi
 
 ## Fist presentation
 
-`src/render/hand-pose.ts` closes an empty hand in 0.1 s (`CLOSING`) while chambering and relaxes it
-in 0.25 s (`OPENING`) on return or interruption: the Routine's by-eye timing, shared by Arena,
-Crypt and Lab. Each transition starts at the hand's current closure, and a swing is fully closed
-from its first step. Neither timing changes the physical hand or the strike.
-
-`strike-hands.ts` reads the active command owner's skill report after a step, and ignores it while
-a sub-mind owns the body, the body is inactive or its pool has ended. Guarding, approaching and
-moving leave empty hands relaxed. The simulation clock drives the transitions, Lab snapshots keep
-both closures for playback, and a held item's grip stays the skin's fitted pose.
+The skin's fingers follow the body's hand poses (`fighterHands`, `src/render/strike-hands.ts`):
+closed in the fist or on what the hand grips, open else. Every skill set closes a bare hand for its
+blow (`closesToStrike`), so the skin has no timing of its own; Lab snapshots keep both closures for
+playback, and a held item's grip stays the skin's fitted pose.
 
 ## Seek budget
 
@@ -66,38 +61,13 @@ gains:
 Read by hand on the page in a browser automation tab at `022077ed`, 120 Hz, a step taking 0.9 to
 1.8 ms, through a 400-step seek, on an engine that is gone.
 
-## Targets
-
-`TARGET_BOX` (`src/lab/targets.ts`): where a target is drawn, in the statures of the body that
-strikes at it, about the place the control hangs (`POST_BEYOND` beyond the Routine's walk out,
-where the fists' recipes land). Set: the box is an arm's reach either side and a step nearer or
-further, and the three bands divide the body's height.
-
-| | From, statures | To | For the Warrior (1.8 m), m | What it spans |
-|---|---|---|---|---|
-| Across the heading | -0.2 | 0.2 | -0.36 to 0.36 | an arm's reach to either side |
-| Along it | -0.1 | 0.1 | -0.18 to 0.18 | a step nearer or further |
-| Up, high | 0.75 | 1 | 1.35 to 1.80 | the shoulders to the crown |
-| Up, middle | 0.5 | 0.75 | 0.90 to 1.35 | the hips to the shoulders |
-| Up, low | 0.15 | 0.5 | 0.27 to 0.90 | the shins to the hips |
-
-A target's stratum is its turn's, high, middle and low in that order after the control, so every
-seed has the same number in each.
-
-- `TARGET_WATCH`: 0.5 s after a strike's pushes end before its target's reading closes. Set: the
-  Warrior's club lands within the quarter second before its pushes end
-  (`tests/lab-targets.test.mjs@2a1b29ac`), and the half second after is for a blow that lands
-  late.
-- `TARGET_CLEAR`: 0.02 m between every shape of the body and a dummy's surface as the dummy is
-  hung. Set: a body made inside another is thrown out of it by the solver
-  ([blows.md](blows.md#targets)), and the margin keeps a dummy from being made in touch.
-
 ## Routine gait
 
-`ROUTINE_GAIT`: 0.3 m/s (`TURN_PACE`) at 1 rad/s (`LAB_TURN_RATE`), a half-turn of 0.3 m radius.
-The Routine sets off from standing at its targets into its half-turn, and the turn decides what
-holds. `research/core-routine-battery.mjs`, each human 6 runs of 10 loops, pushed 3 N s at the
-start, at 120 and 480 Hz (Node core stand, Rapier), striking three times in the air at one place:
+`TURN_PACE` (`src/lab/track.ts`): 0.3 m/s at `LAB_TURN_RATE`'s 1 rad/s, a half-turn of 0.3 m
+radius, the shuttle's. Read on the Lab's Routine (`src/lab/routine.ts@bca8fc87`), which set off
+from standing into such a half-turn: `research/core-routine-battery.mjs@bca8fc87`, each human 6
+runs of 10 loops, pushed 3 N s at the start, at 120 and 480 Hz (Node core stand, Rapier),
+striking three times in the air at one place:
 
 | Pace, m/s | Turn, rad/s | What happened |
 |---|---|---|
@@ -106,33 +76,8 @@ start, at 120 and 480 Hz (Node core stand, Rapier), striking three times in the 
 | 0.3 | 1 | each human held all 60 loops at both rates |
 
 Standing still after each strike before walking on changed nothing: the turn is the cause. The
-first two rows were read with `ROUTINE_GAIT` written for them and not committed; the last reads the
-same at `e4ec0709`.
-
-**With its targets** (ten a loop, each a body from its strike's beginning,
-[blows.md](blows.md#targets)): loops held of 60 and runs that stood through of 6, with strikes
-thrown and landed. Read at `b72e4ebe`, where a blow was a hand's landing:
-
-| Rate, Hz | The loop | Warrior | Rogue |
-|---|---|---|---|
-| 120 | the walk alone (`--targets 0`) | 60, 6 | 60, 6 |
-| 120 | the control alone (`--targets 1`) | 53, 5; 54 thrown, 54 landed | 60, 6; 60 thrown, 60 landed |
-| 120 | ten targets | 41, 3; 426 thrown, 169 landed | 60, 6; 600 thrown, 298 landed |
-| 120 | ten targets, no dummy hung | 58, 5; 590 thrown | 60, 6; 600 thrown |
-| 480 | the walk alone | 60, 6 | 60, 6 |
-| 480 | ten targets | 27, 0; 285 thrown, 97 landed | 50, 5; 507 thrown, 275 landed |
-| 120 | ten targets, placed blows | 43, 2; 446 thrown, 335 landed | 60, 6; 600 thrown, 438 landed |
-| 480 | ten targets, placed blows | 45, 4; 464 thrown, 353 landed | 60, 6; 600 thrown, 429 landed |
-| 120 | ten targets, the searched repertoire | 52, 4; 534 thrown, 415 landed | 54, 4; 550 thrown, 399 landed |
-
-The gait holds the walk and the turn from standing at both rates. The falls come closing on a
-target or setting the feet for one, mostly the Warrior's; six runs a row are counts, not rates.
-One fall is read in [blows.md](blows.md#a-loop-of-ten); the placed rows are the tree of
-[placed blows](blows.md#placed), the last of the [searched repertoire](blows.md#searched).
-
-`node research/core-routine-battery.mjs --seeds 6 --loops 10`, with `--targets` and `--hz 480`
-for the other rows (also `--variants`, `--impulse`, `--models`, `--workers`, `--list`). The row with
-no dummy hung was read with `TARGET_CLEAR` written past any reach, not committed.
+first two rows were read with the pace and turn written for them and not committed; the last reads
+the same at `e4ec0709`.
 
 ## Aim ahead
 
@@ -215,7 +160,7 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
   | crypt-skeleton | 21.5, 33.1 | 0.20, 0.39, 0.59, 0.79, 1 |
 
 - **On the page** (Chrome, Rapier, 120 Hz, stepped by hand): the Warrior walking at 0.3 m/s is
-  heard a footfall every 0.375 s, strength 0.064 to 0.069; its unit club blow lands 103.2 J at
-  2.383 s, strength 1, its air at 19.6 m/s the step before, and the target is heard on the ground
-  0.73 s after, strength 0.43. Paused, the page starts no voice; a scrub starts none; a replay
+  heard a footfall every 0.375 s, strength 0.064 to 0.069; its unit club blow, in the Blow scenario
+  (`src/lab/blows.ts@bca8fc87`), lands 103.2 J at 2.383 s, strength 1, its air at 19.6 m/s the step
+  before, and the target is heard on the ground 0.73 s after, strength 0.43. Paused, the page starts no voice; a scrub starts none; a replay
   starts the air again.

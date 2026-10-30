@@ -1,6 +1,6 @@
 /**
- * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run and
- * routine, the generated levels, what a walk through one reveals, and the shader code the crypt's
+ * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run, the
+ * generated levels, what a walk through one reveals, and the shader code the crypt's
  * look writes from a level and a camera's bearing. A structural change, one that moves code
  * without changing what it computes, leaves every line as it was; read the output before the
  * change and compare after, on the same machine. It is not a test: a change that means to change
@@ -57,7 +57,6 @@ import { cutawayCondition } from "../src/dungeon/reference-look.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { startRoutine } from "../src/lab/routine.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
@@ -195,20 +194,6 @@ async function labRun(model) {
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }
     return `pose ${trace.digest()}`;
   } finally { run.dispose(); stand.dispose(); }
-}
-
-/** `model` through the lab's routine to the last of four targets of seed 1, or 60 s: what each target read, and the pose. */
-async function labRoutine(model) {
-  const stand = await coreStand(humanSpec(model), { ground: true });
-  const routine = startRoutine(labActor(stand.built, stand.world), { targets: 4, seed: 1 });
-  try {
-    const trace = traceOf([stand.built]);
-    for (let i = 0; i < stand.seconds(60) && routine.readings.length < 4; i++) { stand.step(); trace.take(); }
-    const read = routine.readings.map(({ target, took, nearest }) =>
-      `${target.stratum} ${took ? `${took.damage.toFixed(4)} HP` : nearest === null ? "unread" : `missed by ${(100 * nearest).toFixed(2)} cm`}`);
-    const pose = trace.digest();
-    return { line: `targets ${read.join(", ") || "none"}; pose ${pose}`, record: { pose, verdict: read.join(", ") } };
-  } finally { routine.dispose(); stand.dispose(); }
 }
 
 /** Every crypt the reference generator makes of `seeds`, whole. */
@@ -377,19 +362,21 @@ const rightHand = (right) => ({ left: "empty", right });
 const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
 const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
+/** What a fighter's right hand holds in the cases below, the left empty. */
+const HELDS = Object.freeze(["sword", "club", "empty"]);
 /** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))].filter(played)
-  .map((control) => [control, ["club", "empty"].filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
+const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))].filter(played)
+  .map((control) => [control, HELDS.filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
  * run plays, the Warrior is not offered and no case above plays (the quadruped's `crawl`): itself on
- * both sides, on the first body it fits, holding the club where that body holds and the mind takes
- * it. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
+ * both sides, on the first body it fits, holding the first of `HELDS` that body holds and the mind
+ * takes. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
  */
 const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
-  const model = BODY_MODELS.find((m) => controlsFor(m, rightHand("club")).includes(id) || controlsFor(m, rightHand("empty")).includes(id));
+  const model = BODY_MODELS.find((m) => HELDS.some((held) => controlsFor(m, rightHand(held)).includes(id)));
   if (!model) return [];
-  const loadouts = both(controlsFor(model, rightHand("club")).includes(id) ? "club" : "empty");
+  const loadouts = both(HELDS.find((held) => controlsFor(model, rightHand(held)).includes(id)));
   return [{ name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
     run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config }, ...characters(id, id) }) }];
 });
@@ -410,16 +397,15 @@ const CASES = [
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
     helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
-  controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("club")),
+  controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("sword")),
   controlled("reptile", "reptile", "crawl,crawl", both("empty")),
-  ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand(held) })),
+  controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [
     { name: `lab run, circle, ${model}`, run: () => labRun(model) },
-    { name: `lab routine, ${model}`, run: () => labRoutine(model) },
   ]),
   { name: "crypts, seeds 0-99 and 2124530852", run: () => crypts([...range(100), 2124530852]) },
   { name: "levels, seeds 0-19", run: () => levels(range(20)) },

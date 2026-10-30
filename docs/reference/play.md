@@ -107,7 +107,7 @@ control and the solver take for it.
 `node research/body-cost.mjs`: Node, the core world, Rapier, 120 Hz, one thread; skeletons with the
 club 3 m apart, under an order to stand. Read standing; held (`Body.setLevel`); let go; felled by a
 shove and still driven by a mind with no sub-minds; lying, under the game's sub-minds
-(`RECIPE_FIGHTER`); limp; held where they lie; and rising under the staged riser (`stagedRise`,
+(`BLADE_FIGHTER`); limp; held where they lie; and rising under the staged riser (`stagedRise`,
 `rising.md#stages`). A row is the mean of 600 steps; a step of 8.33 ms is real time with nothing
 drawn.
 

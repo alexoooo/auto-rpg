@@ -1847,14 +1847,14 @@ and the temporary preview is stopped by PID.
 
 ## Equipment path
 
-Vanguard carries equipped attacks through the shared fighter and Lab kit. Its `vanguard-weapon`
-part delegates held-item recipe strikes to the common executor and excludes empty hands. Shared
-`blade-cut` and `blade-thrust` executors supply directed edge and point actions. The weapon actions
+Vanguard carries equipped attacks through the shared fighter and Lab kit: its weapons
+(`WEAPONS`, `src/core/entrants/vanguard/mind.ts`) are the shared `blade-cut` and `blade-thrust`
+executors, directed edge and point actions; a club has no blow of its own. The weapon actions
 precede the punches where both are usable; ordinary arming removes them from an empty-handed kit.
 Each calibration retains its committed standing and low punches for hands that hold nothing.
 
 The loadout contract compiles every catalog assignment for the Warrior, Rogue and Skeleton and
-offers each calibration with the representative loadouts. A physical Node stand exercises club,
+offers each calibration with the representative loadouts. A physical Node stand exercises
 sword-cut and sword-thrust actions with a buckler in the other hand: each action admits, commits
 and drives a held endpoint through the ordinary compositor and muscle controller. The checks
 live in `tests/entrant-vanguard.test.mjs` and run in under ten seconds. They establish equipment

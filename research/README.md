@@ -19,16 +19,7 @@ reads by.
 | `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
 | `strike-profiles.mjs`, `edge-profiles.mjs` | the skills' profiles from drill records: each strike's from the Strike drill's (and the baseline's punch rungs), each ground edge's from the Rise drill's, naming what they were measured on | `assets/core/strike-profiles.json`, `assets/core/edge-profiles.json` |
 | `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
-| `core-routine-battery.mjs` | the Lab's Routine from seeded pushed starts, a tuning each: loops held, falls, each strike's peak | |
 | `reptile-bite.mjs` | the reptile's closing-jaw strikes against a fixed body | [reptile](../docs/reference/reptile.md) |
-| `core-blow.mjs`, `core-strike.mjs`, `core-club-strike.mjs` | modules with no entry point: one strike thrown and scored by the rule a fight wounds by; a candidate's numbers decoded and encoded | |
-| `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for the blow that pays most for a body, a thing held (`--held`) and a band (`--band`); `--from` goes on from a recipe; `--guard` for a straight from guard | |
-| `core-strike-window.mjs` | where each recipe still lands about its place, at every rate; a recipe narrower than the feet is replaced by its cell's next search (`--spare`) | the windows, into `assets/core/strikes.json` |
-| `core-strike-repertoire.mjs` | the repertoire from searches: a cell's best on replay, kept where it beats a placed blow | `assets/core/strikes.json`, without its windows |
-| `core-targets.mjs`, `core-targets-run.mjs` | the Routine on its seeded targets, bare and with the club: what each strike did to the dummy | [blows](../docs/reference/blows.md) |
-| `core-blow-standing.mjs`, `core-aim.mjs` | a blow on a body that stands; aiming where recipes pay most against aiming at the head, in paired bouts | [blows](../docs/reference/blows.md) |
-| `core-placed.mjs`, `core-placed-versus.mjs`, `core-placed-arm.mjs` | the placed blow: its sweep, against a recipe by height, and an arm alone following its goal | [blows](../docs/reference/blows.md) |
-| `core-guard.mjs`, `core-guard-late.mjs`, `core-guard-reach.mjs` | covering the head in paired bouts; why a blow still meets it; what a cover reaches and how soon | [blows](../docs/reference/blows.md) |
 | `core-reach-map.mjs` | kinematics alone: where the knuckles and the club's swell reach, wrist held and freed | [human and strikes](../docs/reference/human-and-strikes.md) |
 | `core-posture.mjs`, `-trials.mjs`, `-worker.mjs` | statics: whether the Warrior can hold still on each support from knees and hands to standing, at what share of its strength, then held by its motors on the world | [postures](../docs/reference/postures.md); `research/runs/postures/` |
 | `man-postures.mjs`, `core-posture-runs.mjs`, `man-posture-starts.mjs` | the same statics on Man's envelopes (`--envelopes boot,barefoot,toe`), and the installed postures' starts | [Man's postures](../docs/reference/man-postures.md); with `--sweep`, `docs/reference/man-postures.json` |
@@ -43,17 +34,14 @@ reads by.
 | `blow-shares.mjs` | the surfaces' stiffness table and the share each takes where two meet | [wounds](../docs/reference/wounds.md) |
 | `real-against-engine.mjs` | the core's real functions beside the engine's `Math`: values that differ, and each function's digest | [real functions](../docs/reference/real-functions.md) |
 
-`core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
+`core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`),
+found by the strike search of `research/core-strike-search.mjs@bca8fc87`.
 The `control-foundation.mjs` suites are declared in their records:
 [moving strike](../docs/reference/moving-strike.md), [point defense](../docs/reference/point-defense.md)
 and [the solver contract](../docs/reference/solver-contract.md).
 
 ```powershell
 node research/core-stance-envelope.mjs --legs walk-run --models workshop-fighter --holds empty --walks
-node research/core-strike-search.mjs --model workshop-rogue --held fist --band middle --guard
-node research/core-strike-window.mjs --spare spare.json --save windows.json
-node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
-node research/core-targets.mjs --each
 node research/core-posture.mjs --workers 30
 node research/core-rise.mjs --workers 30 --watch 40 --only workshop-fighter --shoves 128 --falls
 node research/engine-adapter-cost.mjs --reference <commit> --runs 3
@@ -113,15 +101,14 @@ Scripts not listed above, by what they study; each is read by the record named.
 | Punches | `punch-*.mjs`, `greedy-punch.mjs`, `whole-body-spike.mjs` | [punch calibration](../docs/reference/punch-calibration.md), [punch foundation](../docs/reference/punch-foundation.md), [whole-body spike](../docs/reference/whole-body-spike.md), [learned punch](../docs/reference/learned-punch.md) |
 | Learning | `run-learning-server.mjs` (an environment file's copies on worker threads: `environments/punch.json`, `gait.json`, `bout.json`), `case-learning-environment.mjs` (any learnable part in an evaluation's cases), `run-train.py` (PPO against the server), `learning-speed.mjs` (its decisions a second) | [learned punch](../docs/reference/learned-punch.md), [the trainer's speed](../docs/reference/learned-punch.md#the-trainers-speed) |
 | Walking and running | `locomotion-*.mjs`, `run-cycle*.mjs`, `run-feasibility.mjs`, `mocap-import.mjs`, `bvh.mjs`, `combat-locomotion.mjs` | [locomotion](../docs/reference/locomotion.md), [run body](../docs/reference/run-body.md) |
-| Strikes and fights | `arena-combat*.mjs`, `combat-*.mjs`, `strike-*.mjs`, `empty-hand-league.mjs`, `attack-force.mjs`, `front-kicks.mjs`, `core-range.mjs`, `stance-stagger.mjs`, `oracle-spread.mjs`, `cap-series.mjs` (shorter bout caps from recorded reports' bar series) | [arena combat](../docs/reference/arena-combat-evaluation.md), [blows](../docs/reference/blows.md), [front kicks](../docs/reference/front-kicks.md), [presets](../docs/reference/controller-presets.md) |
+| Strikes and fights | `arena-combat*.mjs`, `combat-*.mjs`, `strike-*.mjs`, `empty-hand-league.mjs`, `attack-force.mjs`, `front-kicks.mjs`, `stance-stagger.mjs`, `oracle-spread.mjs`, `cap-series.mjs` (shorter bout caps from recorded reports' bar series) | [arena combat](../docs/reference/arena-combat-evaluation.md), [blows](../docs/reference/blows.md), [front kicks](../docs/reference/front-kicks.md) |
 | Held items | the blade, buckler and court tasks are evaluations (`src/evaluation/`) | [sword and buckler](../docs/reference/sword-and-buckler.md) |
 | Contact and the solver | `contact-*.mjs`, `rapier-effort-precision.mjs`, `posture-limits.mjs`, `control-foundation-joint-shapes.mjs`, `control-foundation-solvers.mjs` | [contact step](../docs/reference/contact-step.md), [friction](../docs/reference/contact-friction.md), [solver contract](../docs/reference/solver-contract.md) |
 | The reptile | `reptile-*.mjs`, `bite-load.mjs`, `body-plan-regression.mjs` | [reptile](../docs/reference/reptile.md), [bites](../docs/reference/reptile-bites.md) |
 | Minds | `arena-control-trials.mjs`, `ground-combat.mjs`, `action-cycles.mjs` (their request ledger) | [ground combat](../docs/reference/ground-combat.md) |
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
-`cma.mjs` is the resumable CMA-ES the searches share; `core-club-unit.mjs` writes `core-club-unit.json` from a search's
-output.
+`cma.mjs` is the resumable CMA-ES the searches share.
 
 ## The physics bake-off
 

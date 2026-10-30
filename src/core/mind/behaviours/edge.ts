@@ -1,13 +1,13 @@
 import { deepFreeze } from "../../state.ts";
 import { hypot } from "../../math/real.ts";
-import { rangeOf } from "../../skills/strike.ts";
+import { placedReach } from "../../skills/arm-reach.ts";
 import { nonnegative, walking, type BehaviourPart } from "../behaviour-part.ts";
 import { number } from "../fields.ts";
 import { anyBody } from "../parts.ts";
 
 /**
  * **Hold the reach edge**: against a two-handed focus, while nothing is under way or ready, stand
- * just outside its reach, within `band` m; after `patience` s there, it lets the next behaviour lead.
+ * just outside its reach (its arm laid straight, `placedReach`), within `band` m; after `patience` s there, it lets the next behaviour lead.
  */
 interface EdgeConfig { readonly kind: "edge"; readonly band: number; readonly patience: number }
 
@@ -22,7 +22,7 @@ export const EDGE: BehaviourPart<EdgeConfig> = deepFreeze({
       if (turn.legs || !focus || focus.down || !focus.spec.effectors?.some(effector => effector.segment === "hand.left")
         || !focus.spec.effectors.some(effector => effector.segment === "hand.right") || sight.report.actions.length || turn.pending?.readiness.kind === "ready") return;
       const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
-      const reach = rangeOf(focus.spec, "right", mine.y - theirs.y), outside = reach.reach + reach.along[1];
+      const outside = placedReach(focus.spec, "right", mine.y - theirs.y);
       const apart = hypot(theirs.x - mine.x, theirs.z - mine.z);
       if (apart >= outside && apart <= outside + config.band) state.since ??= sight.view.time;
       else if (state.since === null || sight.view.time - state.since < config.patience) state.since = null;

@@ -1,4 +1,3 @@
-import { RECIPE_PART } from "../skills/recipe-part.ts";
 import { PATH_PART } from "../skills/path-part.ts";
 import { KICK_PART } from "../skills/kick-part.ts";
 import { PUNCH_PART } from "../skills/punch-part.ts";
@@ -10,5 +9,5 @@ import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../skills/blade-part.ts";
  * imports and this list and nothing else: a case's code reads it as where each kind's own code
  * begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const EXECUTORS = { "recipe-strike": RECIPE_PART, "path-strike": PATH_PART, "front-kick": KICK_PART,
+export const EXECUTORS = { "path-strike": PATH_PART, "front-kick": KICK_PART,
   "straight-punch": PUNCH_PART, "blade-cut": BLADE_CUT_PART, "blade-thrust": BLADE_THRUST_PART };

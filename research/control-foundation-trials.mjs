@@ -21,13 +21,11 @@ import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
-import { REPERTOIRE, recipesFor } from "../src/core/skills/strikes.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { felled, watchFall } from "./core-rise-trials.mjs";
-import { evaluateBlow, heldSpec } from "./core-blow.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { solverTrial } from "./control-foundation-solvers.mjs";
@@ -38,12 +36,11 @@ import { withParts } from "../tests/fixtures/minds.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 /** The task protocol: rates are declared, and split indices occupy disjoint bounded ranges. */
-export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bout: 20, recovery: 3,
+export const FOUNDATION = Object.freeze({ version: 3, samples: 2, watch: 40, bout: 20,
   split: Object.freeze({ development: 0, "held-out": 1000000 }), maximumSamples: 1000000 });
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const heldName = (held) => held === "club" ? "wooden club" : "fist";
-const riseMind = { ...RECIPE_FIGHTER, subs: [{ kind: "support-recovery" }] };
+const riseMind = { ...BLADE_FIGHTER, subs: [{ kind: "support-recovery" }] };
 const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "posture-hold", "support-entry", "integrated", "reach", "ccd", "solver", "competency"];
 /** The bodies the competency suite measures by default: the workshop humans. */
 const WORKSHOP = Object.freeze(["workshop-fighter", "workshop-rogue"]);
@@ -174,9 +171,6 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
       if (["baseline", "recovery"].includes(suite)) for (const recovery of ["lie", "support-recovery"])
         add({ ...common, task: "recovery", recovery, degrees, impulse: 1.5, watch: FOUNDATION.watch });
       if (["baseline", "strike-block"].includes(suite)) {
-        for (const hand of ["left", "right"]) for (const target of ["place", "offset", "miss"])
-          add({ ...common, task: "strike", hand, target, across: target === "offset" ? (fraction * 2 - 1) * 0.12 : 0,
-            perturbation: { shift: (fraction * 2 - 1) / 240, scale: 1 + (fraction * 2 - 1) * 0.02 }, recover: FOUNDATION.recovery });
         for (const guard of ["pose", "left-cover", "right-cover"])
           add({ ...common, task: "bout", guard, gap, cap: FOUNDATION.bout });
       }
@@ -254,7 +248,7 @@ function instrument(world, readings) {
 
 async function recoveryTrial(job) {
   let readings;
-  const mind = job.recovery === "support-recovery" ? riseMind : RECIPE_FIGHTER;
+  const mind = job.recovery === "support-recovery" ? riseMind : BLADE_FIGHTER;
   const fall = await felled(job, (built, world) => {
     const body = createMind(built, world, mind, { name: "foundation", orders: () => STAND_ORDERS }).body;
     readings = meter([built], [body]);
@@ -266,26 +260,6 @@ async function recoveryTrial(job) {
       : { fell: false, risen: false, seconds: null, up: null };
     return { status: "measured", outcome, ...readings.row(), limits: ["standing is not proof of useful control", "no penetrating-depth or motor-work measurement"] };
   } finally { fall.dispose(); }
-}
-
-async function strikeTrial(job) {
-  const held = heldName(job.held), spec = heldSpec(job.model, held, job.hand);
-  const chosen = recipesFor(REPERTOIRE, spec, job.hand).find((c) => c.recipe.band === "high");
-  if (!chosen) return { status: "unsupported", reason: "no high-band recipe for this loadout" };
-  let readings, first = null, commit = null, thrown = null, steps = 0;
-  const outcome = await evaluateBlow({ model: job.model, held, hand: job.hand, hz: job.hz, actuation: job.actuation,
-    strike: chosen.strike, ahead: chosen.recipe.place.ahead, dummy: job.target !== "miss",
-    off: { along: 0, across: job.across, up: 0 }, seen: true, perturbation: job.perturbation, recover: job.recover,
-    trace(body, blow) {
-      readings ??= meter([body.built], [body]);
-      readings.take(1 / job.hz); steps++;
-      first ??= blow.time;
-      if (blow.report.actions.some(action => action.phase === "commit")) commit ??= blow.time;
-      if (blow.report.ledger.some(record => record.committed && record.effector === `hand.${job.hand}`)) thrown ??= blow.time;
-    } });
-  return { status: "measured", outcome: { ...outcome, preparedSeconds: commit === null ? null : commit - first,
-    threwAt: thrown, usefulHit: outcome.done > 0, watchedSeconds: steps / job.hz }, ...readings.row(),
-    limits: ["offset is a fixed target disclosed at commitment, not a moving target", "no per-step cost in the blow adapter"] };
 }
 
 /** Track preparation from the first active phase to commitment; count each commitment once. */
@@ -306,10 +280,10 @@ export function attackAccounting() {
 }
 
 async function boutTrial(job) {
-  const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
+  const cover = withParts(BLADE_FIGHTER, { tactics: { list: BLADE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     loadouts: { left: { left: "empty", right: job.held }, right: { left: "empty", right: job.held } },
-    minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
+    minds: { left: job.guard === "left-cover" ? cover : BLADE_FIGHTER, right: job.guard === "right-cover" ? cover : BLADE_FIGHTER } };
   const bout = await buildBout(recipe, { engine: BOUT_ENGINE, hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
   const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));
@@ -336,7 +310,6 @@ async function boutTrial(job) {
 export async function foundationTrial(job) {
   switch (job.task) {
     case "recovery": return recoveryTrial(job);
-    case "strike": return strikeTrial(job);
     case "bout": return boutTrial(job);
     case "reach": return reachTrial(job);
     case "ccd": return collisionTrial(job);

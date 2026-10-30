@@ -4,11 +4,10 @@ import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { partLookup, partOf, scriptedBy, treeFaults } from "../core/mind/catalog.ts";
 import type { FighterConfig, MindConfig } from "../core/mind/config.ts";
-import type { PartConfig } from "../core/mind/parts.ts";
 import { createMind, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
-import type { RecipeOptions, Skills } from "../core/skills/skills.ts";
+import type { Skills } from "../core/skills/skills.ts";
 import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -23,8 +22,6 @@ interface Driving {
   readonly orders?: MindWiring["orders"];
   readonly senses?: MindWiring["senses"];
   readonly contactIdentity?: MindWiring["contactIdentity"];
-  /** What its recipe strike and guard are made with, in place of their defaults: their `tuning` in the mind's config. */
-  readonly skills?: RecipeOptions;
   /** Read each step, whatever the mind is. */
   readonly watch?: Watch;
 }
@@ -43,8 +40,7 @@ export interface Actor {
   readonly strikes: Readonly<Record<Side, boolean>>;
   /**
    * Hand the body to its mind with orders and senses, or a scenario script. Returns the skills for
-   * their report. A mind of its own takes the orders and senses, and no script, recipe options,
-   * instrument or log.
+   * their report. A mind of its own takes the orders and senses, and no script, instrument or log.
    */
   drive(script?: Tactics, driving?: Driving): Skills;
   /** Whether its mind gets up by its own skills, no sub-mind taking the body: a mind of its own. */
@@ -57,7 +53,7 @@ export interface Actor {
 interface ActorOptions {
   /** An explicit experiment's pre-created sub-minds, in place of the selected mind's. */
   readonly subs?: BodyOptions["subs"];
-  /** Its mind: the script on the game's recipe skills, lying still once down (`LAB_PRESETS.script`), unless given. */
+  /** Its mind: the script on the blade fighter's skills, lying still once down (`LAB_PRESETS.script`), unless given. */
   readonly mind?: MindConfig;
   /** The most its assist gives it (`balanceCeiling`); none unless given. */
   readonly assist?: AssistCeiling;
@@ -97,30 +93,6 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
   });
 }
 
-/** The research tuning a part's config carries (`Part.tuning`), or none. */
-const tuningOf = (config: PartConfig): object => (config as { readonly tuning?: object }).tuning ?? {};
-
-/** `config` with `tuning` over the research tuning it carries. */
-function retuned<C extends PartConfig>(config: C, tuning: object): C {
-  const out = { ...config, tuning: { ...tuningOf(config), ...tuning } };
-  return out;
-}
-
-/**
- * `config` with a mode's recipe options (`skills`) as its parts' `tuning`: the cover the guard's,
- * the rest the recipe strike's, where its blow is the recipe strike.
- */
-function tuned(config: FighterConfig, skills: RecipeOptions | undefined): FighterConfig {
-  if (!skills) return config;
-  const { cover, ...strike } = skills;
-  return {
-    ...config,
-    guard: cover === undefined ? config.guard : retuned(config.guard, { covering: cover }),
-    executors: config.executors.map(executor => executor.kind === "recipe-strike" && Object.keys(strike).length > 0
-      ? retuned(executor, strike) : executor),
-  };
-}
-
 /**
  * `built`, a human in its reference pose on the ground of `world`, as a mode's actor. A mind that
  * takes no script (`scriptedBy`) is made as a fight makes it (`createMind`), refused where it runs
@@ -155,8 +127,8 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     body, world, strikes, risesItself: false,
     drive(script, driving = {}) {
       input = driving;
-      const { skills, watch } = driving;
-      return driven = scripted.drive(body.driver, world, partLookup, tuned(fighter, skills), { ...wiring, script }, (tactics) => {
+      const { watch } = driving;
+      return driven = scripted.drive(body.driver, world, partLookup, fighter, { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;
       });

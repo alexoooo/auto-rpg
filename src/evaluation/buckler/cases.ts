@@ -3,7 +3,7 @@
  * facing `angle` degrees off the line to its attacker (positive to its right), and covers by the
  * subject's cover; with `own`, it also throws its own actions at the attacker as it stands. The
  * attacker is the blade task's striker (`bladeStriker`) with a sword alone, whose only blow is its
- * sword hand's swing at `at`: a mark (`high`, `middle`) or a segment of the defender's (its sword
+ * sword hand's cut at `at`: a mark (`high`, `middle`) or a segment of the defender's (its sword
  * arm, `upperArm.right`). Each of the attacker's swings that touches the defender is read from its
  * commitment to its end: whether the buckler met the blade before any of the defender's body did,
  * and the wound the defender took.
@@ -63,8 +63,8 @@ function bucklerCases(protocol: typeof BUCKLER): Cases<BucklerCondition, Buckler
     seconds: protocol.seconds + protocol.return,
     faults: (value) => value !== null && typeof value === "object" && !Array.isArray(value) && (value as { kind?: unknown }).kind === "cover" ? [] : ["a cover is a behaviour of kind cover"],
     world: ([cover], { model, angle, at, own }, engine) => {
-      const attacker = MARKS.has(at) ? bladeStriker("swing", at as "high" | "middle" | "legs") : (() => {
-        const striker = bladeStriker("swing", "middle") as FighterConfig;
+      const attacker = MARKS.has(at) ? bladeStriker("cut", at as "high" | "middle" | "legs") : (() => {
+        const striker = bladeStriker("cut", "middle") as FighterConfig;
         return deepFreeze({ ...striker, actions: striker.actions.map((action) => ({ ...action, regions: [{ kind: "segment", segment: at }] })) }) as unknown as MindConfig;
       })();
       // Facing `angle` off the line from its spawn to the attacker's, turned to the right for a positive

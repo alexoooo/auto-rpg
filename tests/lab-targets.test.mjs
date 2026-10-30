@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { partLookup } from "../src/core/mind/catalog.ts";
 import { withLoadout } from "../src/core/items/held.ts";
@@ -46,10 +46,10 @@ test("Attack compatibility uses declared regions and permitted armed effectors w
   assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: middle }]), middle, []), []);
   assert.equal(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: "missing" }]), middle, []).length, 1);
   assert.match(attackTargetWarnings(spec, config, middle, ["empty"])[0], /No actions are available/);
-  const held = withLoadout(spec, { left: "club", right: "empty" });
-  assert.deepEqual(attackTargetWarnings(held, RECIPE_FIGHTER, spec.marks.high, ["empty"]), [], "the permitted club can still strike");
-  const rightOnly = { ...RECIPE_FIGHTER, actions: [{ ...RECIPE_FIGHTER.actions[0], effectors: ["hand.right"] }] };
-  assert.match(attackTargetWarnings(held, rightOnly, spec.marks.high, ["empty"])[0], /No actions are available/);
+  const held = withLoadout(spec, { left: "sword", right: "empty" });
+  assert.deepEqual(attackTargetWarnings(held, BLADE_FIGHTER, middle, ["empty"]), [], "the permitted sword can still strike");
+  const rightOnly = { ...BLADE_FIGHTER, actions: [{ ...BLADE_FIGHTER.actions[0], effectors: ["hand.right"] }] };
+  assert.match(attackTargetWarnings(held, rightOnly, middle, ["empty"])[0], /No actions are available/);
   assert.equal(JSON.stringify(config), before);
 });
 
