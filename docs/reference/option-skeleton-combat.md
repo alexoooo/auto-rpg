@@ -55,6 +55,34 @@ The standard fingerprint also records the new entrant at `0bd473d1`.
 The fights could not be watched: Chrome's development connection is unavailable, the browser
 access host is unavailable, and native browser launch reports that app approval timed out.
 
+## Experimental recovery
+
+At `5d3a5869`, the private `skeleton-recovery` technique is available through the entrant's
+`ground` list. The default remains `step-up`: the experiment does not recover the actual Rogue
+fight falls. The open question is how to transfer the roll from placed starts to those falls.
+Its code and data stay in the entrant's folders; other minds cannot name its private part.
+
+`ROLL` (`roll.ts`, `assets/entrants/option-skeleton/roll.json`) drives two searched poses, then
+flattens with bent knees once the pelvis faces down. It retains the existing roll's loaded-front
+predicate for 0.1 s. `RECOVERY` (`recovery.ts`, `assets/entrants/option-skeleton/recovery.json`)
+sets the fold, tuck and prop times, scales the kneeling and step-through times, and sets the
+stance's climb after the half kneel. The normal standing predicate and two-second follow-up
+remain fixed. The muscles, anatomy, attributes and assists are unchanged.
+
+The local Node stand uses `rapier-coordinate`, 120 Hz, Balance 0, flat feet, placed front and back
+starts with 0.02 joint-range spread. The pose search plays 528 candidates on two back starts in
+108.6 s on four workers; flattening completes both training rolls. The timing search stops at
+48 candidates in 26.3 s once front and back seed 2 both stand and remain up for two seconds.
+Across seeds 0–3, six of eight starts remain standing; four of the six reserved starts do.
+These are local screens, not the owner's full recovery target or a qualified drill.
+
+The paired 45 s Rogue sword-and-buckler screen still has life margins -0.0093 on the left and
+-0.0016 on the right, with 35.67 and 36.68 s down, equal to the default's margins and down times.
+Skipping the wind-up on a side entry also fails to transfer. The fixtures, recipes, diagnostics
+and search rows are retained locally under `research/runs/option-skeleton-combat/`; the harness
+sources and logs are under its `recovery/` folder. The active private technique is covered by a
+config-to-execution fork check; its motion has not been watched, and it qualifies no skill rung.
+
 ## Tried and not kept
 
 The current controller is the reference for these local screens, on the same harness and with
@@ -70,3 +98,4 @@ the same physical conditions. Their rows stay in `research/runs/option-skeleton-
 | Punch settings searched at close range | 48 candidates, four 8 s sword exchanges each at 1.5 m, in 208 s on four workers, no invalid candidate; the best loses three of four full held-out 4 m fights, the Rogue's margins -0.0994 and -0.0173; not kept |
 | Cover the predicted trunk threat | The 30 s Rogue exchanges are unchanged; the full Skeleton sword pair still loses twice, margins -0.0023 and -0.0110; not kept |
 | Preserve a positive lead from the start | The 30 s Rogue exchanges are unchanged; the Skeleton sword exchanges remain negative, -0.0148 and -0.0260; not kept |
+| Sit-back targets clamped to the Skeleton's joint range | One of two placed front starts reaches standing, but reserved starts and actual fight falls remain unreliable; the symmetric route is not kept |
