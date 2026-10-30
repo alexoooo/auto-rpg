@@ -137,7 +137,7 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   faults: optionMindFaults,
   presets: deepFreeze({
     option: { label: "Option Mind", config: OPTION_DEFAULTS, models: ["workshop-fighter"], character: { toes: true } },
-    "option-skeleton": { label: "Option Mind — Skeleton", config: SKELETON, models: ["crypt-skeleton"], character: { toes: false } },
+    "option-skeleton-reference": { label: "Option Mind — Skeleton reference", config: SKELETON, models: ["crypt-skeleton"], character: { toes: false }, offered: false },
   }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createOptionMind,
