@@ -447,11 +447,16 @@ export const CONTACT_RISE: Recipe = deepFreeze({
 });
 
 /**
- * Sat back on the heels, the toes tucked under, the hips flexed to bring the trunk up over the
- * feet and the arms forward (`docs/reference/rising.md#the-sit-back`).
+ * On hands and knees with the toes planted: the shins brought down toward level so that the feet,
+ * bent up at the ankles, reach the ground on their balls (`docs/reference/rising.md#the-sit-back`).
+ */
+const PLANT = { ...FOURS, "knee.@ flexion": 2.05, "ankle.@ dorsiflexion": 0.7 };
+/**
+ * Sat back on the heels, the toes tucked under, the trunk kept forward over the knees as the hips
+ * go back, and the arms forward (`docs/reference/rising.md#the-sit-back`).
  */
 const TUCK_SIT = {
-  "thoracic flexion": 0.1, "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.3, "hip.@ flexion": 0.7,
+  "thoracic flexion": 0.1, "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.15, "elbow.@ flexion": 0.3, "hip.@ flexion": 1.9,
   "hip.@ abduction": 0.15, "knee.@ flexion": 2.55, "ankle.@ dorsiflexion": 0.3,
 };
 /**
@@ -477,8 +482,8 @@ export const SIT_BACK: Recipe = deepFreeze({
     ...RISE.rise.slice(0, RISE.rise.findIndex((stage) => stage.name === "prop") + 1),
     // Borne on hands and knees as the game's rise is, the toes tucked further under.
     { ...RISE.rise.find((stage) => stage.name === "fours") as BearStage, posture: bothSides({ ...FOURS, "ankle.@ dorsiflexion": 0.7 }) },
-    // The ankles bent until each foot's ball is on the ground.
-    { kind: "pose", name: "plant", posture: bothSides({ ...FOURS, "ankle.@ dorsiflexion": 0.7 }), seconds: 2, drive: { speed: 2, within: 0.2, turning: true }, until: { balls: 0.01, for: 0.1 } },
+    // The shins lowered and the ankles bent until each foot's ball is on the ground.
+    { kind: "pose", name: "plant", posture: bothSides(PLANT), seconds: 2, drive: { speed: 2, within: 0.2, turning: true }, until: { balls: 0.01, for: 0.1 } },
     { kind: "pose", name: "sit back", posture: bothSides(TUCK_SIT), seconds: 1.5, drive: { speed: 3, within: 0.2, turning: true }, until: { past: bothSides({ "knee.@ flexion": 2.5 }), for: 0.05 } },
     {
       kind: "pose", name: "up", posture: bothSides(UPRIGHT), seconds: 4, drive: { speed: 2, within: 0.2, turning: true },

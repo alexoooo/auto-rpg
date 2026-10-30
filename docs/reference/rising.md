@@ -1220,23 +1220,33 @@ roll takes a mean 3.2 s against 4.0 s at rest; the Rogue's down fails 63 times o
 
 ## The sit-back
 
-From hands and knees on toes the sit-back stands the Warrior 31 of 32 within 6 s, a median of
-3.78 s, and with the club 30 of 32, 3.80 s: an edge from `fours` to standing (`sit-back`,
+From hands and knees on toes the sit-back stands the Warrior 32 of 32 within 6 s, a median of
+3.87 s, and with the club 32 of 32, 3.92 s: an edge from `fours` to standing (`sit-back`,
 `src/core/mind/ground/staged-edges.ts`), its recipe `SIT_BACK` (`src/core/mind/rise/stages.ts`)
 played by the staged player, then the stance's climb and steadying (`stanceSteady`). It needs toes
 ([toes](toes.md)): without them the same rise stands none.
 
 | Stage | Drive | Ends |
 |---|---|---|
-| `plant` | `FOURS` with the ankles at 0.7 rad, 2 rad/s | each foot's ball within 0.01 m of the ground, 0.1 s; at most 1 s |
-| `sit` | `TUCK_SIT`: on the heels, hips 0.7 rad, arms forward, 3 rad/s | both knees past 2.5 rad, 0.05 s; at most 1.5 s |
+| `plant` | `PLANT`: `FOURS` with the knees at 2.05 rad and the ankles at 0.7 rad, 2 rad/s | each foot's ball within 0.01 m of the ground, 0.1 s; at most 2 s |
+| `sit back` | `TUCK_SIT`: on the heels, hips 1.9 rad, arms forward, 3 rad/s | both knees past 2.5 rad, 0.05 s; at most 1.5 s |
 | `up` | `UPRIGHT` paced: 1.6 of the way a second, 2 rad/s | 0.85 of the way and slower than 0.3 m/s, 0.05 s; at most 4 s |
 
 From the front, `front-sit-back` plays the game's rise onto hands and knees first (`fold`, `tuck`,
 `prop`, and its bearing stage on them asking the ankles 0.7 rad, timed as step up's), then the
-same stages, the plant allowed 2 s: the bearing stage leaves the trunk low, and the plant raises it
-as it brings the balls down. The game's `down` hands over sat back on the heels with the toes let
-out from under the feet, which the sit-back does not stand from.
+same stages. The game's `down` hands over on hands and knees or sat back on the heels; the
+sit-back is begun only from the first.
+
+- **The plant lowers the shins** (`PLANT`): with the hips over the knees, the hands-and-knees
+  knee of 2.4 rad holds each shin about 0.5 rad off level and the balls 0.17 m up, and the plant
+  waited on the trunk sinking back to bring them down: 1.3 to 2 s, and 3 of 8 front starts timed
+  out. At 2.05 rad the balls come down in about 0.5 s. Lower still (1.6 to 1.9 rad) they come down
+  faster, but sitting back from there pitches the trunk up about the knees and lifts the feet.
+- **The trunk stays forward as the hips go back** (`TUCK_SIT`, hips 1.9 rad): sat back with the
+  hips at 0.7 rad, the trunk rises before the weight is over the feet. From the front, seeds 1 to
+  16 (`front-sit-back`, the Rise drill's case, Node, Rapier, 120 Hz): 16 of 16 done, a median of
+  4.5 s, against 12 of 16, 5.0 s; after the game's `down`, each sit-back begun stood (4 of 4,
+  against 2 of 4).
 
 - **The way up is paced by the balls of the feet** (`Pace`): the posture moves on from where `up`
   begins only while both balls are within 0.03 m of the ground and the centre of mass is slower
@@ -1251,7 +1261,8 @@ out from under the feet, which the sit-back does not stand from.
   (`groundLevel`, `staged.ts`): a loaded hand sinks up to 0.013 m into the solver's ground, and
   read against the lowest point alone the balls never read down on 2 starts of 32.
 - **Its pose drive asks each joint as the joint turns** (`PoseStage.drive.turning`, as
-  `poseDrive`): 31 of 32 and 30 of 32 with the club, against 30 and 29 asked freedom by freedom.
+  `poseDrive`): at `8207e3c2`, 31 of 32 and 30 of 32 with the club, against 30 and 29 asked
+  freedom by freedom.
   Step up's stages keep the drive they were searched with.
 - **The steady fails off the feet, not off both feet** (`GroundReading.onFeet`, `STEADY_OFF`):
   the stance carries the body up from the sit-back stepping from foot to foot, read between
@@ -1264,8 +1275,8 @@ assist), from the toes' hands-and-knees starts at rest (`placement("push-off-bea
 
 | Body | Stood within 6 s | Median, s | Not standing |
 |---|---|---|---|
-| Warrior, empty | 31/32 | 3.78 | 28: run away in the steady |
-| Warrior, club | 30/32 | 3.80 | 13: plant timed out; 15: run away in the steady |
+| Warrior, empty | 32/32 | 3.87 | none |
+| Warrior, club | 32/32 | 3.92 | none |
 
 The Rogue on toes has no stance envelope (`stance-envelope.ts`) and is not read.
 
