@@ -20,7 +20,8 @@ const AHEAD = 1;
  * blows the orders allow (`orderAllows`) and asking for a ready action against the explicitly selected foe. On offer while the legs can
  * carry the body (`legsReadiness`) and it has an explicit movement, stop or facing order. It claims the legs and the
  * trunk, and holds the legs and what its blows hold (a cover of a hand a blow holds dropped,
- * `stepSet`); it yields, but to firm orders to move or stand (`Orders.firm`), which it keeps. Its
+ * `stepSet`); it yields, but to firm orders to move or stand that name no foe (`Orders.firm`), which
+ * it keeps: a foe's are its strikes' to carry out. Its
  * model: carrying out the orders for `AHEAD` s, a walk, a stand or a facing, is worth the metres its
  * gait would walk as long (`Walker.stride`), whatever pace the orders set and however near the walk
  * ends; through the
@@ -39,7 +40,7 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: rea
       return now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED;
     },
     // Firm orders to move or stand keep the legs and the trunk: nothing of its own takes them over.
-    status: (now) => now.orders?.firm && now.orders.move !== undefined ? "committed" : "yields",
+    status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
     begin() {},
     end() {},
     model: (now): Terms => {
