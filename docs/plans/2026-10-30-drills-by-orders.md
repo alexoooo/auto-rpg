@@ -110,15 +110,18 @@ entrant's.
 
 ### 5. The drill Commander
 
-`src/core/command/drill.ts`, a Commander kind: the target (the nearest foe), the action, the limb,
-the region, how long the body stands first, the pace, whether it asks while walking, and the
-moment (0 from the start; n once the mind has ended n − 1 actions of its kit with a region, so the
-order takes the place of its nth). From its moment it orders the body to stand facing the target
-for its settle, walks it into the action's window at the pace (a move order to the window the
-menu names, its middle), and once settled there (or walking, where it asks so) orders the attack
-with the action, limb and region; once the action has begun it orders the body to stand, and once
-the action has ended it is done. Before its moment it orders nothing, and the mind fights. It
-reports its phase and the ordered entry's readiness (`MemberReport.task`).
+`src/core/command/drill.ts`, a Commander kind: the target (the nearest foe), and the action, the
+limb and the region, each optional (one left out is the first menu entry that fits the rest and
+could start or be walked to, kept once taken; a region the menu does not offer for the action is
+refused), how long the body stands first, the pace, whether it asks while walking, and the moment
+(absent, from the start; n, from the step the mind begins its nth action of its kit with a region,
+the order taking that one's place). From its moment it orders the body to stand for its settle,
+walks it into the action's window at the pace, braking as it arrives (a move order to the window's
+middle), and once it has stood settled there a moment (or walking, where it asks so) orders the
+attack with the action, limb and region, kept until the action ends; with a let-go time, it orders
+a stand that long after the action began. Every order is firm (`Orders.firm`: carry them out
+first). Before its moment it orders nothing, and the mind fights. It reports its phase and the
+ordered entry's readiness (`MemberReport.task`).
 
 Check: the gate; the Commander contract's boundary.
 
