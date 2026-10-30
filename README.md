@@ -41,12 +41,16 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted), Haste (leg speed) and Toes |
-| Controller | the mind: Duellist (the default), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
+| Controller | the mind: Duellist (the default), Puncher, Vanguard, Option Mind (Warrior, or its empty-handed Skeleton preset); the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
 | Appearance | the Warrior's skin: Original, Industrial, Steampunk or Futuristic (same body) |
 | View | World or Tactical (collision shapes); Free, Isometric or Chase camera; focus |
+
+The empty-handed Skeleton's Option Mind setup is
+[`option-skeleton`](http://localhost:5180/?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist):
+its unlearned straight punch with either hand, the guard and footwork, and its flat-footed step-up.
 
 Under each health bar a body diagram shows each part's health; a short feed names what the
 fighter is doing and whether it connected. The bout is heard: footfalls, swings, blows, falls.
