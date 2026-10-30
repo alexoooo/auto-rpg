@@ -4,7 +4,8 @@ import { deepFreeze } from "../../../state.ts";
 import { sideEffector, type GroundExecutor } from "../../../mind/ground/held.ts";
 import type { GroundReading, Position } from "../../../mind/ground/reading.ts";
 import { standReady, tumbling } from "../../../mind/ground/reading.ts";
-import type { TechniqueConfig, TechniquePart, TechniqueRun } from "../../../mind/ground/technique.ts";
+import type { TechniquePart, TechniqueRun } from "../../../mind/ground/technique.ts";
+import type { PartConfig } from "../../../mind/parts.ts";
 import { edgeExpected, type Profile } from "../../../mind/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
@@ -101,7 +102,7 @@ function restOf(way: Way, from: Position): Position {
  * Its memory is the rise's: whether it runs, how long the body has stood ready, the steady's time,
  * how long it has braced tumbling, the attempt under way and the record of attempts.
  */
-export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecutor, techniques: readonly TechniqueConfig[],
+export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecutor, techniques: readonly PartConfig[],
   registry: Readonly<Record<string, TechniquePart>>, edges: readonly Profile[]): Ground {
   const order: readonly string[] = techniques.map((technique) => technique.kind), runs = executor.runs, dt = 1 / hz;
   const named = [...order, ...Object.keys(registry).filter((name) => !order.includes(name))].filter((name) => runs[name] !== undefined);

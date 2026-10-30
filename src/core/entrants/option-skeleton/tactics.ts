@@ -8,7 +8,7 @@ import { OPTIONS, optionsOf, type OptionKindPart } from "./options/kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./options/predictions-part.ts";
 import { stepSet, type Situation } from "./options/option.ts";
 import type { GroundExecutor } from "../../mind/ground/held.ts";
-import type { TechniqueConfig, TechniquePart } from "../../mind/ground/technique.ts";
+import type { TechniquePart } from "../../mind/ground/technique.ts";
 import { groundOptions, type Ground } from "./options/ground.ts";
 import { situationReader } from "./options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./options/strike.ts";
@@ -30,7 +30,7 @@ export interface Deciding {
   /** Its legs: the gaits its footwork goes by (`gaitsOf`). */
   readonly locomotion: LocomotionConfig;
   /** Its techniques for getting up, in rank order. */
-  readonly ground: readonly TechniqueConfig[];
+  readonly ground: readonly PartConfig[];
 }
 
 /** **The gaits `legs` go by**: Move's (`gaitsOfMove`), else the legs as one gait that names none. */
