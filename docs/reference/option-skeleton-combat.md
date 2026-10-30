@@ -112,8 +112,8 @@ The paired 45 s Rogue sword-and-buckler screen still has life margins -0.0093 on
 -0.0016 on the right, with 35.67 and 36.68 s down, equal to the default's margins and down times.
 Skipping the wind-up on a side entry also fails to transfer. The fixtures, recipes, diagnostics
 and search rows are retained locally under `research/runs/option-skeleton-combat/`; the harness
-sources and logs are under its `recovery/` folder. The active private technique is covered by a
-config-to-execution fork check; its motion has not been watched, and it qualifies no skill rung.
+sources and logs are under its `recovery/` folder. Its motion has not been watched, and it
+qualifies no skill rung.
 
 ## Tried and not kept
 
