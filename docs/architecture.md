@@ -516,7 +516,11 @@ fight reads. A fight passes the config through and reads nothing in it.
   nothing. A mind that draws is read over repeated trials.
 - A mind publishes what it is doing (`MindMade.report`, `MindReport`): what its planner reports
   (`Engagement`: its phase, focus, candidates or offers, and details of its own), its heading,
-  its gait's limits and its navigation's report. A mind that runs the game's skills and gives
+  its gait's limits and its navigation's report, and what its body can do: its kit (each action,
+  its executor's kind, its limbs and regions), the actions under way and ended, and its menu
+  (`MenuEntry`, `src/core/skills/menu.ts`: each action, limb, foe and region, and whether it
+  could start from where the body stands), read when asked and changing nothing, which the mind
+  contract holds. A mind that runs the game's skills and gives
   them (`MindMade.skills`) publishes theirs (`skillsReport`); one that runs its own, as the
   quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
   or state; a scene that
@@ -956,7 +960,7 @@ down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `commander.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense, where it is, whether it is in the fight and whether it lies down; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`), the way they face, and its kit, actions under way and ended, and menu, from its Mind's report; every other body the members sense, where it is, whether it is in the fight and whether it lies down; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
 | It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
 | It hears | a leader's command (`Command`, `commands.ts`) at once |

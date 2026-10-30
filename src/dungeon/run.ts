@@ -441,11 +441,12 @@ export class DungeonRun {
     const built = (actor: DungeonActor) => actor.fighter !== null;
     return {
       time: this.clock, look, lead,
-      members: members.filter(built).map((actor): MemberView => ({
-        id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
-        reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
-        gait: actor.fighter?.minded.report?.gait ?? null, heading: actor.fighter?.minded.report?.heading ?? null,
-      })),
+      members: members.filter(built).map((actor): MemberView => {
+        const report = actor.fighter?.minded.report;
+        return { id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
+          reach: actor.attackMetres, home: actor.home, navigation: actor.navigation, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
+          get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; } };
+      }),
       others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive, down: actor.fighter!.body.down })),
     };
   }

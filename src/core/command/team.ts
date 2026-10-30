@@ -2,6 +2,8 @@ import type { GroundPoint } from "../mind/movement.ts";
 import type { NavigationReport } from "../mind/navigator.ts";
 import type { Orders } from "../mind/orders.ts";
 import type { GaitLimits } from "../mind/travel.ts";
+import type { ActionStatus, Ended } from "../skills/action.ts";
+import type { KitEntry, MenuEntry } from "../skills/menu.ts";
 import type { Command } from "./commands.ts";
 
 /**
@@ -90,6 +92,12 @@ export interface MemberView {
   readonly gait: GaitLimits | null;
   /** The way its legs face, radians from +z toward +x (`SkillReport.heading`); null where its Mind reports none. */
   readonly heading: number | null;
+  /** The actions its body has (`KitEntry`), those under way and those ended, as its Mind reports them (`MindReport`); null where its Mind reports none. */
+  readonly kit: readonly KitEntry[] | null;
+  readonly actions: readonly ActionStatus[] | null;
+  readonly ended: readonly Ended[] | null;
+  /** Its choices now (`MenuEntry`), as its Mind reports them, read when asked; null where its Mind reports none. */
+  readonly menu: readonly MenuEntry[] | null;
 }
 
 /** A body some member senses. */
