@@ -50,7 +50,9 @@ nothing, and a fallen fighter tries to rise.
 
 The empty-handed Skeleton's Option Mind setup is
 [`option-skeleton`](http://localhost:5180/?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist):
-its unlearned straight punch with either hand, the guard and footwork, and its flat-footed step-up.
+an independent entrant with its own configurable chooser and options, its unlearned straight
+punch, low front kick, guard and footwork, and flat-footed step-up. Its
+[combat record](docs/reference/option-skeleton-combat.md) holds its current limits.
 
 Under each health bar a body diagram shows each part's health; a short feed names what the
 fighter is doing and whether it connected. The bout is heard: footfalls, swings, blows, falls.
