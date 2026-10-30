@@ -1,6 +1,6 @@
 import { fitsSoles } from "../../control/stance-balance.ts";
 import { stanceFeetOf } from "../../skills/skill.ts";
-import { number } from "../../mind/fields.ts";
+import { number } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../../mind/locomotion-part.ts";
 import { locomotion, validTurnLimit, validTurnStartup } from "../../skills/locomotion.ts";
 import { deepFreeze } from "../../state.ts";

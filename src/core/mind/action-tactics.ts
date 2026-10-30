@@ -11,7 +11,7 @@ import { NO_COVER, type Intent } from "./intent.ts";
 import { remainingOf } from "./movement.ts";
 import { orderAllows, orderedRegions, struckKey, type Orders } from "./orders.ts";
 import { orderedFacing } from "./ordered.ts";
-import { slotList, anyBody } from "./parts.ts";
+import { slotList, anyBody } from "../parts/parts.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";

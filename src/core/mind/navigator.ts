@@ -2,9 +2,9 @@ import type { Clearance } from "./clear-step.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { heldClearance } from "./held-clearance.ts";
 import type { MovementRequest, GroundPoint } from "./movement.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import type { NAVIGATIONS } from "./navigations.ts";
-import type { ConfigOf, KeysOf, Part, PartConfig } from "./parts.ts";
+import type { ConfigOf, KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { Senses } from "./senses.ts";
 import type { GaitLimits } from "./travel.ts";
 

@@ -2,7 +2,7 @@
  * **A stub low support**: it never lowers, and lets the legs walk. Its state names it and counts the
  * steps it was asked, so a test can read that the part a config names is the part that ran.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_SUPPORT = Object.freeze({
   role: "support", label: "Never low (stub)", stage: "experimental", fields: [], slots: [],

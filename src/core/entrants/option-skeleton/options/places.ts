@@ -1,7 +1,7 @@
 import { cos, hypot, sin } from "../../../math/real.ts";
 import type { BodySpec } from "../../../spec/body.ts";
 import { approachActionWindow, approachSpot, windowSpot, type Spot } from "../../../mind/action-window.ts";
-import type { PartConfig } from "../../../mind/parts.ts";
+import type { PartConfig } from "../../../parts/parts.ts";
 import type { Readiness } from "../../../skills/action.ts";
 import type { GaitName } from "../../../skills/gaits.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../../../mind/profile.ts";

@@ -7,9 +7,9 @@ import type { GuardSkill } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Locomotion } from "../skills/locomotion.ts";
 import type { Legs } from "./locomotion-part.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import type { OwnBody } from "./mind.ts";
-import type { PartConfig } from "./parts.ts";
+import type { PartConfig } from "../parts/parts.ts";
 import type { SubMind } from "./sub-mind.ts";
 import { lowering } from "./rise/lowering.ts";
 

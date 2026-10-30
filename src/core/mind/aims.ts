@@ -5,10 +5,10 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { regionSegments, sensedActionTarget, type Aimed } from "./action-aim.ts";
 import type { Aim, AimPart } from "./aim-part.ts";
-import type { PartField } from "./fields.ts";
-import { number } from "./fields.ts";
+import type { PartField } from "../parts/fields.ts";
+import { number } from "../parts/fields.ts";
 import { capsuleSurfaceAtHeight, openingSelector, validOpeningTuning, type OpeningTuning } from "./openings.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 import type { BodySense } from "./senses.ts";
 
 /**

@@ -1,8 +1,8 @@
 import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
 import { CONDITIONS } from "../core/mind/conditions.ts";
-import { allParts, isKind, ownerOf, partLookup } from "../core/mind/catalog.ts";
+import { allParts, isKind, ownerOf, partLookup } from "../entrants/game.ts";
 import type { Region } from "../core/skills/action.ts";
-import type { PartField } from "../core/mind/fields.ts";
+import type { PartField } from "../core/parts/fields.ts";
 
 /** A named action's editor keeps its executor reference distinct from its own identity. */
 export function actionEditor(config: FighterConfig, write: (config: FighterConfig) => void, readOnly: boolean): HTMLElement {

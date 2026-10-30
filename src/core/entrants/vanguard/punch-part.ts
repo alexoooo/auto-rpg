@@ -1,6 +1,6 @@
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../mind/executor-part.ts";
-import { number, text, toggle } from "../../mind/fields.ts";
-import { fitsAll, fitsWhen, strikesWithOneOf } from "../../mind/parts.ts";
+import { number, text, toggle } from "../../parts/fields.ts";
+import { fitsAll, fitsWhen, strikesWithOneOf } from "../../parts/parts.ts";
 import { straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { holdsNothing } from "../../skills/strikes.ts";

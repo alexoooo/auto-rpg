@@ -16,10 +16,9 @@
  */
 import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
+import { FIGHT_ENTRY, MINDS } from "../../entrants/game.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
-import { MINDS } from "../../core/mind/controllers.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";

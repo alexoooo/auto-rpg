@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import type { ActionRequest } from "../../skills/action.ts";
 import { structuredConfig, type BehaviourPart } from "../behaviour-part.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /** **Attack**: the actions under way go on, and the chosen candidate starts once it is ready. */
 interface AttackConfig { readonly kind: "attack" }

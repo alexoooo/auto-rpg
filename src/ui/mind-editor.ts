@@ -1,12 +1,11 @@
 import { techniqueEditor } from "./mind-ground.ts";
-import { isKind, kindsFor, partOf } from "../core/mind/catalog.ts";
+import { isKind, kindsFor, partOf, type EntryRule } from "../entrants/game.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
 import type { BehavioursConfig, FighterConfig, MindConfig } from "../core/mind/config.ts";
-import type { PartField } from "../core/mind/fields.ts";
-import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
+import type { PartField } from "../core/parts/fields.ts";
+import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
-import type { EntryRule } from "../core/mind/catalog.ts";
 
 /** **A mind's editor**: its tree of parts, drawn and changed in place. */
 interface MindEditor {

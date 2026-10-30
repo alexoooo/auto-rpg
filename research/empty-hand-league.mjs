@@ -20,7 +20,7 @@
  *     [--against classic,scrapper] [--gaps 3,3.2,...] [--cap 120] [--epoch e1] [--store path]
  *     [--lanes 28] [--report-only]
  *
- * `--entrants` names presets (`PRESETS`) or entrants a `--modules` file exports by name (its
+ * `--entrants` names presets (`MINDS`) or entrants a `--modules` file exports by name (its
  * default export, an object of name to `MindConfig`). With `--against`, each entrant plays only
  * those (and they play each other), and the table rates every entrant the store holds bouts of.
  *
@@ -35,7 +35,7 @@ import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 import { bradleyTerry } from "../src/evaluation/rating.ts";
-import { PRESETS } from "../src/core/mind/controllers.ts";
+import { MINDS } from "../src/entrants/game.ts";
 
 /** Within how far across the ground two centres of mass count as close, m. */
 const CLOSE = 0.5;
@@ -81,7 +81,7 @@ if (!isMainThread) {
   const epoch = arg("epoch", "e1"), cap = Number(arg("cap", 120)), store = resolve(arg("store", "research/runs/empty-hand/bouts.jsonl"));
   const gaps = list(arg("gaps", "3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5")).map(Number);
   const lanes = Number(arg("lanes", Math.max(1, availableParallelism() - 4)));
-  const known = Object.fromEntries(Object.entries(PRESETS).map(([name, preset]) => [name, preset.config]));
+  const known = Object.fromEntries(Object.entries(MINDS).map(([name, preset]) => [name, preset.config]));
   for (const file of list(arg("modules"))) Object.assign(known, (await import(pathToFileURL(resolve(file)).href)).default);
   const entrants = list(arg("entrants", "classic,puncher,scrapper,behaviours")), against = list(arg("against"));
   for (const name of [...entrants, ...against]) if (!known[name]) throw new Error(`no entrant ${name}: ${Object.keys(known).join(", ")}`);

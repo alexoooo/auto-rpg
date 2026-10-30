@@ -14,7 +14,7 @@
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { buildBout } from "../../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../../research/bout.mjs";
-import { MINDS } from "../../src/core/mind/controllers.ts";
+import { MINDS } from "../../src/entrants/game.ts";
 import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 
 // Babylon greets every engine it makes on the console.

@@ -4,7 +4,7 @@
  * that ran; its posture is where the body is built and where a blow returns.
  */
 import { GUARD } from "../../../src/core/skills/guard.ts";
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 /** Its arms' rest: the game's guard with the elbows opened, rad. */
 export const STUB_POSTURE = Object.freeze({ ...GUARD, "elbow.right flexion": 1.1, "elbow.left flexion": 1.1 });

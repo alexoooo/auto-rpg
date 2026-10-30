@@ -1,8 +1,8 @@
 import { deepFreeze } from "../../state.ts";
 import { hypot } from "../../math/real.ts";
 import { nonnegative, SPACE, walking, type Behaviour, type BehaviourPart } from "../behaviour-part.ts";
-import { number } from "../fields.ts";
-import { anyBody } from "../parts.ts";
+import { number } from "../../parts/fields.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /** A behaviour that keeps the focus at least `metres` away, within `SPACE.band`. */
 interface DistanceConfig<K extends string> { readonly kind: K; readonly metres: number }

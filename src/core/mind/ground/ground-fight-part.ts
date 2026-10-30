@@ -1,5 +1,5 @@
 import { deepFreeze } from "../../state.ts";
-import { choice, number } from "../fields.ts";
+import { choice, number } from "../../parts/fields.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { groundFight, type GroundFightConfig } from "./ground-fight.ts";

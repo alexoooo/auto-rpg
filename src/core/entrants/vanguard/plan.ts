@@ -8,9 +8,9 @@
  * (`waitFallen`), finishing its own stroke and rise before another approach.
  */
 import { FIGHTING } from "../../mind/config.ts";
-import type { PartConfig } from "../../mind/parts.ts";
-import { slotOne, anyBody } from "../../mind/parts.ts";
-import { toggle } from "../../mind/fields.ts";
+import type { PartConfig } from "../../parts/parts.ts";
+import { slotOne, anyBody } from "../../parts/parts.ts";
+import { toggle } from "../../parts/fields.ts";
 import type { Orders } from "../../mind/orders.ts";
 import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "../../mind/tactics-part.ts";
 import { engagementWithDetails, type DecisionCapability, type Sight, type Tactics } from "../../mind/tactics.ts";

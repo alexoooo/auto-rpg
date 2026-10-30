@@ -1,11 +1,11 @@
-import type { CommanderConfig } from "../core/command/commander.ts";
+import type { CommanderConfig } from "../core/command/kind.ts";
 import type { MemberReport } from "../core/command/team.ts";
 import { teamOfOne, type TeamOfOne } from "./team.ts";
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import { modelHolding, modelInfo, modelLoadout, resolveCharacter, modelRefusal, type BodyModel } from "../core/models.ts";
-import { FIGHT_ENTRY, type EntryRule } from "../core/mind/catalog.ts";
+import { modelHolding, modelLoadout, resolveCharacter, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY, type EntryRule, modelRefusal, defaultMind, GAME } from "../entrants/game.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../core/items/held.ts";
 import { combatantRecordingIdentity, enlist, type Combatant } from "../core/combatant.ts";
@@ -286,7 +286,7 @@ export class Duel {
       ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
     } })])) as Record<Side, ReturnType<typeof resolveCharacter>>;
     for (const side of SIDES) {
-      const model = recipe[side], info = modelInfo(model), loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? info.mind;
+      const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
       modelHolding(model, loadout, characters[side].config.attributes);
       const refused = modelRefusal(model, config, loadout, entryRules(recipe), characters[side].config.attributes);
       if (refused !== null) throw new Error(`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`);
@@ -306,13 +306,13 @@ export class Duel {
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
       senseDelay: senseDelayOf(recipe), seed: boutSeedOf(recipe), recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
       loadouts: { left: loadoutIn(recipe, "left"), right: loadoutIn(recipe, "right") },
-      minds: { left: recipe.minds?.left ?? modelInfo(recipe.left).mind, right: recipe.minds?.right ?? modelInfo(recipe.right).mind },
+      minds: { left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) },
     })) as unknown;
     this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, solids,
       engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation });
     this.rules = rulebook("arena", recipe.rules);
     const enlistments = SIDES.map(side => {
-      const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? modelInfo(model).mind;
+      const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
       const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
       const enlisting = { id: side, side, spec: withLoadout(original, loadout), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
         seed: seedOf(boutSeedOf(recipe), side), life: (pool: Pool) => this.lifeOf(pool),
@@ -348,7 +348,7 @@ export class Duel {
         ...enlisting, senses: this.senses, solids,
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
-        mind: config,
+        mind: config, catalog: GAME,
         ...(hooks.record ? { record: true } : {}), ...(hooks.replay ? { replay: hooks.replay[side] } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },

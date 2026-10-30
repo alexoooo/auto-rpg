@@ -17,9 +17,8 @@
  * from that step, walking into its window as at a still target, and the foe fights on. Up to that step the bout is
  * the subject's own bout against that foe: the Commander orders nothing.
  */
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys } from "../../core/mind/catalog.ts";
+import { treeObeys, CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { BodyModel } from "../../core/models.ts";

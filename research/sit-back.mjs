@@ -27,7 +27,7 @@ import { turnOfToRef } from "../src/core/control/support.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
 import { groundReading } from "../src/core/mind/ground/reading.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";

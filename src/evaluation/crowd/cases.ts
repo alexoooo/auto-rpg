@@ -20,7 +20,6 @@ import type { Command } from "../../core/command/commands.ts";
 import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { CONTROLLERS } from "../../core/mind/controllers.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, modelInfo, type BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -28,7 +27,7 @@ import { generateLevel } from "../../dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../dungeon/map.ts";
 import { LEVELS } from "../../dungeon/run.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
-import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
+import { FIGHT_ENTRY, CONTROLLERS, defaultMind } from "../../entrants/game.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
 
@@ -194,4 +193,4 @@ function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading,
 export const CROWD_CASES: Readonly<Record<string, Cases<CrowdCondition, CryptReading, BuiltCrypt>>> = Object.freeze({ standard: crowdCases(CROWD) });
 
 /** The members' mind unless another is named: their model's own. */
-export const CROWD_MIND = modelInfo(CROWD.model).mind;
+export const CROWD_MIND = defaultMind(CROWD.model);

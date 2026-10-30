@@ -8,7 +8,7 @@ import type { Aim, AimPart } from "./aim-part.ts";
 import type { ActionEstimates } from "./tactics-part.ts";
 import type { ActionConfig, ExecutorEntry } from "./config.ts";
 import { ACTION_KEYS, type ExecutorPart } from "./executor-part.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 
 /** How many blows `action` throws: its executor's count (`ExecutorPart.blows`), else one. */
 export function blowsOf(parts: PartLookup, executors: readonly ExecutorEntry[], action: ActionConfig): number {

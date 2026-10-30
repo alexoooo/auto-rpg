@@ -15,7 +15,7 @@ import { addArenaSolids } from "../arena/room.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";
-import { takesScript } from "../core/mind/catalog.ts";
+import { takesScript, GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
@@ -220,7 +220,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   addArenaSolids(world.physics);
   const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
   let check: ReturnType<typeof standCheck> | null = null;
-  const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, at: [0, 0, 0],
+  const fighter = enlist(world, { id: "fall", side: "fall", name: "fall", spec, rules: rulebook("arena"), mind: fall.mind, catalog: GAME, at: [0, 0, 0],
     senses: createSenses(world), out: () => false, orders: () => check?.orders() ?? STAND_ORDERS, balance: fall.balance ?? 0 });
   const body = fighter.body;
   check = standCheck({ body, world, takenOver: () => body.down, inCommand: () => true }, cap);

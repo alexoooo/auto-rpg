@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../state.ts";
 import { walking, type BehaviourPart } from "../behaviour-part.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 import { READINGS, threatReader } from "../threat.ts";
 
 /** **Evade**: back away from the focus while a blow is predicted to reach the head, holding the hands from blows. */

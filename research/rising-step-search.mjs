@@ -25,7 +25,7 @@ import { cmaSearch, workerPool } from "./cma.mjs";
 import { CONTACT_RISE, RISE } from "../src/core/mind/rise/stages.ts";
 import { STEP_UP, stepUp } from "../src/core/mind/ground/step-up.ts";
 import { standUp } from "../src/core/mind/ground/stand-up.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/entrants/game.ts";
 import { GAME_GUARD, kitOf } from "../src/core/mind/kit.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 import "../tests/harness/preload-data.mjs";

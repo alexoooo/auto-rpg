@@ -1,6 +1,6 @@
-import { strikesWithOneOf } from "../mind/parts.ts";
+import { strikesWithOneOf } from "../parts/parts.ts";
 import type { ActionConfig } from "../mind/config.ts";
-import { choice, optionalNumber, text, toggle, type PartField } from "../mind/fields.ts";
+import { choice, optionalNumber, text, toggle, type PartField } from "../parts/fields.ts";
 import { aimedWay, aimedPoint, type ExecutorPart } from "../mind/executor-part.ts";
 import { validArmExtension, type BlowFamily } from "./attack-path.ts";
 import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";

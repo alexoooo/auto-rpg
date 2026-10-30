@@ -5,7 +5,7 @@
  */
 import { actionTactics, BEHAVIOUR_TACTICS } from "../../../src/core/mind/action-tactics.ts";
 import { FIGHTING } from "../../../src/core/mind/config.ts";
-import { slotList, anyBody } from "../../../src/core/mind/parts.ts";
+import { slotList, anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_TACTICS = Object.freeze({
   role: "tactics", label: "Counted behaviours (stub)", stage: "experimental", fields: [], slots: [slotList("list", "Behaviours", "behaviour")],

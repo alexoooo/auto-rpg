@@ -17,7 +17,7 @@ import {KICK_PATH} from '../src/core/skills/kick.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/control/support.ts';
 import {supportRecovery} from '../src/core/mind/rise/support-recovery.ts';
-import {partLookup} from '../src/core/mind/catalog.ts';
+import { partLookup } from "../src/entrants/game.ts";
 import {GAME_GUARD,kitOf} from '../src/core/mind/kit.ts';
 import {coarseForces} from './punch-calibration.mjs';
 import {punchPad} from './punch-pad.mjs';

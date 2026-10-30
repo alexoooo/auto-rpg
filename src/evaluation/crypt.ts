@@ -9,15 +9,16 @@
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import type { CommanderConfig } from "../core/command/commander.ts";
+import type { CommanderConfig } from "../core/command/kind.ts";
 import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { modelInfo, type BodyModel } from "../core/models.ts";
+import type { BodyModel } from "../core/models.ts";
 import type { World } from "../core/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../dungeon/map.ts";
 import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
+import { defaultMind } from "../entrants/game.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -224,7 +225,7 @@ export const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" 
   minds: ({ crypt }) => {
     const [hero, ...companions] = crypt.party;
     return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
-      .map((one) => one.side === "party" ? crypt.mind ?? modelInfo(one.model).mind : modelInfo(one.model).mind);
+      .map((one) => one.side === "party" ? crypt.mind ?? defaultMind(one.model) : defaultMind(one.model));
   },
   parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
   hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),

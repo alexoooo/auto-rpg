@@ -9,7 +9,7 @@
  * the mind's.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
-import { MINDS } from "../../core/mind/controllers.ts";
+import { MINDS } from "../../entrants/game.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/items/held.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Json, type Subject } from "../evaluation.ts";

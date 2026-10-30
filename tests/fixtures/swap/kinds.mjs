@@ -1,5 +1,5 @@
-/** The game's kinds list with the swap fixture's entrants: what `src/core/mind/kinds.ts` is under `hooks.mjs`. */
-import { MIND_KINDS as GAME } from "../../../src/core/mind/kinds.ts?game";
+/** The game's entrants with the swap fixture's: what `src/entrants/index.ts` is under `hooks.mjs`. */
+import { ENTRANTS as GAME } from "../../../src/entrants/index.ts?game";
 import { SWAP_MIND, SWAP_OPTION_MIND, SWAP_QUADRUPED_MIND } from "./mind.mjs";
 
-export const MIND_KINDS = [...GAME, SWAP_MIND, SWAP_OPTION_MIND, SWAP_QUADRUPED_MIND];
+export const ENTRANTS = [...GAME, SWAP_MIND, SWAP_OPTION_MIND, SWAP_QUADRUPED_MIND];

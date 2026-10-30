@@ -4,11 +4,10 @@
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
 import { heldItem, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { MINDS } from "../../core/mind/controllers.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BODY_MODELS, modelRefusal, modelSpec, type BodyModel } from "../../core/models.ts";
-import { FIGHT_ENTRY, partOf } from "../../core/mind/catalog.ts";
+import { BODY_MODELS, modelSpec, type BodyModel } from "../../core/models.ts";
+import { FIGHT_ENTRY, partOf, MINDS, modelRefusal } from "../../entrants/game.ts";
 import type { Json, Subject, SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 

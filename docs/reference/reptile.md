@@ -112,7 +112,7 @@ The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) keeps the .35 m p
 of [following](play.md#following) and `ATTACK_METRES` from
 [attack distance](human-and-strikes.md#attack-distance); a humanoid that falls stays in the fight
 and gets up, as the reptile does. The reptile has empty hands and a quadruped mind by default
-(`modelInfo`), .52 m attack spacing in the Crypt, and a placement radius derived from its whole
+(`modelInfo`, `defaultMind`), .52 m attack spacing in the Crypt, and a placement radius derived from its whole
 collider envelope, tail included. Party placement uses that footprint and the radii of companions
 already placed.
 

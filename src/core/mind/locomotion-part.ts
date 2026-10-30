@@ -1,7 +1,7 @@
 import type { Body } from "../body.ts";
 import type { Locomotion } from "../skills/locomotion.ts";
-import type { PartLookup } from "./lookup.ts";
-import type { KeysOf, Part, PartConfig } from "./parts.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 
 /** Legs of any registered kind (`LOCOMOTIONS`), as a lookup finds them (`legsOf`, `kit.ts`): how Move makes the gaits it chooses among. */
 export interface Legs {

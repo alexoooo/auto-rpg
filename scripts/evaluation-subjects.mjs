@@ -1,8 +1,7 @@
 /** Resolve CLI subject names and configs, keeping an ablation within its source's entrants, calibration and character. */
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
-import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
-import { replacedAt } from "../src/core/mind/catalog.ts";
+import { replacedAt, CONTROLLERS, MINDS } from "../src/entrants/game.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 

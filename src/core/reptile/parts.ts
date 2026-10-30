@@ -4,13 +4,13 @@ import type { supportedMotor, SupportedCommand, SupportEndpoint } from "../contr
 import type { OwnBody } from "../mind/mind.ts";
 import type { Navigator } from "../mind/navigator.ts";
 import type { Orders } from "../mind/orders.ts";
-import type { Part, PartConfig } from "../mind/parts.ts";
+import type { Part, PartConfig } from "../parts/parts.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { fitsAll, fitsWhen } from "../mind/parts.ts";
+import { fitsAll, fitsWhen } from "../parts/parts.ts";
 import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 import type { REPTILE_BITE } from "./tuning.ts";
 import { segmentOf } from "../spec/body.ts";
@@ -131,7 +131,7 @@ export const fitsJaw = fitsWhen((spec: BodySpec) => {
 export const fitsQuadruped = fitsAll(fitsPaws, fitsJaw);
 
 // The quadruped's roles, added to the roles the part lookup knows (`RoleParts`).
-declare module "../mind/lookup.ts" {
+declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly "support-motor": SupportMotorPart;
     readonly gait: GaitPart;

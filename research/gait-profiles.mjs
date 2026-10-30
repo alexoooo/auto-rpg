@@ -15,7 +15,7 @@
 import "../tests/harness/preload-data.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolveCharacter } from "../src/core/models.ts";
-import { partIn, partLookup } from "../src/core/mind/catalog.ts";
+import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { gaitDigest, measuredOn, skillDigest } from "../src/core/mind/profile.ts";
 import { gaitNamed, STOCK_GAITS } from "../src/core/skills/gaits.ts";

@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
-import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
 import { loadState, saveState } from "../src/core/state.ts";
 import { lowGuard, lowGuardSkills } from "../src/core/entrants/vanguard/low-guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
@@ -10,7 +9,7 @@ import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
 import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
-import { partLookup, treeFaults, replacedAt, FIGHT_ENTRY } from "../src/core/mind/catalog.ts";
+import { partLookup, treeFaults, replacedAt, FIGHT_ENTRY, CONTROLLERS, MINDS, GAME } from "../src/entrants/game.ts";
 import { navigatorOf } from "../src/core/mind/navigator.ts";
 import { flank } from "../src/core/entrants/vanguard/flank.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -55,7 +54,7 @@ test("Vanguard routes held weapons and empty hands through their supported actio
 test("Vanguard weapon actions drive a held physical endpoint with both hands occupied", async () => {
   for (const [held, action] of [["sword", "cut"], ["sword", "thrust"]]) {
     const config = MINDS["vanguard-warrior"].config, spec = withLoadout(modelSpec("workshop-fighter"), { left: "buckler", right: held });
-    const stand = await coreStand(spec, { joints: builtAngles(spec, config), engine: BOUT_ENGINE });
+    const stand = await coreStand(spec, { joints: builtAngles(GAME, spec, config), engine: BOUT_ENGINE });
     const state = { active: null, target: null, started: false, driven: false, peak: 0 };
     const script = { state, decide(sight) {
       const view = sight.view, heading = sight.report.heading;
@@ -73,7 +72,7 @@ test("Vanguard weapon actions drive a held physical endpoint with both hands occ
       }
       return { move: null, face: heading, guard: {}, actions: state.active ? [state.active] : [] };
     } };
-    const minded = createMind(stand.built, stand.world, config, { name: "weapon fixture", orders: () => null, script });
+    const minded = createMind(GAME, stand.built, stand.world, config, { name: "weapon fixture", orders: () => null, script });
     try {
       while (!state.driven && stand.world.time < 8 && !minded.body.down) {
         stand.world.step();

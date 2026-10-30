@@ -5,7 +5,7 @@
  * mind that takes orders.
  */
 import type { AttributeOverrides } from "../../core/character-attributes.ts";
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Figure, type Json, type Subject, type SubjectChoice, type Table } from "../evaluation.ts";

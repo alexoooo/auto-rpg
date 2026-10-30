@@ -5,7 +5,7 @@ import type { Clock } from "../core/clock.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import type { TechniqueEnd, TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
 import { plantPostures } from "../core/mind/ground/plant-up.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { partLookup } from "../entrants/game.ts";
 import { GAME_GUARD, kitOf } from "../core/mind/kit.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { buildBody } from "../core/build/build-body.ts";

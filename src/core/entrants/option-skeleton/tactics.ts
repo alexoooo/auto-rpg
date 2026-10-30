@@ -13,7 +13,7 @@ import { groundOptions, type Ground } from "./options/ground.ts";
 import { situationReader } from "./options/situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./options/strike.ts";
 import { walker } from "./options/walk.ts";
-import type { PartConfig } from "../../mind/parts.ts";
+import type { PartConfig } from "../../parts/parts.ts";
 import type { EngagementDetail, Sight, Tactics } from "../../mind/tactics.ts";
 import type { MotorUnmet } from "../../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../../skills/skill.ts";

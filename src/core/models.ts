@@ -1,8 +1,6 @@
 import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.ts";
 import type { Physique } from "./human/physique.ts";
 import type { BodySpec } from "./spec/body.ts";
-import { DUELLIST, QUADRUPED, type MindConfig } from "./mind/config.ts";
-import { stageRefusal, type EntryRule } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
@@ -26,9 +24,8 @@ export interface ResolvedCharacter {
   readonly spec: BodySpec;
 }
 
-/** A model's defaults: the mind it fights under and what its right hand holds, unless a fight says otherwise. */
+/** A model's defaults: what its right hand holds, unless a fight says otherwise. */
 interface ModelInfo {
-  readonly mind: MindConfig;
   readonly held: Held;
 }
 
@@ -45,10 +42,10 @@ interface Family {
 
 const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
   physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpec(model as HumanoidModel, physique, haste),
-  info: { mind: DUELLIST, held: "sword" }, hastes: true });
+  info: { held: "sword" }, hastes: true });
 const REPTILE: Family = deepFreeze({ spec: () => reptileSpec(),
   physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
-  info: { mind: QUADRUPED, held: "empty" }, hastes: true });
+  info: { held: "empty" }, hastes: true });
 
 /** **Every model's family**: the one list a body family is added to in the core. */
 const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE });
@@ -98,7 +95,7 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
   return Object.freeze({ config: Object.freeze({ model, attributes }), spec: deepFreeze(spec) });
 }
 
-/** The model list owns defaults; what a body can do is read from its spec (`modelHolds`, `modelRefusal`). */
+/** The model list owns defaults; what a body can do is read from its spec (`modelHolds`). */
 export function modelInfo(model: BodyModel): ModelInfo {
   return familyOf(model).info;
 }
@@ -147,15 +144,4 @@ export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: At
   let spec = holding.get(key);
   if (!spec) holding.set(key, spec = withLoadout(specOf(model), loadout));
   return spec;
-}
-
-/**
- * **Why `mind` cannot play `model`'s body carrying `loadout`** in a scenario of entry rules
- * `entry`, a sentence, or null where it can: a body that holds nothing carries no loadout; else
- * the mind must fit the body as it holds it and meet the rules (`stageRefusal`). A mind that works
- * only with one loadout says so in a part's `fits`, and is offered with no other.
- */
-export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null {
-  if (![loadout.left, loadout.right].every((item) => item === "empty") && !modelHolds(model)) return `${model} holds nothing`;
-  return stageRefusal(modelHolding(model, loadout, attributes), mind, entry);
 }

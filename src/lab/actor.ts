@@ -2,7 +2,7 @@ import { createBody, type BodyOptions, type HostedBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
-import { partLookup, partOf, scriptedBy, treeFaults } from "../core/mind/catalog.ts";
+import { partLookup, partOf, scriptedBy, treeFaults, GAME } from "../entrants/game.ts";
 import type { FighterConfig, MindConfig } from "../core/mind/config.ts";
 import { createMind, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
@@ -108,7 +108,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const scripted = scriptedBy(mind);
   if (!scripted) {
     if (subs) throw new Error(`${partOf(mind).label} takes no script, so the Lab cannot replace its sub-minds`);
-    const own = createMind(built, world, mind, wiring), skills = own.skills;
+    const own = createMind(GAME, built, world, mind, wiring), skills = own.skills;
     if (!skills || !("view" in own.body)) throw new Error(`${partOf(mind).label} runs no skills the Lab can read`);
     return {
       body: own.body as HostedBody, world, strikes, risesItself: true,

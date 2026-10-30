@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import { STAND_UP } from "../config.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
-import { slotList } from "../parts.ts";
+import { slotList } from "../../parts/parts.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { graphWork, reachable } from "./graph.ts";
 import { REPOSITION, standUp, type StandUpConfig } from "./stand-up.ts";

@@ -5,7 +5,7 @@
  * passes one at a time, and a fallen companion in the way, each on several seeds. The subject is
  * the members' mind; the reference is their model's own.
  */
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { CryptReading } from "../crypt.ts";
 import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";

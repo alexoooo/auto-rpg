@@ -3,7 +3,7 @@
  * the shared chooser (`chooser`); it counts how often it priced an option. Its state names it, so a
  * test can read that the chooser a config names is the chooser the mind made through the lookup.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 import { chooser } from "../../../src/core/entrants/option/options/chooser.ts";
 
 export const STUB_CHOOSER = Object.freeze({

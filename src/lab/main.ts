@@ -29,7 +29,7 @@ import { labSections, SECTIONS, type LabPage, type SectionName } from "./hud/sec
 import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
-import { type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
+import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutSpec } from "./loadout.ts";
 import { resolveCharacter } from "../core/models.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
@@ -38,7 +38,7 @@ import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { treeData } from "../core/mind/catalog.ts";
+import { treeData } from "../entrants/game.ts";
 import { loadData, type DataKey } from "../core/data/store.ts";
 import { labHref, labMind, labStaging, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";

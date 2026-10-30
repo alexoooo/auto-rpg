@@ -1,7 +1,7 @@
-import { number } from "../../mind/fields.ts";
+import { number } from "../../parts/fields.ts";
 import type { NavigationSight, NavigatorPart } from "../../mind/navigator.ts";
 import type { SolidSense } from "../../mind/object-senses.ts";
-import { anyBody } from "../../mind/parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 import { VISIBILITY_NAVIGATION } from "../../mind/visibility-navigation.ts";
 import { deepFreeze } from "../../state.ts";
 

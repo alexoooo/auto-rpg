@@ -14,6 +14,7 @@ import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
 import { cos, sin } from "./math/real.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "./recording.ts";
+import type { Catalog } from "./parts/catalog.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity" | "seed"> {
@@ -33,6 +34,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   /** Whether it is out of the fight, asked once a step for what it and the others sense. */
   out(): boolean;
   readonly mind: MindConfig;
+  /** The catalog its mind is made from (`Catalog`): the game's, or the toolkit's for the core's own tasks. */
+  readonly catalog: Catalog;
   /** Its balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`). */
   readonly balance?: number;
   /** Whether its mind's order sheets are written down (`SheetLog`); not unless asked. */
@@ -86,7 +89,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
   const identity = enlisting.record || enlisting.replay ? combatantRecordingIdentity(world, enlisting) : null;
   if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
-  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind),
+  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(enlisting.catalog, spec, mind),
     ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
@@ -101,7 +104,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   } });
   const senses = enlisting.senses.add(sensed);
   const sheets = enlisting.replay ?? (enlisting.record ? sheetLog(identity!) : null);
-  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(built, world, mind, {
+  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(enlisting.catalog, built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders, rules,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
     ...(enlisting.seed !== undefined ? { seed: enlisting.seed } : {}),

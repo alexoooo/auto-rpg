@@ -2,8 +2,8 @@ import { deepFreeze } from "../../state.ts";
 import { cleanMiss } from "../../skills/action-instances.ts";
 import { approachActionWindow } from "../action-window.ts";
 import { nonnegative, type BehaviourPart } from "../behaviour-part.ts";
-import { number } from "../fields.ts";
-import { anyBody } from "../parts.ts";
+import { number } from "../../parts/fields.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /**
  * **Approach**: walk into the chosen candidate's window, `spacing` m further out than it asks, the

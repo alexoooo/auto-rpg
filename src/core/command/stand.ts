@@ -1,5 +1,5 @@
 import { deepFreeze } from "../state.ts";
-import { kindOnly, type CommanderEntry } from "./commander.ts";
+import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { direction, distance } from "./goals.ts";
 import type { Orders } from "../mind/orders.ts";
 import type { Commander, MemberReport, SensedBody, TeamDecision, TeamView } from "./team.ts";

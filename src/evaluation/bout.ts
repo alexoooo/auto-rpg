@@ -1,13 +1,13 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES, type DuelRecipe } from "../arena/duel.ts";
-import { modelInfo } from "../core/models.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { GAME_ENDS } from "../arena/end-rule.ts";
 import { addArenaSolids, arenaSolids } from "../arena/room.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { createWorld, type World } from "../core/world.ts";
+import { defaultMind } from "../entrants/game.ts";
 
 /** How a bout's world is built beside its recipe. */
 interface BoutOptions {
@@ -40,13 +40,13 @@ export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENG
   } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
 }
 
-/** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`modelInfo`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
+/** The bout world kind: built by `buildBout`, handed its tape, both sides traced, played by the bout's clock, each side under its recipe's mind or else its model's (`defaultMind`), ended by its recipe's end rules or the game's (`GAME_ENDS`), a side led by its recipe's Commander where it names one. */
 export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>, BuiltBout> = {
   build: (world, options) => buildBout(world.recipe, { engine: world.engine, ...(options?.hz === undefined ? {} : { hz: options.hz }) }),
   start: (built, world) => built.duel.play(world.tape),
   traced: (built) => SIDES.map((side) => built.duel.duelists[side].built),
   clock: (built) => built.duel.clock,
-  minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? modelInfo(world.recipe[side]).mind),
+  minds: (world) => SIDES.map((side) => world.recipe.minds?.[side] ?? defaultMind(world.recipe[side])),
   parts: (world) => [...(world.recipe.ends ?? GAME_ENDS).map((end) => end.kind), ...SIDES.flatMap((side) => world.recipe.commanders?.[side]?.kind ?? [])],
   hosted: (built) => SIDES.map((side) => built.duel.duelists[side].minded),
   save: (built) => built.duel.save(),

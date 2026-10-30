@@ -1,7 +1,7 @@
 import type { GaitName } from "../../../skills/gaits.ts";
 import type { Spot } from "../../../mind/action-window.ts";
 import type { PositionPart } from "../../../option/parts.ts";
-import { anyBody } from "../../../mind/parts.ts";
+import { anyBody } from "../../../parts/parts.ts";
 import { deepFreeze } from "../../../state.ts";
 import type { Situation } from "./option.ts";
 import type { Percepts } from "./percepts.ts";

@@ -19,8 +19,8 @@
 import { dataOf } from "../data/store.ts";
 import { bodyKey, type BodySpec } from "../spec/body.ts";
 import type { ActionConfig, ExecutorEntry } from "./config.ts";
-import type { PartLookup } from "./lookup.ts";
-import type { PartConfig } from "./parts.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { PartConfig } from "../parts/parts.ts";
 
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec

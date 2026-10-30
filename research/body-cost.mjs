@@ -27,7 +27,7 @@ import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { subMindsOf } from "../src/core/mind/kit.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/entrants/game.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";

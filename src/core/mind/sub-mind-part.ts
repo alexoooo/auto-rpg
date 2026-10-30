@@ -2,7 +2,7 @@ import type { Body, BodyView } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { MindKit } from "./kit.ts";
 import type { OwnBody } from "./mind.ts";
-import type { KeysOf, Part, PartConfig } from "./parts.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { SubMind } from "./sub-mind.ts";
 
 /**

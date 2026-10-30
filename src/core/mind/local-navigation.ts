@@ -3,7 +3,7 @@ import { deepFreeze } from "../state.ts";
 import { clearStep } from "./clear-step.ts";
 import { routeWalker } from "./navigation.ts";
 import type { NavigatorPart } from "./navigator.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 
 /** **Local clearance**: the config of the walker that goes to a place only where the way there is clear. */
 interface LocalNavigationConfig { readonly kind: "local-navigation" }

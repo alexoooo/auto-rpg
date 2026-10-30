@@ -3,7 +3,7 @@
  * can read that the motor a config names is the one the body and its sub-minds were made with.
  */
 import { motorControl } from "../../../src/core/control/motor.ts";
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 /** The whole-body solve as made by `motorControl`, its `control` counted in its state, everything else the solve's. */
 function counted(...made) {

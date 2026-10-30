@@ -3,7 +3,7 @@
  * commanding nothing while it has it. Its state counts the steps it was asked (`steps`) and drove
  * (`held`), so a bout can be saved and loaded in the middle of a takeover and across its handback.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 /** The asks, counted from 1, between which it wants the body: from `FROM` up to but not including `UNTIL`. */
 export const TAKEOVER = Object.freeze({ FROM: 100, UNTIL: 140 });

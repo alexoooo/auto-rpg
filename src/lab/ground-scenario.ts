@@ -8,7 +8,7 @@ import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import { STAGED_ROUTE } from "../core/mind/ground/staged-edges.ts";
 import type { TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
-import { partLookup, takesScript } from "../core/mind/catalog.ts";
+import { partLookup, takesScript } from "../entrants/game.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";

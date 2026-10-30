@@ -12,8 +12,7 @@ import type { MindConfig } from "./config.ts";
 import type { Engagement, Tactics } from "./tactics.ts";
 import type { NavigationReport } from "./navigator.ts";
 import type { GaitLimits } from "./travel.ts";
-import { partLookup, treeFaults, treeLookup } from "./catalog.ts";
-import { controllerOf } from "./controllers.ts";
+import type { Catalog } from "../parts/catalog.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
 import type { Orders } from "./orders.ts";
 import type { Senses } from "./senses.ts";
@@ -88,32 +87,32 @@ export interface Minded extends MindMade {
   readonly body: PhysicalBody;
 }
 
-/** The posture a body of `spec` is built in under the mind `config` names (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
-export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, number[]> {
-  return poseAngles(spec, controllerOf(config).builtIn(spec, config, partLookup));
+/** The posture a body of `spec` is built in under the mind `config` names in `catalog` (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
+export function builtAngles(catalog: Catalog, spec: BodySpec, config: MindConfig): Record<string, number[]> {
+  return poseAngles(spec, catalog.controllerOf(config).builtIn(spec, config, catalog.partLookup));
 }
 
 /**
- * `built` under the mind `config` names, wired to its fight, made by its controller
- * (`CONTROLLERS`) through a host of the body (`bodyHost`) that finds only the parts its tree names
+ * `built` under the mind `config` names, wired to its fight, made by its controller in `catalog`
+ * (`Catalog.controllers`) through a host of the body (`bodyHost`) that finds only the parts its tree names
  * (`treeLookup`); a config with a fault anywhere in its
  * tree (`treeFaults`, with the script if the wiring gives one) is refused. Given a `log`, its order
  * sheets are written in it (`SheetLog`).
  */
-export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
-  const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
+export function createMind(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
+  const fault = catalog.treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
-  const { host, made } = bodyHost(built, world, wiring, treeLookup(config), log);
-  const mind = controllerOf(config).create(host, config, wiring), report = mind.report ?? (mind.skills ? skillsReport(mind.skills) : undefined);
+  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), log);
+  const mind = catalog.controllerOf(config).create(host, config, wiring), report = mind.report ?? (mind.skills ? skillsReport(mind.skills) : undefined);
   return { ...mind, ...(report ? { report } : {}), kind: config.kind, body: made() };
 }
 
 /**
  * A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, its parts
- * looked up in the registry (`partLookup`), with the body it took: how a test or a study makes
+ * looked up in `catalog` (`Catalog.partLookup`), with the body it took: how a test or a study makes
  * one mind of its own.
  */
-export function hostedMind<W extends HostGrants, M extends object>(built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
-  const { host, made } = bodyHost(built, world, wiring, partLookup), mind = make(host, wiring);
+export function hostedMind<W extends HostGrants, M extends object>(catalog: Catalog, built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
+  const { host, made } = bodyHost(built, world, wiring, catalog.partLookup), mind = make(host, wiring);
   return { ...mind, body: made() };
 }

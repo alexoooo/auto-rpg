@@ -2,9 +2,9 @@ import { deepFreeze } from "../../state.ts";
 import { cos, sin } from "../../math/real.ts";
 import type { BehaviourPart } from "../behaviour-part.ts";
 import { coveringHand } from "../cover-hand.ts";
-import { choice } from "../fields.ts";
+import { choice } from "../../parts/fields.ts";
 import type { Cover } from "../intent.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 import { READINGS, threatReader } from "../threat.ts";
 
 /** What the hands cover against: nothing beyond the pose, the threat, its predicted contact on the head or the body, or the weapon, warded off. */

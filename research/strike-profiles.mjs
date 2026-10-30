@@ -29,7 +29,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
-import { partIn, partLookup } from "../src/core/mind/catalog.ts";
+import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/mind/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";

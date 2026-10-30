@@ -1,4 +1,4 @@
-import { anyBody, slotOne, type PartConfig } from "../mind/parts.ts";
+import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { motorControl } from "./motor.ts";
 import type { MotorPart } from "./motor-part.ts";

@@ -32,6 +32,7 @@ import { solverTrial } from "./control-foundation-solvers.mjs";
 import { COMPETENCIES, competencyGaps, competencyJobs, competencyTrial } from "./competencies.mjs";
 import { PHYSIQUE_DESIGNS, physiqueGrid, physiqueRanges } from "./physiques.mjs";
 import { withParts } from "../tests/fixtures/minds.mjs";
+import { GAME } from "../src/entrants/game.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -250,7 +251,7 @@ async function recoveryTrial(job) {
   let readings;
   const mind = job.recovery === "support-recovery" ? riseMind : BLADE_FIGHTER;
   const fall = await felled(job, (built, world) => {
-    const body = createMind(built, world, mind, { name: "foundation", orders: () => STAND_ORDERS }).body;
+    const body = createMind(GAME, built, world, mind, { name: "foundation", orders: () => STAND_ORDERS }).body;
     readings = meter([built], [body]);
     instrument(world, readings);
     return body;

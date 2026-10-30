@@ -1,5 +1,5 @@
 import { deepFreeze } from "../state.ts";
-import type { CommanderConfig, CommanderEntry } from "./commander.ts";
+import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import { cos, sin } from "../math/real.ts";
 import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";

@@ -8,7 +8,7 @@ import { rulesOf, type BodyHost } from "./host.ts";
 import type { FighterConfig, SkillKit } from "./config.ts";
 import { actionConfigFaults, actionFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "./navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "./kit.ts";
 import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "./tactics-part.ts";

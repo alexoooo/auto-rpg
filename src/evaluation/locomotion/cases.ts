@@ -14,7 +14,7 @@
  *
  * Calm air, no balance unless its character has one. A change here is a new protocol.
  */
-import { CONTROLLERS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS } from "../../entrants/game.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import type { Orders } from "../../core/mind/orders.ts";

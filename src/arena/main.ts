@@ -16,7 +16,7 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolding, modelHolds, modelInfo, modelLoadout, resolveCharacter, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, modelLoadout, resolveCharacter, type BodyModel } from "../core/models.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
 import { HELD, heldItem, type Loadout } from "../core/items/held.ts";
@@ -33,9 +33,8 @@ import { endingText } from "./end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
-import { MINDS } from "../core/mind/controllers.ts";
 import { offered } from "../core/mind/controller.ts";
-import { partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
+import { partOf, treeData, treeObeys, MINDS, defaultMind } from "../entrants/game.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
@@ -511,7 +510,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         }
         // The bout: the trial's recipe as recorded, or the one the address and the pickers make.
         const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
-        const minds = recipe.minds ?? { left: modelInfo(recipe.left).mind, right: modelInfo(recipe.right).mind };
+        const minds = recipe.minds ?? { left: defaultMind(recipe.left), right: defaultMind(recipe.right) };
         const [dress] = await Promise.all([
           Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
           loadData(SIDES.flatMap((side) => treeData(minds[side]))),

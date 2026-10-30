@@ -13,8 +13,8 @@ import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { HUMANOID_MODELS, modelInfo, type BodyModel } from "../core/models.ts";
-import { treeData } from "../core/mind/catalog.ts";
+import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
+import { treeData, defaultMind } from "../entrants/game.ts";
 import { loadData } from "../core/data/store.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -41,7 +41,7 @@ import { dungeonStone, stoneQuery } from "./stone.ts";
 import { runMinds } from "./run-minds.ts";
 import { ENCOUNTER_MODELS } from "./encounters.ts";
 
-import { type CryptRoomPlan } from "./crypt-plan.ts";
+import type { CryptRoomPlan } from "./crypt-plan.ts";
 import { generateCryptDungeon } from "./crypt-dungeon.ts";
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
@@ -49,7 +49,8 @@ import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../core/command/commands.ts";
-import { commanderOf, type CommanderConfig, type CommanderEntry } from "../core/command/commander.ts";
+import type { CommanderConfig, CommanderEntry } from "../core/command/kind.ts";
+import { commanderOf } from "../core/command/commander.ts";
 import { COMMANDERS } from "../core/command/commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
@@ -416,7 +417,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const dressers = new Map<BodyModel, Dresser>();
     await Promise.all([...runModels(layout, fielded).map((model) =>
       dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })),
-      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? modelInfo(participant.model).mind)))]);
+      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? defaultMind(participant.model))))]);
     stillShown();
     const dress = (actor: DungeonActor) => {
       const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;

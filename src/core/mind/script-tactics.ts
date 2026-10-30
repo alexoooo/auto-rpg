@@ -1,5 +1,5 @@
 import { deepFreeze } from "../state.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 import type { TacticsPart } from "./tactics-part.ts";
 
 /** **Follow script**: the screen's script are the tactics (`MindWiring.script`). */

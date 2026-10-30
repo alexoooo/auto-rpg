@@ -4,7 +4,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Aimed } from "./action-aim.ts";
 import type { BlowFamily } from "../skills/attack-path.ts";
-import type { Part, PartConfig } from "./parts.ts";
+import type { Part, PartConfig } from "../parts/parts.ts";
 
 /** **An action's aim, made**: where `effector` aims at `target` this step, or null; `ledger` is the body's ended actions. */
 export type Aim = (view: BodyView, target: TargetRef, effector: string, ledger?: readonly Ended[]) => Aimed | null;

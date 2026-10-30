@@ -4,7 +4,7 @@
  * out are its walk's, and what a stance walk says besides it does not say. Its state names it, so a test can read that the legs
  * a config names are the legs that ran, made through the lookup (`Legs.make`).
  */
-import { slotOne, anyBody } from "../../../src/core/mind/parts.ts";
+import { slotOne, anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_LEGS = Object.freeze({
   role: "locomotion", label: "Counted walk (stub)", stage: "experimental", fields: [], slots: [slotOne("walk", "Walk", "locomotion")],

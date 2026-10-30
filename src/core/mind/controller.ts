@@ -7,8 +7,8 @@ import type { BodySpec } from "../spec/body.ts";
 import type { FighterConfig, MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
-import type { KeysOf, Part } from "./parts.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { KeysOf, Part } from "../parts/parts.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import type { Tactics } from "./tactics.ts";
 
 /**

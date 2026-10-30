@@ -6,7 +6,7 @@ const { teamOfOne } = await import("../src/arena/team.ts");
 const { loadState, saveState } = await import("../src/core/state.ts");
 const { buildBout } = await import("../src/evaluation/bout.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
-const { MINDS } = await import("../src/core/mind/controllers.ts");
+const { MINDS } = await import("../src/entrants/game.ts");
 const { BOUT_ENGINE } = await import("../research/bout.mjs");
 
 test("combat approach delivery releases only the ordered foe's reached range and preserves every other order field", () => {

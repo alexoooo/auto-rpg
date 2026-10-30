@@ -5,7 +5,7 @@
  * Arena plays each case's recipe and tape as this build's code builds them (`reel.ts`); the
  * address the case gives the pickers only shows its choices.
  */
-import { MINDS } from "../core/mind/controllers.ts";
+import { MINDS } from "../entrants/game.ts";
 import { recordingKey } from "../core/recording.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";

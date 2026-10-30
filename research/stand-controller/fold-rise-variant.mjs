@@ -26,7 +26,7 @@ import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 import { carrying } from "../../src/core/control/motor.ts";
 import { kitOf } from "../../src/core/mind/kit.ts";
-import { partLookup } from "../../src/core/mind/catalog.ts";
+import { partLookup } from "../../src/entrants/game.ts";
 import { PUNCHER } from "../../src/core/mind/config.ts";
 import { STAND_CHECK } from "../../src/lab/ground-mode.ts";
 import { crouchSteady, traceRow } from "../../research/climb.mjs";

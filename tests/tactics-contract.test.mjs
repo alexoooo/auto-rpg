@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { driveBy, engagementWithDetails } from "../src/core/mind/tactics.ts";
 import { saveState } from "../src/core/state.ts";
 import { fighterFaults } from "../src/core/mind/fighter.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/entrants/game.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { labActor } from "../src/lab/actor.ts";

@@ -1,7 +1,7 @@
 import { recoveryNetwork } from "../control/recovery-network.ts";
 import { dataOf } from "../data/store.ts";
-import { strikesWithOneOf, fitsAll, fitsWhen } from "../mind/parts.ts";
-import { text } from "../mind/fields.ts";
+import { strikesWithOneOf, fitsAll, fitsWhen } from "../parts/parts.ts";
+import { text } from "../parts/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./strikes.ts";

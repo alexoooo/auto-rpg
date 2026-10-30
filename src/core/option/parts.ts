@@ -1,5 +1,5 @@
-import type { PartLookup } from "../mind/lookup.ts";
-import type { KeysOf, Part, PartConfig } from "../mind/parts.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 
 /**
  * **A kind of chooser**: a part of role `chooser` that owns its config's keys and faults, and makes
@@ -51,7 +51,7 @@ export interface PredictionsPart<C extends PartConfig = PartConfig, T = unknown>
 }
 
 // The option framework's roles, added to the roles the part lookup knows (`RoleParts`).
-declare module "../mind/lookup.ts" {
+declare module "../parts/lookup.ts" {
   interface RoleParts {
     readonly chooser: ChooserPart;
     readonly option: OptionPart;

@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import type { BehaviourPart } from "../behaviour-part.ts";
 import { orderedIntent } from "../ordered.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /** **Follow orders**: a person's move order takes the legs, and while it names no foe, the hands are held from blows. */
 interface FollowOrdersConfig { readonly kind: "follow-orders" }

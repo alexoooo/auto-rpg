@@ -7,9 +7,8 @@
  * as a bout's spawns are. Nothing ends a trial but its reader. A trial is a bout world, so the Arena
  * plays it as it was scored.
  */
-import { MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys } from "../../core/mind/catalog.ts";
+import { treeObeys, MINDS } from "../../entrants/game.ts";
 import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";

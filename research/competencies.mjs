@@ -10,7 +10,7 @@ import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
 import { PLANTED_PUNCH_EXECUTION } from "../src/core/skills/combat.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
-import { allParts, treeFaults } from "../src/core/mind/catalog.ts";
+import { allParts, treeFaults } from "../src/entrants/game.ts";
 import { HUMAN_PUNCH, punchStand } from "./punch-calibration.mjs";
 import { frontKickStand } from "./front-kicks.mjs";
 import { shove, walk, turn } from "./core-stance-trials.mjs";

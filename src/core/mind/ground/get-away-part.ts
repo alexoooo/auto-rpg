@@ -1,5 +1,5 @@
 import { deepFreeze } from "../../state.ts";
-import { number } from "../fields.ts";
+import { number } from "../../parts/fields.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { getAway, type GetAwayConfig } from "./get-away.ts";

@@ -3,7 +3,7 @@ import type { BehaviourPart } from "../behaviour-part.ts";
 import type { Clearance } from "../clear-step.ts";
 import { groundPosition } from "../ground-position.ts";
 import { walkGoal } from "../movement.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
 
 /** **Ground positioning**: against a low focus, place the body for a lowered action (`groundPosition`), choosing its hand. */

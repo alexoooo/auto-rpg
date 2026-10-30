@@ -1,6 +1,6 @@
-import { isKind, partOf, stageRefusal, treeFaults, withoutTuning, type EntryRule } from "../core/mind/catalog.ts";
+import { isKind, partOf, stageRefusal, treeFaults, withoutTuning, type EntryRule } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { Provision } from "../core/mind/parts.ts";
+import type { Provision } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 
 /** A mind a link carries, as a panel shows it: its config and what is wrong with it (`mindFaults`). */

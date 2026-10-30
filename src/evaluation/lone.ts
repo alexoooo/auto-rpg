@@ -21,6 +21,7 @@ import { modelHolding, type BodyModel } from "../core/models.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
+import { GAME } from "../entrants/game.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none
@@ -62,7 +63,7 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
     const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
     let orders: Orders | null = null, next = 0, steps = 0;
     const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
-      mind: lone.mind, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}) });
+      mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}) });
     const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
     // First in every step: the cues that fall on it, before the mind reads its orders.
     world.sense(() => {

@@ -3,7 +3,7 @@
  * the club, and with buckler and club? Read by the target's figures and the bed's report by body
  * and loadout, not the target. The riser is a stand-up's, or a whole mind's.
  */
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import type { Evaluation } from "../evaluation.ts";
 import { mindSubjects } from "../locomotion/index.ts";
 import type { BuiltFall, FallReading } from "../fall.ts";

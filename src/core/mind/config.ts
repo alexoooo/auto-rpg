@@ -10,7 +10,7 @@ import type { LOCOMOTIONS } from "./locomotions.ts";
 import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
 import type { PLANNERS } from "./planners.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
-import type { ConfigOf, PartConfig } from "./parts.ts";
+import type { ConfigOf, PartConfig } from "../parts/parts.ts";
 import type { OpeningTuning } from "./openings.ts";
 import { deepFreeze } from "../state.ts";
 import type { AIMS } from "./aims.ts";

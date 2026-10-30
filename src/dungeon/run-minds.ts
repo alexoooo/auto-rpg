@@ -1,8 +1,7 @@
 import type { MindConfig } from "../core/mind/config.ts";
-import { MINDS } from "../core/mind/controllers.ts";
 import { offered } from "../core/mind/controller.ts";
-import { modelInfo, modelHolding, modelRefusal, type BodyModel } from "../core/models.ts";
-import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
+import { modelInfo, modelHolding, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../entrants/game.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -18,7 +17,7 @@ interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 
 /** The minds the start panel offers a body of `model`, by id: its model's own first, then each offered (`offered`) that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
-  return { [OWN]: { label: "Its own", config: modelInfo(model).mind },
+  return { [OWN]: { label: "Its own", config: defaultMind(model) },
     ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => offered(mind) && modelRefusal(model, mind.config, { left: "empty", right: modelInfo(model).held }, FIGHT_ENTRY) === null)) };
 }
 

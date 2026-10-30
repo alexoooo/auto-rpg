@@ -1,5 +1,5 @@
-import { choice, type PartField } from "../mind/fields.ts";
-import { anyBody, type KeysOf, type Part, type PartConfig } from "../mind/parts.ts";
+import { choice, type PartField } from "../parts/fields.ts";
+import { anyBody, type KeysOf, type Part, type PartConfig } from "../parts/parts.ts";
 import { STOCK_GAITS, type GaitName } from "./gaits.ts";
 import type { MoveRule } from "./move.ts";
 

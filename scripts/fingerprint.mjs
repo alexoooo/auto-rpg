@@ -43,8 +43,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
-import { MINDS } from "../src/core/mind/controllers.ts";
-import { partOf } from "../src/core/mind/catalog.ts";
+import { partOf, MINDS, GAME } from "../src/entrants/game.ts";
 import { PUNCHER, QUADRUPED } from "../src/core/mind/config.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
@@ -153,7 +152,7 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? hostedMind(stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring, QUADRUPED)).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? hostedMind(GAME, stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring, QUADRUPED)).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const trace = traceOf([stand.built]);

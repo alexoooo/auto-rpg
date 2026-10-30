@@ -11,7 +11,7 @@
  */
 import { coreStand } from "./core-stand.mjs";
 import { createBody, SERVO_SECONDS } from "../../src/core/body.ts";
-import { partLookup } from "../../src/core/mind/catalog.ts";
+import { partLookup } from "../../src/entrants/game.ts";
 import { GAME_MOTOR, legsOf, motorOf } from "../../src/core/mind/kit.ts";
 import { modelSpec } from "../../src/core/models.ts";
 import { GAIT_NAMES } from "../../src/core/skills/gaits.ts";

@@ -18,7 +18,7 @@ energy it brings. There is no attack animation and no hit box: the pages draw wh
 
 The table orders the layers by what each is built on. Skills, navigation and tactics share
 `src/core/mind/`'s contracts, so their imports cross both ways: a skill is a part
-(`parts.ts`, `fields.ts`, its role's `*-part.ts`), reads the vocabulary tactics write (`Intent`,
+(`src/core/parts/`, its role's `*-part.ts`), reads the vocabulary tactics write (`Intent`,
 `intent.ts`; `Sight`, `tactics.ts`; `action-window.ts`, `conditions.ts`, `targets.ts`) and runs
 navigation between them; tactics read the `SkillReport` (`src/core/skills/skills.ts`). What the
 boundary test holds (`tests/core-boundary.test.mjs`) is the core's imports as a whole, not this order.
@@ -34,7 +34,7 @@ boundary test holds (`tests/core-boundary.test.mjs`) is the core's imports as a 
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
 | Navigation | `src/core/mind/navigator.ts`, `navigation.ts`, `visibility-navigation.ts`, `local-navigation.ts`, `route-search.ts`, `crowd.ts`, `travel.ts`, `movement.ts`, `clear-step.ts` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Tactics | `src/core/mind/tactics.ts`, `tactics-part.ts`, `planners.ts`, `action-tactics.ts`, `behaviours/`, `ordered.ts`, `targets.ts` | what the body should do, from what it senses |
-| Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
+| Minds | `src/core/parts/`, `src/core/toolkit.ts`, `src/core/mind/config.ts`, `kinds.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/`; `src/entrants/` | a body's mind made from its config by the controller of its kind, found in a catalog |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
 ### Spec
@@ -51,8 +51,9 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
 - **down**: the rule that reads the body as down (`BodySpec.down`);
 - anything held. An item states a surface or is rigid.
 
-**Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry, each
-model's default mind and what its right hand holds.
+**Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry and
+what each model's right hand holds; the mind each plays by default is the game's (`defaultMind`,
+`src/entrants/game.ts`).
 
 | Model | Built from |
 |---|---|
@@ -92,13 +93,13 @@ the equipped spec. Item numbers are in [Arena items](reference/arena-items.md).
 
 **What a body can do is read from its spec.** Fit is whether the body, as armed, can carry out
 what every part of a mind commands (`treeRefusal`). What a scenario asks beyond fit is its entry
-rules (`EntryRule`, `entryRefusal`, `src/core/mind/catalog.ts`): `attacks`, some part strikes with
+rules (`EntryRule`, `entryRefusal`, `src/core/parts/catalog.ts`): `attacks`, some part strikes with
 something the body has (`Part.strikes`; executors declare the effectors they strike with,
 `ExecutorPart.strikesWith`), and `uses-held`, every held item has a use (`Part.strikes`,
 `Part.supportedEquipment`). A fight asks both (`FIGHT_ENTRY`): an Arena bout unless its recipe
 says otherwise (`DuelRecipe.entry`), a match, the tournament, the Crypt. The Lab's Attack asks an
 attack; a stand or a course asks neither, so a mind may carry what it never uses there.
-`modelRefusal` (`src/core/models.ts`) gives the reason a mind cannot play a model with a loadout
+`modelRefusal` (`src/entrants/game.ts`) gives the reason a mind cannot play a model with a loadout
 under a scenario's rules; `mindFaults` (`src/ui/mind-link.ts`) a screen's.
 
 To add a family, write its spec and its adapter in its own folder. **Families share code, never
@@ -539,10 +540,18 @@ fight reads. A fight passes the config through and reads nothing in it.
 
 **Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
 (`fighter-kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
-line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and nothing else, so a case's
-code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
-config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`), its own
-parts (`parts`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
+line in a list of kinds: the toolkit's in `MIND_KINDS` (`src/core/mind/kinds.ts`), an entrant's in
+`ENTRANTS` (`src/entrants/index.ts`). Each list holds its imports and the list and nothing else, so a
+case's code can begin each kind's own code there.
+
+**The catalog is a value** (`Catalog`, `catalogOf`, `src/core/parts/catalog.ts`): made from lists of
+minds and role lists of parts, it answers every lookup of kinds, parts and trees. The core holds no
+list of entrants: it takes a catalog as an argument (`createMind`, `builtAngles`, `hostedMind`,
+`src/core/mind/minds.ts`; `Enlistment.catalog`, `src/core/combatant.ts`), and its own tasks use the
+toolkit's (`TOOLKIT_CATALOG`, `src/core/toolkit.ts`). The game's is `GAME` (`src/entrants/game.ts`):
+the toolkit's minds and parts, then each entrant's; that module re-exports its lookups by name.
+`CONTROLLERS` keys the kinds by kind: its config keys (`keys`), the bodies it fits (`fits`), its
+presets, its own parts (`parts`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
 by its defaults. A preset may name the body models it is calibrated for (`MindPreset.models`,
 `presetFitsModel`) and the character it plays them on (`MindPreset.character`, above). Arena, Lab and named evaluation entries use that availability as well as
 physical fit; a custom configuration still fits by its parts. The Lab discovers script-compatible
@@ -558,11 +567,11 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
-**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`Role`: one
+**A mind is a tree of parts** (`Part`, `src/core/parts/parts.ts`). A part has a role (`Role`: one
 the part lookup knows, `RoleParts`, `lookup.ts`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
-screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
+screen must give). A catalog's `allParts` is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
@@ -601,7 +610,7 @@ Over the tree:
 nothing empty-handed or holding a blunt item; `CLASSIC` adds `MOVE` and the game's Stand up
 (`STAND_UP`, the toed rise). Puncher (the straight punch as its body's record has it),
 Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUELLIST`), the blade
-thrust and a ward, holding a short sword, is every humanoid's default (`modelInfo`). A preset
+thrust and a ward, holding a short sword, is every humanoid's default (`defaultMind`). A preset
 marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
 or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
 chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
@@ -807,7 +816,7 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 (`assets/core/straight-punch.json`) are a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
 fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
-`treeData(config)` (`mind/catalog.ts`) collects a tree's: the Arena loads both sides' before the
+`treeData(config)` (a catalog's) collects a tree's: the Arena loads both sides' before the
 bout, the Crypt every participant's before the run, the Lab its mind's before the body. In Node,
 `tests/harness/preload-data.mjs` loads every key, imported by each module that builds a
 data-reading mind (the stand and the bout among them).
@@ -908,7 +917,8 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
-A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`.
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `ENTRANTS`
+(`src/entrants/index.ts`).
 Option Mind (`entrants/option/mind.ts`), the toolkit's skills under a chooser and tactics of its own,
 is the reference example.
 
@@ -967,7 +977,7 @@ down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals
 
 | Aspect | Contract |
 |---|---|
-| Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `commander.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
+| Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `kind.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
 | It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`), the way they face, and its kit, actions under way and ended, and menu, from its Mind's report; every other body the members sense, where it is, whether it is in the fight and whether it lies down; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |

@@ -2,7 +2,7 @@ import type { ScreenContext } from "../ui/screen.ts";
 import { labHref, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
-import { takesScript } from "../core/mind/catalog.ts";
+import { takesScript } from "../entrants/game.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 
 /**

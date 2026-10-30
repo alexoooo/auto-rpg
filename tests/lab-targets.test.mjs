@@ -1,10 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { MINDS } from "../src/core/mind/controllers.ts";
 import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup, MINDS } from "../src/entrants/game.ts";
 import { withLoadout } from "../src/core/items/held.ts";
 import { regionSegments } from "../src/core/mind/action-aim.ts";
 import { dummyPart, dummyParts, dummySpec } from "../src/lab/dummy-spec.ts";

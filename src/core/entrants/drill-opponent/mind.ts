@@ -2,7 +2,7 @@ import { CLASSIC, FIGHTING, PUNCHER, type MindConfig } from "../../mind/config.t
 import { controller, type Controller, type MindPreset } from "../../mind/controller.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { STAND_ORDERS, type Orders } from "../../mind/orders.ts";
-import { slotOne, type Slot } from "../../mind/parts.ts";
+import { slotOne, type Slot } from "../../parts/parts.ts";
 import type { BodySense, Senses } from "../../mind/senses.ts";
 import { deepFreeze } from "../../state.ts";
 

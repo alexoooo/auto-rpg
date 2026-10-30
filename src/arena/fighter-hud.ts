@@ -1,5 +1,5 @@
 import type { Combatant } from "../core/combatant.ts";
-import { phaseLabels } from "../core/mind/catalog.ts";
+import { phaseLabels } from "../entrants/game.ts";
 import { actionFeed, damageReadout } from "./fighter-readout.ts";
 
 const SVG = "http://www.w3.org/2000/svg";

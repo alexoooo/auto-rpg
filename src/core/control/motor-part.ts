@@ -1,5 +1,5 @@
-import type { PartLookup } from "../mind/lookup.ts";
-import type { KeysOf, Part, PartConfig } from "../mind/parts.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { Assist } from "./assist.ts";
 import type { MotorControl, Pose } from "./motor.ts";

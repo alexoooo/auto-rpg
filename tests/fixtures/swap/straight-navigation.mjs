@@ -4,7 +4,7 @@
  * steps it was asked, so a test can read that the part a config names is the part that ran.
  */
 import { atan2, cos, hypot, sin } from "../../../src/core/math/real.ts";
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 /** The pace it walks at, m/s, under the asker's ceiling. */
 const PACE = .6;

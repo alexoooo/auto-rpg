@@ -1,5 +1,5 @@
 import type { ConditionConfig } from "./config.ts";
-import { choice, number, type PartField } from "./fields.ts";
+import { choice, number, type PartField } from "../parts/fields.ts";
 
 /** Conditions receive detached facts from their consumer, including absent distances as Infinity. */
 export interface ConditionReading {

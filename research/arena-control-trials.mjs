@@ -16,7 +16,7 @@ import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { COMBAT } from "../tests/fixtures/minds.mjs";
-import { partLookup } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/entrants/game.ts";
 
 /** Actual arena lifecycle, isolated by standing the other contestant out of reach. */
 export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120,

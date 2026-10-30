@@ -5,7 +5,7 @@ import type { ActionConfig } from "./config.ts";
 import type { Cover, Intent } from "./intent.ts";
 import { directMovement } from "./movement.ts";
 import type { Orders } from "./orders.ts";
-import type { KeysOf, Part, PartConfig } from "./parts.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight } from "./tactics.ts";

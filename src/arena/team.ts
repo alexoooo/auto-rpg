@@ -1,4 +1,5 @@
-import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
+import type { CommanderConfig } from "../core/command/kind.ts";
+import { createCommander } from "../core/command/commander.ts";
 import { releaseCombatApproach } from "../core/command/delivery.ts";
 import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import type { Command } from "../core/command/commands.ts";

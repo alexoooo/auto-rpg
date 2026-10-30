@@ -12,7 +12,7 @@ import { brace, steadying } from "./steady.ts";
 import { standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
 import type { Senses } from "../senses.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
-import type { PartLookup } from "../lookup.ts";
+import type { PartLookup } from "../../parts/lookup.ts";
 
 /** Bounded settling, retry and log limits prevent unobserved waits and unlimited history: a rise's, s, and its tries of an edge from a position. */
 const BRACE_LIMIT = 1, BACKOFF = 2, RETRIES = 2;

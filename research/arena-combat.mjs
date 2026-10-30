@@ -5,7 +5,7 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
-import { PRESETS } from '../src/core/mind/controllers.ts';
+import { MINDS } from "../src/entrants/game.ts";
 import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 
@@ -25,7 +25,7 @@ export function combatFingerprint() {
 /** A comparison policy: a mind config as it is, or a preset by id (`scrapper-v1` is the Scrapper), each with its own recovery. */
 export function combatMind(name) {
   if (typeof name === 'object' && name !== null) return name;
-  const preset = PRESETS[name === 'scrapper-v1' ? 'scrapper' : name];
+  const preset = MINDS[name === 'scrapper-v1' ? 'scrapper' : name];
   if (!preset) throw new Error(`unknown combat policy ${name}`);
   return preset.config;
 }

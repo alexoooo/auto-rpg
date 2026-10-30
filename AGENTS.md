@@ -226,8 +226,8 @@ no stray files (`tests/workspace.test.mjs`).
 
 ## Competing minds
 
-- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `MIND_KINDS`
-  (`src/core/mind/kinds.ts`), its own parts lines in its controller's `parts`, its data under
+- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `ENTRANTS`
+  (`src/entrants/index.ts`), its own parts lines in its controller's `parts`, its data under
   `assets/entrants/<name>/`. What it may read
   and do is the architecture's (Adding a Mind), held by `tests/core-boundary.test.mjs` and
   `tests/mind-contract.test.mjs`.

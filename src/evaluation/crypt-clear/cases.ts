@@ -5,7 +5,8 @@
  * the exit, the whole party has fallen, or the protocol's seconds. Each is a Crypt run with no
  * script (`CryptCase`), bit-equal between JavaScript engines (`crypt.ts`).
  */
-import { commanderFaults, commanderOf, type CommanderConfig } from "../../core/command/commander.ts";
+import type { CommanderConfig } from "../../core/command/kind.ts";
+import { commanderFaults, commanderOf } from "../../core/command/commander.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateEncounterLevel } from "../../dungeon/encounters.ts";

@@ -1,8 +1,8 @@
 import { MOVE } from "../mind/config.ts";
-import { choice } from "../mind/fields.ts";
+import { choice } from "../parts/fields.ts";
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
 import { fitsSoles } from "../control/stance-balance.ts";
-import { slotList, type ConfigOf, type PartConfig } from "../mind/parts.ts";
+import { slotList, type ConfigOf, type PartConfig } from "../parts/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { gaitNamed, STOCK_GAITS, type Gait, type GaitName } from "./gaits.ts";
 import type { Locomotion } from "./locomotion.ts";

@@ -1,7 +1,7 @@
 import data from "../../../../assets/entrants/option-skeleton/guard.json" with { type: "json" };
 import type { Pose } from "../../control/motor.ts";
-import { number, toggle } from "../../mind/fields.ts";
-import { fitsWhen } from "../../mind/parts.ts";
+import { number, toggle } from "../../parts/fields.ts";
+import { fitsWhen } from "../../parts/parts.ts";
 import { guardPosture, guardSkill } from "../../skills/guard.ts";
 import type { GuardPart } from "../../skills/guard-part.ts";
 import { deepFreeze } from "../../state.ts";

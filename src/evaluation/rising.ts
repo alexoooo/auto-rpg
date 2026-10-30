@@ -17,7 +17,7 @@ import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/he
 import { PUNCHER, type FighterConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/mind/ground/reading.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { plantPostures, plantUp, PLANT_UP } from "../core/mind/ground/plant-up.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";

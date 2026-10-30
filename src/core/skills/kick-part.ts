@@ -1,5 +1,5 @@
-import { strikesWithOneOf, type KeysOf } from "../mind/parts.ts";
-import { text } from "../mind/fields.ts";
+import { strikesWithOneOf, type KeysOf } from "../parts/parts.ts";
+import { text } from "../parts/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { kickExecutor, KICK_PATH, validKickTuning, type KickTuning } from "./kick.ts";
 

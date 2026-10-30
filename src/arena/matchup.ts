@@ -1,7 +1,6 @@
-import { BODY_MODELS, modelHolding, modelHolds, modelInfo, modelLoadout, modelRefusal, type BodyModel } from "../core/models.ts";
-import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
+import { BODY_MODELS, modelHolding, modelHolds, modelLoadout, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY, MINDS, modelRefusal, defaultMind } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { MINDS } from "../core/mind/controllers.ts";
 import { presetFitsModel } from "../core/mind/controller.ts";
 import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
@@ -133,7 +132,7 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
     let choices: readonly Control[];
     try { choices = controlsFor(models[side], loadouts[side], attributes[side]); }
     catch { choices = controlsFor(models[side], loadouts[side]); }
-    return s !== undefined && choices.includes(s) ? s : choices.find(c => MINDS[c]!.config === modelInfo(models[side]).mind) ?? choices[0]!;
+    return s !== undefined && choices.includes(s) ? s : choices.find(c => MINDS[c]!.config === defaultMind(models[side])) ?? choices[0]!;
   };
   return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }
@@ -152,10 +151,10 @@ export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, 
     && modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, controlCharacter(control, attributes)) === null);
 }
 
-/** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
+/** The choice a side starts on: its model's own mind (`defaultMind`) where it is offered, else the first offered. */
 export function defaultControl(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT): Control {
   const choices = controlsFor(model, loadout);
-  return choices.find((control) => MINDS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
+  return choices.find((control) => MINDS[control]!.config === defaultMind(model)) ?? choices[0]!;
 }
 
 /** The link's key for `side`'s mind once a person has changed it from its preset: its whole tree (`writeMind`). */

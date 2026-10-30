@@ -1,6 +1,6 @@
 import { deepFreeze } from "../state.ts";
 import { lying } from "./lie.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 import type { SubMindPart } from "./sub-mind-part.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`). */

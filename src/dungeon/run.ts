@@ -28,7 +28,8 @@ import type { NavigationReport } from "../core/mind/navigator.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";
-import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
+import type { CommanderConfig } from "../core/command/kind.ts";
+import { createCommander } from "../core/command/commander.ts";
 import { releaseCombatApproach } from "../core/command/delivery.ts";
 
 /** Each side's Commander where a run names none: the person's party, and a mob. */
@@ -37,6 +38,7 @@ import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
+import { GAME, defaultMind } from "../entrants/game.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
@@ -307,7 +309,7 @@ export class DungeonRun {
       id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
-      mind: this.options.mind?.(actor) ?? info.mind, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      mind: this.options.mind?.(actor) ?? defaultMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

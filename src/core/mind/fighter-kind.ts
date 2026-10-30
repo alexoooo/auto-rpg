@@ -5,7 +5,7 @@ import { controller } from "./controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "./kit.ts";
 import { GAME_NAVIGATION } from "./navigator.ts";
-import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "./parts.ts";
+import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "../parts/parts.ts";
 
 /**
  * A fighter's slots: its navigation, its tactics, a skill of each role, its executors, low support

@@ -4,7 +4,7 @@
  * a target that stands or walks across the line. The subject is the approaching mind; the
  * reference is the Duellist.
  */
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import { recordingKey } from "../../core/recording.ts";
 import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";

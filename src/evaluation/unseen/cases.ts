@@ -3,10 +3,9 @@
  * the Duellist with sword and buckler on the same character, on each side.
  */
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BODY_MODELS, modelHolds, modelRefusal, type BodyModel } from "../../core/models.ts";
-import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
+import { BODY_MODELS, modelHolds, type BodyModel } from "../../core/models.ts";
+import { FIGHT_ENTRY, CONTROLLERS, MINDS, modelRefusal } from "../../entrants/game.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Reader } from "../evaluation.ts";

@@ -22,7 +22,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
-import { MINDS } from "../src/core/mind/controllers.ts";
+import { MINDS } from "../src/entrants/game.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
 import { BAR } from "../src/evaluation/strike/read.ts";

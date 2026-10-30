@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../state.ts";
 import { walking, type BehaviourPart } from "../behaviour-part.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /** **Clear walls**: step out of a solid's clearance the shortest way out, as the body's navigator finds it (`Clearance.exit`). */
 interface ClearOfWallsConfig { readonly kind: "clear-of-walls" }

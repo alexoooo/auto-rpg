@@ -38,7 +38,7 @@ import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
-import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../src/entrants/game.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";

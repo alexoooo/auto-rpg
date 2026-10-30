@@ -1,6 +1,6 @@
 import { armedActions } from "../core/mind/action-config.ts";
 import { regionSegments } from "../core/mind/action-aim.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { partLookup } from "../entrants/game.ts";
 import type { SkillKit } from "../core/mind/config.ts";
 import { heldIn } from "../core/skills/strikes.ts";
 import type { BodySpec } from "../core/spec/body.ts";

@@ -3,7 +3,7 @@
  * keeps the guard it was made with (`ExecutorMaking.guard`), so a test can read that the part a
  * config names is the part that ran and that its blows return to the mind's guard.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_BLOW = Object.freeze({
   role: "executor", label: "Never ready (stub)", stage: "experimental", fields: [], slots: [],

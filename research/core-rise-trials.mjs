@@ -23,6 +23,7 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
+import { GAME } from "../src/entrants/game.ts";
 
 export const RISE_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 /** How long a fall is watched, s, and how long a body must stay up to have risen, s. */
@@ -115,7 +116,7 @@ export async function felled({ model, held, degrees, impulse = 1.5, level = 0, h
   addArenaSolids(world.physics);
   if (level > 0) world.physics.addFixedBox([0, level / 2, 0], [FLOOR, level, FLOOR]);
   const spec = LOADOUTS[held](modelSpec(model, physique));
-  const built = buildBody(spec, world, { position: [0, level, 0], ...(mind ? { joints: builtAngles(spec, mind) } : {}) });
+  const built = buildBody(spec, world, { position: [0, level, 0], ...(mind ? { joints: builtAngles(GAME, spec, mind) } : {}) });
   const body = minded(built, world);
   const dispose = () => { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); };
   try {
@@ -160,7 +161,7 @@ export async function toppled(shove, subs) {
  */
 export async function shoved({ mind = BLADE_FIGHTER, watch = WATCH_SECONDS, ...shove }) {
   const { world, built, body, dispose } = await felled(shove,
-    (made, into) => createMind(made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body, mind);
+    (made, into) => createMind(GAME, made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body, mind);
   try {
     return body.view.down ? watchFall(world, built, body, watch) : HELD;
   } finally { dispose(); }

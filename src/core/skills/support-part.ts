@@ -1,6 +1,6 @@
 import type { Body } from "../body.ts";
 import { fitsSoles } from "../control/stance-balance.ts";
-import { type KeysOf, type Part, type PartConfig } from "../mind/parts.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import { supportFold, type SupportSkill } from "./support-fold.ts";
 
 /** **A kind of low support**: a part of role `support` that makes the skill a body fights from low support by. */

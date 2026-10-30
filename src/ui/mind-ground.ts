@@ -1,6 +1,6 @@
-import type { Offered } from "../core/mind/catalog.ts";
+import type { Offered } from "../entrants/game.ts";
 import type { TechniquePart } from "../core/mind/ground/technique.ts";
-import type { PartConfig } from "../core/mind/parts.ts";
+import type { PartConfig } from "../core/parts/parts.ts";
 
 /**
  * A list slot of techniques (`TechniquePart`) as a person ranks them: each technique `offered`,

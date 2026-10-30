@@ -3,7 +3,7 @@
  * bodies, loadouts, levels and gaps? A claim names the match's digest.
  */
 import { loadoutKey } from "../../core/items/held.ts";
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { mindSubject, type Evaluation, type Json, type Table } from "../evaluation.ts";

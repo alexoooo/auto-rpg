@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import { hypot } from "../../math/real.ts";
 import { SPACE, walking, type BehaviourPart } from "../behaviour-part.ts";
-import { anyBody } from "../parts.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /** **Clear fallen bodies**: with the focus down, back off to `SPACE.fallen` m of its nearest segment and hold the hands. */
 interface ClearOfFallenConfig { readonly kind: "clear-of-fallen" }

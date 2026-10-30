@@ -3,7 +3,7 @@ import { entries, following, menu, when, type Control, type Named } from "../../
 import type { LabPage } from "./sections.ts";
 import { dummyPart, dummyParts } from "../dummy-spec.ts";
 import { attackTargetWarnings } from "../attack-target.ts";
-import { takesScript } from "../../core/mind/catalog.ts";
+import { takesScript } from "../../entrants/game.ts";
 
 const RATES: Named<LabAddress["hz"]> = {
   120: { name: "120 Hz", title: "The game's rate" },

@@ -8,7 +8,7 @@ import type { World } from "../world.ts";
 import { createPolicyBody, type ActuatorModel, type Policy } from "./direct.ts";
 import { hostedBody, type Hosted } from "./hosted.ts";
 import type { OwnBody } from "./mind.ts";
-import type { PartLookup } from "./lookup.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 import type { MindWiring } from "./minds.ts";
 import type { Senses } from "./senses.ts";
 import type { SheetLog } from "./sheets.ts";

@@ -15,7 +15,7 @@ import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { withLoadout, type Held } from "../core/items/held.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { partLookup } from "../entrants/game.ts";
 import { PUNCHER } from "../core/mind/config.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/mind/ground/technique.ts";

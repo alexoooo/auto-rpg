@@ -1,5 +1,5 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { takesScript } from "../core/mind/catalog.ts";
+import { takesScript } from "../entrants/game.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";

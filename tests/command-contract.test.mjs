@@ -66,7 +66,7 @@ for (const kind of Object.keys(COMMANDERS)) {
 }
 
 test("a drill Commander orders nothing before its moment: the bout is its member's own to the bit until then", async () => {
-  const { MINDS } = await import("../src/core/mind/controllers.ts");
+  const { MINDS } = await import("../src/entrants/game.ts");
   // The Vanguard's planner wraps another and prepares the skills: a mind with every layer a drill once had to pass through.
   const mind = MINDS["vanguard-warrior"].config, foe = MINDS.counter.config;
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };

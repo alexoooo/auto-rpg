@@ -3,7 +3,7 @@
  * (`hold`) that counts the steps it is asked. Its state names it, so a test can read that the
  * options a config names are those the mind decides among.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 import { hold } from "../../../src/core/entrants/option/options/rest.ts";
 
 export const STUB_OPTION = Object.freeze({

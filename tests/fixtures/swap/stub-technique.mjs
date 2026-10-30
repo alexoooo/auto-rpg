@@ -3,7 +3,7 @@
  * its run as one step, so a test can read that the technique a config lists is the one the
  * stand-up made through the lookup: a technique steps only once its body is down.
  */
-import { anyBody } from "../../../src/core/mind/parts.ts";
+import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_TECHNIQUE = Object.freeze({
   role: "technique", label: "Admits nothing (stub)", stage: "experimental", fields: [], slots: [],

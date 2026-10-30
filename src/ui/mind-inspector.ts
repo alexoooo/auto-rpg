@@ -1,6 +1,6 @@
-import { partOf } from "../core/mind/catalog.ts";
+import { partOf } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { PartConfig } from "../core/mind/parts.ts";
+import type { PartConfig } from "../core/parts/parts.ts";
 import type { Staging } from "./mind-link.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import type { BodySpec } from "../core/spec/body.ts";

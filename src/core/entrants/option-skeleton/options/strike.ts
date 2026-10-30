@@ -4,7 +4,7 @@ import { regionSegments } from "../../../mind/action-aim.ts";
 import { windowHolds } from "../../../mind/action-window.ts";
 import { orderAllows, orderedRegions } from "../../../mind/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../../../mind/config.ts";
-import type { PartLookup } from "../../../mind/lookup.ts";
+import type { PartLookup } from "../../../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../../../mind/profile.ts";
 import type { Sight } from "../../../mind/tactics.ts";
 import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";

@@ -9,6 +9,7 @@ import { modelSpec, type HumanoidModel } from "../models.ts";
 import { BLADE_FIGHTER } from "../mind/config.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import { createMind } from "../mind/minds.ts";
+import { TOOLKIT_CATALOG } from "../toolkit.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
 import { SUPPORT_ENTRY, supportEntryPolicy } from "../mind/rise/support-recovery.ts";
 import { RISE } from "../mind/rise/stages.ts";
@@ -36,7 +37,7 @@ export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, con
   const world = createWorld(scene, engine, { hz: config.hz, gravity: true, actuation: config.actuation });
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
   const spec = modelSpec(config.model), built = buildBody(spec, world, { position: [0, 0, 0] });
-  const boot = createMind(built, world, BLADE_FIGHTER, { name: "fall-start", orders: () => STAND_ORDERS }).body;
+  const boot = createMind(TOOLKIT_CATALOG, built, world, BLADE_FIGHTER, { name: "fall-start", orders: () => STAND_ORDERS }).body;
   world.step(SETTINGS.standSeconds * config.hz);
   const direction = [[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0]][config.direction]!;
   const mass = [...built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0), trunk = built.segments.get("middleTrunk")!;

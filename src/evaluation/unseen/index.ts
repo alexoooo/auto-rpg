@@ -4,8 +4,7 @@
  * same character, on each side. Beside the tournament's ratings, never in them.
  */
 import { loadoutKey } from "../../core/items/held.ts";
-import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
-import { partOf } from "../../core/mind/catalog.ts";
+import { partOf, CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import { mindSubject, type Evaluation, type Json } from "../evaluation.ts";
 import { UNSEEN_CASES, type UnseenCondition, type UnseenReading } from "./cases.ts";
 

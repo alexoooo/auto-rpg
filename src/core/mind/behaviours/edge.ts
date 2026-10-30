@@ -2,8 +2,8 @@ import { deepFreeze } from "../../state.ts";
 import { hypot } from "../../math/real.ts";
 import { placedReach } from "../../skills/arm-reach.ts";
 import { nonnegative, walking, type BehaviourPart } from "../behaviour-part.ts";
-import { number } from "../fields.ts";
-import { anyBody } from "../parts.ts";
+import { number } from "../../parts/fields.ts";
+import { anyBody } from "../../parts/parts.ts";
 
 /**
  * **Hold the reach edge**: against a two-handed focus, while nothing is under way or ready, stand

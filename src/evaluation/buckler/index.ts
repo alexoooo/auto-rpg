@@ -4,7 +4,7 @@
  * cut at the head, the trunk and the sword arm, with and without its own thrust under way. The
  * subject is the defender's cover; the reference is the Duellist's.
  */
-import { MINDS } from "../../core/mind/controllers.ts";
+import { MINDS } from "../../entrants/game.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";

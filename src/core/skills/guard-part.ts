@@ -1,5 +1,5 @@
 import type { Pose } from "../control/motor.ts";
-import { fitsWhen, type KeysOf, type Part, type PartConfig } from "../mind/parts.ts";
+import { fitsWhen, type KeysOf, type Part, type PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { guardPosture, guardSkill, handsOf, type Covering, type GuardSkill } from "./guard.ts";

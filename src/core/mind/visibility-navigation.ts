@@ -1,7 +1,7 @@
 import { deepFreeze } from "../state.ts";
 import { routeWalker } from "./navigation.ts";
 import type { NavigatorPart } from "./navigator.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 
 /** **Visibility routes**: the config of the walker that routes to a place by the shortest visibility route round what it senses. */
 interface VisibilityNavigationConfig { readonly kind: "visibility-navigation" }

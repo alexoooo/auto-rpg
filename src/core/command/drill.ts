@@ -6,7 +6,7 @@ import type { ActionStatus, Readiness, Region, Window } from "../skills/action.t
 import { GAIT_NAMES, type GaitName } from "../skills/gaits.ts";
 import type { MenuEntry } from "../skills/menu.ts";
 import { deepFreeze } from "../state.ts";
-import type { CommanderConfig, CommanderEntry } from "./commander.ts";
+import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamView } from "./team.ts";
 
 /**

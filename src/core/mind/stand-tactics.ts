@@ -1,6 +1,6 @@
 import { deepFreeze } from "../state.ts";
 import { standIntent } from "./intent.ts";
-import { anyBody } from "./parts.ts";
+import { anyBody } from "../parts/parts.ts";
 import type { TacticsPart } from "./tactics-part.ts";
 
 /** **Stand in guard**: tactics that face where the body faces and do nothing else. */

@@ -5,13 +5,12 @@
 import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
-import { CONTROLLERS } from "../../core/mind/controllers.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
-import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
+import { FIGHT_ENTRY, CONTROLLERS } from "../../entrants/game.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 

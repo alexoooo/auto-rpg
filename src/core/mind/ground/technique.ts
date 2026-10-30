@@ -6,7 +6,7 @@ import type { OwnBody } from "../mind.ts";
 import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
 import type { GroundReading, Position } from "./reading.ts";
-import type { KeysOf, Part, PartConfig } from "../parts.ts";
+import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { TECHNIQUES } from "./techniques.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */

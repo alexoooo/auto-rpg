@@ -1,4 +1,4 @@
-import type { KeysOf, Part, PartConfig } from "../mind/parts.ts";
+import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { Assist } from "./assist.ts";
 import type { StanceControl } from "./stance.ts";

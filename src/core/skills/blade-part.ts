@@ -1,6 +1,6 @@
-import { strikesWithOneOf } from "../mind/parts.ts";
+import { strikesWithOneOf } from "../parts/parts.ts";
 import { aimedWay, aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
-import { text } from "../mind/fields.ts";
+import { text } from "../parts/fields.ts";
 import { BLADE_STRIKE, bladeExecutor, strikesWithBlade, validBladeSettings, type BladeSettings } from "./blade.ts";
 
 /** A blade's cut or thrust (`bladeExecutor`), its swing over `BLADE_STRIKE`. */
