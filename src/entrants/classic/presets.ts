@@ -1,4 +1,7 @@
-import { BLADE_FIGHTER, FIGHTING, MOVE, STAND_UP, type FighterConfig } from "../../core/mind/config.ts";
+import { BLADE_FIGHTER } from "../../core/mind/config.ts";
+import { STAND_UP } from "../../core/recovery/ground/stand-up.ts";
+import { MOVE } from "../../core/skills/locomotion/move-part.ts";
+import { FIGHTING, type FighterConfig } from "../../core/tactics/config.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** The Classic fighter: the blade fighter, getting about by `MOVE` and standing up once down. */

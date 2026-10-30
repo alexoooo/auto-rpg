@@ -10,7 +10,7 @@ import { LEVELS } from "../../arena/levels.ts";
 import type { OrdersEntry } from "../../arena/duel.ts";
 import { loadoutKey } from "../../core/items/held.ts";
 import { BEHAVIOURS } from "../../entrants/classic/presets.ts";
-import { type MindConfig } from "../../core/mind/config.ts";
+import type { MindConfig } from "../../core/mind/config.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";

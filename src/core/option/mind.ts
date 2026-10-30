@@ -1,8 +1,9 @@
 import type { Body } from "../body.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../tactics/action-config.ts";
-import { STAND_UP, type ActionConfig, type ExecutorEntry, type LocomotionConfig } from "../mind/config.ts";
+import { STAND_UP } from "../recovery/ground/stand-up.ts";
+import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
-import { fighterBody, fighterSkills, kitFaults } from "../tactics/fighter.ts";
+import { kitBody, kitSkills, kitFaults } from "../tactics/fighter.ts";
 import { groundExecutor } from "../recovery/ground/held.ts";
 import { STAND_UP_PART } from "../recovery/ground/stand-up-part.ts";
 import { REPOSITION, techniquesOf } from "../recovery/ground/stand-up.ts";
@@ -67,18 +68,18 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
 }
 
 /**
- * **An Option Mind fighter**: its body with no sub-mind (`fighterBody`), its skills the toolkit's body
- * layer (`fighterSkills`) and the ground executor of its techniques
+ * **An Option Mind fighter**: its body with no sub-mind (`kitBody`), its skills the toolkit's body
+ * layer (`kitSkills`) and the ground executor of its techniques
  * (`groundExecutor`), decided by its tactics (`optionTactics`). Its blows are those its body
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
-  const body = host.command(fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
+  const body = host.command(kitBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills;
-  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => fighterSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
+  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => kitSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions });
   const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),

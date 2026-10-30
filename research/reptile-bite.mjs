@@ -13,7 +13,7 @@ import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { REPTILE_BITE } from "../src/core/reptile/tuning.ts";
-import { QUADRUPED } from "../src/core/mind/config.ts";
+import { QUADRUPED } from "../src/core/reptile/config.ts";
 import { defaultMind, GAME } from "../src/entrants/game.ts";
 
 /** Node core stand, Rapier coordinates, 120 Hz, zero balance: a real jaw closes on an exposed fixed jaw corner. */

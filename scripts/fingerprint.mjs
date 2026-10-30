@@ -45,7 +45,7 @@ import { standIntent } from "../src/core/intent/intent.ts";
 import { driveBy } from "../src/core/tactics/tactics.ts";
 import { partOf, MINDS, GAME } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { QUADRUPED } from "../src/core/mind/config.ts";
+import { QUADRUPED } from "../src/core/reptile/config.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
 import { hostedMind } from "../src/core/mind/minds.ts";

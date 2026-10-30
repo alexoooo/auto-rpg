@@ -1,7 +1,7 @@
 import type { ActionRequest, Readiness, TargetRef, Window } from "../skills/framework/action.ts";
 import type { SkillReport } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { ActionConfig } from "../mind/config.ts";
+import type { ActionConfig } from "../skills/config.ts";
 import type { Cover, Intent } from "../intent/intent.ts";
 import { directMovement } from "../intent/movement.ts";
 import type { Orders } from "../intent/orders.ts";

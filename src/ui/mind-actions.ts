@@ -1,4 +1,6 @@
-import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
+import type { ConditionConfig } from "../core/intent/conditions.ts";
+import type { ActionConfig } from "../core/skills/config.ts";
+import type { BehavioursConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/tactics/config.ts";
 import { CONDITIONS } from "../core/intent/conditions.ts";
 import { scopeOf } from "../core/parts/entrant.ts";
 import { allParts, isKind, partLookup, treeScope } from "../entrants/game.ts";

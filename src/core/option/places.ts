@@ -4,7 +4,7 @@ import { approachActionWindow, approachSpot, windowSpot, type Spot } from "../in
 import type { PartConfig } from "../parts/parts.ts";
 import type { Readiness } from "../skills/framework/action.ts";
 import type { GaitName } from "../skills/locomotion/gaits.ts";
-import type { LocomotionConfig } from "../mind/config.ts";
+import type { LocomotionConfig } from "../skills/config.ts";
 import { gaitsOfMove, type MoveConfig } from "../skills/locomotion/move-part.ts";
 import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../skills/framework/profile.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";

@@ -1,5 +1,6 @@
 import type { DataKey } from "../data/store.ts";
-import type { FighterConfig, MindConfig } from "../mind/config.ts";
+import type { MindConfig } from "../mind/config.ts";
+import type { FighterConfig } from "../tactics/config.ts";
 import type { Controller, MindPreset, Scripted } from "../mind/controller.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";

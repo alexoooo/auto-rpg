@@ -5,7 +5,8 @@ import type { Ended } from "../skills/framework/action.ts";
 import type { ActionBinding, ExecutorBinding } from "../skills/framework/action-instances.ts";
 import type { Clock } from "../clock.ts";
 import { rulesOf, type BodyHost } from "../mind/host.ts";
-import type { FighterConfig, SkillKit } from "../mind/config.ts";
+import type { SkillKit } from "../skills/config.ts";
+import type { FighterConfig } from "./config.ts";
 import { actionConfigFaults, actionFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { PartLookup } from "../parts/lookup.ts";
@@ -31,7 +32,7 @@ export function kitFaults(config: SkillKit, parts: PartLookup): readonly string[
 }
 
 /** All action instances share the fighter's physical feedback and body-local ledger; its motor and its sub-minds are those `parts` finds, the sub-minds made with its kit (`kitOf`). */
-export function fighterBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">, wiring: MindWiring, parts: PartLookup): BodyOptions {
+export function kitBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">, wiring: MindWiring, parts: PartLookup): BodyOptions {
   return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
     feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(parts, config.subs, config), motor: motorOf(parts, config.motor) };
 }
@@ -50,13 +51,13 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const tactics = wiring.script ?? tacticsOf(making, config.tactics);
   let skills: Skills;
   skills = driveBy(body, around(tactics), (made, driving) => {
-    const kit = fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []);
+    const kit = kitSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []);
     return wiring.script ? kit : prepareTacticsSkills(making, config.tactics, kit, () => driving.decision);
   });
   return skills;
 }
 
-/** Executors a mind makes itself beside those its config names, and their actions (`fighterSkills`). */
+/** Executors a mind makes itself beside those its config names, and their actions (`kitSkills`). */
 interface MoreSkills {
   readonly executors: readonly ExecutorBinding[];
   readonly actions: readonly ActionBinding[];
@@ -66,7 +67,7 @@ interface MoreSkills {
 const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
 
 /** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims read the body's `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[],
+export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[],
   more: MoreSkills = NO_MORE): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   return skillSet(made, driving, {
@@ -77,9 +78,9 @@ export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, confi
   });
 }
 
-/** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
+/** **A fighter**: its body and sub-minds (`kitBody`), driven by its tactics over its skills (`driveFighter`). */
 export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring) {
-  const body = host.command(fighterBody(config, wiring, host.parts));
+  const body = host.command(kitBody(config, wiring, host.parts));
   const skills = driveFighter(body, host.clock, host.parts, config, wiring);
   return { skills, state: skills.state };
 }

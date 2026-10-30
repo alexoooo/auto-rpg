@@ -158,11 +158,12 @@ nothing is evaluated between steps 2 and 8 unless a decision needs it.
      `core/learning/`.
    - The boundary test holds the layers (`LAYERS`) with today's imports up them listed
      (`UP_STACK`, 30, each by the change that removes it): the layering plan's step 1.
-   - Then each layer's config with its layer (the layering plan's step 6): the skills'
-     (`ActionConfig`, `ExecutorEntry`) in `skills/`, the tactics' and `FighterConfig` in
-     `tactics/`, `mind/config.ts` keeping the toolkit's mechanism data; the body layer from a kit
-     (`fighterSkills` as `kitSkills`, `fighterBody` as `kitBody`). Check: `UP_STACK` loses the
-     config entries.
+   - Each layer's config with its layer (the layering plan's step 6): the skills' (`ActionConfig`,
+     `ExecutorEntry`, `SkillKit` on its own fields) in `skills/config.ts`; the tactics' and
+     `FighterConfig` in `tactics/config.ts`; the quadruped's in `reptile/config.ts`; `MOVE`,
+     `STAND_UP` and `ConditionConfig` beside what reads them; `mind/config.ts` keeping a mind's
+     config and the stock fighter's data. The body layer from a kit is named so (`kitSkills`,
+     `kitBody`). `UP_STACK` loses the 11 config entries.
 8. **The world builders in `src/worlds/`** (neutral). The bout (`duel`, `room`, `levels`, the end
    rule), the Crypt run (`map`, `run`, `level`, `encounters`; its look stays in `dungeon/`), the
    Lab's scenarios, ground starts and actor, the falls; the mind link beside the game's catalog.

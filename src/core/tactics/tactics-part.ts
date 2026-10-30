@@ -1,7 +1,7 @@
 import type { BodyView } from "../body.ts";
 import type { TargetRef } from "../skills/framework/action.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { ActionConfig, SkillKit } from "../mind/config.ts";
+import type { ActionConfig, SkillKit } from "../skills/config.ts";
 import type { Aim } from "../skills/framework/aim-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { Orders } from "../intent/orders.ts";

@@ -1,5 +1,6 @@
 import type { MindPreset } from "../core/mind/controller.ts";
-import { FIGHTING, type MindConfig } from "../core/mind/config.ts";
+import type { MindConfig } from "../core/mind/config.ts";
+import { FIGHTING } from "../core/tactics/config.ts";
 import type { DrillOpponentConfig } from "../core/mind/drill-opponent.ts";
 import { deepFreeze } from "../core/state.ts";
 import { CLASSIC, PUNCHER } from "../entrants/classic/presets.ts";

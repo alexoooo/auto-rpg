@@ -1,5 +1,5 @@
 import { deepFreeze } from "../../state.ts";
-import { STAND_UP } from "../../mind/config.ts";
+import { STAND_UP } from "./stand-up.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
 import { slotList } from "../../parts/parts.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";

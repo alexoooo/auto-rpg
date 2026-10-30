@@ -6,7 +6,7 @@ import type { Ended, TargetRef } from "../skills/framework/action.ts";
 import type { ExecutorBinding } from "../skills/framework/action-instances.ts";
 import type { Aim, AimPart } from "../skills/framework/aim-part.ts";
 import type { ActionEstimates } from "./tactics-part.ts";
-import type { ActionConfig, ExecutorEntry } from "../mind/config.ts";
+import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import { ACTION_KEYS, type ExecutorPart } from "../skills/framework/executor-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 

@@ -7,7 +7,7 @@
  * (`TacticsPart.prepareSkills`). A low guard may hold standing while its target is down
  * (`waitFallen`), finishing its own stroke and rise before another approach.
  */
-import { FIGHTING } from "../../core/mind/config.ts";
+import { FIGHTING } from "../../core/tactics/config.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { slotOne, anyBody } from "../../core/parts/parts.ts";
 import { toggle } from "../../core/parts/fields.ts";

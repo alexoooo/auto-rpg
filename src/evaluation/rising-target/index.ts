@@ -3,7 +3,7 @@
  * A riser is a mind's recovery on the bed's host (`risingMind`): the game's Stand up (`STAND_UP`)
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
-import { STAND_UP } from "../../core/mind/config.ts";
+import { STAND_UP } from "../../core/recovery/ground/stand-up.ts";
 import { STAGED_ROUTE } from "../../core/recovery/ground/staged-edges.ts";
 import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import type { TechniqueName } from "../../core/recovery/ground/technique.ts";

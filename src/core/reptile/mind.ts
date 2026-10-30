@@ -15,7 +15,7 @@ import { REPTILE_TROT, REPTILE_BITE } from "./tuning.ts";
 import { recover } from "./recover.ts";
 import type { QuadrupedTacticsMaking } from "./parts.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
-import type { QuadrupedConfig } from "../mind/config.ts";
+import type { QuadrupedConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
 

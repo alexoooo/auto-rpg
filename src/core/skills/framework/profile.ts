@@ -18,7 +18,7 @@
  */
 import { dataOf } from "../../data/store.ts";
 import { bodyKey, type BodySpec } from "../../spec/body.ts";
-import type { ActionConfig, ExecutorEntry } from "../../mind/config.ts";
+import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 

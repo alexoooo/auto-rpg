@@ -1,4 +1,3 @@
-import { MOVE } from "../../mind/config.ts";
 import { choice } from "../../parts/fields.ts";
 import type { LocomotionPart } from "../framework/locomotion-part.ts";
 import { fitsSoles } from "../../control/stance-balance.ts";
@@ -9,6 +8,25 @@ import type { Locomotion } from "./locomotion.ts";
 import { move, type MoveGait } from "./move.ts";
 import { GAIT_CHOICES } from "./move-rule-part.ts";
 import type { MOVE_RULES } from "./move-rules.ts";
+
+/**
+ * The legs a body gets about by (`move`): the fighting step (braced) while it stands or a standing
+ * foe is within 5 m; otherwise the walk and run free to run, which runs once the speed the rule asks
+ * (`travelSpeed`, `src/core/intent/travel.ts`) is past its run's. The run slows at its `brake`
+ * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
+ * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
+ * Arena fighters opened 4 m apart run into each other and one falls. Near a standing body of its own
+ * side it walks in the fighting step within 8.5 m: the run states it stops at 0.2 m/s²
+ * (`Locomotion.stopping`), so from the pace it runs from it stops in 4.2 m, and closing on one that
+ * closes too, in twice that; at 5 m four crossing paths ran into each other and fell. The fighting
+ * step keeps clear of it (`crowdWalk`, `src/core/navigation/crowd.ts`). The last 5 m to its
+ * destination is walked in the fighting step too, which stops where it is sent where the run carries
+ * past it.
+ */
+export const MOVE: MoveConfig = deepFreeze({ kind: "move",
+  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
+    { kind: "when-distance", of: "ally", than: "under", metres: 8.5, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
+  otherwise: "run" });
 
 /** **A rule of Move's config**, by kind (`MOVE_RULES`): when it chooses its gait. */
 export type MoveRuleConfig = ConfigOf<typeof MOVE_RULES>;

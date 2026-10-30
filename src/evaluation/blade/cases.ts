@@ -11,7 +11,7 @@
  */
 import type { MindConfig } from "../../core/mind/config.ts";
 import { BEHAVIOURS } from "../../entrants/classic/presets.ts";
-import { FIGHTING } from "../../core/mind/config.ts";
+import { FIGHTING } from "../../core/tactics/config.ts";
 import { STANDS } from "../drill-opponents.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";

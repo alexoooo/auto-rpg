@@ -1,4 +1,4 @@
-import type { LocomotionConfig } from "../../mind/config.ts";
+import type { LocomotionConfig } from "../config.ts";
 import { deepFreeze } from "../../state.ts";
 import { WALK_RUN } from "./walk-run.ts";
 

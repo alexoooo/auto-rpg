@@ -10,7 +10,8 @@
  */
 import { levelSpawn } from "../../arena/levels.ts";
 import { DUELLIST } from "../../entrants/classic/presets.ts";
-import { type BehavioursConfig, type FighterConfig, type MindConfig } from "../../core/mind/config.ts";
+import type { MindConfig } from "../../core/mind/config.ts";
+import type { BehavioursConfig, FighterConfig } from "../../core/tactics/config.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";

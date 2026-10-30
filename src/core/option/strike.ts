@@ -3,7 +3,7 @@ import { STANCE_LOWER } from "../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../intent/action-aim.ts";
 import { windowHolds } from "../intent/action-window.ts";
 import { orderAllows, orderedRegions } from "../intent/orders.ts";
-import type { ActionConfig, ExecutorEntry } from "../mind/config.ts";
+import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../skills/framework/profile.ts";
 import type { Sight } from "../tactics/tactics.ts";

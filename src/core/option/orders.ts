@@ -6,7 +6,7 @@ import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
 import type { Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import type { ActionConfig } from "../mind/config.ts";
+import type { ActionConfig } from "../skills/config.ts";
 import { regionSegments } from "../intent/action-aim.ts";
 import { orderAllows, orderedRegions } from "../intent/orders.ts";
 import { around } from "./strike.ts";

@@ -3,7 +3,7 @@ import { labHref, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts
 import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
 import { takesScript } from "../entrants/game.ts";
-import type { FighterConfig } from "../core/mind/config.ts";
+import type { FighterConfig } from "../core/tactics/config.ts";
 
 /**
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The

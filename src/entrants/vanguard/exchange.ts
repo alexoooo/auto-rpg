@@ -4,7 +4,7 @@ import { STANCE_LOWER } from "../../core/skills/locomotion/locomotion.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { regionSegments } from "../../core/intent/action-aim.ts";
 import { structuredConfig, type Candidate, type Turn } from "../../core/tactics/behaviour-part.ts";
-import { FIGHTING } from "../../core/mind/config.ts";
+import { FIGHTING } from "../../core/tactics/config.ts";
 import { number } from "../../core/parts/fields.ts";
 import { NO_COVER } from "../../core/intent/intent.ts";
 import { orderedFacing } from "../../core/tactics/ordered.ts";

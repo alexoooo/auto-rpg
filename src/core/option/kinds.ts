@@ -1,4 +1,4 @@
-import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../mind/config.ts";
+import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { OptionPart } from "./parts.ts";
 import { anyBody, type KeysOf, type PartConfig } from "../parts/parts.ts";

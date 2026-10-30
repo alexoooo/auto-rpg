@@ -511,11 +511,6 @@ const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/k
  * so it only shrinks.
  */
 const UP_STACK = [
-  // Each layer's config with its layer ([layering](../docs/plans/2026-10-29-layering.md) step 6).
-  "intent/conditions.ts -> mind/config.ts", "recovery/ground/stand-up-part.ts -> mind/config.ts", "skills/framework/executor-part.ts -> mind/config.ts",
-  "skills/framework/profile.ts -> mind/config.ts", "skills/locomotion/gaits.ts -> mind/config.ts", "skills/locomotion/move-part.ts -> mind/config.ts",
-  "skills/strikes/path-part.ts -> mind/config.ts", "tactics/action-config.ts -> mind/config.ts", "tactics/action-tactics.ts -> mind/config.ts",
-  "tactics/behaviour-part.ts -> mind/config.ts", "tactics/tactics-part.ts -> mind/config.ts",
   // The skills hold nothing of the layer above (layering step 2).
   "skills/framework/arbiter.ts -> tactics/tactics.ts", "skills/framework/executor-part.ts -> tactics/tactics-part.ts", "skills/framework/skills.ts -> tactics/tactics.ts",
   "skills/strikes/combat.ts -> tactics/tactics.ts",
@@ -562,7 +557,7 @@ test("the core's imports run down its layers: an import up them is one of today'
   assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
   // The control: a skill reaching tactics, and a module in no layer, are found; a registry is not held to it.
   assert.deepEqual(layerCrossings([
-    ["skills/sly.ts", `import { driveBy } from "../tactics/tactics.ts";\nimport { MOVE } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
+    ["skills/sly.ts", `import { driveBy } from "../tactics/tactics.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
     ["nowhere/sly.ts", ""],
     ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
   ]), { up: ["skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics.ts"], unlayered: ["nowhere/sly.ts"] });

@@ -2,7 +2,9 @@ import { BALANCES } from "./control/balances.ts";
 import { MOTORS } from "./control/motors.ts";
 import { AIMS } from "./skills/framework/aims.ts";
 import { BEHAVIOURS } from "./tactics/behaviours.ts";
-import type { AimConfig, BehaviourConfig, BiteConfig, ExecutorConfig, GaitConfig, GuardConfig, LocomotionConfig, MotorConfig, QuadrupedTacticsConfig, SubMindConfig, SupportConfig, SupportMotorConfig, TacticsConfig } from "./mind/config.ts";
+import type { BiteConfig, GaitConfig, QuadrupedTacticsConfig, SupportMotorConfig } from "./reptile/config.ts";
+import type { AimConfig, ExecutorConfig, GuardConfig, LocomotionConfig, SupportConfig } from "./skills/config.ts";
+import type { BehaviourConfig, TacticsConfig } from "./tactics/config.ts";
 import { EXECUTORS } from "./skills/framework/executors.ts";
 import type { TechniqueConfig } from "./recovery/ground/technique.ts";
 import { TECHNIQUES } from "./recovery/ground/techniques.ts";
@@ -19,7 +21,7 @@ import { PLANNERS } from "./tactics/planners.ts";
 import { SUB_MINDS } from "./recovery/sub-minds.ts";
 import { SUPPORTS } from "./skills/locomotion/supports.ts";
 import { catalogOf, type Catalog, type CatalogLists } from "./parts/catalog.ts";
-import type { Part } from "./parts/parts.ts";
+import type { ConfigOf, Part } from "./parts/parts.ts";
 import { BITES } from "./reptile/bites.ts";
 import { GAITS } from "./reptile/gaits.ts";
 import { QUADRUPED_PLANNERS } from "./reptile/planners.ts";
@@ -28,7 +30,7 @@ import type { MoveRuleConfig } from "./skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./skills/locomotion/move-rules.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = AimConfig | SupportMotorConfig | GaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | MotorConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = AimConfig | SupportMotorConfig | GaitConfig | BiteConfig | QuadrupedTacticsConfig | TechniqueConfig | ConfigOf<typeof MOTORS> | ConfigOf<typeof SUB_MINDS> | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A part for each kind a config below a mind names: a kind no list holds fails to compile. */
 type Covered = { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> };

@@ -1,5 +1,5 @@
 import { blowsOf } from "../tactics/action-config.ts";
-import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../mind/config.ts";
+import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";

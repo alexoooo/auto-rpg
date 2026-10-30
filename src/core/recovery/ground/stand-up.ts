@@ -30,6 +30,14 @@ interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 /** Preferred contracts for recovering the feet, in player order. */
 export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueConfig[] }
 
+/**
+ * **The game's Stand up**: the edges a body rises by on its toes
+ * (`docs/reference/rising.md#the-sit-back`): the roll onto its front, then down onto hands and
+ * knees and the sit-back, or the sit-back from the front, the route each body takes priced by its
+ * edges' profiles.
+ */
+export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "staged-roll" }, { kind: "staged-down" }, { kind: "sit-back" }, { kind: "front-sit-back" }] });
+
 /** The techniques a stand-up repositions the body by where no route stands it up: onto its back from its front, else onto its front. */
 export const REPOSITION = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
 

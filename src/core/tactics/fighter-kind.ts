@@ -1,7 +1,8 @@
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { BLADE_FIGHTER, type FighterConfig } from "../mind/config.ts";
+import { BLADE_FIGHTER } from "../mind/config.ts";
+import type { FighterConfig } from "./config.ts";
 import { controller } from "../mind/controller.ts";
-import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
+import { createFighter, driveFighter, kitBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "../mind/kit.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "../parts/parts.ts";
@@ -26,6 +27,6 @@ export const FIGHTER_MIND = controller<FighterConfig>({
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
-  scripted: { body: fighterBody, drive: driveFighter },
+  scripted: { body: kitBody, drive: driveFighter },
   create: createFighter,
 });

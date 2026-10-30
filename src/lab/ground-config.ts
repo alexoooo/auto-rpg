@@ -1,4 +1,4 @@
-import type { FighterConfig } from "../core/mind/config.ts";
+import type { FighterConfig } from "../core/tactics/config.ts";
 
 /** Supply recovery for a ground scenario's default mind; an explicitly edited tree stays the owner's. */
 export function groundMind(chosen: FighterConfig): FighterConfig {

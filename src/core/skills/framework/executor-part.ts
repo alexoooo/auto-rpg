@@ -3,7 +3,7 @@ import type { Clock } from "../../clock.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Executor, TargetRef, TargetResolver } from "./action.ts";
 import type { Pose } from "../../spec/pose.ts";
-import type { ActionConfig } from "../../mind/config.ts";
+import type { ActionConfig } from "../config.ts";
 import type { PartField } from "../../parts/fields.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { Aimed } from "../../intent/action-aim.ts";

@@ -1,4 +1,4 @@
-import type { ActionConfig, ExecutorEntry } from "../../core/mind/config.ts";
+import type { ActionConfig, ExecutorEntry } from "../../core/skills/config.ts";
 import type { Entrant } from "../../core/parts/entrant.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../../core/option/mind.ts";
 import { deepFreeze } from "../../core/state.ts";

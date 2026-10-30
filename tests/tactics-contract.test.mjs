@@ -11,7 +11,7 @@ import { COUNTER_PUNCHER } from "../src/entrants/classic/presets.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { prepareTacticsSkills } from "../src/core/tactics/tactics-part.ts";
 import { actionTactics } from "../src/core/tactics/action-tactics.ts";
-import { FIGHTING } from "../src/core/mind/config.ts";
+import { FIGHTING } from "../src/core/tactics/config.ts";
 
 test("report layers preserve a changing inner report, compose details and read without side effects", () => {
   const state = { choice: 0 }, reports = [

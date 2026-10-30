@@ -4,7 +4,7 @@
  * adds its own detail, the count (`Engagement.details`).
  */
 import { actionTactics, BEHAVIOUR_TACTICS } from "../../../src/core/tactics/action-tactics.ts";
-import { FIGHTING } from "../../../src/core/mind/config.ts";
+import { FIGHTING } from "../../../src/core/tactics/config.ts";
 import { slotList, anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_TACTICS = Object.freeze({

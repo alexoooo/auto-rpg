@@ -1,5 +1,6 @@
 import { BEHAVIOURS, CLASSIC } from "../../src/entrants/classic/presets.ts";
-import { FIGHTING, PATH_STRIKES } from "../../src/core/mind/config.ts";
+import { PATH_STRIKES } from "../../src/core/mind/config.ts";
+import { FIGHTING } from "../../src/core/tactics/config.ts";
 import { deepFreeze } from '../../src/core/state.ts';
 
 /**
