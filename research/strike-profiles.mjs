@@ -1,8 +1,9 @@
 /**
  * **The strikes' profiles** (`src/core/mind/profile.ts`, `assets/core/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
- * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at. A
- * profile a skill on a body against a target: its measured-on read from each row's world (the left
+ * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at, with
+ * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
+ * target: its measured-on read from each row's world (the left
  * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
  * the recipe's sense delay), its target the right body's; a cell a range, the target's phase as
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
@@ -26,6 +27,7 @@
  * With none named, the records the profiles name now.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
@@ -41,12 +43,12 @@ const paths = named.length ? named : JSON.parse(readFileSync(OUT, "utf8")).sourc
 const read = (path) => readFileSync(path, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 const round = (x) => Number(x.toFixed(4));
 
-/** Each side's body's spec, by its recipe's model and attributes: as the bout resolves it (no loadout, surfaces, haste or balance in a drill's recipe). */
+/** Each side's body's spec, by its recipe's model, attributes and loadout: as the bout resolves it (no surfaces, haste or balance in a drill's recipe). */
 const specs = new Map();
 function specOf(recipe, side = "left") {
-  for (const key of ["loadouts", "surfaces", "haste", "balance"]) if (recipe[key] !== undefined) throw new Error(`a drill recipe with ${key} is not read here`);
-  const key = JSON.stringify([recipe[side], recipe.attributes?.[side] ?? {}]);
-  if (!specs.has(key)) specs.set(key, resolveCharacter({ model: recipe[side], attributes: recipe.attributes?.[side] ?? {} }).spec);
+  for (const key of ["surfaces", "haste", "balance"]) if (recipe[key] !== undefined) throw new Error(`a drill recipe with ${key} is not read here`);
+  const loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, key = JSON.stringify([recipe[side], recipe.attributes?.[side] ?? {}, loadout]);
+  if (!specs.has(key)) specs.set(key, withLoadout(resolveCharacter({ model: recipe[side], attributes: recipe.attributes?.[side] ?? {} }).spec, loadout));
   return specs.get(key);
 }
 
@@ -64,6 +66,7 @@ for (const path of paths) {
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
     const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
+    if (!action.effectors.includes(drill.effector)) continue;
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
