@@ -19,7 +19,8 @@ things made the copy look necessary; the first two are fixed:
 - **An entrant cannot build on another's code.** A preset and a controller's parts live in that
   controller's own file, part kinds are global, and `scripts/entrant-check.mjs` keeps each change
   to one entrant's folder. A second entrant could only define a controller, and reusing Option
-  Mind's parts collided on their kinds. That is this plan's work.
+  Mind's parts collided on their kinds. The [AI testbed layout](2026-10-30-ai-testbed-layout.md)
+  fixes it.
 
 The decision mechanism is already body-agnostic: options with claims, entry, status and a model;
 the chooser's set selection by claims, commitment, rethinking on cues and a period, letting go,
@@ -42,26 +43,11 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
 
 ## Steps
 
-1. **The framework into the toolkit.** Move the option contract, the choosers, the situation
-   reader, worth, the position value and predictions roles, and the standard option kinds into
-   `src/core/option/`; the Option controller becomes the toolkit's, configured by Option Mind's
-   preset. No behaviour changes. Built: the option framework's role contracts
-   (`src/core/option/parts.ts`), its roles its own (`RoleParts` augmented there).
-   Check: the fingerprint moves no case; `npm run check`, `npm test`.
-2. **An entrant is presets and parts.** A preset registry beside `MIND_KINDS` (each preset its
-   label, kind, config and models, a line an entrant adds); parts registered by role, owned by no
-   controller; `entrant-check` reads an entrant's change as its folder and its registry lines.
-   Option Mind's folder holds its preset. The Skeleton's folder holds its preset (its punch, a low
-   kick, the game's rise) and nothing copied; its guard joins the toolkit's guards without a
-   model fit, or goes where no reading shows it earns its place. Delete the fork, and move its
-   test to the shared predictor (lying down costs something before a foe that cannot strike).
-   Check: the fingerprint moves only the Skeleton's cases; the mind contract and swap tests; the
-   Arena and the Crypt offer both presets.
-3. **The objective and the percepts are parts.** An option's model gives its duration, payoff
-   and exit; the objective part prices them, the few terms its combat implementation; option
-   kinds and the objective name the percepts and predictions they read, and the tactics build
-   only those and what the configured option kinds ask.
-   Check: the fingerprint moves no case.
+1. **The framework into the toolkit**: the [AI testbed layout](2026-10-30-ai-testbed-layout.md),
+   step 3.
+2. **An entrant is presets and parts; the Skeleton fork deleted**: the AI testbed layout, steps 4
+   and 5.
+3. **The objective and the percepts are parts**: the AI testbed layout, step 6.
 4. **A second body family and a second purpose.** A Reptile preset on the framework, its crawl,
    bite and recovery as option kinds, its host from [Layering](2026-10-29-layering.md) (the body's
    shape read from its spec); the threat reader sensing any striking limb. A preset whose

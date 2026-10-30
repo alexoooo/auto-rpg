@@ -9,8 +9,8 @@ in `assets/entrants/option-skeleton/`; nothing of Option Mind is copied. The bod
 attributes, assists and fight rules are fixed: the 15 kg Skeleton on toes, rising by the game's
 Stand up. Saved recipes and Git keep the baselines.
 
-It starts after [Option Mind generalization](2026-10-30-option-mind-generalization.md) step 2,
-which makes an entrant a preset and parts and deletes the copied package. A gap in the shared
+It starts after the [AI testbed layout](2026-10-30-ai-testbed-layout.md) step 5, which makes the
+Skeleton a preset and deletes the copied package. A gap in the shared
 model found here is fixed there, for every mind, never in the preset.
 
 ## Steps
