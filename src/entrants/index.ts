@@ -1,14 +1,14 @@
-import type { Controller } from "../core/mind/controller.ts";
-import { VANGUARD_MIND } from "../core/entrants/vanguard/mind.ts";
-import { OPTION_MIND } from "../core/entrants/option/mind.ts";
-import { SKELETON_OPTION_MIND } from "../core/entrants/option-skeleton/mind.ts";
-import { DRILL_OPPONENT_MIND } from "../core/entrants/drill-opponent/mind.ts";
-import { BARE_MIND } from "../core/entrants/bare/mind.ts";
+import type { Entrant } from "../core/parts/entrant.ts";
+import { CLASSIC } from "./classic/index.ts";
+import { CRAWL } from "./crawl/index.ts";
+import { VANGUARD } from "./vanguard/index.ts";
+import { OPTION } from "./option/index.ts";
+import { OPTION_SKELETON } from "./option-skeleton/index.ts";
+import { BARE } from "./bare/index.ts";
 
 /**
- * **Every entrant's kind of mind**, in the order a picker offers them, after the toolkit's
- * (`MIND_KINDS`): a line here registers one. This module holds its imports and this list and
- * nothing else: a case's code reads it as where each kind's own code begins (`caseCoder`,
- * `scripts/build-identity.mjs`).
+ * **Every entrant** (`Entrant`), in the order a picker offers their presets: a line here registers
+ * one. This module holds its imports and this list and nothing else: a case's code reads it as
+ * where each entrant's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const ENTRANTS: readonly Controller[] = [VANGUARD_MIND, OPTION_MIND, SKELETON_OPTION_MIND, DRILL_OPPONENT_MIND, BARE_MIND];
+export const ENTRANTS: readonly Entrant[] = [CLASSIC, CRAWL, VANGUARD, OPTION, OPTION_SKELETON, BARE];

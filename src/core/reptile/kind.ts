@@ -2,7 +2,6 @@ import { QUADRUPED, type QuadrupedConfig } from "../mind/config.ts";
 import { controller, NO_POSTURE } from "../mind/controller.ts";
 import { GAME_NAVIGATION } from "../mind/navigator.ts";
 import { slotOne } from "../parts/parts.ts";
-import { deepFreeze } from "../state.ts";
 import { QUADRUPED_PARTS, quadrupedMind } from "./mind.ts";
 import { fitsQuadruped } from "./parts.ts";
 import { REPTILE_BITE } from "./tuning.ts";
@@ -21,7 +20,6 @@ export const QUADRUPED_MIND = controller<QuadrupedConfig>({
     !(key in REPTILE_BITE) || !Number.isFinite(value) || (key === "closeRate" || key === "biteInset" || key === "contactAt" || key === "biteLead" || key === "neckRetract" ? value < 0 : value <= 0)
     || key === "open" && value > REPTILE_BITE.open || key === "contactAt" && value > 1 || key === "biteSamples" && !Number.isInteger(value)
       ? [`invalid bite setting ${key}`] : []),
-  presets: deepFreeze({ crawl: { label: "Crawl and bite", config: QUADRUPED } }),
   builtIn: () => NO_POSTURE,
   create: (host, config, wiring) => quadrupedMind(host, wiring, config),
 });

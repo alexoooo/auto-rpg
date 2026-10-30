@@ -28,6 +28,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
+import { opponentOf } from "../drill-opponents.ts";
 
 /**
  * A subject's value: a mind given whole, the name of the action it drills, and what its striker
@@ -98,7 +99,7 @@ const WALK = deepFreeze({ ...STILL,
  * (`drill-guard`) or closing to punch on a rhythm (`drill-punch`).
  */
 const OPPONENT = deepFreeze({ ...STILL, models: ["workshop-fighter"] as BodyModel[], gaps: [8, 10, 12].map((tenths) => tenths / 10), across: [0] });
-/** The target's mind, a preset (`MINDS`), where a protocol names one: `drill-stand` where it does not. */
+/** The target's mind (`opponentOf`), where a protocol names one: `drill-stand` where it does not. */
 const STANDING = "drill-stand";
 const STEPPING = deepFreeze({ ...OPPONENT, opponent: "drill-step" });
 const GUARDING = deepFreeze({ ...OPPONENT, opponent: "drill-guard" });
@@ -195,7 +196,7 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
         ...sides(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace, walking: start === "walking", ...(letGo === undefined ? {} : { letGo }) }),
-          MINDS[protocol.opponent ?? STANDING]!.config as MindConfig) } };
+          opponentOf(protocol.opponent ?? STANDING)!.config as MindConfig) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };

@@ -7,10 +7,10 @@ import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_BLOW = Object.freeze({
   role: "executor", label: "Never ready (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-blow", name: "stub" }), keys: Object.freeze({ kind: true, name: true }),
+  defaults: Object.freeze({ kind: "swap:stub-blow", name: "stub" }), keys: Object.freeze({ kind: true, name: true }),
   fits: anyBody, faults: () => [], effectors: Object.freeze(["hand.left", "hand.right"]), aims: false, actionKeys: Object.freeze([]), actionFaults: () => [],
   make({ guard }) {
-    const state = { stub: "stub-blow", steps: 0, guard: { ...guard } };
+    const state = { stub: "swap:stub-blow", steps: 0, guard: { ...guard } };
     return {
       state, resume() {},
       needs: (_action, effector) => [effector],

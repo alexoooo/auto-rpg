@@ -9,7 +9,8 @@
 import { LEVELS } from "../../arena/levels.ts";
 import type { OrdersEntry } from "../../arena/duel.ts";
 import { loadoutKey } from "../../core/items/held.ts";
-import { BEHAVIOURS, type MindConfig } from "../../core/mind/config.ts";
+import { BEHAVIOURS } from "../../entrants/classic/presets.ts";
+import { type MindConfig } from "../../core/mind/config.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
@@ -17,7 +18,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY, CONTROLLERS } from "../../entrants/game.ts";
-import { STANDS } from "../../core/entrants/drill-opponent/mind.ts";
+import { STANDS } from "../drill-opponents.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { otherSide } from "../../core/spec/body.ts";
 

@@ -8,10 +8,10 @@ import { hold } from "../../../src/core/option/rest.ts";
 
 export const STUB_OPTION = Object.freeze({
   role: "option", label: "Counted hold (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-option" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-option" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make(_config, given) {
-    const inner = hold(given.walk), counts = { stub: "stub-option", steps: 0 };
+    const inner = hold(given.walk), counts = { stub: "swap:stub-option", steps: 0 };
     return [...given.strikes, { ...inner, name: "stub hold", state: { counts, inner: inner.state }, step(now, dt) { counts.steps++; return inner.step(now, dt); } }];
   },
 });

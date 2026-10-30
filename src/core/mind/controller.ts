@@ -44,25 +44,17 @@ export interface Scripted {
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with the keys its config
- * may hold, its named configs, the posture its body is built in and how it is made: from a host of
+ * may hold, the posture its body is built in and how it is made: from a host of
  * its body (`BodyHost`), never the world or the built body, its config and the fight's wiring.
  */
 export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly keys: KeysOf<C>;
-  /** Its named configs, by the id the Arena's picker and a link's `control=` use; ids are unique across controllers. */
-  readonly presets: Readonly<Record<string, MindPreset<C>>>;
   /**
    * The posture a body of `spec` under a mind of `config` is built in (`poseAngles`): the one
    * its mind holds from its first step, so that no joint is flung into it: a fighting mind's is its
    * guard's (`GuardPart.posture`), which `parts` finds. `NO_POSTURE` builds the spec's reference pose.
    */
   builtIn(spec: BodySpec, config: C, parts: PartLookup): Pose;
-  /**
-   * Its own parts, each of a role below a mind: offered only in its own minds' slots
-   * (`kindsFor`), a fault in another mind's tree (`treeFaults`), and its own code, which a case
-   * holds only where it plays this mind (`caseCoder`).
-   */
-  readonly parts?: readonly Part[];
   /** How a scene drives it by a script (`Scripted`); absent where it takes none. */
   readonly scripted?: Scripted;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;

@@ -53,7 +53,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(SUB_MINDS, TECHNIQUES, PLANNERS, BEHAVIOURS, MOVE_RULES, LOCOMOTIONS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
     SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, POSITIONS, PREDICTIONS);
-  return { minds: MIND_KINDS, parts: [below] };
+  return { minds: MIND_KINDS, parts: [below], entrants: [] };
 }
 
 /** **The toolkit's catalog**: what the core's own tasks make a mind from; the game's is composed above the core (`src/entrants/game.ts`). */

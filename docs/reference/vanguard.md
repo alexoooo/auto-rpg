@@ -127,7 +127,7 @@ are outside these paired records.
 
 ## Contact-driven policy
 
-Vanguard's planner (`VANGUARD_PLAN`, `src/core/entrants/vanguard/plan.ts`) layers its settings
+Vanguard's planner (`VANGUARD_PLAN`, `src/entrants/vanguard/plan.ts`) layers its settings
 over a plan of any kind in its own slot. Its optional `adaptiveEvade` compares two ordinary behaviour policies, with and without the
 configured evasion behaviour. Adaptive evasion requires an `evade` behaviour in that plan;
 removing it requires disabling adaptation and revisiting. `slowEvade` caps an evasive step at
@@ -287,7 +287,7 @@ These failed-campaign conditions are development evidence, not fresh qualificati
 
 ## Body motor profiles
 
-The explicit calibrations in [Vanguard's controller](../../src/core/entrants/vanguard/mind.ts)
+The explicit calibrations in [Vanguard's controller](../../src/entrants/vanguard/mind.ts)
 are `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton`, each offered for its named body.
 Their source profile table is `assets/entrants/vanguard/body-profiles.json@a9cddb72`; the measured
 calibrated preset at `9b3fecd0` names its source below. A selected configuration runs its own walk,
@@ -1848,7 +1848,7 @@ and the temporary preview is stopped by PID.
 ## Equipment path
 
 Vanguard carries equipped attacks through the shared fighter and Lab kit: its weapons
-(`WEAPONS`, `src/core/entrants/vanguard/mind.ts`) are the shared `blade-cut` and `blade-thrust`
+(`WEAPONS`, `src/entrants/vanguard/mind.ts`) are the shared `blade-cut` and `blade-thrust`
 executors, directed edge and point actions; a club has no blow of its own. The weapon actions
 precede the punches where both are usable; ordinary arming removes them from an empty-handed kit.
 Each calibration retains its committed standing and low punches for hands that hold nothing.

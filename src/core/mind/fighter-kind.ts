@@ -1,6 +1,5 @@
-import { deepFreeze } from "../state.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, BLADE_FIGHTER, type FighterConfig } from "./config.ts";
+import { BLADE_FIGHTER, type FighterConfig } from "./config.ts";
 import { controller } from "./controller.ts";
 import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "./kit.ts";
@@ -26,13 +25,6 @@ export const FIGHTER_MIND = controller<FighterConfig>({
   fits: fitsAll<FighterConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
-  presets: deepFreeze({
-    classic: { label: "Classic fighter", config: CLASSIC, offered: false },
-    puncher: { label: "Puncher", config: PUNCHER },
-    counter: { label: "Counter-puncher", config: COUNTER_PUNCHER, offered: false },
-    behaviours: { label: "Behaviours", config: BEHAVIOURS, offered: false },
-    duellist: { label: "Duellist", config: DUELLIST },
-  }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   scripted: { body: fighterBody, drive: driveFighter },
   create: createFighter,

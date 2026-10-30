@@ -1,9 +1,10 @@
 /**
  * **A part of any converted role swaps in from outside the shared code** (Node, core world,
- * vendored Rapier, 120 Hz). The fixture entrants (`tests/fixtures/swap/`), a fighter and Option Mind,
- * are registered by a line each of the kinds list, outside `src/`, and hold a stub of each
- * converted role as their own parts. For each, chosen by its config alone: the catalog offers it to
- * its own mind's slot and refuses it in another's tree, the part its maker made is the part a bout
+ * vendored Rapier, 120 Hz). The fixture entrant (`tests/fixtures/swap/`, `swap`), with a fighter,
+ * an Option Mind and a quadruped of its own, is registered by a line of the entrants list, outside
+ * `src/`, and holds a stub of each converted role as its own parts (`swap:<kind>`). For each,
+ * chosen by its config alone: the catalog offers it in its own entrant's trees and no other's, a
+ * tree that names it and another entrant's kinds is refused, the part its maker made is the part a bout
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
  * through a link unchanged. One bout, the two fixtures facing, holds every stub at once; an
  * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
@@ -24,7 +25,7 @@ import assert from "node:assert/strict";
 const { buildBout } = await import("../src/evaluation/bout.ts");
 const { BOUT_ENGINE } = await import("../research/bout.mjs");
 const { SIDES } = await import("../src/arena/duel.ts");
-const { FIGHT_ENTRY, GAME, kindsFor, treeFaults, treeRefusal } = await import("../src/entrants/game.ts");
+const { FIGHT_ENTRY, GAME, kindsFor, treeFaults, treeRefusal, treeScope } = await import("../src/entrants/game.ts");
 const { createMind } = await import("../src/core/mind/minds.ts");
 const { STAND_ORDERS } = await import("../src/core/mind/orders.ts");
 const { entrantSubjects } = await import("../src/evaluation/tournament/entrants.ts");
@@ -62,9 +63,11 @@ const { slotsOf } = await import("../src/evaluation/compare.ts");
 const STEPS = 240, FORK = 120;
 const spec = modelSpec("workshop-fighter");
 
-test("the fixture entrants are registered from outside src/", () => {
+test("the fixture entrant is registered from outside src/", () => {
+  assert.deepEqual(GAME.faults, [], "the game's lists with the fixture's line have no fault");
   for (const config of [SWAP_DEFAULTS, SWAP_OPTION_DEFAULTS, SWAP_QUADRUPED_DEFAULTS]) {
-    assert.ok(Object.hasOwn(CONTROLLERS, config.kind), `the hook put ${config.kind}'s line in the kinds list`);
+    assert.ok(Object.hasOwn(CONTROLLERS, config.kind), `the hook put the swap entrant's line, with ${config.kind}, in the entrants list`);
+    assert.equal(treeScope(config), "swap", `${config.kind}'s tree is the swap entrant's`);
     assert.deepEqual(treeFaults(config), [], `${config.kind} holding every stub of its own has no fault`);
   }
 });
@@ -142,7 +145,7 @@ test("CLI resolution preserves whole-config expansion, batteries and two-subject
   assert.ok(custom.subjects.some(one => one.value.model !== "crypt-skeleton"), "an unscoped custom config still expands beyond its named calibration");
   const punchesOnly = MINDS[id].config.actions.map(action => {
     const executor = MINDS[id].config.executors.find(executor => executor.name === action.executor);
-    return executor.kind === "vanguard-punch" ? `actions.${action.name}.effectors=["hand.right"]` : `actions.${action.name}=null`;
+    return executor.kind === "vanguard:punch" ? `actions.${action.name}.effectors=["hand.right"]` : `actions.${action.name}=null`;
   });
   const narrowed = resolveSubjects(evaluation, [], id, punchesOnly);
   const baseline = evaluation.subjects([id]);
@@ -221,43 +224,52 @@ test("a match admits complete pairs within named calibrations and preserves the 
 
 test("nested planner structure faults reach links without invoking unsafe ancestor validators", () => {
   const base = MINDS["vanguard-skeleton"].config, plan = base.tactics.plan;
-  const foreign = STUBS.find(stub => stub.part.defaults.kind === "stub-tactics").part;
+  const foreign = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-tactics").part;
   const cases = [
     [{ kind: "missing-plan" }, "", 'no part of kind "missing-plan"'],
-    [{ kind: "vanguard-plan" }, ".plan", "a tactics part is needed"],
+    [{ kind: "vanguard:plan" }, ".plan", "a tactics part is needed"],
     [{ kind: "shield-guard" }, "", "a guard part cannot go where a tactics part goes"],
     [{ ...plan, list: {} }, ".list", "a list of behaviour parts"],
     [{ ...plan, list: [{ kind: "missing-behaviour" }] }, ".list.0", 'no part of kind "missing-behaviour"'],
-    [foreign.defaults, "", `${foreign.label} is swap-stub's own part`],
   ];
   for (const [leaf, suffix, fault] of cases) for (const depth of [1, 2, 3]) {
     let tactics = leaf;
-    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard-plan", plan: tactics };
+    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard:plan", plan: tactics };
     const config = { ...base, tactics }, faults = [`tactics${".plan".repeat(depth)}${suffix}: ${fault}`];
     assert.deepEqual(treeFaults(config), faults);
     assert.deepEqual(parseMind(JSON.stringify(config), modelSpec("crypt-skeleton"), FIGHT_ENTRY), { config, faults },
       "the screen's link parser returns the faulty configuration and its diagnostic");
   }
+  // Another entrant's part, however deep, makes the tree two entrants': refused at its root, through a link too.
+  for (const depth of [1, 2, 3]) {
+    let tactics = foreign.defaults;
+    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard:plan", plan: tactics };
+    const config = { ...base, tactics }, faults = ["it names the kinds of vanguard and swap: a tree is one entrant's"];
+    assert.deepEqual(treeFaults(config), faults);
+    assert.deepEqual(parseMind(JSON.stringify(config), modelSpec("crypt-skeleton"), FIGHT_ENTRY), { config, faults });
+  }
 });
 
 test("structurally valid nested planners retain ancestor and child semantic faults in order", () => {
   const base = MINDS["vanguard-skeleton"].config, plan = FIGHTING;
-  const wrap = plan => ({ kind: "vanguard-plan", revisitEvade: true, plan });
+  const wrap = plan => ({ kind: "vanguard:plan", revisitEvade: true, plan });
   const tactics = wrap(wrap({ ...plan, choose: { ...plan.choose, rethink: -1 } }));
   assert.deepEqual(treeFaults({ ...base, tactics }), [
     "tactics: revisitEvade needs adaptive evasion",
     "tactics.plan: revisitEvade needs adaptive evasion",
     "tactics.plan.plan: selection needs finite nonnegative rethink and positive patience",
   ]);
-  assert.deepEqual(treeFaults({ ...base, tactics: { kind: "vanguard-plan", plan: { kind: "vanguard-plan", plan } } }), []);
+  assert.deepEqual(treeFaults({ ...base, tactics: { kind: "vanguard:plan", plan: { kind: "vanguard:plan", plan } } }), []);
 });
 
-for (const { part, at, mind, place } of STUBS) {
+for (const { part, mind, place } of STUBS) {
   const kind = part.defaults.kind, game = GAME_CONFIGS[mind];
-  test(`${kind}: offered in its own mind's ${part.role} slot only, and a fault in another mind's tree`, () => {
-    assert.ok(kindsFor(part.role, spec, [], mind).some((offered) => offered.kind === kind));
-    assert.ok(!kindsFor(part.role, spec, [], game.kind).some((offered) => offered.kind === kind));
-    assert.deepEqual(treeFaults(place(game)), [`${at}: ${part.label} is ${mind}'s own part`]);
+  test(`${kind}: offered in a ${part.role} slot of its own entrant's trees only, and placed in a tree of the toolkit's parts makes it its entrant's`, () => {
+    const offered = (tree) => kindsFor(part.role, spec, [], tree).some((one) => one.kind === kind);
+    assert.ok(offered(MINDS[mind].config), "offered where the tree is the swap entrant's");
+    assert.ok(!offered(game), "not offered where the tree names the toolkit's kinds alone");
+    assert.ok(!offered(MINDS["vanguard-warrior"].config), "not offered where the tree is another entrant's");
+    assert.equal(treeScope(place(game)), "swap", "placed, it makes the tree the swap entrant's");
   });
 }
 
@@ -305,7 +317,7 @@ test("an evaluation registered from outside src/ plays its lone-body case throug
   assert.equal(row.fault, null, `the case played: ${row.fault?.message}`);
   assert.deepEqual(row.reading, { down: false, seconds: 1 }, "the fixture fighter stands alone a second");
   const names = caseNames(world);
-  assert.deepEqual([names.world, names.kinds], ["lone", ["swap-stub"]]);
+  assert.deepEqual([names.world, names.kinds], ["lone", ["swap:fighter"]]);
 });
 
 test("an end rule registered from outside src/ ends a bout whose recipe names it, from the start its recipe arranges", async () => {
@@ -337,7 +349,7 @@ test("a mind that never strikes carries a club on a stand, is refused from a bou
 });
 
 test("each part a bout runs is the one its config names, and the bout forks, resumes, replays and links", async () => {
-  const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTION_DEFAULTS };
+  const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTION_DEFAULTS }, presets = { left: "swap-stub", right: "swap-option" };
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds };
   const played = async (hooks, fork) => {
     const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
@@ -348,7 +360,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
       run(FORK, [trace]);
       const saved = fork ? duel.save() : null, atFork = SIDES.map((side) => duel.duelists[side].minded.body.state.mind?.has ?? null);
       run(STEPS, [trace, tail]);
-      const states = SIDES.map((side) => ({ kind: minds[side].kind, mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state),
+      const states = SIDES.map((side) => ({ kind: minds[side].kind, preset: presets[side], mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state),
         lines: duel.duelists[side].minded.report ? engagementLines(duel.duelists[side].minded.report.engagement) : null }));
       let resumed = null;
       if (saved) { duel.load(saved); const again = traceOf(builts); run(STEPS, [again]); resumed = again.digest(); }
@@ -359,7 +371,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   const taker = SWAP_DEFAULTS.subs.findIndex((sub) => sub.kind === STUB_TAKEOVER.defaults.kind);
   assert.ok(FORK >= TAKEOVER.FROM && STEPS >= TAKEOVER.UNTIL, "the bout is long enough to fork inside the takeover and hand back after it");
   assert.equal(first.atFork[SIDES.indexOf("left")], taker, "the fixture forked while the takeover stub had the body");
-  for (const state of first.states) for (const { part, read } of STUBS.filter((stub) => stub.mind === state.kind)) {
+  for (const state of first.states) for (const { part, read } of STUBS.filter((stub) => stub.mind === state.preset)) {
     const kind = part.defaults.kind, own = read(state.mind, state.body);
     assert.equal(own?.stub, kind, `the ${part.role} the mind runs is its config's stub`);
     assert.ok(own.steps > 0, `the ${kind} stub was asked`);
@@ -370,10 +382,10 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     assert.equal(state.mind.preparation.focus, state.mind.tactics.inner.decision.focus, "preparation reads the live operational context");
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
     const standUp = state.body.mind.subs[0];
-    assert.equal(standUp.steady.motor.stub, "stub-motor", "the stand-up's steady is made with the configured motor");
+    assert.equal(standUp.steady.motor.stub, "swap:stub-motor", "the stand-up's steady is made with the configured motor");
     const motors = Object.entries(standUp.techniques).filter(([, technique]) => technique.motor);
     assert.ok(motors.length > 0, "the fixture's stand-up has a technique with a motor");
-    for (const [name, technique] of motors) assert.equal(technique.motor.stub, "stub-motor", `its ${name} is made with the configured motor`);
+    for (const [name, technique] of motors) assert.equal(technique.motor.stub, "swap:stub-motor", `its ${name} is made with the configured motor`);
     assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
     assert.ok(state.lines.includes(`Decided: ${state.mind.tactics.steps} steps`), `the readout shows the planner's own detail of what it reports: ${state.lines.join(" | ")}`);
   }
@@ -395,7 +407,7 @@ test("each part a quadruped's config names is the one its mind runs, and its bou
     const saved = duel.save(), tail = traceOf(builts);
     run(STEPS, tail);
     const body = saveState(duel.duelists.left.minded.body.state);
-    for (const { part, read } of STUBS.filter((stub) => stub.mind === SWAP_QUADRUPED_DEFAULTS.kind)) {
+    for (const { part, read } of STUBS.filter((stub) => stub.mind === "swap-quadruped")) {
       const own = read(null, body), kind = part.defaults.kind;
       assert.equal(own?.stub, kind, `the ${part.role} the quadruped runs is its config's stub`);
       assert.ok(own.steps > 0, `the ${kind} stub was asked`);

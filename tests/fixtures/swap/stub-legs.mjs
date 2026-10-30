@@ -8,10 +8,10 @@ import { slotOne, anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_LEGS = Object.freeze({
   role: "locomotion", label: "Counted walk (stub)", stage: "experimental", fields: [], slots: [slotOne("walk", "Walk", "locomotion")],
-  defaults: Object.freeze({ kind: "stub-legs", walk: Object.freeze({ kind: "stance-walk" }) }), keys: Object.freeze({ kind: true, walk: true }),
+  defaults: Object.freeze({ kind: "swap:stub-legs", walk: Object.freeze({ kind: "stance-walk" }) }), keys: Object.freeze({ kind: true, walk: true }),
   fits: anyBody, faults: () => [],
   make(body, config, legs) {
-    const walk = legs.make(body, config.walk), state = { stub: "stub-legs", steps: 0, walk: walk.state };
+    const walk = legs.make(body, config.walk), state = { stub: "swap:stub-legs", steps: 0, walk: walk.state };
     return {
       state,
       get heading() { return walk.heading; },

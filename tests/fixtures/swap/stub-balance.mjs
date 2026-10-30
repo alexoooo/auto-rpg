@@ -7,7 +7,7 @@ import { fitsSoles } from "../../../src/core/control/stance-balance.ts";
 
 /** The stance as `stanceControl` makes it, each `command` counted in its state, everything else the stance's. */
 function counted(...made) {
-  const stance = stanceControl(...made), state = { stub: "stub-balance", steps: 0, stance: stance.state };
+  const stance = stanceControl(...made), state = { stub: "swap:stub-balance", steps: 0, stance: stance.state };
   return {
     state, read: (feet) => stance.read(feet), ask: (driver) => stance.ask(driver), launch: (driver) => stance.launch(driver), reset: () => stance.reset(),
     command: (driver, goal, dt) => { state.steps++; stance.command(driver, goal, dt); },
@@ -17,7 +17,7 @@ function counted(...made) {
 
 export const STUB_BALANCE = Object.freeze({
   role: "balance", label: "Counted stance (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-balance" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-balance" }), keys: Object.freeze({ kind: true }),
   fits: fitsSoles, faults: () => [],
   make: () => counted,
 });

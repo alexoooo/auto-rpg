@@ -13,11 +13,11 @@ const NO_HANDS = Object.freeze({});
 
 export const STUB_GUARD = Object.freeze({
   role: "guard", label: "Low arms (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-guard" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-guard" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   posture: () => STUB_POSTURE,
   make() {
-    const state = { stub: "stub-guard", steps: 0 };
+    const state = { stub: "swap:stub-guard", steps: 0 };
     return { state, hands: [], posture: STUB_POSTURE, hold: null, resume() {}, command() { state.steps++; return NO_HANDS; } };
   },
 });

@@ -15,7 +15,7 @@ const play = { gap: 4, capSeconds: 120 }, environment = hash("e");
 
 /** Synthetic recorded outcomes isolate evidence matching from physics and performance. */
 function fixture({ id = "vanguard-warrior", code = hash("1"), config = 1, score = 0, opponentCode = hash("3"), battery = false } = {}) {
-  const own = { kind: "vanguard", experiment: config }, value = { mind: own, model: "workshop-fighter", loadout: { left: "empty", right: "empty" } };
+  const own = { kind: "vanguard:mind", experiment: config }, value = { mind: own, model: "workshop-fighter", loadout: { left: "empty", right: "empty" } };
   const subject = recordedSubject({ id: id + suffix, label: id, value,
     parts: [{ id: `mind:${id}`, value: own }, { id: "model:workshop-fighter", value: { mass: 80 } }] }, play, environment, null,
   parts => parts.some(part => part.id.startsWith("mind:")) ? code : null);
@@ -116,7 +116,7 @@ test("batteries pair individual conditions and changed or unknown context labels
 test("Git provenance classifies entrant changes and shared inputs without checking out source", () => {
   const baseline = fixture(), candidate = fixture({ code: hash("2") }); candidate.header.commit = commit("b");
   const calls = [], runGit = (...args) => { calls.push(args); return args[0] === "diff" ? [
-    "src/core/entrants/vanguard/plan.ts", "assets/entrants/vanguard/weights.json", "docs/reference/vanguard.md", "assets/evaluations/tournament/kept.jsonl",
+    "src/entrants/vanguard/plan.ts", "assets/entrants/vanguard/weights.json", "docs/reference/vanguard.md", "assets/evaluations/tournament/kept.jsonl",
   ].join("\0") + "\0" : ""; };
   assert.deepEqual(sourceContext(baseline, candidate, "vanguard-warrior", "vanguard-warrior", runGit), []);
   assert.deepEqual(calls.map(call => call[0]), ["cat-file", "cat-file", "diff"]);

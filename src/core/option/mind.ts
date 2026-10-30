@@ -97,7 +97,6 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,
-  presets: {},
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createOptionMind,
 });

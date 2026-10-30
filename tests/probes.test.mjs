@@ -19,7 +19,7 @@ import { GAME_MOTOR } from "../src/core/mind/kit.ts";
 import { GAITS } from "../src/core/skills/gaits.ts";
 import { ALL_MET } from "../src/core/skills/skill.ts";
 
-const lookup = lookupWith({ "stub-legs": STUB_LEGS, "stub-balance": STUB_BALANCE, "stub-motor": STUB_MOTOR });
+const lookup = lookupWith({ "swap:stub-legs": STUB_LEGS, "swap:stub-balance": STUB_BALANCE, "swap:stub-motor": STUB_MOTOR });
 
 /**
  * Each implementation probed, by name: the rig's configs, and the probes that ask what it carries
@@ -31,9 +31,9 @@ const PROBED = [
   ...Object.entries(GAITS).map(([name, gait]) => [`the ${name} gait`, { legs: gait.legs }, LEGS_PROBES]),
   ["Move", { legs: MOVE }, LEGS_PROBES],
   ["the stub legs", { legs: STUB_LEGS.defaults }, LEGS_PROBES],
-  ...Object.keys(BALANCES).concat("stub-balance").filter((kind) => kind !== GAME_MOTOR.balance.kind)
+  ...Object.keys(BALANCES).concat("swap:stub-balance").filter((kind) => kind !== GAME_MOTOR.balance.kind)
     .map((kind) => [`the stance walk on the ${kind} balance`, { motor: { ...GAME_MOTOR, balance: { kind } } }, LEGS_PROBES]),
-  ...Object.keys(MOTORS).concat("stub-motor").map((kind) => [`the ${kind} motor`, { motor: kind === "stub-motor" ? STUB_MOTOR.defaults : { ...GAME_MOTOR, kind } }, CLAIM_PROBES]),
+  ...Object.keys(MOTORS).concat("swap:stub-motor").map((kind) => [`the ${kind} motor`, { motor: kind === "swap:stub-motor" ? STUB_MOTOR.defaults : { ...GAME_MOTOR, kind } }, CLAIM_PROBES]),
 ];
 
 /** Each of `probes` on a rig of `configs`, by name: its reading. */

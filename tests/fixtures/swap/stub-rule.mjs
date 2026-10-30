@@ -6,10 +6,10 @@ import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_RULE = Object.freeze({
   role: "move-rule", label: "Counted rule (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-rule", gait: "braced" }), keys: Object.freeze({ kind: true, gait: true }),
+  defaults: Object.freeze({ kind: "swap:stub-rule", gait: "braced" }), keys: Object.freeze({ kind: true, gait: true }),
   fits: anyBody, faults: () => [],
   make(_config, gait) {
-    const state = { stub: "stub-rule", steps: 0 };
+    const state = { stub: "swap:stub-rule", steps: 0 };
     return { gait, state, matches() { state.steps++; return false; } };
   },
 });

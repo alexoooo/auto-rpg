@@ -16,7 +16,7 @@ import { loadEngine } from "../core/engine/engines.ts";
 import { withLoadout, type Held } from "../core/items/held.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
 import { partLookup } from "../entrants/game.ts";
-import { PUNCHER } from "../core/mind/config.ts";
+import { PUNCHER } from "../entrants/classic/presets.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/mind/ground/technique.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";

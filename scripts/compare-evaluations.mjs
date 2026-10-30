@@ -11,18 +11,25 @@ import { BUILD_IDENTITY, isBuildInput } from "./build-identity.mjs";
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const git = (...args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });
 
+/** The entrants whose kinds (`<entrant>:<kind>`) a subject's config names, each once. */
+function scopesIn(value, into = new Set()) {
+  if (typeof value === "object" && value !== null) {
+    const match = typeof value.kind === "string" ? /^([a-z0-9][a-z0-9-]*):/.exec(value.kind) : null;
+    if (match) into.add(match[1]);
+    for (const inner of Object.values(value)) scopesIn(inner, into);
+  }
+  return [...into];
+}
+
 /** Git verifies source provenance; changes outside the selected entrants qualify the context. */
 export function sourceContext(baseline, candidate, subject, previous, runGit = git) {
   const commits = [baseline.header.commit, candidate.header.commit];
   if (commits.some(commit => !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit ?? ""))) return ["recorded Git provenance is unknown"];
   try {
     for (const commit of commits) runGit("cat-file", "-e", `${commit}^{commit}`);
-    const kinds = [baseline, candidate].flatMap((record, index) => record.header.subjects
-      .filter(one => selectedSubject(one.id, index === 0 ? previous : subject)).flatMap(one => {
-        const value = one.value?.mind ?? one.value;
-        return typeof value?.kind === "string" && /^[a-z0-9][a-z0-9-]*$/.test(value.kind) ? [value.kind] : [];
-      }));
-    const owned = file => kinds.some(kind => file.startsWith(`src/core/entrants/${kind}/`) || file.startsWith(`assets/entrants/${kind}/`));
+    const entrants = [baseline, candidate].flatMap((record, index) => record.header.subjects
+      .filter(one => selectedSubject(one.id, index === 0 ? previous : subject)).flatMap(one => scopesIn(one.value?.mind ?? one.value)));
+    const owned = file => entrants.some(name => file.startsWith(`src/entrants/${name}/`) || file.startsWith(`assets/entrants/${name}/`));
     const changes = runGit("diff", "--name-only", "--no-renames", "-z", ...commits, "--").split("\0").filter(Boolean);
     return changes.filter(file => isBuildInput(file) && !owned(file)).map(file => `shared runtime input changed: ${file}`);
   } catch {

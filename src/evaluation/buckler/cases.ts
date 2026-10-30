@@ -9,7 +9,8 @@
  * and the wound the defender took.
  */
 import { levelSpawn } from "../../arena/levels.ts";
-import { DUELLIST, type BehavioursConfig, type FighterConfig, type MindConfig } from "../../core/mind/config.ts";
+import { DUELLIST } from "../../entrants/classic/presets.ts";
+import { type BehavioursConfig, type FighterConfig, type MindConfig } from "../../core/mind/config.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";

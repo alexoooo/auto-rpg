@@ -8,7 +8,7 @@
  * plays it as it was scored.
  */
 import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys, MINDS } from "../../entrants/game.ts";
+import { treeObeys } from "../../entrants/game.ts";
 import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
@@ -17,6 +17,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readGait, type GaitReading } from "./read.ts";
+import { DRILL_OPPONENTS } from "../drill-opponents.ts";
 
 /** A hand the strike is thrown with. */
 type GaitHand = "left" | "right";
@@ -82,7 +83,7 @@ function gaitCases(protocol: typeof GAITS_ASKED): Cases<GaitCondition, GaitReadi
       recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [], ...sideAttributes({ left: character }),
         // Along +x, as the open stage's spawns are.
         start: { left: { at: [-protocol.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [protocol.gap / 2, 0], heading: -Math.PI / 2 } },
-        minds: { left: going.mind, right: MINDS["drill-stand"]!.config as MindConfig }, commanders: { left: going.commander } } };
+        minds: { left: going.mind, right: DRILL_OPPONENTS["drill-stand"]!.config as MindConfig }, commanders: { left: going.commander } } };
     },
     read: (built) => readGait(built, protocol),
   };

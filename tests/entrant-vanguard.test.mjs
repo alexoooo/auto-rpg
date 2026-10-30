@@ -3,15 +3,16 @@ import assert from "node:assert/strict";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { loadState, saveState } from "../src/core/state.ts";
-import { lowGuard, lowGuardSkills } from "../src/core/entrants/vanguard/low-guard.ts";
+import { lowGuard, lowGuardSkills } from "../src/entrants/vanguard/low-guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
-import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
-import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
+import { adaptiveGuard } from "../src/entrants/vanguard/adaptive-guard.ts";
+import { routeAround } from "../src/entrants/vanguard/route-around.ts";
 import { partLookup, treeFaults, replacedAt, FIGHT_ENTRY, CONTROLLERS, MINDS, GAME } from "../src/entrants/game.ts";
+import { VANGUARD } from "../src/entrants/vanguard/index.ts";
 import { navigatorOf } from "../src/core/mind/navigator.ts";
-import { flank } from "../src/core/entrants/vanguard/flank.ts";
+import { flank } from "../src/entrants/vanguard/flank.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { bodyHost } from "../src/core/mind/host.ts";
@@ -22,7 +23,7 @@ import { labActor } from "../src/lab/actor.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 import { engagementLines } from "../src/ui/action-readout.ts";
-import { VANGUARD_EXCHANGE } from "../src/core/entrants/vanguard/exchange.ts";
+import { VANGUARD_EXCHANGE } from "../src/entrants/vanguard/exchange.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { cos, hypot, sin } from "../src/core/math/real.ts";
 import { armedActions, actionConfigFaults } from "../src/core/mind/action-config.ts";
@@ -32,14 +33,14 @@ import { holdsNothing } from "../src/core/skills/strikes.ts";
 test("Vanguard routes held weapons and empty hands through their supported actions", () => {
   for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
     const bare = modelSpec(model), config = MINDS[id].config;
-    const punches = config.actions.filter(action => config.executors.find(executor => executor.name === action.executor).kind === "vanguard-punch");
+    const punches = config.actions.filter(action => config.executors.find(executor => executor.name === action.executor).kind === "vanguard:punch");
     assert.deepEqual(armedActions(partLookup, bare, config.executors, config.actions), punches, "equipment choices do not enter an empty-handed kit");
     for (const loadout of LOADOUTS) {
       const spec = withLoadout(bare, loadout), actions = armedActions(partLookup, spec, config.executors, config.actions);
       assert.deepEqual(actionConfigFaults(partLookup, spec, config.executors, actions), []);
       for (const action of actions) {
         const executor = config.executors.find(executor => executor.name === action.executor);
-        for (const hand of action.effectors) assert.equal(holdsNothing(spec, hand), executor.kind === "vanguard-punch",
+        for (const hand of action.effectors) assert.equal(holdsNothing(spec, hand), executor.kind === "vanguard:punch",
           `${id}, ${JSON.stringify(loadout)}: ${executor.kind} uses the correct physical endpoint`);
       }
     }
@@ -148,12 +149,12 @@ test("contact selection credits guarded impacts once, ignores unowned work and r
 test("each humanoid is offered only its own named Vanguard calibration", () => {
   for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {
     assert.deepEqual(controlsFor(model).filter(choice => choice.startsWith("vanguard-")), [id]);
-    assert.deepEqual(labPresets(modelSpec(model), "attack").filter(preset => preset.config.kind === "vanguard").map(preset => preset.id), [id]);
+    assert.deepEqual(labPresets(modelSpec(model), "attack").filter(preset => preset.config.kind === "vanguard:mind").map(preset => preset.id), [id]);
   }
 });
 
 test("a Vanguard preset's edited slots reach construction unchanged and its full configuration links", async () => {
-  const spec = modelSpec("crypt-skeleton"), presets = Object.entries(CONTROLLERS.vanguard.presets);
+  const spec = modelSpec("crypt-skeleton"), presets = Object.entries(VANGUARD.presets);
   for (const [, { config }] of presets) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] });
   const base = MINDS["vanguard-skeleton"].config;
   const edited = replacedAt(replacedAt(replacedAt(replacedAt(base, "tactics.flank", false), "executors.punch.lead", .2),
@@ -165,7 +166,7 @@ test("a Vanguard preset's edited slots reach construction unchanged and its full
   } };
   const host = bodyHost(stand.built, stand.world, {}, parts);
   try {
-    CONTROLLERS.vanguard.create(host.host, edited, { name: "fixture", orders: () => null });
+    CONTROLLERS["vanguard:mind"].create(host.host, edited, { name: "fixture", orders: () => null });
     assert.deepEqual(seen.find(one => one.role === "tactics").config, edited.tactics);
     assert.deepEqual(seen.find(one => one.role === "locomotion").config, edited.locomotion);
     assert.deepEqual(seen.filter(one => one.role === "executor").map(one => one.config), edited.executors);
@@ -174,7 +175,7 @@ test("a Vanguard preset's edited slots reach construction unchanged and its full
 
 test("low-guard dependencies are checked through every nested planner before a bout runs", async () => {
   const base = MINDS["vanguard-warrior"].config;
-  for (const tactics of [base.tactics, { kind: "vanguard-plan", plan: { kind: "vanguard-plan", plan: base.tactics } }]) {
+  for (const tactics of [base.tactics, { kind: "vanguard:plan", plan: { kind: "vanguard:plan", plan: base.tactics } }]) {
     for (const support of [null, { kind: "absent-support" }]) {
       const config = { ...base, tactics, support }, faults = treeFaults(config);
       assert.ok(faults.length > 0, "missing or incompatible support cannot enter the runtime");
@@ -191,7 +192,7 @@ test("nested Vanguard planners prepare the inner skills once and preserve them t
     prepareSkills(_making, _config, skills, decision) { state.prepared++; assert.equal(decision(), inner.decision); return { ...skills, inner: true }; } };
   const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
     parts: { of: (role, config) => config.kind === "fixture" ? part : partLookup.of(role, config) } };
-  const config = { kind: "vanguard-plan", lowGuard: true, plan: { kind: "vanguard-plan", lowGuard: true, plan: { kind: "fixture" } } };
+  const config = { kind: "vanguard:plan", lowGuard: true, plan: { kind: "vanguard:plan", lowGuard: true, plan: { kind: "fixture" } } };
   const tactics = tacticsOf(making, config);
   const skills = { report: {}, envelope: null, state: {} }, prepared = prepareTacticsSkills(making, config, skills, () => tactics.decision);
   assert.equal(state.prepared, 1);
@@ -336,7 +337,7 @@ test("adaptive and nested planners prepare one shared kit and forward the active
       } };
     const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
       parts: { of: (role, config) => config.kind === "behaviours" ? behaviourPart : partLookup.of(role, config) } };
-    const config = { kind: "vanguard-plan", plan: { ...MINDS["vanguard-warrior"].config.tactics, lowGuard: false, routeAround: false } };
+    const config = { kind: "vanguard:plan", plan: { ...MINDS["vanguard-warrior"].config.tactics, lowGuard: false, routeAround: false } };
     const tactics = tacticsOf(making, config);
     prepared = prepareTacticsSkills(making, config, { state: {}, report: {} }, () => tactics.decision);
     for (const policy of [attacking, defensive]) Object.defineProperty(policy, "engagement", {
@@ -362,7 +363,7 @@ test("adaptive and nested planners prepare one shared kit and forward the active
 test("enabled Vanguard layers reject a planner that lacks their operational context", () => {
   const base = MINDS["vanguard-warrior"].config;
   for (const [layer, capability] of [["lowGuard", "focus"], ["flank", "focus"], ["slowEvade", "evading"], ["routeAround", "approach"]]) {
-    const tactics = { kind: "vanguard-plan", [layer]: true, plan: { kind: "stand" } };
+    const tactics = { kind: "vanguard:plan", [layer]: true, plan: { kind: "stand" } };
     assert.ok(treeFaults({ ...base, tactics }).some(fault => fault.includes(`${layer} needs a plan providing ${capability}`)));
     assert.deepEqual(treeFaults({ ...base, tactics: { ...tactics, [layer]: false } }), []);
   }
@@ -406,7 +407,7 @@ test("Vanguard movement layers preserve stricter intent and ordered ceilings, in
     const orders = () => ordered;
     if (kind.startsWith("evade-")) {
       const making = { orders, parts: { of: (role, config) => config.kind === "fixture" ? { make: () => base } : partLookup.of(role, config) } };
-      return { intent, tactics: tacticsOf(making, { kind: "vanguard-plan", slowEvade: true, plan: { kind: "fixture" } }), sight: {} };
+      return { intent, tactics: tacticsOf(making, { kind: "vanguard:plan", slowEvade: true, plan: { kind: "fixture" } }), sight: {} };
     }
     if (kind === "flank") {
       const foe = { id: "foe", out: false, centre: { x: 0, y: 1, z: 1 }, spec: { marks: { high: "head" } },
@@ -465,7 +466,7 @@ test("a quiet policy trial is revisited when the contact conditions change", () 
 });
 
 test("independent body-relative punches fork through preparation, commitment and released recovery", async () => {
-  const base = CONTROLLERS.vanguard.defaults;
+  const base = CONTROLLERS["vanguard:mind"].defaults;
   const config = { ...base,
     executors: base.executors.flatMap(executor => executor.name === "punch"
       ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}`, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1 })) : [executor]),
@@ -594,7 +595,7 @@ test("the configured fallen-target wait stops the chase, preserves owned actions
     const base = { name: "fixture", state: { calls: 0 }, decision: { focus: "foe" }, decide() { this.state.calls++; return intent; } };
     const parts = { of: (role, config) => config.kind === "fixture" ? { make: () => base } : partLookup.of(role, config) };
     return tacticsOf({ spec: modelSpec("workshop-rogue"), orders: () => orders, parts },
-      { kind: "vanguard-plan", lowGuard: true, waitFallen, plan: { kind: "fixture" } });
+      { kind: "vanguard:plan", lowGuard: true, waitFallen, plan: { kind: "fixture" } });
   };
   const foe = { id: "foe", out: false, down: true, spec: { marks: { high: "head" } },
     segments: new Map([["head", { centre: { x: 1.5, y: .3, z: 0 } }]]) };

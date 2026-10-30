@@ -10,10 +10,10 @@ export const TAKEOVER = Object.freeze({ FROM: 100, UNTIL: 140 });
 
 export const STUB_TAKEOVER = Object.freeze({
   role: "sub-mind", label: "Takes a window (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-takeover" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-takeover" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make() {
-    const state = { stub: "stub-takeover", steps: 0, held: 0 };
+    const state = { stub: "swap:stub-takeover", steps: 0, held: 0 };
     return {
       name: "Window (stub)", state,
       wants() { state.steps++; return state.steps >= TAKEOVER.FROM && state.steps < TAKEOVER.UNTIL; },

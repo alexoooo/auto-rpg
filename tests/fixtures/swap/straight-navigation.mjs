@@ -11,10 +11,10 @@ const PACE = .6;
 
 export const STRAIGHT_NAVIGATION = Object.freeze({
   role: "navigation", label: "Straight (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "straight-navigation" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:straight-navigation" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make() {
-    const state = { stub: "straight-navigation", steps: 0, request: null, status: "stopped", remaining: null, goal: null };
+    const state = { stub: "swap:straight-navigation", steps: 0, request: null, status: "stopped", remaining: null, goal: null };
     const report = { get request() { return state.request; }, get status() { return state.status; }, get remaining() { return state.remaining; },
       get goal() { return state.goal; }, get route() { return state.goal ? [state.goal] : []; } };
     return {

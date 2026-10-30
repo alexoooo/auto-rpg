@@ -7,7 +7,7 @@
  * trial but its seconds. A trial is a bout world, so the Arena plays it as it was scored.
  */
 import type { MindConfig } from "../../core/mind/config.ts";
-import { treeObeys, CONTROLLERS, MINDS } from "../../entrants/game.ts";
+import { treeObeys, CONTROLLERS } from "../../entrants/game.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/items/held.ts";
 import type { BodyModel } from "../../core/models.ts";
@@ -16,6 +16,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
+import { opponentOf } from "../drill-opponents.ts";
 
 /** What the subject holds in its right hand: nothing, or a club. */
 type CoverHeld = "empty" | "club";
@@ -30,7 +31,7 @@ type CoverShield = "buckler";
 export type CoverCondition = { readonly model: BodyModel; readonly held: CoverHeld; readonly left?: CoverShield; readonly across: number; readonly gap: number };
 
 /**
- * A rung: its opponent (a preset, `MINDS`) and what that one holds; the subjects' bodies and what
+ * A rung: its opponent (`opponentOf`) and what that one holds; the subjects' bodies and what
  * they hold; how far ahead the opponent's centre stands at the start and how far to the side, m;
  * and how long a trial plays, s. A change here is a new protocol.
  */
@@ -74,7 +75,7 @@ function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
           loadouts: { left: loadoutOf(condition), right: protocol.foe },
           // Along +x, as the open stage's spawns are.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
-          minds: { left: value as unknown as MindConfig, right: MINDS[protocol.opponent]!.config as MindConfig }, commanders: { left: STANDING } } };
+          minds: { left: value as unknown as MindConfig, right: opponentOf(protocol.opponent)!.config as MindConfig }, commanders: { left: STANDING } } };
     },
     read: (built) => readCover(built, protocol),
   };

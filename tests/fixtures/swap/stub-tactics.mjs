@@ -9,7 +9,7 @@ import { slotList, anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_TACTICS = Object.freeze({
   role: "tactics", label: "Counted behaviours (stub)", stage: "experimental", fields: [], slots: [slotList("list", "Behaviours", "behaviour")],
-  defaults: Object.freeze({ ...FIGHTING, kind: "stub-tactics" }), keys: Object.freeze({ kind: true, target: true, choose: true, list: true }),
+  defaults: Object.freeze({ ...FIGHTING, kind: "swap:stub-tactics" }), keys: Object.freeze({ kind: true, target: true, choose: true, list: true }),
   fits: anyBody, faults: () => [],
   decisionCapabilities: BEHAVIOUR_TACTICS.decisionCapabilities,
   prepareSkills(_making, _config, skills, decision) {
@@ -21,7 +21,7 @@ export const STUB_TACTICS = Object.freeze({
     } };
   },
   make(making, config) {
-    const inner = actionTactics(making, { ...config, kind: "behaviours" }), state = { stub: "stub-tactics", steps: 0, inner: inner.state };
+    const inner = actionTactics(making, { ...config, kind: "behaviours" }), state = { stub: "swap:stub-tactics", steps: 0, inner: inner.state };
     const engagement = { get phase() { return inner.engagement.phase; }, get focus() { return inner.engagement.focus; }, get lost() { return inner.engagement.lost; },
       get candidates() { return inner.engagement.candidates; }, get pending() { return inner.engagement.pending; },
       get details() { return [{ label: "Decided", value: `${state.steps} steps` }]; } };

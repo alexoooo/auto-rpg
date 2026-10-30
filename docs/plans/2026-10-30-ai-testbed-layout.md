@@ -41,8 +41,8 @@ src/worlds/              the headless world builders: the bout, the Crypt run, t
 Imports run one way: screens → evaluation → worlds → entrants → core.
 
 - **An entrant is a manifest**: `name` (its folder), `minds` (kinds of mind of its own, most have
-  none), `parts` (its parts of any role), `commanders`, and `presets` (each a label, a config,
-  the models it fits).
+  none), `parts` (its parts of any role) and `presets` (each a label, a config, the models it
+  fits); a Commander of its own waits for an entrant that has one.
 - **Scoped kinds**: every kind an entrant registers is `<entrant>:<kind>`; a toolkit kind has no
   `:` (`/` already splits tournament and ratings ids).
 - **Preset ids are global and unique**, today's kept (`option`, `duellist`, `vanguard-warrior`).

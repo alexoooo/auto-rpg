@@ -15,7 +15,7 @@ inputs, the profile it is read by) is set by the generalization, so training fir
 again after it.
 
 - **Option Mind is the reference mind.** Its options, chooser and percepts are its own
-  (`src/core/entrants/option/options/`); the toolkit keeps what other minds read of them: the
+  (`src/entrants/option/options/`); the toolkit keeps what other minds read of them: the
   chooser's role (`ChooserPart`), an offer as a readout shows it (`Offer`) and a foe's phase
   (`foePhase`, `sensedPhase`).
 - **The body is the toed Warrior.** Toes that bend stand a rise from hands and knees 30 of 32
@@ -23,7 +23,7 @@ again after it.
   the target's 64 falls ([on the game bodies](../reference/toes.md#on-the-game-bodies)), so toes
   are a setting of the human figure that Option Mind's bodies take now and the game's take with the new
   stand-up ([Recovery](2026-10-23-recovery.md) step 3). The Rogue follows the Warrior.
-- **What Option Mind is today** (`src/core/entrants/option/`): a chooser over
+- **What Option Mind is today** (`src/entrants/option/`): a chooser over
   `followOrders`, `strike`, an option a gait (`walkBy`, `goings`) walking to the places made
   from the strikes' windows and the foe's pressure (`windowPlace`, `outOfPressure`), the cover, the
   rise's options and the rest options, selected as a set and a walk looked past to the best option
@@ -32,7 +32,7 @@ again after it.
   read the same.
 - **Learning is the ceiling.** The trainer takes an environment file (`research/environments/`):
   the punch's, a gait's and a bout's, the last two driving the bare entrant
-  (`src/core/entrants/bare/`). The punch's, on both hands at 120 and 480 Hz with walks in, makes
+  (`src/entrants/bare/`). The punch's, on both hands at 120 and 480 Hz with walks in, makes
   about 420 decisions a second with the trainer's update on 8 workers of 4
   ([the trainer's speed](../reference/learned-punch.md#the-trainers-speed)), so 5 M decisions take
   about 3.3 hours. Its speed decides how many experiments the project can run.
@@ -91,7 +91,7 @@ the option's measured model.
 
 Every power strike holds the legs and the trunk with its hand (`straight-punch.ts`, `blade.ts`),
 as do a kick and the rise; footwork holds the legs alone, and a cover one hand. So one policy
-selects a set of options whose claims do not overlap (built: `Chooser.decide`, `stepSet`, `src/core/entrants/option/options/`): the best option, then the best of the rest whose resources
+selects a set of options whose claims do not overlap (built: `Chooser.decide`, `stepSet`, `src/entrants/option/options/`): the best option, then the best of the rest whose resources
 are still free, until none is left. A strike runs beside the other hand's guard; between strikes,
 footwork runs beside both hands'.
 
@@ -396,7 +396,7 @@ whole mind trains on the same trainer as a skill does.
 - **Its speed comes first**: the world's step is where the time goes
   ([the trainer's speed](../reference/learned-punch.md#the-trainers-speed)), so every cut to the
   step makes every later run cheaper; `research/learning-speed.mjs` reads it.
-- **The route with nothing of the toolkit**: a bare entrant (`bare`, `src/core/entrants/bare/`)
+- **The route with nothing of the toolkit**: a bare entrant (`bare`, `src/entrants/bare/`)
   takes its body as a policy (`host.policy`: `BodyObservation` in, `BodyAction` out), its network
   the trainer's, so a mind from the senses to the muscles trains on a bout as Option Mind's chooser
   does. It keeps the testbed's most general route exercised, not only Option Mind's skills.
@@ -420,7 +420,7 @@ altogether. Only the left column binds a mind.
 
 ### Part roles
 
-A mind is a tree of parts by role ([Adding a Mind](../architecture.md#adding-a-mind)). In the
+A mind is a tree of parts by role ([Adding an entrant](../architecture.md#adding-an-entrant)). In the
 design one idea has one role, so an experimenter meets few words:
 
 | Role | What it is | The roles it takes over |

@@ -4,7 +4,7 @@
 
 The owner wants an Option Mind entrant, `option-skeleton`, that beats every existing Arena entrant
 more than 90% of the time, armed opponents included. It is a preset of the common Option Mind
-with parts of its own where it needs them, in `src/core/entrants/option-skeleton/` with its data
+with parts of its own where it needs them, in `src/entrants/option-skeleton/` with its data
 in `assets/entrants/option-skeleton/`; nothing of Option Mind is copied. The body's anatomy,
 attributes, assists and fight rules are fixed: the 15 kg Skeleton on toes, rising by the game's
 Stand up. Saved recipes and Git keep the baselines.

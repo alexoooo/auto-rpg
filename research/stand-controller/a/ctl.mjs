@@ -23,7 +23,7 @@ import { clockSenses } from "../../../src/core/mind/senses.ts";
 import { carrying } from "../../../src/core/control/motor.ts";
 import { kitOf } from "../../../src/core/mind/kit.ts";
 import { partLookup } from "../../../src/entrants/game.ts";
-import { PUNCHER } from "../../../src/core/mind/config.ts";
+import { PUNCHER } from "../../../src/entrants/classic/presets.ts";
 import { STAND_CHECK } from "../../../src/lab/ground-mode.ts";
 import { standUp } from "../../../src/core/mind/ground/stand-up.ts";
 import { groundReading, quietOnFeet } from "../../../src/core/mind/ground/reading.ts";

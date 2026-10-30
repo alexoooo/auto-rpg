@@ -43,11 +43,11 @@ export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followO
 /** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);
 
-/** A kind of footwork, `kind`, labelled `label`: an option a gait (`walkBy`), each going where it is worth most of the places `places` makes. */
+/** A kind of footwork, `kind`, labelled `label`: an option a gait (`walkBy`), each going where it is worth most of the places `places` makes; none where it makes no place. */
 const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
   kind(name, label, (given) => {
     const destinations = places(given);
-    return given.gaits.map((going) => walkBy(going, destinations, given.walk));
+    return destinations.length === 0 ? [] : given.gaits.map((going) => walkBy(going, destinations, given.walk));
   });
 
 /** **Walking into a strike's window**: footwork to each strike's (`windowPlace`), so a new strike adds its own place. */

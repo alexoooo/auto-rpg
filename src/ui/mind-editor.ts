@@ -99,7 +99,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? partOf(slot.fallback).label : "None" }] : []),
-    ...kindsFor(slot.role, spec, provides, current.kind).filter(({ part }) => !part.needs || provides.includes(part.needs))
+    ...kindsFor(slot.role, spec, provides, current).filter(({ part }) => !part.needs || provides.includes(part.needs))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
@@ -124,7 +124,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
     // A part whose slots hold executors pairs its actions with them (`ActionConfig`): the action editor is the executor role's.
     if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as FighterConfig, write as (config: FighterConfig) => void, readOnly));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
-      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current.kind),
+      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
       : drawSlot(config, slot, write));
     return block;

@@ -1,8 +1,9 @@
 /**
  * The core's boundary: `src/core/` reaches nothing but itself, its packages and data files under
- * `assets/`, checked over the transitive closure of its imports. The pages build on the core,
- * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, its
- * arithmetic, the engine seam and the mind seam.
+ * `assets/`, checked over the transitive closure of its imports. The entrants build on the core and
+ * each reaches only the core and its own folder; the pages build on both, never the reverse. Also
+ * here: the bans on float32 rotations and cached world matrices, the arithmetic, the engine seam and
+ * the mind seam, each held over the core and the entrants alike.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -13,6 +14,10 @@ import { programOver, sourcesUnder } from "./harness/program.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
+
+/** Where the game's minds are written: the core and the entrants, held to the same arithmetic, rotations and reads. */
+const SIMULATED = [CORE, "src/entrants/"];
+const isSimulated = (file) => SIMULATED.some((folder) => file.startsWith(folder));
 
 /** Packages the core may import, by prefix. The browser runs the core, so no `node:` builtins. */
 const PACKAGES = ["@babylonjs/core/", "@dimforge/rapier3d-simd-compat"];
@@ -101,8 +106,8 @@ test("the core turns vectors in double precision, never through Babylon's float3
       }
     }
   };
-  walk(path.join(ROOT, CORE));
-  assert.deepEqual(offenders, [], "a core file turns a vector through a float32 matrix");
+  for (const folder of SIMULATED) walk(path.join(ROOT, folder));
+  assert.deepEqual(offenders, [], "a core or entrant file turns a vector through a float32 matrix");
 });
 
 test("the core reads world transforms from its nodes, never through a cached world matrix", () => {
@@ -111,13 +116,13 @@ test("the core reads world transforms from its nodes, never through a cached wor
   // reads `position` and `rotationQuaternion`; read out of the source, as no scene catches it cheaply.
   const banned = /\.getWorldMatrix\(|\.absolutePosition|\.absoluteRotationQuaternion|computeWorldMatrix\(/;
   const offenders = [];
-  for (const file of filesUnder(CORE).filter((name) => name.endsWith(".ts"))) {
+  for (const file of SIMULATED.flatMap(filesUnder).filter((name) => name.endsWith(".ts"))) {
     for (const [index, line] of fs.readFileSync(path.join(ROOT, file), "utf8").split(/\r?\n/).entries()) {
       const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
       if (banned.test(code)) offenders.push(`${file}:${index + 1}`);
     }
   }
-  assert.deepEqual(offenders, [], "a core file reads a world matrix");
+  assert.deepEqual(offenders, [], "a core or entrant file reads a world matrix");
   // The control: the rule finds a reader where there is one.
   assert.ok(banned.test("const at = mesh.getWorldMatrix().getTranslation();"));
 });
@@ -141,7 +146,7 @@ const NODE_CLASSES = new Set(["Node", "TransformNode", "AbstractMesh"]);
  * `"file name"`, through the checker: a regex on `.right` would refuse the core's own `hand.right`.
  */
 function worldMatrixReads(overlay = {}) {
-  const { checker, sources } = programOver(sourcesUnder("src/core", ".ts"), overlay);
+  const { checker, sources } = programOver([...sourcesUnder("src/core", ".ts"), ...sourcesUnder("src/entrants", ".ts")], overlay);
   const reads = [];
   const visit = (node, file) => {
     if (ts.isPropertyAccessExpression(node) && WORLD_MATRIX_READERS.has(node.name.text)) {
@@ -152,7 +157,7 @@ function worldMatrixReads(overlay = {}) {
     }
     ts.forEachChild(node, (child) => visit(child, file));
   };
-  for (const { source, file } of sources()) if (file.startsWith(CORE)) visit(source, file);
+  for (const { source, file } of sources()) if (isSimulated(file)) visit(source, file);
   return reads;
 }
 
@@ -258,7 +263,7 @@ function engineArithmetic(text, file) {
 }
 
 test("the core, and what builds a case's world, compute with IEEE's operations and the core's own functions", () => {
-  const builders = worldBuilders(), reached = worldReach(), files = [...filesUnder(CORE).filter((name) => name.endsWith(".ts")), ...builders];
+  const builders = worldBuilders(), reached = worldReach(), files = [...new Set([...SIMULATED.flatMap(filesUnder).filter((name) => name.endsWith(".ts")), ...builders])];
   // The bout's and the Crypt's worlds and a battery's cases are reached, each exemption names a module a case reaches, and a cut one that exists.
   assert.ok(files.includes("src/core/math/real.ts") && ["src/arena/duel.ts", "src/arena/room.ts", "src/evaluation/blade/cases.ts", "src/dungeon/run.ts",
     "src/dungeon/party-placement.ts", "src/dungeon/level.ts", "src/dungeon/world.ts", "src/lab/ground-mode.ts", "src/lab/ground-starts.ts",
@@ -300,7 +305,7 @@ const EXACT_BABYLON = new Set([
  * checker: the name alone does not say whose `length` it is.
  */
 function babylonMathReads(overlay = {}) {
-  const { checker, sources } = programOver(sourcesUnder("src/core", ".ts"), overlay);
+  const { checker, sources } = programOver([...sourcesUnder("src/core", ".ts"), ...sourcesUnder("src/entrants", ".ts")], overlay);
   const reads = new Set();
   const visit = (node, file) => {
     if (ts.isPropertyAccessExpression(node)) {
@@ -312,7 +317,7 @@ function babylonMathReads(overlay = {}) {
     }
     ts.forEachChild(node, (child) => visit(child, file));
   };
-  for (const { source, file } of sources()) if (file.startsWith(CORE)) visit(source, file);
+  for (const { source, file } of sources()) if (isSimulated(file)) visit(source, file);
   return [...reads];
 }
 
@@ -411,7 +416,7 @@ test("in the game's source only the mind seam drives muscles", () => {
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/option/", "src/core/entrants/"];
+const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/option/", "src/entrants/"];
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
@@ -460,19 +465,65 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
   assert.deepEqual(mindCrossings(files), []);
   // The control: an entrant and a skill reaching past the boundary are found, and an adapter is not held to it.
   assert.deepEqual(mindCrossings([
-    ["src/core/entrants/sly/mind.ts", `import type { World } from "../../world.ts";\nimport { readView } from "../../build/read-view.ts";\nexport const w = globalThis;\n`],
+    ["src/entrants/sly/mind.ts", `import type { World } from "../../core/world.ts";\nimport { readView } from "../../core/build/read-view.ts";\nexport const w = globalThis;\n`],
     ["src/core/skills/sly.ts", `import type { SegmentBody } from "../engine/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
     ["src/core/mind/host.ts", `import type { World } from "../world.ts";\n`],
-    ["src/core/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
+    ["src/entrants/lucky/mind.ts", `export const pick = () => Math.random() < .5 ? Date.now() : performance.now();\n`],
   ]), [
-    "src/core/entrants/sly/mind.ts imports src/core/world.ts",
-    "src/core/entrants/sly/mind.ts imports src/core/build/read-view.ts",
-    "src/core/entrants/sly/mind.ts reads globalThis",
+    "src/entrants/sly/mind.ts imports src/core/world.ts",
+    "src/entrants/sly/mind.ts imports src/core/build/read-view.ts",
+    "src/entrants/sly/mind.ts reads globalThis",
     "src/core/skills/sly.ts imports src/core/engine/engine.ts",
     `src/core/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
-    "src/core/entrants/lucky/mind.ts reads Math.random",
-    "src/core/entrants/lucky/mind.ts reads the date",
-    "src/core/entrants/lucky/mind.ts reads performance.now",
+    "src/entrants/lucky/mind.ts reads Math.random",
+    "src/entrants/lucky/mind.ts reads the date",
+    "src/entrants/lucky/mind.ts reads performance.now",
+  ]);
+});
+
+/** The game's list of entrants and its catalog: the only modules that import every entrant. */
+const ENTRANT_LISTS = new Set(["src/entrants/index.ts", "src/entrants/game.ts"]);
+
+/** The entrant `file` is written in, `src/entrants/<name>/`, or null. */
+const entrantOf = (file) => /^src\/entrants\/([^/]+)\//.exec(file)?.[1] ?? null;
+
+/**
+ * Each import among `files` (path and source) that leaves what an entrant may reach: the core, its
+ * own folder and its own data (`assets/entrants/<name>/`), and the Babylon math the core turns with.
+ * The game's lists may import any entrant.
+ */
+function entrantCrossings(files) {
+  const crossings = [];
+  for (const [file, source] of files) {
+    const name = entrantOf(file);
+    if (name === null || ENTRANT_LISTS.has(file)) continue;
+    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+      if (!specifier.startsWith(".")) {
+        if (!specifier.startsWith("@babylonjs/core/Maths/")) crossings.push(`${file} imports the package "${specifier}"`);
+        continue;
+      }
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
+      if (!target.startsWith(CORE) && entrantOf(target) !== name && !target.startsWith(`assets/entrants/${name}/`)) crossings.push(`${file} imports ${target}`);
+    }
+  }
+  return crossings;
+}
+
+test("an entrant reaches only the core, its own folder and its own data: never another entrant, a world, an evaluation or a screen", () => {
+  const files = filesUnder("src/entrants/").filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
+  assert.ok(new Set(files.map(([file]) => entrantOf(file)).filter(Boolean)).size > 1, "fewer than two entrants, so this test would pass on nothing");
+  assert.deepEqual(entrantCrossings(files), []);
+  // The control: an entrant reaching another entrant, a screen, an evaluation and another's data is found; the game's list is not held to it.
+  assert.deepEqual(entrantCrossings([
+    ["src/entrants/sly/index.ts", `import { CLASSIC } from "../classic/presets.ts";\nimport { Duel } from "../../arena/duel.ts";\nimport { MINDS } from "../game.ts";\n`],
+    ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/option-skeleton/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
+    ["src/entrants/index.ts", `import { SLY } from "./sly/index.ts";\n`],
+  ]), [
+    "src/entrants/sly/index.ts imports src/entrants/classic/presets.ts",
+    "src/entrants/sly/index.ts imports src/arena/duel.ts",
+    "src/entrants/sly/index.ts imports src/entrants/game.ts",
+    "src/entrants/sly/data.ts imports assets/entrants/option-skeleton/guard.json",
+    "src/entrants/sly/data.ts imports src/evaluation/drill-opponents.ts",
   ]);
 });
 

@@ -132,7 +132,7 @@ it never imports them.
   (`Mind.step`, `src/core/mind/equipment-port.ts`). A grip request moves nothing and must pass
   geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
   mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), never the
-  world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `option`, `entrants` import
+  world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `option` and `src/entrants/` import
   no engine, world, builder or read-view maker and read no `globalThis`, `Math.random` or clock
   (chance comes from the host's seed, `BodyHost.seed`), beside the adapters the
   boundary test names.
@@ -226,10 +226,10 @@ no stray files (`tests/workspace.test.mjs`).
 
 ## Competing minds
 
-- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `ENTRANTS`
-  (`src/entrants/index.ts`), its own parts lines in its controller's `parts`, its data under
-  `assets/entrants/<name>/`. What it may read
-  and do is the architecture's (Adding a Mind), held by `tests/core-boundary.test.mjs` and
+- **A Mind is an entrant**: `src/entrants/<name>/`, its manifest (`index.ts`: presets, its own
+  parts and kinds, scoped `<name>:`) a line in `ENTRANTS` (`src/entrants/index.ts`), its data under
+  `assets/entrants/<name>/`; it imports the core and itself, never another entrant. What it may read
+  and do is the architecture's (Adding an entrant), held by `tests/core-boundary.test.mjs` and
   `tests/mind-contract.test.mjs`.
 - **An entrant's change touches its own files and its registry line**;
   `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.

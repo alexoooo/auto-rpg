@@ -6,10 +6,10 @@ import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_SUPPORT = Object.freeze({
   role: "support", label: "Never low (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-support" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-support" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make() {
-    const state = { stub: "stub-support", steps: 0, stage: "stand", ready: false, posture: {} };
+    const state = { stub: "swap:stub-support", steps: 0, stage: "stand", ready: false, posture: {} };
     return {
       state, report: state, walks: () => true,
       resume() { state.stage = "stand"; state.ready = false; },

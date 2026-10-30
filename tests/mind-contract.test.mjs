@@ -1,6 +1,6 @@
 /**
  * **What every registered Mind keeps to** (Node, core world, vendored Rapier, 120 Hz): for each
- * controller's presets, or its defaults where it names none, a short Arena bout of that Mind
+ * entrant's presets, each drill opponent and each controller's defaults, a short Arena bout of that Mind
  * against itself on the first allowed body it fits, as its preset's character, runs and stays finite, flings nobody, forks
  * and resumes to the bit, and plays again to the bit from its recipe and its recorded order sheets with no
  * Mind made (`replayedBody`). How well a Mind fights is measured apart.
@@ -14,7 +14,11 @@ import { SIDES, senseDelayOf } from "../src/arena/duel.ts";
 import { reactionSteps } from "../src/core/rules/rulebook.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS } from "../src/core/models.ts";
-import { FIGHT_ENTRY, treeObeys, CONTROLLERS, modelRefusal } from "../src/entrants/game.ts";
+import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefusal } from "../src/entrants/game.ts";
+import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
+import { catalogOf } from "../src/core/parts/catalog.ts";
+import { toolkitLists } from "../src/core/toolkit.ts";
+import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -34,10 +38,23 @@ const STEPS = 180, FORK = 90, GAP = 0.9;
 /** The most a segment's centre may move, m/s, and a body's centre of mass: as the smoke test holds a bout to. */
 const FLUNG = Object.freeze({ segment: 40, body: 12 });
 
-/** Every registered Mind: each controller's presets by id, or its defaults by its kind where it names none. */
-const MINDS = Object.entries(CONTROLLERS).flatMap(([kind, controller]) => {
-  const presets = Object.entries(controller.presets);
-  return presets.length > 0 ? presets : [[kind, { config: controller.defaults }]];
+/** Every registered Mind: each preset and drill opponent by id, then each controller's defaults by its kind where no preset is them. */
+const MINDS = [...Object.entries(PRESETS), ...Object.entries(DRILL_OPPONENTS)];
+for (const [kind, controller] of Object.entries(CONTROLLERS)) if (!MINDS.some(([, preset]) => preset.config === controller.defaults)) MINDS.push([kind, { config: controller.defaults }]);
+
+test("the game's catalog has no fault, and refuses an entrant's unscoped kind, a preset id twice and a preset of two entrants' kinds", () => {
+  assert.deepEqual(GAME.faults, []);
+  // The control: each planted defect is named, and the entry at fault left out.
+  const guard = BLADE_FIGHTER.guard, sly = { ...guard, kind: "sly:guard" }, duellist = PRESETS.duellist;
+  const planted = catalogOf(() => ({ ...toolkitLists(), entrants: [
+    { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { duellist } },
+    { name: "copy", presets: { duellist, mixed: { label: "Mixed", config: { ...duellist.config, guard: sly } } } },
+  ] }));
+  assert.deepEqual(planted.faults, [
+    `sly's guard part "low-guard" is not scoped sly:`,
+    `copy's preset "duellist" is sly's`,
+    `copy's preset "mixed" names sly's kinds`,
+  ]);
 });
 
 /** The first body a preset both allows and physically fits, as its character; an uncalibrated mind allows every model. */
@@ -125,7 +142,7 @@ for (const [id, preset] of MINDS) {
 
 test("an assisted bout with blows, fists and assist asks replays from its sheets to the bit", async () => {
   // The control for the bouts above, where nobody is assisted: Option Mind each side, with a quarter of its weight to ask.
-  const { config, character } = CONTROLLERS.option.presets.option;
+  const { config, character } = PRESETS.option;
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const first = await played(recipe, { record: true }, false);
   const carried = (key) => SIDES.map((side) => first.sheets[side].sheets.filter((sheet) => key(sheet)).length);
@@ -139,7 +156,7 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
 
 test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
   // Option Mind with a punch of each hand, the two near alike in worth, and a margin wide enough that either may be drawn.
-  const { config, character } = CONTROLLERS.option.presets.option, [strike] = config.actions;
+  const { config, character } = PRESETS.option, [strike] = config.actions;
   const hands = ["hand.right", "hand.left"].map((hand) => ({ ...strike, name: hand, effectors: [hand] }));
   const mind = (margin) => ({ ...config, actions: hands, chooser: { ...config.chooser, margin } });
   const recipe = (margin, seed) => ({ left: "workshop-fighter", right: "workshop-fighter", gap: GAP, seed, minds: { left: mind(margin), right: config }, entry: [], ...bothAs(character) });
@@ -152,7 +169,7 @@ test("a mind that draws by chance plays apart on two bout seeds, and a seed's bo
 
 test("a mind senses its own life at once and another's as late as the rest of it, a fraction of the whole, never a part's hit points", async () => {
   // Option Mind at arm's reach each side, each with a quarter of its weight to ask, wound each other within the bout.
-  const { config, character } = CONTROLLERS.option.presets.option;
+  const { config, character } = PRESETS.option;
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   try {
@@ -202,7 +219,7 @@ test("a replay refuses a step with no order sheet, so a record that is short is 
 
 
 test("both-hand loadouts fork and replay their physical commands", async () => {
-  const config = CONTROLLERS.fighter.presets.duellist.config;
+  const config = PRESETS.duellist.config;
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3,
     loadouts: { left: { left: "sword", right: "sword" }, right: { left: "buckler", right: "sword" } },
     minds: { left: config, right: config } };

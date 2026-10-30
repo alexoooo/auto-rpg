@@ -10,8 +10,9 @@
  * blow. The subject is the striker's executor tuning, over the executor's defaults.
  */
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BEHAVIOURS, FIGHTING } from "../../core/mind/config.ts";
-import { STANDS } from "../../core/entrants/drill-opponent/mind.ts";
+import { BEHAVIOURS } from "../../entrants/classic/presets.ts";
+import { FIGHTING } from "../../core/mind/config.ts";
+import { STANDS } from "../drill-opponents.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json } from "../evaluation.ts";

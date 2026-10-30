@@ -2,13 +2,19 @@ import type { DataKey } from "../data/store.ts";
 import type { FighterConfig, MindConfig } from "../mind/config.ts";
 import type { Controller, MindPreset, Scripted } from "../mind/controller.ts";
 import type { BodySpec } from "../spec/body.ts";
+import { scopeOf, type Entrant } from "./entrant.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 
-/** **What a catalog is made of** (`catalogOf`): every kind of mind, in the order a picker offers them, and each role's list of parts by kind. */
+/**
+ * **What a catalog is made of** (`catalogOf`): the toolkit's kinds of mind and each role's list of
+ * its parts by kind, then the entrants (`Entrant`), each with its own minds, parts and presets, in
+ * the order a picker offers them.
+ */
 export interface CatalogLists {
   readonly minds: readonly Controller[];
   readonly parts: readonly Readonly<Record<string, Part>>[];
+  readonly entrants: readonly Entrant[];
 }
 
 /** A kind a slot may be set to, with the reason it cannot go there for this body and screen, or null. */
@@ -45,29 +51,28 @@ export function partIn(config: unknown, kind: string): PartConfig | null {
  */
 export interface Catalog {
   /**
-   * **Every controller, by its mind's kind** (its defaults' `kind`), in the order a picker offers
-   * them: the one place a kind is made, matched to a body and offered by name.
+   * **Every controller, by its mind's kind** (its defaults' `kind`): the toolkit's, then each
+   * entrant's; the one place a kind is made, matched to a body.
    */
   readonly controllers: Readonly<Record<string, Controller>>;
-  /** Every controller's presets by id (`Controller.presets`), in the controllers' order. */
-  readonly presets: Readonly<Record<string, MindPreset>>;
-  /**
-   * **Every mind a person may pick**, by id: each preset (`presets`), then each controller that has
-   * none, under its kind with its defaults, so that a Mind registered without a preset is still
-   * played.
-   */
+  /** **Every mind a person may pick**, by id: each entrant's presets (`Entrant.presets`), in the entrants' order. */
   readonly minds: Readonly<Record<string, MindPreset>>;
+  /**
+   * **What is wrong with the lists**, each a sentence: a kind two parts or minds name, a list entry
+   * under another kind, a toolkit kind that is scoped or an entrant's that is not its own
+   * (`scopeOf`), two entrants of a name, a preset id twice, a preset whose tree names a part no
+   * list holds or another entrant's kinds. The entry at fault is left out.
+   */
+  readonly faults: readonly string[];
   /** The controller of `config`'s kind; a thrown error for a kind no controller has, read from a save or a link. */
   controllerOf(config: MindConfig): Controller;
   /**
-   * **Every part, by its kind**, across roles: the minds, the parts below them and each mind's own
-   * parts (`Controller.parts`), the one list a screen offers a slot's choices from.
+   * **Every part, by its kind**, across roles: the minds and the parts below them, the toolkit's
+   * then each entrant's, the one list a screen offers a slot's choices from.
    */
   allParts(): Readonly<Record<string, Part>>;
   /** Whether `kind` names a part (`allParts`). */
   isKind(kind: unknown): kind is string;
-  /** The mind whose own part `kind` is (`Controller.parts`), or null for a part any mind may hold. */
-  ownerOf(kind: string): string | null;
   /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
   partOf<C extends PartConfig>(config: C): Part<C>;
   /** How a scene drives `config` by a script (`Controller.scripted`); null where its mind takes none, or no mind is of its kind. */
@@ -75,8 +80,8 @@ export interface Catalog {
   /** Whether a scene may drive `config` by a script of its own (`scriptedBy`): a mind with a fighter's slots. */
   takesScript(config: MindConfig): config is FighterConfig;
   /**
-   * **Every part by kind, looked up by role** (`PartLookup`): each config's part (`partOf`), a
-   * mind's own parts included, refused where the kind is of another role.
+   * **Every part by kind, looked up by role** (`PartLookup`): each config's part (`partOf`),
+   * refused where the kind is of another role.
    */
   readonly partLookup: PartLookup;
   /**
@@ -88,11 +93,13 @@ export interface Catalog {
    * **What is wrong with the tree `config` roots** on a screen that `provides` what it does, each a
    * sentence. A part's own faults come first, then each slot's, each prefixed with where it is
    * (`subs.0: `). A part the screen cannot run (`Part.needs`), a slot that holds what is no part, a
-   * part of another role, another mind's own part (`Controller.parts`), or nothing where it must
-   * hold one is a fault; a part's own faults (`Part.faults`) are read only once every descendant slot
-   * holds parts of its role and owner. `mind` is the kind of the mind the tree is of: the root's, where it is a mind.
+   * part of another role, or nothing where it must hold one is a fault; a part's own faults
+   * (`Part.faults`) are read only once every descendant slot holds parts of its role. A tree that
+   * names the kinds of two entrants is a fault (`treeScope`).
    */
-  treeFaults(config: PartConfig, provides?: readonly Provision[], at?: string, mind?: string | null): readonly string[];
+  treeFaults(config: PartConfig, provides?: readonly Provision[], at?: string): readonly string[];
+  /** **The entrant whose tree `config` roots** (`scopeOf` of its kinds), or null for the toolkit's kinds alone; the first, where it names two. */
+  treeScope(config: PartConfig): string | null;
   /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a part runs besides its slots (`Part.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
   treeKinds(config: PartConfig): readonly string[];
   /** Whether a part of `config`'s tree carries out a person's orders (`Part.obeys`). */
@@ -112,11 +119,11 @@ export interface Catalog {
   /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */
   withoutTuning<C extends PartConfig>(config: C): C;
   /**
-   * **Every part of `role`** a slot of a mind of kind `mind` may hold, in the list's order, each with
+   * **Every part of `role`** a slot in the tree `tree` roots may hold, in the list's order, each with
    * why it cannot go there for a body of `spec` on a screen that `provides` what it does, or null:
-   * the parts any mind may hold and the mind's own (`Controller.parts`). None of those is left out.
+   * the toolkit's parts and the tree's own entrant's (`treeScope`). None of those is left out.
    */
-  kindsFor(role: Role, spec: BodySpec, provides?: readonly Provision[], mind?: string | null): readonly Offered[];
+  kindsFor(role: Role, spec: BodySpec, provides?: readonly Provision[], tree?: PartConfig | null): readonly Offered[];
   /**
    * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
    * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`slotsOf`) or a
@@ -133,61 +140,70 @@ const NOTHING: readonly Provision[] = Object.freeze([]);
 const unprovided = (needs: Provision | undefined, provides: readonly Provision[]): string | null =>
   needs === undefined || provides.includes(needs) ? null : `this screen gives no ${needs}`;
 
-/** Every part, by its kind; each mind's own part's mind (`Controller.parts`), by the part's kind; every controller by its kind. */
+/** Every part, by its kind; every controller by its kind; every preset by id, with its entrant's name; what is wrong with the lists. */
 interface Registry {
   readonly parts: Readonly<Record<string, Part>>;
-  readonly owners: Readonly<Record<string, string>>;
   readonly controllers: Readonly<Record<string, Controller>>;
+  readonly presets: Readonly<Record<string, MindPreset>>;
+  readonly entrantOf: Readonly<Record<string, string>>;
+  readonly faults: readonly string[];
 }
 
 /**
  * **The catalog of `lists`** (`Catalog`), read once on first use, never as the module that makes
- * it loads, so a part's module may be read in any order. A role's list must name each part by its
- * defaults' kind, and a kind twice (two minds, two lists, a mind's own part and another) is
- * refused: each is a thrown error, a defect in the lists.
+ * it loads, so a part's module may be read in any order. What is wrong with the lists is the
+ * catalog's `faults`, the entry at fault left out.
  */
 export function catalogOf(lists: () => CatalogLists): Catalog {
   let registry: Registry | null = null;
   const registered = (): Registry => {
     if (registry) return registry;
-    const { minds, parts: roles } = lists();
-    const parts: Record<string, Part> = {}, owners: Record<string, string> = {}, controllers: Record<string, Controller> = {};
-    const add = (kind: string, part: Part, what: string) => {
-      if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);
-      parts[kind] = part;
+    const { minds, parts: roles, entrants } = lists();
+    const parts: Record<string, Part> = {}, controllers: Record<string, Controller> = {}, presets: Record<string, MindPreset> = {}, entrantOf: Record<string, string> = {};
+    const faults: string[] = [], names = new Set<string>();
+    const add = (kind: string, part: Part, what: string, scope: string | null) => {
+      if (scopeOf(kind) !== scope) faults.push(scope === null ? `${what} ${JSON.stringify(kind)} is scoped, and the toolkit's kinds are not` : `${what} ${JSON.stringify(kind)} is not scoped ${scope}:`);
+      else if (Object.hasOwn(parts, kind)) faults.push(`${what} ${JSON.stringify(kind)} is another part's kind`);
+      else {
+        parts[kind] = part;
+        if (part.role === "mind") controllers[kind] = part as Controller;
+      }
     };
     for (const list of roles) for (const [kind, part] of Object.entries(list)) {
-      if (part.defaults.kind !== kind) throw new Error(`the list names ${JSON.stringify(part.defaults.kind)} ${JSON.stringify(kind)}`);
-      add(kind, part, `a ${part.role} part`);
+      if (part.defaults.kind !== kind) faults.push(`a list names ${JSON.stringify(part.defaults.kind)} ${JSON.stringify(kind)}`);
+      else add(kind, part, `the ${part.role} part`, null);
     }
-    for (const entry of minds) {
-      if (Object.hasOwn(controllers, entry.defaults.kind)) throw new Error(`two minds of kind ${JSON.stringify(entry.defaults.kind)}`);
-      controllers[entry.defaults.kind] = entry;
-      add(entry.defaults.kind, entry, "a mind");
+    for (const entry of minds) add(entry.defaults.kind, entry, "the mind", null);
+    for (const entrant of entrants) {
+      if (names.has(entrant.name) || entrant.name.includes(":") || entrant.name.includes("/")) { faults.push(`an entrant called ${JSON.stringify(entrant.name)}: a name is one entrant's, with no : or /`); continue; }
+      names.add(entrant.name);
+      for (const entry of entrant.minds ?? []) add(entry.defaults.kind, entry, `${entrant.name}'s mind`, entrant.name);
+      for (const part of entrant.parts ?? []) {
+        if (part.role === "mind") faults.push(`${entrant.name}'s part ${JSON.stringify(part.defaults.kind)} is a mind: a mind goes in its minds`);
+        else add(part.defaults.kind, part, `${entrant.name}'s ${part.role} part`, entrant.name);
+      }
+      for (const [id, preset] of Object.entries(entrant.presets)) {
+        if (Object.hasOwn(presets, id)) faults.push(`${entrant.name}'s preset ${JSON.stringify(id)} is ${entrantOf[id]}'s`);
+        else { presets[id] = preset; entrantOf[id] = entrant.name; }
+      }
     }
-    for (const [kind, controller] of Object.entries(controllers)) for (const own of controller.parts ?? []) {
-      if (own.role === "mind") throw new Error(`${kind}'s own part ${JSON.stringify(own.defaults.kind)} is a mind`);
-      add(own.defaults.kind, own, `${kind}'s own part`);
-      owners[own.defaults.kind] = kind;
-    }
-    return registry = { parts: Object.freeze(parts), owners: Object.freeze(owners), controllers: Object.freeze(controllers) };
+    return registry = { parts: Object.freeze(parts), controllers: Object.freeze(controllers), presets: Object.freeze(presets), entrantOf: Object.freeze(entrantOf), faults: Object.freeze(faults) };
   };
-  let presets: Readonly<Record<string, MindPreset>> | null = null, minds: Readonly<Record<string, MindPreset>> | null = null;
-  const presetsOf = (): Readonly<Record<string, MindPreset>> =>
-    presets ??= Object.freeze(Object.assign({}, ...Object.values(registered().controllers).map((entry) => entry.presets)));
-  const mindsOf = (): Readonly<Record<string, MindPreset>> => {
-    if (minds) return minds;
-    const all: Record<string, MindPreset> = { ...presetsOf() };
-    for (const [kind, entry] of Object.entries(registered().controllers)) {
-      if (Object.keys(entry.presets).length > 0) continue;
-      if (Object.hasOwn(all, kind)) throw new Error(`a preset is called ${JSON.stringify(kind)}, a kind with no preset`);
-      all[kind] = { label: entry.label, config: entry.defaults };
+  let faults: readonly string[] | null = null;
+  /** The lists' faults, then each preset whose tree is not one of parts in their slots (`treeValidation`), or names another entrant's kinds. */
+  const faultsOf = (): readonly string[] => {
+    if (faults) return faults;
+    const { presets, entrantOf } = registered(), found = [...registered().faults];
+    for (const [id, preset] of Object.entries(presets)) {
+      const { formed, faults: wrong } = treeValidation(preset.config, NOTHING, "");
+      if (!formed) { found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)}: ${wrong.join("; ")}`); continue; }
+      const other = scopesOf(preset.config).find((scope) => scope !== entrantOf[id]);
+      if (other !== undefined) found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)} names ${other}'s kinds`);
     }
-    return minds = Object.freeze(all);
+    return faults = Object.freeze(found);
   };
 
   const isKind = (kind: unknown): kind is string => typeof kind === "string" && Object.hasOwn(registered().parts, kind);
-  const ownerOf = (kind: string): string | null => registered().owners[kind] ?? null;
   function partOf<C extends PartConfig>(config: C): Part<C> {
     const part = isKind(config.kind) ? registered().parts[config.kind] : undefined;
     if (!part) throw new Error(`no part of kind ${JSON.stringify(config.kind)}`);
@@ -237,12 +253,15 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
   const isPart = (value: unknown): value is PartConfig =>
     typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
 
+  /** The entrants whose kinds the tree `config` roots names (`scopeOf`), each once, in the tree's order. */
+  const scopesOf = (config: PartConfig): readonly string[] =>
+    [...new Set(treeKinds(config).map(scopeOf).filter((scope): scope is string => scope !== null))];
+
   /** Structural validity travels with a subtree's faults, so ancestor hooks may safely traverse its slots. */
-  function treeValidation(config: PartConfig, provides: readonly Provision[], at: string, mind: string | null): { readonly formed: boolean; readonly faults: readonly string[] } {
+  function treeValidation(config: PartConfig, provides: readonly Provision[], at: string): { readonly formed: boolean; readonly faults: readonly string[] } {
     const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
     const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
     if (!isPart(config)) return { formed: false, faults: [where(kind(config))] };
-    const of = mind ?? (partOf(config).role === "mind" ? config.kind : null);
     const slots: string[] = [];
     let formed = true;
     for (const { slot, parts } of held(config)) {
@@ -253,16 +272,13 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
         const here = slot.many ? `${path}.${i}` : path;
         if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
         else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
-        else if (ownerOf(child.kind) !== null && ownerOf(child.kind) !== of) { formed = false; slots.push(where(`${partOf(child).label} is ${ownerOf(child.kind)}'s own part`, here)); }
         else {
-          const checked = treeValidation(child, provides, here, of);
+          const checked = treeValidation(child, provides, here);
           formed = formed && checked.formed;
           slots.push(...checked.faults);
         }
       });
     }
-    for (const { path, aim } of aimsOf(config, at))
-      if (isPart(aim) && ownerOf(aim.kind) !== null && ownerOf(aim.kind) !== of) { formed = false; slots.push(where(`${partOf(aim).label} is ${ownerOf(aim.kind)}'s own part`, path)); }
     const screen = unprovided(partOf(config).needs, provides);
     return { formed, faults: [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)),
       ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
@@ -379,12 +395,11 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
 
   return Object.freeze({
     get controllers() { return registered().controllers; },
-    get presets() { return presetsOf(); },
-    get minds() { return mindsOf(); },
+    get minds() { return registered().presets; },
+    get faults() { return faultsOf(); },
     controllerOf,
     allParts: () => registered().parts,
     isKind,
-    ownerOf,
     partOf,
     scriptedBy,
     takesScript: (config: MindConfig): config is FighterConfig => scriptedBy(config) !== null,
@@ -398,8 +413,11 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
         },
       });
     },
-    treeFaults: (config: PartConfig, provides: readonly Provision[] = NOTHING, at = "", mind: string | null = null): readonly string[] =>
-      treeValidation(config, provides, at, mind).faults,
+    treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = ""): readonly string[] {
+      const { formed, faults: found } = treeValidation(config, provides, at), scopes = formed ? scopesOf(config) : [];
+      return scopes.length < 2 ? found : [...found, `${at ? `${at}: ` : ""}it names the kinds of ${scopes.join(" and ")}: a tree is one entrant's`];
+    },
+    treeScope: (config: PartConfig): string | null => scopesOf(config)[0] ?? null,
     treeKinds,
     treeObeys: (config: PartConfig): boolean => treeKinds(config).some((kind) => partOf({ kind }).obeys === true),
     phaseLabels: (config: PartConfig): Readonly<Record<string, string | null>> => Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {})),
@@ -416,9 +434,11 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
       treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
     withoutTuning,
-    kindsFor: (role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING, mind: string | null = null): readonly Offered[] =>
-      Object.entries(registered().parts).filter(([kind, part]) => part.role === role && (ownerOf(kind) === null || ownerOf(kind) === mind))
-        .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) })),
+    kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING, tree: PartConfig | null = null): readonly Offered[] {
+      const scope = tree ? scopesOf(tree)[0] ?? null : null;
+      return Object.entries(registered().parts).filter(([kind, part]) => part.role === role && (scopeOf(kind) === null || scopeOf(kind) === scope))
+        .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) }));
+    },
     replacedAt,
   });
 }

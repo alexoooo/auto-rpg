@@ -1,6 +1,7 @@
 import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
 import { CONDITIONS } from "../core/mind/conditions.ts";
-import { allParts, isKind, ownerOf, partLookup } from "../entrants/game.ts";
+import { scopeOf } from "../core/parts/entrant.ts";
+import { allParts, isKind, partLookup, treeScope } from "../entrants/game.ts";
 import type { Region } from "../core/skills/action.ts";
 import type { PartField } from "../core/parts/fields.ts";
 
@@ -37,7 +38,7 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
         regions.append(button("Remove region", () => replace({ ...action, regions: held.filter((_, j) => j !== i) }), readOnly));
       });
       regions.append(button("Add region", () => replace({ ...action, regions: [...held, { kind: "mark", mark: "high" }] }), readOnly)); block.append(regions);
-      const aims = Object.entries(allParts()).filter(([kind, one]) => one.role === "aim" && (ownerOf(kind) === null || ownerOf(kind) === config.kind));
+      const aims = Object.entries(allParts()).filter(([kind, one]) => one.role === "aim" && (scopeOf(kind) === null || scopeOf(kind) === treeScope(config)));
       const aim = action.aim ?? null, aimPart = aim && isKind(aim.kind) ? partLookup.of("aim", aim) : null;
       block.append(select("Aim", aims.map(([kind]) => kind), aim?.kind ?? "", kind => replace({ ...action, aim: partLookup.of("aim", { kind }).defaults }), readOnly));
       for (const field of aimPart?.fields ?? []) block.append(fieldRow(field, aim!, next => replace({ ...action, aim: next }), readOnly));

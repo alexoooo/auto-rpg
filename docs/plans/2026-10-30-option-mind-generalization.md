@@ -29,7 +29,7 @@ the predictions. What is fixed to one body and one purpose:
 
 | Gap | Where | General form |
 | --- | --- | --- |
-| The framework and Option Mind's content are one entrant's package | `src/core/entrants/option/` | The framework and its standard parts in the toolkit; an entrant is a preset and parts of its own |
+| The framework and Option Mind's content are one entrant's package | `src/entrants/option/` | The framework and its standard parts in the toolkit; an entrant is a preset and parts of its own |
 | A preset lives in its controller's file | `Controller.presets`, `MIND_KINDS` | Presets are data an entrant's folder holds, each naming the kind of mind it configures |
 | A controller's parts are offered only in its own slots | `Controller.parts`, `kindsFor` | Parts register by role; any mind whose slot takes the role offers them |
 | Combat is written into worth: `dealt`, `taken`, `orders`, obedience | `value.ts`, `chooser.ts` | An option's model is its duration, its payoff and where it leaves the body; the objective (the position part) prices both. Combat's few terms are one objective |

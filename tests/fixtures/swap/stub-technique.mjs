@@ -7,11 +7,11 @@ import { anyBody } from "../../../src/core/parts/parts.ts";
 
 export const STUB_TECHNIQUE = Object.freeze({
   role: "technique", label: "Admits nothing (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-technique" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-technique" }), keys: Object.freeze({ kind: true }),
   sides: Object.freeze(["left"]), edges: Object.freeze([]),
   fits: anyBody, faults: () => [],
   make() {
-    const state = { stub: "stub-technique", steps: 1 };
+    const state = { stub: "swap:stub-technique", steps: 1 };
     return { state, phase: "idle", yields: true, admits: () => false, reached: () => false, begin() {}, step: () => "failed", end() {} };
   },
 });

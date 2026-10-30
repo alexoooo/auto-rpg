@@ -7,7 +7,7 @@ import { partLookup } from "../src/entrants/game.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { COUNTER_PUNCHER } from "../src/core/mind/config.ts";
+import { COUNTER_PUNCHER } from "../src/entrants/classic/presets.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { prepareTacticsSkills } from "../src/core/mind/tactics-part.ts";
 import { actionTactics } from "../src/core/mind/action-tactics.ts";

@@ -8,10 +8,10 @@ import { chooser } from "../../../src/core/option/chooser.ts";
 
 export const STUB_CHOOSER = Object.freeze({
   role: "chooser", label: "Counted chooser (stub)", stage: "experimental", fields: [], slots: [],
-  defaults: Object.freeze({ kind: "stub-chooser" }), keys: Object.freeze({ kind: true }),
+  defaults: Object.freeze({ kind: "swap:stub-chooser" }), keys: Object.freeze({ kind: true }),
   fits: anyBody, faults: () => [],
   make(_config, options) {
-    const counts = { stub: "stub-chooser", steps: 0 };
+    const counts = { stub: "swap:stub-chooser", steps: 0 };
     const inner = chooser(options, (option, i) => { counts.steps++; return { name: option.name, worth: options.length - i, terms: null }; }, { rethink: .2 });
     return { state: { counts, inner: inner.state }, decide: inner.decide, get running() { return inner.running; }, get offers() { return inner.offers; } };
   },

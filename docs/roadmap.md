@@ -40,7 +40,7 @@ as it needs ([architecture](architecture.md#the-layers)).
 - **Later**, other ideas on the same bodies, such as an end-to-end learned controller on the
   muscles, with the hand-built skills as its baseline
   ([control foundation](reference/control-foundation.md)); the bare entrant
-  (`src/core/entrants/bare/`) is its route.
+  (`src/entrants/bare/`) is its route.
 - **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
   A web app.
@@ -60,7 +60,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: a club blow trained for the toed Warrior (no mind swings a club until its body has one), up the ladder; the Cover drill's buckler rows against a weapon and rung 2 (protocols to write); a lead over the Duellist; the owner's acceptance of each rung |
 | [Drills by orders](plans/2026-10-30-drills-by-orders.md) | Drills drive any mind by a Commander's orders, not by taking it over (built: steps 1 to 9: the Strike, Gait and Cover drills on the drill and stand Commanders, the takeover deleted, stomping 8 of 12 landed, from 9 to 10; each Arena side's choices, picked as orders, and pause on choice): a bout hosts a Commander per side; a body's menu of choices (each action, limb, foe and region, and whether it could start) in its mind's report and a Commander's view; orders name an action, a limb, a gait and a region by mark, one rule in every mind; the drill Commander; the takeover deleted; the menu in the Arena and play turn by turn. Left: the owner plays a bout turn by turn |
-| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
+| [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
@@ -152,7 +152,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   nondeterministic policy; a slower policy's cadence, held actions and work allowance.
 - A new body family or item brings its own tasks; a shared name does not show an algorithm works
   on another family.
-- Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
+- Parts swap by configuration ([Adding an entrant](architecture.md#adding-an-entrant)); what is left:
   - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
     `isOrders`, `Command` and the Commanders; it opens with the intent's skill choices
     ([Option Mind](plans/2026-10-27-option-mind.md), step 13);
@@ -316,7 +316,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
   an opponent outside Option Mind that the baseline evaluation fights
   ([the baseline](reference/baseline.md)); its tactics are not ported.
-- Not built: a learned mind (the bare entrant, `src/core/entrants/bare/`, is its route, trained
+- Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
 - **The foe's phase reads `rising` in bursts** (`PERCEPTS.phase`): only while the fallen body's

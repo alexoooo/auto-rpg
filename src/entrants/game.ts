@@ -6,14 +6,14 @@ import { catalogOf, type Catalog, type EntryRule } from "../core/parts/catalog.t
 import { toolkitLists } from "../core/toolkit.ts";
 import { ENTRANTS } from "./index.ts";
 
-/** **The game's catalog**: the toolkit's kinds of mind and parts, then each entrant's (`ENTRANTS`). */
+/** **The game's catalog**: the toolkit's kinds of mind and parts, then each entrant's minds, parts and presets (`ENTRANTS`). */
 export const GAME: Catalog = catalogOf(() => {
   const toolkit = toolkitLists();
-  return { minds: [...toolkit.minds, ...ENTRANTS], parts: toolkit.parts };
+  return { ...toolkit, entrants: ENTRANTS };
 });
 
-export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, ownerOf, partOf, scriptedBy, takesScript, partLookup, treeLookup, treeFaults,
-  treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
+export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, partOf, scriptedBy, takesScript, partLookup, treeLookup, treeFaults,
+  treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../core/parts/catalog.ts";
 

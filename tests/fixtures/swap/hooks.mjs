@@ -1,5 +1,5 @@
 /**
- * **Registers the swap fixture's entrants** as one more line of each list, from outside `src/`:
+ * **Registers the swap fixture's entrant** as one more line of each list, from outside `src/`:
  * once this has run, `src/entrants/index.ts` resolves to `kinds.mjs`, which lists the game's
  * entrants and the fixture's, `src/core/command/commanders.ts` to `commanders.mjs`, which lists the
  * game's Commanders and the stub, and so the end rules (`ends.mjs`) and the evaluations

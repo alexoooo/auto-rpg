@@ -20,7 +20,7 @@ const stub = (part, kind, wrap) => Object.freeze({
   make: (...made) => wrap(part.make(...made.slice(0, -1), part.defaults), kind),
 });
 
-export const STUB_PAW_MOTOR = stub(PAW_MOTOR_PART, "stub-paw-motor", (made, kind) => {
+export const STUB_PAW_MOTOR = stub(PAW_MOTOR_PART, "swap:stub-paw-motor", (made, kind) => {
   const state = tagged(made.motor.state, kind);
   return { ...made, motor: Object.create(made.motor, { read: { value: () => { state.steps++; made.motor.read(); }, enumerable: true } }) };
 });
@@ -31,10 +31,10 @@ const commanded = (made, kind) => {
   return Object.create(made, { command: { value: (...asked) => { state.steps++; return made.command(...asked); }, enumerable: true } });
 };
 
-export const STUB_TROT = stub(TROT_PART, "stub-trot", commanded);
-export const STUB_JAW = stub(JAW_PART, "stub-jaw", commanded);
+export const STUB_TROT = stub(TROT_PART, "swap:stub-trot", commanded);
+export const STUB_JAW = stub(JAW_PART, "swap:stub-jaw", commanded);
 
-export const STUB_STALK = stub(STALK_PART, "stub-stalk", (made, kind) => {
+export const STUB_STALK = stub(STALK_PART, "swap:stub-stalk", (made, kind) => {
   const state = tagged(made.state, kind);
   return Object.create(made, { decide: { value: (...asked) => { state.steps++; return made.decide(...asked); }, enumerable: true } });
 });
