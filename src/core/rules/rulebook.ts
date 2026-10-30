@@ -40,8 +40,9 @@ export interface Rulebook {
    */
   readonly worth: Readonly<Record<Mechanism, Quantity<number>>>;
   /**
-   * **The fist's threshold**, J: the joules of its share a bare hand meeting a body's own surface
-   * takes no wound from; it is wounded by the rest. Against an item it takes its whole share.
+   * **The fist's threshold**, J: the joules of its share a bare hand or foot meeting a body's own
+   * surface takes no wound from; it is wounded by the rest. Against an item it takes its whole share.
+   * A foot has the hand's (`owner-foot-threshold`).
    */
   readonly fist: Quantity<number>;
   /** Piercing injury from normal impulse above a load threshold, N and HP/(N s), shared by every surface. */
@@ -120,7 +121,7 @@ export function blowDamage(rules: Rulebook, mechanism: Mechanism, energy: number
 /**
  * **What a blow takes from one of its sides**, hit points: the share of its `energy` that side
  * stores (`energyShares`, `src/core/rules/share.ts`), less what it spares (`fist`, for a bare hand
- * meeting a body's own surface), priced at the `mechanism` it meets (`blowDamage`); none for no
+ * or foot meeting a body's own surface), priced at the `mechanism` it meets (`blowDamage`); none for no
  * share.
  */
 export function sideDamage(rules: Rulebook, mechanism: Mechanism, energy: number, share: number, spared: number): number {
