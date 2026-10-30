@@ -937,20 +937,15 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   ([Evaluations](#evaluations)), `match`. A condition a subject cannot play is dropped, and the
   result says which and why (`Dropped`, `casesOf`).
   A named preset keeps its body calibration in each complete pair: both minds must be allowed on
-  both bodies. The standard protocol contains the Warrior and Rogue; `--protocol skeleton-unarmed`
-  plays empty-handed Skeletons at 3, 4 and 5 m on the open stage. An independent configuration uses its physical fit.
+  both bodies. The standard protocol contains the Warrior and Rogue. An independent
+  configuration uses its physical fit.
 - The tournament (`tournament`) rates every game mind (`Part.stage`; an experimental one when named) on every character and representative loadout
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
   `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
   ([The screens](#the-screens)) shows every record.
-- The Skeleton's combat field (`skeleton-combat`, `src/evaluation/skeleton-combat/`) uses the
-  tournament's Arena bouts with every legal hand assignment (`LOADOUTS`). Its default opponents
-  are the existing game minds, legacy presets included, and offered experiments outside the
-  independent Skeleton. It reports strict wins, draws, losses and intervals per opponent, worst
-  first, including unplayed opponents in a partial batch. The tournament keeps its representative
-  loadouts. The CLI's `subjectIdsOf` keeps `mind/body/left,right` whole in a comma-separated list.
+  The CLI's `subjectIdsOf` keeps `mind/body/left,right` whole in a comma-separated list.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
   part that reads mind data (`DATA_CASES`: the learned punch);

@@ -7,13 +7,13 @@ This is a usable Arena preset, not an accepted punch rung or a recovery qualific
 
 ## What is used
 
-- The current 15 kg Skeleton, empty hands, flat feet and Balance 0 on both sides.
+- The 15 kg Skeleton, empty hands, flat feet and Balance 0 on both sides.
 - Option Mind's valued chooser, guard and footwork; the unlearned `straight-punch` on either hand,
   at the trunk's opening, with `STRAIGHT_PUNCH` settings; `step-up` as its ground option.
-- `npm run match -- option-skeleton duellist --protocol skeleton-unarmed`: both minds on the
-  Skeleton, the open stage at 3, 4 and 5 m, each mind on each side.
-- `npm run evaluate -- strike option-skeleton/straight-punch --protocol skeleton`: the still
-  drill's standing Warrior, each hand at the trunk from 0.8, 1 and 1.2 m.
+- The match recipe at `0c079314`: both minds on the Skeleton, the open stage at 3, 4 and 5 m,
+  each mind on each side.
+- The Strike recipe at `0c079314`: the still drill's standing Warrior, each hand at the trunk
+  from 0.8, 1 and 1.2 m.
 
 ## Measurement
 

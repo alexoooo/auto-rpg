@@ -91,9 +91,6 @@ const WALK = deepFreeze({ ...STILL,
   starts: ["settled", "walking"] as Start[],
 });
 
-/** The empty-handed Skeleton's trunk punch against a standing Warrior, with each hand from three gaps. */
-const SKELETON = deepFreeze({ ...STILL, models: ["crypt-skeleton"] as BodyModel[], gaps: [.8, 1, 1.2], across: [0], marks: ["middle"] as Mark[] });
-
 /**
  * Rungs 2 to 4, a drill opponent: the still rung's trials on the Warrior's body, from the near half
  * of its gaps, at an opponent stepping in and out (`drill-step`), covering a threat with its hands
@@ -227,6 +224,5 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
 
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), walk: stillCases(WALK),
-  skeleton: stillCases(SKELETON),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING) });

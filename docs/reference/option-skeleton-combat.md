@@ -13,10 +13,9 @@ the work and final field.
 - The game's verdict and cap, reaction delay 0.15 s, seed 0; both sides on the open stage at 4 m.
 - The tournament's eight-member default panel for the initial reading. It is a development
   screen, not the complete Arena field, and omits Vanguard.
-- The `skeleton-combat` evaluation enumerates the complete legal field: 246 opponents across
-  11 mind presets at `c62d0d62`, Vanguard and legacy minds included, under all legal hand
-  assignments. Its standard protocol plays both sides at 4 m on the open stage. The full field
-  has no combat reading yet; the reserved confirmation conditions remain separate work.
+- The field enumeration at `c62d0d62` contains 246 opponents across 11 mind presets, Vanguard
+  and legacy minds included, under all legal hand assignments. That record's recipe plays both
+  sides at 4 m on the open stage. The complete field has no combat reading.
 
 ## Measurement
 
@@ -42,7 +41,7 @@ has the same shared context and opponents, verified by `npm run compare` with th
 on both sides. The short screens and the low-kick pair are kept
 locally in `research/runs/option-skeleton-combat/screens.jsonl`, with recipes, per-second
 diagnostics, blows, digests and wall times. The pair takes 25.3 s on two worker threads.
-The exact Vanguard opponent is read through the complete-field evaluation in its
+The exact Vanguard opponent's recipe and reading at `c62d0d62` are kept in its
 [record](../../assets/evaluations/skeleton-combat/2026-10-30-c62d0d62-0bd6da30.jsonl).
 
 A 30 s diagnostic at `0bd473d1` shows no attempted action against the Reptile. Against the

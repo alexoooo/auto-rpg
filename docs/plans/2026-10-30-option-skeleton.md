@@ -24,8 +24,8 @@ preset for comparisons. This campaign is independent of the reference Warrior's 
    including Vanguard, legacy minds and armed loadouts. The representative five loadouts are a
    development screen; the remaining legal Arena loadouts are part of confirmation. Exclude the
    candidate itself and drill-only controllers. Play only candidate-versus-field bouts.
-   `npm run evaluate -- skeleton-combat option-skeleton --against default --budget 4` enumerates
-   the whole legal field and retains partial batches; exact opponent ids allow small screens.
+   Use explicit case recipes in the existing evaluation machinery, with field selection and
+   conditions supplied as data rather than an entrant-specific evaluation kind.
 5. Confirm on reserved conditions: both sides, different gaps and bearings, and the obstacle court.
    Report strict wins and uncertainty per opponent, with draws separate. Deterministic repeats
    of an unchanged recipe supply no new evidence. Fix the sampling and stopping rule before the

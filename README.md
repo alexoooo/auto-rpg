@@ -139,11 +139,6 @@ Compare saved versions with `npm run compare -- before.jsonl after.jsonl --subje
 and changed context, and keeps obsolete implementations in Git history. The
 [evaluation architecture](docs/architecture.md#evaluations) defines what a comparison holds fixed.
 
-`npm run evaluate -- skeleton-combat option-skeleton --against default --budget 4` reads the
-empty-handed Skeleton against the complete legal Arena field in resumable batches, with strict
-wins per opponent. An exact opponent can be named, for example
-`--against vanguard-skeleton/crypt-skeleton/empty,empty`.
-
 ## Tools
 
 **Tools** (`?play=tools`) opens a separate directory of development viewers. Each page returns
