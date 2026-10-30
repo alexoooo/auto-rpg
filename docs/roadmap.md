@@ -220,7 +220,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise on the toed
   Warrior stands 24 of 32 baseline falls, 1 within 6 s, a median of 14.0 s
   ([Recovery](plans/2026-10-23-recovery.md), step 2: the chain's time and the hand-over to the
-  steady next). The Rise drill's reel waits on a page that plays a technique case
+  steady next). The owner watched it in the Lab's Stand-up (Option Mind, toes) on 2026-10-29: it
+  looks good. The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of
