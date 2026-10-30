@@ -293,7 +293,8 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
 
 /**
  * **What lying in a posture is expected to cost**, own life: the blows of a foe standing over the
- * body while it is down, at the most they deal (`Pressure.peak`): the focus's, down or not, and
+ * body while it is down, at the most they deal (`Pressure.peak`), or the body's own offence
+ * foregone while down, whichever is greater: the focus's, down or not, and
  * with none one of its own kind; over the rise from there (its time down, less the share of blows
  * it keeps off, over its chance of standing, `Seen.riseFrom`); all the life it has where none
  * stands it. It costs something with no foe standing, so that down, a way up is worth more than
@@ -305,7 +306,7 @@ function downCostAtOf(seen: Seen): (posture: Position) => number {
   return (posture) => {
     const down = seen.riseFrom(posture);
     if (!down || down.stands <= 0) return life;
-    peak ??= pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak;
+    peak ??= Math.max(pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, 0).peak, pressingOf(seen).peak);
     return Math.min(life, peak * down.seconds * (1 - down.shelter) / down.stands);
   };
 }
