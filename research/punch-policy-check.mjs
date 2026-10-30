@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import '../tests/harness/preload-data.mjs';
-import { recoveryNetwork } from '../src/core/control/recovery-network.ts';
+import { recoveryNetwork } from '../src/core/learning/recovery-network.ts';
 import { STRIKE } from '../src/evaluation/strike/index.ts';
 import { barScore } from '../src/evaluation/strike/score.ts';
 import { BOUT_WORLD } from '../src/evaluation/bout.ts';

@@ -14,10 +14,10 @@ import { createBody, SERVO_SECONDS } from "../../src/core/body.ts";
 import { partLookup } from "../../src/entrants/game.ts";
 import { GAME_MOTOR, legsOf, motorOf } from "../../src/core/mind/kit.ts";
 import { modelSpec } from "../../src/core/models.ts";
-import { GAIT_NAMES } from "../../src/core/skills/gaits.ts";
-import { guardPosture } from "../../src/core/skills/guard.ts";
-import { STANCE_LOWER } from "../../src/core/skills/locomotion.ts";
-import { ALL_MET } from "../../src/core/skills/skill.ts";
+import { GAIT_NAMES } from "../../src/core/skills/locomotion/gaits.ts";
+import { guardPosture } from "../../src/core/skills/guard/guard.ts";
+import { STANCE_LOWER } from "../../src/core/skills/locomotion/locomotion.ts";
+import { ALL_MET } from "../../src/core/skills/framework/skill.ts";
 import { wrap } from "../../src/core/math/turn.ts";
 
 /** The parts a rig names, by kind: the registry's, and `more` (a test's own: stubs, controls). */

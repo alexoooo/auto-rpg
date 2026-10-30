@@ -5,9 +5,9 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { massOf } from "../core/control/support.ts";
+import { massOf } from "../core/read-motion.ts";
 import { MOVE } from "../core/mind/config.ts";
-import { STOCK_GAITS, type GaitName } from "../core/skills/gaits.ts";
+import { STOCK_GAITS, type GaitName } from "../core/skills/locomotion/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";

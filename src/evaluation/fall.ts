@@ -22,7 +22,7 @@ import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../
 import { commandable, type HostedBody } from "../core/body.ts";
 import { enlist } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
-import { STAND_ORDERS } from "../core/mind/orders.ts";
+import { STAND_ORDERS } from "../core/intent/orders.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type World } from "../core/world.ts";

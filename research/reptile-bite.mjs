@@ -7,7 +7,7 @@ import { hostedMind } from "../src/core/mind/minds.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { modelSpec, modelInfo } from "../src/core/models.ts";
 import { createMind } from "../src/core/mind/minds.ts";
-import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createPool } from "../src/core/rules/pool.ts";

@@ -1,6 +1,6 @@
 import { QUADRUPED, type QuadrupedConfig } from "../mind/config.ts";
 import { controller, NO_POSTURE } from "../mind/controller.ts";
-import { GAME_NAVIGATION } from "../mind/navigator.ts";
+import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { slotOne } from "../parts/parts.ts";
 import { QUADRUPED_PARTS, quadrupedMind } from "./mind.ts";
 import { fitsQuadruped } from "./parts.ts";

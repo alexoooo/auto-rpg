@@ -8,8 +8,8 @@
  * the buckler and the club (`ARMS`): no edge is worked on flat feet, and the Rogue joins once its
  * stance is measured on toes.
  */
-import type { TechniqueName } from "../../core/mind/ground/technique.ts";
-import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
+import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
+import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import type { HumanoidModel } from "../../core/models.ts";
 import type { Held } from "../../core/items/held.ts";
 import type { GROUND_POSTURES } from "../../lab/ground-starts.ts";

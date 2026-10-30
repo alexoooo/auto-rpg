@@ -5,7 +5,7 @@ import {Worker,isMainThread,parentPort,workerData} from 'node:worker_threads';
 import {punchCalibration,coarseForces} from './punch-calibration.mjs';
 import {frontKickCalibration} from './front-kicks.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
-import {PLANTED_PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
+import {PLANTED_PUNCH_EXECUTION} from '../src/core/skills/strikes/combat.ts';
 import {ARENA_KICKS} from '../src/core/mind/config.ts';
 
 /** Primary studies and incompatible protocols: docs/reference/trained-attack-force.md. */

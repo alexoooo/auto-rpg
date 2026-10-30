@@ -416,7 +416,8 @@ test("in the game's source only the mind seam drives muscles", () => {
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/option/", "src/entrants/"];
+const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation/", "src/core/perception/", "src/core/tactics/", "src/core/recovery/", "src/core/skills/",
+  "src/core/control/", "src/core/reptile/", "src/core/option/", "src/entrants/"];
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
@@ -479,6 +480,92 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
     "src/entrants/lucky/mind.ts reads the date",
     "src/entrants/lucky/mind.ts reads performance.now",
   ]);
+});
+
+/**
+ * **The core's layers, bottom first** ([layers](../docs/architecture.md#the-layers)): each module
+ * of `src/core/` by its folder, or by its file where one is named, the longest entry ruling. A
+ * module imports its own layer or one below.
+ */
+const LAYERS = [
+  ["math/", "state.ts", "sources.ts"],
+  ["spec/", "human/", "items/", "reptile/spec.ts", "reptile/physique.ts", "character-attributes.ts"],
+  ["engine/", "world.ts", "recording.ts"],
+  ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],
+  ["muscle/", "rules/", "touches.ts"],
+  ["parts/", "data/", "learning/"],
+  ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
+  ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts"],
+  ["tactics/", "recovery/"],
+  ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",
+    "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
+  ["toolkit.ts", "models.ts", "combatant.ts", "tasks/"],
+];
+
+/** Where the layers meet by design: the registries that list every kind of mind and part, and import each. */
+const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/kinds.ts", "toolkit.ts"]);
+
+/**
+ * **Today's imports up the layers**, each `from -> to` under `src/core/`, by what removes it. The
+ * list is exact: an import up the layers not on it fails, and so does one the code no longer has,
+ * so it only shrinks.
+ */
+const UP_STACK = [
+  // Each layer's config with its layer ([layering](../docs/plans/2026-10-29-layering.md) step 6).
+  "intent/conditions.ts -> mind/config.ts", "recovery/ground/stand-up-part.ts -> mind/config.ts", "skills/framework/executor-part.ts -> mind/config.ts",
+  "skills/framework/profile.ts -> mind/config.ts", "skills/locomotion/gaits.ts -> mind/config.ts", "skills/locomotion/move-part.ts -> mind/config.ts",
+  "skills/strikes/path-part.ts -> mind/config.ts", "tactics/action-config.ts -> mind/config.ts", "tactics/action-tactics.ts -> mind/config.ts",
+  "tactics/behaviour-part.ts -> mind/config.ts", "tactics/tactics-part.ts -> mind/config.ts",
+  // The skills hold nothing of the layer above (layering step 2).
+  "skills/framework/arbiter.ts -> tactics/tactics.ts", "skills/framework/executor-part.ts -> tactics/tactics-part.ts", "skills/framework/skills.ts -> tactics/tactics.ts",
+  "skills/strikes/combat.ts -> tactics/tactics.ts",
+  // The data store typed by what each key's reader declares (layering step 10).
+  "data/edge-profiles.ts -> skills/framework/profile.ts", "data/gait-profiles.ts -> skills/framework/profile.ts", "data/store.ts -> skills/framework/profile.ts",
+  "data/store.ts -> skills/strikes/punch-records.ts", "data/straight-punch.ts -> skills/strikes/punch-records.ts", "data/strike-profiles.ts -> skills/framework/profile.ts",
+  // The body's ground reading and its lie beside the view's other readings (layering step 10).
+  "body.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
+  "mind/kit.ts -> recovery/rise/lowering.ts", "body.ts -> mind/kit.ts",
+  // A mind's host and assembly in one layer (layering steps 3 and 4).
+  "mind/host.ts -> mind/minds.ts", "parts/parts.ts -> body.ts",
+  // The read view the engine reports into, and the balance the rules cap an assist by.
+  "engine/rapier.ts -> read-body.ts", "rules/rulebook.ts -> control/assist.ts",
+];
+
+/** The layer of `file` (under `src/core/`) by `LAYERS`, the longest entry ruling; -1 for none. */
+function layerOf(file) {
+  let found = -1, length = -1;
+  LAYERS.forEach((layer, i) => { for (const at of layer) if ((file === at || at.endsWith("/") && file.startsWith(at)) && at.length > length) { found = i; length = at.length; } });
+  return found;
+}
+
+/** Each import among `files` (path under `src/core/` and source) that goes up the layers, `from -> to`, each once; and each module with no layer. */
+function layerCrossings(files) {
+  const up = new Set(), unlayered = [];
+  for (const [file, source] of files) {
+    const from = layerOf(file);
+    if (from < 0) { unlayered.push(file); continue; }
+    if (LAYER_REGISTRIES.has(file)) continue;
+    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+      if (!specifier.startsWith(".")) continue;
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(`${CORE}${file}`), specifier));
+      if (target.startsWith(CORE) && layerOf(target.slice(CORE.length)) > from) up.add(`${file} -> ${target.slice(CORE.length)}`);
+    }
+  }
+  return { up: [...up].sort(), unlayered };
+}
+
+test("the core's imports run down its layers: an import up them is one of today's, listed, and the list is exact", () => {
+  const files = filesUnder(CORE).filter((file) => file.endsWith(".ts")).map((file) => [file.slice(CORE.length), fs.readFileSync(path.join(ROOT, file), "utf8")]);
+  assert.ok(files.length > 100, "fewer than a hundred core modules read, so this test would pass on nothing");
+  const { up, unlayered } = layerCrossings(files);
+  assert.deepEqual(unlayered, [], "every core module has a layer");
+  assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
+  // The control: a skill reaching tactics, and a module in no layer, are found; a registry is not held to it.
+  assert.deepEqual(layerCrossings([
+    ["skills/sly.ts", `import { driveBy } from "../tactics/tactics.ts";\nimport { MOVE } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
+    ["nowhere/sly.ts", ""],
+    ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
+  ]), { up: ["skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics.ts"], unlayered: ["nowhere/sly.ts"] });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */

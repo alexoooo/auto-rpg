@@ -4,31 +4,31 @@ import { buildBout } from "../src/evaluation/bout.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { loadState, saveState } from "../src/core/state.ts";
 import { lowGuard, lowGuardSkills } from "../src/entrants/vanguard/low-guard.ts";
-import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { STANCE_LOWER } from "../src/core/skills/locomotion/locomotion.ts";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/entrants/vanguard/adaptive-guard.ts";
 import { routeAround } from "../src/entrants/vanguard/route-around.ts";
 import { partLookup, treeFaults, replacedAt, FIGHT_ENTRY, CONTROLLERS, MINDS, GAME } from "../src/entrants/game.ts";
 import { VANGUARD } from "../src/entrants/vanguard/index.ts";
-import { navigatorOf } from "../src/core/mind/navigator.ts";
+import { navigatorOf } from "../src/core/navigation/navigator.ts";
 import { flank } from "../src/entrants/vanguard/flank.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { bodyHost } from "../src/core/mind/host.ts";
-import { prepareTacticsSkills, tacticsOf } from "../src/core/mind/tactics-part.ts";
+import { prepareTacticsSkills, tacticsOf } from "../src/core/tactics/tactics-part.ts";
 import { labMind, labPresets } from "../src/lab/scenarios.ts";
 import { controlsFor } from "../src/arena/matchup.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { standIntent } from "../src/core/mind/intent.ts";
+import { standIntent } from "../src/core/intent/intent.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 import { engagementLines } from "../src/ui/action-readout.ts";
 import { VANGUARD_EXCHANGE } from "../src/entrants/vanguard/exchange.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { cos, hypot, sin } from "../src/core/math/real.ts";
-import { armedActions, actionConfigFaults } from "../src/core/mind/action-config.ts";
+import { armedActions, actionConfigFaults } from "../src/core/tactics/action-config.ts";
 import { LOADOUTS, withLoadout } from "../src/core/items/held.ts";
-import { holdsNothing } from "../src/core/skills/strikes.ts";
+import { holdsNothing } from "../src/core/skills/strikes/held-strike.ts";
 
 test("Vanguard routes held weapons and empty hands through their supported actions", () => {
   for (const [model, id] of [["workshop-fighter", "vanguard-warrior"], ["workshop-rogue", "vanguard-rogue"], ["crypt-skeleton", "vanguard-skeleton"]]) {

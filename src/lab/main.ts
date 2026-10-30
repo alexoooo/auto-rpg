@@ -13,7 +13,7 @@ import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { poseAngles } from "../core/control/kinematics.ts";
-import { guardPosture } from "../core/skills/guard.ts";
+import { guardPosture } from "../core/skills/guard/guard.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import { HUMAN_HASTE } from "../core/human/attributes.ts";

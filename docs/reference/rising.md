@@ -2,7 +2,7 @@
 
 How the core reads a fall (`fallen`, `BodyView.down`), the owner's stand-up target, the battery of
 falls a riser is read on, and the staged riser's recipe (`RISE`, `stagedRise`,
-`src/core/mind/rise/`) with the readings behind each of its numbers. Read by the rise's modules
+`src/core/recovery/rise/`) with the readings behind each of its numbers. Read by the rise's modules
 and `research/core-rise*.mjs`.
 
 ## Down
@@ -124,7 +124,7 @@ the club shoved right, 3 to 82 weights from 1 to 4 s, past 1e30 at 6 s and 1e100
 ## Lying
 
 The blade fighter (`BLADE_FIGHTER`, the Lab's minds): from the step a body is down it is
-`lie`'s (`lying`, `src/core/mind/lie.ts`), which asks its muscles and stance for nothing. At an
+`lie`'s (`lying`, `src/core/recovery/lie.ts`), which asks its muscles and stance for nothing. At an
 activation of 0 the muscle driver sets each motor to give no torque, which is what releasing the
 muscles does (`Body.dispose`): read with the muscles released in place of `lie`, the seconds each
 body last moved are the same to the digit. A crypt body out of the fight is limp in the same way
@@ -162,8 +162,8 @@ pushing overlapping shapes apart.
 
 ## Stages
 
-The riser (`stagedRise`, `src/core/mind/rise/staged.ts`) plays a recipe (`Recipe`, `RISE`,
-`src/core/mind/rise/stages.ts`): it lies slack until still, reads how it lies, and plays stages.
+The riser (`stagedRise`, `src/core/recovery/rise/staged.ts`) plays a recipe (`Recipe`, `RISE`,
+`src/core/recovery/rise/stages.ts`): it lies slack until still, reads how it lies, and plays stages.
 On its back or a side they are that lie's roll, poses that turn it onto its front, after which it
 lies slack and reads again; on its front they are the rise: poses and bearing stages to knees and
 hands, a kneel-up, a step to a half kneel, and a lunge onto both feet, where the stance has it.
@@ -308,7 +308,7 @@ the Rogue at 0.25, 0.38, 0.23, 0.10 and the skeleton at 0.32, 0.40, 0.42, 0.46. 
 ### The limbs
 
 What a bearing stage may bear on: the body's bearing ends (`BodySpec.ends`, the human's in
-`src/core/human/spec.ts`), made limbs by `riseLimbs` (`src/core/mind/rise/limbs.ts`). Both sides alike:
+`src/core/human/spec.ts`), made limbs by `riseLimbs` (`src/core/recovery/rise/limbs.ts`). Both sides alike:
 
 | Limb | Kind | Bears on | Its task is taken by |
 |---|---|---|---|
@@ -625,7 +625,7 @@ Rogue 5 of 200, the Warrior 1).
 ### The kneel-down
 
 **Legs asked to bear on both shins lower the body onto its knees** (`KNEEL_DOWN`,
-`src/core/mind/rise/stages.ts`; `lowering`, `src/core/mind/rise/lowering.ts`): the rise's step
+`src/core/recovery/rise/stages.ts`; `lowering`, `src/core/recovery/rise/lowering.ts`): the rise's step
 played back on the body held whole, every muscle pushed as the stages drive it, its last stage
 held. Node stand, core world, Rapier, 120 Hz, the Warrior in the guard: borne from standing in
 9.5 s of the probe's 15 (`tests/harness/probes.mjs`, `bearOn`), the centre of mass held about
@@ -640,7 +640,7 @@ held. Node stand, core world, Rapier, 120 Hz, the Warrior in the guard: borne fr
 
 **A foot asked onto its toes** (`BearStage.toes`) holds the body over its sole's front edge, and
 bears on that edge once the centre of mass is ahead of the sole's middle (`aheadOf`,
-`src/core/mind/rise/limbs.ts`); until then it bears where its rolled edge is. The rear foot of a
+`src/core/recovery/rise/limbs.ts`); until then it bears where its rolled edge is. The rear foot of a
 lunge goes onto its toes as the knee comes down; flat, its ankle's dorsiflexion (0.389 rad at most)
 floors the lunge at a centre of mass about 0.71 m up.
 
@@ -1088,9 +1088,9 @@ servo 0.25 s. Its mean over the witness starts, as searched, 2.56 s.
 ### A planned climb
 
 From a crouch quiet on both flat feet, Stand up's steady climbs on one planned path (`CLIMB`,
-`steadying`, `src/core/mind/ground/steady.ts`) and stands the body in 1.36 to 1.91 s, a median of
+`steadying`, `src/core/recovery/ground/steady.ts`) and stands the body in 1.36 to 1.91 s, a median of
 1.46 s; the stance's steady takes 2.17 to 2.89 s from the same crouches. The climb begins once the
-body is quiet on both feet (`quietOnFeet`, `src/core/mind/ground/reading.ts`: both soles flat and
+body is quiet on both feet (`quietOnFeet`, `src/core/recovery/ground/reading.ts`: both soles flat and
 bearing, slow, the centre of mass inside the soles' inset outline) and lower than 0.9 of standing
 height. Over 0.6 s the centre of mass goes from where it is, at its speed, to standing height over
 the feet's middle at rest (a quintic), the pelvis from its pitch to upright, the posture from the
@@ -1144,7 +1144,7 @@ The climb's time and response (`research/climb.mjs`'s `path` with `gate`, the sa
 ## The staged route
 
 Step-up's route as five techniques, each an edge of Stand up's graph
-(`src/core/mind/ground/staged-edges.ts`), stands the same falls of the owner's target as step-up,
+(`src/core/recovery/ground/staged-edges.ts`), stands the same falls of the owner's target as step-up,
 within a placebo's spread. Each edge's entry reads the raw position and the body's motion
 (`stagedEntry`), so a part hands over to the next as soon as the next admits the body, moving or
 not. Stand up lists them in route order, then step-up for what they do not take (sitting, between,
@@ -1222,7 +1222,7 @@ roll takes a mean 3.2 s against 4.0 s at rest; the Rogue's down fails 63 times o
 
 From hands and knees on toes the sit-back stands the Warrior 32 of 32 within 6 s, a median of
 3.87 s, and with the club 32 of 32, 3.92 s: an edge from `fours` to standing (`sit-back`,
-`src/core/mind/ground/staged-edges.ts`), its recipe `SIT_BACK` (`src/core/mind/rise/stages.ts`)
+`src/core/recovery/ground/staged-edges.ts`), its recipe `SIT_BACK` (`src/core/recovery/rise/stages.ts`)
 played by the staged player, then the stance's climb and steadying (`stanceSteady`). It needs toes
 ([toes](toes.md)): without them the same rise stands none.
 
@@ -1370,8 +1370,8 @@ Moving:
 
 ## Routes priced
 
-Stand up takes the route of least expected time to standing (`choose`, `src/core/mind/ground/graph.ts`)
-from each edge's profile on the body (`edgeExpected`, `src/core/mind/profile.ts`, one read only
+Stand up takes the route of least expected time to standing (`choose`, `src/core/recovery/ground/graph.ts`)
+from each edge's profile on the body (`edgeExpected`, `src/core/skills/framework/profile.ts`, one read only
 where it is fresh for the body, `staleness`): the share of its drill's trials it was done, the mean
 seconds a trial ran, done or not, and the positions those not done came to rest in
 (`assets/core/edge-profiles.json`, `node research/edge-profiles.mjs --write`, from the latest
@@ -1412,7 +1412,7 @@ arms folded); placed at rest it is done in none.
 
 ## Tried and not kept
 
-- **Fast edges from the witnesses** (at `63b74deb`: `src/core/mind/ground/phased-rise.ts`,
+- **Fast edges from the witnesses** (at `63b74deb`: `src/core/recovery/ground/phased-rise.ts`,
   `research/fast-edge-search.mjs`; Node stand, core world, Rapier, 120 Hz, the Warrior
   empty-handed, calm, no assist): a witness's first three phases ([a fast route](#a-fast-route)),
   then the bearing solve held on the feet until the body is quiet on both flat feet in a crouch
@@ -1507,7 +1507,7 @@ arms folded); placed at rest it is done in none.
   `cb523f2f`): pose stages ended once every freedom is within 0.1 rad of its posture and the body
   slower than 0.15 m/s change nothing from `fold` to `tall` (each clock is about the time its
   posture takes) and break the step through (the Warrior empty-handed 0 of 16); the whole rise
-  played 1.3 times faster (`RiseSteer.clock`, `src/core/mind/rise/staged.ts@ffdaaeea`) stands 18 of 64, 1.6 times none; the pose drive at
+  played 1.3 times faster (`RiseSteer.clock`, `src/core/recovery/rise/staged.ts@ffdaaeea`) stands 18 of 64, 1.6 times none; the pose drive at
   4.5 rad/s in 0.15 s (`POSE_SPEED`, `POSE_SECONDS`) stands 39, at 6 rad/s in 0.1 s none. The
   stages wait on balance.
 - **Shorter stages, searched by hand**: the Rogue's `swing` at 0.9 or 1.2 of its time (against

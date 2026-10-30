@@ -21,7 +21,7 @@
 import { Worker } from "node:worker_threads";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { defaultLanes } from "./bout-pool.mjs";
-import { RISE } from "../src/core/mind/rise/stages.ts";
+import { RISE } from "../src/core/recovery/rise/stages.ts";
 import { LOADOUTS, RISE_HARNESS, UP_SECONDS, WATCH_SECONDS } from "./core-rise-trials.mjs";
 
 const args = process.argv.slice(2);

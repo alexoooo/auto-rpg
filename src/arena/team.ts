@@ -1,7 +1,7 @@
 import type { CommanderConfig } from "../core/command/kind.ts";
 import { createCommander } from "../core/command/commander.ts";
 import { releaseCombatApproach } from "../core/command/delivery.ts";
-import { sameOrders, type Orders } from "../core/mind/orders.ts";
+import { sameOrders, type Orders } from "../core/intent/orders.ts";
 import type { Command } from "../core/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../core/command/team.ts";
 import { hypot } from "../core/math/real.ts";

@@ -13,7 +13,7 @@ import type { BuiltLone } from "../lone.ts";
 import { sha256Text } from "../sha256.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltSegment } from "../../core/build/build-body.ts";
-import type { Orders } from "../../core/mind/orders.ts";
+import type { Orders } from "../../core/intent/orders.ts";
 import { LOCOMOTION_CASES, scriptOf, type LocomotionCondition } from "./cases.ts";
 import type { LocomotionReading } from "./read.ts";
 

@@ -1,7 +1,7 @@
 import { dataOf } from "../data/store.ts";
 import type { PredictionsPart } from "./parts.ts";
 import { anyBody } from "../parts/parts.ts";
-import type { Profile } from "../mind/profile.ts";
+import type { Profile } from "../skills/framework/profile.ts";
 import { deepFreeze } from "../state.ts";
 
 /** **What Option Mind predicts from**: the profiles its drills measured, of strikes (any striker's), gaits and the rise's edges; a model with none of its own reads its prior. */

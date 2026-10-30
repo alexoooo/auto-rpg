@@ -6,7 +6,7 @@ A drill that takes a mind's body over by a decider of its own needs a hook in ev
 for it, and one more for the mind's own fight before a fight rung's moment: every new mind must
 learn every drill, and Option Mind ran a second copy of its own chooser inside one.
 
-Every game mind already obeys orders (`Orders`, `src/core/mind/orders.ts`): a person's in the
+Every game mind already obeys orders (`Orders`, `src/core/intent/orders.ts`): a person's in the
 Arena, a Commander's in the Crypt. A drill is then a Commander leading the subject's side as a
 team of one, giving orders; the mind carries them out as it would anyone's, and no mind knows a
 drill exists. Orders are graded from general to specific (no `foe`, the mind picks whom; a `foe`
@@ -28,7 +28,7 @@ action's window itself with a move order, as the drill decider does now, so the 
 skill from the same approach for every mind (a rung that leaves the approach to the mind is a
 protocol of its own, not built here); the menu reads each action as from a neutral stance (the
 heading, support and footing the body has, no walk), as the drills read readiness now; an order's
-region is a `Region` (`src/core/skills/action.ts`), a mark or a segment.
+region is a `Region` (`src/core/skills/framework/action.ts`), a mark or a segment.
 
 **What must not move**: every fingerprint case through step 6 (`scripts/fingerprint.mjs`: no
 recipe names a Commander and no order names an action today); the Mind and Commander contracts'
@@ -95,7 +95,7 @@ Check: the gate; the fingerprint unchanged.
 - **One rule** in `orders.ts` says what an order allows: of a foe, an action, a limb, the regions
   to aim at (the order's, else the action's). Every reader that carries out an order calls it,
   where each now copies the region's line: the fighter's action tactics
-  (`src/core/mind/action-tactics.ts`), Vanguard's exchange (`entrants/vanguard/exchange.ts`) and
+  (`src/core/tactics/action-tactics.ts`), Vanguard's exchange (`entrants/vanguard/exchange.ts`) and
   Option Mind's orders and strike options (`entrants/option/options/orders.ts`, `strike.ts`). An
   action the order names is a candidate even where the mind's own rules would not choose it now,
   as an ordered foe is its focus.

@@ -2,7 +2,7 @@ import { partOf } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
 import type { Staging } from "./mind-link.ts";
-import type { SkillReport } from "../core/skills/skills.ts";
+import type { SkillReport } from "../core/skills/framework/skills.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";

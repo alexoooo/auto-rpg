@@ -7,8 +7,8 @@
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { standUp } from "../../../src/core/mind/ground/stand-up.ts";
-import { quietOnFeet } from "../../../src/core/mind/ground/reading.ts";
+import { standUp } from "../../../src/core/recovery/ground/stand-up.ts";
+import { quietOnFeet } from "../../../src/core/recovery/ground/reading.ts";
 import { deepTrial } from "./deep.mjs";
 
 export function climbAfter({ quiet = .1 } = {}) {

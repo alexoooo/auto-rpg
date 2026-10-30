@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { lowsOf } from "../core/control/ground.ts";
-import { centreOfToRef, turnOfToRef } from "../core/control/support.ts";
+import { centreOfToRef, turnOfToRef } from "../core/read-motion.ts";
 import { watchTouches, type Touch, type TouchWatch } from "../core/touches.ts";
 import type { World } from "../core/world.ts";
 import { impactCue, substanceOf, voiceOf, type SoundCue } from "./cues.ts";

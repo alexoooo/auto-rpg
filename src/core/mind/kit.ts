@@ -1,17 +1,17 @@
 import type { Body, BodyView } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { MotorMaker } from "../control/motor-part.ts";
-import type { Pose } from "../control/motor.ts";
+import type { Pose } from "../spec/pose.ts";
 import type { ReadBody } from "../read-body.ts";
-import type { GuardSkill } from "../skills/guard.ts";
+import type { GuardSkill } from "../skills/guard/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { Locomotion } from "../skills/locomotion.ts";
-import type { Legs } from "./locomotion-part.ts";
+import type { Locomotion } from "../skills/locomotion/locomotion.ts";
+import type { Legs } from "../skills/framework/locomotion-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { OwnBody } from "./mind.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { SubMind } from "./sub-mind.ts";
-import { lowering } from "./rise/lowering.ts";
+import { lowering } from "../recovery/rise/lowering.ts";
 
 /** The game's guard: what a rig that plays a technique or a sub-mind without a mind of its own holds (`kitOf`). */
 export const GAME_GUARD: PartConfig = Object.freeze({ kind: "cover-guard" });

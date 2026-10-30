@@ -1,6 +1,6 @@
 /**
  * **The gaits' profiles**: from the Gait drill's records, each body's profile of each gait, in the
- * profiles' one type (`src/core/mind/profile.ts`, `assets/core/gait-profiles.json`): one cell, no
+ * profiles' one type (`src/core/skills/framework/profile.ts`, `assets/core/gait-profiles.json`): one cell, no
  * foe, its trials those asked at least as fast as the gait went (the fastest it came to at the stop,
  * less `TOP`): the share whose strike was admitted, the mean seconds from the stop until it was
  * (`GaitReading.braced`), and the share that fell. Each names what it was measured on: the body as
@@ -16,10 +16,10 @@ import "../tests/harness/preload-data.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
-import { armedActions } from "../src/core/mind/action-config.ts";
-import { gaitDigest, measuredOn, skillDigest } from "../src/core/mind/profile.ts";
-import { gaitNamed, STOCK_GAITS } from "../src/core/skills/gaits.ts";
-import { gaitsOfMove } from "../src/core/skills/move-part.ts";
+import { armedActions } from "../src/core/tactics/action-config.ts";
+import { gaitDigest, measuredOn, skillDigest } from "../src/core/skills/framework/profile.ts";
+import { gaitNamed, STOCK_GAITS } from "../src/core/skills/locomotion/gaits.ts";
+import { gaitsOfMove } from "../src/core/skills/locomotion/move-part.ts";
 
 const OUT = "assets/core/gait-profiles.json", SCRIPT = "research/gait-profiles.mjs";
 /** How far under the fastest a gait came to at the stop a trial may have gone and still be read as at its top, m/s. */

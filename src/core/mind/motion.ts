@@ -1,8 +1,8 @@
 import type { BuiltBody } from "../build/build-body.ts";
-import { checkedMotionCommand, type MotionCommand, type MotionModel } from "../control/tasks.ts";
-import { wholeBodyTracking } from "../control/whole-body.ts";
-import type { ContactTrackingSettings } from "../control/contact-tracking.ts";
-import type { JointStopSettings } from "../control/joint-stops.ts";
+import { checkedMotionCommand, type MotionCommand, type MotionModel } from "../control/whole-body/tasks.ts";
+import { wholeBodyTracking } from "../control/whole-body/whole-body.ts";
+import type { ContactTrackingSettings } from "../control/whole-body/contact-tracking.ts";
+import type { JointStopSettings } from "../control/whole-body/joint-stops.ts";
 import type { SegmentBody } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { observeBody, type BodyObservation } from "../observation.ts";

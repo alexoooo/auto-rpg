@@ -1,6 +1,6 @@
 import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector.js';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode.js';
-import { motionAtToRef } from '../src/core/control/support.ts';
+import { motionAtToRef } from '../src/core/read-motion.ts';
 import { padSurface } from './pad-surface.mjs';
 
 /** A research apparatus, not human anatomy; assumptions and sensitivity: docs/reference/punch-calibration.md. */

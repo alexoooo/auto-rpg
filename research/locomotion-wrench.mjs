@@ -311,7 +311,7 @@ const SETTLE = 1;
  */
 async function swaying(stand, hz) {
   const [{ motorControl }, { driveMuscles }, { standingHeight }, { STANCE_LOWER }] = await Promise.all([import("../src/core/control/motor.ts"),
-    import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"), import("../src/core/skills/locomotion.ts")]);
+    import("../src/core/muscle/driver.ts"), import("../src/core/control/support.ts"), import("../src/core/skills/locomotion/locomotion.ts")]);
   const motor = motorControl(stand.built, 0.1, {});
   // The stance reads the body before each command, as a body's own step has it (`src/core/body.ts`).
   const driver = driveMuscles(stand.built, stand.world, (muscles, dt) => { motor.stance.read(); motor.control(muscles, dt); }), reading = motor.stance.reading;

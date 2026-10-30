@@ -2,7 +2,7 @@
  * **A stub aim**: the surface aim, its aims counted. An aim keeps no state between calls, so the
  * count is this module's (`AIMED`): a test reads that the aim a config names is the one asked.
  */
-import { SURFACE_AIM } from "../../../src/core/mind/aims.ts";
+import { SURFACE_AIM } from "../../../src/core/skills/framework/aims.ts";
 
 /** How often a stub aim was asked, in every mind that holds one. */
 export const AIMED = { stub: "swap:stub-aim", steps: 0 };

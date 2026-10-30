@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { turnOfToRef } from "../control/support.ts";
+import { turnOfToRef } from "../read-motion.ts";
 import { heldFrame } from "../build/rigid.ts";
 import { pointsInto } from "./points.ts";
 import type { BuiltBody } from "../build/build-body.ts";

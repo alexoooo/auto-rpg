@@ -3,7 +3,7 @@ import { jointKinematics } from "../build/joint-kinematics.ts";
 import { halfTansToRef, motionAxesOfHalfTansToRef, rotationOfHalfTansToRef, rotationOfToRef, turningOfHalfTansToRef } from "../build/joint-state.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { Pose } from "./motor.ts";
+import type { Pose } from "../spec/pose.ts";
 import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/flat.ts";
 import { hypot, normIn } from "../math/real.ts";
 import { spinBetweenToRef } from "../math/turn.ts";

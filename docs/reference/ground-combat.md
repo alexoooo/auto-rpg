@@ -1,9 +1,9 @@
 # Grounded combat
 
 The cells of fighting a foe who is down or rising: the approaches (`GROUND_APPROACH`, shared,
-`src/core/mind/ground-approach.ts`; `GROUND_NEAR`, `ground-near.ts`; `GROUND_COMBAT`,
-`ground-wide.ts`; `ROUTE_MARGIN`, `ground-route.ts`), their admission (`GROUND_ADMISSION`,
-`ground-position.ts`), the low-foe gate (`LOW_HEAD`, `sensed-bounds.ts`) and the Scrapper that
+`src/core/perception/downed/approach.ts`; `GROUND_NEAR`, `downed/near.ts`; `GROUND_COMBAT`,
+`downed/wide.ts`; `ROUTE_MARGIN`, `downed/route.ts`), their admission (`GROUND_ADMISSION`,
+`downed/position.ts`), the low-foe gate (`LOW_HEAD`, `sensed-bounds.ts`) and the Scrapper that
 uses them. All are development search cells or engineering deadlines on the ordinary Warrior,
 common muscle bounds and the shared supported low-strike executor.
 
@@ -34,7 +34,7 @@ installed); attack orders are released at 4 s.
 
 The lowering depth is the blow's own (`lower` on the action, 0.50 m for the Scrapper's downward
 blow), which the support fold reaches against its own full depth (`COMBAT_FOLD`,
-`src/core/skills/support-fold.ts`).
+`src/core/skills/locomotion/support-fold.ts`).
 
 Forward approaches at 0.35 m/s topple the attacker in the close fixture, hence 0.18 m/s. The
 deadlines bound failed attempts; they are not optimal combat parameters.

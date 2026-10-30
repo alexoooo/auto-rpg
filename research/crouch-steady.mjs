@@ -1,5 +1,5 @@
 /**
- * **Stand up's steady from a crouch** (`standUp`, `src/core/mind/ground/stand-up.ts`): the body
+ * **Stand up's steady from a crouch** (`standUp`, `src/core/recovery/ground/stand-up.ts`): the body
  * placed in the Warrior's stored `squat` (its angles put on each body, seeds 1 up, refused draws
  * skipped), steadied by the stance as the steady steadies it (its own motor, `legs.resume`, the
  * stance's goal), handed back once `standReady` holds 0.1 s, the host's stance after; timed to
@@ -52,7 +52,7 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
 import { armedWith } from "../src/core/items/held.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../src/core/observation.ts";

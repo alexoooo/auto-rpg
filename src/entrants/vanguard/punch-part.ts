@@ -1,9 +1,9 @@
-import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../core/mind/executor-part.ts";
+import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../core/skills/framework/executor-part.ts";
 import { number, text, toggle } from "../../core/parts/fields.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../core/parts/parts.ts";
-import { straightPunchFits, validStraightPunch, type StraightPunch } from "../../core/skills/straight-punch.ts";
+import { straightPunchFits, validStraightPunch, type StraightPunch } from "../../core/skills/strikes/straight-punch.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { holdsNothing } from "../../core/skills/strikes.ts";
+import { holdsNothing } from "../../core/skills/strikes/held-strike.ts";
 import { committedAim } from "./committed-aim.ts";
 
 /**
@@ -41,7 +41,7 @@ function faults(config: VanguardPunchConfig): readonly string[] {
 /**
  * **Vanguard's drive settings**, its own on every body it plays: the straight punch's from a
  * bare-handed search of Arena bouts of the flat-footed Puncher (`STRAIGHT_PUNCH`,
- * `src/core/skills/straight-punch.ts@f327dd9e`), with its minds' own over them (`PUNCHES`).
+ * `src/core/skills/strikes/straight-punch.ts@f327dd9e`), with its minds' own over them (`PUNCHES`).
  */
 const VANGUARD_DRIVE: StraightPunch = deepFreeze({
   pace: 1.021, reach: 0.8, band: 0.05, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,

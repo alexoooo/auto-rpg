@@ -1,5 +1,5 @@
-import { regionSegments, sensedActionTarget } from "../../core/mind/action-aim.ts";
-import { engagementWithDetails, type Tactics } from "../../core/mind/tactics.ts";
+import { regionSegments, sensedActionTarget } from "../../core/intent/action-aim.ts";
+import { engagementWithDetails, type Tactics } from "../../core/tactics/tactics.ts";
 
 /** Each policy gets six seconds of combat before its observed contact score is compared. */
 const PERIOD = 6;

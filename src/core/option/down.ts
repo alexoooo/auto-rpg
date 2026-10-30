@@ -1,4 +1,4 @@
-import type { Position } from "../mind/ground/reading.ts";
+import type { Position } from "../recovery/ground/reading.ts";
 import type { Situation } from "./option.ts";
 import { edgeOf, pressureAt } from "./percepts.ts";
 import type { Terms } from "./value.ts";

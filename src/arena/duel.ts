@@ -11,7 +11,7 @@ import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../core/items/held.ts"
 import { combatantRecordingIdentity, enlist, type Combatant } from "../core/combatant.ts";
 import type { SheetLog } from "../core/mind/sheets.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
+import { isOrders, sameOrders, type Orders } from "../core/intent/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import type { Pool } from "../core/rules/pool.ts";
@@ -22,7 +22,7 @@ import { derive, type Vec3 } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
-import { sensedBounds } from "../core/mind/sensed-bounds.ts";
+import { sensedBounds } from "../core/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./room.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";

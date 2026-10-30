@@ -3,7 +3,7 @@
 // recipe and tape reach the same step to the bit. Either way it goes on under a branch.
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
-import { centreOfToRef } from "../src/core/control/support.ts";
+import { centreOfToRef } from "../src/core/read-motion.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { buildBout } from "../src/evaluation/bout.ts";

@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
-import type { Orders, Heading } from "../mind/orders.ts";
+import type { Orders, Heading } from "../intent/orders.ts";
 import type { Senses } from "../mind/senses.ts";
-import type { Skill } from "../skills/skill.ts";
+import type { Skill } from "../skills/framework/skill.ts";
 import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
 import type { EffectorGoal } from "../control/effector-tracker.ts";
 import { withinSupport } from "../control/support.ts";

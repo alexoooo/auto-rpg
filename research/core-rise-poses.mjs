@@ -14,9 +14,9 @@
  * rise (`RISE.rise`).
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { centreOfToRef } from "../src/core/control/support.ts";
-import { lieOf, stagedRise } from "../src/core/mind/rise/staged.ts";
-import { RISE } from "../src/core/mind/rise/stages.ts";
+import { centreOfToRef } from "../src/core/read-motion.ts";
+import { lieOf, stagedRise } from "../src/core/recovery/rise/staged.ts";
+import { RISE } from "../src/core/recovery/rise/stages.ts";
 import { RISE_HARNESS, riserOf, toppled } from "./core-rise-trials.mjs";
 
 /** How many of a stage's freedoms are read: those furthest from its posture. */

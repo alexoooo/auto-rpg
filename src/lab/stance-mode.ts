@@ -2,9 +2,9 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { HostedBody } from "../core/body.ts";
 import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
-import { NO_COVER, type Intent } from "../core/mind/intent.ts";
-import type { Tactics } from "../core/mind/tactics.ts";
-import { STANCE_LOWER } from "../core/skills/locomotion.ts";
+import { NO_COVER, type Intent } from "../core/intent/intent.ts";
+import type { Tactics } from "../core/tactics/tactics.ts";
+import { STANCE_LOWER } from "../core/skills/locomotion/locomotion.ts";
 import type { Actor } from "./actor.ts";
 import type { World } from "../core/world.ts";
 import { cos, hypot, sin } from "../core/math/real.ts";
@@ -14,7 +14,7 @@ import { cos, hypot, sin } from "../core/math/real.ts";
  * (`src/core/control/stance.ts`), commanded live from the page. The page's keys are its tactics
  * (`stanceTactics`): what a person gives it is an intent, as any tactics' -- a walk (a velocity across
  * the ground, in the body's own frame), a turn and a height, the hands guarding -- which the skills
- * carry out (`src/core/skills/skills.ts`). The stance does the rest: its steps, and the steps that
+ * carry out (`src/core/skills/framework/skills.ts`). The stance does the rest: its steps, and the steps that
  * catch a push.
  *
  * **It turns only while it walks**, at `LAB_TURN_RATE`, as the locomotion skill turns any body: each step of a walk lands its foot facing the

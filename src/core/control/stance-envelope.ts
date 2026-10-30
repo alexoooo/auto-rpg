@@ -236,7 +236,7 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
 
 /**
  * `envelope` for a gait `quick` times as quick as the one it was measured on (a hasted body's,
- * `quickness`, `src/core/skills/gait-scale.ts`): every speed and turn it holds, and every pace it
+ * `quickness`, `src/core/skills/locomotion/gait-scale.ts`): every speed and turn it holds, and every pace it
  * tried, that many times as fast; `envelope` itself at 1.
  */
 export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {
@@ -259,7 +259,7 @@ export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
 export const stanceEnvelopeOf = (spec: BodySpec): StanceEnvelope | null => Object.hasOwn(measured.models, bodyKey(spec)) ? stanceEnvelope(spec) : null;
 
 /**
- * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/walk-run.ts`)
+ * The measured envelope of `spec`'s body (`bodyKey`) walking by the walk and run (`src/core/skills/locomotion/walk-run.ts`)
  * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
  * (`research/core-stance-envelope.mjs --legs walk-run`), and its turns.
  */

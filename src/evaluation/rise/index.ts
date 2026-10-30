@@ -5,8 +5,8 @@
  * edge's profile: how often it is done and how long it takes, by how fast the body moved as it
  * was begun.
  */
-import type { TechniqueName } from "../../core/mind/ground/technique.ts";
-import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
+import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
+import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import type { BuiltTechnique, LinkReading, TechniqueReading } from "../technique.ts";
 import { DRILLED, EDGES, RISE_CASES, type RiseCondition } from "./cases.ts";

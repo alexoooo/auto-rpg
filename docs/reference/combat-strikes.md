@@ -1,8 +1,8 @@
 # Combat strike trajectories
 
 The search cells and physical gates of the shared path strike (`ATTACK_PATH`,
-`src/core/skills/attack-path.ts`) and of the opening selector (`OPENINGS`,
-`src/core/mind/openings.ts`). A tactic names a hand, an observed world target and a trajectory
+`src/core/skills/strikes/attack-path.ts`) and of the opening selector (`OPENINGS`,
+`src/core/perception/openings.ts`). A tactic names a hand, an observed world target and a trajectory
 family; the skill asks ordinary hand goals, supported stance and sourced muscle commands, and
 changes no strength, damage rule or assist ceiling. Scope: the Warrior, empty hands.
 

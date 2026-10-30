@@ -7,9 +7,9 @@ import { combatContact, combatFingerprint } from './arena-combat.mjs';
 import { BLADE_FIGHTER } from '../src/core/mind/config.ts';
 import { PATHS } from '../tests/fixtures/minds.mjs';
 import { COMBAT } from '../tests/fixtures/minds.mjs';
-import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+import { STAND_ORDERS } from '../src/core/intent/orders.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
-import { motionAtToRef, centreOfToRef } from '../src/core/control/support.ts';
+import { motionAtToRef, centreOfToRef } from '../src/core/read-motion.ts';
 
 /** An ordinary shove creates a low target in the actual Arena mind/skills/recovery path. */
 export async function groundFight(options = {}) {

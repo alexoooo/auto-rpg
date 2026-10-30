@@ -16,8 +16,8 @@ import { BALANCES } from "../src/core/control/balances.ts";
 import { MOTORS } from "../src/core/control/motors.ts";
 import { MOVE } from "../src/core/mind/config.ts";
 import { GAME_MOTOR } from "../src/core/mind/kit.ts";
-import { GAITS } from "../src/core/skills/gaits.ts";
-import { ALL_MET } from "../src/core/skills/skill.ts";
+import { GAITS } from "../src/core/skills/locomotion/gaits.ts";
+import { ALL_MET } from "../src/core/skills/framework/skill.ts";
 
 const lookup = lookupWith({ "swap:stub-legs": STUB_LEGS, "swap:stub-balance": STUB_BALANCE, "swap:stub-motor": STUB_MOTOR });
 

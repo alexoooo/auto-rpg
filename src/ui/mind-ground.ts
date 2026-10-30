@@ -1,5 +1,5 @@
 import type { Offered } from "../entrants/game.ts";
-import type { TechniquePart } from "../core/mind/ground/technique.ts";
+import type { TechniquePart } from "../core/recovery/ground/technique.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
 
 /**

@@ -29,7 +29,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { poseAngles } from "../src/core/control/kinematics.ts";
-import { GUARD } from "../src/core/skills/guard.ts";
+import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 

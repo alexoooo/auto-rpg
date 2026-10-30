@@ -1,24 +1,24 @@
-import type { StandUpConfig } from "./ground/stand-up.ts";
-import type { SUB_MINDS } from "./sub-minds.ts";
-import type { EXECUTORS } from "./executors.ts";
-import type { GUARDS } from "./guards.ts";
-import type { SUPPORTS } from "./supports.ts";
+import type { StandUpConfig } from "../recovery/ground/stand-up.ts";
+import type { SUB_MINDS } from "../recovery/sub-minds.ts";
+import type { EXECUTORS } from "../skills/framework/executors.ts";
+import type { GUARDS } from "../skills/guard/guards.ts";
+import type { SUPPORTS } from "../skills/locomotion/supports.ts";
 import type { MOTORS } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
-import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
-import type { LOCOMOTIONS } from "./locomotions.ts";
-import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
-import type { PLANNERS } from "./planners.ts";
-import type { MoveConfig } from "../skills/move-part.ts";
+import { KICK_PATH, type KickTuning } from "../skills/strikes/kick.ts";
+import type { LOCOMOTIONS } from "../skills/framework/locomotions.ts";
+import type { BEHAVIOURS as BEHAVIOUR_LIST } from "../tactics/behaviours.ts";
+import type { PLANNERS } from "../tactics/planners.ts";
+import type { MoveConfig } from "../skills/locomotion/move-part.ts";
 import type { ConfigOf, PartConfig } from "../parts/parts.ts";
-import type { OpeningTuning } from "./openings.ts";
+import type { OpeningTuning } from "../perception/openings.ts";
 import { deepFreeze } from "../state.ts";
-import type { AIMS } from "./aims.ts";
+import type { AIMS } from "../skills/framework/aims.ts";
 import type { SUPPORT_MOTORS } from "../reptile/support-motors.ts";
 import type { GAITS } from "../reptile/gaits.ts";
 import type { BITES } from "../reptile/bites.ts";
 import type { QUADRUPED_PLANNERS } from "../reptile/planners.ts";
-import type { Region } from "../skills/action.ts";
+import type { Region } from "../skills/framework/action.ts";
 
 /** **A stock sub-mind's config**, by kind (`SUB_MINDS`). */
 export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
@@ -156,14 +156,14 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
 /**
  * The legs a body gets about by (`move`): the fighting step (braced) while it stands or a standing
  * foe is within 5 m; otherwise the walk and run free to run, which runs once the speed the rule asks
- * (`travelSpeed`, `src/core/mind/travel.ts`) is past its run's. The run slows at its `brake`
+ * (`travelSpeed`, `src/core/intent/travel.ts`) is past its run's. The run slows at its `brake`
  * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
  * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
  * Arena fighters opened 4 m apart run into each other and one falls. Near a standing body of its own
  * side it walks in the fighting step within 8.5 m: the run states it stops at 0.2 m/s²
  * (`Locomotion.stopping`), so from the pace it runs from it stops in 4.2 m, and closing on one that
  * closes too, in twice that; at 5 m four crossing paths ran into each other and fell. The fighting
- * step keeps clear of it (`crowdWalk`, `src/core/mind/crowd.ts`). The last 5 m to its
+ * step keeps clear of it (`crowdWalk`, `src/core/navigation/crowd.ts`). The last 5 m to its
  * destination is walked in the fighting step too, which stops where it is sent where the run carries
  * past it.
  */

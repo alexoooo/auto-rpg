@@ -11,7 +11,7 @@ coefficient and the other collider's (`ContactMaterial.friction`); every other c
 engine's 0.5 (`CONTACT_FRICTION`).
 
 At 0.5 the pushing sole slips late in stance, and a run tracking a person's cycle
-(`src/core/skills/cycle-run.ts` with earlier settings; Node stand, Rapier, 120 Hz, the Warrior asked
+(`src/core/skills/locomotion/cycle-run.ts` with earlier settings; Node stand, Rapier, 120 Hz, the Warrior asked
 3 to 4 m/s) levels off near 2.9 m/s whatever it is asked. With every contact at 0.7, 0.9 or 1.2 it
 reaches 3.5 to 3.9 m/s, and with the feet alone at 0.8 as fast.
 

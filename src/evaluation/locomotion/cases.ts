@@ -17,7 +17,7 @@
 import { CONTROLLERS } from "../../entrants/game.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import type { Orders } from "../../core/mind/orders.ts";
+import type { Orders } from "../../core/intent/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";

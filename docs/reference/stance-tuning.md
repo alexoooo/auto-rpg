@@ -36,7 +36,7 @@ steps 0 and 0; walks 24 and 25 held; shoves 118 (41.9, 35) and 216 (72.2, 55).
 
 ## Stance height
 
-`STANCE_LOWER` (`src/core/skills/locomotion.ts`) is 0.03 m: how far under its reference height the
+`STANCE_LOWER` (`src/core/skills/locomotion/locomotion.ts`) is 0.03 m: how far under its reference height the
 skills hold a body's centre of mass. The reference height is the centre of mass's over the soles'
 middle in the reference pose (`standingHeight`, `src/core/control/support.ts`); a body built in its
 empty-handed guard is 7 mm (the Rogue) to 11 mm (the skeleton) higher, and the envelope

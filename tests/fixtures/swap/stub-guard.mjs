@@ -3,7 +3,7 @@
  * it and counts the steps it was asked, so a test can read that the part a config names is the part
  * that ran; its posture is where the body is built and where a blow returns.
  */
-import { GUARD } from "../../../src/core/skills/guard.ts";
+import { GUARD } from "../../../src/core/skills/guard/guard.ts";
 import { anyBody } from "../../../src/core/parts/parts.ts";
 
 /** Its arms' rest: the game's guard with the elbows opened, rad. */

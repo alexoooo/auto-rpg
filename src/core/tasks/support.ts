@@ -1,6 +1,6 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../build/build-body.ts";
-import { supportTransition } from "../control/support-transition.ts";
+import { supportTransition } from "../control/whole-body/support-transition.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { createMotionBody } from "../mind/motion.ts";

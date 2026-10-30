@@ -25,12 +25,12 @@ import { bodyDynamics } from "../src/core/build/dynamics.ts";
 import { jointAngles, ratesToRef } from "../src/core/build/joint-state.ts";
 import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
-import { pointOfToRef } from "../src/core/control/support.ts";
+import { pointOfToRef } from "../src/core/read-motion.ts";
 import { CONTACT_FRICTION } from "../src/core/read-body.ts";
 import { FIT_SCALE } from "../src/core/human/model.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
-import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { STANCE_LOWER } from "../src/core/skills/locomotion/locomotion.ts";
 import { derive, sourced } from "../src/core/spec/quantity.ts";
 import { add, cross, dot, normalize, scale, sub } from "../src/core/spec/vec.ts";
 import { createWorld, PHYSICS_HZ } from "../src/core/world.ts";
@@ -488,7 +488,7 @@ export const rowName = (row, height) => (height === undefined ? row.name : `${ro
 /**
  * The postures the search starts from, by name: the root's pitch, rad, and channels' angles from
  * their own zero (`@` both sides), the rest at the reference pose. `fours` is the riser's own
- * (`FOURS`, `src/core/mind/rise/stages.ts`); the others are guesses the search corrects.
+ * (`FOURS`, `src/core/recovery/rise/stages.ts`); the others are guesses the search corrects.
  */
 export const SEEDS = Object.freeze({
   stand: { pitch: 0, angles: {} },

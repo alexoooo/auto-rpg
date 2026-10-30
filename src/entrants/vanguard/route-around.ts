@@ -1,6 +1,6 @@
 import { cos, sin } from "../../core/math/real.ts";
-import type { Orders } from "../../core/mind/orders.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../core/mind/tactics.ts";
+import type { Orders } from "../../core/intent/orders.ts";
+import { engagementWithDetails, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
 
 /** Ask the navigator for another point at fighting range when the exact entry point is unreachable. */
 export function routeAround(base: Tactics, orders: (sight: Sight) => Orders | null): Tactics {

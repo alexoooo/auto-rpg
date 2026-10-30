@@ -13,8 +13,8 @@ const {freshEngine}=await module('tests/harness/core-stand.mjs');
 const {NullEngine}=await import('@babylonjs/core/Engines/nullEngine.js');
 const {Scene}=await import('@babylonjs/core/scene.js');
 const {createBody,SERVO_SECONDS}=await module('src/core/body.ts');
-const {driveBy}=await module('src/core/mind/tactics.ts');
-const {standIntent}=await module('src/core/mind/intent.ts');
+const {driveBy}=await module('src/core/tactics/tactics.ts');
+const {standIntent}=await module('src/core/intent/intent.ts');
 const output={};
 for(const model of ['workshop-fighter','workshop-rogue','crypt-skeleton']){
  const s=await coreStand(modelSpec(model),{engine:'rapier-coordinate'}),b=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS});

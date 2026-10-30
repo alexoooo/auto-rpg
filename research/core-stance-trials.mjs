@@ -8,8 +8,8 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
-import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/walk-run.ts";
+import { GUARD, guardPosture } from "../src/core/skills/guard/guard.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/locomotion/walk-run.ts";
 import "../tests/harness/preload-data.mjs";
 import { startWind } from "../src/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -173,7 +173,7 @@ function shoveTrunk(stand, impulse, way) {
 /** The learned run's policies read from their files, by path: each read once a thread. */
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
- * of the stance's goal itself; `"walk-run"` for the walk and run (`src/core/skills/walk-run.ts`),
+ * of the stance's goal itself; `"walk-run"` for the walk and run (`src/core/skills/locomotion/walk-run.ts`),
  * free to run; `"braced"` for it told it may not run.
  */
 function skillOf(legs, b) {

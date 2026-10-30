@@ -1,6 +1,6 @@
 /**
  * **Step up's settings searched** on the target battery's falls (Node stand, Rapier, 120 Hz, Balance 0):
- * diagonal CMA-ES (`research/cma.mjs`) over `StepUpTuning` (`src/core/mind/ground/step-up.ts`) in the
+ * diagonal CMA-ES (`research/cma.mjs`) over `StepUpTuning` (`src/core/recovery/ground/step-up.ts`) in the
  * unit cube, each candidate run through Stand up with Step up alone on every fall of its battery.
  *
  *   node research/rising-step-search.mjs --out research/runs/rising/step-w --models workshop-fighter
@@ -22,12 +22,12 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { CONTACT_RISE, RISE } from "../src/core/mind/rise/stages.ts";
-import { STEP_UP, stepUp } from "../src/core/mind/ground/step-up.ts";
-import { standUp } from "../src/core/mind/ground/stand-up.ts";
+import { CONTACT_RISE, RISE } from "../src/core/recovery/rise/stages.ts";
+import { STEP_UP, stepUp } from "../src/core/recovery/ground/step-up.ts";
+import { standUp } from "../src/core/recovery/ground/stand-up.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { GAME_GUARD, kitOf } from "../src/core/mind/kit.ts";
-import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
+import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 import "../tests/harness/preload-data.mjs";
 import { risingTrial } from "../src/evaluation/rising.ts";
 

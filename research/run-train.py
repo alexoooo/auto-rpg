@@ -1,6 +1,6 @@
 """Train a policy with PPO (Stable-Baselines3) against an environment file's copies on Node worker
 threads (research/run-learning-server.mjs, research/environments/), and export it as the core
-reads a network (src/core/control/recovery-network.ts, Network: a straight punch record's `network`,
+reads a network (src/core/learning/recovery-network.ts, Network: a straight punch record's `network`,
 a bare mind's `network`): ReLU layers, the observation's normalisation folded into the first,
 tanh on the outputs. Each line of train.log has the mean of
 each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is

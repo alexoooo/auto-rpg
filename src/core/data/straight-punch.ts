@@ -1,5 +1,5 @@
 import records from "../../../assets/core/straight-punch.json" with { type: "json" };
-import type { PunchRecords } from "../skills/punch-records.ts";
+import type { PunchRecords } from "../skills/strikes/punch-records.ts";
 import { deepFreeze } from "../state.ts";
 
 /** Every body's straight punch record (`dataOf("straight-punch")`): a module of its own, imported only when loaded (`loadData`). */

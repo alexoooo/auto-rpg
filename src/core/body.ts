@@ -3,7 +3,8 @@ import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { carrying, motorControl, type EffectorGoal, type MotorUnmet, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
+import { carrying, motorControl, type EffectorGoal, type MotorUnmet, type MusclePush, type PointTask } from "./control/motor.ts";
+import type { Pose } from "./spec/pose.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -21,7 +22,7 @@ import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
 import type { BodySpec, Side, HandPose } from "./spec/body.ts";
-import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
+import { groundReading, type GroundReading } from "./recovery/ground/reading.ts";
 import type { ReadBody, ReadSegment } from "./read-body.ts";
 import type { BuiltBody } from "./build/build-body.ts";
 import { readView } from "./build/read-view.ts";
@@ -168,7 +169,7 @@ export interface BodyView {
    * `intoFrameToRef`.
    */
   readonly root: Frame;
-  /** The head's centre of mass, world: where a strike's reach is measured from (`placedReach`, `src/core/skills/arm-reach.ts`). */
+  /** The head's centre of mass, world: where a strike's reach is measured from (`placedReach`, `src/core/skills/strikes/arm-reach.ts`). */
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;

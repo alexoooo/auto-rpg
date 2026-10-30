@@ -23,7 +23,7 @@ import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
-import { STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { felled, watchFall } from "./core-rise-trials.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";

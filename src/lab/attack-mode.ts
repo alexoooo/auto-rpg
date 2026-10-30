@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { createSenses } from "../core/mind/senses.ts";
-import { landed, blocked, cleanMiss } from "../core/skills/action-instances.ts";
+import { landed, blocked, cleanMiss } from "../core/skills/framework/action-instances.ts";
 import { randomStream } from "../core/math/random.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";

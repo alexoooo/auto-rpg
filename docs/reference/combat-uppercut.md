@@ -1,8 +1,8 @@
 # Upward head-strike experiment
 
 The optional `uppercut` family and its cells: `ATTACK_PATH.uppercutWindup` and `uppercutSeconds`
-(`src/core/skills/attack-path.ts`), `OPENINGS.uppercut` and `uppercutReserve`
-(`src/core/mind/openings.ts`), and the hull-plane tolerance of `tests/core-combat-uppercut.test.mjs@2a1b29ac`.
+(`src/core/skills/strikes/attack-path.ts`), `OPENINGS.uppercut` and `uppercutReserve`
+(`src/core/perception/openings.ts`), and the hull-plane tolerance of `tests/core-combat-uppercut.test.mjs@2a1b29ac`.
 The chamber drops behind the guard; the stroke uses the tracked path, an explicit world contact
 direction, shared IK, muscle limits and verified return. No root force, strength, collision or
 damage rule changes.

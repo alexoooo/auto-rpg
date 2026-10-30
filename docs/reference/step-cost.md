@@ -44,7 +44,7 @@ lowers it.
 | Option Skeleton, Skeleton, empty | 325.2, 326.4, 326.2, 324.1, 324.3 | 917 |
 | Crawl, reptile, empty | 286.7, 285.9, 288.2, 286.8, 285.0 | 917 |
 
-**The opening selector** (`openingSelector`, `src/core/mind/openings.ts`) works in arrays made once
+**The opening selector** (`openingSelector`, `src/core/perception/openings.ts`) works in arrays made once
 a selector and reads every list by index: a call makes only the opening it returns. A `for…of` over
 a frozen array allocates at every element, optimized or not, and its loop over a hull's 194 planes
 for each of 18 candidates made 318 KB a call; the Duellist read 1115 KiB a body a step before and
@@ -61,7 +61,7 @@ one every 93, 0.89 ms each, and one; the least of each step stayed within the ma
 with every fingerprint case unchanged.
 
 The ceiling was set on the options fighter, which weighs every option each control step. Its
-opening selector (`openingSelector`, `src/core/mind/openings.ts`), asked through each strike's
+opening selector (`openingSelector`, `src/core/perception/openings.ts`), asked through each strike's
 readiness many times a step, allocates only its result, its distances, path samples and candidate
 points in work arrays of its own. Before that the bout read 2370 KiB, and its step (`step-time.mjs`)
 went from a mean of 4.06 ms and median 3.23 to 2.99 and 1.62, a scavenge every 90 steps against
@@ -118,7 +118,7 @@ wasm); the two bodies' muscle hooks 35.0, 34.6; the minds' steps 25.4, 25.7, of 
 root solve (`carryRoot`) 7.7, 8.0; the stance's limbs 5.0, 4.6; `bodyDynamics.update` 4.9, 4.9. The
 senses, tactics and skills are each under 1 %: deciding costs nothing next to carrying it out.
 
-The opening search's hull entry (`hullEntry`, `src/core/mind/hull-entry.ts`) and its facing plane
+The opening search's hull entry (`hullEntry`, `src/core/perception/hull-entry.ts`) and its facing plane
 work in numbers, not vectors, the same sums in the same order: the punch's trainer went from 133 to
 196 decisions a second on one environment ([the trainer's speed](learned-punch.md#the-trainers-speed)),
 and a longer bout (the Warrior against the Rogue, 3934 steps, `step-time.mjs`) from a least mean of
@@ -312,7 +312,7 @@ the bout (`step-time.mjs`, read twice), one and eight skeletons standing (`step-
 - **One callback**: Rapier offers 80 pairs a step and the touches want 0.44; one callback made with the
   world finds a collider's body by handle and makes nothing until a pair is wanted.
 - **Threat work**: each mind makes its own vectors (`threatReader`, the rise's `lying`), and the stance,
-  supported motor and physical reading share `massCentreToRef` (`support.ts`); time and allocation
+  supported motor and physical reading share `massCentreToRef` (`read-motion.ts`); time and allocation
   unchanged within the readings' spread.
 - A ceiling sees a copy put back in a dear loop and not in a small one: a `[...row]` copy in
   `eliminate` (`contact-wrench.ts`) reads 137 KiB standing and 196 in the bout, over both; one in

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
-import { centreOfToRef } from "../control/support.ts";
+import { centreOfToRef } from "../read-motion.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { ObjectSense } from "./object-senses.ts";

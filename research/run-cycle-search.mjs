@@ -1,6 +1,6 @@
 /**
- * **The run's settings searched** (`RunCycleSettings`, `src/core/skills/cycle-run.ts`) through the
- * walk and run that hands over to it (`walkRun`, `src/core/skills/walk-run.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
+ * **The run's settings searched** (`RunCycleSettings`, `src/core/skills/locomotion/cycle-run.ts`) through the
+ * walk and run that hands over to it (`walkRun`, `src/core/skills/locomotion/walk-run.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
  * cube (`research/cma.mjs`).
  *
  * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
@@ -39,13 +39,13 @@ import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { legOf } from "../src/core/skills/gait-scale.ts";
-import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/walk-run.ts";
-import { runCycleSettings } from "../src/core/skills/cycle-run.ts";
+import { legOf } from "../src/core/skills/locomotion/gait-scale.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/locomotion/walk-run.ts";
+import { runCycleSettings } from "../src/core/skills/locomotion/cycle-run.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { TURNED } from "../src/core/control/stance-envelope.ts";
 import { startWind } from "../src/lab/wind.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
 
 /** Each setting searched and its range. */
 const DIMS = {

@@ -12,7 +12,7 @@ import { treeObeys } from "../../entrants/game.ts";
 import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
-import { GAIT_NAMES, type GaitName } from "../../core/skills/gaits.ts";
+import { GAIT_NAMES, type GaitName } from "../../core/skills/locomotion/gaits.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";

@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { driveBy, engagementWithDetails } from "../src/core/mind/tactics.ts";
+import { driveBy, engagementWithDetails } from "../src/core/tactics/tactics.ts";
 import { saveState } from "../src/core/state.ts";
-import { fighterFaults } from "../src/core/mind/fighter.ts";
+import { fighterFaults } from "../src/core/tactics/fighter.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { COUNTER_PUNCHER } from "../src/entrants/classic/presets.ts";
-import { standIntent } from "../src/core/mind/intent.ts";
-import { prepareTacticsSkills } from "../src/core/mind/tactics-part.ts";
-import { actionTactics } from "../src/core/mind/action-tactics.ts";
+import { standIntent } from "../src/core/intent/intent.ts";
+import { prepareTacticsSkills } from "../src/core/tactics/tactics-part.ts";
+import { actionTactics } from "../src/core/tactics/action-tactics.ts";
 import { FIGHTING } from "../src/core/mind/config.ts";
 
 test("report layers preserve a changing inner report, compose details and read without side effects", () => {

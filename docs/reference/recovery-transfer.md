@@ -1,7 +1,7 @@
 # Recovery weight transfer
 
 How `stagedRise` moves the weight off a limb a stage leaves (`transfer` in its state,
-`src/core/mind/rise/staged.ts`; `RiseLimbs.bear`, `src/core/mind/rise/limbs.ts`), and the probe that
+`src/core/recovery/rise/staged.ts`; `RiseLimbs.bear`, `src/core/recovery/rise/limbs.ts`), and the probe that
 shows the weight moves.
 
 ## The rule

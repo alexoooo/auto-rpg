@@ -3,7 +3,7 @@
  * names it, so a test can read that the tactics a config names are the tactics that ran; its report
  * adds its own detail, the count (`Engagement.details`).
  */
-import { actionTactics, BEHAVIOUR_TACTICS } from "../../../src/core/mind/action-tactics.ts";
+import { actionTactics, BEHAVIOUR_TACTICS } from "../../../src/core/tactics/action-tactics.ts";
 import { FIGHTING } from "../../../src/core/mind/config.ts";
 import { slotList, anyBody } from "../../../src/core/parts/parts.ts";
 

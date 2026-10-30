@@ -1,18 +1,18 @@
 import { atan2, hypot } from "../../core/math/real.ts";
-import { copyActionTarget, type ActionAround } from "../../core/skills/action.ts";
-import { STANCE_LOWER } from "../../core/skills/locomotion.ts";
+import { copyActionTarget, type ActionAround } from "../../core/skills/framework/action.ts";
+import { STANCE_LOWER } from "../../core/skills/locomotion/locomotion.ts";
 import { deepFreeze } from "../../core/state.ts";
-import { regionSegments } from "../../core/mind/action-aim.ts";
-import { structuredConfig, type Candidate, type Turn } from "../../core/mind/behaviour-part.ts";
+import { regionSegments } from "../../core/intent/action-aim.ts";
+import { structuredConfig, type Candidate, type Turn } from "../../core/tactics/behaviour-part.ts";
 import { FIGHTING } from "../../core/mind/config.ts";
 import { number } from "../../core/parts/fields.ts";
-import { NO_COVER } from "../../core/mind/intent.ts";
-import { orderedFacing } from "../../core/mind/ordered.ts";
-import { orderAllows, orderedRegions, struckKey } from "../../core/mind/orders.ts";
+import { NO_COVER } from "../../core/intent/intent.ts";
+import { orderedFacing } from "../../core/tactics/ordered.ts";
+import { orderAllows, orderedRegions, struckKey } from "../../core/intent/orders.ts";
 import { anyBody, slotList, type PartConfig } from "../../core/parts/parts.ts";
 import type { BodySense } from "../../core/mind/senses.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../core/mind/tactics.ts";
-import type { TacticsMaking, TacticsPart } from "../../core/mind/tactics-part.ts";
+import { engagementWithDetails, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
+import type { TacticsMaking, TacticsPart } from "../../core/tactics/tactics-part.ts";
 
 interface ExchangeConfig extends PartConfig {
   readonly kind: "vanguard:exchange";
@@ -41,7 +41,7 @@ function exchange(making: TacticsMaking, given: ExchangeConfig): Tactics {
     owned: {} as Record<number, { key: string; work: number }>,
     motion: Object.fromEntries((making.spec.effectors ?? []).map(e => [e.segment, { step: -1, velocity: [0, 0, 0] }])),
     behaviours: made.map(behaviour => behaviour.state ?? null),
-    decision: { focus: null as string | null, evading: false, approach: null as import("../../core/skills/action.ts").Window | null },
+    decision: { focus: null as string | null, evading: false, approach: null as import("../../core/skills/framework/action.ts").Window | null },
   };
   const rankedWork: Candidate[] = [];
   const keyOf = (one: { action: string; effector: string; target: unknown }) => JSON.stringify([one.action, one.effector, one.target]);

@@ -1,8 +1,8 @@
 import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
-import { CONDITIONS } from "../core/mind/conditions.ts";
+import { CONDITIONS } from "../core/intent/conditions.ts";
 import { scopeOf } from "../core/parts/entrant.ts";
 import { allParts, isKind, partLookup, treeScope } from "../entrants/game.ts";
-import type { Region } from "../core/skills/action.ts";
+import type { Region } from "../core/skills/framework/action.ts";
 import type { PartField } from "../core/parts/fields.ts";
 
 /** A named action's editor keeps its executor reference distinct from its own identity. */

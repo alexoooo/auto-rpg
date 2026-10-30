@@ -1,6 +1,6 @@
 # Contact force redistribution
 
-What `contactTracking` (`src/core/control/contact-tracking.ts`) does with an optional positive
+What `contactTracking` (`src/core/control/whole-body/contact-tracking.ts`) does with an optional positive
 `redistributionCost`: the same bounded torque solve may move ground force among the points on each
 contacted rigid body, keeping that body's total force and moment. The option is off in the measured
 tasks. Its rank and residual thresholds are numeric settings recorded here.

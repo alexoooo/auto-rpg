@@ -1,7 +1,7 @@
-import type { Heading } from "../core/mind/orders.ts";
+import type { Heading } from "../core/intent/orders.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { Senses } from "../core/mind/senses.ts";
-import { surfaceEntry } from "../core/mind/openings.ts";
+import { surfaceEntry } from "../core/perception/openings.ts";
 
 /** Which of the four walking keys are down. */
 interface MoveKeys { readonly up: boolean; readonly down: boolean; readonly left: boolean; readonly right: boolean }

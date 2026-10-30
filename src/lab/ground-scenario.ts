@@ -5,11 +5,11 @@ import { GROUND_RISES, labAddress, type GroundRise, type LabAddress } from "./sc
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
-import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
-import { STAGED_ROUTE } from "../core/mind/ground/staged-edges.ts";
-import type { TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
+import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
+import { STAGED_ROUTE } from "../core/recovery/ground/staged-edges.ts";
+import type { TechniqueName, TechniquePart } from "../core/recovery/ground/technique.ts";
 import { partLookup, takesScript } from "../entrants/game.ts";
-import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
+import type { StandUpConfig } from "../core/recovery/ground/stand-up.ts";
 import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "./player.ts";

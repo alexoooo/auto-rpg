@@ -38,7 +38,7 @@ import type { BodySpec, ForceVelocitySpec, MuscleSpec, Side } from "../spec/body
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
  * (`GUARD`) bends the skeleton's elbows past its stop from here. A posture written from each
- * freedom's own zero (`DofSpec.bind`; a rise's stages, `src/core/mind/rise/stages.ts`) is the same
+ * freedom's own zero (`DofSpec.bind`; a rise's stages, `src/core/recovery/rise/stages.ts`) is the same
  * shape on both.
  */
 export const SKELETON_MODEL = "crypt-skeleton";
@@ -110,7 +110,7 @@ const SEGMENTS = bones.segments as Readonly<Record<string, SegmentFile>>;
 /**
  * The segments whose collider is their bones' hull in place of the body plan's capsule. A hand's
  * and a shank's stay capsules as wide as their bones: a grip seats against the one, and a knee
- * bears on the other's end (`src/core/mind/rise/stages.ts`).
+ * bears on the other's end (`src/core/recovery/rise/stages.ts`).
  */
 const HULLED = new Set(["head", ...(["left", "right"] as const).flatMap((side) => ["upperArm", "forearm", "thigh"].map((row) => `${row}.${side}`))]);
 

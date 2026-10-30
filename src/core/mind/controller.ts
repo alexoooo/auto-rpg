@@ -1,15 +1,15 @@
 import type { AttributeOverrides } from "../character-attributes.ts";
 import type { Body, BodyOptions } from "../body.ts";
 import type { Clock } from "../clock.ts";
-import type { Pose } from "../control/motor.ts";
-import type { Skills } from "../skills/skills.ts";
+import type { Pose } from "../spec/pose.ts";
+import type { Skills } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { FighterConfig, MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "../parts/parts.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import type { Tactics } from "./tactics.ts";
+import type { Tactics } from "../tactics/tactics.ts";
 
 /**
  * A named configuration, optionally calibrated for particular body models and played on a

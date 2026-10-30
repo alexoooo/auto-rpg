@@ -1,6 +1,6 @@
-import type { SkillReport } from "../core/skills/skills.ts";
-import type { ActionStatus, Ended } from "../core/skills/action.ts";
-import type { Engagement } from "../core/mind/tactics.ts";
+import type { SkillReport } from "../core/skills/framework/skills.ts";
+import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
+import type { Engagement } from "../core/tactics/tactics.ts";
 
 /**
  * What a planner's report says (`Engagement`), a line each: its focus and phase, its own details

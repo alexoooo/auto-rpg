@@ -2,8 +2,8 @@ import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
 import {createBody, SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
-import {locomotion,STANCE_LOWER,stanceOf} from '../src/core/skills/locomotion.ts';
-import {GUARD} from '../src/core/skills/guard.ts';
+import {locomotion,STANCE_LOWER,stanceOf} from '../src/core/skills/locomotion/locomotion.ts';
+import {GUARD} from '../src/core/skills/guard/guard.ts';
 import {balanceCeiling,balancePercent,rulebook} from '../src/core/rules/rulebook.ts';
 
 /** A half-turn from rest or an established walk, through shared locomotion and ordinary muscles. */

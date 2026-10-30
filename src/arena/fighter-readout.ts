@@ -2,10 +2,10 @@ import { commandsBody } from "../core/body.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
 import type { Pool } from "../core/rules/pool.ts";
 import type { BodySpec } from "../core/spec/body.ts";
-import type { ActionStatus, Ended } from "../core/skills/action.ts";
-import { blocked, cleanMiss, landed } from "../core/skills/action-instances.ts";
-import type { SkillReport } from "../core/skills/skills.ts";
-import type { Engagement } from "../core/mind/tactics.ts";
+import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
+import { blocked, cleanMiss, landed } from "../core/skills/framework/action-instances.ts";
+import type { SkillReport } from "../core/skills/framework/skills.ts";
+import type { Engagement } from "../core/tactics/tactics.ts";
 import { partLabel } from "../ui/part-label.ts";
 
 /** A front-facing body; screen left is the fighter's anatomical right. */

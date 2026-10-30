@@ -3,7 +3,7 @@
 The upright support task `tasks/support.ts` (its `SETTINGS`): from standing, lower the pelvis, move
 the centre of mass over one foot, lift the other, place it and return to two-foot support, then stay
 under control a second. It is the same task in research and the browser. Its optional
-`control/support-transition.ts` policy turns detached observations into motion objectives; the
+`control/whole-body/support-transition.ts` policy turns detached observations into motion objectives; the
 shared tracker owns the muscle commands. It is neither recovery nor locomotion.
 
 ## Readiness

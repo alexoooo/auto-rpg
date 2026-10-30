@@ -6,8 +6,8 @@ import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
 import { MINDS } from "../src/entrants/game.ts";
-import { motionAtToRef, pointOfToRef } from '../src/core/control/support.ts';
-import { STAND_ORDERS } from '../src/core/mind/orders.ts';
+import { motionAtToRef, pointOfToRef } from '../src/core/read-motion.ts';
+import { STAND_ORDERS } from '../src/core/intent/orders.ts';
 
 /** Frozen measurement protocol: m/s, s; sustained pressure alone never counts as a driven blow. */
 export const COMBAT_PROTOCOL = Object.freeze({ version: 1, drivenClosing: 1, relativeHandSpeed: .5, relativeFootSpeed: .5,

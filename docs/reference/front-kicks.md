@@ -1,6 +1,6 @@
 # Shared front kicks
 
-The front kick's settings (`KICK_PATH`, `src/core/skills/kick.ts`), the Arena's faster profile
+The front kick's settings (`KICK_PATH`, `src/core/skills/strikes/kick.ts`), the Arena's faster profile
 and its selector (`ARENA_KICKS`, `KICKER`, `KICK_SELECTION`, `src/core/mind/config.ts`), and how
 both were qualified. The force they deliver against trained adults is
 [trained-attack-force.md](trained-attack-force.md)'s.

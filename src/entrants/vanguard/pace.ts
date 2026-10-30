@@ -1,6 +1,6 @@
 import { hypot } from "../../core/math/real.ts";
-import type { Intent } from "../../core/mind/intent.ts";
-import type { Orders } from "../../core/mind/orders.ts";
+import type { Intent } from "../../core/intent/intent.ts";
+import type { Orders } from "../../core/intent/orders.ts";
 
 /** Preserve stricter intent and ordered ceilings while capping a layer's movement, including a direct step. */
 export function limitPace(intent: Intent, orders: Orders | null, limit: number): Intent {

@@ -28,10 +28,10 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
 
 ## What is used
 
-- **The punch**: the straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) on a
+- **The punch**: the straight punch (`straightPunch`, `src/core/skills/strikes/straight-punch.ts`) on a
   schedule (`StraightPunch.timed`: the trunk's, both legs' and the striking arm's 18 channels, each
   a level, a start and a length), its drive braked onto its goals (`brake`), a walk halted as it
-  commits (`halts`), steered (`src/core/skills/learned-punch.ts`): the toed Warrior's record
+  commits (`halts`), steered (`src/core/skills/strikes/learned-punch.ts`): the toed Warrior's record
   (`PunchRecord`, `assets/core/straight-punch.json`).
 - **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 59-256-256-12, reads the
   drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
@@ -364,7 +364,7 @@ The punch's own environment (`research/punch-learning-environment.mjs@5d782f0e`)
 toed Warrior with its own defaults (`punchEnvironment`, `{"kind":"punch","character":{"toes":true}}`:
 the still rung's 0.9 to 1 m, the right hand, 120 Hz), random steers, 30 s a reading; Node 24.19, Rapier, 120 Hz, the development host
 (16 cores). Decisions a second, before and after the opening search's hull entry was written in
-numbers (`hullEntry`, `src/core/mind/hull-entry.ts`; the facing plane in `openingSelector`):
+numbers (`hullEntry`, `src/core/perception/hull-entry.ts`; the facing plane in `openingSelector`):
 
 | Workers | Environments each | Before | After |
 |---:|---:|---:|---:|

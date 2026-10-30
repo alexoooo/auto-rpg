@@ -1,7 +1,7 @@
 import { deepFreeze } from "../state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
-import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
-import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
+import { placeMovement, type GroundPoint, type MovementRequest } from "../intent/movement.ts";
+import { STAND_ORDERS, type Orders } from "../intent/orders.ts";
 import { ARRIVAL, approach, arrived, direction, distance, lyingSince, reportOf, roomy, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import { spread } from "./spread.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamHost, TeamView } from "./team.ts";

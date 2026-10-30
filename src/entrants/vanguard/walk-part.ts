@@ -1,8 +1,8 @@
 import { fitsSoles } from "../../core/control/stance-balance.ts";
-import { stanceFeetOf } from "../../core/skills/skill.ts";
+import { stanceFeetOf } from "../../core/skills/framework/skill.ts";
 import { number } from "../../core/parts/fields.ts";
-import type { LocomotionPart } from "../../core/mind/locomotion-part.ts";
-import { locomotion, validTurnLimit, validTurnStartup } from "../../core/skills/locomotion.ts";
+import type { LocomotionPart } from "../../core/skills/framework/locomotion-part.ts";
+import { locomotion, validTurnLimit, validTurnStartup } from "../../core/skills/locomotion/locomotion.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 /** Heading-speed ceilings for the stance walk, including its first seconds of continuous travel. */

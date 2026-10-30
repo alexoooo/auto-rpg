@@ -1,6 +1,6 @@
 # Predictive combat defense
 
-The search cells of predictive cover (`DEFENSE`, `src/core/mind/threat.ts`) and the boundary
+The search cells of predictive cover (`DEFENSE`, `src/core/perception/threat.ts`) and the boundary
 clearance check (`clearStep`). Both read sensed striking points and physical shapes, never the
 opponent's intentions, wounds, commands or future world state. Actual physics decides blocks and
 damage.

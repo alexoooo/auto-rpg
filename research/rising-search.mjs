@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { PLANT_UP } from "../src/core/mind/ground/plant-up.ts";
+import { PLANT_UP } from "../src/core/recovery/ground/plant-up.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 
 /** Control choices only: fixed reached predicates, failure windows and deadlines have no dimensions. */

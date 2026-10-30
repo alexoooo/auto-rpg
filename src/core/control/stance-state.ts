@@ -10,7 +10,8 @@ import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
-import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
+import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
+import { massOf } from "../read-motion.ts";
 import type { Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 

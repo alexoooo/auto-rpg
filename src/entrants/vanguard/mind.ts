@@ -1,9 +1,9 @@
-import { actionConfigFaults, armedActions } from "../../core/mind/action-config.ts";
+import { actionConfigFaults, armedActions } from "../../core/tactics/action-config.ts";
 import { FIGHTING, MOVE, STAND_UP, type FighterConfig } from "../../core/mind/config.ts";
 import { controller, type MindPreset } from "../../core/mind/controller.ts";
-import { createFighter, driveFighter, fighterBody, fighterFaults } from "../../core/mind/fighter.ts";
+import { createFighter, driveFighter, fighterBody, fighterFaults } from "../../core/tactics/fighter.ts";
 import { GAME_MOTOR } from "../../core/mind/kit.ts";
-import { GAME_NAVIGATION } from "../../core/mind/navigator.ts";
+import { GAME_NAVIGATION } from "../../core/navigation/navigator.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../core/parts/parts.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -12,7 +12,7 @@ import type { VanguardPlanConfig } from "./plan.ts";
 import { VANGUARD_WALK } from "./walk-part.ts";
 import { VANGUARD_EXCHANGE } from "./exchange.ts";
 import { VANGUARD_NAVIGATION } from "./navigation-part.ts";
-import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../../core/skills/blade-part.ts";
+import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../../core/skills/strikes/blade-part.ts";
 
 /** A fighter's slots, including its own planners, punches and calibrated walk. */
 interface VanguardConfig extends Omit<FighterConfig, "kind" | "tactics" | "locomotion"> {

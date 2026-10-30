@@ -1,5 +1,5 @@
 /**
- * **The strikes' profiles** (`src/core/mind/profile.ts`, `assets/core/strike-profiles.json`): from
+ * **The strikes' profiles** (`src/core/skills/framework/profile.ts`, `assets/core/strike-profiles.json`): from
  * Strike drill records (`assets/evaluations/strike/`, and the baseline's punch rows, whose `rung`
  * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at, with
  * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
@@ -30,8 +30,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
-import { armedActions } from "../src/core/mind/action-config.ts";
-import { measuredOn, skillDigest, specDigest } from "../src/core/mind/profile.ts";
+import { armedActions } from "../src/core/tactics/action-config.ts";
+import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";

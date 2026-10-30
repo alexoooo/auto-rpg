@@ -1,6 +1,6 @@
 /**
  * **Stand up's steady from the combat fold**: the body built standing, held 1.5 s, lowered into the
- * combat fold (`COMBAT_FOLD`, `src/core/skills/support-fold.ts`: the centre of mass `depth` of 0.5 m
+ * combat fold (`COMBAT_FOLD`, `src/core/skills/locomotion/support-fold.ts`: the centre of mass `depth` of 0.5 m
  * down, the pelvis pitched 0.9 rad, the lumbar and thoracic spine flexed 0.89 and 0.368 rad, each
  * times `depth`, on planted feet at a 0.5 s response) over 2 s and held 1 s, then given to the
  * steady (`research/climb.mjs`) as `variant` changes it; timed from the steady's start to verified
@@ -19,7 +19,7 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanoidSpec } from "../src/core/human/spec.ts";
 import { armedWith } from "../src/core/items/held.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../src/core/observation.ts";
@@ -30,7 +30,7 @@ import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 import { crouchSteady, traceRow } from "./climb.mjs";
-import { standUp } from "../src/core/mind/ground/stand-up.ts";
+import { standUp } from "../src/core/recovery/ground/stand-up.ts";
 
 /** The stand before the fold, the fold, and the hold in it, s; the cap from the steady's start, s. */
 const STAND = 1.5, FOLDING = 2, HOLD = 1, CAP = 5;

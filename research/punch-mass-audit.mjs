@@ -5,10 +5,10 @@ import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {contactMass} from '../src/core/build/contact-mass.ts';
-import {motionAtToRef,pointOfToRef} from '../src/core/control/support.ts';
+import {motionAtToRef,pointOfToRef} from '../src/core/read-motion.ts';
 import {rigidPoints} from '../src/core/build/rigid.ts';
-import {combatSkills} from '../src/core/skills/combat.ts';
-import {standIntent} from '../src/core/mind/intent.ts';
+import {combatSkills} from '../src/core/skills/strikes/combat.ts';
+import {standIntent} from '../src/core/intent/intent.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});

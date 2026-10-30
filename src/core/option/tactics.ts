@@ -1,20 +1,20 @@
-import { blowsOf } from "../mind/action-config.ts";
+import { blowsOf } from "../tactics/action-config.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../mind/config.ts";
 import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
 import { MEASURED_PREDICTIONS, type ProfileTables } from "./predictions-part.ts";
 import { stepSet, type Situation } from "./option.ts";
-import type { GroundExecutor } from "../mind/ground/held.ts";
-import type { TechniqueConfig, TechniquePart } from "../mind/ground/technique.ts";
+import type { GroundExecutor } from "../recovery/ground/held.ts";
+import type { TechniqueConfig, TechniquePart } from "../recovery/ground/technique.ts";
 import { groundOptions, type Ground } from "./ground.ts";
 import { situationReader } from "./situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./strike.ts";
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { EngagementDetail, Sight, Tactics } from "../mind/tactics.ts";
+import type { EngagementDetail, Sight, Tactics } from "../tactics/tactics.ts";
 import type { MotorUnmet } from "../control/motor.ts";
-import { LEGS_FIELDS, type LegsUnmet } from "../skills/skill.ts";
-import type { TacticsMaking } from "../mind/tactics-part.ts";
+import { LEGS_FIELDS, type LegsUnmet } from "../skills/framework/skill.ts";
+import type { TacticsMaking } from "../tactics/tactics-part.ts";
 
 /** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {

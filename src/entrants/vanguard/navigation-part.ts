@@ -1,8 +1,8 @@
 import { number } from "../../core/parts/fields.ts";
-import type { NavigationSight, NavigatorPart } from "../../core/mind/navigator.ts";
+import type { NavigationSight, NavigatorPart } from "../../core/navigation/navigator.ts";
 import type { SolidSense } from "../../core/mind/object-senses.ts";
 import { anyBody } from "../../core/parts/parts.ts";
-import { VISIBILITY_NAVIGATION } from "../../core/mind/visibility-navigation.ts";
+import { VISIBILITY_NAVIGATION } from "../../core/navigation/visibility-navigation.ts";
 import { deepFreeze } from "../../core/state.ts";
 
 interface RoomConfig { readonly kind: "vanguard:navigation"; readonly room: number }

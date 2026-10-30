@@ -2,7 +2,8 @@ import type { PartLookup } from "../parts/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { Assist } from "./assist.ts";
-import type { MotorControl, Pose } from "./motor.ts";
+import type { MotorControl } from "./motor.ts";
+import type { Pose } from "../spec/pose.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 
 /**

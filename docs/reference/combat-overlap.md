@@ -12,7 +12,7 @@ Each hand of `combatSkills` is a strike of its own (`effectorStrike`, `state.han
 keeping its captured goal, velocity, motion sequence, clock and elbow preference while the other
 runs chamber, swing and return; one locomotion owner, one trunk objective, one body command. The
 figures below were read with the first hand's return held in a saved copy (`state.returning`,
-`src/core/skills/combat.ts@a9b7724a`). Each hand earns its return only by the actual distance,
+`src/core/skills/strikes/combat.ts@a9b7724a`). Each hand earns its return only by the actual distance,
 speed and upright checks; a deadline counts a failure; one follow-up, never a third strike.
 
 ## Physical stand

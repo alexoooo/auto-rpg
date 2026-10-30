@@ -53,7 +53,7 @@ place; each rate's mean is of eight throws' energies, the first as written.
 
 ## Cover
 
-A cover (`GUARD_COVER`, `src/core/skills/guard.ts`) is what a guarding hand does once told what
+A cover (`GUARD_COVER`, `src/core/skills/guard/guard.ts`) is what a guarding hand does once told what
 threatens which place of its body: the point it covers with goes `out` m from the place guarded
 toward the threat, by a hand goal given `seconds` to reach it, which follows the two as they
 move. An empty hand covers with its knuckles; a club with its swell (`ItemSpec.cover`, the
@@ -109,7 +109,7 @@ place asked; off square, the swell's line from square at 1 s. No run fell. At 0.
 
 ## Threat
 
-A threat (`THREAT`, `src/core/mind/threat.ts`) is a foe's striking point (its knuckles, or the
+A threat (`THREAT`, `src/core/perception/threat.ts`) is a foe's striking point (its knuckles, or the
 swell of the club it holds) within `within` m of a body's head and closing on it at over
 `closing` m/s; the one closing fastest is what a covering hand is told to cover against.
 

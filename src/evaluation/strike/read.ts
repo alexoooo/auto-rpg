@@ -4,17 +4,17 @@
  * sets and a hand's holding an item by its blow's (`BAR`). Every rung reads its trials so.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { pointOfToRef, turnOfToRef } from "../../core/control/support.ts";
+import { pointOfToRef, turnOfToRef } from "../../core/read-motion.ts";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../../core/build/rigid.ts";
 import { jointAngles } from "../../core/build/joint-state.ts";
-import { regionSegments } from "../../core/mind/action-aim.ts";
+import { regionSegments } from "../../core/intent/action-aim.ts";
 import { drillTask, type DrillPhase } from "../../core/command/drill.ts";
-import { sensedPhase } from "../../core/mind/threat.ts";
+import { sensedPhase } from "../../core/perception/threat.ts";
 import { centreReading } from "../../core/observation.ts";
-import { aimOf, holdsNothing } from "../../core/skills/strikes.ts";
+import { aimOf, holdsNothing } from "../../core/skills/strikes/held-strike.ts";
 import { effectorAim } from "../../core/control/effectors.ts";
-import { sensedPosture } from "../../core/mind/threat.ts";
+import { sensedPosture } from "../../core/perception/threat.ts";
 import { acos, cos } from "../../core/math/real.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";

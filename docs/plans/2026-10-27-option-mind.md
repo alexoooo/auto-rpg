@@ -64,11 +64,11 @@ The target is drawn in [How a fighter thinks](../diagrams/fighter-mind.html) and
 | Part | What it is |
 |---|---|
 | Name and goal | what it does, at what: `jab(head)`, `move(in the jab's window)`, `cover(head)`, `walk(velocity, facing)`, `fold` |
-| Entry | where it can start, in sensed terms: `Readiness`/`Window` (`src/core/skills/action.ts`), extended with posture and motion conditions read from named percepts. One form for every skill |
+| Entry | where it can start, in sensed terms: `Readiness`/`Window` (`src/core/skills/framework/action.ts`), extended with posture and motion conditions read from named percepts. One form for every skill |
 | Resources | what it holds while it runs (the legs, the trunk, a hand), as the action contract's reservations hold them (`Executor.needs`): all it will need, reserved at its start; it may give one back early and never takes one more |
 | Model | what it is worth from here: payoff in life ([value](#value-in-the-verdicts-unit)), duration and where it ends. Hand-built (`Terms`) until its drill measures it |
 | Exit | the region where it can hand over (`Readiness | null`): a strike's stroke's end, a posture reached, a range reached; and before its point of no return, where it may be let go ([letting go](#letting-go)) |
-| Profile | its model measured on its drill over a few percepts (`Profile`, `src/core/mind/profile.ts`) |
+| Profile | its model measured on its drill over a few percepts (`Profile`, `src/core/skills/framework/profile.ts`) |
 
 - **One skill per distinct movement, never one per combination or starting state.** Jab, cross and
   hook are names, each with its own profile; a number stays where it is a goal (a target, a range,
@@ -213,7 +213,7 @@ the foe is (a blow read is a blow 0.15 s old). It is built with the registry's f
 
 | Phase | Read from |
 | --- | --- |
-| `striking`, with its blow's time to contact | the threat's predicted crossing (`READINGS.predicted`, `predictIntercept`, `src/core/mind/threat.ts`) |
+| `striking`, with its blow's time to contact | the threat's predicted crossing (`READINGS.predicted`, `predictIntercept`, `src/core/perception/threat.ts`) |
 | `down`, `rising` | its spec's down rule (`BodySense.down`), and its centre rising while down |
 | `clear` | none of these |
 
@@ -286,7 +286,7 @@ feint mixed with the blow.
 
 ### The profile
 
-One type (`Profile`, `src/core/mind/profile.ts`, built), grown from the ground edges' profiles:
+One type (`Profile`, `src/core/skills/framework/profile.ts`, built), grown from the ground edges' profiles:
 cells over range, closing speed and the foe's phase, not every percept, each the share done, the
 hit points dealt and lost (life once over the body's hit points), the seconds, the share ending
 down and where those not done come to rest, and the cost of letting go where a drill let it go.
@@ -468,7 +468,7 @@ target is the blow predicted to reach the head, `READINGS.predicted`; the blow p
 body, guarded where it meets the body's axis, lost on the Cover drill's punched rung, covered 0 of
 12 against 2, so it waits on a cover that keeps the head while it guards the trunk). Option Mind's
 intent is the set it selected, each option with its resources (built:
-`intentOfSet`, `src/core/mind/intent.ts`); the orders a person gives Option Mind open with
+`intentOfSet`, `src/core/intent/intent.ts`); the orders a person gives Option Mind open with
 it, an order naming a goal as a skill does. Other minds keep the intent they write and their own
 readings.
 
@@ -484,7 +484,7 @@ goal's pace and height under standing (the arbiter folds the intent's `lower`, `
 
 Built: the ends a body can bear on are its spec's (`BodySpec.ends`, `src/core/spec/body.ts`), and
 legs asked both shins lower the body onto its knees and hold it there (`lowering`,
-`src/core/mind/rise/lowering.ts`; [the kneel-down](../reference/rising.md#the-kneel-down)); asked
+`src/core/recovery/rise/lowering.ts`; [the kneel-down](../reference/rising.md#the-kneel-down)); asked
 hands and knees, every legs reports the ends unmet.
 
 Left: the legs bear on hands and knees, and on any set of the ends from where the body is, carrying
@@ -492,7 +492,7 @@ the root over them as the ground techniques do now (`carryRoot`, `bearLimbs`,
 `src/core/control/bearing.ts`; the limbs made from the spec's ends in the control layer,
 `riseLimbs` moved there). A ground technique then asks its bearing ends in its legs goal and holds
 only the limbs it moves, so an arm it does not use is the policy's for a cover or the guard, and no
-technique writes the muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
+technique writes the muscles itself (`groundExecutor`, `src/core/recovery/ground/held.ts`).
 
 Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's stand-up
 on toes paired against its record (24 of 32 at `97a64096`); the owner looks at a rise in the Lab's

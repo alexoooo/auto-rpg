@@ -1,10 +1,10 @@
 # The human and its strikes: tuning records
 
 What the tuned constants of the skills and the tactics rest on: `PLACING`
-(`src/core/skills/locomotion.ts`), the stance's turning envelope, `GUARD`
-(`src/core/skills/guard.ts`), `ATTACK_METRES` and `EDGE` (`src/core/mind/recipe-tactics.ts@cee7aae2`;
+(`src/core/skills/locomotion/locomotion.ts`), the stance's turning envelope, `GUARD`
+(`src/core/skills/guard/guard.ts`), `ATTACK_METRES` and `EDGE` (`src/core/mind/recipe-tactics.ts@cee7aae2`;
 the edge's band and patience are now the edge behaviour's settings, `EDGE`,
-`src/core/mind/behaviours/edge.ts`, and the clinch the break-clinch behaviour's `metres`), and
+`src/core/tactics/behaviours/edge.ts`, and the clinch the break-clinch behaviour's `metres`), and
 `IK_POSTURE_PULL` and `IK_TURN` (`src/core/control/kinematics.ts`). Each constant's comment cites
 its section. A value said to be set was chosen, not swept. Figures are
 Node, Rapier, no assist, unless a table says otherwise.
@@ -96,7 +96,7 @@ Not kept (Node core stand, 120 and 480 Hz):
 `ATTACK_METRES` is 1.8 m between the two centres of mass across the ground: nearer, a fighter
 attacks; further, it walks at its foe. Set. The Warrior's club blows are thrown with their target
 0.93 m (a head) and 1.12 m (a trunk) ahead of its own head (`Recipe.place`,
-`src/core/skills/strikes.ts@bca8fc87`), and the strike skill of then closed the rest itself
+`src/core/skills/strikes/held-strike.ts@bca8fc87`), and the strike skill of then closed the rest itself
 (`strikeSkill`, `src/core/skills/strike.ts@aa0f76d7`), so 1.8 m is a blow's distance and about a
 step.
 

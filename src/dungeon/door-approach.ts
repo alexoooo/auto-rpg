@@ -1,5 +1,5 @@
 import type { SolidSense } from "../core/mind/object-senses.ts";
-import { navigationPath } from "../core/mind/route-search.ts";
+import { navigationPath } from "../core/navigation/route-search.ts";
 import { distance, findPath, type DungeonMap, type Point } from "./map.ts";
 import { DOOR_OPEN_DISTANCE } from "./world.ts";
 

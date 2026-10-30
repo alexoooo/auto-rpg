@@ -3,7 +3,7 @@
 The assist (`src/core/control/assist.ts`) is a force and a moment on a body's root that no muscle
 gives, within a ceiling, metered. This records the attributes that set it and its kin (balance,
 haste: `AttributeSpec`, `src/core/spec/body.ts`; `Rulebook.balance`, `src/core/rules/rulebook.ts`),
-what a gait asks of it (`gaitAssist`, `src/core/skills/gait-assist.ts`), and what each buys in bouts.
+what a gait asks of it (`gaitAssist`, `src/core/skills/locomotion/gait-assist.ts`), and what each buys in bouts.
 
 ## Balance
 

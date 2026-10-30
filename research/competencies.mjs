@@ -7,8 +7,8 @@
  */
 import { modelSpec } from "../src/core/models.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
-import { aimOf } from "../src/core/skills/strikes.ts";
-import { PLANTED_PUNCH_EXECUTION } from "../src/core/skills/combat.ts";
+import { aimOf } from "../src/core/skills/strikes/held-strike.ts";
+import { PLANTED_PUNCH_EXECUTION } from "../src/core/skills/strikes/combat.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
 import { allParts, treeFaults } from "../src/entrants/game.ts";
 import { HUMAN_PUNCH, punchStand } from "./punch-calibration.mjs";

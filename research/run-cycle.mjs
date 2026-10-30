@@ -1,7 +1,7 @@
 /**
  * **A person's run cycle, from a clip**: the angles a leg's hip, knee and ankle go through from one
  * landing of its sole to the next, as a Fourier series in the cycle's phase, written to
- * `assets/core/run-cycle.json` for the run that tracks it (`src/core/skills/cycle-run.ts`).
+ * `assets/core/run-cycle.json` for the run that tracks it (`src/core/skills/locomotion/cycle-run.ts`).
  *
  * Each clip is read as `research/run-feasibility.mjs` reads it (`clipMotion`, `feasibility`: its
  * longest steady stretch, filtered at `--cutoff` Hz, in the plane the run goes in), the Warrior's

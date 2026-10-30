@@ -1,7 +1,7 @@
 import { BLADE_FIGHTER, type MindConfig } from "./config.ts";
 import { controller, type Controller } from "./controller.ts";
 import type { MindWiring } from "./minds.ts";
-import { STAND_ORDERS, type Orders } from "./orders.ts";
+import { STAND_ORDERS, type Orders } from "../intent/orders.ts";
 import { slotOne, type Slot } from "../parts/parts.ts";
 import type { BodySense, Senses } from "./senses.ts";
 import { deepFreeze } from "../state.ts";

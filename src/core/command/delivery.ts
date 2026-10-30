@@ -1,6 +1,6 @@
 import { hypot } from "../math/real.ts";
-import type { GroundPoint } from "../mind/movement.ts";
-import type { Orders } from "../mind/orders.ts";
+import type { GroundPoint } from "../intent/movement.ts";
+import type { Orders } from "../intent/orders.ts";
 
 /** Release an approach to the ordered foe once in range, leaving the Mind its local combat footwork. */
 export function releaseCombatApproach(orders: Orders, from: GroundPoint, target: { readonly id: string; readonly at: GroundPoint } | null): Orders {

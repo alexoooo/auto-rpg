@@ -1,5 +1,5 @@
-import type { GaitName } from "../skills/gaits.ts";
-import type { Spot } from "../mind/action-window.ts";
+import type { GaitName } from "../skills/locomotion/gaits.ts";
+import type { Spot } from "../intent/action-window.ts";
 import type { Situation } from "./option.ts";
 import type { Percepts } from "./percepts.ts";
 

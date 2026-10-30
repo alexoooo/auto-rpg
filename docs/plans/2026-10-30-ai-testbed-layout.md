@@ -142,27 +142,27 @@ nothing is evaluated between steps 2 and 8 unless a decision needs it.
 7. **The core's mind, control and skills in folders** (neutral).
    - `mind/` keeps the body's seam with a mind (mind, host, hosted, direct, minds, controller,
      sub-mind, senses, object-senses, equipment-port, body-actions, actions, motion, held-body,
-     sheets, kit, learner).
+     sheets, kit) and the registry of mind kinds.
    - `intent/`: intent, orders, movement, travel, action-aim, action-window, conditions, targets,
      cover-hand. `navigation/`: the navigator, navigations, route search, crowd, clear-step,
-     sensed bounds, held clearance. `perception/`: openings (its surface geometry its own file),
-     hull entry, threat, and `downed/` (today's `ground-*.ts`, placing against a downed foe).
-     `recovery/`: `ground/`, `rise/`, lie, the techniques.
+     sensed bounds, held clearance. `perception/`: openings, hull entry, threat, and `downed/`
+     (placing against a downed foe). `recovery/`: `ground/`, `rise/`, lie, the sub-minds.
    - `tactics/`: the tactics, its part and planners, action, stand and script tactics, the
-     behaviours, ordered, the action producer and config, the fighter and its kind; the body layer
-     from a kit (`fighterSkills` as `kitSkills`, `fighterBody` as `kitBody`, `kitFaults`). Each
-     layer's config with its layer: the skills' (`ActionConfig`, `ExecutorEntry`) in
-     `skills/configs.ts`, `SkillKit` on its own fields, the tactics' and `FighterConfig` in
-     `tactics/config.ts`, the quadruped's in `reptile/`.
+     behaviours, ordered, the action producer and config, the fighter and its kind.
    - `skills/` takes the executor, locomotion and aim roles, aims and profile, in `framework/`,
-     `locomotion/`, `guard/` and `strikes/`; `skill.ts`'s gait, carriage, footing and support types
-     below them; `strikes.ts` named for what it holds (`held-strike.ts`).
-   - `control/`: the whole-body tasks join `core/tasks/`; `Pose` below the motor; `support.ts`'s
-     body-wide sums in `core/math/body.ts`; the network (`recovery-network.ts`) with the learner in
+     `locomotion/`, `guard/` and `strikes/`; `strikes.ts` named for what it holds
+     (`held-strike.ts`).
+   - `control/`: the whole-body tasks in `control/whole-body/` (`core/tasks/` holds the control
+     foundation's scenarios); `Pose` in `spec/pose.ts`; `support.ts`'s body-wide sums in
+     `read-motion.ts`, beside the read view they read; the network with the learner in
      `core/learning/`.
-   - The upward imports go (`kit` → the lowering, `action-window` → a ground route, `targets` and
-     the sensed bounds → openings, `threat` → the ground reading); the boundary test holds the
-     folders' order.
+   - The boundary test holds the layers (`LAYERS`) with today's imports up them listed
+     (`UP_STACK`, 30, each by the change that removes it): the layering plan's step 1.
+   - Then each layer's config with its layer (the layering plan's step 6): the skills'
+     (`ActionConfig`, `ExecutorEntry`) in `skills/`, the tactics' and `FighterConfig` in
+     `tactics/`, `mind/config.ts` keeping the toolkit's mechanism data; the body layer from a kit
+     (`fighterSkills` as `kitSkills`, `fighterBody` as `kitBody`). Check: `UP_STACK` loses the
+     config entries.
 8. **The world builders in `src/worlds/`** (neutral). The bout (`duel`, `room`, `levels`, the end
    rule), the Crypt run (`map`, `run`, `level`, `encounters`; its look stays in `dungeon/`), the
    Lab's scenarios, ground starts and actor, the falls; the mind link beside the game's catalog.

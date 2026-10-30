@@ -1,8 +1,8 @@
 import { impactEnergy } from "../rules/impact.ts";
 import { sideDamage, type Rulebook } from "../rules/rulebook.ts";
 import { energyShares } from "../rules/share.ts";
-import { landed } from "../skills/action-instances.ts";
-import type { Ended } from "../skills/action.ts";
+import { landed } from "../skills/framework/action-instances.ts";
+import type { Ended } from "../skills/framework/action.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";

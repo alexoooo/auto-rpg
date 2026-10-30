@@ -9,7 +9,7 @@ import { planarSupportPoints } from "../src/core/build/planar-support.ts";
 import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { predictPointContacts } from "../src/core/build/contact-step.ts";
 import { jointAngles } from "../src/core/build/joint-state.ts";
-import { nearJointStops } from "../src/core/control/joint-stops.ts";
+import { nearJointStops } from "../src/core/control/whole-body/joint-stops.ts";
 
 const zero = [0, 0, 0], dimensions = [[1.2, .2, .6], [.6, .1, .2]];
 const q = (v, unit = "m") => sourced(v, unit, "de-leva-1996", "synthetic ground and angular-stop fixture; not anatomical data");

@@ -1,6 +1,6 @@
 import type { Controller } from "./controller.ts";
 import { DRILL_OPPONENT_MIND } from "./drill-opponent.ts";
-import { FIGHTER_MIND } from "./fighter-kind.ts";
+import { FIGHTER_MIND } from "../tactics/fighter-kind.ts";
 import { OPTION_MIND } from "../option/mind.ts";
 import { QUADRUPED_MIND } from "../reptile/kind.ts";
 

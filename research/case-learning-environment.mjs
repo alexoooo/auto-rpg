@@ -1,6 +1,6 @@
 /**
  * **A learning environment over an evaluation's cases**: any learnable part (`Learner`,
- * `src/core/mind/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
+ * `src/core/learning/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
  * deciding its outputs. An environment file names:
  *
  * - `evaluation`; `subject`, a mind's config with the part in learning mode (a bare mind's

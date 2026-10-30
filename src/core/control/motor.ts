@@ -11,9 +11,7 @@ import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts"
 import type { BalanceMaker } from "./balance-part.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
-
-/** Joint angles, rad, by channel name. */
-export type Pose = Readonly<Record<string, number>>;
+import type { Pose } from "../spec/pose.ts";
 
 /**
  * A freedom driven by its muscles alone: they pull toward `sense` (+1 or -1) at activation `level`

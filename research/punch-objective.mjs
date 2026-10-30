@@ -18,16 +18,16 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { contactGive, contactMass } from "../src/core/build/contact-mass.ts";
-import { centreOfToRef } from "../src/core/control/support.ts";
+import { centreOfToRef } from "../src/core/read-motion.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
-import { NO_COVER } from "../src/core/mind/intent.ts";
+import { NO_COVER } from "../src/core/intent/intent.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { holdsOf, seriesStiffness } from "../src/core/rules/blows.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";
-import { combatSkills } from "../src/core/skills/combat.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
+import { combatSkills } from "../src/core/skills/strikes/combat.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** How long the struck body stands in guard before it is read, s. */

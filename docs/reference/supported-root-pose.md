@@ -1,7 +1,7 @@
 # Supported root poses
 
 Low striking from a folded stance: `StanceGoal.pose`, its physical probes, and the settings
-`COMBAT_FOLD` (`src/core/skills/support-fold.ts`) takes from them. Figures use the Node unpinned
+`COMBAT_FOLD` (`src/core/skills/locomotion/support-fold.ts`) takes from them. Figures use the Node unpinned
 Warrior stand, `rapier-coordinate`, 120 Hz, empty hands, balance 0; `research/combat-strikes.mjs`
 with `support` applies `supportedStrikeCommand` through the ordinary body driver. Configurations,
 phases, pre-contact velocity, path error, saturation, impulses, returns and failures are in

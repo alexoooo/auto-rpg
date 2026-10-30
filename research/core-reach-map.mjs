@@ -19,7 +19,7 @@ import { chainTo, pointAtToRef, solveReach } from "../src/core/control/kinematic
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { GUARD } from "../src/core/skills/guard.ts";
+import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;

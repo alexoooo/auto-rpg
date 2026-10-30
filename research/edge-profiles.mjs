@@ -1,12 +1,12 @@
 /**
  * **The edges' profiles** (`docs/reference/rising.md#routes-priced`): from the Rise drill's records,
  * both rungs, each body's profile of each edge it was begun on, in the profiles' one type
- * (`src/core/mind/profile.ts`, `assets/core/edge-profiles.json`): one cell, no foe, its trials those
+ * (`src/core/skills/framework/profile.ts`, `assets/core/edge-profiles.json`): one cell, no foe, its trials those
  * that began the edge; the share it took the body to its posture, the mean seconds a trial ran, done
  * or not, the share not done (down), and the positions those came to rest in. Each names what it was
  * measured on: the body as the drill builds it (`techniqueSpec`), the technique's config, the
  * harness's rate, and no reaction time (an edge reads no other body). Stand up prices its routes by
- * them (`src/core/mind/ground/stand-up.ts`).
+ * them (`src/core/recovery/ground/stand-up.ts`).
  *
  *   node research/edge-profiles.mjs [<record.jsonl or run.json> ...] [--write]
  *
@@ -15,7 +15,7 @@
  */
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { measuredOn, techniqueDigest } from "../src/core/mind/profile.ts";
+import { measuredOn, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { techniqueSpec } from "../src/evaluation/technique.ts";
 
 const DIR = "assets/evaluations/rise", OUT = new URL("../assets/core/edge-profiles.json", import.meta.url);

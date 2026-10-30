@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
-import { centreOfToRef, massCentreToRef, massOf } from "./control/support.ts";
+import { centreOfToRef, massCentreToRef, massOf } from "./read-motion.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
 import type { SolidSense } from "./mind/object-senses.ts";

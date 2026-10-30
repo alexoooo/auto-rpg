@@ -1,5 +1,5 @@
-import type { Ended, Readiness, Region } from "../core/skills/action.ts";
-import type { MenuEntry } from "../core/skills/menu.ts";
+import type { Ended, Readiness, Region } from "../core/skills/framework/action.ts";
+import type { MenuEntry } from "../core/skills/framework/menu.ts";
 import type { StrikeChoice } from "../core/command/commands.ts";
 import { partLabel } from "./part-label.ts";
 

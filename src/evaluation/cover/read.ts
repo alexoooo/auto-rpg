@@ -3,7 +3,7 @@
  * where it met the subject (its head, its guard, the rest of it), the hit points each took, and
  * whether the subject went down.
  */
-import { regionSegments } from "../../core/mind/action-aim.ts";
+import { regionSegments } from "../../core/intent/action-aim.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";

@@ -1,18 +1,18 @@
 import type { MotorPart } from "../control/motor-part.ts";
 import type { BalancePart } from "../control/balance-part.ts";
 import type { Controller } from "../mind/controller.ts";
-import type { ExecutorPart } from "../mind/executor-part.ts";
-import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import type { NavigatorPart } from "../mind/navigator.ts";
-import type { BehaviourPart } from "../mind/behaviour-part.ts";
-import type { TacticsPart } from "../mind/tactics-part.ts";
+import type { ExecutorPart } from "../skills/framework/executor-part.ts";
+import type { LocomotionPart } from "../skills/framework/locomotion-part.ts";
+import type { NavigatorPart } from "../navigation/navigator.ts";
+import type { BehaviourPart } from "../tactics/behaviour-part.ts";
+import type { TacticsPart } from "../tactics/tactics-part.ts";
 import type { PartConfig, Role } from "./parts.ts";
-import type { SubMindPart } from "../mind/sub-mind-part.ts";
-import type { TechniquePart } from "../mind/ground/technique.ts";
-import type { GuardPart } from "../skills/guard-part.ts";
-import type { SupportPart } from "../skills/support-part.ts";
-import type { MoveRulePart } from "../skills/move-rule-part.ts";
-import type { AimPart } from "../mind/aim-part.ts";
+import type { SubMindPart } from "../recovery/sub-mind-part.ts";
+import type { TechniquePart } from "../recovery/ground/technique.ts";
+import type { GuardPart } from "../skills/guard/guard-part.ts";
+import type { SupportPart } from "../skills/locomotion/support-part.ts";
+import type { MoveRulePart } from "../skills/locomotion/move-rule-part.ts";
+import type { AimPart } from "../skills/framework/aim-part.ts";
 
 /**
  * **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker

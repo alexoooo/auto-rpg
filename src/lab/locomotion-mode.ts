@@ -1,8 +1,8 @@
 import type { HostedBody } from "../core/body.ts";
 import { carried, paceRound, turnAt, type StanceEnvelope } from "../core/control/stance-envelope.ts";
-import { NO_COVER, type Intent } from "../core/mind/intent.ts";
+import { NO_COVER, type Intent } from "../core/intent/intent.ts";
 import { wrap } from "../core/math/turn.ts";
-import type { Tactics } from "../core/mind/tactics.ts";
+import type { Tactics } from "../core/tactics/tactics.ts";
 import type { Actor } from "./actor.ts";
 import { startGaitMeter, type GaitReading } from "./gait-meter.ts";
 import { ARRIVED, type Commands } from "./commands.ts";

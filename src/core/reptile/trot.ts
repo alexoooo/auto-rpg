@@ -1,7 +1,7 @@
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
-import type { Orders } from "../mind/orders.ts";
-import type { Skill } from "../skills/skill.ts";
+import type { Orders } from "../intent/orders.ts";
+import type { Skill } from "../skills/framework/skill.ts";
 import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";

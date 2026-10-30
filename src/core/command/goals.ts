@@ -1,6 +1,6 @@
 import { cos, hypot, sin } from "../math/real.ts";
-import { placeMovement, sameMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
-import type { NavigationReport } from "../mind/navigator.ts";
+import { placeMovement, sameMovement, type GroundPoint, type MovementRequest } from "../intent/movement.ts";
+import type { NavigationReport } from "../navigation/navigator.ts";
 import type { TeamOrder } from "./commands.ts";
 import type { MemberView, SensedBody, TeamLevel, TeamView } from "./team.ts";
 

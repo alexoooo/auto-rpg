@@ -13,7 +13,7 @@
  * with none, the pulls its learner holds stand (zero, limp, unless something writes them: a
  * trainer, which reads its inputs and writes its outputs, `Learner`).
  */
-import { networkFaults, recoveryNetwork, type Network } from "../../core/control/recovery-network.ts";
+import { networkFaults, recoveryNetwork, type Network } from "../../core/learning/recovery-network.ts";
 import type { BodyObservation } from "../../core/observation.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
@@ -21,7 +21,7 @@ import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../
 import type { BodyAction } from "../../core/mind/body-actions.ts";
 import type { MindWiring } from "../../core/mind/minds.ts";
 import { NOTHING_SENSED } from "../../core/mind/senses.ts";
-import { learnerOf, type Learner } from "../../core/mind/learner.ts";
+import { learnerOf, type Learner } from "../../core/learning/learner.ts";
 
 /** **The bare mind's config**: its network, or none (its pulls written from outside), and how many control steps apart it decides. */
 interface BareConfig {

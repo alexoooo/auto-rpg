@@ -1,7 +1,7 @@
 # Unassisted combat locomotion
 
 How fast an unassisted Warrior can turn as it walks, and the optional heading-speed ceiling
-`turnLimit` (`StanceWalkConfig`, `src/core/mind/config.ts`; `src/core/skills/locomotion.ts`).
+`turnLimit` (`StanceWalkConfig`, `src/core/mind/config.ts`; `src/core/skills/locomotion/locomotion.ts`).
 `assets/core/stance-envelope.json` (`Body.envelope`) is a parent-axis Rapier table read in GUARD
 with the character's balance; it says nothing of the coordinate engine at balance 0. `turnLimit`
 can only lower that table's turn allowance, never raise it.

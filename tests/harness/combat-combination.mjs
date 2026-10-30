@@ -3,11 +3,11 @@ import {coreStand} from './core-stand.mjs';
 import {modelSpec} from '../../src/core/models.ts';
 import {DEFAULT_ENGINE} from '../../src/core/engine/engines.ts';
 import {createBody,SERVO_SECONDS} from '../../src/core/body.ts';
-import {combatSkills} from '../../src/core/skills/combat.ts';
-import {ATTACK_PATH} from '../../src/core/skills/attack-path.ts';
+import {combatSkills} from '../../src/core/skills/strikes/combat.ts';
+import {ATTACK_PATH} from '../../src/core/skills/strikes/attack-path.ts';
 import {actionCycles} from '../../research/action-cycles.mjs';
-import {NO_COVER} from '../../src/core/mind/intent.ts';
-import {motionAtToRef} from '../../src/core/control/support.ts';
+import {NO_COVER} from '../../src/core/intent/intent.ts';
+import {motionAtToRef} from '../../src/core/read-motion.ts';
 
 /** Two independent fist targets on an unpinned Warrior, through one shared command and stance. */
 export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {

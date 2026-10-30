@@ -1,6 +1,6 @@
 # Punch execution qualification
 
-The bounded-impact punch execution (`PUNCH_EXECUTION`, `src/core/skills/combat.ts`) and its search.
+The bounded-impact punch execution (`PUNCH_EXECUTION`, `src/core/skills/strikes/combat.ts`) and its search.
 The selected input gains 17.1 % left and 8.9 % right in median impulse, below the 20 % both-hand
 gate, and fails the low trials: it is not promoted. `ArenaFighterConfig.execution`
 (`src/core/mind/config.ts@352fbe24`) runs it through the ordinary gameplay path.

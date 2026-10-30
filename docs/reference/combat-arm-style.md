@@ -1,10 +1,10 @@
 # Action-specific arm style
 
-A path action's `armExtension` (`PathActionConfig`, `src/core/skills/path-part.ts`) is an optional
+A path action's `armExtension` (`PathActionConfig`, `src/core/skills/strikes/path-part.ts`) is an optional
 extension style in [0,1]; omitted, it
 inherits `ATTACK_PATH.elbowExtension` ([combat-strikes.md](combat-strikes.md#elbow-extension)).
 Zero keeps the guard preference; one asks extension through the joint-range-bounded IK objective.
-`validArmExtension` (`src/core/skills/attack-path.ts`) validates it for the action and the path tuning.
+`validArmExtension` (`src/core/skills/strikes/attack-path.ts`) validates it for the action and the path tuning.
 
 The executor captures the style with the whole action, so a later proposal does not change a
 committed swing; the cubic blend eases extension in the swing and restores guard in the return.

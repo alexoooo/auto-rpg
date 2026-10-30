@@ -1,11 +1,11 @@
 # The whole-body spike
 
 Whether one bounded torque solve over the coupled dynamics, with the ground's contacts and the
-joints' stops (`wholeBodyTracking`, `src/core/control/whole-body.ts`, through `createMotionBody`),
+joints' stops (`wholeBodyTracking`, `src/core/control/whole-body/whole-body.ts`, through `createMotionBody`),
 can stand a body on free feet under the stand competency's shoves and throw an explosive punch at
 the punch competency's pad, sequenced pelvis, trunk, arm, unassisted, at 120 and 480 Hz, within a
 step budget for two fighters in real time. Its settings are `WHOLE_BODY` and `FLAT_OUT`
-(`src/core/skills/whole-body-strike.ts`).
+(`src/core/skills/strikes/whole-body-strike.ts`).
 
 **No.** It stands to 0.2 N s/kg in every cell, against a threshold of 0.5 and the game's stance's 0.6.
 Standing in place, no controller can do much better: the capture point allows 0.30 to 0.34 N s/kg
@@ -120,7 +120,7 @@ upright, 95 % landed, every landed blow 6.8 m/s or faster, first contact within 
 
 ## Flat out
 
-The flat-out drive (`FLAT_OUT`, `src/core/skills/whole-body-strike.ts`, and
+The flat-out drive (`FLAT_OUT`, `src/core/skills/strikes/whole-body-strike.ts`, and
 `research/greedy-punch.mjs` over it) asks the same solve for the fist with no path and no set
 time. Every step it asks the fist's strike point for `push` m/s² along the line from where the
 drive began to `through` past the target, beyond anything a muscle gives, and holds it to the line

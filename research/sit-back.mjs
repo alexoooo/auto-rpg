@@ -1,6 +1,6 @@
 /**
  * **The sit-back's reproduction** (`docs/reference/rising.md#the-sit-back`): the technique
- * (`sit-back`, `src/core/mind/ground/staged-edges.ts`) played alone from hands and knees at rest on
+ * (`sit-back`, `src/core/recovery/ground/staged-edges.ts`) played alone from hands and knees at rest on
  * toes, the start the toes' stand-up was measured from (`placement("push-off-bear")`,
  * `research/rise-witness.mjs`), and the body watched to verified standing (`STAND_CHECK`): quiet on
  * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints. Node stand, core world, Rapier,
@@ -23,14 +23,14 @@ import { humanoidSpec } from "../src/core/human/spec.ts";
 import { armedWith } from "../src/core/items/held.ts";
 import { createWorld } from "../src/core/world.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
-import { turnOfToRef } from "../src/core/control/support.ts";
+import { turnOfToRef } from "../src/core/read-motion.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { groundReading } from "../src/core/mind/ground/reading.ts";
-import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
+import { groundReading } from "../src/core/recovery/ground/reading.ts";
+import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 import { placement } from "./rise-witness.mjs";
 

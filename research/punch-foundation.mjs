@@ -3,7 +3,7 @@ import {writeFileSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
 import {punchCalibration,calibratePunches} from './punch-calibration.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
-import {PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
+import {PUNCH_EXECUTION} from '../src/core/skills/strikes/combat.ts';
 
 /** Fixed finite experiment, with every input and rejected cell retained: punch-foundation.md. */
 export const PUNCH_SEARCH=Object.freeze({seconds:8,passes:2,ratio:1.2,

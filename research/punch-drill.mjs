@@ -59,7 +59,7 @@ export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1
  * The drive's settings around a schedule, whole (`StraightPunch`): admitted at any range past
  * `reach` of the arm, driven for at most `longest` s; its pace, the posture beneath where a
  * schedule names none, and its return those of the flat-footed Puncher's searched punch
- * (`STRAIGHT_PUNCH`, `src/core/skills/straight-punch.ts@f327dd9e`).
+ * (`STRAIGHT_PUNCH`, `src/core/skills/strikes/straight-punch.ts@f327dd9e`).
  */
 export const AROUND = { pace: 1.021, reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5,
   through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276, lead: 0.055, recover: 0.376 };

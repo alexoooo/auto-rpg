@@ -27,13 +27,13 @@ import { kitOf } from "../../../src/core/mind/kit.ts";
 import { partLookup } from "../../../src/entrants/game.ts";
 import { PUNCHER } from "../../../src/entrants/classic/presets.ts";
 import { STAND_CHECK } from "../../../src/lab/ground-mode.ts";
-import { standUp } from "../../../src/core/mind/ground/stand-up.ts";
-import { groundReading, quietOnFeet } from "../../../src/core/mind/ground/reading.ts";
+import { standUp } from "../../../src/core/recovery/ground/stand-up.ts";
+import { groundReading, quietOnFeet } from "../../../src/core/recovery/ground/reading.ts";
 import { placement } from "../../../research/rise-witness.mjs";
 import { variantSpec } from "../bodies.mjs";
 import { phasedRun } from "../phased-rise.ts";
-import { turnOfToRef } from "../../../src/core/control/support.ts";
-import { poseDrive } from "../../../src/core/mind/ground/technique.ts";
+import { turnOfToRef } from "../../../src/core/read-motion.ts";
+import { poseDrive } from "../../../src/core/recovery/ground/technique.ts";
 
 const both = (p) => Object.fromEntries(Object.entries(p).flatMap(([k, v]) => (k.includes("@") ? ["left", "right"].map((s) => [k.replace("@", s), v]) : [[k, v]])));
 /** Child's pose on tucked toes: the hips back over the heels, the arms reaching forward to the planted hands, palms flat. */
@@ -42,7 +42,7 @@ export const SIT_BACK = both({ "lumbar flexion": 0.5, "thoracic flexion": 0.3, "
 /** Sat upright on the heels on tucked toes, hands off, the arms forward: the weight over the feet. */
 export const TUCK_SIT = both({ "lumbar flexion": 0, "thoracic flexion": 0.1, "neck flexion": 0, "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.15, "shoulder.@ internal rotation": 0,
   "elbow.@ flexion": 0.3, "wrist.@ flexion": 0, "hip.@ flexion": 1.2, "hip.@ abduction": 0.15, "knee.@ flexion": 2.55, "ankle.@ dorsiflexion": 0.75 });
-/** The game's own sit (`SIT`, `src/core/mind/rise/stages.ts`): sat back on the heels, hands off, toes let out. */
+/** The game's own sit (`SIT`, `src/core/recovery/rise/stages.ts`): sat back on the heels, hands off, toes let out. */
 export const GAME_SIT = both({ "lumbar flexion": -0.2, "shoulder.@ flexion": 0.6, "shoulder.@ abduction": 0.2, "wrist.@ flexion": -1, "hip.@ flexion": 2, "knee.@ flexion": 2.55, "ankle.@ dorsiflexion": -0.4 });
 /** A deep squat with the hands still touching the floor ahead of the feet, palms flat, feet about hip-width. */
 export const SQUAT_HANDS = both({ "lumbar flexion": 0.6, "thoracic flexion": 0.3, "neck flexion": 0, "shoulder.@ flexion": 1.6, "shoulder.@ abduction": 0.2, "shoulder.@ internal rotation": -0.3,
@@ -51,7 +51,7 @@ export const SQUAT_HANDS = both({ "lumbar flexion": 0.6, "thoracic flexion": 0.3
 export const SQUAT = both({ "lumbar flexion": 0.5, "thoracic flexion": 0.2, "neck flexion": -0.3, "shoulder.@ flexion": 1.4, "shoulder.@ abduction": 0.15, "shoulder.@ internal rotation": 0,
   "elbow.@ flexion": 0.4, "wrist.@ flexion": 0, "hip.@ flexion": 2.0, "hip.@ abduction": 0.2, "knee.@ flexion": 2.4, "ankle.@ dorsiflexion": 0.75 });
 
-/** The game's hands and knees (`FOURS`, `src/core/mind/rise/stages.ts`). */
+/** The game's hands and knees (`FOURS`, `src/core/recovery/rise/stages.ts`). */
 export const FOURS = both({ "lumbar flexion": 0.3, "thoracic flexion": 0.2, "shoulder.@ flexion": 1.9, "shoulder.@ abduction": 0.3, "shoulder.@ internal rotation": -0.4,
   "elbow.@ flexion": 0.3, "wrist.@ flexion": -0.8, "hip.@ flexion": 1.9, "knee.@ flexion": 2.4, "ankle.@ dorsiflexion": 0.38 });
 

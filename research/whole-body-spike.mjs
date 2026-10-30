@@ -1,7 +1,7 @@
 /**
  * **The whole-body spike** (`docs/reference/whole-body-spike.md`): can one bounded torque solve over
  * the coupled dynamics, with the ground's contacts and the joints' stops (`wholeBodyTracking`,
- * `src/core/control/whole-body.ts`, through `createMotionBody`), carry a body that stands on free
+ * `src/core/control/whole-body/whole-body.ts`, through `createMotionBody`), carry a body that stands on free
  * feet under the stand competency's shoves, and throws an explosive punch at the punch
  * competency's pad, sequenced pelvis, trunk, arm, unassisted, at 120 and 480 Hz, within a step
  * budget for two fighters in real time?
@@ -37,15 +37,15 @@ import { isMainThread, parentPort, Worker, workerData } from "node:worker_thread
 import { buildBody } from "../src/core/build/build-body.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { poseAngles } from "../src/core/control/kinematics.ts";
-import { centreOfToRef, pointOfToRef } from "../src/core/control/support.ts";
+import { centreOfToRef, pointOfToRef } from "../src/core/read-motion.ts";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { createMotionBody } from "../src/core/mind/motion.ts";
 import { modelSpec } from "../src/core/models.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
-import { aimOf } from "../src/core/skills/strikes.ts";
-import { guardJoints, holdGoals, localPoint, minimumJerk, trunkTurn, turnSense, WHOLE_BODY } from "../src/core/skills/whole-body-strike.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
+import { aimOf } from "../src/core/skills/strikes/held-strike.ts";
+import { guardJoints, holdGoals, localPoint, minimumJerk, trunkTurn, turnSense, WHOLE_BODY } from "../src/core/skills/strikes/whole-body-strike.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { bodyMass, COMPETENCY, fullReach, THRESHOLDS } from "./competencies.mjs";

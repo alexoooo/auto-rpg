@@ -1,6 +1,6 @@
 import type { HostedBody } from "../core/body.ts";
-import type { Intent } from "../core/mind/intent.ts";
-import type { Sight, Tactics } from "../core/mind/tactics.ts";
+import type { Intent } from "../core/intent/intent.ts";
+import type { Sight, Tactics } from "../core/tactics/tactics.ts";
 import type { Hook, World } from "../core/world.ts";
 import { deciding } from "./actor.ts";
 import type { Side } from "../core/spec/body.ts";

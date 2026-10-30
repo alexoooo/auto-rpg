@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { centreOfToRef } from "../src/core/control/support.ts";
+import { centreOfToRef } from "../src/core/read-motion.ts";
 import { availableParallelism } from "node:os";
 import { standBodies, stepAllocation, stepAllocationAsync } from "./harness/garbage.mjs";
 import { partOf, MINDS } from "../src/entrants/game.ts";

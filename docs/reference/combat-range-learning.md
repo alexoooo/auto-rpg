@@ -2,7 +2,7 @@
 
 The admission screen of range learning: `spacingStep` (the `approach` tactic in
 `src/core/mind/config.ts`) lowers the extra spacing `spacing` asks, in metres, after each clean
-miss (`cleanMiss`, `src/core/mind/action-tactics.ts`). Verdict: not promoted; `SCRAPPER` keeps
+miss (`cleanMiss`, `src/core/tactics/action-tactics.ts`). Verdict: not promoted; `SCRAPPER` keeps
 `spacing: 0, spacingStep: 0`. The figures were read with `rangeLearning`
 (`src/core/mind/range-learning.ts@352fbe24`), whose rule follows.
 

@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidPoints } from "../build/rigid.ts";
 import { effectorAim } from "./effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { motionAtToRef, pointOfToRef } from "./support.ts";
+import { motionAtToRef, pointOfToRef } from "../read-motion.ts";
 import type { BodyRef, ReadBody } from "../read-body.ts";
 
 /** Permitted contact identity, detached from engine handles: a body's segment says whether its body covers with it (`Marks.guards`). */

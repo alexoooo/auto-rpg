@@ -1,6 +1,6 @@
 # Standing handover and subsequent control
 
-The point fighter's recovery (`supportRecovery`, `src/core/mind/rise/support-recovery.ts`): it runs
+The point fighter's recovery (`supportRecovery`, `src/core/recovery/rise/support-recovery.ts`): it runs
 the reference `stagedRise`, then locomotion's gradual height restoration
 ([rising](rising.md#the-handover)), and hands the body back only once `recoveryReady`
 (`src/core/control/recovery-ready.ts`) reads it standing. This records the handover's settings and

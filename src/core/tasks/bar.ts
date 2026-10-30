@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../build/build-body.ts";
-import type { MotionCommand } from "../control/tasks.ts";
+import type { MotionCommand } from "../control/whole-body/tasks.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { equipHands } from "../human/equipment.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
@@ -12,7 +12,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { physicalReading } from "../observation.ts";
 import { createWorld } from "../world.ts";
-import { trackingRejected } from "../control/whole-body.ts";
+import { trackingRejected } from "../control/whole-body/whole-body.ts";
 import { jointStopProbeSettings } from "./stop-settings.ts";
 import type { Side } from "../spec/body.ts";
 

@@ -6,7 +6,7 @@
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { turnOfToRef } from "./support.ts";
+import { turnOfToRef } from "../read-motion.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /**

@@ -1,8 +1,8 @@
 import { deepFreeze } from "../state.ts";
 import { kindOnly, type CommanderEntry } from "./kind.ts";
 import { atan2, cos, sin } from "../math/real.ts";
-import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
-import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
+import { placeMovement, type GroundPoint, type MovementRequest } from "../intent/movement.ts";
+import { STAND_ORDERS, type Orders } from "../intent/orders.ts";
 import { ARRIVAL, approach, direction, distance, lyingSince, onBearing, throughDoors, worthFighting, type Opening } from "./goals.ts";
 import { ALERT_SECONDS, SIGHT_METRES } from "./independent.ts";
 import { bearingOf, bearings, spread } from "./spread.ts";

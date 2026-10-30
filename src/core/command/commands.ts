@@ -1,5 +1,5 @@
-import type { GroundPoint } from "../mind/movement.ts";
-import type { Orders } from "../mind/orders.ts";
+import type { GroundPoint } from "../intent/movement.ts";
+import type { Orders } from "../intent/orders.ts";
 
 /** **How to strike a foe**, each part optional: an action of the member's kit, a limb and a region (`Orders`'s). */
 export type StrikeChoice = Pick<Orders, "action" | "limb" | "region">;

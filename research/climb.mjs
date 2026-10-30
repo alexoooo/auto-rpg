@@ -1,5 +1,5 @@
 /**
- * **Stand up's steady, for research**: the steady as `standUp` runs it (`src/core/mind/ground/stand-up.ts`:
+ * **Stand up's steady, for research**: the steady as `standUp` runs it (`src/core/recovery/ground/stand-up.ts`:
  * its own motor, the locomotion resumed, the stance's goal), handed back once `standReady` holds
  * `READY` s, with the variants `research/crouch-steady.mjs` names. `research/crouch-steady.mjs` runs it
  * from the placed squat, `research/rise-witness.mjs` from a witness's hand-over.
@@ -7,11 +7,11 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SERVO_SECONDS } from "../src/core/body.ts";
 import { carrying } from "../src/core/control/motor.ts";
-import { locomotion, stanceOf } from "../src/core/skills/locomotion.ts";
+import { locomotion, stanceOf } from "../src/core/skills/locomotion/locomotion.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { standReady } from "../src/core/mind/ground/reading.ts";
+import { standReady } from "../src/core/recovery/ground/reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../src/core/control/support.ts";
 
 /** How long the steady waits on a ready body before it hands it back, s. */

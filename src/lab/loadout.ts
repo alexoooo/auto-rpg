@@ -2,7 +2,7 @@ import { withSoles } from "../core/human/sole.ts";
 import { resolveCharacter } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { withLoadout, HELD, heldItem, type Held } from "../core/items/held.ts";
-import { FIST, heldIn } from "../core/skills/strikes.ts";
+import { FIST, heldIn } from "../core/skills/strikes/held-strike.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
 

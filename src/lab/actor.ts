@@ -6,9 +6,9 @@ import { partLookup, partOf, scriptedBy, treeFaults, GAME } from "../entrants/ga
 import type { FighterConfig, MindConfig } from "../core/mind/config.ts";
 import { createMind, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
-import type { Sight, Tactics } from "../core/mind/tactics.ts";
-import type { Skills } from "../core/skills/skills.ts";
-import { heldIn } from "../core/skills/strikes.ts";
+import type { Sight, Tactics } from "../core/tactics/tactics.ts";
+import type { Skills } from "../core/skills/framework/skills.ts";
+import { heldIn } from "../core/skills/strikes/held-strike.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
 import { LAB_PRESETS } from "./scenarios.ts";

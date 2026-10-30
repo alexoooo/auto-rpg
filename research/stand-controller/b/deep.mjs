@@ -25,7 +25,7 @@ import { carrying } from "../../../src/core/control/motor.ts";
 import { kitOf } from "../../../src/core/mind/kit.ts";
 import { partLookup } from "../../../src/entrants/game.ts";
 import { PUNCHER } from "../../../src/entrants/classic/presets.ts";
-import { groundReading, quietOnFeet } from "../../../src/core/mind/ground/reading.ts";
+import { groundReading, quietOnFeet } from "../../../src/core/recovery/ground/reading.ts";
 import { recoveryMeasurement } from "../../../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../../../src/core/observation.ts";
 import { clockSenses } from "../../../src/core/mind/senses.ts";

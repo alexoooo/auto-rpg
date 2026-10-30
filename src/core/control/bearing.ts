@@ -4,7 +4,7 @@
  * the ground, or to move free. `carryRoot` finds the root's acceleration its caller aims for and
  * the patches can give; `bearLimbs`, once the servo has solved the rest of the body around it, the
  * limbs' torques. It knows no foot: which segment a limb ends in, where its point is and what it
- * bears on are its caller's to say (the stance, `stance.ts`; a rise, `src/core/mind/rise/limbs.ts`).
+ * bears on are its caller's to say (the stance, `stance.ts`; a rise, `src/core/recovery/rise/limbs.ts`).
  *
  * A limb need not begin at the root: the freedoms between the root and its chain are its stem
  * (`Limb.stem`; the trunk's, for an arm), which limbs may share and none owns.

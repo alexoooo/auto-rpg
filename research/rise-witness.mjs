@@ -4,11 +4,11 @@
  * (`docs/reference/rising.md#the-budget`). Node stand, core world, Rapier, 120 Hz, calm, no assist.
  *
  * A candidate is a move's phases, each held for its duration, then the body steadied by the stance
- * as Stand up's steady steadies it (`standUp`, `src/core/mind/ground/stand-up.ts`) and handed back
+ * as Stand up's steady steadies it (`standUp`, `src/core/recovery/ground/stand-up.ts`) and handed back
  * once ready (`research/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;
- * - **bear**, closed-loop: plant-up's bearing solve (`plantUp`, `src/core/mind/ground/plant-up.ts`)
+ * - **bear**, closed-loop: plant-up's bearing solve (`plantUp`, `src/core/recovery/ground/plant-up.ts`)
  *   on the limbs given shares of the body's weight, carrying the centre of mass toward a place (an
  *   offset from the bearing limbs' centre toward the feet, and a height) at a velocity (toward the
  *   feet and up), so a phase can carry momentum, and the pelvis to a pitch, at a response time;
@@ -49,21 +49,21 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
 import { armedWith } from "../src/core/items/held.ts";
-import { guardPosture } from "../src/core/skills/guard.ts";
+import { guardPosture } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { groundPlacement, groundPostures } from "../src/lab/ground-starts.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
-import { groundReading } from "../src/core/mind/ground/reading.ts";
-import { poseDrive } from "../src/core/mind/ground/technique.ts";
+import { groundReading } from "../src/core/recovery/ground/reading.ts";
+import { poseDrive } from "../src/core/recovery/ground/technique.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../src/core/control/bearing.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { servoAsk, servoSolve } from "../src/core/control/servo.ts";
-import { turnOfToRef } from "../src/core/control/support.ts";
+import { turnOfToRef } from "../src/core/read-motion.ts";
 import { atan2 } from "../src/core/math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../src/core/math/turn.ts";
-import { riseLimbs } from "../src/core/mind/rise/limbs.ts";
+import { riseLimbs } from "../src/core/recovery/rise/limbs.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 
 /** A pose phase: its seed posture, and its settings where not `POSE_SEED`. */

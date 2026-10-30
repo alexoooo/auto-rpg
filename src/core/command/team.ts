@@ -1,9 +1,9 @@
-import type { GroundPoint } from "../mind/movement.ts";
-import type { NavigationReport } from "../mind/navigator.ts";
-import type { Orders } from "../mind/orders.ts";
-import type { GaitLimits } from "../mind/travel.ts";
-import type { ActionStatus, Ended } from "../skills/action.ts";
-import type { KitEntry, MenuEntry } from "../skills/menu.ts";
+import type { GroundPoint } from "../intent/movement.ts";
+import type { NavigationReport } from "../navigation/navigator.ts";
+import type { Orders } from "../intent/orders.ts";
+import type { GaitLimits } from "../intent/travel.ts";
+import type { ActionStatus, Ended } from "../skills/framework/action.ts";
+import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
 import type { Command } from "./commands.ts";
 
 /**

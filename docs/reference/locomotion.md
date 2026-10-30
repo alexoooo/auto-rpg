@@ -29,7 +29,7 @@ The Rogue walks the 0.5 m/s its orders ask, where the envelope before held it to
 steers by, each found where a member at this envelope stood, walked away or fell:
 
 - **the heading turns at the rate for the pace under way** (`LocomotionState.going`,
-  `src/core/skills/locomotion.ts`): the pace asked, or one asked before it, slowing no faster than
+  `src/core/skills/locomotion/locomotion.ts`): the pace asked, or one asked before it, slowing no faster than
   the walk is asked to stop (`STANCE_STOPPING`). Turned at the rate for the pace asked, a lone hero
   running at 1.8 m/s when its order reverses hands over to the walk at 0.8 with a half turn to go
   at 1 rad/s, catches 12 times in 4 s and falls. Turned at the rate for the pace the stance plans its
@@ -42,10 +42,10 @@ steers by, each found where a member at this envelope stood, walked away or fell
   0.86 m/s, never turned, and of 26 place goals off its facing 18 were never reached; read so,
   all 26 are, and the learned run's lab circle, never run before, runs 6.5 s and falls;
 - **a body that faces its travel walks the way its route goes** and turns to it (`travelFacing`,
-  `src/core/skills/arbiter.ts`); walked forward along the heading as it turns, a body facing away
+  `src/core/skills/framework/arbiter.ts`); walked forward along the heading as it turns, a body facing away
   walks away from its waypoint, at 0.7 m/s on an arc 1.4 m across;
 - **a walk the solids stop turns from its own way** (`SLIDES`, `clearMove`,
-  `src/core/mind/clear-step.ts`): mirrored across the heading or sent to its sides, as it was, it
+  `src/core/navigation/clear-step.ts`): mirrored across the heading or sent to its sides, as it was, it
   went anywhere once the heading no longer pointed the way it went;
 - **a route is found again** where the body takes more room than it was found for (less, by more
   than `NAV.margin`), and once it has stalled (`NAV.stalled`), from where it stands: a route kept
@@ -166,7 +166,7 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   after): forward to 4 m/s for the Warrior by the rule, to 1.2 for the Rogue and the skeleton, since
   a few of their trials at every pace fall. Forward at 3 m/s the Warrior held 10 of 10 trials, the
   Rogue 7, the skeleton 10; at 4, 10, 3 and 10.
-- **How fast a body runs is the speed rule's** (`travelSpeed`, `src/core/mind/travel.ts`): the
+- **How fast a body runs is the speed rule's** (`travelSpeed`, `src/core/intent/travel.ts`): the
   fastest each way that every trial held, under what it stops from and corners at, and the goal's
   ceiling. The gait itself takes any pace that held a fifth of its trials (`REACH`).
 - **Its feet land narrow.** Each swinging foot is placed across from the hip's abduction in the

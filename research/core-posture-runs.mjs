@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { pointOfToRef } from "../src/core/control/support.ts";
+import { pointOfToRef } from "../src/core/read-motion.ts";
 import { posed } from "./core-posture-trials.mjs";
 
 /**

@@ -51,7 +51,7 @@ async function squatStance({ model, held, seed }) {
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("@babylonjs/core/Engines/nullEngine.js"), import("@babylonjs/core/scene.js"), import("../assets/research/posture-holds.json", { with: { type: "json" } }),
     import("../src/core/body.ts"), import("../src/core/build/build-body.ts"), import("../src/core/engine/engines.ts"), import("../src/core/human/spec.ts"),
-    import("../src/core/items/held.ts"), import("../src/core/skills/guard.ts"), import("../src/core/world.ts"), import("../src/lab/ground-starts.ts"),
+    import("../src/core/items/held.ts"), import("../src/core/skills/guard/guard.ts"), import("../src/core/world.ts"), import("../src/lab/ground-starts.ts"),
     import("../src/core/control/recovery-measurement.ts"), import("../src/core/observation.ts"), import("../src/core/mind/senses.ts"), import("../src/lab/ground-mode.ts")]);
   const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");
   const source = poses.find(p => p.model === "workshop-fighter" && p.id === "squat");

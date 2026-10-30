@@ -7,7 +7,7 @@
  */
 import { COUNTER_PUNCHER } from "../../../src/entrants/classic/presets.ts";
 import { MOVE, QUADRUPED, BLADE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
-import { FIGHTER_MIND } from "../../../src/core/mind/fighter-kind.ts";
+import { FIGHTER_MIND } from "../../../src/core/tactics/fighter-kind.ts";
 import { OPTION_MIND } from "../../../src/core/option/mind.ts";
 import { QUADRUPED_MIND } from "../../../src/core/reptile/kind.ts";
 import { AIMED, STUB_AIM } from "./stub-aim.mjs";

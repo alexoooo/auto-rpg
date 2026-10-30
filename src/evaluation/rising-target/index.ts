@@ -4,9 +4,9 @@
  * unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
 import { STAND_UP } from "../../core/mind/config.ts";
-import { STAGED_ROUTE } from "../../core/mind/ground/staged-edges.ts";
-import { TECHNIQUES } from "../../core/mind/ground/techniques.ts";
-import type { TechniqueName } from "../../core/mind/ground/technique.ts";
+import { STAGED_ROUTE } from "../../core/recovery/ground/staged-edges.ts";
+import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
+import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
 import { FALL_CAP, type BuiltFall, type FallReading } from "../fall.ts";
 import { risingMind, risingReport, type RisingRow } from "../rising.ts";

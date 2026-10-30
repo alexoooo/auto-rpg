@@ -3,7 +3,7 @@
  * its memory. Registered from here by one list line (`commanders.mjs`), as an entrant's is.
  */
 import { kindOnly } from "../../../src/core/command/kind.ts";
-import { STAND_ORDERS } from "../../../src/core/mind/orders.ts";
+import { STAND_ORDERS } from "../../../src/core/intent/orders.ts";
 import { approach } from "../../../src/core/command/goals.ts";
 
 export const STUB_COMMANDER = Object.freeze({

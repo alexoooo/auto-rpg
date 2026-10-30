@@ -1,5 +1,5 @@
-import type { Profile } from "../mind/profile.ts";
-import type { PunchRecords } from "../skills/punch-records.ts";
+import type { Profile } from "../skills/framework/profile.ts";
+import type { PunchRecords } from "../skills/strikes/punch-records.ts";
 
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
 export type DataKey = "straight-punch" | "strike-profiles" | "edge-profiles" | "gait-profiles";

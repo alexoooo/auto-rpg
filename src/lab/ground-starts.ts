@@ -4,7 +4,7 @@ import type { buildBody } from "../core/build/build-body.ts";
 import { rigidOf } from "../core/build/rigid.ts";
 import { lowsOf } from "../core/control/ground.ts";
 import { pointAtToRef, poseAngles, specChainTo } from "../core/control/kinematics.ts";
-import { guardPosture } from "../core/skills/guard.ts";
+import { guardPosture } from "../core/skills/guard/guard.ts";
 import { frameOf, handShapeAt, type BodySpec } from "../core/spec/body.ts";
 import { mulberry32 } from "../rng.ts";
 import type { LabAddress } from "./scenarios.ts";

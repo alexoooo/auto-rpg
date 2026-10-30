@@ -1,4 +1,4 @@
-import type { JointStopSettings } from "../control/joint-stops.ts";
+import type { JointStopSettings } from "../control/whole-body/joint-stops.ts";
 
 /** Experimental numeric settings (`docs/reference/joint-stop-tracking.md#numerical-inputs`). */
 const SETTINGS: Readonly<JointStopSettings> = Object.freeze({ margin: 0.001, forceTolerance: 1e-5,

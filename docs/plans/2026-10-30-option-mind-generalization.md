@@ -31,7 +31,7 @@ predictions. What is fixed to one body and one purpose:
 | Combat is written into an option's model: `dealt`, `taken`, `orders` | `Terms`, `value.ts` | An option's model is its duration, its payoff and where it leaves the body; the objective prices both. Combat's few terms are one objective (`FEW_TERMS`, `objective.ts`) |
 | A place's fields are combat percepts | `Place`, `position.ts` | A place names any percept it changes, a part's included |
 | Every mind builds walking, the rise and strikes, which its situation reads, whatever its options | `optionTactics` | The situation reads what its option kinds and objective declare, and each kind makes what it needs |
-| The threat reader senses hands only | `src/core/mind/threat.ts` | A foe's blow by any limb it strikes with (`strikersOf`) |
+| The threat reader senses hands only | `src/core/perception/threat.ts` | A foe's blow by any limb it strikes with (`strikersOf`) |
 | A skill's settings are one body's, thrown by every body | the front kick, the stomp, the path strike, the blades, Vanguard's punch | A record per skill and body, as the straight punch's (`PunchRecord`); a body without one does not use the skill |
 
 Decided here, which the owner may reverse: the framework's package `src/core/option/`; combat's
@@ -51,7 +51,7 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
    Check: the Reptile fights a Warrior and a Reptile in the Arena; the walker reaches its place;
    the owner looks at both.
 5. **Every skill tuned per body.** A skill's settings are its body's record, as the straight
-   punch's are (`PunchRecord`, `src/core/skills/punch-records.ts`: no setting in a mind, none
+   punch's are (`PunchRecord`, `src/core/skills/strikes/punch-records.ts`: no setting in a mind, none
    borrowed from another body, a research `tuning` for experiments); a body with none does not
    use the skill and says so. The skills that carry one body's numbers take records the same way,
    each a run that writes its body's row; a new body is rows, not code.

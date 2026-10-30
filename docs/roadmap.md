@@ -54,7 +54,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
-| [AI testbed layout](plans/2026-10-30-ai-testbed-layout.md) | The toolkit offers mechanisms and an entrant is what you pick: the catalog a value the core is given, the Option framework in the toolkit, each AI a folder of presets and parts in `src/entrants/` with scoped kinds, the Skeleton a preset and its fork deleted, the objective and percepts as parts, the core's mind, control and skills in folders, the world builders in `src/worlds/`; small cleanups first |
+| [AI testbed layout](plans/2026-10-30-ai-testbed-layout.md) | The toolkit offers mechanisms and an entrant is what you pick: the catalog a value the core is given, the Option framework in the toolkit, each AI a folder of presets and parts in `src/entrants/` with scoped kinds, the Skeleton a preset and its fork deleted, the objective and percepts as parts, the core's mind, control and skills in folders, the world builders in `src/worlds/`; small cleanups first (built: steps 1 to 6, and step 7's folders and layer check). Left: each layer's config with its layer; the world builders |
 | [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Option Mind as a toolkit framework that entrants configure, not copy (built: the shared model's foe prior by every striking limb, lying down priced by the worth of a second standing, toes on every humanoid, the straight punch tuned per body; steps 1 to 3 are the AI testbed layout's). Left: a Reptile and a non-combat preset; every skill tuned per body |
 | [Option Skeleton](plans/2026-10-30-option-skeleton.md) | The empty-handed Skeleton preset beating every Arena entrant more than 90% of the time: its rise on toes, its strikes measured, a mixed panel, then the whole field and reserved conditions; a preset of the toolkit's Option Mind. The 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
@@ -64,7 +64,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
-| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks (the part framework, tactics and each layer's config are the AI testbed layout's): the skills free of the decider's memory, report and decision, a neutral `Decider` seam, scripts driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
+| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks (the check, the part framework, tactics and each layer's config are the AI testbed layout's): the skills free of the decider's memory, report and decision, a neutral `Decider` seam, scripts driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
    ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
@@ -348,7 +348,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     an order without its walk (`Orders.walk`).
 - **The place beside a lying body flips between its sides**: a kick's window is read from where
   the kicking sole stands now (`kick.ts`), which a stride moves about 0.1 m, so the nearer side's
-  feet-clear test (`besideLying`, `src/core/mind/action-window.ts`) passes and fails step to step
+  feet-clear test (`besideLying`, `src/core/intent/action-window.ts`) passes and fails step to step
   and the walk turns back for the far side. Option Mind stomps a lying Warrior 1.2 m off its feet at
   9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
   instead lands 8 of the stomping rung's 12 against 10.
@@ -356,7 +356,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.
 - Ground positioning's foot-clearance probes (`sensedFootClearance`, `clearFootTranslation`,
-  `src/core/mind/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
+  `src/core/navigation/sensed-bounds.ts`) rebuild every foe collider's world points on each call,
   several times a decision; building them once a decision is unmeasured ([step cost](reference/step-cost.md)).
 - The oracle, offline research only: its next spaces are a longer horizon, a response held
   longer, two decisions ahead and strikes by name ([oracle](reference/oracle.md)); what it finds

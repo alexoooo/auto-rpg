@@ -1,6 +1,6 @@
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {lowsOf} from '../src/core/control/ground.ts';
-import {pointOfToRef} from '../src/core/control/support.ts';
+import {pointOfToRef} from '../src/core/read-motion.ts';
 import {convexHull} from '../src/core/spec/hull.ts';
 
 const facesOf=new WeakMap();

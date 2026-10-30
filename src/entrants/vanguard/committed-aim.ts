@@ -1,13 +1,13 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../core/body.ts";
-import type { Pose } from "../../core/control/motor.ts";
+import type { Pose } from "../../core/spec/pose.ts";
 import { bodyEffectors } from "../../core/control/effectors.ts";
-import { regionSegments, sensedActionTarget } from "../../core/mind/action-aim.ts";
-import type { ActionRequest, Executor, TargetResolver } from "../../core/skills/action.ts";
-import { straightPunchExecutor } from "../../core/skills/straight-punch.ts";
-import { STANCE_LOWER } from "../../core/skills/locomotion.ts";
+import { regionSegments, sensedActionTarget } from "../../core/intent/action-aim.ts";
+import type { ActionRequest, Executor, TargetResolver } from "../../core/skills/framework/action.ts";
+import { straightPunchExecutor } from "../../core/skills/strikes/straight-punch.ts";
+import { STANCE_LOWER } from "../../core/skills/locomotion/locomotion.ts";
 import type { Vec3 } from "../../core/spec/quantity.ts";
-import { nearSurface } from "../../core/mind/openings.ts";
+import { nearSurface } from "../../core/perception/openings.ts";
 import { lowAim } from "./low-guard.ts";
 import type { VanguardPunchConfig } from "./punch-part.ts";
 
