@@ -2,12 +2,9 @@
 
 ## Why
 
-A drill takes a mind's body over today: the Strike, Gait and Cover drills each drive it by a
-decider of their own (`drill-tactics.ts`, `drill-gait.ts`, Option Mind's `drill-cover.ts`), placed
-inside the mind by a hook each kind writes its own way (`Controller.drilled`, `drilledBy`; Option
-Mind as a `scripted` option), and the fight rung adds a second hook for the mind's own fight
-before its moment (`Controller.fight`, `fightOf`, Option Mind's `option-fight`). Every new mind
-must learn every drill, and Option Mind runs a second copy of its own chooser inside a drill.
+A drill that takes a mind's body over by a decider of its own needs a hook in every kind of mind
+for it, and one more for the mind's own fight before a fight rung's moment: every new mind must
+learn every drill, and Option Mind ran a second copy of its own chooser inside one.
 
 Every game mind already obeys orders (`Orders`, `src/core/mind/orders.ts`): a person's in the
 Arena, a Commander's in the Crypt. A drill is then a Commander leading the subject's side as a
@@ -117,7 +114,7 @@ refused), how long the body stands first, the pace, whether it asks while walkin
 (absent, from the start; n, from the step the mind begins its nth action of its kit with a region,
 the order taking that one's place). From its moment it orders the body to stand for its settle,
 walks it into the action's window at the pace, braking as it arrives (a move order to the window's
-middle), and once it has stood settled there a moment (or walking, where it asks so) orders the
+middle: the menu's spot, `MenuEntry.spot`, which beside a body lying carries the way round it), and once it has stood settled there a moment (or walking, where it asks so) orders the
 attack with the action, limb and region, kept until the action ends; with a let-go time, it orders
 a stand that long after the action began. Every order is firm (`Orders.firm`: carry them out
 first). Before its moment it orders nothing, and the mind fights. It reports its phase and the
@@ -142,8 +139,8 @@ records before (`npm run compare`); each moved figure named; the reels watched.
   `GaitName`), narrowing the legs as `action` narrows the skill, honoured by the minds whose legs
   go by gaits (Option Mind's walk options, Move's rules); the drill Commander goes at the speed by
   the gait, stops where the menu says the action would start but for its speed, and orders it.
-- The Cover drill's subject stands facing the striker (a stand order with a face); the mind covers
-  by itself.
+- The Cover drill's subject stands facing the striker (the stand Commander, `stand.ts`: a firm
+  stand order with a face); the mind covers by itself.
 
 Check: the gate; each drill's rungs read paired against their records before; the reels watched.
 

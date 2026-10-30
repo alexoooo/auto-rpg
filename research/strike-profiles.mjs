@@ -62,7 +62,9 @@ for (const path of paths) {
   const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
   if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
   for (const row of rows) {
-    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, drill = partIn(mind, "drill");
+    const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
+    // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
+    const drill = led?.kind === "drill" ? { kind: "drill", action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
     const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
