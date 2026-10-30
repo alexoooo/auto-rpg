@@ -54,13 +54,18 @@ const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch",
 const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
+/** A low front kick reaches a trunk below the punch's height band. */
+const LOW_KICK: ExecutorEntry = deepFreeze({ name: "low-kick", kind: "front-kick", contactSpeed: 7, windup: 0, swingSeconds: .25, returnNear: .1 });
+const LOW_KICK_ACTION: ActionConfig = deepFreeze({ name: "low-kick", executor: "low-kick", effectors: ["foot.right", "foot.left"],
+  regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } });
+
 /** The Skeleton walks braced, with each gait chosen as an option. */
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
 /** The empty-handed Skeleton's own chooser, unlearned punch and flat-footed recovery. */
 const OPTION_DEFAULTS: SkeletonOptionConfig = deepFreeze({ kind: "option-skeleton", chooser: { kind: "skeleton-valued", depth: 2 }, options: OPTIONS,
   locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
-  executors: [PUNCH], actions: [STRAIGHT_PUNCH_ACTION], ground: [{ kind: "step-up" }] });
+  executors: [PUNCH, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, LOW_KICK_ACTION], ground: [{ kind: "step-up" }] });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([
