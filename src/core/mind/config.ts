@@ -245,7 +245,7 @@ const DUELLIST_STRIKE = deepFreeze({ stand: .25, slack: { along: .12, across: .2
 export const DUELLIST: FighterConfig = deepFreeze({ ...BEHAVIOURS,
   tactics: { ...BEHAVIOURS.tactics, list: [
     { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach", travel: 1.5 }, { kind: "cover", guard: "ward" }] },
-  executors: [{ name: "recipe", kind: "recipe-strike", tuning: DUELLIST_STRIKE }, { name: "blade-thrust", kind: "blade-thrust" }],
+  executors: [{ name: "recipe", kind: "recipe-strike", ...DUELLIST_STRIKE }, { name: "blade-thrust", kind: "blade-thrust" }],
   actions: [
     ...(["high", "middle"] as const).map((mark) => ({ name: `swing ${mark}`, executor: "recipe", effectors: EITHER_HAND, regions: [{ kind: "mark" as const, mark }], aim: { kind: "centre" as const, lead: 0 } })),
     { name: "thrust", executor: "blade-thrust", effectors: EITHER_HAND, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }] });
