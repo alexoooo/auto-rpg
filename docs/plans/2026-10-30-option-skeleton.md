@@ -6,8 +6,8 @@ The owner wants a compartmentalized Option Mind variant, `option-skeleton`, that
 every existing Arena entrant more than 90% of the time, armed opponents included. Its runtime
 code belongs to `src/core/entrants/option-skeleton/`, its data to
 `assets/entrants/option-skeleton/`; the shared registry names it. The body's anatomy, attributes,
-assists and fight rules are fixed. The hidden `option-skeleton-reference` preserves the original
-preset for comparisons. This campaign is independent of the reference Warrior's design plan.
+assists and fight rules are fixed. Saved recipes and Git retain comparison baselines.
+This campaign is independent of the reference Warrior's design plan.
 
 ## Steps
 

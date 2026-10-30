@@ -552,8 +552,8 @@ presets from this registry, with its Script and Guard scenario defaults added.
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
-| option | `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; `option` the toed Warrior's learned punch and stomp; the hidden `option-skeleton-reference` preserves the original empty-handed Skeleton preset |
-| option-skeleton | `src/core/entrants/option-skeleton/` | the independent empty-handed, flat-footed Skeleton; its own configuration, chooser, options, predictions and tactics, with private part kinds; the toolkit's straight punch, low front kick and default step-up recovery; its private guard raises a saved arm posture against sensed enemy blades, with angles under `assets/entrants/option-skeleton/`; an experimental private recovery uses its own roll poses and rise timing there; the controller refuses equipped bodies |
+| option | `src/core/entrants/option/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`fighterSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the learned punch, on the Warrior |
+| option-skeleton | `src/core/entrants/option-skeleton/` | independent empty-handed, flat-footed Skeleton; private chooser, options, predictions and blade guard; shared fighter skills and step-up |
 | bare | `src/core/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill opponent | `src/core/entrants/drill-opponent/` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again), its scripts presets on no menu (`drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard | `src/core/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, held-item recipe adapter, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -945,7 +945,8 @@ it fits, forks it and replays it from its order sheets. How well it fights is a 
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
   `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
   ([The screens](#the-screens)) shows every record.
-  The CLI's `subjectIdsOf` keeps `mind/body/left,right` whole in a comma-separated list.
+  `--subjects` and `--against` each take one complete subject per flag; repeat the flag for
+  several subjects. Commas inside identifiers or JSON are part of that subject.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
   with `--experimental`) and for every
   part that reads mind data (`DATA_CASES`: the learned punch);
