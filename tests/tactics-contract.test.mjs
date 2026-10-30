@@ -93,25 +93,3 @@ test("the Lab's supplied script replaces configured tactics and passes through i
     assert.equal(skills.state.tactics, state, "the supplied script's memory belongs to the driven kit");
   } finally { actor.dispose(); stand.dispose(); }
 });
-
-test("a drill that fights until a moment is its mind's own bout up to that moment, to the bit", async () => {
-  const { MINDS } = await import("../src/core/mind/controllers.ts");
-  const { buildBout } = await import("../src/evaluation/bout.ts");
-  const { striker } = await import("../src/evaluation/strike/cases.ts");
-  // The Vanguard's planner wraps another and prepares the skills: every hook a drill must pass on.
-  const mind = MINDS["vanguard-warrior"].config, foe = MINDS.counter.config;
-  const recipe = (left) => ({ left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left, right: foe } });
-  const plain = await buildBout(recipe(mind)), drilled = await buildBout(recipe(striker({ mind, action: "strike" }, "right", "high", { after: 0, moment: 1 })));
-  const poses = (built) => ["left", "right"].flatMap((side) => [...built.duel.duelists[side].built.segments.values()]
-    .flatMap(({ node: { position: p, rotationQuaternion: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
-  const phase = () => drilled.duel.duelists.left.minded.skills.report.engagement?.phase;
-  try {
-    plain.duel.play([]); drilled.duel.play([]);
-    let steps = 0;
-    for (; phase() === "fighting" && steps < 20 * 120; steps++) {
-      plain.world.step(); drilled.world.step();
-      if (phase() === "fighting") assert.deepEqual(poses(drilled), poses(plain), `the bouts part at step ${steps + 1}, before the moment`);
-    }
-    assert.notEqual(phase(), "fighting", "the fixture's fight never came to its first action in 20 s");
-  } finally { plain.dispose(); drilled.dispose(); }
-});

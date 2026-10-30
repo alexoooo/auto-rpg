@@ -1,26 +1,26 @@
 /**
  * **The Strike drill's cases**: one strike skill thrown once, at a still body (`still`), at one
  * walked to from farther (`walk`), at a drill opponent stepping in and out (`stepping`), guarding
- * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the subject's mind with its tactics a drill
- * (`DRILL_TACTICS`): it turns to the target, walks into its action's window, and asks
- * the one action at one mark with one limb, a hand or a foot, once, the first step its readiness
- * says ready, holding what its subject names (`StrikeSubject.held`). The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent, a mind's configuration
+ * (`guarding`) or punching back (`punching`), or in a fight's moment (`fight`). The striker is the
+ * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
+ * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
+ * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
+ * carries the order out. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent, a mind's configuration
  * (`DRILL_OPPONENT_MIND`'s presets; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
  * world, so the Arena plays it as it was scored, for as long as it was played (`Row.played`).
  *
- * In a fight's moment the striker is the subject's mind fighting a foe's by its own tactics, as a
- * bout does, until its tactics ask their `moment`th action; the drill asks its own in that one's
- * place from that step, walking into its window as at a still target (`DrillTacticsConfig.fight`), and the foe fights on. Up to that step the
- * bout is the subject's own bout against that foe.
+ * In a fight's moment the striker is the subject's mind fighting a foe's by itself, as a bout does,
+ * until it begins its `moment`th action aimed at a body; the drill orders its own in that one's place
+ * from that step, walking into its window as at a still target, and the foe fights on. Up to that step the bout is
+ * the subject's own bout against that foe: the Commander orders nothing.
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { drilledBy, fightOf } from "../../core/mind/catalog.ts";
-import type { DrillTacticsConfig } from "../../core/mind/drill-tactics.ts";
-import type { PartConfig } from "../../core/mind/parts.ts";
+import { treeObeys } from "../../core/mind/catalog.ts";
+import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { modelHolding } from "../../core/models.ts";
@@ -43,20 +43,22 @@ export type StrikeSubject = { readonly mind: MindConfig; readonly action: string
 const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined ? {} : { loadouts: { left: subject.held, right: EMPTY_LOADOUT } };
 
 /**
- * The mind that drills `action` with `effector` (`hand.right`, `foot.left`) at `mark`: `mind` with a drill in its tactics' slot,
- * standing `after` s first and walking to its action's window no faster than `pace` (asking, with
- * `walking`, the first step it is ready), or, at a `moment`, fighting by its own tactics until they ask that
- * many actions; with `letGo`, letting its action go that long after it began.
+ * The striker's side of a bout recipe: the subject's mind as given, led by the drill Commander
+ * ordering `action` with `effector` (`hand.right`, `foot.left`) at `mark`, standing `after` s first
+ * and walking it to its action's window no faster than `pace` (ordering it, with `walking`, the
+ * first step it is ready), or, at a `moment`, ordering nothing until the mind begins that many
+ * actions; with `letGo`, ordering a stand that long after it began.
  */
 export function striker({ mind, action }: StrikeSubject, effector: string, mark: Mark,
-  { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {}): MindConfig {
-  const tactics: DrillTacticsConfig = { kind: "drill", action, effector, mark, after, ...(pace === undefined ? {} : { pace }), ...(walking ? { walking: true } : {}),
-    ...(letGo === undefined ? {} : { letGo }),
-    ...(moment === undefined ? {} : { fight: fightOf(mind) as PartConfig, moment }) };
-  const drilled = drilledBy(mind, tactics);
-  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
-  return deepFreeze(drilled);
+  { after = STILL.settled, pace, walking, letGo, moment }: { readonly after?: number; readonly pace?: number; readonly walking?: boolean; readonly letGo?: number; readonly moment?: number } = {},
+): { readonly mind: MindConfig; readonly commander: DrillCommanderConfig } {
+  const commander: DrillCommanderConfig = { kind: "drill", action, limb: effector, region: { kind: "mark", mark }, after, ...(pace === undefined ? {} : { pace }),
+    ...(walking ? { walking: true } : {}), ...(letGo === undefined ? {} : { letGo }), ...(moment === undefined ? {} : { moment }) };
+  return deepFreeze({ mind, commander });
 }
+
+/** A recipe's `minds` and `commanders` for `drilled` striking (`striker`) on the left and `foe` on the right. */
+const sides = (drilled: ReturnType<typeof striker>, foe: MindConfig) => ({ minds: { left: drilled.mind, right: foe }, commanders: { left: drilled.commander } });
 
 /**
  * Rung 0, a still target: the strikers' bodies; how far ahead the target's centre stands at the
@@ -167,9 +169,9 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
   const kind = (given.mind as { kind?: unknown } | undefined)?.kind;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!drilledBy(given.mind!, { kind: "drill" })) return [`no drill drives a ${kind} mind`];
+  if (!treeObeys(given.mind!)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
   const held = given.held ?? EMPTY_LOADOUT;
-  return mindFaults(striker(given as StrikeSubject, "hand.right", "high"), modelHolding(model, held, subject?.character), { entry: [] })
+  return mindFaults(given.mind!, modelHolding(model, held, subject?.character), { entry: [] })
     .map((fault) => `${model}${given.held === undefined ? "" : ` holding ${loadoutKey(held)}`}: ${fault}`);
 }
 
@@ -193,8 +195,8 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
         ...loadoutsOf(value as unknown as StrikeSubject),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, protocol.toward === "hand" && hand === "left" ? across : -across], heading: -Math.PI / 2 } },
-        minds: { left: striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace, walking: start === "walking", ...(letGo === undefined ? {} : { letGo }) }),
-          right: MINDS[protocol.opponent ?? STANDING]!.config as MindConfig } } };
+        ...sides(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace, walking: start === "walking", ...(letGo === undefined ? {} : { letGo }) }),
+          MINDS[protocol.opponent ?? STANDING]!.config as MindConfig) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };
@@ -216,7 +218,7 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
           ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
-          minds: { left: striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), right: MINDS[foe]!.config as MindConfig } } };
+          ...sides(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), MINDS[foe]!.config as MindConfig) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };

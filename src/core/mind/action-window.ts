@@ -12,6 +12,9 @@ import { lyingAxis } from "./targets.ts";
 /** Braking begins one second before the centre would enter its window. */
 const RESPONSE = 1;
 
+/** **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance` left, m, in `RESPONSE`. */
+export const approachPace = (ceiling: number, distance: number): number => Math.min(Math.max(0, ceiling), distance / RESPONSE);
+
 /** How near the window's middle a walk into it counts as arrived, m, unless its caller asks nearer. */
 const ARRIVED = .04;
 
@@ -148,7 +151,7 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: 
   if (distance <= near) return { move: null, face };
   const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
     : placeMovement({ x: spot.x, z: spot.z }, near);
-  return { move: null, face, movement, pace: Math.min(Math.max(0, ceiling), distance / RESPONSE) };
+  return { move: null, face, movement, pace: approachPace(ceiling, distance) };
 }
 
 /**
@@ -169,5 +172,5 @@ export function approachActionWindow(view: BodyView, window: Window, heading: nu
   const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near, by: beside.by }
     : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near);
   return { move: null, face, movement,
-    pace: Math.min(Math.max(0, ceiling), distance / RESPONSE), ...(distance > travel ? { travelFacing: true as const } : {}) };
+    pace: approachPace(ceiling, distance), ...(distance > travel ? { travelFacing: true as const } : {}) };
 }

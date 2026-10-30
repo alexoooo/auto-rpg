@@ -29,6 +29,8 @@ export interface Orders {
   readonly action?: string;
   /** Strike it with this limb, an effector (`hand.right`, `foot.left`); absent, with any. */
   readonly limb?: string;
+  /** Carry them out first: a mind that weighs orders against its own judgement puts them before it. Absent, as the mind weighs them. */
+  readonly firm?: true;
 }
 
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null });
@@ -66,13 +68,13 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, walk, face, foe, region, action, limb } = value as Record<string, unknown>;
+  const { move, pace, walk, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
   const named = (one: unknown) => one === undefined || typeof one === "string" && one.length > 0 && foe !== undefined;
   return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
-    && (walk === undefined || walk === true)
+    && (walk === undefined || walk === true) && (firm === undefined || firm === true)
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || isRegion(region) && foe !== undefined) && named(action) && named(limb)
-    && Object.keys(value).every(key => ["move", "pace", "walk", "face", "foe", "region", "action", "limb"].includes(key));
+    && Object.keys(value).every(key => ["move", "pace", "walk", "face", "foe", "region", "action", "limb", "firm"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

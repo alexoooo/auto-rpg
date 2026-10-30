@@ -64,3 +64,25 @@ for (const kind of Object.keys(COMMANDERS)) {
     } finally { a.dispose(); }
   });
 }
+
+test("a drill Commander orders nothing before its moment: the bout is its member's own to the bit until then", async () => {
+  const { MINDS } = await import("../src/core/mind/controllers.ts");
+  // The Vanguard's planner wraps another and prepares the skills: a mind with every layer a drill once had to pass through.
+  const mind = MINDS["vanguard-warrior"].config, foe = MINDS.counter.config;
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", capSeconds: 31, recoverySeconds: null, entry: [], ends: [], minds: { left: mind, right: foe } };
+  const plain = await buildBout(recipe, { engine: BOUT_ENGINE }), drilled = await buildBout({ ...recipe, commanders: { left: { kind: "drill", after: 0, pace: 1, moment: 2 } } }, { engine: BOUT_ENGINE });
+  const poses = (built) => SIDES.flatMap((side) => [...built.duel.duelists[side].built.segments.values()]
+    .flatMap(({ node: { position: p, rotationQuaternion: q } }) => [p.x, p.y, p.z, q.x, q.y, q.z, q.w]));
+  const task = () => drilled.duel.commanded("left")?.task;
+  try {
+    plain.duel.play([]); drilled.duel.play([]);
+    let steps = 0;
+    for (; task() === "fighting" && steps < 20 * 120; steps++) {
+      plain.world.step(); drilled.world.step();
+      if (task() === "fighting") assert.deepEqual(poses(drilled), poses(plain), `the bouts part at step ${steps + 1}, before the moment`);
+    }
+    assert.notEqual(task(), "fighting", "the fixture's fight never ended its first action in 20 s");
+    // The order the drill gives at its moment is on the tape at the step it was given, the last one played as the mind's own.
+    assert.deepEqual(drilled.duel.tape.filter((entry) => entry.step < steps - 1), [], "no order before the moment");
+  } finally { plain.dispose(); drilled.dispose(); }
+});
