@@ -33,9 +33,14 @@ export interface Orders {
 
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null });
 
-/** Whether `orders` allow `action` with `limb` at `foe`: always, but where they name that foe and another action or another limb. */
+/**
+ * Whether `orders` allow `action` with `limb` at `foe`: always, but where they move or stand the
+ * body and name no foe (the hands are held from blows), or name that foe and another action or
+ * another limb.
+ */
 export const orderAllows = (orders: Orders | null, foe: string, action: string, limb: string): boolean =>
-  orders?.foe !== foe || (orders.action === undefined || orders.action === action) && (orders.limb === undefined || orders.limb === limb);
+  orders === null || (orders.foe === undefined ? orders.move === undefined
+    : orders.foe !== foe || (orders.action === undefined || orders.action === action) && (orders.limb === undefined || orders.limb === limb));
 
 /** The regions to aim at at `foe`: the region `orders` name there, else `regions`, an action's own. */
 export const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
@@ -48,7 +53,7 @@ export const struckKey = (orders: Orders | null): string | null =>
 const MARKS: readonly string[] = ["high", "middle", "legs", "any"];
 
 /** Whether `value` is a region: a mark of the body, or one of its segments by name. */
-function isRegion(value: unknown): value is Region {
+export function isRegion(value: unknown): value is Region {
   if (typeof value !== "object" || value === null) return false;
   const { kind, mark, segment } = value as Record<string, unknown>, keys = Object.keys(value);
   return kind === "mark" ? typeof mark === "string" && MARKS.includes(mark) && keys.length === 2

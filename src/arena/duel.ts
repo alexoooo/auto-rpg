@@ -1,4 +1,5 @@
 import type { CommanderConfig } from "../core/command/commander.ts";
+import type { MemberReport } from "../core/command/team.ts";
 import { teamOfOne, type TeamOfOne } from "./team.ts";
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
@@ -263,8 +264,8 @@ export class Duel {
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
   private readonly identity: RecordingIdentity;
-  /** The teams of one the recipe's Commanders lead (`DuelRecipe.commanders`). */
-  private readonly teams: readonly TeamOfOne[];
+  /** The teams of one the recipe's Commanders lead (`DuelRecipe.commanders`), by side. */
+  private readonly teams: Readonly<Partial<Record<Side, TeamOfOne>>>;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
@@ -367,7 +368,7 @@ export class Duel {
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     // Each asked in the sensing phase after the tape's orders, as a page's team is.
     const led = SIDES.flatMap((side) => { const config = recipe.commanders?.[side]; return config ? [[side, teamOfOne(this, side, config)] as const] : []; });
-    this.teams = led.map(([, team]) => team);
+    this.teams = Object.fromEntries(led);
     this.state = {
       start, startStep, verdict: null, given, tape: [], queued: [],
       ...(recipe.recoverySeconds === null || (recipe.recoverySeconds ?? 0) > 0 ? { recovery: { left: 0, right: 0 } } : {}),
@@ -396,6 +397,9 @@ export class Duel {
 
   /** Steps the bout has taken. */
   get steps(): number { return this.world.steps - this.state.startStep; }
+
+  /** What the Commander the recipe names for `side` says of it (`Commander.report`); null where none leads it. */
+  commanded(side: Side): MemberReport | null { return this.teams[side]?.commander.report(side) ?? null; }
 
   /** Order `side` from its next step on, or with null hand it back to itself. An order that repeats the last is not recorded. */
   order(side: Side, orders: Orders | null): void {
@@ -490,7 +494,7 @@ export class Duel {
   }
 
   dispose(): void {
-    for (const team of this.teams) team.dispose();
+    for (const side of SIDES) this.teams[side]?.dispose();
     this.judging.dispose();
     this.feeding.dispose();
     this.watch.dispose();
