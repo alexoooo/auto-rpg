@@ -3,42 +3,42 @@ import { dataOf } from "../data/store.ts";
 import { strikesWithOneOf, fitsAll, fitsWhen } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
-import { STRAIGHT_PUNCH, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
+import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./strikes.ts";
-import { PUNCH_POLICY } from "./learned-punch.ts";
-import { bodyKey } from "../spec/body.ts";
+import { punchRecorded } from "./punch-records.ts";
+import { bodyKey, type BodySpec } from "../spec/body.ts";
 
 /**
  * **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact
- * pose, its settings these. With `learned`, the learned punch's (`PunchPolicy`,
- * `dataOf("learned-punch")`): its body's schedule, drive and window (where it lands) over these,
- * steered by its network.
+ * pose, as its body's record has it (`PunchRecord`): its settings, steered by its network where it
+ * has one. A body with no record does not throw it. A research `tuning`, which a link does not
+ * carry, sets settings over the record's (a search's or a trainer's subject: all of them where the
+ * body has none), and then no network steers it: its trainer does, where it is `steered`.
  */
-interface Config extends StraightPunch {
+interface Config {
   readonly kind: "straight-punch";
   readonly name: string;
-  readonly learned?: boolean;
+  readonly tuning?: Partial<StraightPunch>;
 }
 
-/** A straight punch owns its body fit and flat-out drive settings. */
+/** Why a body of `spec` has no straight punch under `config`, or null: no record of its own and no whole research tuning in its place. */
+function recordFault(spec: BodySpec, config: Config): string | null {
+  return punchRecorded(spec) || config.tuning !== undefined && validStraightPunch(config.tuning) ? null : `the straight punch is not tuned for ${bodyKey(spec)}`;
+}
+
+/** A straight punch owns its body fit; its settings are its body's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
-  role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch", name: "punch", ...STRAIGHT_PUNCH },
-  keys: {
-    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
-    lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, halts: true, fire: true, ease: true, steered: true, driven: true, timed: true, learned: true,
-  },
+  role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch", name: "punch" },
+  keys: { kind: true, name: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
-    timedChannelFault, (spec, config: Config) => !config.learned || PUNCH_POLICY.bodies.includes(bodyKey(spec)) ? null : `the learned punch has no settings for ${bodyKey(spec)}`),
-  faults: config => [...validStraightPunch(config) ? [] : ["invalid straight punch settings"],
-    ...config.learned === undefined || typeof config.learned === "boolean" ? [] : ["a straight punch is learned or not"]],
-  reads: (config) => config.learned ? ["learned-punch"] : [], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
+    recordFault, (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
+  faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : ["invalid straight punch tuning"],
+  reads: () => ["straight-punch"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
   make({ body, guard, aim }, config, actions) {
-    const { kind: _, name: __, learned, ...own } = config;
-    if (!learned) return straightPunchExecutor(body, guard, actions.map(a => a.name), own, aimedPoint(aim));
-    const policy = dataOf("learned-punch"), settings = { ...own, ...policy.bodies[bodyKey(body.built.spec)], steered: true };
-    return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), { policy: recoveryNetwork(policy) });
+    const record = dataOf("straight-punch")[bodyKey(body.built.spec)], settings = { ...record?.settings, ...config.tuning } as StraightPunch;
+    const network = config.tuning === undefined ? record?.network : null;
+    return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim), network ? { policy: recoveryNetwork(network) } : {});
   },
 };

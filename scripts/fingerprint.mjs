@@ -395,11 +395,11 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
 });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: the learned punch, the Puncher throwing it at the chest on both sides of a bout of toed Warriors, the body it has settings for.
+ * read by a case that plays it: the straight punch's records, the Puncher throwing its at the chest on both sides of a bout of toed Warriors, the body it has a record for.
  */
 const DATA_CASES = [
-  { name: "data: learned-punch", run: () => {
-    const mind = { ...PUNCHER, executors: [{ ...PUNCHER.executors[0], learned: true }],
+  { name: "data: straight-punch", run: () => {
+    const mind = { ...PUNCHER,
       actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };
     return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },

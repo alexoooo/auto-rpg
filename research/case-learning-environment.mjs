@@ -4,7 +4,7 @@
  * deciding its outputs. An environment file names:
  *
  * - `evaluation`; `subject`, a mind's config with the part in learning mode (a bare mind's
- *   `network: null`, a straight punch's `steered: true`), or `subjects`, each a `value` (a subject
+ *   `network: null`, a straight punch's `tuning` with `steered: true`), or `subjects`, each a `value` (a subject
  *   as the evaluation takes one) for the conditions whose fields equal its `where`'s; `part`, the
  *   path of the learnable part in each (`mind.executors.0`; none for the config itself), which must
  *   name an object; `character`.

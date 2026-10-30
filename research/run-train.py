@@ -1,6 +1,6 @@
 """Train a policy with PPO (Stable-Baselines3) against an environment file's copies on Node worker
 threads (research/run-learning-server.mjs, research/environments/), and export it as the core
-reads a network (src/core/control/recovery-network.ts, Network: the learned punch's PunchPolicy,
+reads a network (src/core/control/recovery-network.ts, Network: a straight punch record's `network`,
 a bare mind's `network`): ReLU layers, the observation's normalisation folded into the first,
 tanh on the outputs. Each line of train.log has the mean of
 each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is
@@ -89,7 +89,7 @@ class RunEnvs(VecEnv):
 
 
 def export(model, normalize, path):
-    """The policy's mean as the core reads it (`PunchPolicy`): the normalisation folded into the first layer."""
+    """The policy's mean as the core reads it (`Network`): the normalisation folded into the first layer."""
     mean, var = normalize.obs_rms.mean, normalize.obs_rms.var
     scale = 1.0 / np.sqrt(var + normalize.epsilon)
     linears = [m for m in model.policy.mlp_extractor.policy_net if isinstance(m, torch.nn.Linear)] + [model.policy.action_net]

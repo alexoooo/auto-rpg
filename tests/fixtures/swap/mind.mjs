@@ -90,7 +90,7 @@ export const SWAP_MIND = Object.freeze({
   presets: Object.freeze({
     "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }),
     // A calibrated bare-hand source exposes loadout widening independently of production kits.
-    "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: Object.freeze({ ...COUNTER_PUNCHER, kind: "swap-stub" }), models: Object.freeze(["crypt-skeleton"]) }),
+    "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: Object.freeze({ ...COUNTER_PUNCHER, kind: "swap-stub" }), models: Object.freeze(["workshop-fighter"]) }),
   }), parts: own("swap-stub"),
 });
 

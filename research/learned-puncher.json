@@ -85,23 +85,7 @@
   "executors": [
    {
     "name": "punch",
-    "kind": "straight-punch",
-    "pace": 1.021,
-    "reach": 0.8,
-    "band": 0.05,
-    "settle": 0,
-    "through": 0.265,
-    "hips": 0.22,
-    "turn": 0.41,
-    "lean": 0.276,
-    "chamber": 0.195,
-    "lead": 0.055,
-    "elbow": 0,
-    "brake": 0,
-    "follow": 0.02,
-    "longest": 0.249,
-    "recover": 0.376,
-    "learned": true
+    "kind": "straight-punch"
    }
   ],
   "actions": [

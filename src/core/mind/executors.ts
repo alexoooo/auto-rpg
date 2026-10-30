@@ -2,7 +2,6 @@ import { RECIPE_PART } from "../skills/recipe-part.ts";
 import { PATH_PART } from "../skills/path-part.ts";
 import { KICK_PART } from "../skills/kick-part.ts";
 import { PUNCH_PART } from "../skills/punch-part.ts";
-import { COMBINATION_PART } from "../skills/combination-part.ts";
 import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../skills/blade-part.ts";
 
 /**
@@ -12,4 +11,4 @@ import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../skills/blade-part.ts";
  * begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
 export const EXECUTORS = { "recipe-strike": RECIPE_PART, "path-strike": PATH_PART, "front-kick": KICK_PART,
-  "straight-punch": PUNCH_PART, "combination": COMBINATION_PART, "blade-cut": BLADE_CUT_PART, "blade-thrust": BLADE_THRUST_PART };
+  "straight-punch": PUNCH_PART, "blade-cut": BLADE_CUT_PART, "blade-thrust": BLADE_THRUST_PART };

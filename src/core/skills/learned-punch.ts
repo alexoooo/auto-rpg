@@ -1,5 +1,4 @@
 import layoutFile from "../../../assets/core/learned-punch.layout.json" with { type: "json" };
-import meta from "../../../assets/core/learned-punch.meta.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
@@ -7,23 +6,6 @@ import { cos, sin } from "../math/real.ts";
 import type { MusclePush } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import type { StraightPunch } from "./straight-punch.ts";
-
-/**
- * **A learned punch** (`dataOf("learned-punch")`): for each body it was trained on, the straight
- * punch's settings it was trained with (its schedule, `StraightPunch.timed`, and its drive), and
- * the network that steers it (`punchFeatures` in, `PUNCH_ACTIONS` steer out, as `PUNCH_LAYOUT`
- * lays them out and `recoveryNetwork` evaluates it); `made` says how.
- */
-export interface PunchPolicy {
-  readonly made: string;
-  readonly bodies: Readonly<Record<string, Partial<StraightPunch>>>;
-  readonly actions: number;
-  readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
-}
-
-/** **What is known of the learned punch before it loads**: the bodies it has settings for. */
-export const PUNCH_POLICY: { readonly bodies: readonly string[] } = deepFreeze(meta);
 
 /** How often a steered punch reads itself and sets its steer, s: 60 times a second at any rate. */
 export const PUNCH_DECIDE = 1 / 60;

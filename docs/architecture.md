@@ -374,7 +374,7 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`)
   and each foot of the kick (`kick.ts`, which adds support transfer). A bare
   hand closes for its blow and strikes with the fist's point (`closesToStrike`, `aimOf`).
-- **Straight punch** (`straight-punch.ts`, `punch-part.ts`; the combination throws two): from a
+- **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
   stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
   contact pose its IK solves each step. With `timed`, the drive pushes each channel the schedule
   names on a schedule of its own (`TimedPush`: a level, a start and a length into the drive; a
@@ -395,13 +395,15 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   a distance's in proportion to the body's leg (`legOf`), or the walk's keep (`walk`). Its
   window may be narrower across the line it faces than along it (`aside`), centred with
   `squared` on the line the punching shoulder faces along at contact rather than the head's, and
-  refuse a target higher than `above` over the shoulder. With `learned` (`punch-part.ts`), its body's settings and
-  window and the steer's network are the learned punch's (`PunchPolicy`, `dataOf("learned-punch")`,
-  `assets/core/learned-punch.json`, exported by `research/punch-export.mjs`; the bodies it has
-  settings for, `PUNCH_POLICY`, before it loads): the schedule searched for that body
+  refuse a target higher than `above` over the shoulder. Its settings and the steer's network are
+  its body's record (`PunchRecord`, `src/core/skills/punch-records.ts`; `dataOf("straight-punch")`,
+  `assets/core/straight-punch.json` by `bodyKey`, written by `research/punch-export.mjs`; the
+  bodies with one, `PUNCH_BODIES`, before it loads): the schedule searched for that body
   (`research/punch-drill.mjs`), the network trained over it (the case environment on
   `research/environments/punch.json`, [Research environments](#research-environments))
-  and admitted where it lands (`research/punch-policy-check.mjs`).
+  and admitted where it lands (`research/punch-policy-check.mjs`). A body with no record does not
+  throw it (`punch-part.ts`); a mind carries no punch settings, and an experiment's research
+  `tuning` sets them over the record's, with no network steering.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
@@ -792,8 +794,8 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
 | Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`edgeExpected`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; the game's (`STAND_UP`) is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up` (`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), are flat-footed and kept for comparison |
 
-**Mind data loads per use** (`src/core/data/store.ts`). The learned punch's network
-(`assets/core/learned-punch.json`) is a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
+**Mind data loads per use** (`src/core/data/store.ts`). The straight punch's records
+(`assets/core/straight-punch.json`) are a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
 fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
 `treeData(config)` (`mind/catalog.ts`) collects a tree's: the Arena loads both sides' before the

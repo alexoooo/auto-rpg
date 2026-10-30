@@ -16,7 +16,6 @@ import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot }
 import type { TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
-import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
@@ -46,8 +45,8 @@ export interface OptionMindConfig {
   readonly motor?: PartConfig | null;
 }
 
-/** The learned straight punch (`PunchPolicy`): the drive the learned puncher throws. */
-const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, learned: true });
+/** The straight punch, as its body's record has it (`PunchRecord`): the toed Warrior's is trained. */
+const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch" });
 
 /** **The straight punch**: its punch with either hand at the trunk's opening, aimed as the learned puncher aims. */
 const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],

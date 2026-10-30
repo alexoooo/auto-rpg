@@ -16,7 +16,6 @@ import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type PartConfig, t
 import type { TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy, type Tactics } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
-import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { RANKED_CHOOSER, VALUED_CHOOSER } from "./options/chooser.ts";
 import { OPTION_KINDS, OPTIONS } from "./options/kinds.ts";
@@ -47,13 +46,6 @@ interface SkeletonOptionConfig {
   readonly motor?: PartConfig | null;
 }
 
-/** The Skeleton's straight punch, with either hand. */
-const PUNCH: ExecutorEntry = deepFreeze({ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, learned: false });
-
-/** The straight punch at the trunk's opening. */
-const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch", executor: "punch", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }],
-  aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
-
 /** A low front kick reaches a trunk below the punch's height band. */
 const LOW_KICK: ExecutorEntry = deepFreeze({ name: "low-kick", kind: "front-kick", contactSpeed: 7, windup: 0, swingSeconds: .25, returnNear: .1 });
 const LOW_KICK_ACTION: ActionConfig = deepFreeze({ name: "low-kick", executor: "low-kick", effectors: ["foot.right", "foot.left"],
@@ -62,10 +54,10 @@ const LOW_KICK_ACTION: ActionConfig = deepFreeze({ name: "low-kick", executor: "
 /** The Skeleton walks braced, with each gait chosen as an option. */
 const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise: "braced" });
 
-/** The empty-handed Skeleton's own chooser, unlearned punch and the game's rise (`STAND_UP`). */
+/** The empty-handed Skeleton's own chooser, low kick and the game's rise (`STAND_UP`); no straight punch, which is not tuned for its body. */
 const OPTION_DEFAULTS: SkeletonOptionConfig = deepFreeze({ kind: "option-skeleton", chooser: { kind: "skeleton-valued", depth: 2 }, options: OPTIONS,
   locomotion: GOING, guard: SKELETON_GUARD.defaults, support: { kind: "support-fold" },
-  executors: [PUNCH, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, LOW_KICK_ACTION], ground: STAND_UP.techniques });
+  executors: [LOW_KICK], actions: [LOW_KICK_ACTION], ground: STAND_UP.techniques });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
 const SLOTS: readonly Slot[] = Object.freeze([

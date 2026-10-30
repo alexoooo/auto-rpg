@@ -1,7 +1,8 @@
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../mind/executor-part.ts";
 import { number, text, toggle } from "../../mind/fields.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../mind/parts.ts";
-import { STRAIGHT_PUNCH, straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
+import { straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
+import { deepFreeze } from "../../state.ts";
 import { holdsNothing } from "../../skills/strikes.ts";
 import { committedAim } from "./committed-aim.ts";
 
@@ -37,10 +38,20 @@ function faults(config: VanguardPunchConfig): readonly string[] {
   ];
 }
 
+/**
+ * **Vanguard's drive settings**, its own on every body it plays: the straight punch's from a
+ * bare-handed search of Arena bouts of the flat-footed Puncher (`STRAIGHT_PUNCH`,
+ * `src/core/skills/straight-punch.ts@f327dd9e`), with its minds' own over them (`PUNCHES`).
+ */
+const VANGUARD_DRIVE: StraightPunch = deepFreeze({
+  pace: 1.021, reach: 0.8, band: 0.05, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,
+  chamber: 0.195, lead: 0.055, elbow: 0, brake: 0, follow: 0.02, longest: 0.249, recover: 0.376,
+});
+
 /** Vanguard's own executor, offered only in its own minds' slots (`Controller.parts`). */
 export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   role: "executor", label: "Committed punch", stage: "experimental",
-  defaults: { kind: "vanguard-punch", name: "punch", ...STRAIGHT_PUNCH, low: false, lowOnly: false, predict: false, anchorAtDrive: false, overlapReturn: false, returnHold: 0 },
+  defaults: { kind: "vanguard-punch", name: "punch", ...VANGUARD_DRIVE, low: false, lowOnly: false, predict: false, anchorAtDrive: false, overlapReturn: false, returnHold: 0 },
   keys: {
     kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,

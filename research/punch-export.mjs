@@ -1,18 +1,18 @@
 /**
- * **A learned punch's data**: each body's searched schedule (`research/punch-drill.mjs` results)
+ * **A straight punch's records**: each body's searched schedule (`research/punch-drill.mjs` results)
  * as the straight punch's settings for both hands, the left mirrored from the right, with the
  * drive's settings the search played it with (`AROUND`), where it is admitted (`reach`, `band`, `aside` and `above`:
  * where the steered punch lands, read on held-out trials, `punch-policy-check.mjs`; `aside` of
- * the punching shoulder's line, `squared`), and the
- * steer's trained network (`research/run-train.py`'s `policy.json`), written as the core reads them
- * (`PunchPolicy`, `src/core/skills/learned-punch.ts`): `<out>.json` (`assets/core/learned-punch` where
- * not given), and the bodies it has settings for in `<out>.meta.json`, each by its key (`bodyKey`:
- * `workshop-fighter+toes`). With `--halts`, the punch stops a walk at once as it commits
- * (`StraightPunch.halts`), as it was trained.
+ * the punching shoulder's line, `squared`), and, with `--policy`, the steer's trained network
+ * (`research/run-train.py`'s `policy.json`), written as the core reads them (`PunchRecord`,
+ * `src/core/skills/punch-records.ts`) into `<out>.json` (`assets/core/straight-punch` where not
+ * given), each by its body's key (`bodyKey`: `workshop-fighter+toes`) beside the records already
+ * there, and the bodies with one into `<out>.meta.json`. With `--halts`, the punch stops a walk at
+ * once as it commits (`StraightPunch.halts`), as it was trained.
  *
- *   node research/punch-export.mjs --policy <policy.json> --made "<how it was made>" [--halts] [--out <path>] <model>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]
+ *   node research/punch-export.mjs [--policy <policy.json>] --made "<how it was made>" [--halts] [--out <path>] <bodyKey>=<schedule.json>@<reach>,<band>,<aside>,<above> [...]
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { PUNCH_ACTIONS } from '../src/core/skills/learned-punch.ts';
 import { AROUND, decode, mirrored } from './punch-drill.mjs';
@@ -21,10 +21,11 @@ import { AROUND, decode, mirrored } from './punch-drill.mjs';
 const LONGEST = 0.3;
 
 const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
-const out = values.out ?? 'assets/core/learned-punch';
-if (!values.policy || !values.made || !positionals.length) throw new Error('usage: --policy <policy.json> --made <text> <model>=<schedule.json>@<reach>,<band>,<aside>,<above> ...');
-const policy = JSON.parse(readFileSync(values.policy, 'utf8'));
-const bodies = {};
+const out = values.out ?? 'assets/core/straight-punch';
+if (!values.made || !positionals.length) throw new Error('usage: [--policy <policy.json>] --made <text> <bodyKey>=<schedule.json>@<reach>,<band>,<aside>,<above> ...');
+const policy = values.policy ? JSON.parse(readFileSync(values.policy, 'utf8')) : null;
+if (policy && policy.actions !== PUNCH_ACTIONS) throw new Error(`${values.policy}: ${policy.actions} outputs, not the layout's ${PUNCH_ACTIONS}`);
+const records = existsSync(`${out}.json`) ? JSON.parse(readFileSync(`${out}.json`, 'utf8')) : {};
 for (const pair of positionals) {
   const [model, rest] = pair.split('='), [file, window] = rest.split('@'), [reach, band, aside, above] = (window ?? '').split(',').map(Number);
   if (!(reach > 0 && band > 0 && aside > 0 && Number.isFinite(above))) throw new Error(`${pair}: name where the punch is admitted, <schedule.json>@<reach>,<band>,<aside>,<above>`);
@@ -36,11 +37,11 @@ for (const pair of positionals) {
   };
   const right = sided('right'), left = sided('left');
   if (right.driven) throw new Error(`${file}: a learned punch's schedule drives no point`);
-  bodies[model] = { ...AROUND, longest: LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
+  const settings = { ...AROUND, longest: LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
     ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }), ...(values.halts ? { halts: true } : {}),
-    timed: { left: left.pushes, right: right.pushes } };
+    timed: { left: left.pushes, right: right.pushes }, ...(policy ? { steered: true } : {}) };
+  records[model] = { made: values.made, settings, network: policy ? { actions: policy.actions, layers: policy.layers } : null };
 }
-if (policy.actions !== PUNCH_ACTIONS) throw new Error(`${values.policy}: ${policy.actions} outputs, not the layout's ${PUNCH_ACTIONS}`);
-writeFileSync(`${out}.json`, JSON.stringify({ made: values.made, bodies, actions: policy.actions, layers: policy.layers }) + '\n');
-writeFileSync(`${out}.meta.json`, JSON.stringify({ bodies: Object.keys(bodies) }) + '\n');
-console.log(`bodies ${Object.keys(bodies).join(', ')}; ${policy.layers.length} layers`);
+writeFileSync(`${out}.json`, JSON.stringify(records) + '\n');
+writeFileSync(`${out}.meta.json`, JSON.stringify({ bodies: Object.keys(records) }) + '\n');
+console.log(`records ${Object.keys(records).join(', ')}`);

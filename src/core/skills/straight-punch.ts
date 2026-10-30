@@ -7,7 +7,6 @@ import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { deepFreeze } from "../state.ts";
 import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "./action.ts";
@@ -101,43 +100,37 @@ export interface TimedPush { readonly channel: string; readonly level: number; r
 const validPush = (push: TimedPush) => typeof push.channel === "string" && [push.level, push.from, push.length].every(Number.isFinite)
   && Math.abs(push.level) <= 1 && push.from >= 0 && push.length >= 0;
 
-/**
- * A straight punch's drive settings: a bare-handed search of Arena
- * bouts of the Puncher against Classic, Combat, Brawler, Kicker, Scrapper and itself fighting
- * back, scored by the hit points and the share of the head each side lost and held to the punch
- * test's walked-in blows on a Warrior standing in guard (`research/punch-in-bout.mjs --scene
- * --head 2`), rounded, with the arm pushed flat out to its goal (no `brake`) and brought back over
- * 0.376 s, not the searched 0.26 s, over which it fell eight times as often against itself, and the
- * hips turned 0.22 rad, which beat the searched 0.077 against itself without falling more; at the
- * longest reach whose fist still meets its target with the arm behind it: an arm apart, not chest
- * to chest. The entry band permits 0.05 m beyond that stand-off: the bounded drive must reach a
- * stationary target without relying on a foe walking into it.
- */
-export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
-  pace: 1.021, reach: 0.8, band: 0.05, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,
-  chamber: 0.195, lead: 0.055, elbow: 0, brake: 0, follow: 0.02, longest: 0.249, recover: 0.376,
-});
+/** The settings every straight punch names; the rest are its options. */
+const REQUIRED = ["pace", "reach", "band", "settle", "through", "hips", "turn", "lean", "chamber", "lead", "elbow", "brake", "follow", "longest", "recover"] as const;
 
-/** Whether `settings` are a straight punch's: every one finite and not negative, the pace, reach, band and drive's length positive. */
-export function validStraightPunch(settings: StraightPunch): boolean {
-  const values = [settings.pace, settings.reach, settings.band, settings.settle, settings.through, settings.hips, settings.turn, settings.lean,
-    settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
-  return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
-    && (settings.landed === undefined || typeof settings.landed === "boolean")
-    && (settings.halts === undefined || typeof settings.halts === "boolean")
+/** Every setting a straight punch may name (`StraightPunch`). */
+export const STRAIGHT_PUNCH_KEYS: readonly (keyof StraightPunch)[] = Object.freeze([...REQUIRED, "aside", "squared", "poised", "above", "landed", "halts",
+  "fire", "ease", "steered", "driven", "timed"]);
+
+/**
+ * Whether `settings`, some of a straight punch's, are each valid: finite and not negative, the
+ * pace, reach, band and drive's length positive, each option of its kind.
+ */
+export function validStraightPunchPart(settings: Partial<StraightPunch>): boolean {
+  const flag = (value: unknown) => value === undefined || typeof value === "boolean";
+  return REQUIRED.every((key) => settings[key] === undefined || Number.isFinite(settings[key]) && settings[key] >= 0)
+    && (["pace", "reach", "band", "longest"] as const).every((key) => settings[key] === undefined || settings[key] > 0)
+    && flag(settings.landed) && flag(settings.halts) && flag(settings.squared) && flag(settings.poised) && flag(settings.steered)
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
     && (settings.aside === undefined || Number.isFinite(settings.aside) && settings.aside > 0)
-    && (settings.squared === undefined || typeof settings.squared === "boolean")
-    && (settings.poised === undefined || typeof settings.poised === "boolean")
     && (settings.above === undefined || Number.isFinite(settings.above))
     && (settings.ease === undefined || Number.isFinite(settings.ease) && settings.ease > 0)
-    && (settings.steered === undefined || typeof settings.steered === "boolean")
     && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0)
     && (settings.timed === undefined || HANDS.every((hand) => Array.isArray(settings.timed![hand]) && settings.timed![hand].every(validPush)));
 }
 
+/** Whether `settings` are a straight punch's: each it names valid (`validStraightPunchPart`), and every one it must name named. */
+export function validStraightPunch(settings: Partial<StraightPunch>): settings is StraightPunch {
+  return REQUIRED.every((key) => settings[key] !== undefined) && validStraightPunchPart(settings);
+}
+
 /** The channels `settings` push on a schedule that a body of `spec` lacks. */
-function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly string[] {
+function missingTimedChannels(spec: BodySpec, settings: Pick<StraightPunch, "timed">): readonly string[] {
   const channels = new Set(spec.joints.flatMap((joint) => joint.dofs.map((dof) => `${joint.name} ${dof.positive}`)));
   return settings.timed ? HANDS.flatMap((hand) => settings.timed![hand].map((push) => push.channel)).filter((channel) => !channels.has(channel)) : [];
 }
@@ -147,7 +140,7 @@ function missingTimedChannels(spec: BodySpec, settings: StraightPunch): readonly
  * the arm a `driven` drive moves (from the joint that leaves the hand's base down), which a body
  * refuses to push while it drives the hand's point.
  */
-export function timedChannelFault(spec: BodySpec, settings: StraightPunch): string | null {
+export function timedChannelFault(spec: BodySpec, settings: Pick<StraightPunch, "timed" | "driven">): string | null {
   const missing = missingTimedChannels(spec, settings);
   if (missing.length) return `has no ${missing.join(", ")} to push`;
   if (!settings.timed || !settings.driven) return null;
@@ -467,7 +460,7 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
 /**
  * A straight-punch instance owns settling, its committed drive and its bounded guard return;
  * `requireArmAim` checks the aim while the trunk leads the arm; `policy` sets a steered punch's
- * steer from what it reads (`PunchPolicy`).
+ * steer from what it reads (`PunchRecord.network`).
  */
 export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch,
   resolve: TargetResolver, { requireArmAim = false, policy }: { readonly requireArmAim?: boolean; readonly policy?: (features: readonly number[]) => number[] } = {}): Executor {

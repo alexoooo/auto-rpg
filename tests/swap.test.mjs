@@ -127,7 +127,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
       new Set(units.flatMap(unit => unit.map(one => one.key))), "no unpaired work reaches the schedule");
     const withOther = resolveSubjects(evaluation, [panel], id, changes);
     assert.deepEqual(withOther.subjects, [...subjects, ...evaluation.subjects([panel])], "other requested subjects retain their scope");
-    if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "crypt-skeleton"
+    if (id === "swap-unarmed") assert.ok(evaluation.subjects([candidate]).some(one => one.value.model === "workshop-fighter"
       && !baseline.some(before => JSON.stringify(before.value.loadout) === JSON.stringify(one.value.loadout))),
     "the fixture also exposes loadout widening on the calibrated body");
   }
@@ -203,8 +203,8 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const cases = subjects => casesOf(evaluation, "standard", subjects,
     { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
   for (const [id, model] of [["vanguard-warrior", "workshop-fighter"], ["vanguard-rogue", "workshop-rogue"], ["swap-stub", "workshop-fighter"]]) {
-    const named = evaluation.subjects([id, "counter"]), before = JSON.stringify(named);
-    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "counter"]));
+    const named = evaluation.subjects([id, "duellist"]), before = JSON.stringify(named);
+    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "duellist"]));
     assert.ok(scoped.units.length > 0, "the calibration has complete cases");
     assert.deepEqual(scoped.units, raw.units.filter(unit => unit.every(one => one.world.recipe.left === model && one.world.recipe.right === model)),
       "scope filters complete units without changing their recipes or keys");

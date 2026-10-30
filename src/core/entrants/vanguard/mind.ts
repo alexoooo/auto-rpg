@@ -6,7 +6,6 @@ import { GAME_MOTOR } from "../../mind/kit.ts";
 import { GAME_NAVIGATION } from "../../mind/navigator.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../mind/parts.ts";
 import type { PartConfig } from "../../mind/parts.ts";
-import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { VANGUARD_PUNCH, type VanguardPunchConfig } from "./punch-part.ts";
 import { VANGUARD_PLAN, type VanguardPlanConfig } from "./plan.ts";
@@ -24,7 +23,7 @@ interface VanguardConfig extends Omit<FighterConfig, "kind" | "tactics" | "locom
 }
 
 /** A standing body punch and a planted low punch, both following a predicted surface point. */
-const PUNCHES = (["punch", "low-punch"] as const).map((name): VanguardPunchConfig => ({ ...VANGUARD_PUNCH.defaults, name, ...STRAIGHT_PUNCH,
+const PUNCHES = (["punch", "low-punch"] as const).map((name): VanguardPunchConfig => ({ ...VANGUARD_PUNCH.defaults, name,
   reach: .95, band: .18, through: .12, settle: .2, recover: .3, longest: .35, follow: .05,
   // The low stroke predicts the lumbar bend held by the planted support fold.
   lean: name === "low-punch" ? .89 : .1, hips: .3, turn: .55, lead: .1, chamber: .22,

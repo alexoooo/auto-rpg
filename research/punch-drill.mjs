@@ -23,7 +23,6 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import { MINDS } from "../src/core/mind/controllers.ts";
-import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
 import { BAR } from "../src/evaluation/strike/read.ts";
@@ -56,8 +55,14 @@ const EASE = [0.005, 0.095];
 /** With `--chest`, the strike's aim: the chest's open surface over the belly's (`SURFACE_AIM`). */
 export const CHEST = { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } };
 
-/** The drive's settings around a schedule: admitted at any range past `reach` of the arm, driven for at most `longest` s. */
-export const AROUND = { reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5 };
+/**
+ * The drive's settings around a schedule, whole (`StraightPunch`): admitted at any range past
+ * `reach` of the arm, driven for at most `longest` s; its pace, the posture beneath where a
+ * schedule names none, and its return those of the flat-footed Puncher's searched punch
+ * (`STRAIGHT_PUNCH`, `src/core/skills/straight-punch.ts@f327dd9e`).
+ */
+export const AROUND = { pace: 1.021, reach: 0.6, band: 2, settle: 0, chamber: 0, elbow: 0, brake: 0, follow: 0.02, longest: 0.5,
+  through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276, lead: 0.055, recover: 0.376 };
 
 /**
  * The schedule, the gap and the arm's aim that `x` holds for `hand`, the gap `gap` where given; the
@@ -76,11 +81,11 @@ export function decode(x, hand, gap, without = new Set(), { driven = true, fire 
     ...(accel === undefined ? {} : { driven: { accel, steer, arrive } }), ...(reach === undefined ? {} : { fire: reach }), ...(held === undefined ? {} : { brake: held }), ...(eased === undefined ? {} : { ease: eased }) };
 }
 
-/** The Puncher with its punch driven on `pushes` by `hand`, aimed from `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. */
+/** The Puncher with its punch driven on `pushes` by `hand` (its research `tuning`, whole), aimed from `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. */
 export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake, ease }, hand, aim = null) {
   const preset = MINDS.puncher.config, punch = preset.executors[0];
   const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action) : preset.actions;
-  const executor = { ...punch, ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), ...(ease === undefined ? {} : { ease }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+  const executor = { ...punch, tuning: { ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), ...(ease === undefined ? {} : { ease }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } } };
   return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
 }
 

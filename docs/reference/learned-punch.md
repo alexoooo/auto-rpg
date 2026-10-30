@@ -5,7 +5,7 @@
 middle mark and 52 of 64 from a walk, at 120 Hz.** It is a timed straight punch steered by a
 network that pushes the trunk and the arm and asks the legs goal for the hip's turn and the
 weight's shift, trained on the toed Warrior from still and walking starts, its legs' unmet asks
-weighed (`assets/core/learned-punch.json`, 55.0 M decisions;
+weighed (`assets/core/straight-punch.json`, 55.0 M decisions;
 [trained on its unmet asks](#trained-on-its-unmet-asks)).
 
 - **Against the network before it** (its legs' outputs pushes, trained on flat feet), on the toed
@@ -31,7 +31,8 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
 - **The punch**: the straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) on a
   schedule (`StraightPunch.timed`: the trunk's, both legs' and the striking arm's 18 channels, each
   a level, a start and a length), its drive braked onto its goals (`brake`), a walk halted as it
-  commits (`halts`), steered with `learned` (`src/core/skills/learned-punch.ts`).
+  commits (`halts`), steered (`src/core/skills/learned-punch.ts`): the toed Warrior's record
+  (`PunchRecord`, `assets/core/straight-punch.json`).
 - **The steer**: 60 times a second (`PUNCH_DECIDE`) a ReLU network, 59-256-256-12, reads the
   drive's age, the target from the shoulder, the fist from the target, the fist's and the centre of
   mass's velocity, whether the hand touches, the trunk's, legs' and arm's angles and speeds, and
@@ -47,8 +48,8 @@ the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
   striking shoulder faces along at contact (`squared`), no higher than 0.1 m over the shoulder
   (`above`); the aim is the trunk's surface square to that shoulder (`square`,
   [combat strikes](combat-strikes.md)). A drive that has met nothing ends after 0.3 s (`longest`).
-- **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_POLICY`,
-  `assets/core/learned-punch.meta.json`): Option Mind's preset.
+- **Its bodies**: the toed Warrior only (`workshop-fighter+toes`, `PUNCH_BODIES`,
+  `assets/core/straight-punch.meta.json`): any other body throws no straight punch.
 - **How it was made**: PPO (`research/run-train.py` on
   `research/punch-learning-environment.mjs@5d782f0e`, whose episodes the case environment on
   `research/environments/punch.json` plays to the bit)
@@ -332,7 +333,7 @@ quarters across), so a 20° cone along the arm failed every fast blow found.
 `straightPunch` as the Puncher plays it walks to a stand-off, faces the target, drives the hips,
 the chest's turn, the trunk's lean and every arm channel flat out at a contact pose its arm IK
 solves each step, then returns to guard; its 15 settings were searched by CMA in Arena bouts
-(`research/punch-in-bout.mjs`). Bare-handed, 120 Hz, on gaps the search never saw:
+(`research/punch-in-bout.mjs@f327dd9e`). Bare-handed, 120 Hz, on gaps the search never saw:
 
 | Puncher | Foe | Bouts | HP given | HP taken | Thrown | Lost | Won |
 |---|---|---|---|---|---|---|---|
