@@ -54,8 +54,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | Plan | What it builds |
 |---|---|
 | [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
-| [AI testbed layout](plans/2026-10-30-ai-testbed-layout.md) | The toolkit offers mechanisms and an entrant is what you pick: the catalog a value the core is given, the Option framework in the toolkit, each AI a folder of presets and parts in `src/entrants/` with scoped kinds, the Skeleton a preset and its fork deleted, the objective and percepts as parts, the core's mind, control and skills in folders, the world builders in `src/worlds/`; small cleanups first (built: steps 1 to 7). Left: the world builders |
-| [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Option Mind as a toolkit framework that entrants configure, not copy (built: the shared model's foe prior by every striking limb, lying down priced by the worth of a second standing, toes on every humanoid, the straight punch tuned per body; steps 1 to 3 are the AI testbed layout's). Left: a Reptile and a non-combat preset; every skill tuned per body |
+| [Option Mind generalization](plans/2026-10-30-option-mind-generalization.md) | Option Mind as a toolkit framework that entrants configure, not copy (built: the shared model's foe prior by every striking limb, lying down priced by the worth of a second standing, toes on every humanoid, the straight punch tuned per body; the framework in the toolkit, `src/core/option/`, with Option Mind and the Skeleton presets of it in `src/entrants/`; the objective, percepts and predictions as parts). Left: a Reptile and a non-combat preset; every skill tuned per body |
 | [Option Skeleton](plans/2026-10-30-option-skeleton.md) | The empty-handed Skeleton preset beating every Arena entrant more than 90% of the time: its rise on toes, its strikes measured, a mixed panel, then the whole field and reserved conditions; a preset of the toolkit's Option Mind. The 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: a club blow trained for the toed Warrior (no mind swings a club until its body has one), up the ladder; the Cover drill's buckler rows against a weapon and rung 2 (protocols to write); a lead over the Duellist; the owner's acceptance of each rung |
@@ -64,7 +63,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
-| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks (the check, the part framework, tactics and each layer's config are the AI testbed layout's): the skills free of the decider's memory, report and decision, a neutral `Decider` seam, scripts driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
+| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks (built: the check, the part framework in `src/core/parts/`, tactics a package, each layer's config with its layer): the skills free of the decider's memory, report and decision, a neutral `Decider` seam, scripts driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
    ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
@@ -77,8 +76,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
    the Stand drill (Drills step 8) landing before it, and the other skills
    ([Body and motor control](#body-and-motor-control)); the club blow and the buckler cover
    ([Buckler and club](plans/2026-10-29-buckler-and-club.md), steps 2 to 6).
-3. **Beside them:** the [AI testbed layout](plans/2026-10-30-ai-testbed-layout.md) in order, the
-   Skeleton's campaign after its step 5. Drills step 2 (the moving target, overlays and side by
+3. **Beside them:** the Skeleton's campaign. Drills step 2 (the moving target, overlays and side by
    side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
    The rest of Recovery step 3: every humanoid is on toes and rises by Option Mind's rise (the
@@ -141,6 +139,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
   contract. The trainer's time is the world's step's, 85 % of it, Rapier's wasm 23 %
   ([the trainer's speed](reference/learned-punch.md#the-trainers-speed)); the scene's share in it
   is not read apart.
+- The world builders apart from what draws them, then in `src/worlds/`: the bout's (`src/arena/duel.ts`,
+  `team.ts`, `room.ts`, `levels.ts`, the end rules) is headless, but a Crypt run builds its look
+  with its world (`buildDungeonWorld`, `src/dungeon/world.ts`) and steers the person's commands by
+  the camera (`commands.ts`, `camera.ts`), and the Lab's scenarios reach the page's render and
+  controls (`src/lab/scenarios.ts`, `attack-scenario.ts`). Moved before that split, `src/worlds/`
+  would import the screens; until then the boundary test holds the builders by what they reach.
 - Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
   ships data: one network does today, and the punch's retraining replaces it.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and

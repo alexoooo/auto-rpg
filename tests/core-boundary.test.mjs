@@ -492,7 +492,7 @@ const LAYERS = [
   ["spec/", "human/", "items/", "reptile/spec.ts", "reptile/physique.ts", "character-attributes.ts"],
   ["engine/", "world.ts", "recording.ts"],
   ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],
-  ["muscle/", "rules/", "touches.ts"],
+  ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
   ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts"],
@@ -520,10 +520,12 @@ const UP_STACK = [
   // The body's ground reading and its lie beside the view's other readings (layering step 10).
   "body.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
   "mind/kit.ts -> recovery/rise/lowering.ts", "body.ts -> mind/kit.ts",
-  // A mind's host and assembly in one layer (layering steps 3 and 4).
-  "mind/host.ts -> mind/minds.ts", "parts/parts.ts -> body.ts",
-  // The read view the engine reports into, and the balance the rules cap an assist by.
-  "engine/rapier.ts -> read-body.ts", "rules/rulebook.ts -> control/assist.ts",
+  // A mind's host takes its wiring, one way into a body (layering step 8).
+  "mind/host.ts -> mind/minds.ts",
+  // A part's fit by the body's command refusal: the body's shape, read from its spec for a second body family.
+  "parts/parts.ts -> body.ts",
+  // The engine's contact friction in a spec module (layering step 10).
+  "engine/rapier.ts -> read-body.ts",
 ];
 
 /** The layer of `file` (under `src/core/`) by `LAYERS`, the longest entry ruling; -1 for none. */

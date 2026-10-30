@@ -18,8 +18,9 @@ things made the copy look necessary, each fixed:
   toes and the game's Stand up is the toed rise ([Recovery](2026-10-23-recovery.md) step 3).
 - **An entrant could not build on shared code.** A preset and a controller's parts lived in that
   controller's own file and part kinds were global, so reusing Option Mind's parts collided on
-  their kinds. The [AI testbed layout](2026-10-30-ai-testbed-layout.md) puts the framework in the
-  toolkit and makes each entrant a manifest of presets and scoped parts; the Skeleton is a preset.
+  their kinds. Fixed: the framework is the toolkit's (`src/core/option/`), each entrant a manifest
+  of presets and scoped parts ([Adding an entrant](../architecture.md#adding-an-entrant)), the
+  Skeleton a preset, and the objective, percepts and predictions are parts.
 
 The decision mechanism is already body-agnostic: options with claims, entry, status and a model;
 the chooser's set selection by claims, commitment, rethinking on cues and a period, letting go,
@@ -39,18 +40,13 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
 
 ## Steps
 
-1. **The framework into the toolkit**: the [AI testbed layout](2026-10-30-ai-testbed-layout.md),
-   step 3.
-2. **An entrant is presets and parts; the Skeleton fork deleted**: the AI testbed layout, steps 4
-   and 5.
-3. **The objective and the percepts are parts**: the AI testbed layout, step 6.
-4. **A second body family and a second purpose.** A Reptile preset on the framework, its crawl,
+1. **A second body family and a second purpose.** A Reptile preset on the framework, its crawl,
    bite and recovery as option kinds, its host from [Layering](2026-10-29-layering.md) (the body's
    shape read from its spec); the threat reader sensing any striking limb. A preset whose
    objective is reaching a place, with no foe, in a Lab scenario.
    Check: the Reptile fights a Warrior and a Reptile in the Arena; the walker reaches its place;
    the owner looks at both.
-5. **Every skill tuned per body.** A skill's settings are its body's record, as the straight
+2. **Every skill tuned per body.** A skill's settings are its body's record, as the straight
    punch's are (`PunchRecord`, `src/core/skills/strikes/punch-records.ts`: no setting in a mind, none
    borrowed from another body, a research `tuning` for experiments); a body with none does not
    use the skill and says so. The skills that carry one body's numbers take records the same way,
