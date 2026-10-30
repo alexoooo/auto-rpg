@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { modelSpec } from "../src/core/models.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
-import { predictor } from "../src/entrants/option-skeleton/options/percepts.ts";
+import { predictor } from "../src/core/option/percepts.ts";
 
 test("recovery retains an opportunity cost against a foe with no modelled hand attack", () => {
   const spec = modelSpec("crypt-skeleton"), foe = modelSpec("reptile");

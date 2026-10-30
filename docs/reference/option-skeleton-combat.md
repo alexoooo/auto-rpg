@@ -48,6 +48,7 @@ the corresponding harnesses and logs.
 | Raised guard | A 16-candidate, 83.7 s search finds two positive 20 s Rogue exchanges. Applying the guard and early lead protection universally wins only 8/16 panel bouts. |
 | Further adaptive guard search | Best of 32 candidates, 320.8 s, wins only one of four full sword confirmations. Rejected. |
 | Raised construction pose | Lowering it against non-blades still regresses non-blade fights; 9/16 panel wins. Rejected. |
+| Blade guard (`option-skeleton:guard`, raised against a sensed edge or point) | In the `c5ce647b` panel, beside the lead valuation; no record isolates its effect (above). Not kept: the preset holds the toolkit's guard. |
 | Punch and leg-kick proxies | Short-range punch settings lose three of four full confirmations; leg-directed kicks stall or lose the short exchanges. Rejected. |
 
 ## Viewing

@@ -516,13 +516,13 @@ test("an entrant reaches only the core, its own folder and its own data: never a
   // The control: an entrant reaching another entrant, a screen, an evaluation and another's data is found; the game's list is not held to it.
   assert.deepEqual(entrantCrossings([
     ["src/entrants/sly/index.ts", `import { CLASSIC } from "../classic/presets.ts";\nimport { Duel } from "../../arena/duel.ts";\nimport { MINDS } from "../game.ts";\n`],
-    ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/option-skeleton/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
+    ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/classic/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
     ["src/entrants/index.ts", `import { SLY } from "./sly/index.ts";\n`],
   ]), [
     "src/entrants/sly/index.ts imports src/entrants/classic/presets.ts",
     "src/entrants/sly/index.ts imports src/arena/duel.ts",
     "src/entrants/sly/index.ts imports src/entrants/game.ts",
-    "src/entrants/sly/data.ts imports assets/entrants/option-skeleton/guard.json",
+    "src/entrants/sly/data.ts imports assets/entrants/classic/guard.json",
     "src/entrants/sly/data.ts imports src/evaluation/drill-opponents.ts",
   ]);
 });
