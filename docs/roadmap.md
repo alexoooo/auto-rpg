@@ -53,29 +53,28 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior. The testbed's rules, which every mind meets, are built: a baseline evaluation in one command against opponents outside Option Mind, and one trainer for any skill, chooser or mind, with a bare entrant from the senses to the muscles. Now Option Mind's own design, before any training run: worth in the verdict's unit (built), measured profiles indexed by the foe's phase that name what they were measured on (built), the value of a position and the rate of play (built), exits and letting go (built), the stand-up as a chain with no sub-mind (built), what footwork and the guard ask of the legs and the hands (in part: covers take the blow predicted to reach the head; the legs ask and the intent's form left past the time box), the design read whole (the fights read, 0.68); few part roles (skill, chooser, gait, carriage, balance, motor, navigation) |
-| [Option Mind follow-up](plans/2026-10-28-option-mind-followup.md) | Option Mind decides by one policy over options, each a skill applied to a target, selected as a set by their resources (built: rest, the rise, the cover, an option a gait walking to the destinations the skills make, a rest option taking what is free, nothing chosen beside it); life read from the rules and the records (built), one profile interface (built), one stand-up bed (built), letting go measured across the wind-up (built), one trainer for any part (built), the legs bearing on the ends the body's spec names (in part: a legs goal names them; the legs stand on feet, lower the body onto its knees and hold it there, and report the rest unmet; bearing on hands and knees, and a technique holding only the limbs it moves, left past the time box); a narrower option shape and a strike that never walks (built, with Option Mind's options in its own folder and the options fighter deleted); percepts apart from predictions behind one interface whose prior is a profile, and an exit as the percepts it leaves (built); Option Mind's position value, predictions and options by configuration, a drill driving it by a script among its options (built); the rise chosen by the policy with no supervisor (built; on toes it stands none, as before, until the legs bear on hands and knees); every entry its skill's readiness (built: claims from the blow's needs, the walk into reach from the strike's window, low support among its skills); a downed foe priced by its models (built: pressure, pressing and the clinch read at how the two bodies stand, the keep-out a limit of each walk, the focus chosen by worth across the foes); a blow at a foe on the ground, so Option Mind strikes a fallen foe (built: the stomp, braced, walked round to beside a lying body and measured on the Strike drill's `stomping` rung, 10 of 12 landed, none fallen or stalled, 0.22 to 0.43 HP a trial on the Warrior, 5.8 s from its start to its end, and chosen by Option Mind over a lying body; the downward blow not needed for now); the chooser looking one option past on the options' models, the strike pricing no walk (built: a walk worth the best option where it leaves the body, the gaits Move's config); footwork to places at a distance from the focus, each derived from a skill's window or the foe's model (built: each strike's window and out of pressure, each a kind of option), and at a bearing around it, priced by the position value (in part: the bearing priced by the foe's measured turn; a place behind the foe tried and not kept, two Option Minds circling); a foe's reach by its limbs and what it holds (open) |
+| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise, then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
+| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
 | [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks: the skills free of the decider's memory, report and decision, a neutral `Decider` seam, the part framework under every layer, tactics a package with the fighter kind, each layer's config with its layer, drills driving any mind by a decider; one way into a body, the command layers a toolkit layer, no sub-minds in the body; the body's shape read from its spec waits for a second body family |
 
-1. **Now: Option Mind's design**, before any training run (worth in life, measured profiles, the
-   value of a position, exits and letting go, the stand-up as a chain are built): the
-   [Option Mind follow-up](plans/2026-10-28-option-mind-followup.md) in order, then footwork and the guard
-   (step 13) and the design read whole (step 14). Each step is
-   checked on the drills it touches; the
-   fights are read once, at step 14.
+1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
+   ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
+   the legs bearing on hands and knees, a place aside from the foe's arc, a foe's reach by its
+   limbs. Each step is checked on the drills it touches; the fights are read once, when the last
+   lands.
 2. **Then training**, on the completed design, each paired by the baseline evaluation: the
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
-   one-two, fights); Recovery step 2, the fast edge from hands and knees; then a learned gait,
+   one-two, fights); then a learned gait,
    the Stand drill (Drills step 8) landing before it, and the other skills
    ([Body and motor control](#body-and-motor-control)).
 3. **Beside them:** Drills step 2 (the moving target, overlays and side by
    side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
-   Recovery step 3 once Option Mind's rise stands the target: the game's bodies take toes with it,
+   Recovery step 3 once Option Mind's rise stands the target (its speed set aside for now, the
+   owner, 2026-10-29): the game's bodies take toes with it,
    since on them step-up stands none of the target's falls
    ([on the game bodies](reference/toes.md#on-the-game-bodies)).
    [Layering](plans/2026-10-29-layering.md) in order, each step bit for bit on the fingerprint;
@@ -219,9 +218,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   toes, `sit-back` ([the sit-back](reference/rising.md#the-sit-back)), stands the Warrior 32 of 32
   from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise on the toed
   Warrior stands 24 of 32 baseline falls, 1 within 6 s, a median of 14.0 s
-  ([Recovery](plans/2026-10-23-recovery.md), step 2: the chain's time and the hand-over to the
-  steady next). The owner watched it in the Lab's Stand-up (Option Mind, toes) on 2026-10-29: it
-  looks good. The Rise drill's reel waits on a page that plays a technique case
+  ([Recovery](plans/2026-10-23-recovery.md#where-it-starts): the chain's time and the hand-over
+  to the steady stand between it and the target). The owner watched it in the Lab's Stand-up
+  (Option Mind, toes) on 2026-10-29: it looks good, and good enough for now. The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of

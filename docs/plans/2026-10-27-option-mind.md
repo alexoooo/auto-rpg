@@ -111,17 +111,14 @@ footwork runs beside both hands'.
 Falling, lying, rising and fighting from the ground are skills in the shape, chosen by the one
 chooser, as a strike or a step is. No sub-mind takes the body from it (built: Option Mind names none;
 its rise is the ground options, `groundOptions`, over the ground executor, `groundExecutor`, each
-on offer as Stand up's supervisor offers it and its edges priced by their expected time to
-standing, and stands Stand up's falls fall for fall, [the baseline](../reference/baseline.md#what-is-used);
-each on offer by its own entry and worth the posture it leaves is
-[follow-up](2026-10-28-option-mind-followup.md) step 16). A ground technique that
+on offer by its own entry and worth the posture it leaves, with no supervisor; on toes it rises by
+the sit-back, [the baseline](../reference/baseline.md#what-is-used)). A ground technique that
 cannot yet share the body is a commitment that holds every resource (built: it asks no stance and
 pushes every muscle as its run drives it); what it is worth is its profile, and the postures it
 passes through are exits the chooser prices ([the value of a position](#the-value-of-a-position)).
 A legs goal names the body's bearing ends (`BodySpec.ends`); whether the legs can bear on hands
 and knees as the techniques do (`carryRoot`, `bearLimbs`), so a technique leaves an arm it does not
-use to the guard with no direct muscle writes, is open ([follow-up](2026-10-28-option-mind-followup.md)
-step 11); until they do, a technique holds the whole body. Getting up, moving
+use to the guard with no direct muscle writes, is open (step 14); until they do, a technique holds the whole body. Getting up, moving
 away on the ground, fighting from it or waiting are then choices by worth, not a rule. A motion
 that seems to need a path of its own is a skill whose entry, resources or exit are not yet
 general enough, and that is what is fixed.
@@ -450,17 +447,17 @@ skill or bout, `research/environments/`, and the bare entrant). The
 second is Option Mind's own design: what a skill is worth, what it reads, how it chains. Skills are
 then trained in their own plans, each paired against the baseline by its evaluation, a training
 run priced on the pool first from its first decisions' rate: the punch
-([Punch](2026-10-28-punch.md)), the rise's fast edge ([Recovery](2026-10-23-recovery.md) step 2),
-and the skills the roadmap lists.
+([Punch](2026-10-28-punch.md)) and the skills the roadmap lists.
 
 **Option Mind's design, before any training run.** Each step is checked by the gate, the drill
-readings it touches against the baseline record ([the baseline](../reference/baseline.md)) and a look; fights are read once, by the
-baseline evaluation at step 14 against that record, since each step moves what the next reads.
+readings it touches against the baseline record ([the baseline](../reference/baseline.md)) and a
+look; fights are read once, by the baseline evaluation when the last step lands, against that
+record (0.68 at `cc339f53`), since each step moves what the next reads.
 
 ### 13. Footwork, the guard and the intent
 
 The goals and the covers are options under one policy, and the gaits braced and run options
-toward each goal ([follow-up](2026-10-28-option-mind-followup.md): built). This step names what
+toward each goal (built). This step names what
 they ask of the legs and the hands: `walk(velocity, facing)`, the legs goal as asked, for what
 `move`, `movement` and `face` give now, and a goal as a bearing around the foe for circling or a
 place the navigator routes to, beside the goals made from the skills; the legs goal takes a pace
@@ -472,7 +469,7 @@ target is the blow predicted to reach the head, `READINGS.predicted`; the blow p
 body, guarded where it meets the body's axis, lost on the Cover drill's punched rung, covered 0 of
 12 against 2, so it waits on a cover that keeps the head while it guards the trunk). Option Mind's
 intent is the set it selected, each option with its resources (built:
-[follow-up](2026-10-28-option-mind-followup.md) step 12); the orders a person gives Option Mind open with
+`intentOfSet`, `src/core/mind/intent.ts`); the orders a person gives Option Mind open with
 it, an order naming a goal as a skill does. Other minds keep the intent they write and their own
 readings.
 
@@ -484,17 +481,59 @@ Left past the step's time box: `walk(velocity, facing)` and the goals around the
 goal's pace and height under standing (the arbiter folds the intent's `lower`, `gait` and
 `destination` into it, and navigation its `pace`), and the orders vocabulary.
 
-### 14. The design read whole
+### 14. The legs bear on hands and knees
 
-Option Mind's part roles are the design's ([part roles](#part-roles)): a role nothing configures goes.
-Then the baseline evaluation reads the design whole: the design group's one fight reading.
+Built: the ends a body can bear on are its spec's (`BodySpec.ends`, `src/core/spec/body.ts`), and
+legs asked both shins lower the body onto its knees and hold it there (`lowering`,
+`src/core/mind/rise/lowering.ts`; [the kneel-down](../reference/rising.md#the-kneel-down)); asked
+hands and knees, every legs reports the ends unmet.
 
-Check: the gate; the baseline evaluation against the baseline record, written (`--write`), a fight
-lost against it fixed or its reason recorded.
+Left: the legs bear on hands and knees, and on any set of the ends from where the body is, carrying
+the root over them as the ground techniques do now (`carryRoot`, `bearLimbs`,
+`src/core/control/bearing.ts`; the limbs made from the spec's ends in the control layer,
+`riseLimbs` moved there). A ground technique then asks its bearing ends in its legs goal and holds
+only the limbs it moves, so an arm it does not use is the policy's for a cover or the guard, and no
+technique writes the muscles itself (`groundExecutor`, `src/core/mind/ground/held.ts`).
 
-Read at `cc339f53`: every role is configured by some mind, so none goes; merging the executor, the
-technique and the guard into the skill waits on their one interface (step 13's skill shape). The
-fights, 0.68 against the record's 0.64, lost nothing ([the baseline](../reference/baseline.md)).
+Check: the probes' kneeling and hands-and-knees sets borne, not reported; the baseline's stand-up
+on toes paired against its record (24 of 32 at `97a64096`); the owner looks at a rise in the Lab's
+Stand-up mode, its unused arm at the guard.
+
+### 15. A bearing from the foe's striking arc
+
+Built: the bearing around the focus is a percept (`around`) a place predicts, and the position
+value reads it: the foe's pressure waits the time it takes to turn to face the body (`turning`, at
+its measured turn, `Predictions.turns`). Tried and not kept: a place behind the focus, round its
+flank. Two Option Minds circled each other at the full turn, the walk behind and the walk straight
+in priced within a thousandth of a life of each other and swapped every rethink; against the
+Duellist and Vanguard it gained nothing (a score of 0.367 against 0.417, paired -0.05 +- 0.065).
+
+Left: places at bearings from the edges of the foe's striking arc, which its model gives once a
+strike profile has bearing as a dimension (a Strike drill rung that strikes from off the foe's
+front), so a place aside is on offer only where the foe's arc is narrower than the body's own.
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; the
+baseline fights against their records; the owner watches a bout for circling and dithering.
+
+### 16. A foe's reach by its limbs and what it holds
+
+A foe with no profile measured on its body is modelled by Option Mind's own strikes (`foeModel`,
+"as its own strikes"), read at Option Mind's ranges, and its prior's reach counts its hands alone
+(`handsReach`), so a club or a kick reads as a punch. A borrowed profile's ranges and the prior's
+reach are read by the limb the strike is of (an arm, a leg, or the held item's points where it is
+armed), scaled by the two bodies', and the reading says so (`scaled`). The held item needs the
+senses to carry what a body holds. Between bare-handed bodies the arms differ by a few per cent
+(the Rogue's hands reach 0.97 of the Warrior's, the Skeleton's 1.12).
+
+Check: the gate; the fingerprint against the commit before, the cases that move named; Option Mind
+against an unmeasured foe of another reach, with and without the scaling (`npm run match`).
+
+## Not here
+
+- The downward blow from low support: the stomp strikes a foe on the ground for now (the owner's
+  decision).
+- A gait beyond braced and run: a new gait is new settings of the legs and its own profile, added
+  where a drill shows a place the two lose.
 
 ## Done when
 
@@ -508,4 +547,7 @@ policy over options selected as a set by their resources, its footwork each gait
 from its skills, and its carriages and gaits are named in the legs goal; its rise is a
 chain of skills with no sub-mind, offered as options to the same policy; it draws by chance only from the host's seed and replays to the
 bit; and any skill, chooser or whole mind, the bare entrant's among them, trains from an
-environment file, a drill's or a bout's, at the speed its measurement left.
+environment file, a drill's or a bout's, at the speed its measurement left. The legs bear on the
+ends the body's spec names, so a ground technique holds only the limbs it moves and writes no
+muscle itself; a place aside the foe is priced from its striking arc; and a foe's reach is read by
+its limbs and what it holds.
