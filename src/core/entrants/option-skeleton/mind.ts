@@ -25,6 +25,7 @@ import { FEW_TERMS_PART } from "./options/position.ts";
 import { MEASURED_PREDICTIONS, PRIOR_PREDICTIONS } from "./options/predictions-part.ts";
 import { optionTactics } from "./tactics.ts";
 import { SKELETON_RECOVERY } from "./recovery.ts";
+import { SKELETON_GUARD } from "./guard.ts";
 
 /**
  * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
@@ -65,7 +66,7 @@ const GOING: LocomotionConfig = deepFreeze({ kind: "move", rules: [], otherwise:
 
 /** The empty-handed Skeleton's own chooser, unlearned punch and flat-footed recovery. */
 const OPTION_DEFAULTS: SkeletonOptionConfig = deepFreeze({ kind: "option-skeleton", chooser: { kind: "skeleton-valued", depth: 2 }, options: OPTIONS,
-  locomotion: GOING, guard: { kind: "shield-guard" }, support: { kind: "support-fold" },
+  locomotion: GOING, guard: SKELETON_GUARD.defaults, support: { kind: "support-fold" },
   executors: [PUNCH, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, LOW_KICK_ACTION], ground: [{ kind: "step-up" }] });
 
 /** Its slots: its chooser, its options and what it predicts from, a skill of each role, its techniques on the ground and its motor. */
@@ -111,7 +112,7 @@ function createOptionMind(host: BodyHost, given: SkeletonOptionConfig, wiring: M
 export const SKELETON_OPTION_MIND = controller<SkeletonOptionConfig>({
   role: "mind", label: "Option Mind — Skeleton", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
   keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
-  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS, SKELETON_RECOVERY],
+  parts: [VALUED_CHOOSER, RANKED_CHOOSER, ...OPTION_KINDS, FEW_TERMS_PART, MEASURED_PREDICTIONS, PRIOR_PREDICTIONS, COVER_DRILL_TACTICS, SKELETON_RECOVERY, SKELETON_GUARD],
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],

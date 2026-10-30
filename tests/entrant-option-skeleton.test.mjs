@@ -10,6 +10,10 @@ import { createMind } from "../src/core/mind/minds.ts";
 import { groundPlacement } from "../src/lab/ground-starts.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { traceOf } from "../src/evaluation/trace.ts";
+import { SKELETON_GUARD } from "../src/core/entrants/option-skeleton/guard.ts";
+import { withLoadout } from "../src/core/items/held.ts";
+import { guardPosture } from "../src/core/skills/guard.ts";
+import { saveState, loadState } from "../src/core/state.ts";
 
 test("recovery retains an opportunity cost against a foe with no modelled hand attack", () => {
   const spec = modelSpec("crypt-skeleton"), foe = modelSpec("reptile");
@@ -27,6 +31,28 @@ test("recovery retains an opportunity cost against a foe with no modelled hand a
   assert.ok(cost(4, 1) > ordinary, "a longer recovery loses more opportunity");
   assert.ok(cost(2, 0.5) > ordinary, "failed attempts lose more opportunity");
   assert.equal(cost(2, 0), 1, "no route up costs the life that remains");
+});
+
+test("a sensed blade changes the captured guard rest in place, including across a fork", () => {
+  const spec = modelSpec("crypt-skeleton"), config = { ...SKELETON_GUARD.defaults, shoulder: .9, abduction: .2, elbow: .6 };
+  const guard = SKELETON_GUARD.make({ spec }, config), captured = guard.posture;
+  const sword = withLoadout(spec, { left: "empty", right: "sword" }), club = withLoadout(spec, { left: "empty", right: "club" });
+  const seen = others => ({ senses: { side: "blue", others } });
+  const foe = spec => ({ spec, side: "red", out: false });
+  const high = SKELETON_GUARD.posture(spec, { ...config, againstBlades: false }), ordinary = guardPosture(spec);
+  assert.deepEqual(captured, ordinary, "without a sensed blade the configured rest is the ordinary guard");
+  guard.command(seen([{ spec: sword, side: "blue", out: false }, foe(club)]), {});
+  assert.equal(guard.posture, captured, "the arbiter and the punch retain this same rest object");
+  assert.deepEqual(captured, ordinary, "an ally's blade does not select the raised guard");
+  guard.command(seen([foe(sword)]), {});
+  assert.deepEqual(captured, high, "the real held blade selects the caller's raised pose");
+  const saved = saveState(guard.state);
+  guard.command(seen([foe(spec)]), {});
+  assert.deepEqual(captured, ordinary);
+  loadState(guard.state, saved);
+  assert.equal(guard.posture, captured);
+  assert.deepEqual(captured, high, "loading restores the pose through the captured reference");
+  assert.deepEqual(saveState(guard.state), saved);
 });
 
 test("a private recovery selected through the entrant's config runs and forks with its body", async () => {
