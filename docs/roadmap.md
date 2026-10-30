@@ -55,6 +55,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
 | [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
+| [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder: the drills holding the loadout and a club's bar (the untrained blow less one SD), a learned club blow from the still rung to rung 5, the buckler covering the weapon on Cover's rungs, the rise holding both, then fights against the Duellist and Vanguard |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a scripted entrant) |
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit |
@@ -69,9 +70,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
    one-two, fights); then a learned gait,
    the Stand drill (Drills step 8) landing before it, and the other skills
-   ([Body and motor control](#body-and-motor-control)).
+   ([Body and motor control](#body-and-motor-control)); the club blow and the buckler cover
+   ([Buckler and club](plans/2026-10-29-buckler-and-club.md), steps 2 to 6).
 3. **Beside them:** Drills step 2 (the moving target, overlays and side by
-   side), which Punch step 2b needs; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
+   side), which Punch step 2b needs; the drills holding the loadout (Buckler and club step 1); Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
    Recovery step 3 once Option Mind's rise stands the target (its speed set aside for now, the
    owner, 2026-10-29): the game's bodies take toes with it,
