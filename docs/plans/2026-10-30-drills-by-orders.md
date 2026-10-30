@@ -160,8 +160,9 @@ Check: the gate; the fingerprint unchanged; every drill's rungs play.
 - **Pause on choice**, a setting: the page pauses where the led side's menu changes in what it
   could do (an entry turns ready and holds so for a moment, an action ends, a foe is newly sensed,
   the body goes down or gets up). Paused, the person picks an entry, given as an order with its
-  action, limb, foe and region (the lead's strike gains the action and the limb), or lets the mind
-  go on. The orders are on the tape, so a bout played so plays again.
+  action, limb, foe and region (the party's attack command naming them, `StrikeChoice`), or lets
+  the mind fight its own way. The person's side picks at any time; only entries an order can name
+  (a foe's) are picked or paused on. The orders are on the tape, so a bout played so plays again.
 
 Check: the build; in a browser, a bout played turn by turn and played again from its tape; the
 owner plays one.

@@ -963,7 +963,7 @@ down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals
 
 Its host asks it once a step, after the senses and before every Mind. **A person's commands**
 (`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
-sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
+sensed foe (with an action, a limb and a region where it names them, `StrikeChoice`), face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
 The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
 side's Commander its options' config (`party`, `enemies`: the person's party and a mob, `RUN_COMMANDERS`, unless the page's
@@ -1353,7 +1353,11 @@ and `?play=tools`.
 **The Arena.** A person may take a side (`&you=left`), which they lead as a team of one
 ([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
 facing and a sensed foe and segment (`src/arena/orders-input.ts`), and a click on the floor a go
-there; the Commander's orders reach the side as `Duel.order`. The room's solids (`arenaSolids(level)`)
+there; the Commander's orders reach the side as `Duel.order`. Each side lists its choices, its
+menu (`choicePanel`, `src/arena/choices.ts`); a person picks one of their side's, an attack with
+its action, limb and region, and with pause on choice the bout pauses where their side has a new
+one (`choiceWatch`: an entry an order can name turned ready, an action ended, a foe newly sensed,
+the body down or up), so a bout plays turn by turn and again from its tape. The room's solids (`arenaSolids(level)`)
 are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
