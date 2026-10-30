@@ -60,6 +60,16 @@ swings its paired reference. Its subject is Option Mind's action (`option/<actio
 Check: the held-out still rung at the bar at 120 and 480 Hz, none fallen; the reel watched; the
 owner accepts rung 0.
 
+Built at the head: a recipe for the toed Warrior searched on the still rung itself
+(`research/club-drill.mjs`, Option Mind throwing each candidate through the recipe strike) and
+thrown by Option Mind's `club-blow` with a hand that holds an item. The still rung at `4d5b20f7`
+(Node, core world, rapier-coordinate, 120 Hz): the right hand at the head 15 of 16 landed, 68 to
+105 J, none fallen; 14 of 16 at 480 Hz; 11 of 14 on places it was not searched on. The trunk is
+not kept: its blow lands through 120 Hz's error alone
+([blows](../reference/blows.md#the-toed-warriors-club-blow)), so the action aims at the head alone.
+Its still reel watched: the weak trial meets the head at the bar's edge, the striker stays up and
+recovers; at 0.6 m it steps back to its window first.
+
 ### 3. The club blow up the ladder
 
 The fight rung and rungs 1 to 5 in the punch's order ([Punch](2026-10-28-punch.md#2-the-punch-at-its-bar-everywhere)),
@@ -67,6 +77,13 @@ one ground joined at a time; its profile regenerated from the records
 (`research/strike-profiles.mjs`), so Option Mind prices it by measurement.
 
 Check: each rung's held-out reading at the bar; the owner accepts each rung.
+
+Read at `5269c0cc`, the right hand at the head: stepping 1 of 3 landed, guarding 3 of 3, punching
+0 of 3; its profile is in `assets/core/strike-profiles.json`, from the still and opponent rungs.
+Open: the fight rung admits none, since the drill fights by a mind's tactics before its moment and
+Option Mind has options in their place, so its trials walk in from the bout's start against a
+fighting foe; the walk rung asks the trunk alone. Each needs the drill extended before the blow is
+read there.
 
 ### 4. The buckler cover
 
@@ -83,6 +100,9 @@ twelve (0.74); the bare and club rows play identically. About even on six trials
 
 Check: the Cover drill's rungs 0 and 1 at the buckler's bar, paired with the step before; rung 2;
 the owner accepts each rung.
+
+Open: the Cover drill has rungs 0 and 1 (`swung`, `punched`); rung 2, a cover and a counter, is a
+protocol still to write.
 
 ### 5. Up again holding both
 
@@ -103,6 +123,13 @@ The baseline evaluation's buckler-and-club bouts played, not dropped, against th
 Vanguard; `npm run match` of Option Mind against the Duellist on the buckler and club.
 
 Check: Option Mind ahead of both in those bouts; the owner watches a bout and accepts it.
+
+Read at `d6200840` (Node, core world, rapier-coordinate, 120 Hz): the baseline plays every loadout,
+none dropped. Holding the buckler and the club, Option Mind wins 3 of 6 against the Duellist and 5
+of 6 against Vanguard (`npm run match`, match `9405ddeaecb0d709` and `cced6f2a9c3bd57d`, the
+Warrior alone; the Rogue is dropped, Option Mind playing the Warrior). Even with the Duellist, not
+ahead. In those bouts it throws the club blow 1 to 9 times to its end, and more of its asks stall
+short of the blow's window than end.
 
 ## Done when
 
