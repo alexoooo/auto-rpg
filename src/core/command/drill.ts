@@ -1,5 +1,5 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import { approachPace, straightSpot, windowHolds } from "../mind/action-window.ts";
+import { approachPace, straightSpot, windowHolds, type Spot } from "../mind/action-window.ts";
 import { directMovement, placeMovement } from "../mind/movement.ts";
 import { isRegion, type Orders } from "../mind/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../skills/action.ts";
@@ -115,6 +115,8 @@ export function drillCommander(config: DrillCommanderConfig): Commander {
     begun: [] as number[],
     /** The window the ordered choice last named, whether it has walked toward it, whether it holds there, and the way it faces once it does. */
     window: null as Window | null, walked: false, held: false, set: null as number | null,
+    /** Where its member's menu last said the body would stand in its choice's window, where that is beside a body lying, with the way round it: null where it stands straight. */
+    spot: null as Spot | null,
     /** The choice it orders, once its member's menu offers one that fits its config and could start or be walked to. */
     choice: null as Choice | null,
     /** Where its member stood at its last decision, and when: what its speed over the ground is read from. */
@@ -150,6 +152,17 @@ export function drillCommander(config: DrillCommanderConfig): Commander {
     if (open) state.choice = { action: open.action, limb: open.limb, region: open.region! };
     return open ?? menu.find((entry) => fits(entry, config)) ?? null;
   };
+  /**
+   * A stand facing `face`; beside a body lying, a stay at its spot by that body (`MovementRequest`'s
+   * `by`), where a plain stand is kept off a fallen body, as near it as the window is narrow: a body
+   * inside its window needs no step.
+   */
+  const stay = (face: number): Orders => {
+    const spot = state.spot, window = state.window;
+    if (spot?.by === undefined || !window) return { move: null, face: heading(face) };
+    const near = Math.min(window.along[1] - window.along[0], window.across[1] - window.across[0]) / 2;
+    return { move: { kind: "place", points: [{ x: spot.x, z: spot.z }], near, by: spot.by }, face: heading(face) };
+  };
   const decided = (member: MemberView, orders: Orders | null): TeamDecision =>
     ({ orders: new Map(orders ? [[member.id, { ...orders, firm: true as const, ...(config.gait === undefined ? {} : { gait: config.gait }) }]] : []), looked: true });
   return {
@@ -169,6 +182,12 @@ export function drillCommander(config: DrillCommanderConfig): Commander {
       state.since ??= view.time;
       const foe = nearest(member, view.others);
       state.focus = foe?.id ?? null;
+      if (state.phase === "striking") {
+        // The step it first sees its strike begun, it reads it as under way, a let-go included.
+        const begun = member.actions?.find((action) => action.action === state.choice!.action && action.effector === state.choice!.limb && !state.begun.includes(action.id));
+        if (!begun) return decided(member, strike(state.struck!, state.set));
+        state.id = begun.id; state.began = view.time; state.phase = "under way";
+      }
       if (state.id !== null) {
         const live: ActionStatus | undefined = member.actions?.find((action) => action.id === state.id);
         if (live && state.let === null) {
@@ -187,7 +206,7 @@ export function drillCommander(config: DrillCommanderConfig): Commander {
       if (state.phase === "done") return decided(member, STAND);
       if (view.time < state.since + config.after) { state.phase = "settling"; return decided(member, STAND); }
       if (!foe) { state.phase = "lost"; return decided(member, STAND); }
-      if (config.going !== undefined && !state.arrived && state.phase !== "striking") {
+      if (config.going !== undefined && !state.arrived) {
         const readiness = ordered(member, foe.id)?.readiness;
         const short = readiness?.kind === "waiting" || readiness?.kind === "position" && !windowHolds(readiness.window, at.x, at.z, member.heading ?? 0);
         if (short) {
@@ -196,28 +215,29 @@ export function drillCommander(config: DrillCommanderConfig): Commander {
         }
         state.arrived = true;
       }
-      if (state.phase === "striking") {
-        const begun = member.actions?.find((action) => action.action === state.choice!.action && action.effector === state.choice!.limb && !state.begun.includes(action.id));
-        if (begun) { state.id = begun.id; state.began = view.time; state.phase = "under way"; }
-        return decided(member, strike(state.struck!, state.set));
-      }
       const entry = ordered(member, foe.id), readiness = entry?.readiness ?? { kind: "blocked" as const, reason: "no such choice on its menu" };
       state.phase = readiness.kind;
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
       const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z), settled = state.still !== null && view.time - state.still >= STILL_FOR;
       if (readiness.kind === "position") state.window = readiness.window;
+      if (entry?.spot) state.spot = entry.spot.route ? entry.spot : null;
       const window = state.window;
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
         const middle = middleOf(window), within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
-        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : within(middle);
-        if (state.held) state.set ??= toward;
-        const spot = straightSpot(middle, at), distance = hypot(spot.x - at.x, spot.z - at.z);
-        if (config.pace === undefined || state.held || distance <= MIDDLE) return decided(member, { move: null, face: heading(state.set ?? spot.face) });
+        // Beside a body lying, the place its menu names and the way round that body; else straight into the window's middle.
+        const spot: Spot = state.spot ?? straightSpot(middle, at), distance = hypot(spot.x - at.x, spot.z - at.z);
+        // Come to its spot inside the window, it holds there while it stays inside, swaying no further than `SWAY`.
+        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : within(middle) || distance <= MIDDLE && within(window);
+        // Held beside a body lying, it faces as its spot does; else at the foe.
+        if (state.held) state.set ??= state.spot ? spot.face : toward;
+        if (config.pace === undefined || state.held || distance <= MIDDLE) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
-        return decided(member, { move: placeMovement({ x: spot.x, z: spot.z }, MIDDLE), pace: approachPace(config.pace, distance), face: heading(spot.face) });
+        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: MIDDLE, ...(spot.by === undefined ? {} : { by: spot.by }) }
+          : placeMovement({ x: spot.x, z: spot.z }, MIDDLE);
+        return decided(member, { move, pace: approachPace(config.pace, distance), face: heading(spot.face) });
       }
       const face = state.set ?? toward;
-      if (readiness.kind !== "ready" || state.walked && !settled && !config.walking) return decided(member, { move: null, face: heading(face) });
+      if (readiness.kind !== "ready" || state.walked && !settled && !config.walking) return decided(member, stay(face));
       state.set = face; state.struck = foe.id;
       state.phase = "striking";
       return decided(member, strike(foe.id, face));

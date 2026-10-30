@@ -1,4 +1,5 @@
 import type { BodyView } from "../body.ts";
+import { windowSpot, type Spot } from "../mind/action-window.ts";
 import { deepFreeze } from "../state.ts";
 import type { ActionAround, Readiness, Region, TargetRef } from "./action.ts";
 import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
@@ -18,7 +19,9 @@ export interface KitEntry {
 /**
  * **A choice a body has now**: an action of its kit with one of its limbs, at a foe's region (both
  * null for an action on the body itself), and whether it could start from where the body stands
- * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason).
+ * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason); where
+ * it names a window, where the body would stand in its middle (`spot`, `windowSpot`: beside a body
+ * lying, with the way round it), which a leader can walk it to.
  */
 export interface MenuEntry {
   readonly action: string;
@@ -26,6 +29,7 @@ export interface MenuEntry {
   readonly foe: string | null;
   readonly region: Region | null;
   readonly readiness: Readiness;
+  readonly spot?: Spot;
 }
 
 /** The target of an action on the body itself: none; its executor reads the body. */
@@ -51,8 +55,10 @@ export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionA
   const foes = view.senses.others.filter((other) => !other.out && other.side !== view.senses.side), entries: MenuEntry[] = [];
   for (const { action, limbs, regions } of kit) for (const limb of limbs) {
     if (regions.length === 0) { entries.push({ action, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) }); continue; }
-    for (const foe of foes) for (const region of regions)
-      entries.push({ action, limb, foe: foe.id, region, readiness: readiness(view, action, limb, { kind: "body", body: foe.id, region }, around) });
+    for (const foe of foes) for (const region of regions) {
+      const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
+      entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(ready.kind === "position" || ready.kind === "ready" && ready.window ? { spot: windowSpot(view, ready.window!, around.heading) } : {}) });
+    }
   }
   return entries;
 }
