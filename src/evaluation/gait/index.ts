@@ -1,8 +1,8 @@
 /**
  * **The Gait drill**: how long does each gait leave a body unbraced once it stops to strike, and
- * does it stay up? A subject is a mind; the drill puts its own tactics in the mind's tactics slot,
- * going at a still target by a gait and a speed, stopping and striking (`drill-gait`), so the gaits
- * are read on the mind's body and parts. Its records price the gaits.
+ * does it stay up? A subject is a mind; the drill Commander orders it at a still target by a gait
+ * and a speed, to stop and strike, so the gaits are read on the mind's body and parts as it carries
+ * the orders out. Its records price the gaits.
  */
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json } from "../evaluation.ts";

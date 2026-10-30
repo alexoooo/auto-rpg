@@ -1,6 +1,6 @@
 /**
- * **The Cover drill's cases**: the subject stands and covers (`drill-cover`, in its mind's tactics
- * slot) against a drill opponent striking on its script: rung 0 (`swung`) swinging a club in its
+ * **The Cover drill's cases**: the subject's mind, ordered to stand facing its foe and strike nothing
+ * (the stand Commander), covers as it chooses against a drill opponent striking on its script: rung 0 (`swung`) swinging a club in its
  * right hand (`drill-swing`), rung 1 (`punched`) closing to punch (`drill-punch`), each two seconds
  * striking and one standing, round again. The subject is a Warrior empty-handed, with a club in
  * its right hand, or with a buckler in its left as well; the opponent starts the condition's gap ahead and offset across, the two on the
@@ -9,7 +9,7 @@
  */
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { drilledBy } from "../../core/mind/catalog.ts";
+import { treeObeys } from "../../core/mind/catalog.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { loadoutKey, type Loadout } from "../../core/items/held.ts";
 import type { BodyModel } from "../../core/models.ts";
@@ -47,20 +47,16 @@ type Rung = typeof SWUNG;
 /** What the subject holds, as a loadout. */
 const loadoutOf = ({ held, left }: Pick<CoverCondition, "held" | "left">): Loadout => ({ left: left ?? "empty", right: held });
 
-/** The subject's mind standing and covering: `mind` with the drill in its tactics' slot. */
-export function coverer(mind: MindConfig): MindConfig {
-  const drilled = drilledBy(mind, { kind: "drill-cover" });
-  if (!drilled) throw new Error(`no drill drives a ${mind.kind} mind`);
-  return deepFreeze(drilled);
-}
+/** The Commander that leads the subject: stand facing the foe, and strike nothing. */
+const STANDING = deepFreeze({ kind: "stand" });
 
 /** Why `value` is no subject, or what keeps its mind from `model` holding `loadout` (`mindFaults`). */
 function faultsOf(value: Json, model: BodyModel, loadout: Loadout, subject?: Subject): readonly string[] {
   const kind = (value as { kind?: unknown } | null)?.kind;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   if (!presetFitsModel(subject ?? {}, model)) return [`named calibration allows ${subject?.models?.join(", ") || "no bodies"}; ${model} is unavailable`];
-  if (!drilledBy(value as unknown as MindConfig, { kind: "drill-cover" })) return [`no drill drives a ${kind} mind`];
-  return mindFaults(coverer(value as unknown as MindConfig), modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
+  if (!treeObeys(value as unknown as MindConfig)) return [`a ${kind} mind carries out no orders, so no drill leads it`];
+  return mindFaults(value as unknown as MindConfig, modelHolding(model, loadout, subject?.character), { entry: [] }).map((fault) => `${model}, ${loadoutKey(loadout)}: ${fault}`);
 }
 
 function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
@@ -81,7 +77,7 @@ function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
           loadouts: { left: loadoutOf(condition), right: protocol.foe },
           // Along +x, as the open stage's spawns are.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
-          minds: { left: coverer(value as unknown as MindConfig), right: MINDS[protocol.opponent]!.config as MindConfig } } };
+          minds: { left: value as unknown as MindConfig, right: MINDS[protocol.opponent]!.config as MindConfig }, commanders: { left: STANDING } } };
     },
     read: (built) => readCover(built, protocol),
   };

@@ -1,8 +1,8 @@
 /**
  * **What every registered Commander keeps to** (Node, core world, vendored Rapier, 120 Hz): each
  * Commander (`COMMANDERS`) leads the left side of an Arena bout as a team of one, as a person's side
- * is led (`teamOfOne`), until it has sent its member at the foe and the member stands within its
- * reach of it; the bout forks there and goes on to
+ * is led (`teamOfOne`), until it has given orders and its member stands within its reach of the foe,
+ * sent there or come upon; the bout forks there and goes on to
  * the bit with the team's memory and standing orders copied (`TeamOfOne.state`), and plays again to the bit from the orders it
  * gave alone (`Duel.play`), with no Commander. How well a Commander leads is measured apart.
  */
@@ -17,9 +17,9 @@ import { cryptModel } from "../src/dungeon/actors.ts";
 import { SIDES } from "../src/arena/duel.ts";
 import { teamOfOne } from "../src/arena/team.ts";
 
-/** The bout: two bodies a little beyond the member's reach, so that its Commander must send it in. */
+/** The bout: two bodies a little beyond the member's reach, so that one of them must close. */
 const RECIPE = Object.freeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 2.5 });
-/** The longest it may take a Commander to send its member at the foe, s: the bout's own cap. */
+/** The longest it may take the two to close, s: the bout's own cap. */
 const REACH_SECONDS = 10;
 
 /** A bout of `RECIPE` whose left side `kind` leads as a team of one (`teamOfOne`), given its orders each step in the sensing phase, before every Mind. */
@@ -37,9 +37,9 @@ for (const kind of Object.keys(COMMANDERS)) {
     const a = await led(kind);
     let fork;
     try {
-      const closed = () => a.duel.tape.some((entry) => entry.orders?.foe === "right") && a.gap() <= a.reach;
+      const closed = () => a.duel.tape.some((entry) => entry.orders) && a.gap() <= a.reach;
       while (!closed() && a.duel.clock < REACH_SECONDS) { a.world.step(); a.trace.take(); }
-      assert.ok(closed(), `the ${kind} Commander did not bring its member within reach of the foe in ${REACH_SECONDS} s: the fixture did not reach its case`);
+      assert.ok(closed(), `the ${kind} Commander's member did not come within reach of the foe in ${REACH_SECONDS} s: the fixture did not reach its case`);
       // On past the next look, so that the fork decides on the memory it was given until then.
       const steps = a.world.hz;
       fork = { duel: a.duel.save(), team: saveState(a.teamState) };

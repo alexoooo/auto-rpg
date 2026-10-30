@@ -30,7 +30,7 @@ export type CoverReading = {
   /** The hit points the subject lost in the opponent's touches, all of them, and those on its head. */
   readonly taken: number;
   readonly headTaken: number;
-  /** How long its drill covered with a hand, s. */
+  /** How long it covered with a hand (`SkillReport.covering`), s. */
   readonly covering: number;
   readonly first: CoverTouch | null;
   readonly down: boolean;
@@ -53,7 +53,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   let down = false, covering = 0, last = world.time;
   return {
     afterStep() {
-      if (skills.report.engagement?.phase === "covering") covering += world.time - last;
+      if (skills.report.covering.length > 0) covering += world.time - last;
       last = world.time;
       down ||= left.body.down;
     },

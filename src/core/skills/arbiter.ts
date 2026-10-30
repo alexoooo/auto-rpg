@@ -51,6 +51,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
+    /** The hands a cover drove at the last step (`SkillReport.covering`). */
+    covering: [] as string[],
     /** Whether last step an action held the legs with no stance (`ActionClaim.legs` null): the services resume when none does. */
     unstanced: false,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
@@ -77,7 +79,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const report = {
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
     get legs() { return legs.unmet ?? ALL_MET; },
-    get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
+    get actions() { return instances.live; }, get ledger() { return instances.ledger; }, get covering() { return state.covering; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
     ...(navigation ? { navigation: navigation.report } : {}),
     ...(support ? { support: support.report } : {}),
@@ -128,8 +130,10 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const handPoses: Partial<Record<string, HandPose>> = {};
       for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
       const covers = guard.command(view, intent.guard);
+      state.covering.length = 0;
       for (const hand of guard.hands) {
         if (available(`effector:${hand}`)) effectors[hand] = covers[hand] ?? null;
+        if (effectors[hand]) state.covering.push(hand);
         const pose = available(`pose:${hand}`) ? guard.handPose?.(hand) ?? null : null;
         if (pose) handPoses[hand] = pose;
         const held = !effectors[hand] && available(`effector:${hand}`) ? guard.hold?.(hand) : null;

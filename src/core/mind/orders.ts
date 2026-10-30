@@ -1,4 +1,5 @@
 import type { Region } from "../skills/action.ts";
+import { GAIT_NAMES, type GaitName } from "../skills/gaits.ts";
 import { isMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 
 /** A direction on the ground, world. */
@@ -19,6 +20,8 @@ export interface Orders {
   readonly pace?: number;
   /** Walk, not run: no faster than the body's plain walk goes forward (`Intent.walk`). */
   readonly walk?: true;
+  /** Go by this gait (`Intent.gait`), where the legs go by gaits; absent, the mind's choice. */
+  readonly gait?: GaitName;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
   /** Attack this sensed body (`BodySense.id`) where the mind chooses on it. */
@@ -68,13 +71,13 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, walk, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
+  const { move, pace, walk, gait, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
   const named = (one: unknown) => one === undefined || typeof one === "string" && one.length > 0 && foe !== undefined;
   return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
-    && (walk === undefined || walk === true) && (firm === undefined || firm === true)
+    && (walk === undefined || walk === true) && (firm === undefined || firm === true) && (gait === undefined || (GAIT_NAMES as readonly unknown[]).includes(gait))
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || isRegion(region) && foe !== undefined) && named(action) && named(limb)
-    && Object.keys(value).every(key => ["move", "pace", "walk", "face", "foe", "region", "action", "limb", "firm"].includes(key));
+    && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "face", "foe", "region", "action", "limb", "firm"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

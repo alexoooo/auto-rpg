@@ -4,6 +4,7 @@
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Duel } from "../../arena/duel.ts";
+import { drillTask } from "../../core/command/drill.ts";
 import type { World } from "../../core/world.ts";
 import type { Reader } from "../evaluation.ts";
 
@@ -38,7 +39,7 @@ export function readGait({ world, duel }: { readonly world: World; readonly duel
   };
   return {
     afterStep() {
-      const phase = skills.report.engagement?.phase;
+      const phase = drillTask(duel.commanded("left")?.task ?? "lost").phase;
       if (phase !== "going" && stopped === null) { stopped = world.time; moving = speed(); }
       if (admitted === null && skills.report.actions.length > 0) admitted = world.time;
       if (phase === "done") ended ??= world.time;
