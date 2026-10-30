@@ -1,6 +1,6 @@
 import { cos, sin } from "../../../math/real.ts";
 import type { BodySpec, Side } from "../../../spec/body.ts";
-import { coveringHand } from "../../../mind/cover-hand.ts";
+import { coveringHand, shieldHands } from "../../../mind/cover-hand.ts";
 import type { Resource } from "../../../skills/action.ts";
 import { blocked, NOTHING, READY, type Situation, type Option } from "./option.ts";
 import { here } from "./position.ts";
@@ -20,7 +20,8 @@ const STOPS = .6;
  * (`Situation.incoming`, `READINGS.predicted`), carried out by the hand on the side the blow closes
  * from (`coveringHand`). On offer while there is such a hand and no action under way holds it,
  * down or standing, for at most `LONGEST` s of one run of blows, then not until the threat has
- * gone. It claims that hand, asks it between the blow and the head, and is priced by the share of
+ * gone. It claims that hand, asks it between the blow and the head (a hand holding a covering face
+ * between the foe's weapon and the body, `Situation.ward`, as a shield's guard meets it), and is priced by the share of
  * the blow's life it keeps off (`STOPS` of `Situation.danger`), leaving the body where it is. It
  * always yields. Its memory is when the run began, whether it is spent, and the hand, read once a
  * step.
@@ -41,7 +42,7 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
   };
   const OFF = blocked("no blow for a hand to cover"), HELD = blocked("an action holds the covering hand");
   const claims: Readonly<Record<Side, readonly Resource[]>> = { left: Object.freeze(["hand.left"]), right: Object.freeze(["hand.right"]) };
-  const sides = (["left", "right"] as const).filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`));
+  const sides = (["left", "right"] as const).filter((side) => spec.segments.some((segment) => segment.name === `hand.${side}`)), shields = shieldHands(spec);
   const option: Option = {
     name: "cover", state: {},
     /** The hand on the blow's side, as the entry last read it. */
@@ -53,7 +54,10 @@ export function covers(spec: BodySpec): { readonly options: readonly Option[]; r
     },
     status: () => "yields", begin() {}, end() {},
     model: (now) => ({ duration: 0, dealt: 0, taken: (1 - STOPS) * now.predictions.danger, orders: 0, exit: here(now) }),
-    step: (now) => ({ asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [`hand.${handAt(now)}`]: now.incoming! } }, holds: NOTHING }),
+    step: (now) => {
+      const hand = `hand.${handAt(now)}`;
+      return { asked: { move: null, face: now.sight.report.heading, actions: [], guard: { [hand]: shields.includes(hand) ? now.ward ?? now.incoming! : now.incoming! } }, holds: NOTHING };
+    },
   };
   return { options: sides.length ? [option] : [], state };
 }

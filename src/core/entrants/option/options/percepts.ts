@@ -36,6 +36,8 @@ export interface Seen {
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
+  /** A foe's weapon to ward off (`READINGS.ward`), read where a hand holds a covering face; null else. */
+  readonly ward: Cover | null;
   readonly threats: Threats;
   readonly riseFrom: (posture: Position) => DownModel | null;
   /** The seconds until the body is braced (`Reading.unbraced`). */
@@ -320,7 +322,8 @@ const FALLEN: Position = "back";
  * it is braced (`Seen.unbraced`); its orders; its focus; how far off the focus is, centre to centre
  * across the ground (Infinity with none), and head to head (`range`, Infinity with none); its
  * bearing around the focus, rad from the focus's forward (its `marks.base`'s +z), positive to its
- * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); how late the senses show the focus (`reactionOf`), s; the
+ * right (0 with none); a foe's blow predicted to reach the head (`READINGS.predicted`); a foe's
+ * weapon near enough to ward off, with a hand that holds a covering face (`Seen.ward`); how late the senses show the focus (`reactionOf`), s; the
  * lead (its own life less the focus's, 0 with none) and the time left before the clock's verdict
  * (`Senses.ends`, Infinity where none ends it), s. The gait's: where the stance is in a step
  * (`StanceReading.phase`), which feet the ground bears (`Bearing`) and the centre of mass's speed
@@ -338,6 +341,7 @@ export const PERCEPTS = Object.freeze({
   focus: { read: (seen) => seen.focus, cue: (focus) => focus?.id ?? null } as Percept<BodySense | null>,
   apart: { read: ({ focus, sight }) => focus ? hypot(focus.centre.x - sight.view.stance.centre.x, focus.centre.z - sight.view.stance.centre.z) : Infinity } as Percept<number>,
   incoming: { read: (seen) => seen.blow?.cover ?? null, cue: (incoming) => incoming !== null } as Percept<Cover | null>,
+  ward: { read: (seen) => seen.ward } as Percept<Cover | null>,
   range: { read: (seen) => { const { mine, theirs } = heads(seen); return theirs ? hypot(theirs.x - mine.x, theirs.z - mine.z) : Infinity; } } as Percept<number>,
   around: { read: ({ focus, sight }) => focus ? bearingAround(focus, sight.view.stance.centre.x, sight.view.stance.centre.z) : 0 } as Percept<number>,
   reaction: { read: reactionOf } as Percept<number | null>,
