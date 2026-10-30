@@ -4,7 +4,7 @@
  */
 import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";
-import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
+import { EMPTY_LOADOUT, REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
@@ -32,6 +32,11 @@ const MATCH = Object.freeze({
 const SWORD_AND_BUCKLER = Object.freeze({ ...MATCH,
   levels: Object.freeze([Object.freeze({ level: "open" as ArenaLevel, gaps: Object.freeze([3, 4.5]) }), Object.freeze({ level: "obstacle-court" as ArenaLevel, gaps: Object.freeze([4, 6]) })]),
   loadouts: Object.freeze(REPRESENTATIVE.filter((loadout) => loadoutKey(loadout) === "buckler,sword")),
+});
+
+/** Empty-handed Skeletons on the open stage, each mind on each side of every gap. */
+const SKELETON_UNARMED = Object.freeze({ ...MATCH,
+  bodies: Object.freeze(["crypt-skeleton"] as BodyModel[]), loadouts: Object.freeze([EMPTY_LOADOUT]),
 });
 
 type Protocol = typeof MATCH;
@@ -72,5 +77,5 @@ function matchCases(protocol: Protocol): Cases<MatchCondition, BoutReading> {
 
 /** Every protocol a match may be played on, by name. */
 export const MATCH_CASES: Readonly<Record<string, Cases<MatchCondition, BoutReading>>> = Object.freeze({
-  standard: matchCases(MATCH), "sword-and-buckler": matchCases(SWORD_AND_BUCKLER),
+  standard: matchCases(MATCH), "sword-and-buckler": matchCases(SWORD_AND_BUCKLER), "skeleton-unarmed": matchCases(SKELETON_UNARMED),
 });
