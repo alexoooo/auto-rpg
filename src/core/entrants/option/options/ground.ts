@@ -191,8 +191,9 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
     for (const side of [g.side, "left", "right"] as const) if (side && sides.includes(side) && one.run.admits(g, side)) return side;
     return null;
   };
-  /** Where `one` is begun from as the body is read: raw where its entry reads motion. */
-  const fromOf = (one: Technique, g: GroundReading): Position => one.part?.moving ? g.raw : g.position;
+  /** Where `one` is begun from as the body is read: where its entry reads motion, raw where it has an edge from there, else as last settled. */
+  const fromOf = (one: Technique, g: GroundReading): Position =>
+    one.part?.moving && one.part.edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   /** Where `one` goes from `from`: its edge from there (flatten, the lie); null where it has none. */
   const toOf = (one: Technique, from: Position, g: GroundReading): Position | null => one.part ? one.part.edges.find((edge) => edge.from === from)?.to ?? null : g.lie;
 
