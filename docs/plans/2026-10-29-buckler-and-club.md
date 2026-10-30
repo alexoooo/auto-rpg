@@ -80,10 +80,17 @@ Check: each rung's held-out reading at the bar; the owner accepts each rung.
 
 Read at `5269c0cc`, the right hand at the head: stepping 1 of 3 landed, guarding 3 of 3, punching
 0 of 3; its profile is in `assets/core/strike-profiles.json`, from the still and opponent rungs.
-Open: the fight rung admits none, since the drill fights by a mind's tactics before its moment and
-Option Mind has options in their place, so its trials walk in from the bout's start against a
-fighting foe; the walk rung asks the trunk alone. Each needs the drill extended before the blow is
-read there.
+The drill fights by Option Mind's own options until its moment (`Controller.fight`), counting its
+strikes alone, and its walk rung asks the head too. The walk rung at `2070d52d`: 14 of 16 landed
+settled, 11 of 16 walking. The fight rung at `69383e2c`: of the 7 moments reached at the head, 1
+landed (Counter, 92 J), 4 guarded, 2 weak; 9 unreached in its 30 s: against the classic mind
+Option Mind never asks a blow (below), against Counter and Vanguard it is down and rising.
+
+Open: against a foe that presses to clinch range (the classic mind holds 0.69 m apart), Option Mind
+never strikes. The blow's window is 0.81 to 1.1 m head to head, and thrown from 0.75 to 0.8 m it is
+weak at both rates; Option Mind backs toward the window at about 0.25 m/s and the foe follows as
+fast. Walking in, the two cross the 0.3 m window at about 2.7 m/s, faster than the blow's settle.
+It needs footwork that strikes a foe walking in, or backs out faster than one presses.
 
 ### 4. The buckler cover
 
