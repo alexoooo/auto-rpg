@@ -130,13 +130,16 @@ Physics stays at 120 Hz. Above it, a body's work can run at a lower rate, its co
 muscles are Rapier velocity motors with a force bound, solved inside the physics step, so a held
 command stays stable, and the servo's 0.1 s (`SERVO_SECONDS`) is many steps at any rate here.
 
-- **The mind and its skills at 40 Hz.** A body's driver (its decisions and its skills'
+- **The mind and its skills at 30 Hz.** A body's driver (its decisions and its skills'
   commands, the punch's arm solve among them) costs about 0.5 ms a call a body. Called every
   second, third or fourth step it fought the same mind at 120 Hz to no loss measured
-  ([the mind every few steps](../reference/step-cost.md#the-mind-every-few-steps)). Bodies are
-  staggered, a third deciding on each step, so a crowd's step carries a third of its drivers. For
-  ten bodies that is about 1.7 ms a step for the minds instead of 5. It does not shrink a dear
-  decision: a held decision does that (steps 6 and 7).
+  ([the mind every few steps](../reference/step-cost.md#the-mind-every-few-steps)), so the
+  slowest of them is tried first, and the rate raised to 40 Hz, then 60, only where a check finds
+  a loss. The learned blows steer every `PUNCH_DECIDE` (1/60 s) and are trained so; below 60 Hz
+  they steer at the mind's rate, which their drills read. Bodies are staggered, a quarter
+  deciding on each step, so a crowd's step carries a quarter of its drivers. For ten bodies that
+  is about 1.3 ms a step for the minds instead of 5. It does not shrink a dear decision: a held
+  decision does that (steps 6 and 7).
 - **Motor control at 60 Hz**: the whole-body solve on alternate steps, bodies staggered. It halves
   about 0.3 ms a step for two bodies and changes motion everywhere, so it is tried after the mind's
   rate, and kept only if the battery, the match and the owner's eye find nothing lost.
@@ -187,10 +190,11 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    drill and the match.
 8. **Phases from the seed**: periodic decisions start at a seeded phase. Check: a crowd fight of
    ten Option Mind bodies, the dearest step and how many decisions fall on one step.
-9. **The mind at 40 Hz**: a body's driver every third step at a phase from its seed, the time
+9. **The mind at 30 Hz**: a body's driver every fourth step at a phase from its seed, the time
    since its last call its step, a rate in the command layers' options (`LayerOptions`). Check:
    the baseline battery (`npm run evaluate -- baseline`: walk, punch, stand-up, fights), the
-   match against 120 Hz, a ten-body fight's step; the owner watches.
+   punch and club drills, the match against 120 Hz, a ten-body fight's step; the owner watches.
+   Where one loses, 40 Hz, then 60, the same way.
 10. **Motor control at 60 Hz, tried**: the whole-body solve on alternate steps, bodies staggered.
     Check: the baseline battery and the match against 120 Hz control; the owner watches. Kept, or
     recorded in step cost as tried and why not.
