@@ -27,7 +27,8 @@ Ordinary standing legs correct an awkward footing with the existing weight shift
 (`locomotion`, `standingFooting`). Recovery controllers keep their supports planted.
 
 The reference sole offsets come from the body's reference geometry, centred at their midpoint;
-idle targets rotate those offsets into the legs' heading about the current soles' midpoint. Body sway alone changes no target.
+idle targets rotate those offsets into the pelvis's current facing about the current soles' midpoint.
+An adjustment adopts that facing as the legs' heading. Body sway alone changes no target.
 The targets remain fixed through an adjustment. The shorter reference sole's heel-to-toe length
 includes flat toes. No muscle strength or assist changes.
 
@@ -69,12 +70,39 @@ A matched forced fall uses the same standing start and two manual 90 N s shoves 
 with automatic attempts disabled on both sources. Quiet standing is recorded 9.475 s after
 takeover at `50a7f35d`, and 9.408 s with disturbance yielding. Thus the older rise is already slow;
 restoring resistance to the automatic shoves is not proof of a smooth rise. These are stand-check
-readings, not an accepted skill rung or a walking-performance claim. Browser inspection is
-unavailable because the browser access host is unavailable.
+readings, not an accepted skill rung or a walking-performance claim. These paired readings include
+no browser inspection.
 
 Raw rows and the reproduction harness are kept in
 `research/runs/standup-regression-2026-10-30.jsonl` and the adjacent `.mjs`; short six-second
 foot traces and the older three-shove manual run are diagnostics, not the matched forced-fall pair.
+
+### Catch headings
+
+A requested step releases the stance's recovery flag and the heading held through its last catch.
+Its pelvis and landing turn use the requested heading. Settling chooses the pelvis's current
+facing when its adjustment begins, so a body turned by recovery does not twist back over planted feet.
+
+The default-seed Lab recipe reproduces a repeated adjustment after two manual 90 N s shoves at
+0.2 and 0.3 s. Harness: Node core world, `rapier-coordinate`, 120 Hz, 200 m floor, Warrior, empty
+hands, balance 0%, no foe or gusts. Source `f56890d1` places the feet across heading -0.946 rad,
+but its stale catch heading turns their landings to about -0.040 rad. It repeatedly lifts them to
+correct the remaining yaw error; stepping continues at the 50 s diagnostic cap.
+
+With the handoff and current-facing changes, no step is observed after 43.51 s in the 0.1 s samples;
+both soles remain down through 50 s, facing -0.960 and -0.942 rad about the adopted heading -0.957 rad. This diagnoses
+and checks the settling loop; the long rise before it remains outside a claim of smooth recovery.
+The two new fast regressions check a real catch handing over to a requested step and settling
+after the body has turned away from its remembered heading.
+
+The paired traces are `research/runs/idle-foot-heading-before-2026-10-30.json` and
+`research/runs/idle-foot-heading-after-2026-10-30.json`; the adjacent `.mjs` keeps the recipe.
+
+Built-preview browser inspection uses the same default-seed setup, with two manual shoves 0.1 s
+apart at 1.742 s, after the initial automatic shove. Tactical frames at 31.842 and 36.842 s show
+separated feet holding the same standing pose. The world is stepped by hand between frames;
+these images check the final placement, not continuous recovery motion. Frame readings are kept
+in `research/runs/idle-foot-heading-preview-2026-10-31.json`.
 
 ## Turning
 

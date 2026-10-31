@@ -154,3 +154,56 @@ test("a disturbance cancels idle foot placement and gives catch steps priority",
     assert.equal(legs.state.placing, null);
   }
 });
+
+test("idle placement takes the body's current facing after recovery turns it", () => {
+  for (const heading of [-1, 1]) {
+    const { view, legs, ask } = fixture();
+    view.root.rotation = Quaternion.RotationAxis(Vector3.Up(), heading);
+    for (const side of ["left", "right"]) {
+      view.stance.soles[side].applyRotationQuaternionToRef(view.root.rotation, view.stance.soles[side]);
+      view.effectors[`foot.${side}`] = { rotation: Quaternion.Identity() };
+    }
+    let goal; for (let i = 0; i < 25; i++) goal = ask();
+    assert.ok(goal.swing, "fixture must need a spacing adjustment after the body turns");
+    assert.ok(Math.abs(goal.heading - heading) < 1e-12, "default placement must follow the current body, rather than turn back over planted feet");
+    const target = legs.state.idle.target;
+    assert.ok(Math.abs((target.right[0] - target.left[0]) * Math.sin(heading)
+      + (target.right[1] - target.left[1]) * Math.cos(heading)) < 1e-12, "the repaired stance must be square across the current facing");
+  }
+});
+
+test("a requested step releases the preceding catch's recovery heading", async () => {
+  const { coreStand } = await import("./harness/core-stand.mjs");
+  const { modelSpec } = await import("../src/core/models.ts");
+  const { guardPosture } = await import("../src/core/skills/guard/guard.ts");
+  const { commandedBody } = await import("../src/core/mind/host.ts");
+  const { motorControl } = await import("../src/core/control/motor.ts");
+  const { stanceControl } = await import("../src/core/control/stance.ts");
+  const { SERVO_SECONDS } = await import("../src/core/body.ts");
+  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec);
+  const stand = await coreStand(spec, { posture: guard, engine: DEFAULT_ENGINE });
+  let balance, swing, heading = 0;
+  const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS,
+    motor: (built, seconds, posture, tuning, assist) => motorControl(built, seconds, posture, tuning, assist,
+      (built, tuning, assist) => balance = stanceControl(built, tuning, assist)) });
+  hosted.drive(view => ({ posture: guard, pushes: [], stance: { feet: ["left", "right"], centre: null,
+    height: view.standing - .03, heading, walk: null, ...(swing ? { swing } : {}) } }));
+  try {
+    stand.step(60);
+    const root = stand.built.segments.get("lowerTrunk");
+    root.body.applyImpulse(new Vector3(60, 0, 0), root.node.position);
+    let caught = false, landed = false;
+    for (let i = 0; i < stand.seconds(3); i++) {
+      stand.step(); caught ||= !!balance.reading.own;
+      if (caught && balance.reading.phase === "stand" && !balance.reading.own) { landed = true; break; }
+    }
+    assert.ok(caught && landed && !hosted.view.down && balance.state.step.recovering,
+      "fixture must finish an upright catch before requesting an ordinary step");
+    heading = .3;
+    const sole = hosted.view.stance.soles.left;
+    swing = { foot: "left", to: [sole.x, sole.z + .06], seconds: .3, lift: .05, shift: true };
+    stand.step();
+    assert.equal(balance.state.step.recovering, false, "the requested step must leave recovery control");
+    assert.equal(balance.state.step.facing, null, "the old catch must not override the new step's heading");
+  } finally { hosted.dispose(); stand.dispose(); }
+});

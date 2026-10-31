@@ -661,6 +661,8 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   else if (stepsOfItself(goal)) ownStep(s, goal.heading, goal.height - s.rise, goal.halt === true);
   else {
     reading.own = null;
+    // A requested step uses its goal's heading, independent of the last catch's facing.
+    step.recovering = false;
     state.stride = null;
     state.striding = null;
   }

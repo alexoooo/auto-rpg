@@ -321,13 +321,13 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3(), footTurn = new Quaternion();
-  /** A sole's yaw relative to the heading the legs hold, rad. Effectors report turns relative to the body frame. */
-  const turned = (view: BodyView, side: Side): number => {
+  /** A sole's yaw relative to a heading (the legs' unless given), rad. Effectors report turns relative to the body frame. */
+  const turned = (view: BodyView, side: Side, heading = state.heading): number => {
     const effector = view.effectors?.[`foot.${side}`];
     if (!effector) return 0;
     view.root.rotation.multiplyToRef(effector.rotation, footTurn);
     return Math.abs(wrap(atan2(2 * (footTurn.x * footTurn.z + footTurn.w * footTurn.y),
-      1 - 2 * (footTurn.x * footTurn.x + footTurn.y * footTurn.y)) - state.heading));
+      1 - 2 * (footTurn.x * footTurn.x + footTurn.y * footTurn.y)) - heading));
   };
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   /** The heading the body faces: the reference pose's left-to-right axis is x, and facing h about up turns it to (cos h, 0, -sin h). */
@@ -439,13 +439,15 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     idle.seconds = Math.min(0.2, idle.seconds + dt);
     if (idle.seconds + dt / 2 < 0.2) return null;
     // Read the feet's arrangement about their midpoint: sway alone never changes the desired spacing.
-    const c = s.support, h = state.heading, rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
+    const c = s.support, h = facing(view), rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
     const at = (side: Side): readonly [number, number] => {
       const [x, z] = idleFooting.offsets[side];
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
     };
     const target = { left: at("left"), right: at("right") };
-    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4 && turned(view, side) <= 0.2)) return null;
+    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
+    // A catch can turn the pelvis: settle under its current facing rather than twisting back over planted feet.
+    state.heading = h;
     idle.target = target;
     state.placing = null;
     return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
