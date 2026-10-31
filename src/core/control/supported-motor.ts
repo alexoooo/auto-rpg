@@ -52,7 +52,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     centre: new Vector3(), velocity: new Vector3(),
     motion: { started: false, velocity: new Float64Array(6), acceleration: new Float64Array(6) },
     endpoints: definitions.map(() => ({ at: new Vector3(), velocity: new Vector3(), contactAt: new Vector3(), contactVelocity: new Vector3(), contact: false, flat: false, low: 0, ground: 0 })),
-    tasks: definitions.map(d => ({ on: true, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(d.channels.length), given: new Float64Array(d.channels.length).fill(NaN) })),
+    tasks: definitions.map(d => ({ on: true, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(d.channels.length) })),
     aim: { centre: new Vector3(), spin: new Vector3(), root: new Float64Array(6) },
     helped: { force: new Vector3(), moment: new Vector3() }, held: { channels: [] as number[], z0: [] as number[], Z: [] as number[][] },
     shortfall: { force: new Vector3(), moment: new Vector3() },

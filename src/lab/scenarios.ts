@@ -71,9 +71,9 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
  * physical: they make the spec (`loadout.ts`). Boots and armour are the skin's meshes alone; the
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
-/** A loadout: the model, what each hand holds, the clothing worn, and whether its feet are shod (`withSoles`: a sole that gives against the ground). */
+/** A loadout: the model, what each hand holds, and the clothing worn. */
 export type LabLoadout = {
-  readonly model: HumanoidModel; readonly sole: boolean;
+  readonly model: HumanoidModel;
   readonly attributes?: AttributeOverrides;
   /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
@@ -245,7 +245,6 @@ export function labAddress(search: string): LabAddress {
     left: HELD.find((h) => h === query.get("left")) ?? "empty",
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
-    sole: flag(query.get("sole"), false),
     balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
     haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
     mind: readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? PUNCHER
@@ -289,7 +288,6 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("left", address.left);
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
-  if (address.sole) query.set("sole", "1");
   writeAttributes(query, "body", loadoutAttributes(address));
   query.set("mind", mindText(address.mind, labMindsForModel(address.model)));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));

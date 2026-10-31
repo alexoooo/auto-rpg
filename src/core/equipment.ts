@@ -73,7 +73,6 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
   const body = world.physics.addBody(node, shapes.map(collider), {
     mass: item.mass.value, centre: item.centreOfMass.value, moments: item.inertia.value, orientation: Quaternion.Identity(),
   }, { ccd: definition.ccd, materials: surfaces.map(surface => ({
-    ...(surface?.sole ? { sole: { stiffness: surface.sole.stiffness.value, damping: surface.sole.damping.value, depth: surface.sole.depth.value } } : {}),
     ...(surface?.friction ? { friction: surface.friction.value } : {}),
   })) });
   let disposed = false;

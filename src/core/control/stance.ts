@@ -876,8 +876,6 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
     reset() {
       const { state } = s, { reading, step } = state;
       askNothing(s);
-      // Sole damping averages consecutive stance torques; release breaks that sequence.
-      for (const task of state.tasks) task.given.fill(NaN);
       state.plan.on = false;
       state.pose = null;
       state.last = null;

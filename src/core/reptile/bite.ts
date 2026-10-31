@@ -65,7 +65,6 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const chamber: [number, number, number] = [chamberPoint.x, chamberPoint.y, chamberPoint.z];
   const strikePoint = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());
   const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!;
-  const toothDepth = tooth.shape.kind === "hull" ? Math.max(...tooth.shape.points.map(p => p.value[1])) - Math.min(...tooth.shape.points.map(p => p.value[1])) : 0;
   const teeth = lower.spec.contacts!.flatMap(c => c.shape.kind === "hull" && c.surface.directed?.mechanism === "point" ? c.shape.points.map(p => p.value) : []);
   const halfWidth = Math.max(...teeth.map(p => Math.abs(p[0] - tip[0])));
   const aim = new Vector3(), offset = new Vector3(), mouth = head.spec.points!.mouth!.value;
@@ -145,9 +144,9 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         requested: !!target && !blocked, complete, down: view.down, supported: ready, prepared, released: clear && cycle.time >= T.release && angle >= T.open - T.jawError
           && Math.abs(own.muscles.angle(own.muscles.channel(neckName))) <= T.jawError,
         touching: feedback ? feedback.impulse > 0 : touching(lower), intended, aligned,
-        contactVelocity: rate, closing: own.muscles.rate(jaw) < 0, contactDepth: feedback?.compression, seconds: T.snap },
+        contactVelocity: rate, closing: own.muscles.rate(jaw) < 0, seconds: T.snap },
         { near: T.biteNear, slow: T.biteSlow, hold: T.biteHold, prepareLimit: T.biteTimeout, returnLimit: T.biteReturnLimit, followSeconds: T.snap,
-          impact: { impactSeconds: T.contactSeconds, impactTravel: toothDepth } }, dt);
+          impact: { impactSeconds: T.contactSeconds } }, dt);
       if (event & STRIKE_EVENT.launch) {
         state.launched++; cycle.touching = false;
         neck.dofs.forEach((_, k) => { state.strikeNeck[k] = own.muscles.angle(own.muscles.channel(channelName(neck, k))); });

@@ -13,7 +13,7 @@ export type ContactTarget = { readonly kind: "body"; readonly body: string; read
 export type ContactIdentity = (other: BodyRef | null) => ContactTarget | null;
 
 export interface EffectorContact {
-  readonly target: ContactTarget; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number; readonly compression?: number;
+  readonly target: ContactTarget; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number;
   /** Stable detached identity for external fixed colliders or objects without a semantic target id. */
   readonly key?: string;
 }
@@ -41,8 +41,6 @@ export interface EffectorFeedback {
   readonly obstruction?: EffectorContact | null;
   /** All loaded external identities when a physical endpoint is explicitly selected. */
   readonly contacts?: readonly ContactTarget[];
-  /** Greatest measured normal compression among selected striking-region contacts. */
-  readonly compression?: number;
   /** Every present external pair, deduplicated across its manifolds. */
   readonly pairs?: readonly EffectorContactPair[];
   /** World step of the completed sample, when the caller supplies one. */
@@ -55,7 +53,7 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
     pairs: [] as EffectorContactPair[], episodes: new Map<string, boolean>(), completedStep: -1,
     impulse: 0, contactPoint: null as Vec3 | null, ...(identity || external ? { contact: null as EffectorContact | null } : {}),
-    ...(points ? { obstructed: false, obstruction: null as EffectorContact | null, contacts: [] as ContactTarget[], compression: 0 } : {}) });
+    ...(points ? { obstructed: false, obstruction: null as EffectorContact | null, contacts: [] as ContactTarget[] } : {}) });
   const state = Object.fromEntries(segments.map(name => [name, make()]));
   const own = new Set<BodyRef>([...built.segments.values()].map(s => s.body));
   const parts = segments.map(name => {
@@ -98,7 +96,7 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
       out.point[0] = point.x; out.point[1] = point.y; out.point[2] = point.z;
       out.velocity[0] = velocity.x; out.velocity[1] = velocity.y; out.velocity[2] = velocity.z;
       out.impulse = 0; out.contactPoint = null; if (identity || external) out.contact = null;
-      if (points) { out.obstructed = false; out.obstruction = null; out.contacts!.length = 0; out.compression = 0; }
+      if (points) { out.obstructed = false; out.obstruction = null; out.contacts!.length = 0; }
       let strongest = 0;
       for (const contact of built.physics.contactsOf(item.segment.body)) {
         if (contact.other && own.has(contact.other)) continue;
@@ -117,13 +115,11 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
             point: [...contact.point], normal: [...contact.normal], impulse: contact.impulse };
         }
         for (const pair of pairs) {
-          if (points && "compression" in pair && pair.compression !== undefined) out.compression = Math.max(out.compression!, pair.compression);
           out.impulse += pair.impulse;
           if (pair.impulse > strongest) { strongest = pair.impulse; out.contactPoint = [...pair.point]; }
           const target = permitted;
           if (target && pair.impulse > (out.contact?.impulse ?? 0))
-            out.contact = { target: { ...target }, point: [...pair.point], normal: [...pair.normal], impulse: pair.impulse,
-              ...("compression" in pair ? { compression: pair.compression } : {}) };
+            out.contact = { target: { ...target }, point: [...pair.point], normal: [...pair.normal], impulse: pair.impulse };
         }
       }
       for (const contact of external?.(item.name) ?? []) {
@@ -131,7 +127,6 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
         observe(JSON.stringify([item.name, contact.key ?? targetKey(contact.target)]), contact.target, contact.point, contact.normal, contact.impulse);
         if (!(contact.impulse > 0)) continue;
         if (points) out.contacts!.push({ ...contact.target });
-        if (points && contact.compression !== undefined) out.compression = Math.max(out.compression!, contact.compression);
         out.impulse += contact.impulse;
         if (contact.impulse > strongest) { strongest = contact.impulse; out.contactPoint = [...contact.point]; }
         if (contact.impulse > (out.contact?.impulse ?? 0))

@@ -1,4 +1,3 @@
-import { withSoles } from "../core/human/sole.ts";
 import { resolveCharacter } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { withLoadout, HELD, heldItem, type Held } from "../core/items/held.ts";
@@ -9,16 +8,16 @@ import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
 /**
  * **The body a loadout makes**: the model's body, holding in each hand what the loadout says.
  * A loadout that holds nothing is the model's body itself. Boots and armour are the skin's
- * (`skin.ts`), and make no difference here; a shod loadout's feet give as a shoe's sole (`withSoles`).
+ * (`skin.ts`), and make no difference here.
  */
 export function loadoutAttributes(loadout: LabLoadout & { readonly balance?: number | null }): AttributeOverrides {
   return { ...(loadout.balance != null ? { balance: loadout.balance } : {}), ...(loadout.haste != null ? { haste: loadout.haste } : {}), ...loadout.attributes };
 }
 
-/** Construct the Lab's character through the shared resolver, then fit soles and equipment. */
+/** Construct the Lab's character through the shared resolver, then fit its equipment. */
 export function loadoutSpec(loadout: LabLoadout): BodySpec {
   const own = resolveCharacter({ model: loadout.model, attributes: loadoutAttributes(loadout) }).spec;
-  return withLoadout(loadout.sole ? withSoles(own) : own, { left: loadout.left, right: loadout.right });
+  return withLoadout(own, { left: loadout.left, right: loadout.right });
 }
 
 /** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */

@@ -41,11 +41,6 @@ export interface LimbTask {
   readonly angular: Vector3;
   /** The limb's freedoms' accelerations, as the solve leaves them: one a freedom of its chain. */
   readonly accel: Float64Array;
-  /**
-   * The torques the solve asked of the limb's freedoms the step before, where it bore on a sole
-   * (`SurfaceSpec.sole`) then, and NaN where it did not: one a freedom of its chain (`soleTorque`).
-   */
-  readonly given: Float64Array;
 }
 
 /** **What a step's task is solved with**: written by the plan before the solve reads it, and no memory. */
@@ -691,16 +686,15 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
   let bearingAt = 0;
   for (const limb of limbs) {
     const { task } = limb;
-    if (!task.on) { task.given.fill(NaN); continue; }
-    const share = bearsNow(limb) ? shares[bearingAt++]! : null, sole = share !== null && limb.segment.spec.surface?.sole !== undefined;
+    if (!task.on) continue;
+    const share = bearsNow(limb) ? shares[bearingAt++]! : null;
     const channels = limb.memory.channels;
     for (let k = 0; k < channels.length; k++) {
       const i = channels[k]!;
       let torque = inverseTorque(dynamics, root, accel, n, i);
       if (share) torque -= carried(dynamics, i, limb, share);
-      give(muscles, i, sole ? soleTorque(task, k, torque) : torque);
+      give(muscles, i, torque);
     }
-    if (!sole) task.given.fill(NaN);
   }
   // Each stem's freedom once, where a driven limb first names it.
   for (let l = 0; l < limbs.length; l++) {
@@ -712,20 +706,6 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
       give(muscles, i, torque);
     }
   }
-}
-
-/**
- * The torque a limb bearing on a sole gives its `k`-th freedom for `asked`: the mean of it and the
- * one asked the step before, where it bore then too. A sole gives as a spring and dashpot, so the
- * ground's wrench follows a torque by the sole's time (its damping over its stiffness: 8 ms for
- * `withSoles`), a step at 120 Hz; a solve that reads the body each step and answers in full then
- * meets a torque that turns sign each step, which the lag feeds and the feet rock on. The mean
- * gives a turn each step nothing, and what changes slower nearly all.
- */
-export function soleTorque(task: LimbTask, k: number, asked: number): number {
-  const before = task.given[k]!;
-  task.given[k] = asked;
-  return Number.isNaN(before) ? asked : (asked + before) / 2;
 }
 
 /** Whether a driven limb before the `l`-th of `limbs` hangs from freedom `i`. */

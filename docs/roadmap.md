@@ -277,7 +277,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   A limp skeleton on its front crawls at 25 cm a second ([rising](reference/rising.md#lying)).
   Legs meet as rigid capsules at a blow's force in a crossover or a fall
   ([the run's body](reference/run-body.md#the-thighs-room)). A foot's friction is 0.8 and every
-  other contact's 0.5; a compliant layer under the soles and palms is not measured.
+  other contact's 0.5; every contact is rigid.
 - **Body numbers.** The hip's and trunk's speed borrow an extrapolation (`BORROWED`,
   `src/core/human/speed.ts`); changing it is a body change with its before/after tables. Shoves
   held, 55 and 35 N s, have no human reference

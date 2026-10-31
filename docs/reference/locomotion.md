@@ -386,7 +386,7 @@ settling time and shares of strength, not N m/rad.
 
 On the stance's walk and the stride:
 
-- a shoe's sole (`withSoles`): falls less under gusts, but the stride holds less;
+- a shoe's sole (`withSoles`, `src/core/human/sole.ts@c54ccfeb`): falls less under gusts, but the stride holds less;
 - a sole that rolls from heel to toe (`--probe '{"rocker": 0.3}'`): the solver touches one flat
   piece of it at a time, and every rocker walked slower than the box;
 - the trunk cancelling the swing's yaw: not built, since the yaw given free held less;

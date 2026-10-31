@@ -72,13 +72,6 @@ export const SOURCES = Object.freeze({
       + "expensive. Biol Lett 10(1):20131006. Preferred sideways speed 0.575 m/s (SD 0.123).",
     link: "https://doi.org/10.1098/rsbl.2013.1006",
   },
-  "hoogkamer-2018": {
-    kind: "literature",
-    cite: "Hoogkamer W, Kipp S, Frank JH, Farina EM, Luo G, Kram R (2018). A comparison of the energetic cost of "
-      + "running in marathon racing shoes. Sports Med 48(4):1009-1019. Midsoles loaded force-constrained to about "
-      + "2000 N over about 185 ms: the Nike Zoom Streak 6 deformed 6.1 mm and returned 65.5 % of its energy.",
-    link: "https://doi.org/10.1007/s40279-017-0811-2",
-  },
   "huber-2022": {
     kind: "literature",
     cite: "Huber SK, Knols RH, Held JPO, Christen T, de Bruin ED (2022). Agreement, reliability, and concurrent "

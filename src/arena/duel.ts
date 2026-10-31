@@ -290,7 +290,6 @@ export class Duel {
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
-    if ("contactLayer" in recipe) throw new Error("obsolete contact-layer recipe; rebuild it with the current point-load rules");
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
     const characters = Object.fromEntries(SIDES.map(side => [side, resolveCharacter({ model: recipe[side], attributes: {

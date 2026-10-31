@@ -100,7 +100,6 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
   });
   const rows = [], torque = {}, kin = { legSteps: 0, nearStop: {}, nearStraight: 0, limit: {}, limitTorque: {}, landings: [] };
   let before = null, swinging = null, pending = null;
-  const lastWanted = [new Float64Array(0), new Float64Array(0)];
   // A probe's cause test, never a body's: each named channel side's peak scaled (`--scale "ankle dorsiflexion+=3"`, "every" every channel).
   for (const [name, factor] of Object.entries(scale)) {
     const [, channel, sense] = /^(.*)([+-])$/.exec(name);
@@ -113,8 +112,7 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
   // The body's dynamics as the step's command read it, kept to the next step, when the step's joint speeds are known.
   const snapshot = () => { const R = muscles.dynamics.root; return { mass: R.mass.map((r) => Float64Array.from(r)), coupling: R.coupling.map((r) => Float64Array.from(r)),
     bias: Float64Array.from(R.bias), gravity: Float64Array.from(R.gravity), centre: [...R.centre], speeds: speeds() }; };
-  const keepWanted = () => [0, 1].forEach((f) => { lastWanted[f] = Float64Array.from(stance.tasks[f].given); });
-  const hook = stand.world.afterStep(() => { try { readStep(); } finally { keepWanted(); } });
+  const hook = stand.world.afterStep(() => readStep());
   function readStep() {
     const time = stand.world.time, now = momentumOf(segments, mass), prior = before;
     const v = pelvis.body.linearVelocityToRef(new Vector3()), w = pelvis.body.angularVelocityToRef(new Vector3());
@@ -166,7 +164,7 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
     pending = { D, root: [0, 1, 2].map((k) => (now.w[k] - prior.w[k]) / dt).concat(rootReal), wrench: [MR.x, MR.y, MR.z, F.x, F.y, F.z] };
     const row = {
       short: { ahead: ahead(reading.shortfall.force.x, reading.shortfall.force.z), up: reading.shortfall.force.y, moment: reading.shortfall.moment.length() },
-      time: round(time, 4), swung, facing: h, clipped: false, averaged: 0, elsewhere: 0,
+      time: round(time, 4), swung, facing: h, clipped: false, elsewhere: 0,
       ground: { plan: { ahead: ahead(Fp.x, Fp.z), up: Fp.y }, real: { ahead: ahead(F.x, F.z), up: F.y } },
       root: { plan: { ahead: ahead(root[3], root[5]), up: root[4] }, real: { ahead: ahead(rootReal[0], rootReal[2]), up: rootReal[1] } },
       cop: null,
@@ -180,14 +178,6 @@ async function runOnce({ model, pace, legs, seconds, from, scale }) {
     } else {
       row.cop = { rolled: bearers.some((side) => stance.feet[side === "left" ? 0 : 1].rolled),
         plan: { ahead: 0, out: 0 }, real: { ahead: ahead(rx - px, rz - pz), out: right(rx - px, rz - pz) } };
-    }
-    // How far the sole's mean of two steps' torques (`soleTorque`) parts from this step's own, N m, summed over the bearing legs' channels.
-    for (const side of bearers) {
-      const f = side === "left" ? 0 : 1, task = stance.tasks[f], channels = stance.feet[f].channels;
-      for (let k = 0; k < channels.length; k++) {
-        const wanted = task.given[k], prev = lastWanted[f][k];
-        if (Number.isFinite(wanted) && Number.isFinite(prev)) row.averaged += Math.abs(wanted - prev) / 2;
-      }
     }
     for (const side of bearers) {
       // The bearing leg's channels: asked against delivered, and how often the ask was clipped.
@@ -255,7 +245,7 @@ function summarize(rows, torque, kin) {
     } : null;
     const cops = rs.map((r) => r.cop);
     const gapOf = (sub) => sub.length ? { n: sub.length, ahead: round(mean(sub.map((r) => r.ground.real.ahead - r.ground.plan.ahead)), 1), up: round(mean(sub.map((r) => r.ground.real.up - r.ground.plan.up)), 1) } : null;
-    const modelled = rs.filter((r) => r.model), avg = rs.map((r) => r.averaged).sort((a, b) => a - b), mid = avg[avg.length >> 1] ?? 0;
+    const modelled = rs.filter((r) => r.model);
     out.phases[name] = {
       model: modelled.length ? { n: modelled.length, ahead: round(mean(modelled.map((r) => r.model.ground.ahead - r.model.real.ahead)), 1),
         up: round(mean(modelled.map((r) => r.model.ground.up - r.model.real.up)), 1),
@@ -269,7 +259,6 @@ function summarize(rows, torque, kin) {
       elsewhere: { mean: round(mean(rs.map((r) => r.elsewhere)), 1), share: round(rs.filter((r) => r.elsewhere > 20).length / Math.max(rs.length, 1)),
         touched: gapOf(rs.filter((r) => r.elsewhere > 20)), clear: gapOf(rs.filter((r) => r.elsewhere <= 20)) },
       clipped: gapOf(rs.filter((r) => r.clipped)), unclipped: gapOf(rs.filter((r) => !r.clipped)),
-      averaged: { median: round(mid, 1), below: gapOf(rs.filter((r) => r.averaged <= mid)), above: gapOf(rs.filter((r) => r.averaged > mid)) },
       share: round(rs.length / Math.max(rows.length, 1)),
       flat: cop(cops.filter((c) => !c.rolled)), rolled: cop(cops.filter((c) => c.rolled)),
       ground: { plan: { ahead: round(mean(rs.map((r) => r.ground.plan.ahead)), 1), up: round(mean(rs.map((r) => r.ground.plan.up)), 0) },
@@ -373,7 +362,7 @@ if (!isMainThread) {
       const cop = (c) => c ? `n ${c.n} plan ${c.plan.ahead}/${c.plan.out} real ${c.real.ahead}/${c.real.out} gap ${c.gap.ahead}/${c.gap.out} |${c.gap.size}| m` : "-";
       console.log(`  ${name} (${p.share}): flat ${cop(p.flat)}; rolled ${cop(p.rolled)}`);
       const g = (x) => x ? `${x.ahead}/${x.up} (n ${x.n})` : "-";
-      if (p.model) console.log(`    model less realised, ahead/up ${p.model.ahead}/${p.model.up} |${p.model.size}| N, moment |${p.model.moment}| N m; ground gap clipped ${g(p.clipped)} unclipped ${g(p.unclipped)}; averaging (median ${p.averaged.median} N m) below ${g(p.averaged.below)} above ${g(p.averaged.above)}`);
+      if (p.model) console.log(`    model less realised, ahead/up ${p.model.ahead}/${p.model.up} |${p.model.size}| N, moment |${p.model.moment}| N m; ground gap clipped ${g(p.clipped)} unclipped ${g(p.unclipped)}`);
       const sl = (x) => x ? `ahead ${x.ahead} up ${x.up} |${x.size}| m/s2, spin |${x.spin}| rad/s2 (n ${x.n})` : "-";
       console.log(`    bearing sole's planned acceleration less its task's: flat ${sl(p.sole.flat)}; rolled ${sl(p.sole.rolled)}`);
       console.log(`    shortfall (the wrench the soles cannot give) ahead/up ${p.short.ahead}/${p.short.up} N, moment ${p.short.moment} N m, on ${p.short.share} of steps`);

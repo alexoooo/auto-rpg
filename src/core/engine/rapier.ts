@@ -97,7 +97,7 @@ function digest(text: string): number {
 /** A body of a world's, or a fixed collider by its handle: a contact's other side as `contactsOf` sums it. */
 type Other = RapierBody | number;
 interface Sum { impulse: number; point: number[]; normal: number[] }
-interface ShapeSum extends Sum { mine: number; theirs: number; compression?: number }
+interface ShapeSum extends Sum { mine: number; theirs: number }
 /** What `contactsOf` reads a body's contacts into (`createRapierPhysics`'s `scan`). */
 interface Scan {
   /** The body whose contacts are being read; null between reads. */
@@ -154,15 +154,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const shapeOf = new Map<number, number>();
   /** Each body's colliders' handles, in its shapes' order. */
   const colliderHandles = new Map<RapierBody, readonly number[]>();
-  const materials = new Map<number, ContactMaterial>();
-  const layerFor = (a: number, b: number): number[] | null => {
-    const first = bodyOf.get(a), second = bodyOf.get(b);
-    if (!first !== !second) {
-      const sole = materials.get(first ? a : b)?.sole;
-      if (sole) return [sole.stiffness, sole.damping, sole.depth];
-    }
-    return null;
-  };
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
   const forced = new Set<RapierBody>();
   /** Which world's velocities a body's read holds: a step or a load moves it on. */
@@ -186,7 +177,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return R.SolverFlags.COMPUTE_IMPULSE;
     },
     filterIntersectionPair: () => true,
-    contactLayer: layerFor,
   };
   const enableFilter = (body: RapierBody, discrete = false) => {
     for (const handle of colliderHandles.get(body)!) {
@@ -245,10 +235,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
       const key = shapes[0] * SHAPES_MOST + shapes[1];
       const pair: ShapeSum = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
-      if (materials.size && manifold.layerStiffness() > 0) {
-        pair.compression ??= 0;
-        for (let i = 0; i < points; i++) pair.compression = Math.max(pair.compression, -manifold.solverContactSeparation(i));
-      }
       for (const to of [sum, pair]) {
         to.impulse += impulse;
         for (let c = 0; c < 3; c++) to.point[c]! += at[c]! * impulse;
@@ -409,11 +395,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     addBody(node, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
       if (typeof ccd !== "boolean") throw new Error("CCD must be a boolean");
       const preparedMaterials = givenMaterials.map(given => {
-        if (given?.sole && (!(given.sole.stiffness > 0) || !(given.sole.depth > 0)
-          || !(given.sole.damping >= 0) || !Object.values(given.sole).every(Number.isFinite))) throw new Error("a sole needs finite positive stiffness and depth and nonnegative damping");
         if (given?.friction !== undefined && !(given.friction >= 0 && Number.isFinite(given.friction))) throw new Error("a friction coefficient must be finite and nonnegative");
-        return given && { ...(given.sole ? { sole: Object.freeze({ ...given.sole }) } : {}),
-          ...(given.friction === undefined ? {} : { friction: given.friction }) };
+        return given && (given.friction === undefined ? {} : { friction: given.friction });
       });
       const q = node.rotationQuaternion ?? Quaternion.Identity();
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
@@ -428,8 +411,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         if (material?.friction !== undefined) desc.setFriction(material.friction).setFrictionCombineRule(R.CoefficientCombineRule.Max);
         const handle = raw.createCollider(desc, rigid).handle;
         shapeOf.set(handle, k);
-        if (material?.sole) materials.set(handle, material);
-        if (material?.sole) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
         return handle;
       });
       let properties = mass;
@@ -688,8 +669,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] as Vec3 };
       };
       for (const [other, sum] of pushed!) {
-        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair),
-          ...(pair.compression === undefined ? {} : { compression: pair.compression }) }));
+        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair) }));
         out.push({ ...named(other), ...touch(sum), pairs });
       }
       for (const [other, { pairs, point, normal, first }] of met) {
@@ -718,7 +698,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       for (const [key, { parent, child }] of made.joints) if (parent === body || child === body) made.joints.delete(key);
       for (const [key, { parent, child }] of made.grips) if (parent === body || child === body) made.grips.delete(key);
       named = null;
-      for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); materials.delete(handle); }
+      for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); }
       colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
@@ -737,7 +717,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       bodyOf.clear();
       shapeOf.clear();
       colliderHandles.clear();
-      materials.clear();
       forced.clear();
       rebinds.clear();
       for (const grip of grips) { grip.handle = null; grip.suppressed = false; }

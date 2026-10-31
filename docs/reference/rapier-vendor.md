@@ -45,9 +45,8 @@ them. Ordinary contacts and joints solve as upstream's.
 - **Compliant contact.** `contactLayer` gives an admitted manifold's stiffness, damping and
   compression depth; `layerStiffness` and `contactLayerWork` expose its law and signed work, which
   accumulates from solver-anchor displacement and reaction impulse at every substep and resets once
-  a step. Both survive snapshots; ordinary contacts keep the original row. The adapter gives
-  compliant layers only to soles against fixed ground; teeth use ordinary rigid contact and the load
-  rule.
+  a step. Both survive snapshots; ordinary contacts keep the original row. The adapter gives no
+  collider a compliant layer: every contact is rigid.
 - **Active contact load.** `totalSolverContactImpulse` sums normal impulses only over the geometric
   points the current solver contacts reference, each once, in geometric order, in double precision;
   a discarded point's cached impulse adds nothing. Contact observations and the compliant layer read

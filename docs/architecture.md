@@ -77,8 +77,7 @@ what each model's right hand holds; the mind each plays by default is the game's
 (de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness
 (`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)); a fitted figure's segments
 (`HumanFigure.fitted`, the skeleton's) take their mass, inertia and colliders from its measured
-solids instead of de Leva's rows. A humanoid's feet may wear a shoe's
-sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it. They have
+solids instead of de Leva's rows. A humanoid's feet have
 toes (`toedFigure`, `src/core/human/toes.ts`): a slab ahead of the foot's box, cut short by it,
 and a toed ankle's stop at 0.8 rad ([toes](reference/toes.md)).
 
@@ -180,8 +179,7 @@ Readings back from the built body:
 
 - a fixed step that writes each node's `position` and `rotationQuaternion`;
 - bodies that never sleep, with the spec's mass, and the centre of mass's velocity;
-- one friction (`CONTACT_FRICTION`, `src/core/spec/constants.ts`, which the controllers bounding a contact's force read too) and no bounce on every contact; a sole (`ContactMaterial.sole`)
-  gives as a spring and damper against fixed ground;
+- one friction (`CONTACT_FRICTION`, `src/core/spec/constants.ts`, which the controllers bounding a contact's force read too) and no bounce on every contact;
 - freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded by separate
   negative and positive torque ceilings (`setMotorBounds`), with its signed whole-step impulse on
   the child (`motorStepImpulse`);
