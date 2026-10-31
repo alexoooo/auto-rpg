@@ -60,8 +60,23 @@ export interface FootLimb {
   readonly from: string;
 }
 
-/** **An end a body can bear its weight on**, by kind: a capsule's end, a capsule propped on a foot, a foot. */
-export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb;
+/**
+ * **A paw, bearing at its named point**: an end the body stands and walks on with legs of its own
+ * (`supportedMotor`, `src/core/control/supported-motor.ts`), on its box's sole where `sole`. A paw
+ * carries the body and never strikes (`strikersOf`).
+ */
+export interface PawLimb {
+  readonly kind: "paw";
+  readonly name: string;
+  readonly segment: string;
+  /** The point of `segment` it bears at (`SegmentSpec.points`). */
+  readonly point: string;
+  /** Whether it bears on its box's whole sole once flat, not on its point alone. */
+  readonly sole: boolean;
+}
+
+/** **An end a body can bear its weight on**, by kind: a capsule's end, a capsule propped on a foot, a foot, a paw. */
+export type BearingEndSpec = EndLimb | ProppedLimb | FootLimb | PawLimb;
 
 /**
  * **What a body is built from**, and nothing else: `buildBody` reads a
@@ -108,7 +123,7 @@ export interface BodySpec {
   readonly marks: Marks;
   /**
    * The ends it can bear its weight on (`BearingEnd`): what its legs and a rise's stages bear it
-   * on. Absent, none named: a body whose legs are its own (a reptile's support endpoints).
+   * on, a reptile's paws among them (`pawsOf`). Absent, none named.
    */
   readonly ends?: readonly BearingEndSpec[];
 }
@@ -145,14 +160,32 @@ export type DownSpec =
   | { readonly kind: "low"; readonly root: string; readonly height: Quantity<number>; readonly up: Quantity<number> };
 
 /**
- * **A controllable endpoint**: `segment`'s `point`, moved by the chain from `base` out to it.
- * `support`: a foot the body stands on, flat on its sole.
+ * **A controllable endpoint**: `segment`'s `point`, moved by the chain from `base` out to it. One
+ * the body stands on is also one of its ends (`BodySpec.ends`).
  */
 interface EffectorSpec {
   readonly segment: string;
   readonly base: string;
   readonly point: string;
-  readonly support?: "sole";
+}
+
+/** **The paws `spec` stands on** (`PawLimb`, `BodySpec.ends`), in its spec's order: the order a crawl lifts them. */
+export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
+
+/** Each spec's striking limbs, found once: a spec is immutable. */
+const STRIKERS = new WeakMap<BodySpec, readonly string[]>();
+
+/**
+ * **The limbs `spec` strikes with**: the segments of its effectors (`BodySpec.effectors`) that are
+ * not paws (`pawsOf`), which it can swing at another body: a human's hands and feet, a reptile's mouth.
+ */
+export function strikersOf(spec: BodySpec): readonly string[] {
+  let limbs = STRIKERS.get(spec);
+  if (!limbs) {
+    const paws = pawsOf(spec).map((paw) => paw.segment);
+    STRIKERS.set(spec, limbs = Object.freeze((spec.effectors ?? []).filter((effector) => !paws.includes(effector.segment)).map((effector) => effector.segment)));
+  }
+  return limbs;
 }
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */

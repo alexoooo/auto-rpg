@@ -567,6 +567,7 @@ export function limbChannels(limb: BearingEndSpec, spec: BodySpec): { readonly c
       const first = joints.findIndex((joint) => joint.name === limb.from);
       return first < 0 ? null : { chain: joints.slice(first).flatMap(channelsOf), stem: joints.slice(0, first).flatMap(channelsOf) };
     }
+    case "paw": return null;
     default: return unknownLimb(limb);
   }
 }
@@ -622,6 +623,9 @@ function limbFaults(spec: BodySpec): string[] {
       case "foot":
         if (!FEET.includes(limb.segment)) faults.push(`limb ${limb.name} is on ${limb.segment}, which is not a foot a stance stands on`);
         if (!limbChannels(limb, spec)) faults.push(`limb ${limb.name} begins at ${limb.from}, which is not on the way to ${limb.segment}`);
+        return;
+      case "paw":
+        faults.push(`limb ${limb.name} is a paw, which a rise does not bear on`);
         return;
       default: unknownLimb(limb);
     }

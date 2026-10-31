@@ -88,6 +88,8 @@ export function riseLimbs(own: OwnBody): RiseLimbs {
       case "end": return endLimb(own, limb);
       case "propped": return proppedLimb(own, limb, footOf(limb.prop));
       case "foot": return footLimb(own, limb, footOf(limb.segment));
+      // A rise bears on no paw: its stages' faults refuse a body that bears on one (`stageFaults`).
+      case "paw": throw new Error(`${own.spec.model}: a rise bears on no paw, and ${limb.name} is one`);
       default: return unknownLimb(limb);
     }
   });

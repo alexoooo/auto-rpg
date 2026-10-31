@@ -19,6 +19,7 @@ import { navigatorOf } from "../navigation/navigator.ts";
 import type { QuadrupedConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
+import { pawsOf } from "../spec/body.ts";
 
 /** **The quadruped's stock parts**: what each of its slots holds where its config names none. */
 export const QUADRUPED_PARTS = deepFreeze({
@@ -34,8 +35,8 @@ export const QUADRUPED_PARTS = deepFreeze({
 export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { readonly biteTarget?: QuadrupedTacticsMaking["biteTarget"] }, config: QuadrupedConfig) {
   const orders = wiring.orders ?? ((): null => null), parts = host.parts;
   const biteTuning = deepFreeze({ ...REPTILE_BITE, ...config.tuning?.bite });
-  // The paws, in the order the crawl lifts them: the effectors the spec says it stands on.
-  const paws: readonly SupportEndpoint[] = (host.spec.effectors ?? []).filter(e => e.support).map(e => ({ segment: e.segment, point: e.point, sole: e.support === "sole" }));
+  // The paws, in the order the crawl lifts them: the ends the spec says it stands on (`pawsOf`).
+  const paws: readonly SupportEndpoint[] = pawsOf(host.spec).map(paw => ({ segment: paw.segment, point: paw.point, sole: paw.sole }));
   // What it publishes of itself (`MindReport`), read from its tactics once its host has made them.
   let published: MindReport | null = null;
   host.take((own) => {

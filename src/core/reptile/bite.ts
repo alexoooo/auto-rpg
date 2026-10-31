@@ -8,7 +8,7 @@ import { motionAtToRef, pointOfToRef, turnOfToRef } from "../read-motion.ts";
 import type { SupportedCommand } from "../control/supported-motor.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../skills/strikes/strike-cycle.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BodySpec } from "../spec/body.ts";
+import { pawsOf, type BodySpec } from "../spec/body.ts";
 import type { Skill } from "../skills/framework/skill.ts";
 import type { QuadrupedView } from "./crawl.ts";
 import { REPTILE_BITE } from "./tuning.ts";
@@ -69,7 +69,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const teeth = lower.spec.contacts!.flatMap(c => c.shape.kind === "hull" && c.surface.directed?.mechanism === "point" ? c.shape.points.map(p => p.value) : []);
   const halfWidth = Math.max(...teeth.map(p => Math.abs(p[0] - tip[0])));
   const aim = new Vector3(), offset = new Vector3(), mouth = head.spec.points!.mouth!.value;
-  const support = (own.spec.effectors ?? []).filter(e => e.support).map(() => ({ corners: [new Vector3()] }));
+  const support = pawsOf(own.spec).map(() => ({ corners: [new Vector3()] }));
   const loadedSupport: typeof support = [];
   const touching = (part: typeof head) => own.built.physics.contactsOf(part.body).some(c => (!c.other || !bodies.has(c.other)) && c.impulse > 0);
   const withdraw = () => cycle.phase === "return" && cycle.time >= T.prepare + T.release && (touching(head) || touching(lower));

@@ -56,7 +56,9 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
   under a blunt load, which shares a blow's energy);
 - **joints**: a tree, each freedom with its axis, range and muscle;
 - **effectors** (`BodySpec.effectors`): each hand, foot or paw and its free chain; no two effectors
-  share a freedom;
+  share a freedom; those that are not paws are what it strikes with (`strikersOf`);
+- **ends** (`BodySpec.ends`, `BearingEndSpec`): what it bears its weight on, by kind: a human's
+  feet, and the hands and shins a rise bears on; a reptile's paws (`PawLimb`, `pawsOf`);
 - **wounds**: `hp`, the `vital` parts, the parts that never come off;
 - **down**: the rule that reads the body as down (`BodySpec.down`);
 - anything held. An item states a surface or is rigid.

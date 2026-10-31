@@ -63,7 +63,9 @@ export function reptileSpec(): BodySpec {
         muscle: { peakPositive: q(j.peak, "N m", `${at}/peak`), peakNegative: q(j.peak, "N m", `${at}/peak`), speedPositive: speed, speedNegative: speed } })) };
   });
   return deepFreeze({ model: "reptile", mass, stature: q(data.stature, "m", "/stature"), segments, joints,
-    effectors: data.effectors.map(e => ({ segment: e.segment, base: e.base, point: e.point, ...(e.support ? { support: e.support as "sole" } : {}) })),
+    effectors: data.effectors.map(e => ({ segment: e.segment, base: e.base, point: e.point })),
+    // Its paws are the effectors its asset says it stands on, each on its sole.
+    ends: data.effectors.flatMap(e => e.support ? [{ kind: "paw" as const, name: e.segment, segment: e.segment, point: e.point, sole: e.support === "sole" }] : []),
     wounds: { hp: sourced(1, "HP", "owner-hp-pool", "reptile 1"), vital: data.wounds.vital, whole: data.wounds.whole },
     attributes: { balance: q(data.balance, "%", "/balance"), haste: sourced(0, "%", "owner-haste", "reptile 0") }, substance: "flesh",
     down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },

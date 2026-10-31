@@ -13,7 +13,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { fitsAll, fitsWhen } from "../parts/parts.ts";
 import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 import type { REPTILE_BITE } from "./tuning.ts";
-import { segmentOf } from "../spec/body.ts";
+import { pawsOf, segmentOf } from "../spec/body.ts";
 
 /** How fast a support motor answers, s (`supportedMotor`'s timing). */
 type Response = Pick<Parameters<typeof supportedMotor>[2], "centre" | "endpoint" | "turn" | "posture">;
@@ -108,8 +108,6 @@ export interface QuadrupedTacticsPart<C extends PartConfig = PartConfig> extends
   make(making: QuadrupedTacticsMaking, config: C): QuadrupedTactics;
 }
 
-/** The effectors a body of `spec` stands on. */
-const supportsOf = (spec: BodySpec) => (spec.effectors ?? []).filter((effector) => effector.support);
 
 /** The joint `name` hangs from, if any. */
 const above = (spec: BodySpec, name: string) => spec.joints.find((joint) => joint.child === name);
@@ -118,7 +116,7 @@ const above = (spec: BodySpec, name: string) => spec.joints.find((joint) => join
 const depth = (spec: BodySpec, name: string): number => { const joint = above(spec, name); return joint ? 1 + depth(spec, joint.parent) : 0; };
 
 /** A part's `fits` for a body on three paws or more, each the end of a hip, a knee and an ankle from the root, so two stay down while one steps. */
-export const fitsPaws = fitsWhen((spec: BodySpec) => supportsOf(spec).length >= 3 && supportsOf(spec).every((paw) => depth(spec, paw.segment) === 3),
+export const fitsPaws = fitsWhen((spec: BodySpec) => pawsOf(spec).length >= 3 && pawsOf(spec).every((paw) => depth(spec, paw.segment) === 3),
   "needs three paws or more, each at the end of a hip, a knee and an ankle");
 
 /** A part's `fits` for a body with a jaw: a segment with a bite point hinged to a head with a mouth (`mouthOf`). */

@@ -83,19 +83,6 @@ function strikingMass(spec: BodySpec, limb: string): number {
   return total;
 }
 
-/** Each spec's striking limbs, found once: a spec is immutable. */
-const STRIKERS = new WeakMap<BodySpec, readonly string[]>();
-
-/**
- * **The limbs `spec` strikes with**: the segments of its effectors (`BodySpec.effectors`) that are
- * not supports, which it can swing at another body: a human's hands and feet, a reptile's mouth.
- */
-export function strikersOf(spec: BodySpec): readonly string[] {
-  let limbs = STRIKERS.get(spec);
-  if (!limbs) STRIKERS.set(spec, limbs = Object.freeze((spec.effectors ?? []).filter((effector) => !effector.support).map((effector) => effector.segment)));
-  return limbs;
-}
-
 /** Each spec's reach by limb, found once: a spec is immutable. */
 const REACHES = new WeakMap<BodySpec, Map<string, number>>();
 

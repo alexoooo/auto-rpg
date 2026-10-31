@@ -4,7 +4,7 @@ import type { StancePhase } from "../control/stance.ts";
 import { atan2, hypot } from "../math/real.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
 import type { LegsUnmet } from "../skills/framework/skill.ts";
-import type { BodySpec, Side } from "../spec/body.ts";
+import { strikersOf, type BodySpec, type Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
@@ -17,7 +17,7 @@ import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import { blowLife, limbReach, record, strikersOf } from "./value.ts";
+import { blowLife, limbReach, record } from "./value.ts";
 
 /**
  * What every percept reads from, once a step: the body's sight and spec, the world's rate (Hz), the
