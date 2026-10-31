@@ -121,6 +121,11 @@ trunk point first at 3.5 m/s closing, 25.4 J at 120 Hz and 27.6 J at 480. Withou
 closing. The grip lays the blade square to the hand's length, so the arm holds it along the line
 only with the wrist near its stops.
 
+Steered, it gains nothing: PPO from scratch on `research/environments/sword-thrust.json` (the best
+schedule, the target 1.16 to 1.36 m away, 120 Hz alone at first and 480 Hz mixed in over 1.5 M
+decisions) met every held-out trial weak after 1 M decisions, a median 16 J at 120 Hz and 17 J at
+480, 32 J at most (30 a rate, seed 6001), no higher than at 0.5 M.
+
 ### The blades it would replace
 
 `BLADE_STRIKE`'s thrust (the Duellist's, `duellist/thrust@buckler,sword`), on the same still rung
