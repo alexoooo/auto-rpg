@@ -74,6 +74,12 @@ const SOLVER = {
 
 /** More shapes than any body has: what orders a contact's pairs by this body's shape, then the other's. A numeric setting. */
 const SHAPES_MOST = 65536;
+/**
+ * How far apart, m, two shapes' bounding spheres stand beyond their radii for an overlap test of
+ * them to be skipped as one that cannot meet: a margin over the single precision Rapier holds a
+ * shape in. A numeric setting.
+ */
+const SHAPE_TEST_MARGIN = 0.01;
 /** The numbers of a node's pose in a save: its position and its turn. A numeric setting. */
 const NODE_POSE = 7;
 
@@ -277,6 +283,30 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     }
   };
 
+  /** Each shape a body's collider has been asked whether it can take (`canChangeShape`), made once. */
+  const asked = new WeakMap<ColliderShape, RAPIER.ColliderDesc>();
+  /** Each Rapier shape's bounding radius about its own origin, m, found once; null for a kind not bounded here. */
+  const bounds = new WeakMap<RAPIER.Shape, number | null>();
+  const boundOf = (shape: RAPIER.Shape): number | null => {
+    let radius = bounds.get(shape);
+    if (radius !== undefined) return radius;
+    switch (shape.type) {
+      case R.ShapeType.Ball: radius = (shape as RAPIER.Ball).radius; break;
+      case R.ShapeType.Capsule: { const capsule = shape as RAPIER.Capsule; radius = capsule.halfHeight + capsule.radius; break; }
+      case R.ShapeType.Cuboid: { const h = (shape as RAPIER.Cuboid).halfExtents; radius = Math.sqrt(h.x * h.x + h.y * h.y + h.z * h.z); break; }
+      case R.ShapeType.ConvexPolyhedron: {
+        const v = (shape as RAPIER.ConvexPolyhedron).vertices;
+        let most = 0;
+        for (let i = 0; i + 2 < v.length; i += 3) most = Math.max(most, v[i]! * v[i]! + v[i + 1]! * v[i + 1]! + v[i + 2]! * v[i + 2]!);
+        radius = Math.sqrt(most);
+        break;
+      }
+      default: radius = null;
+    }
+    bounds.set(shape, radius);
+    return radius;
+  };
+
   /**
    * What the world holds, each as it was asked for, in the order made: every body's shapes, mass and
    * materials, every joint's frames and every grip slot by the bodies they join, every fixed
@@ -449,16 +479,26 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         canChangeShape(k, shape) {
           const handle = colliders[k];
           if (handle === undefined) throw new Error("unknown collider index");
-          const desc = colliderOf(shape), position = new Vector3(desc.translation.x, desc.translation.y, desc.translation.z);
+          let desc = asked.get(shape);
+          if (!desc) asked.set(shape, desc = colliderOf(shape));
+          const position = new Vector3(desc.translation.x, desc.translation.y, desc.translation.z);
           const rotation = new Quaternion(desc.rotation.x, desc.rotation.y, desc.rotation.z, desc.rotation.w);
           const currentTurn = rigid.rotation(), turn = new Quaternion(currentTurn.x, currentTurn.y, currentTurn.z, currentTurn.w);
           position.applyRotationQuaternionToRef(turn, position);
           const origin = rigid.translation(); position.addInPlaceFromFloats(origin.x, origin.y, origin.z);
           turn.multiplyToRef(rotation, rotation);
+          const reach = boundOf(desc.shape);
           let clear = true;
           raw.colliders.forEach(other => {
             if (!clear || bodyOf.get(other.handle) === body || other.isSensor()
               || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
+            // Shapes whose bounding spheres stand apart cannot meet: Rapier's test builds the new
+            // shape afresh each time it is asked (a hull's whole hull), so it is asked only of those near.
+            const theirs = boundOf(other.shape);
+            if (reach !== null && theirs !== null) {
+              const at = other.translation(), dx = at.x - position.x, dy = at.y - position.y, dz = at.z - position.z, apart = reach + theirs + SHAPE_TEST_MARGIN;
+              if (dx * dx + dy * dy + dz * dz > apart * apart) return;
+            }
             if (other.intersectsShape(desc.shape, position, rotation)) clear = false;
           });
           return clear;

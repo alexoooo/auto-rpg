@@ -343,6 +343,27 @@ engine), 120 Hz, pinned to the performance cores; three playings, each step the 
 Steps 3680 to 4130, while a fighter is down, under the CPU profiler: 12.8 ms a step to 4.0, against
 3.5 to 3.8 for steps 2000 to 2450. The two longest steps left, 640 and 690, are other work.
 
+### A hand's new shape tested near it
+
+A hand that changes its pose (`createHandPoses`, `src/core/build/hand-poses.ts`) is asked first
+whether its new shape fits (`canChangeShape`, `src/core/engine/rapier.ts`), every step until it
+does. Rapier's overlap test builds the shape it is given afresh at each call, a hull its whole hull,
+and the shape was tested against every collider of the world. Now a collider whose bounding sphere
+stands `SHAPE_TEST_MARGIN` clear of the new shape's is not tested: the answer is the same. In both
+bouts below, of 5359 colliders the test was asked of, 3977 were skipped and none of them overlapped
+when tested anyway. The fingerprint is unmoved and both bouts are the same to the bit over their
+whole length (`f6d78870824413c5`, `f0a6adac3d23e437`).
+
+Option Mind's Warriors on the Arena's open stage, seed 0, to their verdicts: bare fists (2110 steps,
+both standing throughout) and sword against club (7200 steps). Node, core world,
+`rapier-coordinate`, 120 Hz, pinned to the performance cores; three playings, each step the least of
+the last two.
+
+| | Bare fists: median, ms | 99th per cent | Longest | Over 8 ms | Sword v club: 99th per cent | Longest | Over 8 ms |
+|---|---|---|---|---|---|---|---|
+| Before | 2.11 | 11.71 | 22.89 | 54 | 5.63 | 15.20 | 5 |
+| Tested near | 2.11 | 5.52 | 9.98 | 2 | 5.54 | 8.15 | 2 |
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors
