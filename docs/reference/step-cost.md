@@ -364,6 +364,25 @@ the last two.
 | Before | 2.11 | 11.71 | 22.89 | 54 | 5.63 | 15.20 | 5 |
 | Tested near | 2.11 | 5.52 | 9.98 | 2 | 5.54 | 8.15 | 2 |
 
+### Across the JavaScript and wasm boundary
+
+**The boundary is about a tenth of a bout's step, most of it reading contacts out of Rapier.** The
+sword against club bout above at `59a6ff37`: 3623 calls into wasm a step and 4228 out of it, of
+which the solver's own step makes 210. Contacts take about 2500 of the calls in: each pair, its
+manifolds and their points read one call at a time, each pair a JavaScript object made and freed
+(`contactsOf`). Joint motors take 280 (four calls a joint), segments' poses and velocities 128.
+The calls out are mostly the binding's own: references dropped, array entries set, and the contact
+callback (`contactPairsWith`) about 710 times a step. Counted by wrapping the binding's wasm
+exports and imports in a load hook, on a playing of its own.
+
+Under V8's CPU profiler (100 us), self time a step: the game's own code 1.98 ms (61 %), Rapier's
+work in wasm 0.82 (25 %), the binding's JavaScript 0.21 (6 %), the engine's wrapper
+(`src/core/engine/rapier.ts`) 0.15 (5 %), the crossings themselves 0.04 (1 %), the collector 0.03.
+`contactsOf` with everything it calls is 0.45 ms a step; the engine's step 0.76.
+
+So contacts written by Rapier into an array in one call, and the motors set from one, would take
+about 0.4 ms of the step's 2.9; the minds and motor control in TypeScript are the larger part.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors
