@@ -72,7 +72,7 @@ failures first).
 ### 3. Steered
 
 Each blow steered as the punch is, a network trained on the general trainer to 90 % held out at
-both rates, after Option Mind's design steps 13 to 16 (training waits for the completed design).
+both rates. The owner asked for it now, ahead of Option Mind's design steps (2026-10-31).
 
 Check: the held-out reading; the owner accepts the still rung for each blow.
 

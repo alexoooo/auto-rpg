@@ -72,11 +72,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
    [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
    one-two, fights); then a learned gait,
    the Stand drill's rungs watched before it, and the other skills
-   ([Body and motor control](#body-and-motor-control)); the club blow and the sword's
-   ([Club and sword](plans/2026-10-31-club-and-sword.md)) and the buckler cover
+   ([Body and motor control](#body-and-motor-control)); the buckler cover
    ([Buckler and club](plans/2026-10-29-buckler-and-club.md), steps 4 to 6).
-3. **Beside them:** [Club and sword](plans/2026-10-31-club-and-sword.md)'s held blow and its search
-   to the bar (its steps 1 and 2; the owner, 2026-10-31). The Skeleton's campaign. The owner watches the Strike drill's rung 1 (Drills
+3. **Beside them:** [Club and sword](plans/2026-10-31-club-and-sword.md), the whole plan, its training
+   included (the owner, 2026-10-31). The Skeleton's campaign. The owner watches the Strike drill's rung 1 (Drills
    step 2), which Punch step 2b reads; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
    step 13.
    The rest of Recovery step 3: every humanoid is on toes and rises by Option Mind's rise (the
