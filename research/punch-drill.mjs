@@ -54,8 +54,8 @@ const ACCEL = [40, 600], STEER = [0, 60], ARRIVE = [0, 0.4];
 const FREE = 0.25;
 /** With `--fire`, how near the fist comes to the target before the arm's drive begins, arm lengths (`StraightPunch.fire`). */
 const FIRE = [0, 1.2];
-/** With `--chamber`, where the striking point is set before the drive, m from the shoulder on its line to the target, and how long it stands there, s (`StraightPunch.chamber`, `settle`). */
-const CHAMBER = [0.1, 0.7], SETTLE = [0, 0.4];
+/** With `--chamber`, where the striking point is set before the drive, m from the shoulder on its line to the target (behind the shoulder where negative, a held blow drawn back), and how long it stands there, s (`StraightPunch.chamber`, `settle`). */
+const CHAMBER = [-0.4, 1.2], SETTLE = [0, 0.8];
 /** With `--brake`, how near its goal a channel pushed toward one is held instead, rad (`StraightPunch.brake`). */
 const BRAKE = [0, 0.3];
 
@@ -96,13 +96,14 @@ export function decode(x, hand, gap, without = new Set(), { driven = true, fire 
  * The Puncher with its punch driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
  * `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. With
  * `blow`, Option Mind's held blow of that kind so driven instead, `hand` holding its item and the
- * other the buckler, its action's own aim kept.
+ * other the buckler, its action's own aim kept, at `mark` (its own where null).
  */
-export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake, ease }, hand, aim = null, blow = null) {
+export function timedPuncher({ pushes, lead, through, beneath, driven, fire, brake, ease }, hand, aim = null, blow = null, mark = null) {
   const tuning = { ...AROUND, lead, through, ...beneath, ...(driven ? { driven } : {}), ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), ...(ease === undefined ? {} : { ease }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
   if (blow) {
     const preset = MINDS.option.config, other = hand === "left" ? "right" : "left";
-    return { mind: { ...preset, executors: preset.executors.map((one) => one.kind === blow ? { ...one, tuning } : one) }, action: blow,
+    const actions = mark ? preset.actions.map((action) => action.name === blow ? { ...action, regions: [{ kind: "mark", mark }] } : action) : preset.actions;
+    return { mind: { ...preset, actions, executors: preset.executors.map((one) => one.kind === blow ? { ...one, tuning } : one) }, action: blow,
       held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
   }
   const preset = MINDS.puncher.config, punch = preset.executors[0];
@@ -196,7 +197,7 @@ async function trial(x, cell) {
   const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
   let worst = null;
   for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null), condition, hz);
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null), condition, hz);
     const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, energy: reading.hit.energy, mechanism: reading.hit.mechanism, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }
@@ -218,7 +219,7 @@ if (!isMainThread && workerData?.drill) {
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
-        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null), { model, mark, hand: found.cell.hand, across, gap }, hz);
+        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, found.cell.blow ? mark : null), { model, mark, hand: found.cell.hand, across, gap }, hz);
         const h = reading.hit;
         console.log(JSON.stringify({ hz, model, mark, across, gap: +gap.toFixed(3), outcome: reading.outcome, score: +scoreOf(reading, found.cell.hand).toFixed(3),
           hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), energy: +h.energy.toFixed(1), mechanism: h.mechanism, straight: h.straight && +h.straight.toFixed(3), along: h.along && +h.along.toFixed(3), bend: +h.bend.toFixed(2), lean: +h.lean.toFixed(2), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));

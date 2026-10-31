@@ -110,12 +110,12 @@ export const STRAIGHT_PUNCH_KEYS: readonly (keyof StraightPunch)[] = Object.free
   "fire", "ease", "steered", "driven", "timed"]);
 
 /**
- * Whether `settings`, some of a straight punch's, are each valid: finite and not negative, the
- * pace, reach, band and drive's length positive, each option of its kind.
+ * Whether `settings`, some of a straight punch's, are each valid: finite and not negative but the
+ * chamber, the pace, reach, band and drive's length positive, each option of its kind.
  */
 export function validStraightPunchPart(settings: Partial<StraightPunch>): boolean {
   const flag = (value: unknown) => value === undefined || typeof value === "boolean";
-  return REQUIRED.every((key) => settings[key] === undefined || Number.isFinite(settings[key]) && settings[key] >= 0)
+  return REQUIRED.every((key) => settings[key] === undefined || Number.isFinite(settings[key]) && (settings[key] >= 0 || key === "chamber"))
     && (["pace", "reach", "band", "longest"] as const).every((key) => settings[key] === undefined || settings[key] > 0)
     && flag(settings.landed) && flag(settings.halts) && flag(settings.squared) && flag(settings.poised) && flag(settings.steered)
     && (settings.fire === undefined || Number.isFinite(settings.fire) && settings.fire >= 0)
@@ -322,12 +322,14 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
    * target, into the limb's `angles`: the trunk as it stands, or at its contact goals with
    * `turned`; the elbow drawn toward `elbow`, a fist's wrist toward the line, the shoulder and a
-   * held face's wrist toward where they are.
+   * held face's wrist toward where they are, a held face's arm from its guard.
    */
   const solve = (view: BodyView, limb: Limb, turned: boolean, out: (apart: number) => number, elbow: number | null): void => {
     const { chain, angles, free, goals } = limb;
     chain.forEach((joint, j) => joint.dofs.forEach((_, k) => { angles[j]![k] = view.angles[channelName(joint, k)] ?? 0; }));
     if (turned) for (const g of goals) angles[g.joint]![g.k] = g.angle;
+    // A held face's arm is solved from the guard, wherever a chamber has drawn it: one contact pose, not the one nearest a drawn-back arm.
+    if (limb.behind) for (const f of free) angles[f.joint]![f.k] = guard[f.name] ?? angles[f.joint]![f.k]!;
     intoFrameToRef(view.root, state.target, target);
     pointAtToRef(chain.slice(0, limb.trunk), angles.slice(0, limb.trunk), limb.shoulder, shoulder);
     const dx = target.x - shoulder.x, dy = target.y - shoulder.y, dz = target.z - shoulder.z, apart = hypot(dx, dy, dz) || 1, reach = out(apart) / apart;

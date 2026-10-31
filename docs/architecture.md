@@ -445,6 +445,18 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   and admitted where it lands (`research/punch-policy-check.mjs`). A body with no record does not
   throw it (`punch-part.ts`); a mind carries no punch settings, and an experiment's research
   `tuning` sets them over the record's, with no network steering.
+- **Held blows** (`held-blow.ts`, `HELD_BLOWS`): the club blow, the sword's cut and its thrust,
+  each the straight punch's drive thrown with the face of what the hand holds (`StrikingFace`,
+  `faceOf`: a blunt item's aimed point facing the hand's length, a directed region's point facing
+  its direction), the arm's contact pose solved with that face along the line to the target and
+  the hand gripping. Each is its own executor part (`club-blow`, `sword-cut`, `sword-thrust`) that
+  strikes with a hand holding its item and names the mechanism it meets with (`ExecutorPart.meets`,
+  which the Strike drill reads as the blow's face, `StrikeHit.faced`). Its settings and network are
+  its body's record (`HeldBlowRecord`, `assets/core/<kind>.json`, written by
+  `research/punch-export.mjs`), its steer laid out by `assets/core/<kind>.layout.json` (the
+  punch's with the wrist), read at its face's striking point. A held face's arm is solved from its
+  guard each step, and its chamber may lie behind the shoulder (a negative `chamber`, the blow
+  drawn back). A held face is neither `fire`d nor `driven` (`faceFault`): each reads the fist.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle, each its own records. `shortSword`
   (`src/core/items/sword.ts`) is the first such item.
