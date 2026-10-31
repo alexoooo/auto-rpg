@@ -6,7 +6,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, scale, sub } from "../spec/vec.ts";
 import type { SolidSense } from "../mind/object-senses.ts";
 import { segmentDistanceSquared } from "../perception/openings.ts";
-import { clearStep } from "./clear-step.ts";
+import { blocks, SWEEP } from "./clear-step.ts";
 import type { BodySense } from "../mind/senses.ts";
 
 /** Immutable collider support points, including attached items, in the segment's local frame. */
@@ -93,15 +93,36 @@ export function sensedBounds(foe: BodySense): readonly SolidSense[] {
   return worldShapes(foe).map(boundsOf);
 }
 
+/** A foot's sweep against a body's colliders, as `sensedFootClearance` gives it. */
+export type FootClearance = (from: Vec3, to: Vec3, radius: number) => boolean;
+
 /** Feet sweep against exact round colliders and conservative polyhedral bounds, admitting outward separation. */
-export function sensedFootClearance(foe: BodySense) {
-  const shapes = worldShapes(foe);
-  return (from: Vec3, to: Vec3, radius: number): boolean => shapes.every(shape => {
+export function sensedFootClearance(foe: BodySense): FootClearance {
+  return footClearanceOf(worldShapes(foe));
+}
+
+/** A body's colliders read once, as both `sensedBounds` and `sensedFootClearance` give them. */
+export interface SensedObstacle { readonly bounds: readonly SolidSense[]; readonly clear: FootClearance }
+
+/** `foe`'s colliders where it is sensed, read once: for a caller that sweeps and bounds the same pose many times. */
+export function sensedObstacle(foe: BodySense): SensedObstacle {
+  const shapes = worldShapes(foe), bounds = shapes.map(boundsOf);
+  return { bounds, clear: footClearanceOf(shapes, bounds) };
+}
+
+/**
+ * `sensedFootClearance` on `shapes`, a polyhedral one swept against its bounds in `bounds`
+ * (`boundsOf`, found once) as `clearStep` sweeps one solid, in a work array made once.
+ */
+function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonly SolidSense[] = shapes.map(boundsOf)): FootClearance {
+  const work = new Float64Array(SWEEP);
+  return (from: Vec3, to: Vec3, radius: number): boolean => shapes.every((shape, i) => {
     if (!shape.radius) {
-      const bounds = boundsOf(shape);
-      if (bounds.kind !== "box") throw new Error("collider bounds must be boxes");
-      if (from.every((v, k) => v === to[k])) return [0, 1, 2].some(k => Math.abs(from[k]! - bounds.centre[k]!) >= bounds.size[k]! / 2 + radius);
-      return clearStep(from, to, radius, [bounds]);
+      const box = bounds[i]!;
+      if (box.kind !== "box") throw new Error("collider bounds must be boxes");
+      if (from.every((v, k) => v === to[k])) return [0, 1, 2].some(k => Math.abs(from[k]! - box.centre[k]!) >= box.size[k]! / 2 + radius);
+      if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
+      return !blocks(work, box, from[0], from[1], from[2], to[0], to[1], to[2], radius);
     }
     const a = shape.points[0]!, b = shape.points[shape.points.length - 1]!, r = radius + shape.radius;
     const near = segmentDistanceSquared(from, to, a, b);

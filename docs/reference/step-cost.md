@@ -321,6 +321,28 @@ the bout (`step-time.mjs`, read twice), one and eight skeletons standing (`step-
   joints against 2010, 278 and 289 ns a joint against 287 and 283) or written out by a `switch`
   (2804 bytes, 309 and 318 ns): neither changes the time.
 
+### A body lying, read once
+
+Beside a foe that lies, Option Mind's walk weighs 16 places round it (`besideLying`,
+`src/core/intent/action-window.ts`), each with a way there (`groundRoute`), twice a step (its tactics
+and its chooser's places). Each way read the foe's colliders again, and each sweep found a hull's
+bounds again and made a work array (`clearStep`). Now the colliders are read once a weighing
+(`sensedObstacle`), each hull's bounds once, and a clearance sweeps in one work array
+(`footClearanceOf`, `src/core/navigation/sensed-bounds.ts`): the same operations in the same order,
+the fingerprint unmoved and the bout below the same to the bit (digest `f0a6adac3d23e437`).
+
+The bout: Option Mind's Warriors, sword against club, the Arena's open stage, seed 0, to its verdict at
+60 s (7200 steps; a fighter down from step 3653). Node, core world, `rapier-coordinate` (the game's
+engine), 120 Hz, pinned to the performance cores; three playings, each step the least of the last two.
+
+| | Mean, ms | Median | 99th per cent | 99.9th | Longest | Steps over 8 ms | Two-step frames over 16.7 ms |
+|---|---|---|---|---|---|---|---|
+| Before | 2.872 | 2.030 | 11.241 | 14.213 | 17.586 | 362 | 178 of 3600 |
+| Read once | 2.395 | 2.029 | 5.557 | 7.167 | 15.946 | 3 | 3 of 3600 |
+
+Steps 3680 to 4130, while a fighter is down, under the CPU profiler: 12.8 ms a step to 4.0, against
+3.5 to 3.8 for steps 2000 to 2450. The two longest steps left, 640 and 690, are other work.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors

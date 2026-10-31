@@ -5,7 +5,7 @@ import type { Window } from "../skills/framework/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "./movement.ts";
-import { sensedFootClearance } from "../navigation/sensed-bounds.ts";
+import { sensedObstacle } from "../navigation/sensed-bounds.ts";
 import type { BodySense } from "../mind/senses.ts";
 import { lyingAxis } from "./targets.ts";
 
@@ -101,7 +101,7 @@ type Beside = { readonly offset: Offset; readonly route: readonly Vec3[]; readon
  * null where none is.
  */
 function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number): Beside | null {
-  const clear = sensedFootClearance(lying), axis = lyingAxis(lying), { soles, centre } = view.stance, y = view.stance.support.y;
+  const obstacle = sensedObstacle(lying), clear = obstacle.clear, axis = lyingAxis(lying), { soles, centre } = view.stance, y = view.stance.support.y;
   const width = hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z) / 2, velocity = view.stance.velocity;
   const from: Vec3 = [centre.x + velocity.x * LYING.lead, y, centre.z + velocity.z * LYING.lead];
   const stands = (x: number, z: number): boolean => {
@@ -116,7 +116,7 @@ function besideLying(view: BodyView, window: Window, lying: BodySense, heading: 
     const at = offsetAt(view, window, axis + k * 2 * Math.PI / LYING.bearings);
     const x = centre.x + at.x, z = centre.z + at.z, rx = cos(at.face), rz = -sin(at.face);
     if (!stands(x - width * rx, z - width * rz) || !stands(x + width * rx, z + width * rz)) continue;
-    const route = groundRoute(lying, from, [x, y, z], LYING.footRadius, LYING.column);
+    const route = groundRoute(obstacle, from, [x, y, z], LYING.footRadius, LYING.column);
     if (!route) continue;
     let walked = 0, past = from;
     for (const point of route) { walked += hypot(point[0] - past[0], point[2] - past[2]); past = point; }
