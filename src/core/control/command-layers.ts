@@ -84,6 +84,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     resumed: false,
     /** The step its driver was last called on, or the step before it was resumed; null before its first call. */
     driven: null as number | null,
+    /** Whether the command held pushes a muscle or drives a point: its driver closes that loop, and is called every step. */
+    closed: false,
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
@@ -136,6 +138,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     motor.setPoints(command.points ?? NO_POINTS);
     motor.setStance(command.stance);
     state.held = command.stance ? null : command.held ?? null;
+    state.closed = command.pushes.length > 0 || (command.points?.length ?? 0) > 0;
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];
       if (!goal) { if (was) motor.release(segment); }
@@ -171,7 +174,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   };
   const act = (dt: number): void => {
     const step = clock.steps;
-    if (every === 1 || state.down || ((step - offset) % every + every) % every === 0) {
+    if (every === 1 || state.down || state.closed || ((step - offset) % every + every) % every === 0) {
       const next = driver?.(view, every === 1 || state.driven === null ? dt : (step - state.driven) * dt);
       if (next) obey(next);
       state.driven = step;
