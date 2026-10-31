@@ -383,6 +383,25 @@ work in wasm 0.82 (25 %), the binding's JavaScript 0.21 (6 %), the engine's wrap
 So contacts written by Rapier into an array in one call, and the motors set from one, would take
 about 0.4 ms of the step's 2.9; the minds and motor control in TypeScript are the larger part.
 
+### Motor control in the step
+
+**Motor control is about a fifth of the step; the minds' decisions are the larger part.** The
+same bout at `28bf2efc`, under V8's CPU profiler (100 us), 3.26 ms a step with the profiler on;
+inclusive time a step for both bodies, so nested rows overlap:
+
+| Work | ms a step | What it is |
+| --- | --- | --- |
+| motor control (`control`, `src/core/control/motor.ts`) | 0.41 | the whole-body solve 0.22 (`solveBody`), the ground's share 0.12 (`shareGroundWrench`), the stance 0.16, ground and dynamics reads 0.2 |
+| reach (`solveReach`) | 0.24 | three solves a step for each limb on a path, its angle's rate and acceleration taken by differences (`effector-tracker.ts`) |
+| the strikes' support reading (`supportReadiness`) | 0.26 | every segment's contacts read through the engine each step, once for the punches and again for the kicks |
+| a body's look (`look`, `command-layers.ts`) | 0.22 | angles, effector points, stance and ground read for the mind |
+| the hand's contact feedback (`effector-feedback.ts`) | 0.14 | the struck hand's contacts after physics |
+| the engine's step | 0.75 | Rapier, contacts read out included |
+| the minds' choices and skills | about 1.2 | the rest of `act`: options, tactics, readiness, the aim |
+
+Control at half the rate would save about 0.3 ms of the 3.26 (motor control and reach on every
+other step); the support reading, read once for both its users, about 0.13 with nothing moved.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors
