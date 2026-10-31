@@ -41,7 +41,7 @@ export type StrikeSubject = { readonly mind: MindConfig; readonly action: string
  * A bout recipe's `loadouts` for the striker holding what `subject` names, the target empty-handed;
  * none for a subject that names nothing, so its world is the one an empty-handed subject's always was.
  */
-const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined ? {} : { loadouts: { left: subject.held, right: EMPTY_LOADOUT } };
+export const loadoutsOf = (subject: StrikeSubject) => subject.held === undefined ? {} : { loadouts: { left: subject.held, right: EMPTY_LOADOUT } };
 
 /**
  * The striker's side of a bout recipe: the subject's mind as given, led by the drill Commander
@@ -177,7 +177,7 @@ export type StrikeCondition = StillCondition | FightCondition;
 export const limbOf = (condition: StrikeCondition): string => effectorOf(condition);
 
 /** Why `value` is no subject, or what keeps its mind from `model` holding what it names (`mindFaults`). */
-function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
+export function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly string[] {
   const given = value as Partial<StrikeSubject> | null;
   if (!given || typeof given !== "object" || Array.isArray(given) || typeof given.action !== "string") return ["a subject is a mind and the action it drills"];
   if (given.held !== undefined) {

@@ -12,7 +12,7 @@ import type { AttributeOverrides } from "../../core/character-attributes.ts";
 import { MINDS } from "../../entrants/game.ts";
 import { HELD, loadoutFaults, loadoutKey, type Held, type Loadout } from "../../core/items/held.ts";
 import { recordingKey } from "../../core/recording.ts";
-import { mindSubject, type Evaluation, type Json, type Subject } from "../evaluation.ts";
+import { mindSubject, type Evaluation, type Json, type Subject, type SubjectChoice } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import { limbOf, STRIKE_CASES, type StrikeCondition } from "./cases.ts";
 
@@ -41,6 +41,10 @@ function loadoutNamed(key: string): Loadout {
   if (faults.length) throw new Error(`${key} is no loadout: ${faults.join("; ")} (${HELD.join(", ")})`);
   return loadout;
 }
+
+/** A strike named (`<mind>/<action>`, `actionSubject`) or given whole (`givenSubject`), as a subject; `none` where nothing is named. */
+export const strikeSubjects = (choice: SubjectChoice, none: readonly string[]): readonly Subject[] =>
+  (choice.length > 0 ? choice : none).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
 
 /**
  * A preset's action as a subject: `<mind>/<action>`, its parts the mind's config and the action's
@@ -111,9 +115,7 @@ export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   defaultProtocol: "still",
   schedule: "all",
   analysis: {},
-  subjects(choice) {
-    return (choice.length > 0 ? choice : DRILLED).map((one) => typeof one !== "string" ? givenSubject(one) : actionSubject(one));
-  },
+  subjects: (choice) => strikeSubjects(choice, DRILLED),
   outcome: strikeOutcome,
   /**
    * A learning environment's terms: the bar's score, a hit that meets every test counted landed

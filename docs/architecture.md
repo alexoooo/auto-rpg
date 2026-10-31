@@ -1202,7 +1202,9 @@ side's mind (`minds`), loadouts, attributes, reaction time (`senseDelay`), seed 
 rules (`ends`) with the down rule's allowance (`recoverySeconds`), where a scenario arranges it, each side's place and heading (`start`) in place of
 the level's spawn, and, where a drill moves its target, the rail that carries a side's body (`rail`; `Rail`, `src/arena/rail.ts`: the body held
 rigid as it was built, lifted and moved along a line, back and forth or round a circle at a speed, every segment given each step what brings it
-onto the path by the step's end, a fixture and not anatomy), as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
+onto the path by the step's end, a fixture and not anatomy), and, where a drill shoves a side, its shove (`shove`; `Shove`, `src/arena/shove.ts`:
+one level impulse at a segment's centre of mass, at a second of the bout or the first step after it that a limb moves at a speed against another
+segment, when it came read as `Duel.shoved`), as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
 world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
@@ -1360,7 +1362,13 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   and covering under the stand Commander's orders, against a drill opponent striking on its
   script: rung `punched`, punches, `drill-punch`; a Warrior empty-handed, by offset and range:
   each touch read by where it met the subject, its head, its guard or the rest of it, the hit points it took and
-  whether the subject fell; covered, the guard alone met, `cover/read.ts`). `--previous` reads a battery's subject
+  whether the subject fell; covered, the guard alone met, `cover/read.ts`); and `stand` (a mind and one of its
+  strike actions, as `strike`'s, `option/straight-punch` drilled, shoved once by size, way and height of its trunk:
+  rung `guard`, standing in guard under the stand Commander facing `drill-stand`; rung `walking`, walked in from 6 m
+  at 0.5 m/s by the drill Commander, shoved 2 s after it may set off; rung `striking`, the still rung's strike at 1 m
+  with the shove given as the striking hand flies from the chest at 2.5 m/s; read for whether it kept its feet, the
+  feet it landed until it settled, and how soon its centre of mass's velocity came back to standing still or to
+  what it was doing, and whether a strike shoved mid-flight finished, `stand/read.ts`). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot

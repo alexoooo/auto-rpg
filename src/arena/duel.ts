@@ -27,6 +27,7 @@ import { arenaSolids } from "./room.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { carryOnRail, railFaults, type Rail } from "./rail.ts";
+import { shoveFaults, shoveOnCue, type Shove } from "./shove.ts";
 import { BUILD_IDENTITY } from "../build-identity.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 import { otherSide } from "../core/spec/body.ts";
@@ -136,6 +137,8 @@ export interface DuelRecipe {
   readonly commanders?: Readonly<Partial<Record<Side, CommanderConfig>>>;
   /** The rail that carries a side's body as a moving target (`Rail`): a drill's. */
   readonly rail?: Rail;
+  /** A shove given a side's body once (`Shove`): a drill's. */
+  readonly shove?: Shove;
 }
 
 /** How old what each side of a bout of `recipe` sees of the other is, s: the recipe's, or its rules' reaction time. */
@@ -226,6 +229,8 @@ interface DuelState {
   readonly right: SideState;
   /** Each side's Commander's memory and its last orders, where the recipe names one (`DuelRecipe.commanders`). */
   readonly commanders?: Partial<Record<Side, TeamOfOne["state"]>>;
+  /** The bout's second the recipe's shove came at, null before it, where the recipe names one (`DuelRecipe.shove`). */
+  readonly shove?: { at: number | null };
 }
 
 interface SideState {
@@ -280,6 +285,8 @@ export class Duel {
   private readonly teams: Readonly<Partial<Record<Side, TeamOfOne>>>;
   /** What carries the recipe's rail, where it names one. */
   private readonly rail: Hook | null;
+  /** What gives the recipe's shove, where it names one. */
+  private readonly shoving: Hook | null;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
@@ -375,10 +382,11 @@ export class Duel {
       const body = observer.senses().others.find(other => other.id === side)!;
       return spawnClearanceFaults(sensedBounds(body), arenaSolids(level));
     });
-    if (spawnFaults.length) {
+    const shoveFaulted = recipe.shove ? shoveFaults(recipe.shove, duelists[recipe.shove.side]?.built ?? duelists.left.built) : [];
+    if (spawnFaults.length || shoveFaulted.length) {
       this.feeding.dispose(); this.senses.dispose();
       for (const side of SIDES) { duelists[side].body.dispose(); duelists[side].built.dispose(); }
-      throw new Error(`invalid ${level} spawn:\n${spawnFaults.join("\n")}`);
+      throw new Error(spawnFaults.length ? `invalid ${level} spawn:\n${spawnFaults.join("\n")}` : `invalid shove: ${shoveFaulted.join("; ")}`);
     }
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
@@ -391,9 +399,11 @@ export class Duel {
       world: world.state, senses: this.senses.state, watch: this.watch.state,
       left: sideState(duelists.left), right: sideState(duelists.right),
       ...(led.length ? { commanders: Object.fromEntries(led.map(([side, team]) => [side, team.state])) } : {}),
+      ...(recipe.shove ? { shove: { at: null } } : {}),
     };
     this.judging = world.afterStep(() => this.judge());
     this.rail = recipe.rail ? carryOnRail(world, duelists[recipe.rail.side].built, recipe.rail, () => this.clock) : null;
+    this.shoving = recipe.shove ? shoveOnCue(world, duelists[recipe.shove.side].built, recipe.shove, this.state.shove!, () => this.clock) : null;
     for (const side of SIDES) hooks.onBuilt?.(duelists[side], duelists[side].built);
   }
 
@@ -408,6 +418,9 @@ export class Duel {
 
   /** A portable recording identifies its immutable build and the physical recipe that gives the orders meaning. */
   get recording(): OrdersRecording { return { identity: this.identity, tape: JSON.parse(JSON.stringify(this.tape)) as OrdersEntry[] }; }
+
+  /** The bout's second the recipe's shove came at; null before it or where the recipe names none (`DuelRecipe.shove`). */
+  get shoved(): number | null { return this.state.shove?.at ?? null; }
 
   /** Seconds since the bout began. */
   get clock(): number { return this.world.time - this.state.start; }
@@ -513,6 +526,7 @@ export class Duel {
   dispose(): void {
     for (const side of SIDES) this.teams[side]?.dispose();
     this.rail?.dispose();
+    this.shoving?.dispose();
     this.judging.dispose();
     this.feeding.dispose();
     this.watch.dispose();
