@@ -123,7 +123,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false,
     links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
   let runs: TechniqueRun[] = [];
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), drive = poseDrive(own.muscles);
     runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, kit));
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
@@ -174,7 +174,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
         else if (end !== "done") { state.phase = "rest"; state.since = clock.time; }
         else state.phase = "over";
       } };
-  }] });
+  }]);
   body.drive(() => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: body.view.standing - .03, heading: 0 } }));
   const root = built.segments.get("middleTrunk")!, mass = [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
   let shoved = false;

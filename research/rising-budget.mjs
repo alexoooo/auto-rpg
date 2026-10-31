@@ -62,7 +62,7 @@ async function squatStance({ model, held, seed }) {
   if ("refused" in placement) return { reading: "squat", model, held, seed, refused: placement.refused };
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
-  const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1, subs: [] });
+  const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1 });
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let height = null, climbed = null, quiet = 0, verified = null, fell = false;

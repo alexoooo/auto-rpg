@@ -1,4 +1,5 @@
-import type { BodyOptions, HostedBody } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
+import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
@@ -55,7 +56,7 @@ export interface Actor {
 
 interface ActorOptions {
   /** An explicit experiment's pre-created sub-minds, in place of the selected mind's. */
-  readonly subs?: BodyOptions["subs"];
+  readonly subs?: readonly SubMindMaker[];
   /** Its mind: the script on the blade fighter's skills, lying still once down (`LAB_PRESETS.script`), unless given. */
   readonly mind?: MindConfig;
   /** The most its assist gives it (`balanceCeiling`); none unless given. */
@@ -124,7 +125,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   const body = commandedBody(built, world, { ...scripted.body(mind, partLookup), senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity,
-    stance, measuring, subs: subs ?? scripted.subs(mind, partLookup) });
+    stance, measuring }, subs ?? scripted.subs(mind, partLookup));
   let driven: LabMind | null = null;
   return {
     body, world, strikes, risesItself: false,

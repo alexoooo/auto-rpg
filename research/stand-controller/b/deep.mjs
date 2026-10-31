@@ -74,7 +74,7 @@ export async function deepTrial({ variant = "dorsi0.8", control = "bear", seed =
   const posture = jittered(squat.posture, seed, jitter);
   let reader = null, run = null, motor = null, h0 = null, p0 = null, held0 = null;
   const state = { t: 0, phase: control, result: {} };
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "deep");
     const channels = own.muscles.channels;
@@ -101,7 +101,7 @@ export async function deepTrial({ variant = "dorsi0.8", control = "bear", seed =
         }
         state.t += dt;
       } };
-  }] });
+  }]);
   body.setLevel("held");
   const statical = await staticBody(cappedSpec(variantSpec("workshop-fighter", variant)));
   posed(statical, posture); placeLike(statical, built, .002); statical.dispose();

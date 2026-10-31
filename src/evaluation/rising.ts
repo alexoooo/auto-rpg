@@ -9,7 +9,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import poses from "../../assets/research/posture-holds.json" with { type: "json" };
-import type { BodyOptions } from "../core/body.ts";
+import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
@@ -87,7 +87,7 @@ export type RisingRow = RisingJob & Partial<Omit<FallReading, "status" | "attemp
  * search has what it scores.
  */
 export async function risingTrial(job: RisingJob, { subs, stop }: {
-  subs?: BodyOptions["subs"]; stop?: (world: World, built: BuiltBody, actor: Actor) => boolean;
+  subs?: readonly SubMindMaker[]; stop?: (world: World, built: BuiltBody, actor: Actor) => boolean;
 } = {}): Promise<RisingRow> {
   checkFall(job);
   if (job.loadout !== undefined && job.technique) throw new Error("standalone technique trials do not accept per-hand loadouts");
@@ -168,7 +168,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
   const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, kit);
     predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
@@ -194,7 +194,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
         control.end = run.step(view.ground, senses, dt);
         if (control.end) { control.active = false; control.ended = into.time; }
       } };
-  }] });
+  }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const trail: TrailEntry[] = [], saturation: Record<string, { peak: number; saturatedSeconds: number }> = {}, last = { phase: "", position: "" };
   let survived = false, verified = false;

@@ -8,7 +8,6 @@ import type { StanceTuning } from "./control/stance-tuning.ts";
 import type { StanceEnvelope } from "./control/stance-envelope.ts";
 import type { Embodying } from "./mind/mind.ts";
 import type { Senses } from "./mind/senses.ts";
-import type { SubMindMaker } from "./mind/sub-mind.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { MotorMaker } from "./control/motor-part.ts";
 import type { PhysicalBody } from "./physical-body.ts";
@@ -195,14 +194,11 @@ export interface LayerOptions {
 
 /**
  * **What a body built outside a fight under the command layers takes** (`commandedBody`): their
- * options, the sub-minds they are handed over to, and what a body is given beside its mind
- * (`Embodying`: its senses, the clock alone unless given; its assist's ceiling,
- * `balanceCeiling`, none unless given; its contact labels; where its order sheets are written).
+ * options and what a body is given beside its mind (`Embodying`: its senses, the clock alone
+ * unless given; its assist's ceiling, `balanceCeiling`, none unless given; its contact labels;
+ * where its order sheets are written).
  */
-export interface BodyOptions extends LayerOptions, Embodying {
-  /** The sub-minds the command layers are handed over to, in rank order (`hosting`): what its mind's config names (`subMindsOf`). None unless given. */
-  readonly subs?: readonly SubMindMaker[];
-}
+export type BodyOptions = LayerOptions & Embodying;
 
 /**
  * **What the command layer lacks of a body of `spec`** (`commandLayers`), a sentence, or null where

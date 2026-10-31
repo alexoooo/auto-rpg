@@ -56,7 +56,7 @@ export async function push2Trial({ variant = "dorsi0.8", held = "empty", seed, p
   const hold = { kind: "bear", posture: squat.angles, duration: 100, response: .3, pitch: squat.pitch, toward: 0, height: squat.height / .98, along: 0, up: 0, shin: 0, hand: 0, foot: .5 };
   const c = { phase: plan.length ? "push" : "hold", pushEnd: null, holdAt: null, q: 0, climbAt: null, handBack: null, failed: null };
   let reader = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     let run = null, holding = null, stand = null;
     return { name: "push2", state: { c }, wants: () => c.phase !== "host" && c.phase !== "failed", begin() {}, end() {},
@@ -82,7 +82,7 @@ export async function push2Trial({ variant = "dorsi0.8", held = "empty", seed, p
           if (stand.state.active) stand.step(null, dt); else { c.phase = "host"; c.handBack = view.time; }
         }
       } };
-  }] });
+  }]);
   body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const rows = [], window = new Float64Array(12);

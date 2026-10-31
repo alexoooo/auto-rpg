@@ -66,11 +66,11 @@ export function kitOf(parts: PartLookup, spec: BodySpec, mind: KitParts): MindKi
 }
 
 /** The sub-mind `config` names, as `parts` finds it, made with `kit`. */
-function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock, afterPhysics?: Body["afterPhysics"]): SubMind {
-  return parts.of("sub-mind", config).make(own, view, config, kit, clock, afterPhysics);
+function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock): SubMind {
+  return parts.of("sub-mind", config).make(own, view, config, kit, clock);
 }
 
-/** `configs`' sub-minds as a body takes them (`BodyOptions.subs`), each made with the kit of the mind whose parts are `mind`. */
+/** `configs`' sub-minds as a mind hands its body to them (`commandedMind`), each made with the kit of the mind whose parts are `mind`. */
 export const subMindsOf = (parts: PartLookup, configs: readonly PartConfig[], mind: KitParts): readonly SubMindMaker[] =>
-  configs.map((config) => (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) =>
-    subMind(parts, own, view, config, kitOf(parts, own.spec, mind), clock, afterPhysics));
+  configs.map((config) => (own: OwnBody, view: BodyView, clock: Clock) =>
+    subMind(parts, own, view, config, kitOf(parts, own.spec, mind), clock));

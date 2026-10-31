@@ -35,10 +35,11 @@ export interface HostMind extends Mind {
 }
 
 /**
- * What makes a sub-mind for a body: its own body, its host's view of it, read each step before the
- * sub-mind is asked anything, the world's clock, and the body's completed physics intervals.
+ * What makes a sub-mind for a body, from what the mind that hands its body over gives it: its own
+ * body (`OwnBody`, whose completed physics it may observe), its host's view of it, read each step
+ * before the sub-mind is asked anything, and the world's clock.
  */
-export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
+export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock) => SubMind;
 
 /** A host with its sub-minds, as one mind. */
 interface Hosted extends Mind {
@@ -105,11 +106,12 @@ export interface CommandedMind extends Mind {
  * **A mind under the command layers that hands its body over** (`hosting`): the layers over `own`
  * on `clock` as `options` make them (`commandLayers`), then the sub-minds of `subs` made over their
  * view, in rank order, then the layers' first look, so that what is made over the view finds the
- * body as built.
+ * body as built. The layers observe the physics first, then the sub-minds, then whatever is made
+ * on the body after.
  */
 export function commandedMind(own: OwnBody, options: LayerOptions, clock: Clock, subs: readonly SubMindMaker[] = []): CommandedMind {
   const layers = commandLayers(own, options, clock);
-  const made = subs.map((make) => make(own, layers.view, clock, own.afterPhysics));
+  const made = subs.map((make) => make(own, layers.view, clock));
   layers.firstLook();
   return Object.assign(hosting(layers, made), { body: layers.body });
 }

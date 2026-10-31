@@ -137,7 +137,7 @@ const STIFF_SECONDS = 1.5;
  * `felled`, of a body held stiff in its reference pose (every freedom driven to it at full
  * activation) until `STIFF_SECONDS` after the shove, so that it topples in one piece and lands the way it
  * was shoved: on its front shoved forward, which a body that fights the shove does not
- * reliably do. `subs` (sub-mind makers, `BodyOptions.subs`) have it from the next step, in their
+ * reliably do. `subs` (sub-mind makers, `SubMindMaker`) have it from the next step, in their
  * order; the world is left at the stiffness's last step.
  */
 export async function toppled(shove, subs) {
@@ -150,7 +150,7 @@ export async function toppled(shove, subs) {
         for (let i = 0; i < own.muscles.velocity.length; i++) own.muscles.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
       },
     });
-    return commandedBody(made, into, { servoSeconds: SERVO_SECONDS, subs: [stiff, ...subs] });
+    return commandedBody(made, into, { servoSeconds: SERVO_SECONDS }, [stiff, ...subs]);
   });
   while (fall.world.steps < until(fall.world)) fall.world.step();
   return fall;

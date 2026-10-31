@@ -36,14 +36,14 @@ listed (`UP_STACK`), each with the change that removes it, and the list only shr
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
 | Build | `src/core/build/` | the spec made into engine bodies and joints; dynamics read back |
 | Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
-| Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and kit |
+| Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and sub-minds |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands; the command layers, which any mind may build on its own body (`commandLayers`) |
 | Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
 | Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Perception | `src/core/perception/` | what a body reads of another: its openings, the threat of its blows, and where to stand by a body down (`downed/`) |
 | Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics (deciders, `TacticalDecider`), planners, behaviours, the fighter and its default config (`BLADE_FIGHTER`); their configs (`tactics/config.ts`); a package |
-| Recovery | `src/core/recovery/` | getting up and lying: the ground executor and its techniques (`ground/`), the staged rise (`rise/`), the sub-minds |
+| Recovery | `src/core/recovery/`, `src/core/mind/kit.ts` | getting up and lying: the ground executor and its techniques (`ground/`), the staged rise (`rise/`), the sub-minds; the kit a mind hands them and its legs, lowered by the rise (`MindKit`, `legsOf`) |
 | Minds | `src/core/parts/`, `src/core/toolkit.ts`, `src/core/mind/config.ts`, `kinds.ts`, `minds.ts`, `src/core/option/`, `src/core/reptile/`; `src/entrants/` | a body's mind made from its config by the controller of its kind, found in a catalog; each AI an entrant's presets and parts |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
@@ -502,9 +502,12 @@ a wanted body through a phase that cannot yield. `hosting(host, subs)` makes one
 
 A sub-mind reads whether its body is down from its host's view (`BodyView.down`), never by a bar
 of its own. Who has the body is one number in state, named by the mind (`Mind.has`, `"nobody"`
-while idle). A hand-over changes only state, so a load mid-hand-over calls none of these. A mind
-that hands its body over builds `hosting` itself: a fighter over its command layers
-(`commandedMind`, `sub-mind.ts`), the quadruped (`quadrupedMind`) over its own crawl.
+while idle). A hand-over changes only state, so a load mid-hand-over calls none of these.
+Sub-minds are no part of a body: a mind that hands its body over builds `hosting` itself, a
+fighter over its command layers (`commandedMind`, `sub-mind.ts`: the layers, then each sub-mind
+made over their view, `SubMindMaker`, then their first look), the quadruped (`quadrupedMind`) over
+its own crawl; a test or a study hands its own to a body it builds (`commandedBody`). Released, the
+command layers read the ground whatever the stance (`BodyView.ground`).
 
 **A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
 `config.ts`), sub-minds nested in it (`SubMindConfig`). `createMind(built, world, config, wiring)`
@@ -844,7 +847,8 @@ detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and ret
 within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
 and copies the whole action before applying any of it. A policy receives no engine handle.
 
-**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`).
+**Recovery sub-minds.** Each reads its host's down state and the world's clock, and may observe the
+completed physics through its own body (`SubMindMaker`, `OwnBody.afterPhysics`).
 Each kind is a registered implementation (`SubMindPart`, `recovery/sub-mind-part.ts`): its own module
 beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
 data it reads and its maker, and is a line in `SUB_MINDS` (`sub-minds.ts`, a role list), from which

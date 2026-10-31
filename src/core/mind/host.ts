@@ -10,7 +10,7 @@ import type { World } from "../world.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { embody, type Embodying, type Mind, type OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
-import { commandedMind } from "./sub-mind.ts";
+import { commandedMind, type SubMindMaker } from "./sub-mind.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /**
@@ -74,12 +74,12 @@ export function hostBody<M extends Mind>(built: BuiltBody, world: World, given: 
 
 /**
  * **`built` in `world` under the command layers**, built outside a fight (a test, a study, a task)
- * the one way a body takes a mind (`hostBody`): the layers `options` make, handed over to its
- * sub-minds (`BodyOptions.subs`, `commandedMind`), holding the reference pose until something
- * drives them (`HostedBody.drive`).
+ * the one way a body takes a mind (`hostBody`): the layers `options` make, handed over to the
+ * sub-minds of `subs` in rank order where one wants the body (`commandedMind`), none unless given,
+ * holding the reference pose until something drives them (`HostedBody.drive`).
  */
-export function commandedBody(built: BuiltBody, world: World, options: BodyOptions): HostedBody {
-  const { senses, assist, contactIdentity, log, subs, ...layers } = options;
+export function commandedBody(built: BuiltBody, world: World, options: BodyOptions, subs: readonly SubMindMaker[] = []): HostedBody {
+  const { senses, assist, contactIdentity, log, ...layers } = options;
   return hostBody(built, world, { senses, assist, contactIdentity, log }, (own) => commandedMind(own, layers, clockOf(world), subs)).body as HostedBody;
 }
 

@@ -7,7 +7,7 @@ import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { BodyOptions } from "../core/body.ts";
+import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -30,7 +30,7 @@ export interface LabScenario {
   /** A physical initial pose in place of the shell's standing guard. */
   placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
   /** Explicit standalone experiments may replace the selected fighter's sub-minds. */
-  subs?(address: LabAddress): BodyOptions["subs"];
+  subs?(address: LabAddress): readonly SubMindMaker[] | undefined;
   start(context: ScenarioContext): ScenarioRun;
 }
 

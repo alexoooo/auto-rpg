@@ -270,7 +270,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
   const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
     control.steadying = steadying.control;
     return { name: `witness:${move}`, state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {},
@@ -294,7 +294,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
         }
         control.time += dt;
       } };
-  }] });
+  }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const table = [], path = [], window = new Float64Array(Math.round(HELD / world.dt));

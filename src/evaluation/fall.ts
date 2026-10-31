@@ -8,7 +8,7 @@
  * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
-import type { BodyOptions } from "../core/body.ts";
+import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
@@ -146,7 +146,7 @@ export interface BuiltFall {
  * `equipped`), else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
  */
 export async function buildStandFall(fall: FallCase, engine: EngineName, given: {
-  start?: ReturnType<typeof fallStart>; subs?: BodyOptions["subs"];
+  start?: ReturnType<typeof fallStart>; subs?: readonly SubMindMaker[];
 } = {}): Promise<BuiltFall> {
   const { start = fallStart(fall), subs } = given;
   const { spec, placement } = start;

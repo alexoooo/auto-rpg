@@ -47,7 +47,7 @@ export async function foldRise({ model = "workshop-fighter", held = "empty", dep
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const start = STAND + FOLDING + HOLD;
   let control = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), steadying = core ? gameSteady(own, view, clock, kit) : crouchSteady(own, view, variant);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the fold");
     const clamp = (name, v) => { const d = own.muscles.channels.find(c => c.name === name).dof.spec; return Math.max(d.min.value, Math.min(d.max.value, v)); };
@@ -64,7 +64,7 @@ export async function foldRise({ model = "workshop-fighter", held = "empty", dep
           : { feet: ["left", "right"], centre: null, heading: 0, height });
         motor.control(own.muscles, dt);
       } };
-  }] });
+  }]);
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - LOWER, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const rows = [];

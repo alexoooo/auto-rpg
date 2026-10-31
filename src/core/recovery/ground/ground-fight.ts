@@ -1,4 +1,4 @@
-import { type Body, type BodyView } from "../../body.ts";
+import type { BodyView } from "../../body.ts";
 import { effectorTracker } from "../../control/effector-tracker.ts";
 import { hypot } from "../../math/real.ts";
 import { skillSet } from "../../skills/framework/arbiter.ts";
@@ -20,12 +20,12 @@ import { rootSegment } from "../../read-body.ts";
 export interface GroundFightConfig { readonly kind: "ground-fight"; readonly reach: number; readonly kicks: "either" | "left" | "right" | "none" }
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
-export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit, afterPhysics: Body["afterPhysics"]): SubMind {
+export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built), { fromActual: true, seedActual: true }), posture: Record<string, number> = {};
   const legs: Locomotion = { state: {}, heading: 0, stopping: 0,
     resume() {}, goal() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
-  const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {
+  const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics: own.afterPhysics }, {
     legs, navigation: null, guard: kit.guard(own.built), executors: [{ name: "ground", kind: "ground-kick", executor }],
     actions: [{ name: "ground-kick", executor: "ground", effectors: ["foot.left", "foot.right"] }] });
   const state = { active: false, settled: 0, next: "right" as Side, sequence: 0, kicks: 0, tracker: tracker.state, skills: skills.state, producer: producer.state };

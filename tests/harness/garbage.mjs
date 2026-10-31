@@ -42,7 +42,7 @@ export async function downBody() {
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
-  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS, subs: [lying] });
+  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS }, [lying]);
   return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 

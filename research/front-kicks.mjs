@@ -39,8 +39,8 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
   const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     contactIdentity:other=>sensor&&isBody(other,sensor.body)?identity:other?null:{kind:'world'},
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
-      .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
-    ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world,kitOf(partLookup,own.spec,{guard:GAME_GUARD}))]}:{})});
+      .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))},
+    recovery?[(own,view)=>supportRecovery(own,view,s.world,kitOf(partLookup,own.spec,{guard:GAME_GUARD}))]:[]);
   const parts=pathParts(body,{kick:{...KICK_PATH,...tuning}}), skills=skillSet(body,parts), cycles=actionCycles(skills);
   const kickState=parts.executors.find(entry=>entry.name==='kicks').executor.state;
   const target=[foot==='right'?.1:-.1,height,ahead];

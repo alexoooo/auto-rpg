@@ -74,7 +74,7 @@ export async function handoff({ model = "workshop-fighter", variant = "built", h
   const built = buildBody(spec, world, direct ? { position: [0, 0, 0] } : placement);
   const control = { phase: ramp ? "bear" : "hold", rampEnd: null, quietAt: null, quiet: 0, handBack: null, climbBegun: null, log: null };
   let reader = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the hand-off");
     const channels = own.muscles.channels;
@@ -118,7 +118,7 @@ export async function handoff({ model = "workshop-fighter", variant = "built", h
         if (control.quiet + 1e-9 >= QUIET && t >= settle) { control.quietAt ??= view.time; control.phase = "climb"; }
         if (t > hold) control.phase = "done";
       } };
-  }] });
+  }]);
   if (direct) {
     body.setLevel("held");
     const statical = await staticBody(cappedSpec(variantSpec(model, variant)));

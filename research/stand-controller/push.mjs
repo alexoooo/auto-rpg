@@ -50,7 +50,7 @@ export async function pushTrial({ model = "workshop-fighter", held = "empty", se
   const timed = plan.reduce((s, p) => s + p.duration, 0);
   const control = { phase: plan.length ? "push" : "bridge", pushEnd: null, bridgeAt: null, quiet: 0, climbAt: null, handBack: null, failed: null, log: null };
   let reader = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the push");
     const channels = own.muscles.channels;
@@ -94,7 +94,7 @@ export async function pushTrial({ model = "workshop-fighter", held = "empty", se
         if (control.quiet + 1e-9 >= QUIET && t >= (bridge.after ?? 0)) control.phase = "climb";
         else if (t > 3) control.phase = "done";
       } };
-  }] });
+  }]);
   body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const rows = [];

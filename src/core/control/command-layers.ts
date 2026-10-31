@@ -76,7 +76,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
     held: null as number | null,
     ground: ground.state,
-    subOwned: false,
+    /** Whether the layers are released (`HostMind.release`): another has the body, and the ground is read whatever the stance. */
+    released: false,
     groundActive: false,
     resumed: false,
   };
@@ -153,7 +154,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     motor.stance.read();
     const standing = motor.standing;
     state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
-    state.groundActive = state.down || state.subOwned || state.groundActive && standing === null;
+    state.groundActive = state.down || state.released || state.groundActive && standing === null;
     if (state.groundActive) ground.read();
     else ground.reset();
   };
@@ -176,12 +177,12 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     },
     step(senses, dt) { look(senses); act(dt); },
     release(reason = "takeover") {
-      state.subOwned = true;
+      state.released = true;
       released?.(view, reason);
       motor.reset();
       for (const segment in goals) goals[segment] = null;
     },
-    resume() { state.subOwned = false; state.resumed = true; },
+    resume() { state.released = false; state.resumed = true; },
     dispose() { drive(null); },
   };
 }

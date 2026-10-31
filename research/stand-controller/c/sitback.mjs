@@ -131,7 +131,7 @@ export async function sitbackTrial({ variant = "dorsi0.8", held = "empty", seed 
   const SHANK = [index("shank.left"), index("shank.right")], HAND = [index("hand.left"), index("hand.right"), index("forearm.left"), index("forearm.right")];
   let reader = null, readout = null;
   let own0 = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER); own0 = own;
     let run = null, stand = null; const drive = poseDrive(own.muscles);
     // The ball of a foot (the sole box's front edge at its middle): its height above the floor, m.
@@ -179,7 +179,7 @@ export async function sitbackTrial({ variant = "dorsi0.8", held = "empty", seed 
           control.stage = control.k < stages.length ? stages[control.k].name : "climb";
         } else if (control.since > stage.most) control.ended = `${stage.name}: timed out at ${view.time.toFixed(2)}, progress ${control.progress?.toFixed(2)}, each foot ${g.footLoad.map((x) => x.toFixed(2))}, speed ${g.velocity.length().toFixed(2)} (${JSON.stringify(Object.fromEntries(Object.entries(readout).map(([k, v]) => [k, Array.isArray(v) ? v.map((x) => +x.toFixed(3)) : +v.toFixed(2)])))})`;
       } };
-  }] });
+  }]);
   const standPosture = both(options.standPosture ?? {});
   // A sole's middle, world (x, z): the foot box's plantar face's centre.
   const soleMiddle = (side) => { const f = built.segments.get(`foot.${side}`), sh = f.spec.shape, d = sh.centre.value.map((v, k) => v - f.frame.origin[k]);

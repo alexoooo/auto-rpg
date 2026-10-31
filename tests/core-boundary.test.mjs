@@ -495,8 +495,8 @@ const LAYERS = [
   ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
-  ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts", "mind/decider.ts", "mind/engagement.ts", "mind/report.ts"],
-  ["recovery/"],
+  ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/report.ts"],
+  ["recovery/", "mind/kit.ts"],
   ["tactics/"],
   ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",
     "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
@@ -536,8 +536,6 @@ const UP_STACK = [
   // The body's ground reading and its lie beside the view's other readings (layering step 10).
   "body.ts -> recovery/ground/reading.ts", "control/command-layers.ts -> recovery/ground/reading.ts",
   "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
-  // The kit's legs lowered by the rise's lowering (layering step 9).
-  "mind/kit.ts -> recovery/rise/lowering.ts",
   // A part's fit by the body's command refusal: the body's shape, read from its spec for a second body family.
   "parts/parts.ts -> body.ts",
   // The engine's contact friction in a spec module (layering step 10).

@@ -143,7 +143,7 @@ export async function trial({ model = "workshop-fighter", held = "empty", seed, 
   const built = buildBody(spec, world, placed), ix = indices(spec);
   const control = { phase: "push", state: null, enteredAt: 0, events: [], bridgeAt: null, climbAt: null, handBack: null, quiet: 0, failed: null };
   let reader = null;
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the push");
     const channels = own.muscles.channels, b = bearer(own, view);
@@ -189,7 +189,7 @@ export async function trial({ model = "workshop-fighter", held = "empty", seed, 
         if (control.quiet + 1e-9 >= .1) { control.phase = "climb"; control.events.push([+view.time.toFixed(2), "climb"]); }
         else if (t > 3) { control.phase = "done"; control.failed = "bridge"; }
       } };
-  }] });
+  }]);
   body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   const rows = [], ankI = body.muscles.channels.findIndex((c) => c.name === "ankle.left dorsiflexion"), kneeI = body.muscles.channels.findIndex((c) => c.name === "knee.left flexion");

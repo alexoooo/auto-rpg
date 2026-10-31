@@ -42,7 +42,7 @@ async function cost(count) {
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [60, 1, 60]);
   const driven = (built, subs = []) => {
-    const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS, subs });
+    const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS }, subs);
     return { body, skills: driveBy(body, { name: "stand", decide: () => standIntent(0) }).skills };
   };
   const bodies = Array.from({ length: count }, (_, i) => driven(buildBody(spec, world, { position: [3 * (i - (count - 1) / 2), 0, 0] })));

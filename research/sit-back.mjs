@@ -45,7 +45,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };
-  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
     const run = TECHNIQUES[technique].make(own, view, clock, kitOf(partLookup, own.spec, PUNCHER));
     let reader = null, begun = false;
     return { name: technique, state: { trial }, wants: () => trial.end === null, begin() {}, end() {},
@@ -60,7 +60,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
         const turn = turnOfToRef(own.muscles.dynamics.root.segment, new Quaternion()), across = new Vector3(1, 0, 0).applyRotationQuaternion(turn);
         trial.heading = Math.atan2(-across.z, across.x);
       } };
-  }] });
+  }]);
   body.drive((view) => ({ posture: {}, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: trial.heading } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let quiet = 0, verified = null, fell = false;
