@@ -82,9 +82,12 @@ import { choicePanel, choiceWatch } from "../ui/choices.ts";
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
 
-/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
- * A numeric setting. */
-const CATCH_UP_SECONDS = 0.1;
+/**
+ * The most real time one frame steps the world through, s: a frame of a screen at 30 fps. A page
+ * that falls behind plays the fight in slow motion rather than freezing the screen to catch up.
+ * A numeric setting.
+ */
+const CATCH_UP_SECONDS = 1 / 30;
 
 
 /** What a hand may hold, by name, as the pickers show it. */

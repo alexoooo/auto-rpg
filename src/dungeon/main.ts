@@ -196,9 +196,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     }
   };
 
-  /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
-   * A numeric setting. */
-  const CATCH_UP_SECONDS = 0.1;
+  /**
+   * The most real time one frame steps the world through, s: a frame of a screen at 30 fps. A page
+   * that falls behind plays the fight in slow motion rather than freezing the screen to catch up.
+   * A numeric setting.
+   */
+  const CATCH_UP_SECONDS = 1 / 30;
 
   /** What the party's panel gives the rest of the page. */
   interface Party {
