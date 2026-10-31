@@ -1,3 +1,5 @@
+import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
+import { solidGeometry } from "../render/solid-geometry.ts";
 import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
@@ -405,7 +407,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       bout.dispose();
     } };
   };
+  const profile = sceneProfile(scene);
+  profile.register("world", visualGroup([...scene.meshes]));
+  const geometry = solidGeometry(scene, arenaSolids(level));
+  profile.register("tactical", geometry);
+  context.own(() => { profile.dispose(); geometry.dispose(); });
   const applyView = () => {
+    profile.setView(view.view);
+    meter.reset();
     for (const { skin, shapes } of bodies.values()) {
       skin.setEnabled(view.view === "world");
       for (const mesh of shapes.meshes) mesh.setEnabled(view.view === "tactical");
@@ -759,7 +768,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const frame = () => {
     rig.frame(screen, subjects, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     audio.setView(camera.position, { x: Math.sin(rig.azimuth), z: Math.cos(rig.azimuth) });
-    arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: bodies.get(side)!.read().head })) : []);
+    if (profile.view === "world") arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: bodies.get(side)!.read().head })) : []);
   };
   const readout = () => {
     if (!duel) return;
@@ -830,7 +839,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           && watch.changed(report.menu, report.ended ?? [], own.body.down, duel.clock)) setPaused(true, "choice");
         for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
       }
-      if (!paused && !context.busy) arena.fire.burn(seconds);
+      if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);
       frame(); readout(); audio.update(); overlay?.update();
       scene.render();
     });

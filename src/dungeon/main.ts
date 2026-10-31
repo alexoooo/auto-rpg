@@ -1,3 +1,10 @@
+import { sceneProfile, visualGroup } from "../render/scene-profile.ts";
+import { solidGeometry } from "../render/solid-geometry.ts";
+import { viewModeControl } from "../ui/view-controls.ts";
+import type { ViewMode } from "../render/view.ts";
+import { boundary, cutAway, CUT_AWAY, fogMask, WALL_HEIGHT } from "./fog.ts";
+import { isFloor } from "./map.ts";
+import type { SolidSense } from "../core/mind/object-senses.ts";
 import { warmScene } from "../render/ready.ts";
 import { loadArtAssets } from "../render/art-assets.ts";
 import { browserTextures } from "../render/surface.ts";
@@ -21,7 +28,7 @@ import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import type { Clothing } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
-import { drawHeld } from "../render/body-shapes.ts";
+import { drawBody, drawHeld } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { debrisCues } from "../audio/cues.ts";
@@ -95,6 +102,16 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");
   const companionCount = need<HTMLFieldSetElement>("companions"), partyList = need<HTMLOListElement>("party-list");
   const choice = (group: HTMLElement): string => group.querySelector<HTMLInputElement>("input:checked")!.value;
+  let view: ViewMode = context.address.searchParams.get("view") === "tactical" ? "tactical" : "world";
+  let profile: ReturnType<typeof sceneProfile> | null = null;
+  let geometry: ReturnType<typeof solidGeometry> | null = null;
+  let geometryVersion = "";
+  let geometryMaskVersion = "", geometryMask = new Uint8Array(0);
+  const bodies: { skin: import("../render/skin-view.ts").SkinView; shapes: ReturnType<typeof drawBody> }[] = [];
+  const applyView = () => {
+    profile?.setView(view);
+    for (const { skin, shapes } of bodies) { skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical"); }
+  };
   const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
   // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
   const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
@@ -264,7 +281,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
     const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
     const meter = frameMeter(engine, context.signal);
-    need("pause-button").before(meter.element);
+    const panel = document.createElement("details"), label = document.createElement("summary");
+    label.textContent = "View"; panel.className = "ui-drawer";
+    const control = viewModeControl(() => view, next => {
+      view = next; applyView(); meter.reset();
+      const url = new URL(context.address); url.searchParams.set("view", view); context.replace(url);
+    });
+    panel.append(label, control.element);
+    need("pause-button").before(panel, meter.element);
     const abort = new AbortController();
     const page: DungeonPage = {
       physicsEngine, skeletonArt, engine, audio, hover,
@@ -347,6 +371,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("mind-view").replaceChildren();
     page.referenceLook?.dispose();
     page.referenceLook = null;
+    profile?.dispose(); profile = null;
     page.lighting?.dispose();
     page.lighting = null;
     undraw(page);
@@ -354,6 +379,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.hearing = null;
     page.run?.dispose();
     page.run = null;
+    geometry?.dispose(); geometry = null; bodies.length = 0;
     page.scene?.dispose();
     page.scene = null;
   }
@@ -386,12 +412,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.route = null;
     page.routeSignature = "";
     page.seed = seed; page.cryptPlan = cryptPlan;
-    const view = cameraFor(page);
-    pitch = view.pitch;
-    azimuth = view.azimuth;
+    const cameraSettings = cameraFor(page);
+    pitch = cameraSettings.pitch;
+    azimuth = cameraSettings.azimuth;
     toward = cameraToward(azimuth);
-    page.zoom = view.zoom;
-    engine.setHardwareScalingLevel(view.scaling);
+    page.zoom = cameraSettings.zoom;
+    engine.setHardwareScalingLevel(cameraSettings.scaling);
 
     const scene = page.scene = new Scene(engine);
     /** A page torn down while a part of the run loaded has no scene, or another: the build stops there. */
@@ -413,8 +439,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const dress = (actor: DungeonActor) => {
       const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;
       const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(built, scene);
-      page.drawn.push(hands, skin, held);
-      actor.meshes.push(...skin.meshes, ...held.meshes);
+      const shapes = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[actor.model].tint));
+      bodies.push({ skin, shapes });
+      skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical");
+      page.drawn.push(hands, skin, held, shapes);
+      actor.meshes.push(...skin.meshes, ...held.meshes, ...shapes.meshes);
     };
     await stage("Building the dungeon");
     stillShown();
@@ -459,6 +488,22 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     showScreen("playing");
     engine.resize();
     framing(page);
+    const physical: SolidSense[] = [];
+    for (let z = 0; z < run.map.size; z++) for (let x = 0; x < run.map.size; x++) {
+      if (isFloor(run.map, x, z)) physical.push({ name: "floor", kind: "box", centre: [x, -.5, z], size: [1, 1, 1] });
+      if (boundary(run.map, x, z)) {
+        const foot = CUT_AWAY.foot[0];
+        physical.push({ name: "wall.base", kind: "box", centre: [x, foot / 2, z], size: [1, foot, 1] },
+          { name: "wall", kind: "box", centre: [x, (WALL_HEIGHT + foot) / 2, z], size: [1, WALL_HEIGHT - foot, 1] });
+      }
+    }
+    physical.push(...run.level.solids.filter(s => s.name !== "dungeon slab" && !s.name.startsWith("wall.")).map(s => ({ ...s, kind: "box" as const })));
+    geometryVersion = "";
+    geometryMaskVersion = ""; geometryMask = new Uint8Array(run.map.size * run.map.size);
+    profile = sceneProfile(scene); profile.register("world", visualGroup(scene.meshes.filter(mesh => !run.actors.some(a => a.meshes.includes(mesh)) && !run.level.markers.some(marker => marker === mesh))));
+    geometry = solidGeometry(scene, physical); profile.register("tactical", geometry);
+    profile.register("world", { setEnabled(on) { lighting.setPresentationEnabled(on); } });
+    applyView();
     await stage("Preparing lighting");
     stillShown();
     await warmScene(scene, page.signal);
@@ -835,7 +880,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       if (!page.paused && playing()) {
         meter.physics(() => run.advance(seconds, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
         page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
-        page.lighting?.burn(seconds);
+        if (view === "world") page.lighting?.burn(seconds);
         // The steps may have ended the run.
         if (!playing()) setPaused(page, true);
       }
@@ -849,6 +894,24 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         refreshHud(page, party);
       }
       hoverEnemy(page, scene, run);
+      const hero = run.leader.feet();
+      const known = `${run.explored.size}:${run.map.doors.map(door => door.open).join(",")}`;
+      if (view === "tactical" && known !== geometryMaskVersion) {
+        geometryMaskVersion = known;
+        // Reuse the level's reveal rule for walls, closed doors and opaque furnishings, without a texture upload.
+        fogMask(run.map, run.explored, run.explored, geometryMask);
+      }
+      const visibleGeometry = `${hero.x},${hero.z},${pitch},${azimuth}:${known}`;
+      if (view === "tactical" && visibleGeometry !== geometryVersion) {
+        geometryVersion = visibleGeometry;
+        geometry?.show(solid => {
+          if (solid.name.startsWith("door.") && run.map.doors.some(d => solid.name === `door.${d.id}` && d.open)) return false;
+          // Replace the shader's dithered wall opening with a geometric cut, keeping its footprint.
+          if (solid.name === "wall" && cutAway(hero, { x: solid.centre[0], y: solid.centre[1], z: solid.centre[2] }, pitch, toward) > 0) return false;
+          const p = { x: Math.round(solid.centre[0]), z: Math.round(solid.centre[2]) };
+          return geometryMask[cellKey(run.map, p)]! > 0;
+        });
+      }
       scene.render();
     });
   }

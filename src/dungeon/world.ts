@@ -179,7 +179,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     .map(solid => ({ ...solid, kind: "box" as const })));
   let sensed = senseSolids();
   return {
-    fog, surfaces,
+    fog, surfaces, markers: [exit],
     /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
     solids: solids as readonly DungeonSolid[],
     /** Current detached collision geometry, replaced only when a door opens. */

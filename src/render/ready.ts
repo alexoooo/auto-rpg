@@ -10,9 +10,9 @@ export function drawnReady(scene: Scene): boolean {
   });
   return texturesReady && scene.getWaitingItemsCount() === 0
     && scene.meshes.every(mesh => !mesh.isEnabled() || !mesh.isVisible || mesh.isReady(true))
-    && scene.lights.every(light => Array.from(light.getShadowGenerators()?.values() ?? []).every(generator =>
-      generator.getShadowMap()?.isReadyForRendering() ?? true))
-    && (scene.activeCamera?._postProcesses ?? []).every(post => !post || post.isReady());
+    && (!scene.shadowsEnabled || scene.lights.every(light => !light.isEnabled() || Array.from(light.getShadowGenerators()?.values() ?? []).every(generator =>
+      generator.getShadowMap()?.isReadyForRendering() ?? true)))
+    && (!scene.postProcessesEnabled || (scene.activeCamera?._postProcesses ?? []).every(post => !post || post.isReady()));
 }
 
 /** Compile and draw the opening view under an opaque overlay, without advancing its world. */

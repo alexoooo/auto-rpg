@@ -61,6 +61,7 @@ export function dressRobot(built: BuiltBody, scene: Scene, appearance: Robot, op
   }
   for (const mesh of meshes) { mesh.isPickable = false; mesh.receiveShadows = true; }
   const update = () => {
+    if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     for (const finger of fingers) {
       const pose = built.handPoses.state[finger.hand]?.applied;
       const closed = finger.holding ? 1 : Math.max(0, Math.min(1, options.closure ? options.closure(finger.hand) : pose === "open" ? 0 : 1));

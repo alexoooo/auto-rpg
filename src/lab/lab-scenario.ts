@@ -42,6 +42,7 @@ type ScenarioPanel = "scenario" | "controls" | "readout";
 
 /** What the shell offers a scenario's own controls. */
 export interface LabShell {
+  readonly profile: ReturnType<typeof import("../render/scene-profile.ts").sceneProfile>;
   /** Restart with the scenario's new address, preserving its loadout and view. */
   load(address: LabAddress): void;
   /** Start the scenario again on a new body in a new world, as Restart does. */

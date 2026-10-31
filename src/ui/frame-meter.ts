@@ -68,6 +68,7 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
     summary.textContent = `${fps.toFixed(fps < 10 ? 1 : 0)} FPS`;
     output.textContent = `Frame   ${(span / frames).toFixed(1)} ms\n`
       + `Physics ${(physics / frames).toFixed(1)} ms (×${(substeps / frames).toFixed(1)} steps)\n`
+      + `Per step ${substeps ? (physics / substeps).toFixed(2) + " ms" : "unavailable"}\n`
       + `Other   ${((cpu - physics) / frames).toFixed(1)} ms\n`
       + `GPU     ${gpuMs === null ? "unavailable" : `${gpuMs.toFixed(1)} ms`}`;
     place();

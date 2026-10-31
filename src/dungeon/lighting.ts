@@ -14,6 +14,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
 import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
 import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
+import { isTactical } from "../render/scene-profile.ts";
 import { postPipeline } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH, cameraDistance } from "./camera.ts";
@@ -77,6 +78,7 @@ export interface DungeonLighting {
   /** A flame whose floor is unexplored would show where a room is before the fog does. */
   refreshFog(explored: ReadonlySet<number>): void;
   setLook(change: Partial<LookSwitches>): void;
+  setPresentationEnabled(enabled: boolean): void;
   /** Burns the torches the `seconds` a frame took: the flames move on and each light flickers. A page that is paused does not call it. */
   burn(seconds: number): void;
   dispose(): void;
@@ -84,6 +86,7 @@ export interface DungeonLighting {
 
 export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[],
   azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
+  let presentationEnabled = true;
   const look: LookSwitches = { torches: true, ssao: true, post: true };
   scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
   // The sky's direction is given for a camera at azimuth pi/4, and turns with the camera so that it keeps its
@@ -130,12 +133,12 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   // the camera's list, and a frame-cost reading taken after that does not compare with one taken before.
   const buildPost = () => {
     ao?.dispose(true); post?.dispose(); ao = post = null;
-    if (look.ssao) {
+    if (presentationEnabled && look.ssao) {
       ao = new SSAO2RenderingPipeline("dungeon.ao", scene, { ssaoRatio: DUNGEON_LOOK.ssao.ratio, blurRatio: 1 }, [camera]);
       ao.radius = DUNGEON_LOOK.ssao.radius; ao.totalStrength = DUNGEON_LOOK.ssao.totalStrength;
       ao.samples = DUNGEON_LOOK.ssao.samples; ao.expensiveBlur = false; setMaxZ();
     }
-    if (look.post) post = postPipeline(scene, camera);
+    if (presentationEnabled && look.post) post = postPipeline(scene, camera);
   };
   buildPost();
 
@@ -153,6 +156,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
     lantern, clustered, torchCount: torches.length,
     get look() { return { ...look }; },
     update(hero, nextZoom, nextPitch, toward) {
+      if (isTactical(scene)) return;
       const behind = DUNGEON_LOOK.lantern.behind;
       lantern.position.set(hero.x + toward.x * behind, DUNGEON_LOOK.lantern.height, hero.z + toward.z * behind);
       zoom = nextZoom; pitch = nextPitch; setMaxZ();
@@ -160,6 +164,11 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       if (Math.hypot(hero.x - lastHero.x, hero.z - lastHero.z) > 0.5) { lastHero = { x: hero.x, z: hero.z }; nearest(hero); }
     },
     refreshFog(next) { explored = next; showFlames(); },
+    setPresentationEnabled(enabled) {
+      if (presentationEnabled === enabled) return;
+      presentationEnabled = enabled; buildPost();
+      if (!enabled) scene.disablePrePassRenderer();
+    },
     setLook(change) {
       const rebuild = (change.ssao !== undefined && change.ssao !== look.ssao) || (change.post !== undefined && change.post !== look.post);
       Object.assign(look, change);
@@ -169,6 +178,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
       if (rebuild) buildPost();
     },
     burn(seconds) {
+      if (isTactical(scene)) return;
       time += Math.min(seconds * 1000, 50) / 1000;
       fire.setFloat("time", time);
       lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);

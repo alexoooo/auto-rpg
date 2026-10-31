@@ -1,3 +1,4 @@
+import { isTactical } from "../render/scene-profile.ts";
 import { Constants } from "@babylonjs/core/Engines/constants.js";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
 import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture.js";
@@ -199,6 +200,7 @@ export function dungeonFog(scene: Scene, map: DungeonMap) {
       const plugin = new DungeonFogPlugin(material, view, stone); plugins.push(plugin); return plugin;
     },
     update(visible: ReadonlySet<number>, explored: ReadonlySet<number>, pitch: number, toward: Point): void {
+      if (isTactical(scene)) return;
       const key=`${view.hero.x.toFixed(2)},${view.hero.z.toFixed(2)}:${explored.size}:${[...visible].join(',')}:${map.doors.map(d=>Number(d.open)).join('')}`;
       if(key!==sceneryKey){revealScenery(map,view.hero,visible,explored,sceneryMemory);sceneryKey=key;}
       fogMask(map, visible, sceneryMemory, bytes); texture.update(bytes); view.pitch = pitch;

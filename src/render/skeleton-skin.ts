@@ -200,6 +200,7 @@ export function dressSkeleton(built: BuiltBody, art: SkeletonArt, scene: Scene):
 
   const carried = new Matrix(), world = new Matrix(), turn = new Quaternion(), place = new Vector3(), unit = new Vector3();
   const update = () => {
+    if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     for (const { mesh, segment, held } of rows) {
       const node = segment.node;
       Matrix.ComposeToRef(Vector3.OneReadOnly, node.rotationQuaternion!, node.position, carried);

@@ -177,6 +177,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   const achieved = new Map<TransformNode, Matrix>();
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
+    if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
     achieved.clear();
     const physicalClosure = (hand: Side): number => {
       const pose = built.handPoses.state[hand]?.applied;

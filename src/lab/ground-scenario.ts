@@ -1,3 +1,4 @@
+import { solidGeometry } from "../render/solid-geometry.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
@@ -119,6 +120,9 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       address = next;
       const sound = shoveSound(actor.body.built);
       const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
+      const physical = solidGeometry(scene, session.environment.solids);
+      const unregisterPhysical = shell.profile.register("tactical", physical);
+      const registrations: (() => void)[] = [];
       const obstacles: Mesh[] = [], obstacleMaterial = new StandardMaterial("ground.obstacle", scene);
       obstacleMaterial.diffuseColor.set(.5, .47, .42);
       let closed = false;
@@ -129,12 +133,12 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         });
         void kit.then(container => {
           if (closed) return;
-          for (const mesh of assembleCryptKit(container, session.environment.placements, false)) { mesh.material = obstacleMaterial; obstacles.push(mesh); }
+          for (const mesh of assembleCryptKit(container, session.environment.placements, false)) { mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } })); }
         }).catch(error => { if (!closed) { fault = `Obstacle art unavailable: ${String(error)}`; } });
       } else for (const solid of session.environment.solids) {
         if (solid.kind !== "box") throw new Error("ground wall visual requires a box");
         const mesh = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
-        mesh.position.set(solid.centre[0], solid.centre[1], solid.centre[2]); mesh.rotation.y = solid.turn ?? 0; mesh.material = obstacleMaterial; obstacles.push(mesh);
+        mesh.position.set(solid.centre[0], solid.centre[1], solid.centre[2]); mesh.rotation.y = solid.turn ?? 0; mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } }));
       }
       const dummy = session.dummy ? drawBody(session.dummy.fighter.built, scene, new Color3(.75, .45, .25)) : null;
       const history = recordHistory(actor.body.built, actor.world, 35, () => session.frame());
@@ -163,7 +167,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           trail.refresh(); attempts.refresh(); phases.refresh();
           return shown.time;
         },
-        dispose() { closed = true; for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); session.dispose(); },
+        dispose() { closed = true; unregisterPhysical(); physical.dispose(); for (const unregister of registrations) unregister(); for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); session.dispose(); },
       };
       current = run;
       return run;

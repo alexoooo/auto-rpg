@@ -1,3 +1,4 @@
+import { sceneProfile } from "../render/scene-profile.ts";
 import { warmScene } from "../render/ready.ts";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
@@ -155,7 +156,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene, { load, restart: () => load(shown) });
+  const profile = sceneProfile(scene, address.view);
+  context.own(() => profile.dispose());
+  const scenario = SCENARIO[address.scenario](scene, { load, restart: () => load(shown), profile });
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   const back = need<HTMLAnchorElement>("to-scenarios");
 
@@ -206,6 +209,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   /** Draw the body as `shown.view` says; until the skin has loaded, World shows the shapes. */
   function showView(): void {
+    profile.setView(shown.view);
     if (!current) return;
     const skinned = shown.view === "world" && current.skin.meshes.length > 0;
     for (const mesh of current.view.meshes) mesh.setEnabled(!skinned);

@@ -1621,6 +1621,9 @@ An older pool is listed with what differs from the newest.
   choice labels, numeric bounds, units and read-only state.
 - `src/render/view.ts`, `camera-math.ts` and `src/ui/view-controls.ts` are the shared view types and
   controls; each screen owns its camera rig, input and URL.
+- `src/render/scene-profile.ts` owns the World/Tactical presentation policy for Arena, Dungeon and Lab.
+  Tactical draws batched physical geometry with plain materials, suspends decorative updates and disables
+  graphics passes. Dungeon keeps exploration and actor visibility without uploading its fog texture.
 - `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena and Dungeon.
   Each screen supplies its render callback and actual physics-step count; timing never advances a world.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;

@@ -2,8 +2,8 @@ import { CAMERA_MODES, PROJECTIONS, VIEW_MODES, type CameraMode, type Projection
 import { choice, entries, when, type Control, type Named } from "./controls.ts";
 
 const VIEWS: Named<ViewMode> = {
-  world: { name: "World", title: "The character's skin, carried by the segments" },
-  tactical: { name: "Tactical", title: "The collision shapes the solver moves" },
+  world: { name: "World", title: "Artwork, textures and visual effects" },
+  tactical: { name: "Tactical", title: "Physical geometry without textures or visual effects" },
 };
 const CAMERAS: Named<CameraMode> = {
   free: { name: "Free", title: "Orbit with the pointer" },
@@ -16,9 +16,13 @@ const DRAWN: Named<Projection> = { orthographic: { name: "Orthographic" }, persp
  * A view panel reads settings and requests edits; its screen owns their application and persistence.
  * Each screen uses the same choices and presentation.
  */
+export function viewModeControl(read: () => ViewMode, change: (view: ViewMode) => void): Control {
+  return choice("View", entries(VIEW_MODES, VIEWS), read, change);
+}
+
 export function viewControls(read: () => ViewSettings, change: (patch: Partial<ViewSettings>) => void): readonly Control[] {
   return [
-    choice("View", entries(VIEW_MODES, VIEWS), () => read().view, view => change({ view })),
+    viewModeControl(() => read().view, view => change({ view })),
     choice("Camera", entries(CAMERA_MODES, CAMERAS), () => read().camera, camera => change({ camera })),
     when(() => read().camera === "isometric",
       choice("Projection", entries(PROJECTIONS, DRAWN), () => read().projection, projection => change({ projection }))),

@@ -1,3 +1,4 @@
+import { isTactical } from "../render/scene-profile.ts";
 import { CryptWeathering } from "./crypt-weathering.ts";
 import { sceneModel } from "../render/asset-cache.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
@@ -194,6 +195,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   });
   // Keep the shadow budget fixed as the dungeon grows. Lighting follows the viewed room.
   const observer=plan ? scene.onBeforeRenderObservable.add(()=>{
+    if (isTactical(scene)) return;
     const target=(scene.activeCamera as import("@babylonjs/core/Cameras/targetCamera.js").TargetCamera | null)?.getTarget();if(!target)return;
     const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
     lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
