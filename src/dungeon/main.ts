@@ -21,7 +21,7 @@ import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
-import { treeData, defaultMind } from "../entrants/game.ts";
+import { treeData, cryptMind } from "../entrants/game.ts";
 import { loadData } from "../core/data/store.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -437,7 +437,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const dressers = new Map<BodyModel, Dresser>();
     await Promise.all([...runModels(layout, fielded).map((model) =>
       dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })),
-      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? defaultMind(participant.model))))]);
+      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? cryptMind(participant.model))))]);
     stillShown();
     const dress = (actor: DungeonActor) => {
       const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;

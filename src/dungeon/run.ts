@@ -38,7 +38,7 @@ import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
-import { GAME, defaultMind } from "../entrants/game.ts";
+import { GAME, cryptMind } from "../entrants/game.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
@@ -309,7 +309,7 @@ export class DungeonRun {
       id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
-      mind: this.options.mind?.(actor) ?? defaultMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      mind: this.options.mind?.(actor) ?? cryptMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

@@ -20,9 +20,9 @@ Three things stand in the way:
 - **One thread.** The world steps and the scene renders on the page's one thread, so every slow
   step is a late frame, and the world's budget is what rendering leaves of each frame.
 
-Nothing plays ten fighters today: the Arena is a duel (`DuelRecipe`, `src/arena/duel.ts`; team
-bouts are open, [roadmap](../roadmap.md#the-game)), and the Crypt's foes play the Duellist
-(`DEFAULT_MINDS`, `src/entrants/game.ts`).
+Only the crowd fight (step 2) plays ten fighters: the Arena is a duel (`DuelRecipe`,
+`src/arena/duel.ts`; team bouts are open, [roadmap](../roadmap.md#the-game)), and a Crypt run's
+encounters are a few bodies, each on Option Mind (`cryptMind`, `src/entrants/game.ts`).
 
 The causes, each measured on the harness below:
 
@@ -224,8 +224,8 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    on purpose; the owner plays.
 7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The
    crowd fight to its verdict: the right side won by drain at 104.7 s, 1885 blows landed by 90 s;
-   now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe, and the Crypt's bodies
-   played the Duellist, which has no strike option.
+   now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe; in the Crypt, whose bodies
+   play Option Mind, it serves each foe a body faces.
 8. **A held decision in the toolkit.** Built: `Held`, `stillHeld` and `hold`
    (`src/core/mind/held.ts`); the place beside a lying foe held by Option Mind's walk into a
    strike's window (`HeldBeside`), and the drill Commander's spot beside one (`HELD_SPOT`). On the

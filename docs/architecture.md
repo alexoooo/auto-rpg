@@ -65,7 +65,7 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
 
 **Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry and
 what each model's right hand holds; the mind each plays by default is the game's (`defaultMind`,
-`src/entrants/game.ts`).
+`src/entrants/game.ts`), and in the Crypt Option Mind's preset for its model (`cryptMind`).
 
 | Model | Built from |
 |---|---|
@@ -704,7 +704,8 @@ Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUEL
 thrust and a ward, holding a short sword, is every humanoid's default (`defaultMind`). A preset
 marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
 or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
-chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
+chooses by participant, side and model (`DungeonRunOptions.mind`), else Option Mind's preset for
+the model (`cryptMind`: `option`, `option-skeleton`, `option-reptile`); the Lab's actor by
 `ActorOptions.mind`.
 
 **Option Mind's options** (`src/core/option/`). An `Option` (`option.ts`) is a

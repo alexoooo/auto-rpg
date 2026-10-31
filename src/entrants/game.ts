@@ -25,6 +25,14 @@ const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
 /** The mind a body of `model` plays unless its fight says otherwise (`DEFAULT_MINDS`). */
 export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS[model]]!.config;
 
+/** **The mind each model plays in the Crypt** unless its run says otherwise, by preset id (`MINDS`): Option Mind's for its model, the owner's choice. */
+const CRYPT_MINDS: Readonly<Partial<Record<BodyModel, string>>> = Object.freeze({
+  "workshop-fighter": "option", "crypt-skeleton": "option-skeleton", reptile: "option-reptile",
+});
+
+/** The mind a body of `model` plays in the Crypt unless its run says otherwise (`CRYPT_MINDS`); its model's own (`defaultMind`) where no Option Mind fits it. */
+export const cryptMind = (model: BodyModel): MindConfig => MINDS[CRYPT_MINDS[model] ?? DEFAULT_MINDS[model]]!.config;
+
 /**
  * **Why `mind` cannot play `model`'s body carrying `loadout`** in a scenario of entry rules
  * `entry`, a sentence, or null where it can: a body that holds nothing carries no loadout; else
