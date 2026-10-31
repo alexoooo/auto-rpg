@@ -6,7 +6,7 @@ import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { SIT_BACK, type Recipe } from "../rise/stages.ts";
-import { standReady, type GroundReading, type Position } from "./reading.ts";
+import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { LIMIT, LOW, stanceSteady, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";

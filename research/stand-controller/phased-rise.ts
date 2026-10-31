@@ -9,7 +9,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../src/core/math/turn.ts";
 import type { OwnBody } from "../../src/core/mind/mind.ts";
 import { riseLimbs } from "../../src/core/recovery/rise/limbs.ts";
 
-import { quietOnFeet, type GroundReading, type Position } from "../../src/core/recovery/ground/reading.ts";
+import { quietOnFeet, type GroundReading, type Position } from "../../src/core/control/ground-reading.ts";
 import { poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "../../src/core/recovery/ground/technique.ts";
 
 /** A posture by channel, the pose drive's values (each freedom's angle with its bind). */

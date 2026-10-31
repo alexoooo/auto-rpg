@@ -6,7 +6,7 @@ import { NOTHING_SENSED, type Senses } from "../mind/senses.ts";
 import type { HostMind } from "../mind/sub-mind.ts";
 import { centreReading } from "../observation.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
-import { groundReading } from "../recovery/ground/reading.ts";
+import { groundReading } from "./ground-reading.ts";
 import type { Side } from "../spec/body.ts";
 import { dot } from "../spec/vec.ts";
 import { effectorFeedback } from "./effector-feedback.ts";

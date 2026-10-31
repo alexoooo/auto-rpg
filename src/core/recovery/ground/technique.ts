@@ -5,7 +5,7 @@ import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { Senses } from "../../mind/senses.ts";
-import type { GroundReading, Position } from "./reading.ts";
+import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { TECHNIQUES } from "./techniques.ts";
 

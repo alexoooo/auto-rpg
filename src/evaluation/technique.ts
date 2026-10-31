@@ -20,7 +20,7 @@ import { PUNCHER } from "../entrants/classic/presets.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import type { GroundReading } from "../core/recovery/ground/reading.ts";
+import type { GroundReading } from "../core/control/ground-reading.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { HumanoidModel } from "../core/models.ts";
 import { guardPosture } from "../core/skills/guard/guard.ts";

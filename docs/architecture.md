@@ -37,7 +37,7 @@ listed (`UP_STACK`), each with the change that removes it, and the list only shr
 | Build | `src/core/build/` | the spec made into engine bodies and joints; dynamics read back |
 | Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
 | Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and sub-minds |
-| Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands; the command layers, which any mind may build on its own body (`commandLayers`) |
+| Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands; the body's readings beside its view's, its ground and how it lies among them (`groundReading`, `lieOf`); the command layers, which any mind may build on its own body (`commandLayers`) |
 | Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
 | Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
@@ -178,7 +178,7 @@ Readings back from the built body:
 
 - a fixed step that writes each node's `position` and `rotationQuaternion`;
 - bodies that never sleep, with the spec's mass, and the centre of mass's velocity;
-- one friction (`CONTACT_FRICTION`) and no bounce on every contact; a sole (`ContactMaterial.sole`)
+- one friction (`CONTACT_FRICTION`, `src/core/spec/constants.ts`, which the controllers bounding a contact's force read too) and no bounce on every contact; a sole (`ContactMaterial.sole`)
   gives as a spring and damper against fixed ground;
 - freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded by separate
   negative and positive torque ceilings (`setMotorBounds`), with its signed whole-step impulse on
@@ -864,19 +864,21 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 
 **Mind data loads per use** (`src/core/data/store.ts`). The straight punch's records
 (`assets/core/straight-punch.json`) are a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
-fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
+fetches only when a mind it builds reads it. What a key's data is, its reader declares
+(`DataOf`, added to by `skills/framework/profile.ts` and `skills/strikes/punch-records.ts`), so the
+store names no skill. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
 `treeData(config)` (a catalog's) collects a tree's: the Arena loads both sides' before the
 bout, the Crypt every participant's before the run, the Lab its mind's before the body. In Node,
 `tests/harness/preload-data.mjs` loads every key, imported by each module that builds a
 data-reading mind (the stand and the bout among them).
 
-`BodyView.ground` (`recovery/ground/reading.ts`) reads each segment's fixed-contact load, sole support
+`BodyView.ground` (`groundReading`, `control/ground-reading.ts`) reads each segment's fixed-contact load, sole support
 and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the
 centre of mass inside it. **The riser plays a recipe** (`RISE`, `rise/stages.ts`): plain data of
 pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`; timed, or ended by
 what the body has done, `Until`, and paced by the balls of the feet, `Pace`) and bearing stages
-(`BearStage`, its limbs the body's bearing ends, `BodySpec.ends`, made by `riseLimbs`), after reading how the body lies (`lieOf`). `stageFaults` says
+(`BearStage`, its limbs the body's bearing ends, `BodySpec.ends`, made by `riseLimbs`), after reading how the body lies (`lieOf`, `control/ground-reading.ts`). `stageFaults` says
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).
 

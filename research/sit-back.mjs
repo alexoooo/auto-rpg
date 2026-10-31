@@ -29,7 +29,7 @@ import { clockSenses } from "../src/core/mind/senses.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { groundReading } from "../src/core/recovery/ground/reading.ts";
+import { groundReading } from "../src/core/control/ground-reading.ts";
 import { TECHNIQUES } from "../src/core/recovery/ground/techniques.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 import { placement } from "./rise-witness.mjs";

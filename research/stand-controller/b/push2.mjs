@@ -28,7 +28,7 @@ import { partLookup } from "../../../src/entrants/game.ts";
 import { PUNCHER } from "../../../src/entrants/classic/presets.ts";
 import { STAND_CHECK } from "../../../src/lab/ground-mode.ts";
 import { standUp } from "../../../src/core/recovery/ground/stand-up.ts";
-import { groundReading, quietOnFeet } from "../../../src/core/recovery/ground/reading.ts";
+import { groundReading, quietOnFeet } from "../../../src/core/control/ground-reading.ts";
 import { recoveryMeasurement } from "../../../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../../../src/core/observation.ts";
 import { clockSenses } from "../../../src/core/mind/senses.ts";

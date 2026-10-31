@@ -17,7 +17,7 @@ import { humanSpec, humanoidSpec } from "../core/human/spec.ts";
 import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/held.ts";
 import { PUNCHER } from "../entrants/classic/presets.ts";
 import type { FighterConfig } from "../core/tactics/config.ts";
-import { groundReading } from "../core/recovery/ground/reading.ts";
+import { groundReading } from "../core/control/ground-reading.ts";
 import type { StandUpConfig } from "../core/recovery/ground/stand-up.ts";
 import { partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";

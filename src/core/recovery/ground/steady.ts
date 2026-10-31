@@ -10,7 +10,7 @@ import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
-import { quietOnFeet } from "./reading.ts";
+import { quietOnFeet } from "../../control/ground-reading.ts";
 import { poseDrive } from "./technique.ts";
 
 /** Protective flexion keeps the chin tucked and the forearms before the face while falling. */

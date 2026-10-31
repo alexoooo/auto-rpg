@@ -22,6 +22,17 @@ import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
 
+declare module "../../data/store.ts" {
+  interface DataOf {
+    /** What the Strike drill measured every strike to bring. */
+    "strike-profiles": readonly Profile[];
+    /** What the Rise drill measured every ground edge to bring. */
+    "edge-profiles": readonly Profile[];
+    /** What the Gait drill measured every gait to leave a body unbraced. */
+    "gait-profiles": readonly Profile[];
+  }
+}
+
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
  * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz, and

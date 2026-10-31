@@ -21,6 +21,13 @@ export interface PunchRecord {
 /** Every body's straight punch record, by `bodyKey`. */
 export type PunchRecords = Readonly<Record<string, PunchRecord>>;
 
+declare module "../../data/store.ts" {
+  interface DataOf {
+    /** Every body's straight punch record. */
+    "straight-punch": PunchRecords;
+  }
+}
+
 /** **The bodies with a straight punch record**, known before the records load (`assets/core/straight-punch.meta.json`). */
 const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);
 

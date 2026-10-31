@@ -1,6 +1,6 @@
 import type { Side } from "../../spec/body.ts";
 import type { Expected } from "../../skills/framework/profile.ts";
-import type { GroundReading, Position } from "./reading.ts";
+import type { GroundReading, Position } from "../../control/ground-reading.ts";
 
 /** The chooser needs only declared edges and the live run's admission predicate. */
 export interface GraphTechnique {

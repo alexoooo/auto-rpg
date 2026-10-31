@@ -12,7 +12,7 @@ import { profilesOn, readProfile, sameReaction, STANDING, type Measured, type Po
 import type { BodySense } from "../mind/senses.ts";
 import type { Sight } from "../mind/decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../perception/threat.ts";
-import type { Position } from "../recovery/ground/reading.ts";
+import type { Position } from "../control/ground-reading.ts";
 import type { DownModel } from "./down.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";

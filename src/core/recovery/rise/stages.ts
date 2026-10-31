@@ -6,9 +6,7 @@
 import type { BearingEndSpec, BodySpec, JointSpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
-
-/** How a body lies: on its front, its back, or a side (the side that is down). */
-export type Lie = "front" | "back" | "left" | "right";
+import type { Lie } from "../../control/ground-reading.ts";
 
 /**
  * **A posture**: goal angles by channel name, rad, each from its freedom's own zero (a human's,

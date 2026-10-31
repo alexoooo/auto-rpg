@@ -4,6 +4,7 @@ import type { BodyView } from "../../body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bearing.ts";
 import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
+import { lieOf, type Lie } from "../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
 import { DOWN, footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
 import { turnOfToRef } from "../../read-motion.ts";
@@ -12,7 +13,7 @@ import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import type { SubMind } from "../../mind/sub-mind.ts";
 import { riseLimbs } from "./limbs.ts";
-import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
+import { RISE, stageFaults, stagesOf, type BearStage, type PoseStage, type Recipe, type Stage, type Until } from "./stages.ts";
 import type { ReadSegment } from "../../read-body.ts";
 
 /**
@@ -26,11 +27,6 @@ const POSE_SECONDS = 0.2, POSE_SPEED = 3;
  * (`docs/reference/rising.md#stages`).
  */
 const SLOW = 0.1, STILL_SECONDS = 0.5;
-/**
- * How far the pelvis's forward points up, or down, for the body to be on its back, or its front:
- * its y, of 1 (`docs/reference/rising.md#stages`). Between, it is on a side.
- */
-const LIE_UP = 0.5;
 /**
  * How near its aim the centre of mass is, m, for a bearing stage to be done, once it is slower
  * than `SLOW` (`docs/reference/rising.md#stages`).
@@ -55,22 +51,6 @@ const LEFT = 0.01;
 const RAISED = 0.1;
 /** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
 const GROUND_UP = 0.7;
-
-/**
- * **How a body lies** by how far its root's forward (the reference pose's +z) and its left (the
- * reference pose's -x) point up, of 1: forward against up says back or front (`LIE_UP`), and
- * between them the side its left is under.
- */
-export const lieBy = (forward: number, left: number): Lie => forward > LIE_UP ? "back" : forward < -LIE_UP ? "front" : left < 0 ? "left" : "right";
-
-/**
- * How a body lies, by its root segment `root` (`lieBy`). `work` carries nothing between calls.
- */
-export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
-  const turn = turnOfToRef(root, work.turn), way = work.way;
-  const forward = way.set(0, 0, 1).applyRotationQuaternionToRef(turn, way).y;
-  return lieBy(forward, way.set(-1, 0, 0).applyRotationQuaternionToRef(turn, way).y);
-}
 
 /**
  * **Rising by stages.** It wants the body from the step it is down until it stands or is taken

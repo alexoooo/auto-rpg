@@ -1,11 +1,34 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { uprightness } from "../../control/ground.ts";
-import { footStatesOf, soleMiddleToRef, withinSupport } from "../../control/support.ts";
-import { centreOfToRef, massCentreToRef, massOf } from "../../read-motion.ts";
-import type { Side } from "../../spec/body.ts";
-import { lieOf } from "../rise/staged.ts";
-import type { Lie } from "../rise/stages.ts";
-import type { ReadBody } from "../../read-body.ts";
+import { uprightness } from "./ground.ts";
+import { footStatesOf, soleMiddleToRef, withinSupport } from "./support.ts";
+import { centreOfToRef, massCentreToRef, massOf, turnOfToRef } from "../read-motion.ts";
+import type { Side } from "../spec/body.ts";
+import type { ReadBody, ReadSegment } from "../read-body.ts";
+
+/** How a body lies: on its front, its back, or a side (the side that is down). */
+export type Lie = "front" | "back" | "left" | "right";
+
+/**
+ * How far the pelvis's forward points up, or down, for the body to be on its back, or its front:
+ * its y, of 1 (`docs/reference/rising.md#stages`). Between, it is on a side.
+ */
+const LIE_UP = 0.5;
+
+/**
+ * **How a body lies** by how far its root's forward (the reference pose's +z) and its left (the
+ * reference pose's -x) point up, of 1: forward against up says back or front (`LIE_UP`), and
+ * between them the side its left is under.
+ */
+export const lieBy = (forward: number, left: number): Lie => forward > LIE_UP ? "back" : forward < -LIE_UP ? "front" : left < 0 ? "left" : "right";
+
+/**
+ * How a body lies, by its root segment `root` (`lieBy`). `work` carries nothing between calls.
+ */
+export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
+  const turn = turnOfToRef(root, work.turn), way = work.way;
+  const forward = way.set(0, 0, 1).applyRotationQuaternionToRef(turn, way).y;
+  return lieBy(forward, way.set(-1, 0, 0).applyRotationQuaternionToRef(turn, way).y);
+}
 
 /** The body's contact configuration, named only from its present physical readings. */
 export type Position = "standing" | "crouch" | "half-kneel" | "kneeling" | "fours" | "sitting" | Lie | "between";

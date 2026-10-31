@@ -16,7 +16,7 @@ import { carrying } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
-import { standReady, type GroundReading, type Position } from "./reading.ts";
+import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 type Phase = "brace" | "plant" | "transfer" | "rise" | "steady";

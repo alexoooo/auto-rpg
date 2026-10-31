@@ -9,8 +9,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { BodySense } from "../mind/senses.ts";
-import type { Position } from "../recovery/ground/reading.ts";
-import { lieBy } from "../recovery/rise/staged.ts";
+import { lieBy, type Position } from "../control/ground-reading.ts";
 
 /**
  * **What counts as a threat**: a foe's striking point within `within` m of the head and closing

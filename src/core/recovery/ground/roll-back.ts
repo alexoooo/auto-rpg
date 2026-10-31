@@ -2,7 +2,7 @@ import type { Side } from "../../spec/body.ts";
 import type { BodyView } from "../../body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../../mind/mind.ts";
-import type { GroundReading, Position } from "./reading.ts";
+import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** A leftward turn opens the far shoulder and sweeps the far leg across the body's line. */

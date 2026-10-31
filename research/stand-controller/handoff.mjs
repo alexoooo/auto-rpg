@@ -30,7 +30,7 @@ import { PUNCHER } from "../../src/entrants/classic/presets.ts";
 import { STAND_CHECK } from "../../src/lab/ground-mode.ts";
 import { groundPlacement } from "../../src/lab/ground-starts.ts";
 import { standUp } from "../../src/core/recovery/ground/stand-up.ts";
-import { groundReading, quietOnFeet } from "../../src/core/recovery/ground/reading.ts";
+import { groundReading, quietOnFeet } from "../../src/core/control/ground-reading.ts";
 import { staticBody, posed, placeLike } from "../../research/core-posture-trials.mjs";
 import { variantSpec, cappedSpec } from "./bodies.mjs";
 import { phasedRun } from "./phased-rise.ts";

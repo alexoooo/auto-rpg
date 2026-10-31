@@ -530,16 +530,8 @@ function packageBarring(file, target) {
  * fails, and so does one the code no longer has, so it only shrinks.
  */
 const UP_STACK = [
-  // The data store typed by what each key's reader declares (layering step 10).
-  "data/edge-profiles.ts -> skills/framework/profile.ts", "data/gait-profiles.ts -> skills/framework/profile.ts", "data/store.ts -> skills/framework/profile.ts",
-  "data/store.ts -> skills/strikes/punch-records.ts", "data/straight-punch.ts -> skills/strikes/punch-records.ts", "data/strike-profiles.ts -> skills/framework/profile.ts",
-  // The body's ground reading and its lie beside the view's other readings (layering step 10).
-  "body.ts -> recovery/ground/reading.ts", "control/command-layers.ts -> recovery/ground/reading.ts",
-  "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
   // A part's fit by the body's command refusal: the body's shape, read from its spec for a second body family.
   "parts/parts.ts -> body.ts",
-  // The engine's contact friction in a spec module (layering step 10).
-  "engine/rapier.ts -> read-body.ts",
 ];
 
 /** The layer of `file` (under `src/core/`) by `LAYERS`, the longest entry ruling; -1 for none. */

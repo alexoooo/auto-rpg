@@ -13,7 +13,7 @@ import type { MotorMaker } from "./control/motor-part.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { EffectorContact, EffectorFeedback } from "./control/effector-feedback.ts";
 import type { BodySpec, Side, HandPose } from "./spec/body.ts";
-import type { GroundReading } from "./recovery/ground/reading.ts";
+import type { GroundReading } from "./control/ground-reading.ts";
 import type { ReadBody } from "./read-body.ts";
 import { segmentOf } from "./spec/body.ts";
 

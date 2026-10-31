@@ -55,7 +55,7 @@ import { groundPlacement, groundPostures } from "../src/lab/ground-starts.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
-import { groundReading } from "../src/core/recovery/ground/reading.ts";
+import { groundReading } from "../src/core/control/ground-reading.ts";
 import { poseDrive } from "../src/core/recovery/ground/technique.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../src/core/control/bearing.ts";
 import { uprightness } from "../src/core/control/ground.ts";

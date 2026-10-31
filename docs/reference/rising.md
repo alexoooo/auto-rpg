@@ -1090,7 +1090,7 @@ servo 0.25 s. Its mean over the witness starts, as searched, 2.56 s.
 From a crouch quiet on both flat feet, Stand up's steady climbs on one planned path (`CLIMB`,
 `steadying`, `src/core/recovery/ground/steady.ts`) and stands the body in 1.36 to 1.91 s, a median of
 1.46 s; the stance's steady takes 2.17 to 2.89 s from the same crouches. The climb begins once the
-body is quiet on both feet (`quietOnFeet`, `src/core/recovery/ground/reading.ts`: both soles flat and
+body is quiet on both feet (`quietOnFeet`, `src/core/control/ground-reading.ts`: both soles flat and
 bearing, slow, the centre of mass inside the soles' inset outline) and lower than 0.9 of standing
 height. Over 0.6 s the centre of mass goes from where it is, at its speed, to standing height over
 the feet's middle at rest (a quintic), the pelvis from its pitch to upright, the posture from the

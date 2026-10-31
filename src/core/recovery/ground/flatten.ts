@@ -1,7 +1,7 @@
 import type { BodyView } from "../../body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../../mind/mind.ts";
-import type { GroundReading, Position } from "./reading.ts";
+import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import { armClearance } from "./clearance.ts";
 import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
 

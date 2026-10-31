@@ -8,7 +8,7 @@ import type { Sight } from "../mind/decider.ts";
 import { READINGS, threatReader } from "../perception/threat.ts";
 import { shieldHands } from "../intent/cover-hand.ts";
 import type { DownModel } from "./down.ts";
-import type { Position } from "../recovery/ground/reading.ts";
+import type { Position } from "../control/ground-reading.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { PERCEPTS, predictor, type Seen } from "./percepts.ts";

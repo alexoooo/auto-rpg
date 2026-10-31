@@ -11,7 +11,7 @@ import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { RISE, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
-import { standReady, type GroundReading, type Position } from "./reading.ts";
+import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
 

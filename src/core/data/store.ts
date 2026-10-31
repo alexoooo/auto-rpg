@@ -1,26 +1,22 @@
-import type { Profile } from "../skills/framework/profile.ts";
-import type { PunchRecords } from "../skills/strikes/punch-records.ts";
-
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
 export type DataKey = "straight-punch" | "strike-profiles" | "edge-profiles" | "gait-profiles";
 
-interface DataOf {
-  /** Every body's straight punch record (`PunchRecord`). */
-  "straight-punch": PunchRecords;
-  /** What the Strike drill measured every strike to bring (`Profile`). */
-  "strike-profiles": readonly Profile[];
-  /** What the Rise drill measured every ground edge to bring (`Profile`). */
-  "edge-profiles": readonly Profile[];
-  /** What the Gait drill measured every gait to leave a body unbraced (`Profile`). */
-  "gait-profiles": readonly Profile[];
-}
+/**
+ * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
+ * (`declare module` of this module, `interface DataOf`), so the store names no reader's types:
+ * every body's straight punch record (`PunchRecords`, `skills/strikes/punch-records.ts`), and what
+ * the Strike, Rise and Gait drills measured every strike, ground edge and gait to bring (`Profile`,
+ * `skills/framework/profile.ts`). A key is read (`dataOf`) only as declared.
+ */
+export interface DataOf {}
 
 /**
  * Each key's loader: a dynamic import of the module that holds its data, so each is a chunk of its
  * own and loads only when asked. The module imports its JSON statically: a dynamic import of JSON
- * needs import attributes in Node, and the bundle keeps such an import's path unresolved.
+ * needs import attributes in Node, and the bundle keeps such an import's path unresolved. A loader
+ * yields the data as its file holds it; its reader's declaration says what that is (`DataOf`).
  */
-const LOADERS: { readonly [K in DataKey]: () => Promise<DataOf[K]> } = {
+const LOADERS: { readonly [K in DataKey]: () => Promise<unknown> } = {
   "straight-punch": () => import("./straight-punch.ts").then((m) => m.STRAIGHT_PUNCH_RECORDS),
   "strike-profiles": () => import("./strike-profiles.ts").then((m) => m.STRIKE_PROFILES),
   "edge-profiles": () => import("./edge-profiles.ts").then((m) => m.EDGE_PROFILES),
@@ -50,7 +46,7 @@ export function loadData(keys: Iterable<DataKey>): Promise<void> {
 }
 
 /** `key`'s data; throws, naming `loadData` and `tests/harness/preload-data.mjs`, when it is not loaded. */
-export function dataOf<K extends DataKey>(key: K): DataOf[K] {
+export function dataOf<K extends DataKey & keyof DataOf>(key: K): DataOf[K] {
   if (!loaded.has(key)) throw new Error(`mind data ${JSON.stringify(key)} is not loaded: a screen loads it with loadData(treeData(config)) before building the mind, and Node with tests/harness/preload-data.mjs`);
   return loaded.get(key) as DataOf[K];
 }

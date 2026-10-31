@@ -2,7 +2,7 @@ import type { Side } from "../../spec/body.ts";
 import type { BodyView } from "../../body.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { RISE } from "../rise/stages.ts";
-import type { GroundReading, Position } from "./reading.ts";
+import type { GroundReading, Position } from "../../control/ground-reading.ts";
 import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** A side roll ends on loaded front support, preserving its real momentum for the next technique. */

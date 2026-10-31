@@ -11,7 +11,7 @@ import { locomotion, stanceOf } from "../src/core/skills/locomotion/locomotion.t
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { standReady } from "../src/core/recovery/ground/reading.ts";
+import { standReady } from "../src/core/control/ground-reading.ts";
 import { footStatesOf, readSupport, withinSupport } from "../src/core/control/support.ts";
 
 /** How long the steady waits on a ready body before it hands it back, s. */

@@ -3,7 +3,6 @@
  * the frame helpers that read a segment where it is now.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { CONTACT_FRICTION } from "../read-body.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
@@ -11,7 +10,7 @@ import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { turnOfToRef, massOf } from "../read-motion.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
-import { STANDARD_GRAVITY } from "../spec/constants.ts";
+import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import type { MuscleSpec, Side } from "../spec/body.ts";

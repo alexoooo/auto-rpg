@@ -9,7 +9,7 @@ import { flatten } from "./flatten.ts";
 import { awaits, choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
 import { edgeExpected } from "../../skills/framework/profile.ts";
 import { brace, steadying } from "./steady.ts";
-import { standReady, tumbling, type GroundReading, type Position } from "./reading.ts";
+import { standReady, tumbling, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import type { Senses } from "../../mind/senses.ts";
 import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
