@@ -97,6 +97,11 @@ left hand and the high mark are refused):
 | walk (5) | 10 of 29 | 0 | thrown still walking (2 of 16; settled, 8 of 13) |
 | fight | 0 of 4 | 0 | elsewhere or guarded |
 
+Trained on (`research/environments/club-ladder.json`: the still rung from 0.6 m and the walk in,
+asked while walking, PPO from the steered club's network), it gained nothing in 0.5 M decisions:
+nearer than 0.85 m the club passes the target (`missed`), and every blow asked while walking in
+misses it (16 of 16, 2 fell), as at the start.
+
 Its profile (`assets/core/strike-profiles.json`) is read from the still, stepping, guarding,
 punching and letting-go records (`assets/evaluations/strike/2026-10-31-4a2354fe-*.jsonl`), so
 Option Mind prices the club by them.
