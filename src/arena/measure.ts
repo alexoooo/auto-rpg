@@ -2,6 +2,7 @@
 const WINDOW = { frames: 600, startup: 2, publish: 500 } as const;
 
 interface FrameSample {
+  readonly steps: number;
   readonly frame: number;
   readonly interval: number;
   readonly physics: number;
@@ -29,11 +30,11 @@ export function arenaMeasurement(parent: HTMLElement) {
     if (now - last < WINDOW.publish && samples.length < WINDOW.frames) return;
     last = now;
     const simulated = samples.reduce((sum, s) => sum + s.simulated, 0), interval = samples.reduce((sum, s) => sum + s.interval, 0);
-    const steps = Math.round(samples.reduce((sum, s) => sum + s.simulated * s.hz, 0));
+    const steps = samples.reduce((sum, s) => sum + s.steps, 0);
     const physics = samples.reduce((sum, s) => sum + s.physics, 0);
     const result = { frames: samples.length, steps, hz: sample.hz, simulated,
       meanStepMs: physics / steps,
-      batchStepP95Ms: percentile(samples.map(s => s.physics / (s.simulated * s.hz)), .95),
+      batchStepP95Ms: percentile(samples.map(s => s.physics / s.steps), .95),
       frameCpuMedianMs: percentile(samples.map(s => s.frame), .5), frameCpuP95Ms: percentile(samples.map(s => s.frame), .95),
       frameIntervalMedianMs: percentile(samples.map(s => s.interval), .5), simulatedPerReal: simulated * 1000 / interval };
     output.dataset.measurement = JSON.stringify(result);

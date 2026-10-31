@@ -15,9 +15,6 @@ html, body, #app-root, #screen-root { margin: 0; width: 100%; height: 100%; over
 :where(#screen-root) .ui-drawer { border: 1px solid var(--ui-edge); border-radius: 3px; background: var(--ui-panel); padding: 12px 16px; }
 :where(#screen-root) .ui-drawer > summary { color: var(--ui-brass); cursor: pointer; }
 :where(#screen-root) .ui-drawer[open] > summary { margin-bottom: 18px; }
-:where(#screen-root) .diagnostics { position: relative; pointer-events: auto; color: var(--ui-dim); font: 12px system-ui; }
-:where(#screen-root) .diagnostics summary { cursor: pointer; }
-:where(#screen-root) .diagnostics[open] { padding: 12px; background: var(--ui-panel); border: 1px solid var(--ui-edge); }
 
 .loading-content { width: min(100%, 420px); }
 .loading-content h1 { font: 38px Georgia, serif; letter-spacing: .1em; font-variant: small-caps; }

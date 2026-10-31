@@ -28,9 +28,9 @@ export function arenaPlayback(duel: Duel, catchUpSeconds: number, until = Infini
   /** The steps left to play: to `until`, or to the end of the verdict's aftermath. */
   const left = () => Math.round(Math.min(until - duel.clock, duel.verdict ? duel.verdict.time + AFTERMATH_SECONDS - duel.clock : Infinity) * world.hz);
   return {
-    advance(seconds: number): void {
+    advance(seconds: number): number {
       const most = Math.min(Math.ceil(catchUpSeconds * world.hz), left());
-      if (most > 0) world.advance(Math.min(seconds, most / world.hz), most);
+      return most > 0 ? world.advance(Math.min(seconds, most / world.hz), most) : 0;
     },
     /** Whether nothing is left to play. */
     get done(): boolean { return left() <= 0; },

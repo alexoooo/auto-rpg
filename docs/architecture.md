@@ -1621,6 +1621,8 @@ An older pool is listed with what differs from the newest.
   choice labels, numeric bounds, units and read-only state.
 - `src/render/view.ts`, `camera-math.ts` and `src/ui/view-controls.ts` are the shared view types and
   controls; each screen owns its camera rig, input and URL.
+- `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena and Dungeon.
+  Each screen supplies its render callback and actual physics-step count; timing never advances a world.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin

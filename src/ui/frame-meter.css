@@ -1,0 +1,38 @@
+.frame-meter {
+  position: relative;
+  pointer-events: auto;
+  color: var(--ui-dim);
+  font: 11px ui-monospace, Consolas, monospace;
+  white-space: nowrap;
+}
+:where(#screen-root) .frame-meter > button {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+:where(#screen-root) .frame-meter > button:hover { background: transparent; border-color: transparent; color: var(--ui-brass); }
+:where(#screen-root) .frame-meter > button:focus-visible { outline: 2px solid var(--ui-brass); outline-offset: 4px; }
+.frame-meter > button::before { content: "▸ "; }
+.frame-meter > button[aria-expanded="true"]::before { content: "▾ "; }
+.frame-meter > [popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-width: calc(100vw - 16px);
+  padding: 10px 12px;
+  border: 1px solid var(--ui-edge);
+  border-radius: 3px;
+  background: var(--ui-panel);
+  color: var(--ui-ink);
+  font: inherit;
+  text-align: left;
+  line-height: 1.6;
+  white-space: pre;
+}

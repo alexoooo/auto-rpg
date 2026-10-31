@@ -1,5 +1,6 @@
 import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
+import { frameMeter } from "../ui/frame-meter.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
 import "@babylonjs/core/Culling/ray.js";
@@ -474,6 +475,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
+  const meter = frameMeter(engine, context.signal);
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
   pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
@@ -488,7 +490,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const control of [choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
   choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; watch.reset(); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
-  clockColumn.append(clock, pauseButton, choiceLabel, choosingLine, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  clockColumn.append(clock, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
   const reelLine = document.createElement("div"), trialText = document.createElement("span");
   const autoBox = Object.assign(document.createElement("input"), { type: "checkbox", checked: auto });
@@ -810,27 +812,29 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const measurement = new URLSearchParams(location.search).get("measure") === "1" ? arenaMeasurement(document.body) : null;
   let firstFrame = true;
   engine.runRenderLoop(() => {
-    if (context.busy) { firstFrame = true; return; }
-    const began = measurement ? performance.now() : 0, clockBefore = world.time;
-    let physicsMs = 0;
-    const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
-    if (!context.busy) steer();
-    if (duel && !paused && !context.busy) {
-      const beforePhysics = measurement ? performance.now() : 0;
-      playback?.advance(seconds);
-      // The previous version's bout beside the trial, in step: the same time, so the same steps.
-      besideBout?.playback.advance(seconds);
-      if (measurement) physicsMs = performance.now() - beforePhysics;
-      // A new choice for the person's side pauses the bout for them to pick, where they asked so.
-      const own = you ? duel.duelists[you] : null, report = own?.minded.report;
-      if (pauseOnChoice && led && own && report?.menu && !duel.verdict
-        && watch.changed(report.menu, report.ended ?? [], own.body.down, duel.clock)) setPaused(true, "choice");
-      for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
-    }
-    if (!paused && !context.busy) arena.fire.burn(seconds);
-    frame(); readout(); audio.update(); overlay?.update();
-    scene.render();
-    measurement?.record({ frame: performance.now() - began, interval: seconds * 1000, physics: physicsMs,
+    if (context.busy) { firstFrame = true; meter.reset(); return; }
+    if (firstFrame) meter.reset();
+    const clockBefore = world.time;
+    const timing = meter.frame(() => {
+      const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
+      if (!context.busy) steer();
+      if (duel && !paused && !context.busy) {
+        meter.physics(() => {
+          const steps = playback?.advance(seconds) ?? 0;
+          // The previous version's bout beside the trial, in step: the same time, so the same steps.
+          return steps + (besideBout?.playback.advance(seconds) ?? 0);
+        });
+        // A new choice for the person's side pauses the bout for them to pick, where they asked so.
+        const own = you ? duel.duelists[you] : null, report = own?.minded.report;
+        if (pauseOnChoice && led && own && report?.menu && !duel.verdict
+          && watch.changed(report.menu, report.ended ?? [], own.body.down, duel.clock)) setPaused(true, "choice");
+        for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
+      }
+      if (!paused && !context.busy) arena.fire.burn(seconds);
+      frame(); readout(); audio.update(); overlay?.update();
+      scene.render();
+    });
+    measurement?.record({ ...timing,
       simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
   });
   window.addEventListener("resize", () => engine.resize(), { signal: context.signal });

@@ -36,7 +36,7 @@ import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordi
 import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
 import { lightDungeon, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
-import { frameMeter } from "./frame-meter.ts";
+import { frameMeter } from "../ui/frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
 import { runMinds } from "./run-minds.ts";
 import { ENCOUNTER_MODELS } from "./encounters.ts";
@@ -203,10 +203,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     readonly hover: EnemyHover;
     readonly probe: ReturnType<typeof lookProbe>;
     readonly meter: ReturnType<typeof frameMeter>;
-    /** The frame meter's element, where it stands in the HUD, and the fold it goes under with the reference look. */
-    readonly meterElement: HTMLElement;
-    readonly meterParent: HTMLElement;
-    readonly diagnostics: HTMLDetailsElement;
     /** Ends every listener the page added. */
     readonly abort: AbortController;
     readonly signal: AbortSignal;
@@ -267,16 +263,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const engine = new Engine(canvas, true, { stencil: true, antialias: true });
     engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
     const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
-    const meterElement = need("frame-meter");
-    const diagnostics = document.createElement("details"), summary = document.createElement("summary");
-    summary.textContent = "Diagnostics"; diagnostics.className = "diagnostics";
-    diagnostics.append(summary);
+    const meter = frameMeter(engine, context.signal);
+    need("pause-button").before(meter.element);
     const abort = new AbortController();
     const page: DungeonPage = {
       physicsEngine, skeletonArt, engine, audio, hover,
       probe: lookProbe(engine, () => page.scene && page.lighting ? { scene: page.scene, lighting: page.lighting } : null),
-      meter: frameMeter(engine, meterElement, context.signal),
-      meterElement, meterParent: meterElement.parentElement!, diagnostics,
+      meter,
       abort, signal: abort.signal,
       party: null,
       selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
@@ -393,8 +386,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.route = null;
     page.routeSignature = "";
     page.seed = seed; page.cryptPlan = cryptPlan;
-    page.meterParent.prepend(page.diagnostics);
-    page.diagnostics.append(page.meterElement);
     const view = cameraFor(page);
     pitch = view.pitch;
     azimuth = view.azimuth;
@@ -835,28 +826,31 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
    * then the camera, the sound, the HUD at most ten times a second, the hover and the picture. */
   function frame(page: DungeonPage, party: Party): void {
     const { scene, run, engine, meter, audio } = page;
-    if (!scene || !run || page.launching || context.busy) return;
-    const seconds = page.freshFrame ? 0 : engine.getDeltaTime() / 1000;
-    page.freshFrame = false;
-    const playing = () => run.status === "playing";
-    if (!page.paused && playing()) {
-      meter.physics(() => run.advance(seconds, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
-      page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
-      page.lighting?.burn(seconds);
-      // The steps may have ended the run.
-      if (!playing()) setPaused(page, true);
-    }
-    framing(page);
-    const seen = page.soundTorches.filter((torch) =>
-      run.visible.has(cellKey(run.map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z })));
-    audio.setView(run.leader.feet(), toward, seen.map((torch) => torch.flame));
-    audio.update();
-    if (performance.now() - page.lastUi > 100) {
-      page.lastUi = performance.now();
-      refreshHud(page, party);
-    }
-    hoverEnemy(page, scene, run);
-    scene.render();
+    if (!scene || !run || page.launching || context.busy) { meter.reset(); return; }
+    if (page.freshFrame) meter.reset();
+    meter.frame(() => {
+      const seconds = page.freshFrame ? 0 : engine.getDeltaTime() / 1000;
+      page.freshFrame = false;
+      const playing = () => run.status === "playing";
+      if (!page.paused && playing()) {
+        meter.physics(() => run.advance(seconds, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
+        page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
+        page.lighting?.burn(seconds);
+        // The steps may have ended the run.
+        if (!playing()) setPaused(page, true);
+      }
+      framing(page);
+      const seen = page.soundTorches.filter((torch) =>
+        run.visible.has(cellKey(run.map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z })));
+      audio.setView(run.leader.feet(), toward, seen.map((torch) => torch.flame));
+      audio.update();
+      if (performance.now() - page.lastUi > 100) {
+        page.lastUi = performance.now();
+        refreshHud(page, party);
+      }
+      hoverEnemy(page, scene, run);
+      scene.render();
+    });
   }
 
   /** Ends the page: its sound, its listeners, its loop, the run on show and the engine. */
@@ -908,7 +902,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const party = page.party = wireParty(page);
     wireKeys(page, party);
     wirePointer(page, party);
-    page.engine.runRenderLoop(() => page.meter.frame(() => frame(page, party)));
+    page.engine.runRenderLoop(() => frame(page, party));
   }
 
   await boot();
