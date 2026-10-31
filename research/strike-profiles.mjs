@@ -73,7 +73,7 @@ for (const path of paths) {
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
-    const measured = measuredOn(spec, skillDigest(partLookup, mind.executors, action), hz, reaction), key = JSON.stringify([measured, target]);
+    const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, records: new Set(), cells: new Map() };
     profiles.set(key, profile);
     profile.records.add(path);

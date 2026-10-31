@@ -5,8 +5,9 @@ import { text } from "../../parts/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../framework/executor-part.ts";
 import { STRAIGHT_PUNCH_KEYS, timedChannelFault, straightPunchExecutor, straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./held-strike.ts";
-import { punchRecorded } from "./punch-records.ts";
-import { bodyKey, type BodySpec } from "../../spec/body.ts";
+import { PUNCH_BODIES } from "./punch-records.ts";
+import { recordFault } from "../framework/records.ts";
+import { bodyKey } from "../../spec/body.ts";
 
 /**
  * **The straight punch** (`straightPunchExecutor`): the arm driven flat out at a lined-up contact
@@ -21,17 +22,12 @@ interface Config {
   readonly tuning?: Partial<StraightPunch>;
 }
 
-/** Why a body of `spec` has no straight punch under `config`, or null: no record of its own and no whole research tuning in its place. */
-function recordFault(spec: BodySpec, config: Config): string | null {
-  return punchRecorded(spec) || config.tuning !== undefined && validStraightPunch(config.tuning) ? null : `the straight punch is not tuned for ${bodyKey(spec)}`;
-}
-
 /** A straight punch owns its body fit; its settings are its body's. */
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch", name: "punch" },
   keys: { kind: true, name: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
   fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
-    recordFault, (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
+    recordFault("straight punch", PUNCH_BODIES, validStraightPunch), (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : ["invalid straight punch tuning"],
   reads: () => ["straight-punch"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.

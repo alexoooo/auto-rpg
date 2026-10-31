@@ -63,8 +63,8 @@ export interface ExecutorPart<C extends NamedConfig = NamedConfig, A extends Act
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
   /** What is wrong with the settings of its own `action` holds, each a sentence. */
   actionFaults(action: A): readonly string[];
-  /** The blow `action` throws, where its aim may read it (`AimPart.make`): the path's family and the hands' paths. */
-  blow?(config: C, action: A): AimedBlow;
+  /** The blow `action` throws from a body of `spec`, where its aim may read it (`AimPart.make`): the path's family and the hands' paths. */
+  blow?(spec: BodySpec, config: C, action: A): AimedBlow;
   /** How many blows an action of it throws; one unless it says. */
   blows?(config: C): number;
   estimate?(spec: BodySpec, config: C, action: A, aim: Aim, unit: "opening" | "net" | null): ActionEstimates[string] | null;

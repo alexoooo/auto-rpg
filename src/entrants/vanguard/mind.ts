@@ -23,12 +23,8 @@ interface VanguardConfig extends Omit<FighterConfig, "kind" | "tactics" | "locom
   readonly locomotion: PartConfig;
 }
 
-/** A standing body punch and a planted low punch, both following a predicted surface point. */
-const PUNCHES = (["punch", "low-punch"] as const).map((name): VanguardPunchConfig => ({ ...VANGUARD_PUNCH.defaults, name,
-  reach: .95, band: .18, through: .12, settle: .2, recover: .3, longest: .35, follow: .05,
-  // The low stroke predicts the lumbar bend held by the planted support fold.
-  lean: name === "low-punch" ? .89 : .1, hips: .3, turn: .55, lead: .1, chamber: .22,
-  low: true, lowOnly: name === "low-punch", predict: true }));
+/** A standing body punch and a planted low punch, both following a predicted surface point, each stroke as its body's record has it (`assets/entrants/vanguard/punch.json`). */
+const PUNCHES: readonly VanguardPunchConfig[] = [{ ...VANGUARD_PUNCH.defaults, name: "punch", stroke: "standing" }, { ...VANGUARD_PUNCH.defaults, name: "low-punch", stroke: "low" }];
 
 /** Movement and cover keep their priority while each calibration chooses its attack selection. */
 const PLAN = deepFreeze({ ...FIGHTING, list: [
@@ -59,10 +55,9 @@ const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "
 const ROGUE: VanguardConfig = deepFreeze({ ...WARRIOR, navigation: { ...VANGUARD_NAVIGATION.defaults, room: .15 }, locomotion: VANGUARD_WALK.defaults,
   tactics: { ...WARRIOR.tactics, replantLow: false, waitFallen: true } });
 
-/** The Skeleton learns contact rates for its hands, steps around blocks and pins its standing aim at commitment. */
+/** The Skeleton learns contact rates for its hands and steps around blocks; its record pins its standing aim at commitment. */
 const SKELETON: VanguardConfig = deepFreeze({ ...ROGUE, navigation: GAME_NAVIGATION,
   tactics: { ...WARRIOR.tactics, replantLow: false, flank: true, plan: { ...VANGUARD_EXCHANGE.defaults, list: PLAN.list } },
-  executors: [...PUNCHES.map(executor => executor.lowOnly ? executor : { ...executor, lead: .025, anchorAtDrive: true }), ...WEAPONS],
 });
 
 /** Its calibrations, each offered for its own body. */

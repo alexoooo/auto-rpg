@@ -1,18 +1,16 @@
+import records from "../../../assets/entrants/vanguard/punch.json" with { type: "json" };
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../core/skills/framework/executor-part.ts";
-import { number, text, toggle } from "../../core/parts/fields.ts";
+import { choice, text } from "../../core/parts/fields.ts";
 import { fitsAll, fitsWhen, strikesWithOneOf } from "../../core/parts/parts.ts";
-import { straightPunchFits, validStraightPunch, type StraightPunch } from "../../core/skills/strikes/straight-punch.ts";
+import { recordFault, type SkillRecords } from "../../core/skills/framework/records.ts";
+import { straightPunchFits, validStraightPunch, validStraightPunchPart, type StraightPunch } from "../../core/skills/strikes/straight-punch.ts";
+import { bodyKey, type BodySpec } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { holdsNothing } from "../../core/skills/strikes/held-strike.ts";
 import { committedAim } from "./committed-aim.ts";
 
-/**
- * **Vanguard's punch** (`committedAim`): the straight punch, its settings these, thrown at one
- * point of the foe that it follows through the drive.
- */
-export interface VanguardPunchConfig extends StraightPunch {
-  readonly kind: "vanguard:punch";
-  readonly name: string;
+/** **One stroke of Vanguard's punch**: the straight punch's settings, and how it follows its point. */
+export interface VanguardPunch extends StraightPunch {
   /** Against a low foe: aim at the highest surface of the target region (`lowAim`), and keep the planted fold while the trunk is bent for it. */
   readonly low: boolean;
   /** Throw only at a low foe; any other target is blocked. */
@@ -27,42 +25,60 @@ export interface VanguardPunchConfig extends StraightPunch {
   readonly returnHold: number;
 }
 
-/** What is wrong with a Vanguard punch's own settings. */
-function faults(config: VanguardPunchConfig): readonly string[] {
-  const { kind: _, name: __, low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = config;
+/** Vanguard's strokes: its standing body punch and its planted low punch. */
+type Stroke = "standing" | "low";
+
+/**
+ * **Vanguard's punch** (`committedAim`): the straight punch thrown at one point of the foe that it
+ * follows through the drive, its stroke's settings its body's record (`SkillRecord`,
+ * `assets/entrants/vanguard/punch.json`: each body's calibration, both strokes): a body with none
+ * does not throw it. A research `tuning`, which a link does not carry, sets the stroke's settings
+ * over the record's, all of them where the body has none.
+ */
+export interface VanguardPunchConfig {
+  readonly kind: "vanguard:punch";
+  readonly name: string;
+  readonly stroke: Stroke;
+  readonly tuning?: Partial<VanguardPunch>;
+}
+
+/** **Every body's Vanguard punch record**, by `bodyKey`: its calibration of each stroke. */
+const RECORDS: SkillRecords<Readonly<Record<Stroke, VanguardPunch>>> = deepFreeze(records);
+
+const STROKES: readonly (readonly [Stroke, string])[] = [["standing", "Standing"], ["low", "Low"]];
+const FLAGS = ["low", "lowOnly", "predict", "anchorAtDrive", "overlapReturn"] as const;
+
+/** What is wrong with a stroke's settings, each a sentence: all of them where `whole`, else those it names. */
+function strokeFaults(settings: Partial<VanguardPunch>, whole: boolean): readonly string[] {
+  const { low: _, lowOnly: __, predict: ___, anchorAtDrive: ____, overlapReturn: _____, returnHold, ...punch } = settings;
   return [
-    ...validStraightPunch(settings) ? [] : ["invalid straight punch settings"],
-    ...[low, lowOnly, predict, anchorAtDrive, overlapReturn].every(flag => typeof flag === "boolean") ? [] : ["low, lowOnly, predict, anchorAtDrive and overlapReturn: booleans"],
-    ...Number.isFinite(returnHold) && returnHold >= 0 ? [] : ["returnHold: finite nonnegative seconds"],
-    ...returnHold > 0 && !overlapReturn ? ["returnHold needs overlapping recovery"] : [],
+    ...(whole ? validStraightPunch(punch) : validStraightPunchPart(punch)) ? [] : ["invalid straight punch settings"],
+    ...FLAGS.every((flag) => whole ? typeof settings[flag] === "boolean" : settings[flag] === undefined || typeof settings[flag] === "boolean") ? [] : ["low, lowOnly, predict, anchorAtDrive and overlapReturn: booleans"],
+    ...returnHold === undefined && !whole || Number.isFinite(returnHold) && returnHold! >= 0 ? [] : ["returnHold: finite nonnegative seconds"],
+    ...whole && returnHold! > 0 && !settings.overlapReturn ? ["returnHold needs overlapping recovery"] : [],
   ];
 }
 
-/**
- * **Vanguard's drive settings**, its own on every body it plays: the straight punch's from a
- * bare-handed search of Arena bouts of the flat-footed Puncher (`STRAIGHT_PUNCH`,
- * `src/core/skills/strikes/straight-punch.ts@f327dd9e`), with its minds' own over them (`PUNCHES`).
- */
-const VANGUARD_DRIVE: StraightPunch = deepFreeze({
-  pace: 1.021, reach: 0.8, band: 0.05, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,
-  chamber: 0.195, lead: 0.055, elbow: 0, brake: 0, follow: 0.02, longest: 0.249, recover: 0.376,
-});
+/** The settings `config`'s stroke throws on a body of `spec`: its record's, with its research tuning over them. */
+const settingsOf = (spec: BodySpec, config: VanguardPunchConfig): VanguardPunch =>
+  ({ ...RECORDS[bodyKey(spec)]?.settings[config.stroke], ...config.tuning }) as VanguardPunch;
 
 /** Vanguard's own executor, offered only in its own entrant's trees (`Entrant.parts`). */
 export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   role: "executor", label: "Committed punch", stage: "experimental",
-  defaults: { kind: "vanguard:punch", name: "punch", ...VANGUARD_DRIVE, low: false, lowOnly: false, predict: false, anchorAtDrive: false, overlapReturn: false, returnHold: 0 },
-  keys: {
-    kind: true, name: true, pace: true, reach: true, band: true, aside: true, squared: true, poised: true, above: true, settle: true, through: true, hips: true, turn: true,
-    lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, halts: true, fire: true, ease: true, steered: true, driven: true, timed: true, low: true, lowOnly: true, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: true,
-  },
-  fields: [text("name", "Name"), toggle("low", "Aim and fold for a low foe"), toggle("lowOnly", "Only at a low foe"),
-    toggle("predict", "Lead the followed point"), toggle("anchorAtDrive", "Choose the point until the drive"),
-    toggle("overlapReturn", "Allow another punch during recovery"), number("returnHold", "Body hold during recovery", 0, 2, .01, "s")],
-  slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint")),
-  faults, effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
+  defaults: { kind: "vanguard:punch", name: "punch", stroke: "standing" },
+  keys: { kind: true, name: true, stroke: true, tuning: true },
+  fields: [text("name", "Name"), choice("stroke", "Stroke", STROKES)], slots: [],
+  tuning: ["pace", "reach", "band", "aside", "squared", "poised", "above", "settle", "through", "hips", "turn", "lean", "chamber", "lead", "elbow", "brake", "follow", "longest",
+    "recover", "landed", "halts", "fire", "ease", "steered", "driven", "timed", ...FLAGS, "returnHold"],
+  fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
+    recordFault("Vanguard punch", Object.keys(RECORDS), (tuning: Partial<VanguardPunch>) => strokeFaults(tuning, true).length === 0)),
+  faults: (config) => [
+    ...STROKES.some(([stroke]) => stroke === config.stroke) ? [] : ["stroke: standing or low"],
+    ...config.tuning === undefined ? [] : strokeFaults(config.tuning, false),
+  ],
+  effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing, as the straight punch's.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make: ({ body, guard, aim }, config, actions) => committedAim(body, guard, actions.map(action => action.name), config, aimedPoint(aim)),
+  make: ({ body, guard, aim }, config, actions) => committedAim(body, guard, actions.map(action => action.name), settingsOf(body.built.spec, config), aimedPoint(aim)),
 };

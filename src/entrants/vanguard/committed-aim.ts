@@ -9,15 +9,15 @@ import { STANCE_LOWER } from "../../core/skills/locomotion/locomotion.ts";
 import type { Vec3 } from "../../core/spec/quantity.ts";
 import { nearSurface } from "../../core/perception/openings.ts";
 import { lowAim } from "./low-guard.ts";
-import type { VanguardPunchConfig } from "./punch-part.ts";
+import type { VanguardPunch } from "./punch-part.ts";
 
 interface Anchor { body: string; segment: string; local: Vec3 }
 /** Predict the chosen surface point 0.12 s ahead, in addition to the age of its sensed frame. */
 const LEAD = .12;
 
-/** A punch follows one sensed point, checking its aim before the arm drive; what else it does, `config` says (`VanguardPunchConfig`). */
-export function committedAim(body: Body, guard: Pose, actions: readonly string[], config: VanguardPunchConfig, given: TargetResolver): Executor {
-  const { kind: _, name: __, low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = config;
+/** A punch follows one sensed point, checking its aim before the arm drive; what else it does, its stroke's settings say (`VanguardPunch`). */
+export function committedAim(body: Body, guard: Pose, actions: readonly string[], stroke: VanguardPunch, given: TargetResolver): Executor {
+  const { low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = stroke;
   // Against a low foe, the highest surface of the target region.
   const resolve: TargetResolver = low ? (view, target, action, effector) => lowAim(view, target) ?? given(view, target, action, effector) : given;
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,

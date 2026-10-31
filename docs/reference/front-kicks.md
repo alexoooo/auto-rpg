@@ -1,6 +1,7 @@
 # Shared front kicks
 
-The front kick's settings (`KICK_PATH`, `src/core/skills/strikes/kick.ts`), the Arena's faster profile
+The Warrior's front kick settings (`KICK_PATH`, `src/core/skills/strikes/kick.ts`, its row of
+`assets/core/front-kick.json`), the Arena's faster profile
 and its selector (`ARENA_KICKS`, `KICKER`, `KICK_SELECTION`, `src/core/mind/config.ts`), and how
 both were qualified. The force they deliver against trained adults is
 [trained-attack-force.md](trained-attack-force.md)'s.
@@ -59,8 +60,8 @@ discards the foot path through the common skill resume list.
 
 ## Stomp settings
 
-Option Mind's stomp (`STOMP`, `src/entrants/option/mind.ts`) is the front kick's executor with
-these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
+The Warrior's stomp (its row of `assets/core/stomp.json`, `stomp-part.ts`; Option Mind's `STOMP`
+throws it) is the front kick's executor with these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
 of a blow down on a body lying ahead; no source pins them. Read on the Strike drill's `stomping`
 rung (Node stand, Rapier, 120 Hz; 12 trials, each foot at a limp Warrior and Skeleton lying on its
 back, 0.8 to 1.2 m off).

@@ -22,7 +22,7 @@ export function blowsOf(parts: PartLookup, executors: readonly ExecutorEntry[], 
 export function aimOf(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): Aim | null {
   if (!action.aim) return null;
   const executor = executors.find((one) => one.name === action.executor);
-  const blow = executor ? parts.of("executor", executor).blow?.(executor, action) ?? null : null;
+  const blow = executor ? parts.of("executor", executor).blow?.(spec, executor, action) ?? null : null;
   return parts.of("aim", action.aim).make(spec, action.aim, blow);
 }
 

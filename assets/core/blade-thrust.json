@@ -1,0 +1,53 @@
+{
+  "crypt-skeleton+toes": {
+    "made": "Unsearched: the Warrior's blade settings, as every body threw them (BLADE_STRIKE, src/core/skills/strikes/blade.ts@b308919e); a search on this body replaces them.",
+    "settings": {
+      "chamberSeconds": 0.4,
+      "swingSeconds": 0.45,
+      "returnSeconds": 0.5,
+      "contactSpeed": 0.8,
+      "windup": 0.18,
+      "through": 0.04,
+      "near": 0.06,
+      "slow": 0.6,
+      "hold": 0.05,
+      "prepareLimit": 2,
+      "returnLimit": 2.5,
+      "followSeconds": 0.04
+    }
+  },
+  "workshop-fighter+toes": {
+    "made": "Set by hand with the short sword's blade actions (b4f775fc) and read on the Warrior by the blade task (docs/reference/sword-and-buckler.md): BLADE_STRIKE, src/core/skills/strikes/blade.ts@b308919e.",
+    "settings": {
+      "chamberSeconds": 0.4,
+      "swingSeconds": 0.45,
+      "returnSeconds": 0.5,
+      "contactSpeed": 0.8,
+      "windup": 0.18,
+      "through": 0.04,
+      "near": 0.06,
+      "slow": 0.6,
+      "hold": 0.05,
+      "prepareLimit": 2,
+      "returnLimit": 2.5,
+      "followSeconds": 0.04
+    }
+  },
+  "workshop-rogue+toes": {
+    "made": "Unsearched: the Warrior's blade settings, as every body threw them (BLADE_STRIKE, src/core/skills/strikes/blade.ts@b308919e); a search on this body replaces them.",
+    "settings": {
+      "chamberSeconds": 0.4,
+      "swingSeconds": 0.45,
+      "returnSeconds": 0.5,
+      "contactSpeed": 0.8,
+      "windup": 0.18,
+      "through": 0.04,
+      "near": 0.06,
+      "slow": 0.6,
+      "hold": 0.05,
+      "prepareLimit": 2,
+      "returnLimit": 2.5,
+      "followSeconds": 0.04
+    }
+  }
+}

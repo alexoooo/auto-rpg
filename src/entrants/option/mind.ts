@@ -11,12 +11,11 @@ const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch",
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
 /**
- * **The stomp's stroke**: the front kick's, its chamber high over the target, its height band low,
- * so it strikes down on a body lying ahead and nothing standing, from a window out where both feet
- * stand clear of a lying body's limbs ([stomp settings](../../../../docs/reference/front-kicks.md#stomp-settings)).
+ * **The stomp's stroke**, as its body's record has it (`assets/core/stomp.json`): the front kick's,
+ * its chamber high over the target, its height band low, so it strikes down on a body lying ahead
+ * and nothing standing.
  */
-const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "front-kick",
-  over: 1, windup: 0, lift: .7, soleTurn: 0, top: .4, alongNear: .55, alongFar: .8, across: .2, contactSpeed: 7, swingSeconds: .25, returnNear: .1 });
+const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
 
 /** **The stomp**: its stroke with either foot at the trunk's middle, aimed at its centre. */
 const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],

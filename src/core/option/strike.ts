@@ -34,7 +34,7 @@ export interface StrikeMeasure {
 
 /** The measure (`StrikeMeasure`) of `action`, carried out by one of `executors`, thrown by a body of `spec` at `hz`, looked up among `profiles`. */
 export const strikeMeasure = (parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig, hz: number, profiles: readonly Profile[]): StrikeMeasure =>
-  ({ spec, measured: measuredOn(spec, skillDigest(parts, executors, action), hz, null), profiles });
+  ({ spec, measured: measuredOn(spec, skillDigest(parts, spec, executors, action), hz, null), profiles });
 
 /** The profile of the strike `measure` names, where one is measured as its body reads it (its reaction time aside: the senses give it); null where none is. */
 export function measuredProfile(measure: StrikeMeasure): Profile | null {

@@ -386,10 +386,22 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   hand strikes with (`aimOf`, `held-strike.ts`), read once a spec; the openings, threats, the edge and
   the executors' admission ask it. `held-strike.ts` holds what a hand strikes with (`FIST`, `heldIn`,
   `closesToStrike`, `strikesWithBlunt`).
+- **Every skill tuned per body** (`SkillRecord`, `skills/framework/records.ts`): an executor's
+  settings are its body's record, read as mind data by `bodyKey` (`dataOf`, `assets/core/<skill>.json`;
+  an entrant's own skill from its own data, Vanguard's punch from
+  `assets/entrants/vanguard/punch.json`), each row saying how it was made and written by the run
+  that tuned it (`research/skill-records.mjs`; the straight punch's, `research/punch-export.mjs`).
+  The bodies with a record are known before they load (`<skill>.meta.json`): a body with none is
+  refused by the executor's fit (`recordFault`), a returned sentence, and a new body is rows, not
+  code. A mind carries no skill's settings; an experiment's research `tuning` sets them over its
+  body's record, all of them where it has none. A strike's digest reads only the thrower's row
+  (`skillDigest`), so another body's row moves no profile.
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
-  stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`)
-  and each foot of the kick (`kick.ts`, which adds support transfer). A bare
-  hand closes for its blow and strikes with the fist's point (`closesToStrike`, `aimOf`).
+  stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`,
+  `path-part.ts`) and each foot of the kick (`kick.ts`, which adds support transfer; the front kick,
+  `kick-part.ts`, and the stomp, `stomp-part.ts`, a kick down from a high chamber on a body lying
+  ahead, each its own records). A bare hand closes for its blow and strikes with the fist's point
+  (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
   stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
   contact pose its IK solves each step. With `timed`, the drive pushes each channel the schedule
@@ -421,8 +433,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   throw it (`punch-part.ts`); a mind carries no punch settings, and an experiment's research
   `tuning` sets them over the record's, with no network steering.
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
-  directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
-  first such item.
+  directed edge or point region on the same cycle, each its own records. `shortSword`
+  (`src/core/items/sword.ts`) is the first such item.
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -888,11 +900,13 @@ with, so a motor or guard swapped into the mind is the one recovery uses (`subMi
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
 | Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`edgeExpected`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; the game's (`STAND_UP`) is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up` (`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), are flat-footed and kept for comparison |
 
-**Mind data loads per use** (`src/core/data/store.ts`). The straight punch's records
-(`assets/core/straight-punch.json`) are a module of its own in `src/core/data/`, imported only by `loadData`, so it is a chunk of its own that a page
+**Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
+(`assets/core/straight-punch.json`, `front-kick.json`, `stomp.json`, `path-strike.json`,
+`blade-cut.json`, `blade-thrust.json`) and each kind of profile are a module of its own in
+`src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
-(`DataOf`, added to by `skills/framework/profile.ts` and `skills/strikes/punch-records.ts`), so the
-store names no skill. A mind reads its data when built (`dataOf`), and
+(`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
+other skills' parts), so the store names no skill. A mind reads its data when built (`dataOf`), and
 throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
 `treeData(config)` (a catalog's) collects a tree's: the Arena loads both sides' before the
 bout, the Crypt every participant's before the run, the Lab its mind's before the body. In Node,

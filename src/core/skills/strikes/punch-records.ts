@@ -1,7 +1,7 @@
 import meta from "../../../../assets/core/straight-punch.meta.json" with { type: "json" };
 import type { Network } from "../../learning/recovery-network.ts";
-import { bodyKey, type BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
+import type { SkillRecord } from "../framework/records.ts";
 import type { StraightPunch } from "./straight-punch.ts";
 
 /**
@@ -12,9 +12,7 @@ import type { StraightPunch } from "./straight-punch.ts";
  * (`research/punch-export.mjs` writes it). A body throws the straight punch by its own record or
  * not at all: settings tuned on one body and thrown by another throw a different punch.
  */
-export interface PunchRecord {
-  readonly made: string;
-  readonly settings: StraightPunch;
+export interface PunchRecord extends SkillRecord<StraightPunch> {
   readonly network: Network | null;
 }
 
@@ -29,7 +27,4 @@ declare module "../../data/store.ts" {
 }
 
 /** **The bodies with a straight punch record**, known before the records load (`assets/core/straight-punch.meta.json`). */
-const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);
-
-/** Whether a body of `spec` has a straight punch record. */
-export const punchRecorded = (spec: BodySpec): boolean => PUNCH_BODIES.includes(bodyKey(spec));
+export const PUNCH_BODIES: readonly string[] = deepFreeze(meta.bodies);
