@@ -189,12 +189,12 @@ test("low-guard dependencies are checked through every nested planner before a b
 test("nested Vanguard planners prepare the inner skills once and preserve them through their low covers", () => {
   const state = { prepared: 0 }, inner = { name: "fixture", state, decision: { focus: null }, decide: () => standIntent(0) };
   const part = { make: () => inner, decisionCapabilities: () => ["focus"],
-    prepareSkills(_making, _config, skills, decision) { state.prepared++; assert.equal(decision(), inner.decision); return { ...skills, inner: true }; } };
+    prepareSkills(_making, _config, skills, decider) { state.prepared++; assert.equal(decider.decision, inner.decision); return { ...skills, inner: true }; } };
   const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
     parts: { of: (role, config) => config.kind === "fixture" ? part : partLookup.of(role, config) } };
   const config = { kind: "vanguard:plan", lowGuard: true, plan: { kind: "vanguard:plan", lowGuard: true, plan: { kind: "fixture" } } };
   const tactics = tacticsOf(making, config);
-  const skills = { report: {}, envelope: null, state: {} }, prepared = prepareTacticsSkills(making, config, skills, () => tactics.decision);
+  const skills = { report: {}, envelope: null, state: {} }, prepared = prepareTacticsSkills(making, config, skills, tactics);
   assert.equal(state.prepared, 1);
   assert.equal(prepared.inner, true);
   assert.equal(prepared.state, skills.state);
@@ -331,15 +331,15 @@ test("adaptive and nested planners prepare one shared kit and forward the active
   let preparations = 0, prepared, active;
   const fixture = learningFixture(() => 0, (attacking, defensive) => {
     const behaviourPart = { make: (_making, config) => config.list.some(item => item.kind === "evade") ? defensive : attacking,
-      prepareSkills(_making, _config, skills, decision) {
+      prepareSkills(_making, _config, skills, decider) {
         preparations++;
-        return { ...skills, command() { active = decision(); return active; } };
+        return { ...skills, command() { active = decider.decision; return active; } };
       } };
     const making = { spec: modelSpec("workshop-fighter"), orders: () => null,
       parts: { of: (role, config) => config.kind === "behaviours" ? behaviourPart : partLookup.of(role, config) } };
     const config = { kind: "vanguard:plan", plan: { ...MINDS["vanguard-warrior"].config.tactics, lowGuard: false, routeAround: false } };
     const tactics = tacticsOf(making, config);
-    prepared = prepareTacticsSkills(making, config, { state: {}, report: {} }, () => tactics.decision);
+    prepared = prepareTacticsSkills(making, config, { state: {}, report: {} }, tactics);
     for (const policy of [attacking, defensive]) Object.defineProperty(policy, "engagement", {
       get() { throw new Error("diagnostic report read by adaptive decisions"); },
     });
@@ -510,7 +510,7 @@ function lowFixture(orders = () => null) {
     senses: { others: [{ id: "foe", out: false, spec: { marks: { high: "head" } }, segments: new Map([["head", { centre: { x: .4, y: .3, z: 0 } }]]) }] } };
   const sight = { view, report: { support: { stage: "stand", ready: false } } };
   const tactics = lowGuard(base, spec, orders);
-  return { layer: { tactics, skills: skills => lowGuardSkills(skills, spec, () => tactics.decision) }, sight, base };
+  return { layer: { tactics, skills: skills => lowGuardSkills(skills, spec, tactics) }, sight, base };
 }
 
 test("unready low support returns toward standing without first becoming ready, and its wait forks", () => {

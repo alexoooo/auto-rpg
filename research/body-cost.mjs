@@ -23,7 +23,7 @@ import { centreOfToRef } from "../src/core/read-motion.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { RISE } from "../src/core/recovery/rise/stages.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { subMindsOf } from "../src/core/mind/kit.ts";

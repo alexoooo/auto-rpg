@@ -4,7 +4,6 @@ import type { Clock } from "../clock.ts";
 import type { Pose } from "../spec/pose.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { MindConfig } from "./config.ts";
-import type { FighterConfig } from "../tactics/config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "../parts/parts.ts";
@@ -33,14 +32,14 @@ export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodyS
   preset.models === undefined || preset.models.includes(model);
 
 /**
- * How a scene drives a mind by a script of its own in its tactics' place (the Lab's modes, a fall
- * on the stand bed): the options its body is made with, and the drive that hands the body its
- * skills under the script (`MindWiring.script`), returning the mind so driven. A mind that takes a
- * script has a fighter's slots.
+ * How a scene drives a mind of configs `C` by a script of its own (`Script`, the Lab's modes, a
+ * fall on the stand bed) in place of the mind's own decider: the options its body is made with,
+ * and the drive that hands the body its skills under the script (`MindWiring.script`), each step's
+ * decider read through `around` where given, returning the mind so driven.
  */
-export interface Scripted {
-  body(config: FighterConfig, wiring: MindWiring, parts: PartLookup): BodyOptions;
-  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: AroundDecider): Driven;
+export interface Scripted<C extends MindConfig = MindConfig> {
+  body(config: C, wiring: MindWiring, parts: PartLookup): BodyOptions;
+  drive(body: Body, clock: Clock, parts: PartLookup, config: C, wiring: MindWiring, around?: AroundDecider): Driven;
 }
 
 /**
@@ -57,7 +56,7 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
    */
   builtIn(spec: BodySpec, config: C, parts: PartLookup): Pose;
   /** How a scene drives it by a script (`Scripted`); absent where it takes none. */
-  readonly scripted?: Scripted;
+  readonly scripted?: Scripted<C>;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 

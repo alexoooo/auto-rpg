@@ -1,6 +1,5 @@
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { BLADE_FIGHTER } from "../mind/config.ts";
-import type { FighterConfig } from "./config.ts";
+import { BLADE_FIGHTER, type FighterConfig } from "./config.ts";
 import { controller } from "../mind/controller.ts";
 import { createFighter, driveFighter, kitBody, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "../mind/kit.ts";

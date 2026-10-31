@@ -5,7 +5,7 @@ import { skillSet } from "../../skills/framework/arbiter.ts";
 import type { Locomotion } from "../../skills/locomotion/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
-import { actionProducer } from "../../tactics/action-producer.ts";
+import { actionProducer } from "../../intent/action-producer.ts";
 import { standIntent } from "../../intent/intent.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import type { MindKit } from "../../mind/kit.ts";

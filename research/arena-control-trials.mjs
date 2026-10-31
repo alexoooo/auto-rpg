@@ -1,5 +1,5 @@
 import { driveFighter } from "../src/core/tactics/fighter.ts";
-import { actionProducer } from "../src/core/tactics/action-producer.ts";
+import { actionProducer } from "../src/core/intent/action-producer.ts";
 import { approachActionWindow } from "../src/core/intent/action-window.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { actionCycles } from "./action-cycles.mjs";
@@ -11,7 +11,7 @@ import { addArenaSolids } from "../src/arena/room.ts";
 import { centreOfToRef, pointOfToRef, motionAtToRef } from "../src/core/read-motion.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { aimOf } from "../src/core/skills/strikes/held-strike.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";

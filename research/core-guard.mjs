@@ -34,7 +34,7 @@ import { parseArgs } from "node:util";
 import { SIDES } from "../src/arena/duel.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { withParts } from "../tests/fixtures/minds.mjs";

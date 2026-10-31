@@ -39,11 +39,11 @@ test("the driver prepares skills once, and uses the prepared report, resume, com
     release() {} };
   const tactics = { name: "fixture",
     decide(sight, dt) { assert.equal(sight.report, prepared.report); calls.push(["decide", dt]); return "intent"; } };
-  const part = { prepareSkills(_making, _config, skills, decision) {
-    assert.equal(skills, original); assert.equal(decision(), tactics.decision); calls.push("prepare"); return prepared;
+  const part = { prepareSkills(_making, _config, skills, decider) {
+    assert.equal(skills, original); assert.equal(decider, tactics); calls.push("prepare"); return prepared;
   } };
   const making = { parts: { of: () => part } };
-  assert.equal(driveBy(body, tactics, () => prepareTacticsSkills(making, { kind: "fixture" }, original, () => tactics.decision)).skills, prepared);
+  assert.equal(driveBy(body, tactics, () => prepareTacticsSkills(making, { kind: "fixture" }, original, tactics)).skills, prepared);
   for (let i = 0; i < 2; i++) assert.equal(body.command(view, .1), "command");
   assert.equal(body.release, prepared.release);
   assert.deepEqual(calls, ["prepare", ["resume", view], ["decide", .1], ["command", view, "intent", .1],

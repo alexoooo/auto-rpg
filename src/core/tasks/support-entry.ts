@@ -6,7 +6,7 @@ import { supportEntryReading } from "../control/whole-body/support-entry.ts";
 import { centreOfToRef } from "../read-motion.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
-import { BLADE_FIGHTER } from "../mind/config.ts";
+import { BLADE_FIGHTER } from "../tactics/config.ts";
 import { createPolicyBody } from "../mind/direct.ts";
 import { createMind } from "../mind/minds.ts";
 import { TOOLKIT_CATALOG } from "../toolkit.ts";

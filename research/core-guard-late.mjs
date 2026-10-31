@@ -17,7 +17,7 @@ import { parseArgs } from "node:util";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { THREAT, threatReader } from "../src/core/perception/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard/guard.ts";
 import { buildBout } from "../src/evaluation/bout.ts";

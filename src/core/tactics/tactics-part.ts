@@ -56,14 +56,18 @@ export interface TacticsPart<C extends PartConfig = PartConfig> extends Part<C> 
   kitFaults?(config: C, kit: SkillKit, parts: PartLookup): readonly string[];
   /** The operational fields every decision supplies; a composite delegates to its child. */
   decisionCapabilities?(config: C, parts: PartLookup): readonly DecisionCapability[];
-  /** Prepare the shared kit once, from the innermost part out, reading the active composed decision live. */
-  prepareSkills?(making: TacticsMaking, config: C, skills: Skills, decision: () => TacticalDecision | undefined): Skills;
+  /**
+   * What the tactics ask of the skills they are driven over: the shared kit prepared once, from the
+   * innermost part out, reading the active composed decision live through the seam
+   * (`decider.decision`); the kit as it is where a part asks nothing.
+   */
+  prepareSkills?(making: TacticsMaking, config: C, skills: Skills, decider: TacticalDecider): Skills;
   make(making: TacticsMaking, config: C): TacticalDecider;
 }
 
 /** The tactics `config` names, made as `making.parts` finds them. */
 export const tacticsOf = <C extends PartConfig>(making: TacticsMaking, config: C): TacticalDecider => making.parts.of("tactics", config).make(making, config);
 
-/** Apply a configured planner's construction adapter, independently of its decision policies. */
-export const prepareTacticsSkills = (making: TacticsMaking, config: PartConfig, skills: Skills, decision: () => TacticalDecision | undefined): Skills =>
-  making.parts.of("tactics", config).prepareSkills?.(making, config, skills, decision) ?? skills;
+/** `skills` as the tactics `config` names prepare them (`TacticsPart.prepareSkills`), `decider` the tactics they are driven by. */
+export const prepareTacticsSkills = (making: TacticsMaking, config: PartConfig, skills: Skills, decider: TacticalDecider): Skills =>
+  making.parts.of("tactics", config).prepareSkills?.(making, config, skills, decider) ?? skills;

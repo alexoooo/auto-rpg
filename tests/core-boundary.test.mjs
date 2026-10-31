@@ -485,7 +485,7 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
 /**
  * **The core's layers, bottom first** ([layers](../docs/architecture.md#the-layers)): each module
  * of `src/core/` by its folder, or by its file where one is named, the longest entry ruling. A
- * module imports its own layer or one below.
+ * module imports its own layer or one below, and a package (`CORE_PACKAGES`) only where it is built on it.
  */
 const LAYERS = [
   ["math/", "state.ts", "sources.ts"],
@@ -496,7 +496,8 @@ const LAYERS = [
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
   ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts", "mind/decider.ts", "mind/engagement.ts", "mind/report.ts"],
-  ["tactics/", "recovery/"],
+  ["recovery/"],
+  ["tactics/"],
   ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",
     "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
   ["toolkit.ts", "models.ts", "combatant.ts", "tasks/"],
@@ -506,9 +507,27 @@ const LAYERS = [
 const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/kinds.ts", "toolkit.ts"]);
 
 /**
- * **Today's imports up the layers**, each `from -> to` under `src/core/`, by what removes it. The
- * list is exact: an import up the layers not on it fails, and so does one the code no longer has,
- * so it only shrinks.
+ * **The packages**: a folder of the layers that, from outside it, only the minds built on it and
+ * the registries import, each with those minds. Tactics are one implementation of the `Decider`
+ * seam: the fighter kind is inside the package; Option Mind builds its body layer with the
+ * package's kit and carries out orders by its ordered intent; the drill opponent's body is a fighter
+ * unless its config names another, and the support-entry task boots its body under one.
+ */
+const CORE_PACKAGES = Object.freeze({ "tactics/": Object.freeze(["option/", "mind/drill-opponent.ts", "tasks/support-entry.ts"]) });
+
+/** The package `target` is in that `file`, outside it and not built on it, may not import; null where none. */
+function packageBarring(file, target) {
+  for (const [folder, users] of Object.entries(CORE_PACKAGES)) {
+    if (!target.startsWith(folder) || file.startsWith(folder)) continue;
+    if (!users.some((user) => file === user || user.endsWith("/") && file.startsWith(user))) return folder;
+  }
+  return null;
+}
+
+/**
+ * **Today's imports up the layers**, or into a package by a module not built on it, each
+ * `from -> to` under `src/core/`, by what removes it. The list is exact: such an import not on it
+ * fails, and so does one the code no longer has, so it only shrinks.
  */
 const UP_STACK = [
   // The data store typed by what each key's reader declares (layering step 10).
@@ -532,7 +551,7 @@ function layerOf(file) {
   return found;
 }
 
-/** Each import among `files` (path under `src/core/` and source) that goes up the layers, `from -> to`, each once; and each module with no layer. */
+/** Each import among `files` (path under `src/core/` and source) that goes up the layers or into a package it is not built on (`CORE_PACKAGES`), `from -> to`, each once; and each module with no layer. */
 function layerCrossings(files) {
   const up = new Set(), unlayered = [];
   for (const [file, source] of files) {
@@ -542,24 +561,28 @@ function layerCrossings(files) {
     for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
       if (!specifier.startsWith(".")) continue;
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(`${CORE}${file}`), specifier));
-      if (target.startsWith(CORE) && layerOf(target.slice(CORE.length)) > from) up.add(`${file} -> ${target.slice(CORE.length)}`);
+      if (!target.startsWith(CORE)) continue;
+      const to = target.slice(CORE.length);
+      if (layerOf(to) > from || packageBarring(file, to) !== null) up.add(`${file} -> ${to}`);
     }
   }
   return { up: [...up].sort(), unlayered };
 }
 
-test("the core's imports run down its layers: an import up them is one of today's, listed, and the list is exact", () => {
+test("the core's imports run down its layers and into a package only from what is built on it: any other is one of today's, listed, and the list is exact", () => {
   const files = filesUnder(CORE).filter((file) => file.endsWith(".ts")).map((file) => [file.slice(CORE.length), fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.length > 100, "fewer than a hundred core modules read, so this test would pass on nothing");
   const { up, unlayered } = layerCrossings(files);
   assert.deepEqual(unlayered, [], "every core module has a layer");
   assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
-  // The control: a skill reaching tactics, and a module in no layer, are found; a registry is not held to it.
+  // The control: a skill reaching tactics, a Commander reaching into the tactics package, and a module in no layer, are found; a registry, and a mind built on the package, are not held to it.
   assert.deepEqual(layerCrossings([
     ["skills/sly.ts", `import { tacticsOf } from "../tactics/tactics-part.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
     ["nowhere/sly.ts", ""],
     ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
-  ]), { up: ["skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics-part.ts"], unlayered: ["nowhere/sly.ts"] });
+    ["command/sly.ts", `import { orderedIntent } from "../tactics/ordered.ts";\n`],
+    ["option/sly.ts", `import { orderedIntent } from "../tactics/ordered.ts";\n`],
+  ]), { up: ["command/sly.ts -> tactics/ordered.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics-part.ts"], unlayered: ["nowhere/sly.ts"] });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */

@@ -86,6 +86,6 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: (config, parts) => fighterFaults(fighter(config), parts),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
-  scripted: { body: kitBody, drive: driveFighter },
+  scripted: { body: kitBody, drive: (body, clock, parts, config, wiring, around) => driveFighter(body, clock, parts, fighter(config), wiring, around) },
   create: (host, config, wiring) => createFighter(host, fighter(config), wiring),
 });

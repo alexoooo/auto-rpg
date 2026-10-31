@@ -1,4 +1,5 @@
-import { BLADE_FIGHTER, type MindConfig } from "./config.ts";
+import type { MindConfig } from "./config.ts";
+import { BLADE_FIGHTER } from "../tactics/config.ts";
 import { controller, type Controller } from "./controller.ts";
 import type { MindWiring } from "./minds.ts";
 import { STAND_ORDERS, type Orders } from "../intent/orders.ts";

@@ -34,7 +34,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";

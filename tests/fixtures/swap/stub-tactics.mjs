@@ -12,11 +12,11 @@ export const STUB_TACTICS = Object.freeze({
   defaults: Object.freeze({ ...FIGHTING, kind: "swap:stub-tactics" }), keys: Object.freeze({ kind: true, target: true, choose: true, list: true }),
   fits: anyBody, faults: () => [],
   decisionCapabilities: BEHAVIOUR_TACTICS.decisionCapabilities,
-  prepareSkills(_making, _config, skills, decision) {
+  prepareSkills(_making, _config, skills, decider) {
     const state = skills.state.preparation ??= { built: 0, steps: 0, focus: null };
     state.built++;
     return { ...skills, get envelope() { return skills.envelope; }, command(view, intent, dt) {
-      state.steps++; state.focus = decision()?.focus ?? null;
+      state.steps++; state.focus = decider.decision?.focus ?? null;
       return skills.command(view, intent, dt);
     } };
   },

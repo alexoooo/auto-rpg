@@ -1,6 +1,6 @@
 import type { ConditionConfig } from "../intent/conditions.ts";
 import type { ConfigOf, PartConfig } from "../parts/parts.ts";
-import type { SkillKit } from "../skills/config.ts";
+import type { ActionConfig, ExecutorConfig, SkillKit } from "../skills/config.ts";
 import { deepFreeze } from "../state.ts";
 import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
 import type { PLANNERS } from "./planners.ts";
@@ -40,3 +40,11 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
   target: [{ kind: "ordered" }, { kind: "current" }, { kind: "nearest", prefer: "standing-first" }],
   choose: { kind: "first-ready", rethink: .2, patience: 2 },
   list: [{ kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "pose" }] });
+
+const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];
+const BLADE_ACTIONS: readonly ActionConfig[] = BLADE_EXECUTORS.map(executor => ({ name: executor.name, executor: executor.name,
+  effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }));
+
+/** The blade fighter: seeking tactics over a blade's cut and thrust, walking in the stance and lying still once down; empty-handed or holding a blunt item, it strikes with nothing. */
+export const BLADE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "shield-guard" },
+  executors: BLADE_EXECUTORS, actions: BLADE_ACTIONS, support: null, subs: [{ kind: "lie" }] });

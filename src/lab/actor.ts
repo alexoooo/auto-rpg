@@ -4,7 +4,6 @@ import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { partLookup, partOf, scriptedBy, treeFaults, GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { FighterConfig } from "../core/tactics/config.ts";
 import { createMind, type MindMade, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
 import type { AroundDecider, Decider, Script, Sight } from "../core/mind/decider.ts";
@@ -121,10 +120,9 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
       dispose: () => own.body.dispose(),
     };
   }
-  const fighter = mind as FighterConfig;
-  const fault = treeFaults(fighter, ["script"])[0];
+  const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
-  const body = createBody(built, world, { ...scripted.body(fighter, wiring, partLookup), stance, measuring,
+  const body = createBody(built, world, { ...scripted.body(mind, wiring, partLookup), stance, measuring,
     ...(subs ? { subs } : {}) });
   let driven: LabMind | null = null;
   return {
@@ -132,7 +130,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     drive(script, driving = {}) {
       input = driving;
       const { watch } = driving;
-      return driven = scripted.drive(body.driver, world, partLookup, fighter, { ...wiring, script }, (decider) => {
+      return driven = scripted.drive(body.driver, world, partLookup, mind, { ...wiring, script }, (decider) => {
         const made = barred(around(decider), strikes);
         return watch ? watched(made, watch) : made;
       });

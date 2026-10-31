@@ -1,8 +1,6 @@
 import type { OpeningTuning } from "../perception/openings.ts";
-import type { ActionConfig, ExecutorConfig } from "../skills/config.ts";
 import { KICK_PATH, type KickTuning } from "../skills/strikes/kick.ts";
 import { deepFreeze } from "../state.ts";
-import { FIGHTING, type FighterConfig } from "../tactics/config.ts";
 
 /**
  * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming
@@ -10,14 +8,6 @@ import { FIGHTING, type FighterConfig } from "../tactics/config.ts";
  * fight passes one through and reads nothing in it.
  */
 export interface MindConfig { readonly kind: string }
-
-const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];
-const BLADE_ACTIONS: readonly ActionConfig[] = BLADE_EXECUTORS.map(executor => ({ name: executor.name, executor: executor.name,
-  effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }));
-
-/** The blade fighter: seeking tactics over a blade's cut and thrust, walking in the stance and lying still once down; empty-handed or holding a blunt item, it strikes with nothing. */
-export const BLADE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "shield-guard" },
-  executors: BLADE_EXECUTORS, actions: BLADE_ACTIONS, support: null, subs: [{ kind: "lie" }] });
 
 /** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });

@@ -21,7 +21,7 @@ import { createDefenseProbe } from "../src/core/tasks/defense.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import { reachAction, reachFrame } from "../src/core/tasks/reach-policy.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { traceOf } from "../src/evaluation/trace.ts";

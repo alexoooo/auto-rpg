@@ -12,7 +12,9 @@ import type { MindWiring } from "../mind/minds.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "../mind/kit.ts";
-import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "./tactics-part.ts";
+import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";
+import { SCRIPT_TACTICS } from "./script-tactics.ts";
+import type { PartConfig } from "../parts/parts.ts";
 import { driveBy, type AroundDecider, type Driven } from "../mind/decider.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
@@ -40,7 +42,9 @@ export function kitBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">,
 /**
  * Named executors are built once; behaviours select actions without rebuilding motion state. Its
  * blows are those its body throws as armed (`armedActions`); its parts are those `parts` finds.
- * Returns the fighter as driven (`Driven`).
+ * Its tactics slot holds the tactics its config names, or the script's (`SCRIPT_TACTICS`) where a
+ * screen's script drives it, and that part makes the decider and prepares the skills
+ * (`TacticsPart.prepareSkills`). Returns the fighter as driven (`Driven`).
  */
 export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: AroundDecider = (decider) => decider): Driven {
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
@@ -49,11 +53,13 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
     aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts };
-  const tactics = around(wiring.script ?? tacticsOf(making, config.tactics));
+  const slot: PartConfig = wiring.script ? SCRIPT_TACTICS.defaults : config.tactics;
+  const part: TacticsPart = wiring.script ? SCRIPT_TACTICS : parts.of("tactics", slot);
+  const tactics = around(part.make(making, slot));
   let skills: Skills | undefined;
   const driven = driveBy(body, tactics, (made) => {
     const kit = kitSkills(made, clock, parts, config, () => skills?.report.ledger ?? []);
-    return wiring.script ? kit : prepareTacticsSkills(making, config.tactics, kit, () => tactics.decision);
+    return part.prepareSkills?.(making, slot, kit, tactics) ?? kit;
   });
   skills = driven.skills;
   return driven;

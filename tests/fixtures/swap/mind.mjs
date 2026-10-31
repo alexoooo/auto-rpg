@@ -6,7 +6,7 @@
  * entrant's folder is.
  */
 import { COUNTER_PUNCHER } from "../../../src/entrants/classic/presets.ts";
-import { BLADE_FIGHTER } from "../../../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../../../src/core/tactics/config.ts";
 import { STAND_UP } from "../../../src/core/recovery/ground/stand-up.ts";
 import { QUADRUPED } from "../../../src/core/reptile/config.ts";
 import { MOVE } from "../../../src/core/skills/locomotion/move-part.ts";

@@ -18,7 +18,7 @@ import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefus
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
-import { BLADE_FIGHTER } from "../src/core/mind/config.ts";
+import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";

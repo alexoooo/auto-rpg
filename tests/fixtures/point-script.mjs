@@ -1,5 +1,5 @@
 import { standIntent } from "../../src/core/intent/intent.ts";
-import { actionProducer } from "../../src/core/tactics/action-producer.ts";
+import { actionProducer } from "../../src/core/intent/action-producer.ts";
 import { approachActionWindow } from "../../src/core/intent/action-window.ts";
 
 /** A numbered sequence of point commitments, approached through the executor's own window. */

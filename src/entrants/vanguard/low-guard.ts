@@ -119,12 +119,12 @@ export function lowGuard(base: TacticalDecider, spec: BodySpec, orders: (sight: 
 }
 
 /** Close free covering hands in low support, using the active planner's live operational context. */
-export function lowGuardSkills(base: Skills, spec: BodySpec, decision: () => TacticalDecision | undefined): Skills {
+export function lowGuardSkills(base: Skills, spec: BodySpec, decider: Pick<TacticalDecider, "decision">): Skills {
   const hands = freeHands(spec);
   return { ...base, get envelope() { return base.envelope; }, get report() { return base.report; },
     command(view, intent, dt) {
       const command = base.command(view, intent, dt);
-      if (!lowFocus(view, decision()) || intent.lower !== LOWER) return command;
+      if (!lowFocus(view, decider.decision) || intent.lower !== LOWER) return command;
       const handPoses = { ...command.handPoses };
       for (const hand of hands) if (base.report.reservations[`pose:${hand}`] === undefined && intent.guard[hand]) handPoses[hand] = "fist";
       return { ...command, handPoses };

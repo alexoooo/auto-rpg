@@ -24,9 +24,11 @@ reports an `Engagement` (`src/core/mind/engagement.ts`); the seam and the report
 skills, and tactics are one implementation of it above them. The
 boundary test (`tests/core-boundary.test.mjs`) holds the order by folder, or by file where a
 folder spans two layers (`LAYERS`): a module imports its own layer or one below, the registries
-(`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt; today's imports up
-the layers are listed (`UP_STACK`), each with the change that removes it, and the list only
-shrinks.
+(`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. Tactics are a
+package, a layer of their own that from outside it only the minds built on it import
+(`CORE_PACKAGES`: Option Mind, the drill opponent, whose body is a fighter by default, and the
+support-entry task, which boots one). Today's imports up the layers or into the package are
+listed (`UP_STACK`), each with the change that removes it, and the list only shrinks.
 
 | Layer | Where | Job |
 |---|---|---|
@@ -37,10 +39,10 @@ shrinks.
 | Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and kit |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
-| Intent | `src/core/intent/` | what tactics ask of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets |
+| Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Perception | `src/core/perception/` | what a body reads of another: its openings, the threat of its blows, and where to stand by a body down (`downed/`) |
-| Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics (deciders, `TacticalDecider`), planners, behaviours, the fighter; their configs (`tactics/config.ts`) |
+| Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics (deciders, `TacticalDecider`), planners, behaviours, the fighter and its default config (`BLADE_FIGHTER`); their configs (`tactics/config.ts`); a package |
 | Recovery | `src/core/recovery/` | getting up and lying: the ground executor and its techniques (`ground/`), the staged rise (`rise/`), the sub-minds |
 | Minds | `src/core/parts/`, `src/core/toolkit.ts`, `src/core/mind/config.ts`, `kinds.ts`, `minds.ts`, `src/core/option/`, `src/core/reptile/`; `src/entrants/` | a body's mind made from its config by the controller of its kind, found in a catalog; each AI an entrant's presets and parts |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
@@ -536,7 +538,8 @@ fight reads. A fight passes the config through and reads nothing in it.
   quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
   or state; a scene that
   drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
-  controller how (`Controller.scripted`, `takesScript`), whatever its kind; the Lab's Stand-up,
+  controller how (`Controller.scripted`, `takesScript`: the body it builds and the drive under the
+  script, by the mind's own config), whatever its kind; the Lab's Stand-up,
   which asks its body only what orders say, also hosts a mind that takes no script but carries
   them out, made as a fight makes it (`labDrives`, `labActor`). A part names the
   phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`), and whether
@@ -626,7 +629,7 @@ Over the tree:
   every part states its keys (`Part.keys`, `KeysOf`), checked at compile time; a part from plain
   JavaScript that states none is a fault in every tree that holds it, never a crash.
 
-**Presets.** `BLADE_FIGHTER` is shared action tactics over a blade's cut and thrust, striking with
+**Presets.** `BLADE_FIGHTER` (`src/core/tactics/config.ts`) is shared action tactics over a blade's cut and thrust, striking with
 nothing empty-handed or holding a blunt item; the `classic` entrant's `CLASSIC`
 (`src/entrants/classic/presets.ts`) adds `MOVE` and the game's Stand up
 (`STAND_UP`, the toed rise). Puncher (the straight punch as its body's record has it),
@@ -875,9 +878,11 @@ mind's actions (`TacticsPart.actionFaults`) and dependencies on its skills
 (`TacticsPart.kitFaults`), read by the fighter's faults. A planner holding another delegates both
 checks, preserving the child's path. Its optional `TacticsPart.prepareSkills` adapts the shared
 kit once during fighter construction; nested parts compose preparation from the innermost out.
-Preparation receives a live getter for the composed planner's operational context. Adaptive
-policies retain separate decision memories over that one prepared kit. A supplied scenario
-script replaces the configured planner and its preparation.
+Preparation reads the composed planner's operational context live through the seam
+(`Decider.decision`). Adaptive policies retain separate decision memories over that one prepared
+kit. A supplied scenario script takes the fighter's tactics slot as the script tactics
+(`SCRIPT_TACTICS`), whose own part makes it and prepares the kit, so it replaces the configured
+planner and its preparation.
 
 Planner layers read operational facts through the seam's decision (`Decider.decision`, a
 `TacticalDecision` for tactics, `TacticalDecider`): selected focus, evasive

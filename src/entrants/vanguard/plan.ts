@@ -91,9 +91,9 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
     ];
   },
   decisionCapabilities: (config, parts) => parts.of("tactics", config.plan).decisionCapabilities?.(config.plan, parts) ?? [],
-  prepareSkills(making, config, skills, decision) {
-    const prepared = prepareTacticsSkills(making, config.plan, skills, decision);
-    return config.lowGuard ? lowGuardSkills(prepared, making.spec, decision) : prepared;
+  prepareSkills(making, config, skills, decider) {
+    const prepared = prepareTacticsSkills(making, config.plan, skills, decider);
+    return config.lowGuard ? lowGuardSkills(prepared, making.spec, decider) : prepared;
   },
   actionFaults: (config, actions, parts) => parts.of("tactics", config.plan).actionFaults?.(config.plan, actions, parts) ?? [],
   kitFaults: (config, kit, parts) => [

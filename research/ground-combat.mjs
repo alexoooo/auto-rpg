@@ -4,7 +4,7 @@ import {turnAboutToRef,spinBetweenToRef} from '../src/core/math/turn.ts';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
 import { combatContact, combatFingerprint } from './arena-combat.mjs';
-import { BLADE_FIGHTER } from '../src/core/mind/config.ts';
+import { BLADE_FIGHTER } from '../src/core/tactics/config.ts';
 import { PATHS } from '../tests/fixtures/minds.mjs';
 import { COMBAT } from '../tests/fixtures/minds.mjs';
 import { STAND_ORDERS } from '../src/core/intent/orders.ts';
