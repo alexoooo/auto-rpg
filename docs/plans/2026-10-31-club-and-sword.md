@@ -89,9 +89,9 @@ both rates. The owner asked for it now, ahead of Option Mind's design steps (202
 
 Check: the held-out reading; the owner accepts the still rung for each blow.
 
-Built: the club steered, 91 and 92 % of 300 held out at 120 and 480 Hz, 3 fallen at 480
-([held blows](../reference/held-blows.md#the-club-steered)). Left: the falls; the cut and the
-thrust, which steering brings no nearer the bar.
+Built: the club steered, 91 and 92 % of 300 held out at 120 and 480 Hz, but 3 fallen at 480,
+so not yet at the bar ([held blows](../reference/held-blows.md#the-club-steered)). Left: the
+falls; the cut and the thrust, which steering brings no nearer the bar.
 
 ### 4. Priced and up the ladder
 

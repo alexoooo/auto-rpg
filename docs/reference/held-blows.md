@@ -5,7 +5,8 @@ read against the held blow's bar: 64.8 J of the rules' energy, met with the item
 blunt, the cut its edge, the thrust its point), at the mark asked, the striker up
 ([Club and sword](../plans/2026-10-31-club-and-sword.md#the-bar), `BAR.held`,
 `src/evaluation/strike/read.ts`). The club, steered, lands 272 and 277 of 300 held-out trials
-at 120 and 480 Hz (91 and 92 %), 3 fallen at 480 Hz; the cut and the thrust do not reach the bar.
+at 120 and 480 Hz (91 and 92 %), but 3 fell at 480 Hz, and the bar has none fall: it is not yet
+at the bar. The cut and the thrust do not reach it.
 
 ## What is used
 
@@ -91,18 +92,18 @@ and beyond.
 ### The club up the ladder
 
 The Strike drill (`npm run evaluate -- strike option/club-blow@buckler,club`), the steered club at
-4a2354fe; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
+5a8f6a6c; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
 left hand and the high mark are refused):
 
 | Rung | Landed of thrown | Fell | Where it misses |
 | --- | ---: | ---: | --- |
-| still (0) | 11 of 15 | 1 | 0.6 and 0.7 m, nearer than it was trained, and 0.9 m square on |
-| moving (1) | 7 of 17 | 0 | a pad moving away, or at 0.6 m/s |
+| still (0) | 11 of 15 | 0 | 0.7 m, nearer than it was trained, and 1.2 and 1.3 m to the side, weak |
+| moving (1) | 4 of 17 | 0 | weak or elsewhere at every pace and heading |
 | stepping (2) | 0 of 1 | 0 | out of its window at 0.8 and 1.2 m |
 | guarding (3) | 3 of 3 | 0 | |
 | punching (4) | 3 of 3 | 0 | |
-| walk (5) | 10 of 29 | 0 | thrown still walking (2 of 16; settled, 8 of 13) |
-| fight | 0 of 4 | 0 | elsewhere or guarded |
+| walk (5) | 9 of 29 | 0 | thrown still walking (1 of 16; settled, 8 of 13) |
+| fight | 0 of 4 | 1 | fell, guarded, missed |
 
 Trained on (`research/environments/club-ladder.json`: the still rung from 0.6 m and the walk in,
 PPO from the steered club's network), it gained nothing in 0.5 M decisions: nearer than 0.85 m
@@ -110,7 +111,7 @@ the club passes the target (`missed`), and every blow after the walk in misses i
 fell), as at the start.
 
 Its profile (`assets/core/strike-profiles.json`) is read from the still, stepping, guarding,
-punching and letting-go records (`assets/evaluations/strike/2026-10-31-4a2354fe-*.jsonl`), so
+punching and letting-go records (`assets/evaluations/strike/2026-10-31-5a8f6a6c-*.jsonl`), so
 Option Mind prices the club by them.
 
 ### The cut
