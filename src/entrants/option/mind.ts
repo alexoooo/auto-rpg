@@ -21,9 +21,15 @@ const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
 const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "centre", lead: 0 } });
 
-/** As it starts: the toolkit's Option Mind (`OPTION_MIND`) with the straight punch, the stomp and the support fold. */
+/** The held blows, each as its body's record has it (`assets/core/<kind>.json`): the club's, the sword's cut and its thrust. */
+const HELD_BLOWS: readonly ExecutorEntry[] = deepFreeze((["club-blow", "sword-cut", "sword-thrust"] as const).map((kind) => ({ name: kind, kind })));
+
+/** **The held blows**: each with the hand that holds its item, aimed at the trunk's opening as the straight punch is. */
+const HELD_BLOW_ACTIONS: readonly ActionConfig[] = deepFreeze(HELD_BLOWS.map(({ name }) => ({ ...STRAIGHT_PUNCH_ACTION, name, executor: name })));
+
+/** As it starts: the toolkit's Option Mind (`OPTION_MIND`) with the straight punch, the held blows, the stomp and the support fold. */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), support: { kind: "support-fold" },
-  executors: [PUNCH, STOMP], actions: [STRAIGHT_PUNCH_ACTION, STOMP_ACTION] });
+  executors: [PUNCH, ...HELD_BLOWS, STOMP], actions: [STRAIGHT_PUNCH_ACTION, ...HELD_BLOW_ACTIONS, STOMP_ACTION] });
 
 /** Its one config, on the Warrior. */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({

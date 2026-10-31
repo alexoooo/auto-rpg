@@ -16,6 +16,9 @@ import { aimOf, holdsNothing } from "../../core/skills/strikes/held-strike.ts";
 import { effectorAim } from "../../core/control/effectors.ts";
 import { sensedPosture } from "../../core/perception/threat.ts";
 import { acos, cos } from "../../core/math/real.ts";
+import { EXECUTORS } from "../../core/skills/framework/executors.ts";
+import { faceOf } from "../../core/skills/strikes/held-blow.ts";
+import type { Mechanism } from "../../core/rules/rulebook.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";
 import type { HostedBody } from "../../core/body.ts";
@@ -58,12 +61,16 @@ export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.
  * elbow is within `bend` degrees of straight (its range's end) at contact; and the chest is within
  * `lean` degrees of upright then.
  *
- * A blow from a hand holding a blunt item is judged by `held` alone: its `energy`, J, the rules'
- * energy of the blow, at least the untrained adult's blow with a crutch less one SD (Frantz,
- * Sprenger & Jackowski 2026, 75.5 ± 10.7 J, the household implement nearest a club swung one-handed;
- * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)).
- * Its speed and time are reported, not tested: the rod's one-handed speeds have no spread to set a
- * bar by, and the fist's `within` is engineering.
+ * A blow from a hand holding an item is judged by `held` alone: its `energy`, J, the rules' energy
+ * of the blow, at least the untrained adult's blow with a crutch less one SD (Frantz, Sprenger &
+ * Jackowski 2026, 75.5 ± 10.7 J, the household implement nearest a club swung one-handed;
+ * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)),
+ * the sword's blow judged by the club's source, which the energy quoted for a one-handed sword
+ * agrees with ([section 3](../../../docs/reference/human-strike-reference.md#3-one-handed-sword-cut));
+ * and met with what its action strikes with, as the rules read the contact (`ExecutorPart.meets`:
+ * the club blunt, the sword's cut with its edge, its thrust with its point). Its speed and time are
+ * reported, not tested: the rod's one-handed speeds have no spread to set a bar by, and the fist's
+ * `within` is engineering.
  */
 export const BAR = Object.freeze({
   speed: Object.freeze({ right: 6.8, left: 5.3 }),
@@ -76,6 +83,8 @@ type Bar = typeof BAR;
 /** A touch of the striker's on the target: when, by which of its segments on which of the target's, and in the rules' units. */
 export type StrikeContact = {
   readonly time: number; readonly by: string; readonly on: string; readonly closing: number; readonly energy: number; readonly damage: number;
+  /** What it met the target with, as the rules read the contact: the mechanism that priced the target's wound. */
+  readonly mechanism: Mechanism;
   /** The effective mass the striking segment met on its own side, kg. */
   readonly kg: number;
 };
@@ -99,6 +108,8 @@ type StrikeHit = StrikeContact & {
   readonly lined: boolean | null; readonly extended: boolean | null; readonly upright: boolean | null;
   /** Whether a held item's blow carried the bar's energy (`BAR.held`); null for a limb that holds nothing. */
   readonly hard: boolean | null;
+  /** Whether a held item's blow met the target with what its action strikes with (`ExecutorPart.meets`); null for a limb that holds nothing. */
+  readonly faced: boolean | null;
 };
 
 /**
@@ -166,7 +177,7 @@ export type StrikeReading = {
 /** Whether a hit passes every one of the bar's tests it is set (`StrikeHit`). */
 export const meetsBar = (hit: StrikeHit): boolean =>
   hit.fast !== false && hit.heavy !== false && hit.square !== false && hit.soon !== false && hit.lined !== false && hit.extended !== false && hit.upright !== false
-  && hit.hard !== false;
+  && hit.hard !== false && hit.faced !== false;
 
 /**
  * **The hand back at its guard**, as the body reads it: its strike point within `within` m of where
@@ -194,9 +205,13 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const arms = new Set((["left", "right"] as const).flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
-  const spec = left.built.spec, aim = rigidPoints(spec, limb.spec).get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value, point = new Vector3();
+  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3();
   /** Whether the asked hand holds an item, its blow judged by the held item's bar (`BAR.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
+  /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
+  let meets: Mechanism = "blunt";
+  /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */
+  let aim = points.get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value;
   const chest = left.built.segments.get("upperTrunk");
   if (!chest) throw new Error("the striker has no chest to read its limb against");
   /** A hand's arm, what a punch's form is read by: its shoulder, its elbow and the elbow's straight end; null for a foot. */
@@ -289,7 +304,14 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
       // The drill's action: the first with the asked limb at a body that the fight did not ask.
       const action = skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body");
-      if (action && id === null) { id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed(); againstChest(rest); }
+      if (action && id === null) {
+        id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
+        const kind = skills.kit.find((one) => one.action === action.action)?.kind;
+        meets = (kind !== undefined && Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind as keyof typeof EXECUTORS].meets : undefined) ?? "blunt";
+        const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
+        if (face) aim = points.get(face.point)!.value;
+        againstChest(rest);
+      }
       if (action && action.id === id) {
         if (action.phase === "commit" && times.committed === null) times.committed = world.time;
         if (action.phase === "release" && times.released === null) times.released = world.time;
@@ -340,7 +362,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         const k = blow.sides.findIndex((side) => side.fighter === "left"), by = blow.sides[k], on = blow.sides[1 - k];
         if (!by || !on || on.fighter !== "right" || on.item !== null) return [];
         const sign = k === 0 ? 1 : -1, normal = [blow.normal[0] * sign, blow.normal[1] * sign, blow.normal[2] * sign] as const;
-        return [{ contact: { time: blow.time, by: by.segment, on: on.segment, closing: blow.closing, energy: blow.energy, damage: on.damage, kg: by.kg }, normal }];
+        return [{ contact: { time: blow.time, by: by.segment, on: on.segment, closing: blow.closing, energy: blow.energy, damage: on.damage, kg: by.kg,
+          mechanism: on.mechanism ?? "blunt" }, normal }];
       });
       const live = (time: number) => times.began !== null && time >= times.began && time <= (times.ended ?? world.time);
       const byLimb = touches.filter(({ contact }) => contact.by === effector && live(contact.time));
@@ -348,16 +371,17 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         const travel = approach(contact.time), at = stepBefore(contact.time);
         const straight = travel && travel.direction[0] * normal[0] + travel.direction[1] * normal[1] + travel.direction[2] * normal[2];
         if (hand === null) return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null,
-          fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null };
+          fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: null };
         const ax = path[at + 1]! - path[at + 4]!, ay = path[at + 2]! - path[at + 5]!, az = path[at + 3]! - path[at + 6]!, arm = Math.sqrt(ax * ax + ay * ay + az * az) || 1;
         const along = travel && (travel.direction[0] * ax + travel.direction[1] * ay + travel.direction[2] * az) / arm;
         const bent = at < 0 ? Math.PI : path[at + 7]!, leaning = at < 0 ? Math.PI : path[at + 8]!;
         if (armed) return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning,
-          fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: contact.energy >= bar.held.energy };
+          fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: contact.energy >= bar.held.energy,
+          faced: contact.mechanism === meets };
         return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning,
           fast: travel !== null && travel.speed >= bar.speed[hand], heavy: contact.kg >= bar.mass[hand], square: straight !== null && straight >= coneCosine,
           soon: times.began !== null && contact.time - times.began <= bar.within,
-          lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null };
+          lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null };
       });
       const fastest = hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const hit = hand === null ? fastest : hits.find(meetsBar) ?? fastest;

@@ -8,6 +8,7 @@ import type { PartField } from "../../parts/fields.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { Aimed } from "../../intent/action-aim.ts";
 import type { Aim, AimedBlow } from "./aim-part.ts";
+import type { Mechanism } from "../../rules/rulebook.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 interface ActionEstimate {
@@ -59,6 +60,8 @@ export interface ExecutorPart<C extends NamedConfig = NamedConfig, A extends Act
   readonly actionFields?: readonly PartField<A>[];
   /** What an action of it holds of its own, the action's settings: an action of it that holds one fresh starts from them. */
   readonly actionDefaults?: Partial<A>;
+  /** What its blow meets a target with, as the rules read the contact (`Mechanism`): blunt where it says none. A drill reads a held item's blow against it. */
+  readonly meets?: Mechanism;
   /** Whether it strikes with `effector` of `spec`, as it holds what it holds; with each of its `effectors` unless it says. A mind reads it to throw only the blows its body can (`armedActions`). */
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
   /** What is wrong with the settings of its own `action` holds, each a sentence. */

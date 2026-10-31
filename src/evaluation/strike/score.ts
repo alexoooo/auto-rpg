@@ -11,8 +11,9 @@ import { BAR, type Hand, type StrikeReading } from "./read.ts";
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin, the mass counted `heavier` times within those 8 (8 for another limb's on the mark),
  * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A held item's blow,
- * which the bar tests by its energy alone (`BAR.held`), scores alike: landed, 9 and up to 1 more
- * as its energy goes from the bar to twice it; else up to 8 by its share of the bar.
+ * which the bar tests by its energy and its face (`BAR.held`, `StrikeHit.faced`), scores alike:
+ * landed, 9 and up to 1 more as its energy goes from the bar to twice it; else up to 8, half by its
+ * share of the bar's energy and half for meeting with its face.
  */
 export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1): number {
   if (reading.down) return -3;
@@ -21,7 +22,7 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
   if (hand === null) return reading.outcome === "landed" ? 9 : 8 - (reading.ended === null ? 0.5 : 0);
   if (typeof hit.hard === "boolean") {
     const share = hit.energy / BAR.held.energy;
-    return reading.outcome === "landed" ? 9 + Math.min(1, share - 1) : 8 * Math.min(1, share) - (reading.ended === null ? 0.5 : 0);
+    return reading.outcome === "landed" ? 9 + Math.min(1, share - 1) : 4 * (Math.min(1, share) + (hit.faced === false ? 0 : 1)) - (reading.ended === null ? 0.5 : 0);
   }
   const speed = (hit.speed ?? 0) / BAR.speed[hand], mass = hit.kg / BAR.mass[hand];
   const cone = Math.cos(BAR.cone * Math.PI / 180), wide = Math.cos(2 * BAR.cone * Math.PI / 180), unit = (v: number) => Math.max(0, Math.min(1, v));

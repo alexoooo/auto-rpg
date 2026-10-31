@@ -3,6 +3,7 @@ import { KICK_PART } from "../strikes/kick-part.ts";
 import { STOMP_PART } from "../strikes/stomp-part.ts";
 import { PUNCH_PART } from "../strikes/punch-part.ts";
 import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../strikes/blade-part.ts";
+import { CLUB_BLOW_PART, SWORD_CUT_PART, SWORD_THRUST_PART } from "../strikes/held-blow.ts";
 
 /**
  * **Every executor, by its kind** (`ExecutorPart`), in the order a picker offers them: what a
@@ -11,4 +12,5 @@ import { BLADE_CUT_PART, BLADE_THRUST_PART } from "../strikes/blade-part.ts";
  * begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
 export const EXECUTORS = { "path-strike": PATH_PART, "front-kick": KICK_PART, "stomp": STOMP_PART,
-  "straight-punch": PUNCH_PART, "blade-cut": BLADE_CUT_PART, "blade-thrust": BLADE_THRUST_PART };
+  "straight-punch": PUNCH_PART, "blade-cut": BLADE_CUT_PART, "blade-thrust": BLADE_THRUST_PART,
+  "club-blow": CLUB_BLOW_PART, "sword-cut": SWORD_CUT_PART, "sword-thrust": SWORD_THRUST_PART };

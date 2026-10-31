@@ -71,7 +71,7 @@ const REACHED = .05;
 
 /** The bar's tests a hit failed, in words (`meetsBar`). */
 const failedTests = (hit: NonNullable<StrikeReading["hit"]>): string[] => ([["fast", "slow"], ["heavy", "light"], ["square", "glancing"], ["soon", "late"],
-  ["lined", "across the arm"], ["extended", "the elbow bent"], ["upright", "leaning"], ["hard", "too little energy"]] as const)
+  ["lined", "across the arm"], ["extended", "the elbow bent"], ["upright", "leaning"], ["hard", "too little energy"], ["faced", "not met with what it strikes with"]] as const)
   .filter(([test]) => hit[test] === false).map(([, words]) => words);
 
 /**

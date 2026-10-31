@@ -44,6 +44,7 @@ const common = <K extends "blade-cut" | "blade-thrust">(kind: K, label: string, 
 
 /** An edge-point trajectory turns its named physical edge into the contact direction. */
 export const BLADE_CUT_PART: ExecutorPart<Cut> = { ...common("blade-cut", "Blade cut", deepFreeze(cutMeta.bodies)), defaults: { kind: "blade-cut", name: "cut" },
+  meets: "edge",
   fields: [text("name", "Name")],
   strikesWith: (spec, _config, effector) => strikesWithBlade(spec, effector, "edge"),
   make: ({ body, guard, aim }, config, actions) => bladeExecutor(body, guard, actions.map(action => action.name), "edge",
@@ -52,6 +53,7 @@ export const BLADE_CUT_PART: ExecutorPart<Cut> = { ...common("blade-cut", "Blade
 
 /** A tip-point trajectory aligns its actual physical point before committing the thrust. */
 export const BLADE_THRUST_PART: ExecutorPart<Thrust> = { ...common("blade-thrust", "Blade thrust", deepFreeze(thrustMeta.bodies)), defaults: { kind: "blade-thrust", name: "thrust" },
+  meets: "point",
   fields: [text("name", "Name")],
   strikesWith: (spec, _config, effector) => strikesWithBlade(spec, effector, "point"),
   make: ({ body, guard, aim }, config, actions) => bladeExecutor(body, guard, actions.map(action => action.name), "point",

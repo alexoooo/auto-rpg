@@ -44,20 +44,23 @@ type PunchOutput =
   | { readonly term: "walk" };
 
 /**
- * **A learned punch's layout** (`assets/core/learned-punch.layout.json`): its inputs by name, each a
- * reading (`READINGS`) or `angle <channel>` and `speed <channel>`, rad and rad/s, for the right
- * hand's punch; the leg its distances' full scales are for, m (`legOf`); and its outputs.
+ * **A learned punch's layout** (`assets/core/learned-punch.layout.json`; a held blow's,
+ * `assets/core/<kind>.layout.json`): its inputs by name, each a reading (`READINGS`) or
+ * `angle <channel>` and `speed <channel>`, rad and rad/s, for the right hand's blow; the leg its
+ * distances' full scales are for, m (`legOf`); and its outputs. A held blow reads its striking
+ * point where the punch reads its fist (`punchFeatures`).
  */
-interface PunchLayout {
+export interface PunchLayout {
   readonly inputs: readonly string[];
   readonly leg: number;
   readonly outputs: readonly PunchOutput[];
 }
 
 /** The learned punch's layout, its names checked as it loads. */
-export const PUNCH_LAYOUT: PunchLayout = deepFreeze(checked(layoutFile as PunchLayout));
+export const PUNCH_LAYOUT: PunchLayout = deepFreeze(checkedLayout(layoutFile as PunchLayout));
 
-function checked(layout: PunchLayout): PunchLayout {
+/** `layout`, its names checked: an input it cannot read or an output it cannot steer is refused. */
+export function checkedLayout(layout: PunchLayout): PunchLayout {
   for (const name of layout.inputs) {
     if (!READINGS.includes(name) && !/^(angle|speed) \S/.test(name)) throw new Error(`the learned punch reads no ${name}`);
   }
@@ -72,15 +75,15 @@ function checked(layout: PunchLayout): PunchLayout {
 export const PUNCH_ACTIONS = PUNCH_LAYOUT.outputs.length;
 
 /**
- * `hand`'s punch as its layout lays it out for a body whose leg is `leg` m (`legOf`): the left
+ * `hand`'s punch as `layout` lays it out for a body whose leg is `leg` m (`legOf`): the left
  * hand's is the right's with the sides swapped and a turn of the trunk reversed, so one steer
  * serves both.
  */
-export function punchChannels(hand: Side, leg: number): PunchChannels {
+export function punchChannels(hand: Side, leg: number, layout: PunchLayout = PUNCH_LAYOUT): PunchChannels {
   const swap = (name: string) => hand === "right" ? name : name.replace(/\.(left|right) /, (_, side: string) => `.${side === "left" ? "right" : "left"} `);
   const sense = (name: string) => hand === "left" && / rotation right$/.test(name) && !name.includes(".") ? -1 : 1;
   const channelOf = (name: string) => /^(angle|speed) /.test(name) ? name.slice(6) : null;
-  const inputs = PUNCH_LAYOUT.inputs, outputs = PUNCH_LAYOUT.outputs, scale = leg / PUNCH_LAYOUT.leg;
+  const inputs = layout.inputs, outputs = layout.outputs, scale = leg / layout.leg;
   return {
     readings: inputs.map((name) => READINGS.indexOf(name)),
     inputs: inputs.map((name) => { const c = channelOf(name); return c === null ? null : swap(c); }),
@@ -132,18 +135,20 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  * **What a steered punch reads**, into `out`, as `channels` lay its inputs out: the readings
  * (`READINGS`), the hand's side mirrored away (across negated for the left hand), and each named
  * channel's angle or speed, rad or rad/s, in its sense. `fromShoulder` is the target less the
- * shoulder, body frame; `channels` are `hand`'s (`punchChannels`).
+ * shoulder, body frame; `channels` are `hand`'s (`punchChannels`). `strike`, world, is where the
+ * blow's striking point is, the fist's where null: a held blow's is its face's (`StrikingFace`);
+ * the velocity read is the fist's either way.
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
-  aimed: readonly number[], touching: boolean, arm: number, out: number[]): number[] {
-  const side = hand === "right" ? 1 : -1, fist = view.fists[hand]!, muscles = body.muscles;
+  aimed: readonly number[], touching: boolean, arm: number, out: number[], strike: Vector3 | null = null): number[] {
+  const side = hand === "right" ? 1 : -1, fist = view.fists[hand]!, muscles = body.muscles, at = strike ?? fist.position;
   let k = 0;
   read[k++] = since;
   read[k++] = fromShoulder.x * side; read[k++] = fromShoulder.y; read[k++] = fromShoulder.z;
-  framed(view, fist.position.x, fist.position.y, fist.position.z, point);
+  framed(view, at.x, at.y, at.z, point);
   framed(view, target[0]!, target[1]!, target[2]!, moved);
   read[k++] = (point.x - moved.x) * side; read[k++] = point.y - moved.y; read[k++] = point.z - moved.z;
-  framed(view, fist.position.x + fist.velocity.x, fist.position.y + fist.velocity.y, fist.position.z + fist.velocity.z, moved);
+  framed(view, at.x + fist.velocity.x, at.y + fist.velocity.y, at.z + fist.velocity.z, moved);
   read[k++] = (moved.x - point.x) * side; read[k++] = moved.y - point.y; read[k++] = moved.z - point.z;
   const c = view.stance.centre, v = view.stance.velocity;
   framed(view, c.x, c.y, c.z, point);
