@@ -23,10 +23,11 @@ const LIES = new Set(["back", "front", "left", "right"]);
 /** One target fall, probed each step; the record's own reading alongside. */
 async function targetFall(job) {
   const { risingTrial } = await import("../src/evaluation/rising.ts");
+  const { commandsBody } = await import("../src/core/body.ts");
   const probe = { takeover: null, landed: null, slow: null, lie: null };
   const r = await risingTrial(job, { stop(world, _built, actor) {
     const body = actor.body, g = body.view.ground;
-    if (probe.takeover === null && body.has !== "command" && body.has !== "nobody") probe.takeover = world.time;
+    if (probe.takeover === null && !commandsBody(body) && body.has !== "nobody") probe.takeover = world.time;
     if (probe.takeover === null || !g) return false;
     if (probe.landed === null && LIES.has(g.raw)) probe.landed = world.time - probe.takeover;
     if (probe.slow === null && g.velocity.lengthSquared() <= .25 && g.spin <= 1) { probe.slow = world.time - probe.takeover; probe.lie = g.lie; }
@@ -47,10 +48,10 @@ async function targetFall(job) {
 /** The stance alone from the placed squat, to verified standing and 2 s held. */
 async function squatStance({ model, held, seed }) {
   await import("../tests/harness/preload-data.mjs");
-  const [{ NullEngine }, { Scene }, { default: poses }, { createBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
+  const [{ NullEngine }, { Scene }, { default: poses }, { commandedBody }, { buildBody }, { loadEngine }, { humanSpec, humanoidSpec }, { armedWith },
     { guardPosture }, { createWorld }, { groundPlacement }, { recoveryMeasurement }, { observeBody }, { clockSenses }, { STAND_CHECK }] = await Promise.all([
     import("@babylonjs/core/Engines/nullEngine.js"), import("@babylonjs/core/scene.js"), import("../assets/research/posture-holds.json", { with: { type: "json" } }),
-    import("../src/core/body.ts"), import("../src/core/build/build-body.ts"), import("../src/core/engine/engines.ts"), import("../src/core/human/spec.ts"),
+    import("../src/core/mind/host.ts"), import("../src/core/build/build-body.ts"), import("../src/core/engine/engines.ts"), import("../src/core/human/spec.ts"),
     import("../src/core/items/held.ts"), import("../src/core/skills/guard/guard.ts"), import("../src/core/world.ts"), import("../src/lab/ground-starts.ts"),
     import("../src/core/control/recovery-measurement.ts"), import("../src/core/observation.ts"), import("../src/core/mind/senses.ts"), import("../src/lab/ground-mode.ts")]);
   const spec = armedWith(humanoidSpec(model), "right", held), reference = humanSpec("workshop-fighter");
@@ -61,7 +62,7 @@ async function squatStance({ model, held, seed }) {
   if ("refused" in placement) return { reading: "squat", model, held, seed, refused: placement.refused };
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
-  const built = buildBody(spec, world, placement), body = createBody(built, world, { servoSeconds: .1, subs: [] });
+  const built = buildBody(spec, world, placement), body = commandedBody(built, world, { servoSeconds: .1, subs: [] });
   body.drive(view => ({ posture: guardPosture(spec), pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 } }));
   const measure = recoveryMeasurement(built, observeBody(built, body.muscles, world, clockSenses(world), { contactPatches: true }));
   let height = null, climbed = null, quiet = 0, verified = null, fell = false;

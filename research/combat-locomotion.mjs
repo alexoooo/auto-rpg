@@ -1,6 +1,7 @@
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
-import {createBody, SERVO_SECONDS} from '../src/core/body.ts';
+import {SERVO_SECONDS} from '../src/core/body.ts';
+import {commandedBody} from '../src/core/mind/host.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {locomotion,STANCE_LOWER,stanceOf} from '../src/core/skills/locomotion/locomotion.ts';
 import {GUARD} from '../src/core/skills/guard/guard.ts';
@@ -12,7 +13,7 @@ export async function combatTurn({speed,rate,sense,after,turnLimit,turnStartup,m
   throw new Error('turn trial needs positive speed/rate, a sense and nonnegative walking delay');
  const legs=locomotion(null,turnLimit,turnStartup),assist=balanceCeiling(balance,balancePercent(rulebook('arena')));
  const stand=await coreStand(modelSpec(model),{engine,hz});
- const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,measuring:true,assist});
+ const body=commandedBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,measuring:true,assist});
  let heading=0,turned=0,reference=null,minimum=Infinity,firstDown=null,maximumTurn=0,askedHeading=0;
  body.drive((view,dt)=>{
   if(view.time>=1+after&&turned<Math.PI){const d=Math.min(rate*dt,Math.PI-turned);turned+=d;heading+=sense*d;}

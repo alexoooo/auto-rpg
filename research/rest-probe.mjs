@@ -28,7 +28,8 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -120,7 +121,7 @@ world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
 const count = Number(values.bodies), side = Math.ceil(Math.sqrt(count));
 const bodies = Array.from({ length: count }, (_, i) => {
   const built = buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] });
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS });
   driveBy(body, { name: "stand", decide: () => standIntent(0) });
   return { built, body };
 });

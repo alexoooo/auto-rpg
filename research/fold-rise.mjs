@@ -14,7 +14,8 @@ import { parseArgs } from "node:util";
 import "../tests/harness/preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanoidSpec } from "../src/core/human/spec.ts";
@@ -46,7 +47,7 @@ export async function foldRise({ model = "workshop-fighter", held = "empty", dep
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const start = STAND + FOLDING + HOLD;
   let control = null;
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), steadying = core ? gameSteady(own, view, clock, kit) : crouchSteady(own, view, variant);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the fold");
     const clamp = (name, v) => { const d = own.muscles.channels.find(c => c.name === name).dof.spec; return Math.max(d.min.value, Math.min(d.max.value, v)); };

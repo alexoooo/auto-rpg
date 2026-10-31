@@ -3,7 +3,8 @@ import { Session } from "node:inspector/promises";
 import { fileURLToPath } from "node:url";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../../src/core/body.ts";
+import { SERVO_SECONDS } from "../../src/core/body.ts";
+import { commandedBody } from "../../src/core/mind/host.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
 import { armed } from "../../src/core/human/grip.ts";
 import { modelSpec } from "../../src/core/models.ts";
@@ -28,7 +29,7 @@ export async function standBodies(count, model = "crypt-skeleton", { only } = {}
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
   const bodies = Array.from({ length: count }, (_, i) => i).filter((i) => only === undefined || i === only).map((i) => {
-    const body = createBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
+    const body = commandedBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
     driveBy(body, { name: "stand", decide: () => standIntent(0) });
     return body;
   });
@@ -41,7 +42,7 @@ export async function downBody() {
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, subs: [lying] });
+  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS, subs: [lying] });
   return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 

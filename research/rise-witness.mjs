@@ -44,7 +44,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
-import { createBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
@@ -270,7 +270,7 @@ export async function witnessTrial({ move, model = "workshop-fighter", held = "e
   const built = buildBody(spec, world, placed);
   const reader = groundReading(built, world.dt);
   const control = { active: true, time: 0, phase: -1, steady: false, ready: 0, from: null };
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
     const drive = poseDrive(own.muscles), bearing = bearer(own, view), steadying = crouchSteady(own, view, steady);
     control.steadying = steadying.control;
     return { name: `witness:${move}`, state: { control, bearing: bearing.state, steady: steadying.state }, wants: () => control.active, begin() {}, end() {},

@@ -16,7 +16,8 @@
  * and held there by the combat skills for `SETTLE` s at the rate asked.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { contactGive, contactMass } from "../src/core/build/contact-mass.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { DEFAULT_ENGINE } from "../src/core/engine/engines.ts";
@@ -40,7 +41,7 @@ const SETTLE = 1;
  */
 export async function referenceHead({ model = "workshop-fighter", physique, part = "head", hz = 120 } = {}) {
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
-  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body);
+  const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body);
   body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt));
   try {
     for (let i = 0; i < Math.round(SETTLE * hz); i++) s.world.step();

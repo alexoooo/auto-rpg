@@ -17,7 +17,8 @@ import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../../../src/core/body.ts";
+import { SERVO_SECONDS } from "../../../src/core/body.ts";
+import { commandedBody } from "../../../src/core/mind/host.ts";
 import { buildBody } from "../../../src/core/build/build-body.ts";
 import { loadEngine } from "../../../src/core/engine/engines.ts";
 import { armedWith } from "../../../src/core/items/held.ts";
@@ -55,7 +56,7 @@ export async function push2Trial({ variant = "dorsi0.8", held = "empty", seed, p
   const hold = { kind: "bear", posture: squat.angles, duration: 100, response: .3, pitch: squat.pitch, toward: 0, height: squat.height / .98, along: 0, up: 0, shin: 0, hand: 0, foot: .5 };
   const c = { phase: plan.length ? "push" : "hold", pushEnd: null, holdAt: null, q: 0, climbAt: null, handBack: null, failed: null };
   let reader = null;
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     let run = null, holding = null, stand = null;
     return { name: "push2", state: { c }, wants: () => c.phase !== "host" && c.phase !== "failed", begin() {}, end() {},

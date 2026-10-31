@@ -30,7 +30,7 @@ const { createMind } = await import("../src/core/mind/minds.ts");
 const { STAND_ORDERS } = await import("../src/core/intent/orders.ts");
 const { entrantSubjects } = await import("../src/evaluation/tournament/entrants.ts");
 const { MINDS } = await import("../src/entrants/game.ts");
-const { createBody } = await import("../src/core/body.ts");
+const { commandedBody } = await import("../src/core/mind/host.ts");
 const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/entrants/game.ts");
 const { BLADE_FIGHTER, FIGHTING } = await import("../src/core/tactics/config.ts");
@@ -280,7 +280,7 @@ test("a body without the command layer refuses a mind for what the layer lacks, 
   assert.ok(legs.length > 0, "the fixture offers legs to refuse");
   for (const { kind, reason } of legs) assert.equal(reason, "needs a left and a right foot, each with a box sole", kind);
   const stand = await coreStand(reptile);
-  assert.throws(() => createBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
+  assert.throws(() => commandedBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
 });
 
 test("a Commander registered from outside src/ is listed, leads a team of one and is a Crypt subject", async () => {

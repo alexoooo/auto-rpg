@@ -36,7 +36,8 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { rigidPoints } from "../src/core/build/rigid.ts";
 import { contactMass } from "../src/core/build/contact-mass.ts";
 import { motionAtToRef, pointOfToRef } from "../src/core/read-motion.ts";
@@ -135,7 +136,7 @@ export async function ceilingTrial(x, { model, physique, hand, cell, deadline, c
   const schedule = channels.map((channel, i) => ({ channel, level: x[3 * i], from: x[3 * i + 1], to: x[3 * i + 1] + Math.max(0, x[3 * i + 2]) }))
     .filter((p) => Math.abs(p.level) > 0.05);
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
-  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body);
+  const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body);
   body.drive((view, dt) => {
     const command = skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt), t = view.time - ORDERED;
     const live = schedule.filter((p) => t >= p.from && t < p.to).map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));

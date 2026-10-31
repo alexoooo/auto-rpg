@@ -8,7 +8,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { armed } from "../src/core/human/grip.ts";
@@ -149,7 +150,7 @@ export async function toppled(shove, subs) {
         for (let i = 0; i < own.muscles.velocity.length; i++) own.muscles.velocity[i] = Math.max(-3, Math.min(3, -own.muscles.angle(i) / 0.2));
       },
     });
-    return createBody(made, into, { servoSeconds: SERVO_SECONDS, subs: [stiff, ...subs] });
+    return commandedBody(made, into, { servoSeconds: SERVO_SECONDS, subs: [stiff, ...subs] });
   });
   while (fall.world.steps < until(fall.world)) fall.world.step();
   return fall;

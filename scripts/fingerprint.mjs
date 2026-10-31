@@ -38,7 +38,8 @@ import "@babylonjs/loaders/glTF/index.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
 import { controlCharacter, controlsFor, readControls, readMinds } from "../src/arena/matchup.ts";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS, commandsBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
@@ -110,7 +111,7 @@ function downMeter(body, hz) {
   return {
     take() {
       if (body.down) down++;
-      if (body.has !== "command") { const name = body.has.replace(/(\.[\w-]+|: \d+)$/, ""); had.set(name, (had.get(name) ?? 0) + 1); }
+      if (!commandsBody(body)) { const name = body.has.replace(/(\.[\w-]+|: \d+)$/, ""); had.set(name, (had.get(name) ?? 0) + 1); }
     },
     reading: () => [`down ${(down / hz).toFixed(2)} s`, ...[...had].map(([name, steps]) => `${name} ${(steps / hz).toFixed(2)} s`)].join(", "),
   };
@@ -153,7 +154,7 @@ async function arena(recipe, { watch } = {}) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? hostedMind(GAME, stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring, QUADRUPED)).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? hostedMind(GAME, stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring, QUADRUPED)).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const trace = traceOf([stand.built]);

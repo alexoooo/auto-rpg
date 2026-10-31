@@ -5,7 +5,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { buildBody } from "../../../src/core/build/build-body.ts";
-import { createBody } from "../../../src/core/body.ts";
+import { commandedBody } from "../../../src/core/mind/host.ts";
 import { loadEngine } from "../../../src/core/engine/engines.ts";
 import { createWorld } from "../../../src/core/world.ts";
 import { armedWith } from "../../../src/core/items/held.ts";
@@ -33,5 +33,5 @@ function report(label, built) {
 { const spec = armedWith(humanoidSpec("workshop-fighter"), "right", "empty"); const b = buildBody(spec, world, placement("push-off-bear", spec, 1)); report("game's fours (placed)", b); }
 // The statics' hands and toes, start 4, on the 0.8 rad ankle.
 { const start = JSON.parse(readFileSync("./toes-dorsi0.8.json", "utf8")).find((m) => m.seed === 4).rec;
-  const spec = variantSpec("workshop-fighter", "dorsi0.8"), b = buildBody(spec, world, { position: [-3, 0, 0] }); const body = createBody(b, world, {});
+  const spec = variantSpec("workshop-fighter", "dorsi0.8"), b = buildBody(spec, world, { position: [-3, 0, 0] }); const body = commandedBody(b, world, {});
   body.setLevel("held"); const st = await staticBody(cappedSpec(spec)); posed(st, start.posture); placeLike(st, b, .002); st.dispose(); report("statics hands and toes #4", b); }

@@ -19,6 +19,7 @@ import type { BodySpec } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { controller, NO_POSTURE, type Controller, type MindPreset } from "../../core/mind/controller.ts";
 import type { BodyAction } from "../../core/mind/body-actions.ts";
+import { policyMind } from "../../core/mind/direct.ts";
 import type { MindWiring } from "../../core/mind/minds.ts";
 import { NOTHING_SENSED } from "../../core/mind/senses.ts";
 import { learnerOf, type Learner } from "../../core/learning/learner.ts";
@@ -122,7 +123,7 @@ export const BARE_MIND: Controller = controller<BareConfig>({
     let root = -1;
     const decide = config.network ? recoveryNetwork(config.network) : null, senses = wiring.senses ?? (() => NOTHING_SENSED);
     const state: BareState = { steps: 0, learner: learnerOf(layout.outputs.length, true) };
-    host.policy((model) => {
+    host.take((own) => policyMind(own, (model) => {
       if (model.channels.map((channel) => channel.name).join("\n") !== channelsOf(host.spec).join("\n")) throw new Error("the bare layout's channels are not the body's");
       return { name: "bare", state, step(observation) {
         const { learner } = state, action = actionOf(learner.outputs);
@@ -135,7 +136,7 @@ export const BARE_MIND: Controller = controller<BareConfig>({
         state.steps++;
         return action;
       } };
-    });
+    }, host.clock));
     return { state };
   },
 });

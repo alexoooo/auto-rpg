@@ -1,4 +1,4 @@
-import type { HostedBody } from "../core/body.ts";
+import { commandsBody, type HostedBody } from "../core/body.ts";
 import type { World } from "../core/world.ts";
 import type { GroundTechniqueState } from "./ground-technique.ts";
 import type { TechniqueEnd } from "../core/recovery/ground/technique.ts";
@@ -42,7 +42,7 @@ export function groundMeter(body: HostedBody, world: World, balance: number) {
     forceImpulse: 0, momentImpulse: 0, forcePeak: 0, momentPeak: 0,
   };
   const sample = () => {
-    const time = body.view.time, ground = body.view.ground, active = body.has !== "command" && body.has !== "nobody";
+    const time = body.view.time, ground = body.view.ground, active = !commandsBody(body) && body.has !== "nobody";
     if (body.view.down && (state.from === null || state.handback !== null)) {
       state.from = time; state.takeover = null; state.handback = null; state.falls++;
     }

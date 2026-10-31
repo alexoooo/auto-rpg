@@ -31,7 +31,7 @@ node research/core-posture.mjs --workers 22
   solvers: the **reference** (480 Hz, 256 iterations of 4 PGS passes) and the **game's** (120 Hz,
   the core's 16 of 2, `SOLVER` in `src/core/engine/rapier.ts`).
 - **C, the handover.** The game's solver; the body put in a row's posture, then given to the game's
-  stance (`createBody`, `body.drive`, a stance goal on both feet at standing height) for 6 s.
+  stance (`commandedBody`, `body.drive`, a stance goal on both feet at standing height) for 6 s.
 
 The evidence is one-sided: a held row is a witness, checkable alone; a row not held is **none
 found**, which is not none.

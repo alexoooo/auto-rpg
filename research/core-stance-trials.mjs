@@ -3,7 +3,7 @@
  * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
@@ -36,7 +36,7 @@ async function body(model, stance, hz, held = null, actuation, physique, { balan
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null && balance === null ? undefined : balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
+  const built = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: !envelope, assist });
   return { stand, body: built, guard: guardPosture(spec), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 

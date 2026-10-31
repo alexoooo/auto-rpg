@@ -19,7 +19,8 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../src/arena/room.ts";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { bodyDynamics } from "../src/core/build/dynamics.ts";
 import { jointAngles, ratesToRef } from "../src/core/build/joint-state.ts";
@@ -1475,7 +1476,7 @@ export async function least({ row, posture, variant = "built", drive = "side", s
 }
 
 /**
- * **The handover**: the body as the game makes it (`createBody`) put in `posture` while it is
+ * **The handover**: the body as the game makes it (`commandedBody`) put in `posture` while it is
  * `held`, then at `full` and asked what a standing body is asked: the stance on both feet, its
  * centre of mass `STANCE_LOWER` under the height it stands at as built, facing as built, the rest
  * at the reference pose. Stood: up `UP_SECONDS` running within `HANDED_SECONDS` (`risenAt`), which a
@@ -1488,7 +1489,7 @@ export async function handed({ row, posture, seconds = HANDED_SECONDS, lift = LI
   const height = standingHeight(body) - STANCE_LOWER;
   const stance = Object.freeze({ feet: Object.freeze(["left", "right"]), centre: null, height, heading: 0 });
   const command = Object.freeze({ posture: Object.freeze({}), pushes: Object.freeze([]), stance });
-  const stand = await placed(posture, { lift, solver, make: (built, world) => createBody(built, world, { servoSeconds: SERVO_SECONDS }) });
+  const stand = await placed(posture, { lift, solver, make: (built, world) => commandedBody(built, world, { servoSeconds: SERVO_SECONDS }) });
   try {
     stand.driving.drive(() => command);
     const downs = [];

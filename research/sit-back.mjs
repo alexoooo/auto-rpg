@@ -16,7 +16,7 @@ import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanoidSpec } from "../src/core/human/spec.ts";
@@ -45,7 +45,7 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const run = TECHNIQUES[technique].make(own, view, clock, kitOf(partLookup, own.spec, PUNCHER));
     let reader = null, begun = false;
     return { name: technique, state: { trial }, wants: () => trial.end === null, begin() {}, end() {},

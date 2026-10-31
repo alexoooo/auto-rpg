@@ -10,7 +10,7 @@ import type { Legs } from "../skills/framework/locomotion-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { OwnBody } from "./mind.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { SubMind } from "./sub-mind.ts";
+import type { SubMind, SubMindMaker } from "./sub-mind.ts";
 import { lowering } from "../recovery/rise/lowering.ts";
 
 /** The game's guard: what a rig that plays a technique or a sub-mind without a mind of its own holds (`kitOf`). */
@@ -64,12 +64,6 @@ export function kitOf(parts: PartLookup, spec: BodySpec, mind: KitParts): MindKi
   const guard = parts.of("guard", mind.guard);
   return { motor: motorOf(parts, mind.motor), posture: guard.posture(spec, mind.guard), guard: (built) => guard.make(built, mind.guard), parts };
 }
-
-/**
- * What makes a sub-mind for a body: its own body, its host's view of it, read each step before the
- * sub-mind is asked anything, and the world the body is in.
- */
-export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
 
 /** The sub-mind `config` names, as `parts` finds it, made with `kit`. */
 function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock, afterPhysics?: Body["afterPhysics"]): SubMind {

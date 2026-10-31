@@ -16,6 +16,7 @@ import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../parts/parts.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
 import { driveBy } from "../mind/decider.ts";
+import { commandedMind } from "../mind/sub-mind.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
 import { OPTIONS } from "./kinds.ts";
@@ -75,7 +76,7 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
-  const body = host.command(kitBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
+  const { body } = host.take((own) => commandedMind(own, kitBody(config, parts), host.clock));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills | undefined;

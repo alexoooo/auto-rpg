@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import '../tests/harness/preload-data.mjs';
 import { buildBout } from '../src/evaluation/bout.ts';
+import { commandsBody } from '../src/core/body.ts';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
 import { MINDS } from "../src/entrants/game.ts";
 import { motionAtToRef, pointOfToRef } from '../src/core/read-motion.ts';
@@ -113,7 +114,7 @@ export async function combatTrial(config) {
         if (!d.body.down && out.wasDown) out.recoveries++;
         out.wasDown = d.body.down;
         if (d.body.down) out.downSeconds += world.dt;
-        const phase = d.body.has === 'command' ? engagement?.phase ?? report?.actions[0]?.phase ?? 'guard' : d.body.has;
+        const phase = commandsBody(d.body) ? engagement?.phase ?? report?.actions[0]?.phase ?? 'guard' : d.body.has;
         const committed = report?.actions.find(action => action.phase === 'commit');
         if (committed && out.lastPhase !== committed.id) {
           out.pathLaunches[committed.action] = (out.pathLaunches[committed.action] ?? 0) + 1;

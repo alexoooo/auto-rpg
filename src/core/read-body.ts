@@ -1,6 +1,7 @@
 import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { ColliderShape, Contact, ContactManifold, MassProperties } from "./engine/engine.ts";
 import type { Rigid } from "./build/rigid.ts";
+import type { HandPoseRequest } from "./build/hand-poses.ts";
 import type { BodySpec, DofSpec, HandPose, JointSpec, SegmentFrame, SegmentSpec, ShapeSpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 
@@ -137,4 +138,6 @@ export interface ReadPhysics {
 interface ReadHandPoses {
   readonly model: readonly { readonly hand: "left" | "right"; readonly segment: string; readonly poses: readonly HandPose[] }[];
   readonly state: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
+  /** `requests` as the hands take them, each a known hand once with a known pose; any other is refused, a throw (`HandPoses.check`). */
+  check(requests: readonly HandPoseRequest[]): readonly HandPoseRequest[];
 }

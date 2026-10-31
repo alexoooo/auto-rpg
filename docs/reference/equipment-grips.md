@@ -25,7 +25,7 @@ and named rigid grip frames registered at construction. Compound holding stays t
 
 `equipmentPort` grants a host's controller named grips on explicit items; its model holds detached
 mass, inertia, grip frames and capture tolerances, and its observations only the granted items.
-Duplicate grants or identities are refused. `createPolicyBody` takes the port at construction and
+Duplicate grants or identities are refused. A policy's mind (`policyMind`) takes the port when made and
 gives the policy its description and observations, never the port or handles. A `BodyAction` may
 combine actuation and grip requests; `checkedBodyAction` validates the whole before any command, so
 one ungranted, duplicate or malformed request rejects all of it. Permission does not make an

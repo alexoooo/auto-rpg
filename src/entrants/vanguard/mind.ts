@@ -3,7 +3,7 @@ import { STAND_UP } from "../../core/recovery/ground/stand-up.ts";
 import { MOVE } from "../../core/skills/locomotion/move-part.ts";
 import { FIGHTING, type FighterConfig } from "../../core/tactics/config.ts";
 import { controller, type MindPreset } from "../../core/mind/controller.ts";
-import { createFighter, driveFighter, kitBody, fighterFaults } from "../../core/tactics/fighter.ts";
+import { createFighter, driveFighter, kitBody, kitSubs, fighterFaults } from "../../core/tactics/fighter.ts";
 import { GAME_MOTOR } from "../../core/mind/kit.ts";
 import { GAME_NAVIGATION } from "../../core/navigation/navigator.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../core/parts/parts.ts";
@@ -86,6 +86,6 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: (config, parts) => fighterFaults(fighter(config), parts),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
-  scripted: { body: kitBody, drive: (body, clock, parts, config, wiring, around) => driveFighter(body, clock, parts, fighter(config), wiring, around) },
+  scripted: { body: kitBody, subs: kitSubs, drive: (body, clock, parts, config, wiring, around) => driveFighter(body, clock, parts, fighter(config), wiring, around) },
   create: (host, config, wiring) => createFighter(host, fighter(config), wiring),
 });

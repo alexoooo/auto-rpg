@@ -9,7 +9,8 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import poses from "../../assets/research/posture-holds.json" with { type: "json" };
-import { createBody, type BodyOptions } from "../core/body.ts";
+import type { BodyOptions } from "../core/body.ts";
+import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../core/human/spec.ts";
@@ -167,7 +168,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   let run!: TechniqueRun, predecessor: TechniqueRun | null = null;
   const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, kit);
     predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;

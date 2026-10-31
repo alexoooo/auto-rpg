@@ -1,10 +1,12 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import { createBody, type HostedBody } from "../body.ts";
+import type { HostedBody } from "../body.ts";
+import { clockOf } from "../clock.ts";
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
-import { createPolicyBody } from "../mind/direct.ts";
+import { policyMind } from "../mind/direct.ts";
+import { commandedBody, hostBody } from "../mind/host.ts";
 import type { BodyObservation } from "../observation.ts";
 import type { PhysicalBody } from "../physical-body.ts";
 import { deepFreeze } from "../state.ts";
@@ -50,9 +52,9 @@ export function createReachTask(scene: Scene, engine: PhysicsEngine, config: Rea
   let body: PhysicalBody;
   try {
     switch (settings.controller) {
-      case "actuator": body = createPolicyBody(built, world, () => ({ name: "external", state: {}, step: () => state.actuator })); break;
+      case "actuator": body = hostBody(built, world, {}, (own) => policyMind(own, () => ({ name: "external", state: {}, step: () => state.actuator }), clockOf(world))).body; break;
       case "layered": {
-        const commanded: HostedBody = createBody(built, world, { servoSeconds: settings.servoSeconds });
+        const commanded: HostedBody = commandedBody(built, world, { servoSeconds: settings.servoSeconds });
         commanded.driver.drive(() => ({ posture: state.posture, pushes: [], stance: null }));
         body = commanded; break;
       }

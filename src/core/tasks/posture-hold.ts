@@ -5,7 +5,9 @@ import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
-import { createPolicyBody, type ActuatorModel, type Policy } from "../mind/direct.ts";
+import { policyMind, type ActuatorModel, type Policy } from "../mind/direct.ts";
+import { hostBody } from "../mind/host.ts";
+import { clockOf } from "../clock.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 
@@ -82,17 +84,18 @@ export function createPostureHoldProbe(scene: Scene, engine: PhysicsEngine, conf
   const targets = Object.fromEntries([...built.joints].flatMap(([name, joint]) => joint.dofs.map((dof, i) =>
     [`${name} ${dof.spec.positive}`, (pose.placement.joints as Record<string, number[]>)[name]![i]!] as const)));
   const command = { action: deepFreeze({ kind: "torque", torque: Object.keys(targets).map(() => 0) }) as ActuatorAction };
-  let actuators: Parameters<Parameters<typeof createPolicyBody>[2]>[0] | null = null;
-  const body = (() => {
+  let actuators: ActuatorModel | null = null;
+  const policy = (() => {
     switch (controller) {
-      case "direct": return createPolicyBody(built, world, directPolicy({ targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation }));
-      case "actuator": return createPolicyBody(built, world, (model) => {
+      case "direct": return directPolicy({ targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation });
+      case "actuator": return (model: ActuatorModel): Policy => {
         actuators = model;
         return { name: "external-posture", state: command, step: () => command.action };
-      });
+      };
       default: { const never: never = controller; throw new Error(`unknown posture controller ${never}`); }
     }
   })();
+  const { body } = hostBody(built, world, {}, (own) => policyMind(own, policy, clockOf(world)));
   const initial = deepFreeze(body.observe().segments.map((s) => ({ name: s.name, position: [...s.position] })));
   const state = { steps: 0, peakDrift: 0, finalDrift: 0, peakAngleError: 0, peakEffort: 0, peakEffortViolation: 0, contactSteps: 0 };
   const after = world.afterStep(() => {

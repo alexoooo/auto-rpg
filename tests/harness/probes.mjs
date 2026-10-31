@@ -10,7 +10,8 @@
  * standing in the guard, which its posture holds.
  */
 import { coreStand } from "./core-stand.mjs";
-import { createBody, SERVO_SECONDS } from "../../src/core/body.ts";
+import { SERVO_SECONDS } from "../../src/core/body.ts";
+import { commandedBody } from "../../src/core/mind/host.ts";
 import { partLookup } from "../../src/entrants/game.ts";
 import { GAME_MOTOR, legsOf, motorOf } from "../../src/core/mind/kit.ts";
 import { modelSpec } from "../../src/core/models.ts";
@@ -34,7 +35,7 @@ export const lookupWith = (more) => Object.freeze({ of: (role, config) => more[c
 export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = GAME_MOTOR, lookup = partLookup, wrapLegs = (legs) => legs,
   filter = (command) => command } = {}) {
   const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec), stand = await coreStand(spec, { posture: guard });
-  const hosted = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
+  const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
   const legs = wrapLegs(legsOf(lookup, hosted.driver, legsConfig));
   let ask = () => ({});
   hosted.drive((view, dt) => {

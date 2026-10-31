@@ -7,7 +7,7 @@ import { motionAtToRef, turnOfToRef } from "../read-motion.ts";
 import type { BodyHost } from "../mind/host.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { MindReport } from "../mind/report.ts";
-import type { HostMind } from "../mind/sub-mind.ts";
+import { hosting, type HostMind } from "../mind/sub-mind.ts";
 import type { Senses } from "../mind/senses.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { soleGoal, STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
@@ -38,8 +38,8 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
   const paws: readonly SupportEndpoint[] = (host.spec.effectors ?? []).filter(e => e.support).map(e => ({ segment: e.segment, point: e.point, sole: e.support === "sole" }));
   // What it publishes of itself (`MindReport`), read from its tactics once its host has made them.
   let published: MindReport | null = null;
-  host.hosted((own, senses) => {
-    const built = own.built, upright = uprightness(built), down = (): boolean => upright.down();
+  host.take((own) => {
+    const senses = own.senses, built = own.built, upright = uprightness(built), down = (): boolean => upright.down();
     const motorConfig = config.motor ?? QUADRUPED_PARTS.motor, support = parts.of("support-motor", motorConfig).make(own, paws, motorConfig), motor = support.motor;
     const travelConfig = config.travel ?? QUADRUPED_PARTS.travel, travel = parts.of("gait", travelConfig).make(own, motor, paws.map(p => p.segment), travelConfig);
     const crawlConfig = config.crawl ?? QUADRUPED_PARTS.crawl, creep = parts.of("gait", crawlConfig).make(own, motor, paws.map(p => p.segment), crawlConfig);
@@ -55,7 +55,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     const reading = view as { -readonly [K in keyof QuadrupedView]: QuadrupedView[K] };
     const lower = [...built.segments.values()].find(segment => segment.spec.points?.bite)!;
     const head = [...built.segments.values()].find(segment => segment.spec.points?.mouth)!;
-    const feedback = effectorFeedback(built, [lower.spec.name, head.spec.name], wiring.contactIdentity, undefined,
+    const feedback = effectorFeedback(built, [lower.spec.name, head.spec.name], own.contactIdentity, undefined,
       { [lower.spec.name]: { point: "bite", regions: lower.spec.contacts!.filter(c => c.surface.directed?.mechanism === "point").map(c => c.name) },
         [head.spec.name]: { point: "mouth" } });
     const read = (s: Senses) => {
@@ -128,7 +128,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
       motor.resume(); tracker.reset(); for (const s of skills) s.resume(view);
       gait.kind = "crawl"; gait.reacquire = true; gait.homeAt = creep.state.steps + paws.length; gait.stable = 0;
     } };
-    return { host, subs: [recover(own, motor, tracker, paws, view)] };
+    return hosting(host, [recover(own, motor, tracker, paws, view)]);
   });
   return { state: {}, report: { get engagement() { return published?.engagement ?? null; }, get heading() { return published?.heading ?? null; }, gait: null, navigation: null,
     kit: null, actions: null, ended: null, menu: null } satisfies MindReport };

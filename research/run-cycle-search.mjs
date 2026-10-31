@@ -34,7 +34,7 @@ import { isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { createBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
@@ -98,7 +98,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
   const own = modelSpec(model, undefined, { haste }), spec = held === "club" ? armed(own, "right", woodenClub()) : own, guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
-  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
+  const body = commandedBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   const skill = walkRun(body, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
   let asked = null, goal = null, face = 0;

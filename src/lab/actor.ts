@@ -1,4 +1,5 @@
-import { createBody, type BodyOptions, type HostedBody } from "../core/body.ts";
+import type { BodyOptions, HostedBody } from "../core/body.ts";
+import { commandedBody } from "../core/mind/host.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
@@ -122,8 +123,8 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   }
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
-  const body = createBody(built, world, { ...scripted.body(mind, wiring, partLookup), stance, measuring,
-    ...(subs ? { subs } : {}) });
+  const body = commandedBody(built, world, { ...scripted.body(mind, partLookup), senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity,
+    stance, measuring, subs: subs ?? scripted.subs(mind, partLookup) });
   let driven: LabMind | null = null;
   return {
     body, world, strikes, risesItself: false,

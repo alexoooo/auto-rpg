@@ -7,7 +7,8 @@ import {modelSpec} from '../src/core/models.ts';
 import {isBody} from '../src/core/read-body.ts';
 import {armed} from '../src/core/human/grip.ts';
 import {woodenClub} from '../src/core/items/club.ts';
-import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
+import {SERVO_SECONDS} from '../src/core/body.ts';
+import {commandedBody} from '../src/core/mind/host.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {skillSet} from '../src/core/skills/framework/arbiter.ts';
 import {pathParts} from '../src/core/skills/strikes/combat.ts';
@@ -35,7 +36,7 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
   const s=await coreStand(spec,{engine:DEFAULT_ENGINE,hz,actuation,posture:guardPosture(spec)});
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
+  const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
     contactIdentity:other=>sensor&&isBody(other,sensor.body)?identity:other?null:{kind:'world'},
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),

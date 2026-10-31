@@ -1,4 +1,6 @@
 import { partOf } from "../entrants/game.ts";
+import { commandsBody } from "../core/body.ts";
+import type { PhysicalBody } from "../core/physical-body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
 import type { Staging } from "./mind-link.ts";
@@ -10,7 +12,7 @@ import { actionReadout } from "./action-readout.ts";
 
 /** A mind's public ownership and execution facts, with no executor-specific state: what holds the body (its skills' report), and what the mind reports doing (`MindReport`). */
 interface Inspected {
-  readonly body: { readonly has: string };
+  readonly body: Pick<PhysicalBody, "has" | "level">;
   readonly skills?: { readonly report: Partial<SkillReport> } | null;
   readonly report?: MindReport | null;
 }
@@ -36,7 +38,7 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
   const slots = (key: string) => tree.element.querySelectorAll<HTMLElement>(`.mind-editor > div > .mind-part > .mind-slot[data-slot="${key}"]`);
   return { element, refresh() {
     const now = inspected(), report = now?.skills?.report;
-    has.textContent = !now ? "no body" : now.body.has === "command" ? "its mind" : now.body.has;
+    has.textContent = !now ? "no body" : commandsBody(now.body) ? "its mind" : now.body.has;
     const holding = new Set<string>();
     for (const key of Object.keys(report?.holders ?? {})) if (key.startsWith("effector:") && !held.has(key)) held.set(key, row(key.slice("effector:".length)));
     for (const [key, value] of held) {
@@ -52,7 +54,7 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
         if (slot) holding.add(slot);
       }
     }
-    if (now && now.body.has !== "command" && now.body.has !== "nobody") holding.add("subs");
+    if (now && !commandsBody(now.body) && now.body.has !== "nobody") holding.add("subs");
     for (const holder of tree.element.querySelectorAll<HTMLElement>(".mind-slot[data-slot]")) holder.classList.remove("live");
     for (const key of holding) for (const holder of slots(key)) holder.classList.add("live");
     actions.refresh(now?.report ?? null);

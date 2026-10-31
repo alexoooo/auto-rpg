@@ -1,4 +1,4 @@
-import { SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
+import { SERVO_SECONDS, type Body, type LayerOptions } from "../body.ts";
 import { skillSet } from "../skills/framework/arbiter.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import type { Ended } from "../skills/framework/action.ts";
@@ -12,6 +12,7 @@ import type { MindWiring } from "../mind/minds.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "../mind/kit.ts";
+import { commandedMind, type SubMindMaker } from "../mind/sub-mind.ts";
 import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";
 import { SCRIPT_TACTICS } from "./script-tactics.ts";
 import type { PartConfig } from "../parts/parts.ts";
@@ -33,10 +34,14 @@ export function kitFaults(config: SkillKit, parts: PartLookup): readonly string[
   return [...executors.size !== config.executors.length || executors.has("") ? ["executors need distinct nonempty names"] : [], ...actionFaults(parts, config.executors, config.actions)];
 }
 
-/** All action instances share the fighter's physical feedback and body-local ledger; its motor and its sub-minds are those `parts` finds, the sub-minds made with its kit (`kitOf`). */
-export function kitBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">, wiring: MindWiring, parts: PartLookup): BodyOptions {
-  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
-    feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(parts, config.subs, config), motor: motorOf(parts, config.motor) };
+/** A fighter's command layers (`commandLayers`): all action instances share its effectors' touch (`LayerOptions.feedback`) and body-local ledger; its motor is the one `parts` finds. */
+export function kitBody(config: Pick<FighterConfig, "motor">, parts: PartLookup): LayerOptions {
+  return { servoSeconds: SERVO_SECONDS, feedback: true, motor: motorOf(parts, config.motor) };
+}
+
+/** The sub-minds a fighter hands its body to, in rank order: those its config names, as `parts` finds them, made with its kit (`kitOf`). */
+export function kitSubs(config: Pick<FighterConfig, "subs" | "motor" | "guard">, parts: PartLookup): readonly SubMindMaker[] {
+  return subMindsOf(parts, config.subs, config);
 }
 
 /**
@@ -86,8 +91,8 @@ export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: S
   });
 }
 
-/** **A fighter**: its body and sub-minds (`kitBody`), driven by its tactics over its skills (`driveFighter`). */
+/** **A fighter**: its body under its command layers (`kitBody`) handed over to its sub-minds (`kitSubs`, `commandedMind`), driven by its tactics over its skills (`driveFighter`). */
 export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring): Driven {
-  const body = host.command(kitBody(config, wiring, host.parts));
+  const { body } = host.take((own) => commandedMind(own, kitBody(config, host.parts), host.clock, kitSubs(config, host.parts)));
   return driveFighter(body, host.clock, host.parts, config, wiring);
 }

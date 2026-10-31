@@ -2,6 +2,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import { commandsBody } from "../core/body.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
@@ -98,7 +99,7 @@ export function stanceScenario(scene: Scene): LabScenario {
       const history = recordHistory(built, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);
-        const active=actor.body.has !== "command";
+        const active=!commandsBody(actor.body);
         if(active && !recovery.active)recovery.start=world.time-world.dt;
         if(active && recovery.start!==null)recovery.seconds=world.time-recovery.start;
         recovery.active=active;

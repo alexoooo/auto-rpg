@@ -10,7 +10,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
-import { createBody } from "../core/body.ts";
+import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { withLoadout, type Held } from "../core/items/held.ts";
@@ -123,7 +123,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
   const state = { link: 0, phase: "start" as "start" | "wait" | "run" | "rest" | "stood" | "over", since: 0, down: false,
     links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
   let runs: TechniqueRun[] = [];
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER), drive = poseDrive(own.muscles);
     runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, kit));
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };

@@ -131,7 +131,8 @@ it never imports them.
   `src/core/mind/senses.ts`) and `OwnBody` in; muscle commands and granted grip requests out
   (`Mind.step`, `src/core/mind/equipment-port.ts`). A grip request moves nothing and must pass
   geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
-  mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), never the
+  mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), takes its body
+  through it once (`BodyHost.take`) and builds what it uses on it, never the
   world or the built body; the folders `mind`, `intent`, `navigation`, `perception`, `tactics`,
   `recovery`, `skills`, `control`, `reptile`, `option` and `src/entrants/` import no engine,
   world, builder or read-view maker and read no `globalThis`, `Math.random` or clock (chance

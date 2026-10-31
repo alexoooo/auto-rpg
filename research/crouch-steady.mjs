@@ -47,7 +47,7 @@ import "../tests/harness/preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
-import { createBody } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../src/core/human/spec.ts";
@@ -89,7 +89,7 @@ export async function steady({ model = "workshop-fighter", held = "empty", seed,
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   let control = null;
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view) => {
     const steadying = crouchSteady(own, view, variant);
     control = steadying.control;
     return { name: "crouch steady", state: steadying.state, wants: () => control.on, begin() {}, end() {}, step: (_senses, dt) => steadying.step(dt) };

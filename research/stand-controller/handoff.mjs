@@ -12,7 +12,8 @@ import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../../src/core/body.ts";
+import { SERVO_SECONDS } from "../../src/core/body.ts";
+import { commandedBody } from "../../src/core/mind/host.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
 import { jointAngles } from "../../src/core/build/joint-state.ts";
 import { loadEngine } from "../../src/core/engine/engines.ts";
@@ -73,7 +74,7 @@ export async function handoff({ model = "workshop-fighter", variant = "built", h
   const built = buildBody(spec, world, direct ? { position: [0, 0, 0] } : placement);
   const control = { phase: ramp ? "bear" : "hold", rampEnd: null, quietAt: null, quiet: 0, handBack: null, climbBegun: null, log: null };
   let reader = null;
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the hand-off");
     const channels = own.muscles.channels;

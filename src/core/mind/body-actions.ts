@@ -31,7 +31,7 @@ function checkedAsk(ask: AssistAsk): AssistAsk {
 }
 
 /** Validate and copy every component before any physical command is written. */
-export function checkedBodyAction(action: BodyAction, count: number, equipment?: EquipmentPort, hands?: HandPoses): BodyAction {
+export function checkedBodyAction(action: BodyAction, count: number, equipment?: EquipmentPort, hands?: Pick<HandPoses, "check">): BodyAction {
   switch (action.kind) {
     case "velocity": case "torque": return checkedAction(action, count);
     case "body": {

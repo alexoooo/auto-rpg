@@ -15,7 +15,8 @@ import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../../../src/core/body.ts";
+import { SERVO_SECONDS } from "../../../src/core/body.ts";
+import { commandedBody } from "../../../src/core/mind/host.ts";
 import { buildBody } from "../../../src/core/build/build-body.ts";
 import { loadEngine } from "../../../src/core/engine/engines.ts";
 import { armedWith } from "../../../src/core/items/held.ts";
@@ -73,7 +74,7 @@ export async function deepTrial({ variant = "dorsi0.8", control = "bear", seed =
   const posture = jittered(squat.posture, seed, jitter);
   let reader = null, run = null, motor = null, h0 = null, p0 = null, held0 = null;
   const state = { t: 0, phase: control, result: {} };
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER);
     motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "deep");
     const channels = own.muscles.channels;

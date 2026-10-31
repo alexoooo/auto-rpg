@@ -3,7 +3,8 @@ import {pathToFileURL} from 'node:url';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
-import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
+import {SERVO_SECONDS} from '../src/core/body.ts';
+import {commandedBody} from '../src/core/mind/host.ts';
 import {contactMass} from '../src/core/build/contact-mass.ts';
 import {motionAtToRef,pointOfToRef} from '../src/core/read-motion.ts';
 import {rigidPoints} from '../src/core/build/rigid.ts';
@@ -12,7 +13,7 @@ import {standIntent} from '../src/core/intent/intent.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 async function pulse(mode,hand,impulse,hz){
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE,hz,gravity:mode==='grounded',ground:mode==='grounded'});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=combatSkills(body);
+ const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS}),skills=combatSkills(body);
  body.drive((view,dt)=>mode==='grounded'?{...skills.command(view,standIntent(),dt),handPoses:{left:'fist',right:'fist'}}:
   {posture:{},pushes:[],stance:null,handPoses:{left:'fist',right:'fist'}});
  try{s.step(mode==='grounded'?2*hz:2);if(mode==='free')body.setLevel('limp');

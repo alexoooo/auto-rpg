@@ -1,4 +1,7 @@
-import type { Mind } from "./mind.ts";
+import type { Body, BodyView, LayerOptions } from "../body.ts";
+import type { Clock } from "../clock.ts";
+import { commandLayers } from "../control/command-layers.ts";
+import type { Mind, OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
 
 /**
@@ -30,6 +33,12 @@ export interface HostMind extends Mind {
   /** The body is its own again from this step: it goes on from the body as it is. */
   resume(): void;
 }
+
+/**
+ * What makes a sub-mind for a body: its own body, its host's view of it, read each step before the
+ * sub-mind is asked anything, the world's clock, and the body's completed physics intervals.
+ */
+export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
 
 /** A host with its sub-minds, as one mind. */
 interface Hosted extends Mind {
@@ -80,5 +89,27 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
       giveUp("idle");
       state.has = NOBODY;
     },
+    dispose() {
+      host.dispose?.();
+      for (const sub of subs) sub.dispose?.();
+    },
   };
+}
+
+/** A mind whose body is under the command layers, with the body its drivers have (`Body`). */
+export interface CommandedMind extends Mind {
+  readonly body: Body;
+}
+
+/**
+ * **A mind under the command layers that hands its body over** (`hosting`): the layers over `own`
+ * on `clock` as `options` make them (`commandLayers`), then the sub-minds of `subs` made over their
+ * view, in rank order, then the layers' first look, so that what is made over the view finds the
+ * body as built.
+ */
+export function commandedMind(own: OwnBody, options: LayerOptions, clock: Clock, subs: readonly SubMindMaker[] = []): CommandedMind {
+  const layers = commandLayers(own, options, clock);
+  const made = subs.map((make) => make(own, layers.view, clock, own.afterPhysics));
+  layers.firstLook();
+  return Object.assign(hosting(layers, made), { body: layers.body });
 }

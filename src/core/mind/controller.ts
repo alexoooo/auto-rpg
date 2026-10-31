@@ -1,5 +1,5 @@
 import type { AttributeOverrides } from "../character-attributes.ts";
-import type { Body, BodyOptions } from "../body.ts";
+import type { Body, LayerOptions } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { Pose } from "../spec/pose.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -9,6 +9,7 @@ import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "../parts/parts.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { AroundDecider, Driven } from "./decider.ts";
+import type { SubMindMaker } from "./sub-mind.ts";
 
 /**
  * A named configuration, optionally calibrated for particular body models and played on a
@@ -33,12 +34,14 @@ export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodyS
 
 /**
  * How a scene drives a mind of configs `C` by a script of its own (`Script`, the Lab's modes, a
- * fall on the stand bed) in place of the mind's own decider: the options its body is made with,
- * and the drive that hands the body its skills under the script (`MindWiring.script`), each step's
- * decider read through `around` where given, returning the mind so driven.
+ * fall on the stand bed) in place of the mind's own decider: the options its command layers are
+ * made with, the sub-minds it hands its body to, and the drive that hands the body its skills
+ * under the script (`MindWiring.script`), each step's decider read through `around` where given,
+ * returning the mind so driven.
  */
 export interface Scripted<C extends MindConfig = MindConfig> {
-  body(config: C, wiring: MindWiring, parts: PartLookup): BodyOptions;
+  body(config: C, parts: PartLookup): LayerOptions;
+  subs(config: C, parts: PartLookup): readonly SubMindMaker[];
   drive(body: Body, clock: Clock, parts: PartLookup, config: C, wiring: MindWiring, around?: AroundDecider): Driven;
 }
 

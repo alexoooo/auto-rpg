@@ -37,7 +37,7 @@ listed (`UP_STACK`), each with the change that removes it, and the list only shr
 | Build | `src/core/build/` | the spec made into engine bodies and joints; dynamics read back |
 | Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
 | Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and kit |
-| Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
+| Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands; the command layers, which any mind may build on its own body (`commandLayers`) |
 | Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
 | Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
@@ -259,7 +259,7 @@ a stance goal) into muscle commands.
   as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`; `GAME_MOTOR`, `mind/kit.ts`). A kind is a
   registered implementation (`MotorPart`, `motor-part.ts`) whose maker gives, for its config, what
   makes a motor control (`MotorMaker`, made as `motorControl` is). A mind resolves it through its
-  host's lookup (`motorOf`) and hands it to its body (`BodyOptions.motor`, the whole-body solve where
+  host's lookup (`motorOf`) and hands it to its command layers (`LayerOptions.motor`, the whole-body solve where
   none is given) and to its sub-minds; one that needs goals a `BodyCommand` does not name brings
   their vocabulary with it. A motor control asks of every motor a posture, pushes and a reset; the
   goals beyond them it says it carries (`MotorControl.carries`, `MotorGoal`: effectors' places,
@@ -269,6 +269,12 @@ a stance goal) into muscle commands.
   what of its last command it did not carry out (`MotorControl.unmet`, `MotorUnmet`): each push on
   a channel its stance's legs drove, and the driven points no stance's solve drove; the body's view
   shows it to whatever drives the body (`BodyView.unmet`).
+- **The command layers** (`commandLayers`, `command-layers.ts`) are a toolkit layer any mind
+  builds on its own body (`OwnBody`): a `HostMind` (look, act, release, resume) of motor control
+  from the mind's motor part under a driver that hands it goals, seen through a view (`BodyView`,
+  `src/core/body.ts`) read each step, with the body its drivers have (`Body`). They read their
+  effectors' touch after each physics interval (`OwnBody.afterPhysics`), labelled by the body's own
+  contact labels (`OwnBody.contactIdentity`), and know nothing of the skills, a decider or sub-minds.
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
@@ -454,8 +460,9 @@ action may hold is checked as the skill set is built (`actionInstances`).
 
 **The seam.** A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from
 what its body senses to what its muscles are asked. `embody(built, world, make)` makes it with its
-own body (`OwnBody`: spec, segments, joints, muscles, assist) and steps it before every solver
-step, after the muscles read the joints.
+own body (`OwnBody`: spec, segments, joints, muscles, assist, hands, its senses, its contact labels
+and the completed physics intervals, `afterPhysics`) and steps it before every solver step, after
+the muscles read the joints.
 
 - It writes each freedom's activation and speed (`MuscleDriver.activation`, `.velocity`): a speed
   beyond reach is a torque at the ceiling; zero holds.
@@ -494,10 +501,10 @@ a wanted body through a phase that cannot yield. `hosting(host, subs)` makes one
    (`BodyView.resumed`): every skill resumes before the decider decides (`driveBy`).
 
 A sub-mind reads whether its body is down from its host's view (`BodyView.down`), never by a bar
-of its own. Who has the body is one number in state (`Body.has`, `"nobody"` while idle). A hand-over
-changes only state, so a load mid-hand-over calls none of these. `hostedBody` (`hosted.ts`) makes
-every hosted body one way; the humanoid's `commandMind` (`src/core/body.ts`) and the quadruped's
-`quadrupedMind` are both made so.
+of its own. Who has the body is one number in state, named by the mind (`Mind.has`, `"nobody"`
+while idle). A hand-over changes only state, so a load mid-hand-over calls none of these. A mind
+that hands its body over builds `hosting` itself: a fighter over its command layers
+(`commandedMind`, `sub-mind.ts`), the quadruped (`quadrupedMind`) over its own crawl.
 
 **A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
 `config.ts`), sub-minds nested in it (`SubMindConfig`). `createMind(built, world, config, wiring)`
@@ -509,12 +516,18 @@ fight reads. A fight passes the config through and reads nothing in it.
   `treeLookup`: the registry's `partLookup`, refusing a part the config's tree does not name), which
   it hands every assembly that builds a part, the rules the fight is played by (`rules`, the
   arena's unless the fight gives its own),
-  and three ways to take the body, once: `command` (the
-  game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
-  actions). The command layers are the humanoid's: their view's fists, head and stance
+  and one way to take the body, once (`BodyHost.take`): the mind it makes of its own body
+  (`OwnBody`), with whatever it builds on it: the command layers (`commandLayers`), which a fighter
+  hands over to its sub-minds (`commandedMind`); a host and sub-minds of its own (`hosting`); or a
+  policy (`policyMind`, detached observations and actions). The host builds the fight's body
+  (`PhysicalBody`) the same way for every mind (`hostBody`): who has it is the mind's (`Mind.has`),
+  read by asking `commandsBody`, and where the mind drives through the command layers
+  (`Mind.body`) the fight's body shows their view (`HostedBody`). A body built outside a fight (a
+  test, a study, a task) is built the same way under the command layers (`commandedBody`). The
+  command layers are the humanoid's: their view's fists, head and stance
   (`BodyView`) and the intent's guarding hands belong to them, beside the general body (segments,
-  joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
-  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules); no maker
+  joints, effectors, contacts, muscles). `commandLayers` refuses a body they cannot read with what it
+  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules; `HostGrants`); no maker
   can widen them.
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
@@ -825,7 +838,7 @@ one to crawl (`GAITS`: the trot and the crawl), a `bite` (`BITES`) and `quadrupe
 (`QUADRUPED_PLANNERS`) that give approach, facing and bite. Each fits a body by what it uses
 (`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)).
 
-**Policies** (`createPolicyBody`, `mind/direct.ts`) receive a frozen actuator description and
+**Policies** (`policyMind`, `mind/direct.ts`) receive a frozen actuator description and
 detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`
 (`mind/actions.ts`): whole arrays in channel order (activation and velocity, or signed torque
 within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
@@ -971,12 +984,12 @@ its own (`node scripts/entrant-check.mjs`).
    the host's lookup (`BodyHost.parts`). Only its own entrant's trees offer it.
 3. **A kind of mind of its own** (`minds`, `vanguard:mind`, `bare:mind`) is a config type (`{ kind,
    ... }`), its defaults, its faults and its maker, written as one controller
-   (`controller<C>({ ... })`). The maker takes its body once through the host: `host.policy` reads
-   `BodyObservation` and returns `BodyAction`; `host.command` builds on the game's command layers,
-   which only a body they can read has (a humanoid's, `commandRefusal`): the game's humanoid parts,
-   sub-minds included, read their view, and a mind on them fits only such a body
-   (`takesCommands`); `host.hosted` builds a host and sub-minds of its own, as the quadruped's
-   are. It returns its memory (`state`), which a fight saves and loads with the body, and its
+   (`controller<C>({ ... })`). The maker takes its body once through the host (`host.take`), as a
+   mind made of its `OwnBody`: a policy (`policyMind`) reads `BodyObservation` and returns
+   `BodyAction`; the game's command layers (`commandedMind`) are built on it only where a body they
+   can read has it (a humanoid's, `commandRefusal`): the game's humanoid parts, sub-minds included,
+   read their view, and a mind on them fits only such a body (`takesCommands`); a host and
+   sub-minds of its own (`hosting`), as the quadruped's are. It returns its memory (`state`), which a fight saves and loads with the body, and its
    skills if it runs the game's. It may use any of the toolkit and imports no engine, world or
    builder.
 4. **What is not a role is the toolkit's**: an entrant that needs a new extension point opens it in

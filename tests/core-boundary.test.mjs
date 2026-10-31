@@ -421,8 +421,8 @@ const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
-  "src/core/mind/mind.ts", "src/core/mind/hosted.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
-  "src/core/mind/object-senses.ts", "src/core/mind/direct.ts", "src/core/mind/motion.ts", "src/core/mind/minds.ts",
+  "src/core/mind/mind.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
+  "src/core/mind/object-senses.ts", "src/core/mind/motion.ts", "src/core/mind/minds.ts",
   "src/core/mind/body-actions.ts", "src/core/mind/sheets.ts", "src/core/control/assist.ts",
 ]);
 
@@ -534,10 +534,10 @@ const UP_STACK = [
   "data/edge-profiles.ts -> skills/framework/profile.ts", "data/gait-profiles.ts -> skills/framework/profile.ts", "data/store.ts -> skills/framework/profile.ts",
   "data/store.ts -> skills/strikes/punch-records.ts", "data/straight-punch.ts -> skills/strikes/punch-records.ts", "data/strike-profiles.ts -> skills/framework/profile.ts",
   // The body's ground reading and its lie beside the view's other readings (layering step 10).
-  "body.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
-  "mind/kit.ts -> recovery/rise/lowering.ts", "body.ts -> mind/kit.ts",
-  // A mind's host takes its wiring, one way into a body (layering step 8).
-  "mind/host.ts -> mind/minds.ts",
+  "body.ts -> recovery/ground/reading.ts", "control/command-layers.ts -> recovery/ground/reading.ts",
+  "perception/threat.ts -> recovery/ground/reading.ts", "perception/threat.ts -> recovery/rise/staged.ts",
+  // The kit's legs lowered by the rise's lowering (layering step 9).
+  "mind/kit.ts -> recovery/rise/lowering.ts",
   // A part's fit by the body's command refusal: the body's shape, read from its spec for a second body family.
   "parts/parts.ts -> body.ts",
   // The engine's contact friction in a spec module (layering step 10).

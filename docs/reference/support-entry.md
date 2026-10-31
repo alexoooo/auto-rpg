@@ -6,7 +6,7 @@ support: `tasks/support-entry.ts` (its `SETTINGS`) and the acquisition settings 
 acceptance](#fixture-and-acceptance). Arena recovery uses the reference riser with a measured
 standing handover instead ([recovery cycle](recovery-cycle.md)).
 
-`control/whole-body/support-entry.ts` is an optional pose-sequence policy hosted by `createPolicyBody`: joint
+`control/whole-body/support-entry.ts` is an optional pose-sequence policy hosted as a mind (`policyMind`): joint
 targets, timed rolling and preparation poses, a reference frame, required and forbidden contacts,
 gains and retry limits; detached observations in, bounded velocity actions out. The task scores
 support independently through `supportEntryReading`, which rejects head or trunk support whatever

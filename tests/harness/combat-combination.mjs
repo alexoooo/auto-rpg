@@ -2,7 +2,8 @@ import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {coreStand} from './core-stand.mjs';
 import {modelSpec} from '../../src/core/models.ts';
 import {DEFAULT_ENGINE} from '../../src/core/engine/engines.ts';
-import {createBody,SERVO_SECONDS} from '../../src/core/body.ts';
+import {SERVO_SECONDS} from '../../src/core/body.ts';
+import {commandedBody} from '../../src/core/mind/host.ts';
 import {combatSkills} from '../../src/core/skills/strikes/combat.ts';
 import {ATTACK_PATH} from '../../src/core/skills/strikes/attack-path.ts';
 import {actionCycles} from '../../research/action-cycles.mjs';
@@ -12,7 +13,7 @@ import {motionAtToRef} from '../../src/core/read-motion.ts';
 /** Two independent fist targets on an unpinned Warrior, through one shared command and stance. */
 export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
+ const body=commandedBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
  const skills=combatSkills(body,{paths:{...ATTACK_PATH,...tuning},overlap:true});
  const obstacle=mode==='hit'?s.world.physics.addFixedBox([0,1.63,.64],[.6,.2,.08]):null;
  const cycles=actionCycles(skills);

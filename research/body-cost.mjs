@@ -17,7 +17,8 @@ import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { armed } from "../src/core/human/grip.ts";
@@ -41,7 +42,7 @@ async function cost(count) {
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [60, 1, 60]);
   const driven = (built, subs = []) => {
-    const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, subs });
+    const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS, subs });
     return { body, skills: driveBy(body, { name: "stand", decide: () => standIntent(0) }).skills };
   };
   const bodies = Array.from({ length: count }, (_, i) => driven(buildBody(spec, world, { position: [3 * (i - (count - 1) / 2), 0, 0] })));

@@ -1,8 +1,5 @@
 import type { BuiltBody } from "../build/build-body.ts";
-import type { ContactIdentity } from "../control/effector-feedback.ts";
-import type { AssistCeiling } from "../control/assist.ts";
 import { poseAngles } from "../control/kinematics.ts";
-import type { Rulebook } from "../rules/rulebook.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
@@ -16,21 +13,11 @@ import type { Senses } from "./senses.ts";
 import type { PhysicalBody } from "../physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
-/** **What a fight gives the mind it makes**, beside the body and the config. */
-export interface MindWiring {
+/** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), its orders and a screen's script. */
+export interface MindWiring extends HostGrants {
   readonly name: string;
-  /** Trusted body adapter for permitted contact labels. */
-  readonly contactIdentity?: ContactIdentity;
   /** Its orders this step, or null when it is left to itself. `senses` are its own, this step's. */
   orders(senses: Senses): Orders | null;
-  /** What it senses (`SensesHub.add`); the clock alone unless given. */
-  readonly senses?: () => Senses;
-  /** The most its assist gives it; none unless given. */
-  readonly assist?: AssistCeiling;
-  /** The seed its mind's chances are drawn from (`BodyHost.seed`): the fight's for this body (`seedOf`); 0 unless given. */
-  readonly seed?: number;
-  /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
-  readonly rules?: Rulebook;
   /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
   readonly script?: Script;
 }

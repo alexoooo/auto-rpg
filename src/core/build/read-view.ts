@@ -86,7 +86,7 @@ export function readView(built: BuiltBody): ReadBody {
   const state = Object.freeze(Object.fromEntries(Object.entries(poses.state).map(([hand, pose]) => [hand,
     Object.freeze({ get applied(): HandPose { return pose.applied; }, get requested(): HandPose { return pose.requested; } })])));
   const view: ReadBody = Object.freeze({
-    spec: built.spec, physics: read, segments, joints, handPoses: Object.freeze({ model: poses.model, state }),
+    spec: built.spec, physics: read, segments, joints, handPoses: Object.freeze({ model: poses.model, state, check: poses.check }),
   });
   views.set(built, view);
   return view;

@@ -3,7 +3,8 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { contactMass } from '../src/core/build/contact-mass.ts';
 import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
-import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
+import { SERVO_SECONDS } from '../src/core/body.ts';
+import { commandedBody } from '../src/core/mind/host.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import {footStatesOf,readSupport} from '../src/core/control/support.ts';
 import { NO_COVER } from '../src/core/intent/intent.ts';
@@ -25,7 +26,7 @@ import { intoFrameToRef } from '../src/core/control/kinematics.ts';
 export async function combatStrike({ hand = 'right', family = 'straight', mode = 'miss', tuning = {}, seconds = 12,
   ahead = .65, across = .15, up = 0, support = null, surface = 'front', direction, armExtension, measureMass = false } = {}) {
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
- const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });
+ const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });
  const sharedSupport = support?.shared === true;
  const actions = [{name:'strike',executor:'paths',effectors:[`hand.${hand}`],family,armExtension,...(sharedSupport?{lower:support.lower}:{})}];
  const guard = guardSkill(body.built.spec);

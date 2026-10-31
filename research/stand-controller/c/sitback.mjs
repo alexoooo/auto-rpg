@@ -15,7 +15,7 @@ import { parseArgs } from "node:util";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody } from "../../../src/core/body.ts";
+import { commandedBody } from "../../../src/core/mind/host.ts";
 import { buildBody } from "../../../src/core/build/build-body.ts";
 import { loadEngine } from "../../../src/core/engine/engines.ts";
 import { armedWith } from "../../../src/core/items/held.ts";
@@ -131,7 +131,7 @@ export async function sitbackTrial({ variant = "dorsi0.8", held = "empty", seed 
   const SHANK = [index("shank.left"), index("shank.right")], HAND = [index("hand.left"), index("hand.right"), index("forearm.left"), index("forearm.right")];
   let reader = null, readout = null;
   let own0 = null;
-  const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
+  const body = commandedBody(built, world, { servoSeconds: .1, subs: [(own, view, clock) => {
     const kit = kitOf(partLookup, own.spec, PUNCHER); own0 = own;
     let run = null, stand = null; const drive = poseDrive(own.muscles);
     // The ball of a foot (the sole box's front edge at its middle): its height above the floor, m.

@@ -26,7 +26,8 @@ import { modelSpec } from "../src/core/models.ts";
 import { replayedBody } from "../src/core/mind/sheets.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { SERVO_SECONDS } from "../src/core/body.ts";
+import { commandedBody } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { poseAngles } from "../src/core/control/kinematics.ts";
 import { GUARD } from "../src/core/skills/guard/guard.ts";
@@ -199,7 +200,7 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
   const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
   const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const body = commandedBody(built, world, { servoSeconds: SERVO_SECONDS });
   try {
     body.drive(() => ({ posture: poseAngles(spec, GUARD), pushes: [], stance: { feet: ["left", "right"], centre: null, height: 0.02, heading: 0 } }));
     world.step(world.hz);

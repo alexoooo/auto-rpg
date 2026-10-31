@@ -7,7 +7,9 @@ import { centreOfToRef } from "../read-motion.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import { BLADE_FIGHTER } from "../tactics/config.ts";
-import { createPolicyBody } from "../mind/direct.ts";
+import { policyMind } from "../mind/direct.ts";
+import { hostBody } from "../mind/host.ts";
+import { clockOf } from "../clock.ts";
 import { createMind } from "../mind/minds.ts";
 import { TOOLKIT_CATALOG } from "../toolkit.ts";
 import { STAND_ORDERS } from "../intent/orders.ts";
@@ -47,11 +49,11 @@ export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, con
   boot.dispose();
   const reference = built.segments.get(SETTINGS.root)!.rest;
   const reading = { ...SETTINGS, reference: [reference.x, reference.y, reference.z, reference.w] as const };
-  const body = createPolicyBody(built, world, (model) => {
+  const { body } = hostBody(built, world, {}, (own) => policyMind(own, (model) => {
     const entry = supportEntryPolicy(built, model);
     if (!entry) throw new Error("no support entry witness for that body");
     return entry.policy;
-  });
+  }, clockOf(world)));
   const state = { steps: 0, fell, supportedSteps: 0, peakSupportSteps: 0, quietSteps: 0, acquiredAt: -1,
     continuedSteps: 0, lostSupport: false, peakDrift: 0, peakEffortViolation: 0, reference: [] as number[][] };
   const after = world.afterStep(() => {

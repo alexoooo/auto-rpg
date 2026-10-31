@@ -1,5 +1,5 @@
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import type { HostedBody } from "../core/body.ts";
+import { commandsBody, type HostedBody } from "../core/body.ts";
 import type { World } from "../core/world.ts";
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { recoveryMeasurement } from "../core/control/recovery-measurement.ts";
@@ -79,7 +79,7 @@ interface Checked {
  * where its mind gets up by its own skills (`Actor.risesItself`), once it is down; its host's again in command.
  */
 const actorChecked = ({ body, world, risesItself }: Actor): Checked =>
-  ({ body, world, takenOver: () => body.has !== "command" && body.has !== "nobody" || risesItself && body.down, inCommand: () => body.has === "command" });
+  ({ body, world, takenOver: () => !commandsBody(body) && body.has !== "nobody" || risesItself && body.down, inCommand: () => commandsBody(body) });
 
 /**
  * **A stand's verification** (`STAND_CHECK`) of `checked`, read once a step after the meter: what
@@ -181,9 +181,9 @@ export function startGround(actor: Actor, address: LabAddress, options: {
       if (state.falls.length >= ROUND_FALLS) { state.status = "round done"; return; }
       state.next = Infinity; state.verdictAt = world.time;
     }
-    if (state.next === Infinity && world.time - state.verdictAt >= ROUND_DOWN && (body.has !== "command" || body.view.down)) { state.status = "round ended down"; return; }
+    if (state.next === Infinity && world.time - state.verdictAt >= ROUND_DOWN && (!commandsBody(body) || body.view.down)) { state.status = "round ended down"; return; }
     // The next shove comes once the body is its host's again and on its feet.
-    if (state.next === Infinity && body.has === "command" && !body.view.down) state.next = world.time + ROUND_REST;
+    if (state.next === Infinity && commandsBody(body) && !body.view.down) state.next = world.time + ROUND_REST;
     if (state.next !== null && world.time >= state.next) {
       state.next = null; state.shovedAt = world.time; check.reset(); meter.beginFall();
       shoving.shove(roundImpulse, state.falls.length * 360 / ROUND_FALLS);
