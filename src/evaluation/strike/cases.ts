@@ -127,6 +127,14 @@ const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: ["left", "
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25 });
 
 /**
+ * Kicking: the stomping rung's trials thrown by a Warrior or a Skeleton, at a Warrior, a Skeleton or
+ * a Reptile lying limp (`targets`): a low front kick at the trunk's middle, whose band is below a
+ * standing humanoid's trunk.
+ */
+const KICKING = deepFreeze({ ...STOMPING, models: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
+  targets: ["workshop-fighter", "crypt-skeleton", "reptile"] as BodyModel[] });
+
+/**
  * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/arena/rail.ts`),
  * the Warrior's body held rigid as it was built under the bare mind, lifted `height` m and carried
  * in a line at each speed, m/s, toward the striker, away from it or across its front from its right
@@ -266,4 +274,5 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
-  letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING) });
+  letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
+  kicking: stillCases(KICKING) });

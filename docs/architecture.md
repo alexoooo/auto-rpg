@@ -390,7 +390,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   settings are its body's record, read as mind data by `bodyKey` (`dataOf`, `assets/core/<skill>.json`;
   an entrant's own skill from its own data, Vanguard's punch from
   `assets/entrants/vanguard/punch.json`), each row saying how it was made and written by the run
-  that tuned it (`research/skill-records.mjs`; the straight punch's, `research/punch-export.mjs`).
+  that tuned it (`research/skill-records.mjs`, through the search on its body's task,
+  `research/skill-search.mjs`, [skill records](reference/skill-records.md); the straight punch's,
+  `research/punch-export.mjs`).
   The bodies with a record are known before they load (`<skill>.meta.json`): a body with none is
   refused by the executor's fit (`recordFault`), a returned sentence, and a new body is rows, not
   code. A mind carries no skill's settings; an experiment's research `tuning` sets them over its
@@ -1378,7 +1380,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
-  round to from 0.8 to 1.2 m; each trial's reading records the target's posture and the range
+  round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a
+  Warrior, a Skeleton or a Reptile lying limp; each trial's reading records the target's posture and the range
   centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
   landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near

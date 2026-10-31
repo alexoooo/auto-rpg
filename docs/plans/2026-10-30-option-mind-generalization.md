@@ -71,6 +71,13 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
    each a run that writes its body's row; a new body is rows, not code.
    Check: each skill's fit refuses a body with no record; the fingerprint moves only what the
    records change.
+   Built: every executor's settings its body's record (`SkillRecord`,
+   `src/core/skills/framework/records.ts`; the front kick, the stomp, the path strike, the blade's
+   cut and thrust, Vanguard's strokes), each refusing a body with none
+   (`tests/skill-records.test.mjs`); the Rogue's and the Skeleton's blades and the Skeleton's front
+   kick searched on their bodies (`research/skill-search.mjs`,
+   [skill records](../reference/skill-records.md)). Left: the Skeleton's low kick lands on nothing
+   on the kicking rung.
 
 Each change passes `npm run check` and `npm test`, and `npm run build` where browser code
 changes; a toolkit change's message names the cases the fingerprint moves. No tournament or
