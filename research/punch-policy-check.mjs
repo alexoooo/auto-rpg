@@ -1,5 +1,5 @@
 /**
- * **A steered punch's policy on held-out trials**: places drawn as its training environment draws
+ * **A steered strike's policy on held-out trials** (the straight punch's or a held blow's): places drawn as its training environment draws
  * them (`case-learning-environment.mjs`, `drawCondition`), on a seed of their own, and its listed
  * places' conditions (a fight's moments), each of the half training holds out (`heldOut`), each played whole as
  * the Strike drill plays a trial (its world and its reader to the end, so a fall counts) at each of
@@ -9,7 +9,9 @@
  *
  *   node research/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
  *
- * The body is the environment's `character` (its attributes; none, the model's own).
+ * The body is the environment's `character` (its attributes; none, the model's own). `--config` is
+ * an environment file or a training run's configuration (`environment` and its overrides); every
+ * trial is the drill's own, its target the case's whatever stand-in training played.
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
@@ -42,7 +44,8 @@ async function trial(o, act, protocol, condition, hz) {
       }
     }
     const r = reader.reading(), h = r.hit;
-    return { outcome: r.outcome, score: barScore(r, condition.hand), hit: h && { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean } };
+    return { outcome: r.outcome, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, faced: h.faced, speed: h.speed }
+      : { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean }) };
   } finally { built.dispose(); }
 }
 
@@ -53,7 +56,9 @@ if (!isMainThread) {
   });
 } else {
   const { values } = parseArgs({ options: { config: { type: 'string' }, policy: { type: 'string' }, trials: { type: 'string' }, seed: { type: 'string' }, rates: { type: 'string' }, workers: { type: 'string' } } });
-  const o = JSON.parse(readFileSync(values.config, 'utf8'));
+  const given = JSON.parse(readFileSync(values.config, 'utf8'));
+  const { environment, workers: _w, each: _e, seed: _s, ...overrides } = given;
+  const o = typeof environment === 'string' ? { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides } : given;
   const policy = values.policy && values.policy !== 'none' ? JSON.parse(readFileSync(values.policy, 'utf8')) : null;
   const random = generator(Number(values.seed ?? 1001)), rates = (values.rates ?? '120,480').split(',').map(Number);
   const jobs = [];
@@ -80,7 +85,7 @@ if (!isMainThread) {
   for (const job of jobs) {
     const r = results[job.id], c = job.condition;
     console.log(JSON.stringify({ hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), outcome: r.outcome, score: +r.score.toFixed(2),
-      hit: r.hit && Object.fromEntries(Object.entries(r.hit).map(([k, v]) => [k, v === null ? null : +v.toFixed(3)])) }));
+      hit: r.hit && Object.fromEntries(Object.entries(r.hit).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(3) : v ?? null])) }));
   }
   // By rate and body: the landed share, and by how far the target stands (its gap and offset across together).
   const tally = (mine) => `landed ${mine.filter((j) => results[j.id].outcome === 'landed').length} of ${mine.length}, fell ${mine.filter((j) => results[j.id].outcome === 'fell').length}`;
