@@ -8,7 +8,7 @@ import { covers } from "./cover.ts";
 import type { Ground } from "./ground.ts";
 import type { Option } from "./option.ts";
 import { followOrders } from "./orders.ts";
-import { gaitsOf, goings, outOfPressure, walkBy, windowPlace, type Destination } from "./places.ts";
+import { gaitsOf, goings, groundPlace, outOfPressure, walkBy, windowPlace, type Destination } from "./places.ts";
 import type { ProfileTables } from "./predictions-part.ts";
 import { guardOf, hold } from "./rest.ts";
 import type { StrikeMeasure, StrikeOption } from "./strike.ts";
@@ -67,6 +67,24 @@ export const WINDOWS_WALK = footwork("walk-into-windows", "Walk into strike wind
 
 /** **Walking out of the focus's pressure**: footwork past where its modelled strikes reach (`outOfPressure`). */
 export const PRESSURE_WALK = footwork("walk-out-of-pressure", "Walk out of pressure", (given) => [outOfPressure(given.walk)]);
+
+/** **A place on the ground** to walk to: where it is, m, and how near its centre the body reaches it, m. */
+export interface PlaceConfig { readonly kind: "walk-to-place"; readonly x: number; readonly z: number; readonly within: number }
+
+/** What is wrong with a place's config: a coordinate not finite, or a reach not above nothing. */
+export const placeFaults = (config: { readonly x: number; readonly z: number; readonly within: number }): readonly string[] => [
+  ...Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],
+  ...Number.isFinite(config.within) && config.within > 0 ? [] : ["within: a distance above nothing, m"]];
+
+/**
+ * **Walking to a place on the ground** (`groundPlace`), whatever the focus: footwork, one option a
+ * gait (`walkBy`), to the place its config names, until the body's centre is within its reach.
+ */
+export const PLACE_WALK: OptionKindPart<PlaceConfig> = deepFreeze({
+  role: "option", label: "Walk to a place", stage: "game", fields: [], slots: [], defaults: { kind: "walk-to-place", x: 0, z: 0, within: .3 },
+  keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
+  make: (config: PlaceConfig, given: OptionsGiven) => gaitsGiven(given).map((going) => walkBy(going, [groundPlace(config.x, config.z, config.within, given.walk)], given.walk)),
+});
 
 /** **The rise**: down, the ground's options (`groundOptions`). */
 export const RISE_OPTION = kind("rise", "Rise", (given) => given.ground.options);

@@ -1,4 +1,4 @@
-import { cos, hypot, sin } from "../math/real.ts";
+import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { approachActionWindow, approachSpot, windowSpot, type Spot } from "../intent/action-window.ts";
 import type { PartConfig } from "../parts/parts.ts";
@@ -83,6 +83,9 @@ function once(spot: (now: Situation) => Spot | null): (now: Situation) => Spot |
   };
 }
 
+/** A place about a focus, with none. */
+const NO_FOCUS = blocked("no focus");
+
 /** The orders' pace, as a walk's ceiling. */
 const ceilingOf = (now: Situation): number => now.orders?.pace ?? Infinity;
 
@@ -101,7 +104,7 @@ export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
   });
   return {
     name: `into ${strike.name}'s window`, spot: into,
-    entry: (now) => into(now) ? READY : NO_WINDOW,
+    entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : NO_WINDOW,
     reached: (now) => strike.window(now) === null,
     walk: (now) => {
       const window = strike.window(now);
@@ -118,7 +121,7 @@ export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
  * walk faces the focus, kept out of every fallen body's reach (`Walker.kept`).
  */
 export function outOfPressure(walk: Walker): Destination {
-  const UNFIT = blocked("no focus"), THERE = blocked("out of its reach");
+  const THERE = blocked("out of its reach");
   const edge = (now: Situation): number => edgeOf(now, now.predictions.pressure) + now.predictions.closes;
   const spot = once((now) => {
     const focus = now.focus;
@@ -129,11 +132,34 @@ export function outOfPressure(walk: Walker): Destination {
   });
   return {
     name: "out of pressure", spot,
-    entry: (now) => !now.focus ? UNFIT : spot(now) ? READY : THERE,
+    entry: (now) => !now.focus ? NO_FOCUS : spot(now) ? READY : THERE,
     reached: (now) => now.range >= edge(now),
     walk: (now) => {
       const at = spot(now), face = walk.facing(now);
       return walk.kept(now, at ? approachSpot(now.sight.view, at, ceilingOf(now), face) : { move: null, face });
+    },
+  };
+}
+
+/**
+ * **A place on the ground**, (`x`, `z`) m, whatever the focus: facing its way there; a place while
+ * the body's centre stands more than `within` m off it, reached within. Its walk goes there
+ * (`approachSpot`), kept out of every fallen body's reach (`Walker.kept`).
+ */
+export function groundPlace(x: number, z: number, within: number, walk: Walker): Destination {
+  const THERE = blocked("there");
+  const off = (now: Situation): number => hypot(x - now.sight.view.stance.centre.x, z - now.sight.view.stance.centre.z);
+  const spot = (now: Situation): Spot => {
+    const centre = now.sight.view.stance.centre;
+    return { x, z, face: off(now) > 0 ? atan2(x - centre.x, z - centre.z) : now.sight.report.heading };
+  };
+  return {
+    name: `to (${x}, ${z})`, spot,
+    entry: (now) => off(now) > within ? READY : THERE,
+    reached: (now) => off(now) <= within,
+    walk: (now) => {
+      const at = spot(now);
+      return walk.kept(now, approachSpot(now.sight.view, at, ceilingOf(now), at.face));
     },
   };
 }
@@ -145,22 +171,28 @@ export function outOfPressure(walk: Walker): Destination {
  * pressure over the time the way runs within its reach (`threatened`, at the nearest it comes);
  * leaving the body at the spot, the focus turned toward it as far as it turns in that time
  * (`Predictions.turns`), and as the gait leaves it (`Going`); out of a clinch (`CLINCH`), its chance
- * of going down behind.
+ * of going down behind. With no focus, the way at the gait's pace and where the gait leaves the
+ * body, at no range.
  */
 export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker): Terms {
-  const focus = now.focus!, centre = now.sight.view.stance.centre, offset = now.apart - now.range;
-  const reach = edgeOf(now, now.predictions.pressure) + offset, points = spot.route ?? [spot];
+  const focus = now.focus, centre = now.sight.view.stance.centre, offset = now.apart - now.range;
+  const reach = focus ? edgeOf(now, now.predictions.pressure) + offset : 0, points = spot.route ?? [spot];
   let duration = 0, inReach = 0, nearest = Infinity, x = centre.x, z = centre.z;
   for (const point of points) {
     const dx = point.x - x, dz = point.z - z, length = hypot(dx, dz);
     if (length > 0) {
       const face = walk.facing(now), forward = (dx * sin(face) + dz * cos(face)) / length, right = (dx * cos(face) - dz * sin(face)) / length;
       const way = walk.pace(now, going.gait, forward, right), pace = way > 0 ? way : walk.pace(now, going.gait);
-      const within = alongWithin(x - focus.centre.x, z - focus.centre.z, dx, dz, reach);
-      duration += length / pace; inReach += within.inside * length / pace; nearest = Math.min(nearest, within.nearest);
-    } else nearest = Math.min(nearest, hypot(x - focus.centre.x, z - focus.centre.z));
+      duration += length / pace;
+      if (focus) {
+        const within = alongWithin(x - focus.centre.x, z - focus.centre.z, dx, dz, reach);
+        inReach += within.inside * length / pace; nearest = Math.min(nearest, within.nearest);
+      }
+    } else if (focus) nearest = Math.min(nearest, hypot(x - focus.centre.x, z - focus.centre.z));
     x = point.x; z = point.z;
   }
+  if (!focus) return { duration, dealt: 0, taken: now.predictions.danger, orders: 0,
+    exit: fromHere(now, { range: Infinity, down: going.down, unbraced: going.braced, at: spot, ready: going.ready }) };
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - now.predictions.turns * duration);
   return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearest - offset), orders: 0,
@@ -197,7 +229,7 @@ export function walkBy(going: Going, places: readonly Destination[], walk: Walke
     aim(index) { state.at = index; },
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
-      return legs.kind !== "ready" ? legs : !now.focus ? NO_FOCUS : to().entry(now);
+      return legs.kind !== "ready" ? legs : to().entry(now);
     },
     status: (now): Status => to().reached(now) ? "over" : "yields",
     begin() {},
@@ -207,5 +239,3 @@ export function walkBy(going: Going, places: readonly Destination[], walk: Walke
   };
 }
 
-/** A walk with no focus to walk about. */
-const NO_FOCUS = blocked("no focus");
