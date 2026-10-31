@@ -9,38 +9,36 @@ import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { appearanceFor, appearancesFor, type Appearance } from "../render/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
-import { addArenaSolids, arenaSolids } from "./room.ts";
+import { arenaSolids } from "./room.ts";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { need as find } from "../dom.ts";
-import { airOf, hearTouches } from "../audio/body-sounds.ts";
-import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
-import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, modelHolding, modelHolds, modelLoadout, resolveCharacter, type BodyModel } from "../core/models.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
 import { HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
-import { createWorld, type Hook, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { fighterHands } from "../render/strike-hands.ts";
-import { boutStart, Duel, entryRules, SIDES, type Verdict } from "./duel.ts";
+import { handsOf } from "../render/strike-hands.ts";
+import { puppetBody, type Puppet } from "../render/puppet.ts";
+import { bodyBetween, openWorld, posePuppet, type Between, type WorldLink } from "../worker/client.ts";
+import type { DuelCard, DuelNews, LeadInput, Ray } from "../worker/duel-stage.ts";
+import { duelSpec, entryRules, SIDES, type DuelRecipe } from "./duel.ts";
 import { trialOverlay } from "./trial-overlay.ts";
 import { endingText } from "./end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlCharacter, controlName, controlsFor, defaultControl, readControls, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { offered } from "../core/mind/controller.ts";
-import { partOf, treeData, treeObeys, MINDS, defaultMind } from "../entrants/game.ts";
-import { loadData } from "../core/data/store.ts";
+import { partOf, treeObeys, MINDS, defaultMind } from "../entrants/game.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -50,30 +48,33 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
-import { aimPoint, keysToMove, rayTarget } from "./orders-input.ts";
-import { teamOfOne } from "./team.ts";
-import type { Side } from "../core/spec/body.ts";
-import { physicalReading } from "../core/observation.ts";
-import { arenaPlayback } from "./playback.ts";
+import { keysToMove } from "./orders-input.ts";
+import type { BodySpec, Side } from "../core/spec/body.ts";
+import type { Vec3 } from "../core/spec/quantity.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 import { fighterHud } from "./fighter-hud.ts";
-import { choicePanel, choiceWatch } from "../ui/choices.ts";
+import { choicePanel } from "../ui/choices.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
  * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
  * any; a bout runs to its verdict, and can be run again, or again with the right side redrawn.
  *
+ * The bout's world steps in a worker (`duelStage`, `src/worker/`): the page draws a puppet of each
+ * body between the last two steps it holds, and shows what each step's news tells (`DuelNews`), so
+ * it keeps its frame rate when the world cannot keep real time and the bout plays in slow motion.
+ *
  * A person who takes a side leads it as a team of one (`teamOfOne`) under the party's Commander,
  * which picks no foe untold and gives the side its orders (`Duel.order`): the keys walk it, as the
  * camera sees the ground, it faces the pointer, the left button attacks where the pointer is, and a
  * click on the floor sends it there. The page turns the keys and the pointer into world directions
- * (`orders-input.ts`) before the Commander reads them, so nothing of the camera reaches a mind.
+ * and a ray (`orders-input.ts`, `LeadInput`) before the worker's Commander reads them, so nothing of
+ * the camera reaches a mind.
  *
  * Each side shows its choices (`MenuEntry`, `choicePanel`); the person picks one of their side's,
  * ordered as an attack with its action, limb and region, or lets the mind fight its own way. With
- * pause on choice, the bout pauses where their side has a new one (`choiceWatch`), so a bout plays
- * turn by turn, its orders on its tape.
+ * pause on choice, the bout holds at the step where their side has a new one (`choiceWatch`), so a
+ * bout plays turn by turn, its orders on its tape.
  *
  * The bout is heard until its verdict: each body's touches and its air
  * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCues`). The verdict silences
@@ -81,14 +82,6 @@ import { choicePanel, choiceWatch } from "../ui/choices.ts";
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
-
-/**
- * The most real time one frame steps the world through, s: a frame of a screen at 30 fps. A page
- * that falls behind plays the fight in slow motion rather than freezing the screen to catch up.
- * A numeric setting.
- */
-const CATCH_UP_SECONDS = 1 / 30;
-
 
 /** What a hand may hold, by name, as the pickers show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
@@ -110,15 +103,27 @@ const trialNote = ({ commit, world }: Trial): string => {
   return `A recorded case from commit ${commit.slice(0, 8)}: the reel plays its recipe and orders as this build's code builds them, `
     + `which may not be the code it was recorded at. Fight plays a new bout of the choices shown.${extra.length ? ` The case also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
 };
-/** Two overlays drawn and taken away together. */
-const joined = (a: ReturnType<typeof trialOverlay>, b: ReturnType<typeof trialOverlay>): ReturnType<typeof trialOverlay> =>
-  ({ update() { a.update(); b.update(); }, dispose() { a.dispose(); b.dispose(); } });
 /** The pause between one trial's end and the next one's start, with auto-play on, ms. */
 const TRIAL_BEAT_MS = 1000;
 /** Where the previous version's same trial plays, beside the trial: this far along +x, the stage's own axis, m. */
 const BESIDE = 4;
 /** How much of its side's colour the previous version's bodies are drawn in: its shapes, dimmed. */
 const BESIDE_SHADE = .55;
+
+/** The segment of `spec` no joint carries: the one the chase camera turns with. */
+const rootOf = (spec: BodySpec): string => spec.segments.find((segment) => !spec.joints.some((joint) => joint.child === segment.name))!.name;
+
+/** A ray as the worker reads it (`Ray`). */
+const vec = ({ x, y, z }: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [x, y, z];
+
+/** The bout under way: its world's worker, the recipe and specs it was built from, the side a person leads, and what its last step told. */
+interface Bout {
+  readonly link: WorldLink<DuelCard>;
+  readonly recipe: DuelRecipe;
+  readonly specs: Readonly<Record<Side, BodySpec>>;
+  readonly person: Side | null;
+  news: DuelNews | null;
+}
 
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
@@ -135,22 +140,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
-  const physicsEngine = await loadEngine(trials?.[at]!.world.engine);
-  context.signal.throwIfAborted();
   const level = readLevel(location.search);
-  let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => {
-    context.own(() => scene.dispose());
-    const world = made = createWorld(scene, physicsEngine);
-    context.own(() => world.dispose());
-    return world.physics;
-  }, level, context.signal);
-  context.signal.throwIfAborted();
-  const world = made as World | null;
-  if (!world) throw new Error("the arena made no world");
+  const arena = await buildArena(engine, null, level, context.signal);
   const { scene, camera, shadows } = arena;
-  // Every bout begins in the world as the arena left it, as a bout in a fresh world does.
-  const toStart = boutStart(world);
+  context.own(() => scene.dispose());
+  context.signal.throwIfAborted();
 
   // Setup: a contender panel on each side, each with its model.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
@@ -300,7 +294,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
-    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
+    previewLoads.push(showHeroLineup(preview, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
       context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       let drafted = true;
@@ -370,46 +364,18 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.own(() => audio.dispose());
   // What each side's controller is called while its bout runs (`controllerLabel`).
   let controllers: Record<Side, string> = { left: "", right: "" };
-  let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
+  let bout: Bout | null = null, drawn: (SkinView | BodyShapes)[] = [], puppets: Puppet[] = [], paused = false, verdictShown = false;
   const highlights = sideHighlights(scene);
   context.own(() => highlights.dispose());
-  let playback: ReturnType<typeof arenaPlayback> | null = null;
-  const bodies = new Map<Side, { read: ReturnType<typeof physicalReading>; skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
-  let subjects: ArenaSubjects | null = null;
-  /** A trial's overlays (`trialOverlay`), while the bout plays one. */
-  let overlay: ReturnType<typeof trialOverlay> | null = null;
-  /**
-   * The world the previous version's same trial plays in, beside the trial's: made the first time a
-   * reel plays one, with the arena's solids, its bodies drawn `BESIDE` m along under `root`.
-   */
-  let besideWorld: { readonly world: World; readonly toStart: () => void; readonly root: TransformNode } | null = null;
-  /** The previous version's bout under way beside the trial, its playback, overlays and shapes. */
-  let besideBout: { readonly duel: Duel; readonly playback: ReturnType<typeof arenaPlayback>; dispose(): void } | null = null;
-  /** The bout of `previous` beside the trial, in a world of its own, stepped as the trial's is. */
-  const playBeside = (previous: NonNullable<Trial["previous"]>) => {
-    besideWorld ??= (() => {
-      const other = createWorld(scene, physicsEngine);
-      context.own(() => other.dispose());
-      addArenaSolids(other.physics, arenaSolids(level));
-      const root = new TransformNode("arena.beside", scene);
-      root.position.set(BESIDE, 0, 0);
-      return { world: other, toStart: boutStart(other), root };
-    })();
-    const { world: other, toStart: reset, root } = besideWorld, shapes: BodyShapes[] = [];
-    reset();
-    const bout = new Duel(other, previous.world.recipe, { solids: arenaSolids(level), onBuilt: (duelist, built) => {
-      // Its nodes under the root: the solver writes each node's place in its own world, drawn beside.
-      for (const segment of built.segments.values()) segment.node.parent = root;
-      shapes.push(drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour).scale(BESIDE_SHADE)), drawHeld(built, scene));
-    } });
-    bout.play(previous.world.tape);
-    const shown = arenaPlayback(bout, CATCH_UP_SECONDS, previous.played ?? Infinity), drawn = trialOverlay(scene, bout, root);
-    return { duel: bout, playback: shown, overlay: drawn, right: bout.duelists.right, dispose() {
-      drawn.dispose(); shown.dispose();
-      for (const one of shapes) one.dispose();
-      bout.dispose();
-    } };
-  };
+  /** A body drawn: its puppet, where it is in a frame, its centre and life as last shown. */
+  interface Drawn { readonly puppet: Puppet; readonly offset: number; readonly centre: Vector3; life: number }
+  /** Each side's body of the bout, with its skin and shapes, and what the camera follows of it; and every body drawn, those beside too. */
+  const bodies = new Map<Side, { readonly body: Drawn; readonly skin: SkinView; readonly shapes: BodyShapes; readonly head: TransformNode | null; readonly subject: ArenaSubjects[Side] }>();
+  let shownBodies: Drawn[] = [], subjects: ArenaSubjects | null = null;
+  /** A trial's overlays (`trialOverlay`), while the bout plays one, and those of the previous version's beside it. */
+  let overlay: ReturnType<typeof trialOverlay> | null = null, besideOverlay: ReturnType<typeof trialOverlay> | null = null;
+  /** Where the previous version's same trial is drawn, beside the trial's: `BESIDE` m along, made the first time a reel plays one. */
+  let besideRoot: TransformNode | null = null;
   const profile = sceneProfile(scene);
   profile.register("world", visualGroup([...scene.meshes]));
   const geometry = solidGeometry(scene, arenaSolids(level));
@@ -427,9 +393,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   };
   const undraw = () => {
     highlights.clear();
-    for (const { hands } of bodies.values()) hands.dispose();
     for (const drawing of drawn) { for (const mesh of drawing.meshes) shadows.removeShadowCaster(mesh); drawing.dispose(); }
-    drawn = []; bodies.clear(); subjects = null;
+    for (const puppet of puppets) puppet.dispose();
+    drawn = []; puppets = []; bodies.clear(); shownBodies = []; subjects = null;
   };
   const viewPanel = need<HTMLDetailsElement>("arena-view");
   viewPanel.open = false;
@@ -447,23 +413,26 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       name: ({ both: "Both", left: "Left", right: "Right" } satisfies Record<ArenaFocus, string>)[value] })),
       () => view.focus, focus => chooseView({ focus }))));
   need("arena-view-controls").append(...viewFields.map(control => control.element));
-  /** What hears the bout under way: its touches' listener, and each side's air. */
-  let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
-  let hudHook: Hook | null = null;
-  /** The person's side as a team of one, while they lead it in the bout under way. */
-  let led: ReturnType<typeof teamOfOne> | null = null;
-  /** Whether the bout pauses where the person's side has a new choice, and whether it is paused so now, for the person to pick. */
+  /** Whether the bout holds where the person's side has a new choice, and whether it is held so now, for the person to pick. */
   let pauseOnChoice = false, choosing = false;
-  const watch = choiceWatch();
+  /** Whether the bout's world runs in its worker now, and whether its scene is warm enough that it may. */
+  let running = false, warm = false;
+  /** The person's lead and each side's looks as last sent to the worker, to send only what changed. */
+  let leadSent = "", looksSent: Record<Side, string> = { left: "", right: "" };
+  /** Run the bout's world while it is shown: warm, not paused, not loading, and its tab visible. */
+  const sync = () => {
+    const run = bout !== null && warm && !paused && !context.busy && document.visibilityState === "visible";
+    if (run !== running) { running = run; bout?.link.run(run); }
+  };
+  document.addEventListener("visibilitychange", sync, { signal: context.signal });
   const end = () => {
-    watch.reset(); choosing = false;
+    choosing = false;
     for (const row of rows) row.choices.reset();
-    hudHook?.dispose(); hudHook = null;
-    led?.dispose(); led = null;
     for (const row of rows) row.condition.reset();
     hud.hidden = true;
-    playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
-    overlay?.dispose(); overlay = null; besideBout?.dispose(); besideBout = null;
+    undraw(); bout?.link.dispose(); bout = null; verdictShown = false; running = false; warm = false;
+    leadSent = ""; looksSent = { left: "", right: "" };
+    overlay?.dispose(); overlay = null; besideOverlay?.dispose(); besideOverlay = null;
     trial = null; trialShown = false; clearTimeout(nextTimer);
   };
 
@@ -482,7 +451,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
     // A pick goes to the person's side as an attack, as their pointer's strike does, and the bout goes on.
     const choices = choicePanel((foe) => ARENA_SIDES[foe as Side]?.name ?? foe,
-      (strike, among) => { if (!led) return; led.hear({ kind: "attack", ...strike }); watch.picked(among); setPaused(false); });
+      (strike, among) => { if (!bout?.person) return; bout.link.input({ kind: "attack", strike, among }); setPaused(false); });
     column.append(label, bar, condition.element, status, choices.element, mind); hud.append(column);
     return { side, label, bar, status, mind, condition, choices, inspector: null as ReturnType<typeof mindInspector> | null };
   });
@@ -500,7 +469,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   choosingLine.className = "hud-choosing"; choosingLine.hidden = true;
   choosingLine.append(Object.assign(document.createElement("span"), { textContent: "A new choice: pick one under your side, or go on (Space)" }), goOn);
   for (const control of [choiceLabel, goOn]) for (const type of ["pointerdown", "pointermove"]) control.addEventListener(type, event => event.stopPropagation());
-  choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; watch.reset(); });
+  choiceBox.addEventListener("change", () => { choiceBox.blur(); pauseOnChoice = choiceBox.checked; bout?.link.input({ kind: "hold", hold: pauseOnChoice }); });
   goOn.addEventListener("click", () => { goOn.blur(); setPaused(false); });
   clockColumn.append(clock, pauseButton, choiceLabel, choosingLine, viewPanel, meter.element); hud.insertBefore(clockColumn, rows[1].label.parentElement);
   // A reel's trial: which, its conditions and recorded outcome, auto-play and the next trial.
@@ -515,12 +484,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
 
   /** Pauses or resumes the bout: paused for the menu, or for the person to pick a choice (`why: "choice"`), which shows no menu. */
   const setPaused = (value: boolean, why: "menu" | "choice" = "menu") => {
-    paused = value && duel !== null && !duel.verdict;
+    const decided = !!bout?.news?.verdict;
+    paused = value && bout !== null && !decided;
     choosing = paused && why === "choice";
     show("pause-menu", paused && !choosing);
     choosingLine.hidden = !choosing;
-    pauseButton.hidden = paused || !duel || !!duel.verdict;
-    audio.setActive(!paused && duel !== null && !duel.verdict);
+    pauseButton.hidden = paused || !bout || decided;
+    audio.setActive(!paused && bout !== null && !decided);
+    sync();
   };
   let screen: "setup" | "fight" = "setup";
   const setup = () => {
@@ -567,70 +538,84 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view));
         }
         // The bout: the trial's recipe as recorded, or the one the address and the pickers make.
-        const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level);
-        const minds = recipe.minds ?? { left: defaultMind(recipe.left), right: defaultMind(recipe.right) };
-        const [dress] = await Promise.all([
-          Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
-          loadData([...SIDES.flatMap((side) => treeData(minds[side])), ...given?.previous ? SIDES.flatMap((side) => treeData(given.previous!.world.recipe.minds?.[side] ?? defaultMind(given.previous!.world.recipe[side]))) : []]),
-        ]);
+        const recipe = given?.world.recipe ?? recipeOf(location.search, attributes, level), previous = given?.previous ?? null;
+        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
         context.signal.throwIfAborted();
         end();
         trial = given;
-        toStart();
         audio.reset();
         controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
-        const bout = duel = new Duel(world, recipe, {
-          solids: arenaSolids(level),
-          onBuilt: (duelist, built) => {
-            const hands = fighterHands(duelist);
-            const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
-            const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
-            const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
-            const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
-            highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
-            bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
-              get position() { return read().centre; },
-              get rotation() { return pelvis.rotationQuaternion!; }, rest,
-            } });
-            for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
-            drawn.push(skin, shapes, held);
+        // A trial plays as recorded; a person leads their side of a new bout.
+        const person = given ? null : you;
+        const link = await openWorld<DuelCard>({ kind: "duel", start: {
+          recipe, tape: given?.world.tape ?? [], played: given?.played ?? null, ...given ? { engine: given.world.engine } : {},
+          person, hold: pauseOnChoice, traced: given !== null,
+          beside: previous ? { recipe: previous.world.recipe, tape: previous.world.tape, played: previous.played, engine: previous.world.engine } : null,
+        } }, context.signal);
+        const specs = { left: duelSpec(recipe, "left"), right: duelSpec(recipe, "right") };
+        const besideSpecs = previous ? { left: duelSpec(previous.world.recipe, "left"), right: duelSpec(previous.world.recipe, "right") } : null;
+        const current: Bout = bout = { link, recipe, specs, person, news: null };
+        link.listen({
+          news: (news) => {
+            if (bout !== current || !news.duel) return;
+            current.news = news.duel;
+            for (const cue of news.duel.cues) audio.cue(cue);
+            if (news.duel.trace) overlay?.add(news.duel.trace);
+            if (news.duel.besideTrace) besideOverlay?.add(news.duel.besideTrace);
+            if (news.held) setPaused(true, "choice");
           },
-          // A blow is a touch, and is heard as one; this is what it took off.
-          onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
+          fault: (message) => { if (bout === current) need("boot-note").textContent = `The bout stopped: ${message}`; },
         });
-        playback = arenaPlayback(bout, CATCH_UP_SECONDS, given?.played ?? Infinity);
+        if (previous) {
+          besideRoot ??= new TransformNode("arena.beside", scene);
+          besideRoot.position.set(BESIDE, 0, 0);
+        }
+        // Each body as its worker built it, drawn at the world as it stands before the first step.
+        link.roster.forEach(({ id, segments, card: { side, beside } }, k) => {
+          const puppet = puppetBody((beside ? besideSpecs! : specs)[side], scene);
+          puppets.push(puppet);
+          if (segments.join() !== [...puppet.segments.keys()].join()) throw new Error(`the page draws ${id} with other segments than its world built`);
+          const body: Drawn = { puppet, offset: link.offsets[k]!, centre: new Vector3(), life: 1 };
+          shownBodies.push(body);
+          posePuppet(puppet, body.offset, { from: link.newest, to: link.newest, share: 1 });
+          bodyBetween(body.offset, { from: link.newest, to: link.newest, share: 1 }, body.centre);
+          if (beside) {
+            // The previous version's bodies, beside: their nodes under the root, their shapes dimmed.
+            for (const segment of puppet.segments.values()) segment.node.parent = besideRoot;
+            drawn.push(drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour).scale(BESIDE_SHADE)), drawHeld(puppet, scene));
+            return;
+          }
+          const hands = handsOf(puppet.handPoses.state);
+          const skin = dress.get(side)!(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
+          const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[side].colour));
+          const held = drawHeld(puppet, scene), root = puppet.segments.get(rootOf(puppet.spec))!.node;
+          const rest = root.rotationQuaternion!.clone();
+          highlights.add(side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
+          bodies.set(side, { body, skin, shapes, head: puppet.segments.get("head")?.node ?? null, subject: {
+            get position() { return body.centre; },
+            get rotation() { return root.rotationQuaternion!; }, rest,
+          } });
+          for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
+          drawn.push(skin, shapes, held);
+        });
         subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
-        if (given) overlay = trialOverlay(scene, bout);
-        if (given?.previous) {
-          const beside = playBeside(given.previous), read = physicalReading(beside.right.built), at = new Vector3();
-          besideBout = { duel: beside.duel, playback: beside.playback, dispose: beside.dispose };
-          overlay = joined(overlay!, beside.overlay);
+        if (given) overlay = trialOverlay(scene);
+        if (previous) {
+          besideOverlay = trialOverlay(scene, besideRoot);
           // The camera frames the trial's striker and the previous version's target: both bouts.
-          const own = subjects.right;
-          subjects = { left: subjects.left, right: { get position() { return at.copyFrom(read().centre).addInPlaceFromFloats(BESIDE, 0, 0); }, get rotation() { return own.rotation; }, rest: own.rest } };
+          const own = subjects.right, at = new Vector3();
+          const target = shownBodies[link.roster.findIndex(({ card }) => card.beside && card.side === "right")]!;
+          subjects = { left: subjects.left, right: { get position() { return at.copyFrom(target.centre).addInPlaceFromFloats(BESIDE, 0, 0); }, get rotation() { return own.rotation; }, rest: own.rest } };
         }
         rig.reset(); applyView();
-        const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
-        hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
-        airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-        if (given) bout.play(given.world.tape);
-        else if (you) led = teamOfOne(bout, you, { kind: "party", picks: false });
-        choiceLabel.hidden = !led;
+        choiceLabel.hidden = person === null;
         for (const row of rows) {
-          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !given ? " (you)" : ""}`;
-          const duelist = bout.duelists[row.side], minded = duelist.minded;
-          row.condition.bind(duelist);
-          row.condition.sample(world.time); row.condition.render(world.time);
-          row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
-            ? { body: duelist.body, skills: minded.skills ?? null, report: minded.report ?? null } : null);
+          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === person ? " (you)" : ""}`;
+          const config = recipe.minds?.[row.side] ?? defaultMind(recipe[row.side]);
+          row.condition.bind(specs[row.side]);
+          row.inspector = mindInspector(config, specs[row.side], () => bout === current ? current.news?.sides[row.side].inspected ?? null : null);
           row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
         }
-        let feedStopped = false;
-        hudHook = world.afterStep(() => {
-          const time = bout.state.start + (bout.verdict?.time ?? bout.clock);
-          for (const row of rows) row.condition.sample(time, !feedStopped);
-          if (bout.verdict) feedStopped = true;
-        });
         if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; recorded ${given.outcome}${given.why ? ` (${given.why})` : ""}`}`
           + (!reel?.previous ? "" : given.previous ? `; beside, version ${given.previous.version.slice(0, 8)}${given.previous.outcome === null ? "" : `: ${given.previous.outcome}${given.previous.why ? ` (${given.previous.why})` : ""}`}`
             : `; no record holds version ${reel.previous.slice(0, 8)}'s same trial`);
@@ -638,10 +623,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         for (const id of ["random-replay", "bout-end-random"]) need(id).hidden = given !== null;
         hud.hidden = false;
         show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
-        frame();
+        frame(); readout();
         await stage("Preparing lighting");
         await warmScene(scene, context.signal);
         firstFrame = true;
+        warm = true;
       });
       if (!context.signal.aborted) canvas.focus();
     } catch (error) {
@@ -706,8 +692,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (event.key === "Shift") { walking = true; return; }
     if (event.target instanceof HTMLElement && event.target.matches("input, select, textarea")) return;
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
-    if (!duel || walkKey(event, true)) return;
-    if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
+    if (!bout || walkKey(event, true)) return;
+    if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!bout.news?.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") replay();
   }, { signal: context.signal });
   window.addEventListener("keyup", (event) => { if (event.key === "Shift") walking = false; walkKey(event, false); }, { signal: context.signal });
@@ -716,7 +702,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     keys.up = keys.down = keys.left = keys.right = false;
     walking = false;
     attacking = false;
-    if (duel && !duel.verdict) setPaused(true);
+    if (bout && !bout.news?.verdict) setPaused(true);
   }, { signal: context.signal });
   // The left button is a level, read from every pointer event, since a release is not guaranteed.
   for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
@@ -726,23 +712,22 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     });
   }
   canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; press = null; });
-  // A left click that is on no body, and moves less than `CLICK_PIXELS` before its release, sends the person's side to the floor under it.
+  // A left click that moves less than `CLICK_PIXELS` before its release sends the person's side to
+  // the floor under it, where its ray meets no body part first (`DuelInput` "go").
   const CLICK_PIXELS = 6;
   let press: { x: number; y: number } | null = null;
-  /** Where the person's ray from the camera through (`x`, `y`) on the canvas meets the floor, and the body part it meets first, if any. */
-  const pointed = (x: number, y: number) => {
-    if (!duel || !you) return null;
-    const ray = scene.createPickingRay(x, y, null, camera), origin = ray.origin.asArray(), direction = ray.direction.asArray();
-    return { floor: aimPoint(origin, direction, 0), part: rayTarget(duel.duelists[you].senses(), origin, direction, camera.maxZ) };
+  /** The person's ray from the camera through (`x`, `y`) on the canvas. */
+  const rayAt = (x: number, y: number): Ray => {
+    const ray = scene.createPickingRay(x, y, null, camera);
+    return { origin: vec(ray.origin), direction: vec(ray.direction), length: camera.maxZ };
   };
   canvas.addEventListener("pointerdown", (event) => {
-    press = event.button === 0 && led && !pointed(event.offsetX, event.offsetY)?.part ? { x: event.offsetX, y: event.offsetY } : null;
+    press = event.button === 0 && bout?.person ? { x: event.offsetX, y: event.offsetY } : null;
   });
   canvas.addEventListener("pointerup", (event) => {
     const pressed = press; press = null;
-    if (event.button !== 0 || !pressed || !led || paused || Math.abs(event.offsetX - pressed.x) + Math.abs(event.offsetY - pressed.y) >= CLICK_PIXELS) return;
-    const at = pointed(event.offsetX, event.offsetY);
-    if (at?.floor && !at.part) led.hear({ kind: "go", destination: { x: at.floor[0], z: at.floor[2] } });
+    if (event.button !== 0 || !pressed || !bout?.person || paused || Math.abs(event.offsetX - pressed.x) + Math.abs(event.offsetY - pressed.y) >= CLICK_PIXELS) return;
+    bout.link.input({ kind: "go", ray: rayAt(event.offsetX, event.offsetY) });
   });
 
   // Orbit uses the spare buttons; left-button attack remains independent of camera mode.
@@ -756,63 +741,77 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   }, { passive: false });
   /**
    * The person's lead for this frame, from the keys and the pointer as the camera has them: the keys a
-   * direction on the ground, Shift a walk, the pointer a point to face on the level of the side's centre
-   * of mass, and the left button held the body part under the pointer, to strike.
+   * direction on the ground, Shift a walk, the pointer's ray, which the worker turns into a point to
+   * face on the level of the side's centre of mass, and the left button held, which strikes the body
+   * part under the pointer. Sent when it changes.
    */
   const steer = () => {
-    if (!duel || !you || !led) return;
-    const centre = duel.duelists[you].body.physical.centre;
-    const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
-    const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
-    const strike = attacking && ray ? rayTarget(duel.duelists[you].senses(), ray.origin.asArray(), ray.direction.asArray(), camera.maxZ) : null;
-    led.lead = { keys: keysToMove(keys, rig.azimuth), walk: walking, aim: point ? { x: point[0], z: point[2] } : null, strike, explore: false };
+    if (!bout?.person) return;
+    const lead: LeadInput = { keys: keysToMove(keys, rig.azimuth), walk: walking, ray: pointer ? rayAt(pointer.x, pointer.y) : null, attacking };
+    const sent = JSON.stringify(lead);
+    if (sent !== leadSent) { leadSent = sent; bout.link.input({ kind: "lead", lead }); }
   };
   const airAt = new Vector3();
   const frame = () => {
     rig.frame(screen, subjects, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     audio.setView(camera.position, { x: Math.sin(rig.azimuth), z: Math.cos(rig.azimuth) });
-    if (profile.view === "world") arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: bodies.get(side)!.read().head })) : []);
+    if (profile.view === "world") arena.updateRoomOcclusion(screen === "fight" && bout ? SIDES.map(side => {
+      const drawn = bodies.get(side)!;
+      return { point: drawn.head?.position ?? drawn.body.centre };
+    }) : []);
+  };
+  /** The world's time last shown, s. */
+  let shownTime = 0;
+  /** Pose every body between `at`'s frames. */
+  const pose = (at: Between) => {
+    for (const body of shownBodies) {
+      posePuppet(body.puppet, body.offset, at);
+      body.life = bodyBetween(body.offset, at, body.centre).life;
+    }
+    shownTime = at.from[0]! + (at.to[0]! - at.from[0]!) * at.share;
   };
   const readout = () => {
-    if (!duel) return;
+    const news = bout?.news;
+    if (!bout || !news) return;
+    const time = news.start + (news.verdict?.time ?? news.clock);
     for (const row of rows) {
-      const fighter = duel.duelists[row.side];
-      row.bar.value = duel.life(row.side);
-      row.condition.render(duel.state.start + (duel.verdict?.time ?? duel.clock));
-      const mind = fighter.minded, controller = controllers[row.side];
-      const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.report?.engagement?.phase ?? "guard / move" : mind.body.has;
-      const down = duel.state.recovery?.[row.side];
-      row.status.textContent = duel.verdict
-        ? duel.verdict.winner === null ? "Draw" : duel.verdict.winner === row.side ? "Winner" : "Defeated"
-        : fighter.body.down
-        ? `${fighter.body.has}${down !== undefined && duel.recipe.recoverySeconds ? ` - ${Math.max(0, duel.recipe.recoverySeconds - down).toFixed(1)} s recovery left` : " - getting up"}`
-        : `${controller} - ${phase}`;
+      const side = news.sides[row.side], controller = controllers[row.side];
+      row.bar.value = bodies.get(row.side)?.body.life ?? 1;
+      row.condition.render(side.hud, time);
+      row.status.textContent = news.verdict
+        ? news.verdict.winner === null ? "Draw" : news.verdict.winner === row.side ? "Winner" : "Defeated"
+        : side.down
+        ? `${side.has}${side.downFor !== null && bout.recipe.recoverySeconds ? ` - ${Math.max(0, bout.recipe.recoverySeconds - side.downFor).toFixed(1)} s recovery left` : " - getting up"}`
+        : `${controller} - ${side.phase}`;
       if (row.mind.open) row.inspector?.refresh();
-      const leads = led !== null && row.side === you && !duel.verdict;
-      row.choices.refresh(() => fighter.minded.report?.menu ?? null, { picks: leads, opens: leads && choosing });
+      const leads = bout.person === row.side && !news.verdict;
+      // What the worker sends of the side: its choices while their list is open or opens, its mind while inspected.
+      const look = { menu: row.choices.element.open || leads && choosing, mind: row.mind.open }, looked = JSON.stringify(look);
+      if (looked !== looksSent[row.side]) { looksSent[row.side] = looked; bout.link.input({ kind: "look", side: row.side, ...look }); }
+      row.choices.refresh(() => side.menu ?? null, { picks: leads, opens: leads && choosing });
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
-    const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
-    const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
+    const helped = SIDES.some((side) => news.sides[side].assisted);
+    const balance = SIDES.map((side) => bout!.recipe.balance?.[side] ?? bout!.specs[side].attributes.balance.value);
     // While either side is hasted, each side's haste, per cent over a person's, signed.
-    const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
-    clock.textContent = `${(duel.verdict?.time ?? duel.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
+    const haste = SIDES.map((side) => bout!.specs[side].attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
+    clock.textContent = `${(news.verdict?.time ?? news.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
     // A trial ends where it was scored: its verdict, if any, and its outcome as recorded.
-    if (trial && playback?.done && (besideBout?.playback.done ?? true) && !trialShown) {
+    if (trial && news.done && !trialShown) {
       trialShown = true;
-      const last = at + 1 >= trials!.length, { verdict } = duel;
+      const last = at + 1 >= trials!.length, { verdict } = news;
       need("bout-end").style.setProperty("--side-colour", verdict?.winner ? ARENA_SIDES[verdict.winner].colour : "var(--hot)");
       need("bout-verdict").textContent = `Trial ${at + 1} of ${trials!.length}${trial.outcome === null ? "" : `: ${trial.outcome}`}${last ? " · the reel is played" : ""}`;
       const decided = verdict ? `${verdict.winner ? `${MODEL_DISPLAY[matchup[verdict.winner]].label} ` : ""}${endingText(verdict.ending)} · ` : "";
-      need("bout-ending").textContent = `${trial.condition} · ${decided}${duel.clock.toFixed(1)} s${trial.why ? ` · ${trial.why}` : ""}`
+      need("bout-ending").textContent = `${trial.condition} · ${decided}${news.clock.toFixed(1)} s${trial.why ? ` · ${trial.why}` : ""}`
         + (trial.previous ? ` · beside, version ${trial.previous.version.slice(0, 8)}: ${trial.previous.outcome ?? ""}${trial.previous.why ? `, ${trial.previous.why}` : ""}` : "");
       show("bout-end", true); audio.setActive(false); pauseButton.hidden = true;
       if (auto && !last) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
     }
-    if (!trial && duel.verdict && shown !== duel.verdict) {
+    if (!trial && news.verdict && !verdictShown) {
       pauseButton.hidden = true;
-      shown = duel.verdict;
-      const { winner, ending, time } = shown;
+      verdictShown = true;
+      const { winner, ending, time } = news.verdict;
       const how = endingText(ending);
       need("bout-end").style.setProperty("--side-colour", winner ? ARENA_SIDES[winner].colour : "var(--hot)");
       need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you ? " (you)" : ""}` : "Draw";
@@ -824,34 +823,42 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const measurement = new URLSearchParams(location.search).get("measure") === "1" ? arenaMeasurement(document.body) : null;
   let firstFrame = true;
   engine.runRenderLoop(() => {
+    sync();
     if (context.busy) { firstFrame = true; meter.reset(); return; }
     if (firstFrame) meter.reset();
-    const clockBefore = world.time;
+    const shownBefore = shownTime;
     const timing = meter.frame(() => {
       const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
       if (!context.busy) steer();
-      if (duel && !paused && !context.busy) {
-        meter.physics(() => {
-          const steps = playback?.advance(seconds) ?? 0;
-          // The previous version's bout beside the trial, in step: the same time, so the same steps.
-          return steps + (besideBout?.playback.advance(seconds) ?? 0);
-        });
-        // A new choice for the person's side pauses the bout for them to pick, where they asked so.
-        const own = you ? duel.duelists[you] : null, report = own?.minded.report;
-        const menu = pauseOnChoice && led && own && !duel.verdict ? report?.menu : null;
-        if (menu && watch.changed(menu, report!.ended ?? [], own!.body.down, duel.clock)) setPaused(true, "choice");
-        for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
+      if (bout) {
+        meter.world(bout.link.received(), bout.link.newest[2]!);
+        pose(bout.link.between(performance.now()));
+        if (!paused && bout.news) for (const { side, speed, at } of bout.news.air) audio.swish(side, speed, airAt.set(at[0], at[1], at[2]));
       }
       if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);
-      frame(); readout(); audio.update(); overlay?.update();
+      frame(); readout(); audio.update(); overlay?.update(); besideOverlay?.update();
       scene.render();
     });
-    measurement?.record({ ...timing,
-      simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
+    measurement?.record({ ...timing, simulated: shownTime - shownBefore, time: shownTime, hz: bout?.link.hz ?? 0,
+      active: !!bout && !paused && !bout.news?.verdict });
   });
   window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
   context.own(() => measurement?.dispose());
-  Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
+  /**
+   * From a console: the bout's world (`WorldLink`, its tape by `world.tape()`), its verdict, its
+   * bodies' puppets, and `step(n)`, which takes `n` steps in the worker, then draws the newest, as
+   * a hidden tab needs.
+   */
+  const step = async (steps = 1) => {
+    if (!bout) return;
+    await bout.link.step(steps);
+    const newest = bout.link.newest;
+    pose({ from: newest, to: newest, share: 1 });
+    frame(); readout();
+    scene.render();
+  };
+  Object.assign(window, { __arena: { get world() { return bout?.link ?? null; }, get verdict() { return bout?.news?.verdict ?? null; },
+    get puppets() { return shownBodies.map((body) => body.puppet); }, step, scene, engine } });
 
   await Promise.all(previewLoads);
   context.signal.throwIfAborted();

@@ -2,23 +2,28 @@ import { physicalReading } from "../core/observation.ts";
 import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import { defaultMind, treeData } from "../entrants/game.ts";
-import { SIDES, type DuelRecipe, type OrdersEntry, type Verdict } from "../arena/duel.ts";
+import { SIDES, type OrdersEntry, type Verdict } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
 import type { Side } from "../core/spec/body.ts";
-import { buildBout, buildTeamBout } from "../evaluation/bout.ts";
-import type { Orders } from "../core/intent/orders.ts";
+import { buildTeamBout } from "../evaluation/bout.ts";
+import type { DuelNews } from "./duel-stage.ts";
 import { frameLayout, packFrame, type FramedBody, type RosterBody } from "./frame.ts";
 
-/** What a stage tells the page beside its frames, once it happens. */
+/** What a stage tells the page beside its frames. */
 export interface StageNews {
+  /** The bout's verdict, once given. */
   readonly verdict?: Verdict;
+  /** The stage holds here: the world runs no more until the page runs it again. */
+  readonly held?: boolean;
+  /** A duel's, every step (`duelStage`). */
+  readonly duel?: DuelNews;
 }
 
 /**
  * **A world a worker steps**: built from a screen's recipe exactly as Node builds it, stepped one
  * step at a time, and read out as frames (`frame.ts`).
  */
-export interface Stage<Card = unknown> {
+export interface Stage<Card = unknown, Input = never> {
   readonly hz: number;
   /** Its bodies, in the frame's order. */
   readonly roster: readonly RosterBody<Card>[];
@@ -29,8 +34,8 @@ export interface Stage<Card = unknown> {
   news(): StageNews | null;
   /** Whether it has played what it is for: no step is taken past it. */
   over(): boolean;
-  /** Order `side` from the next step on, kept on the bout's tape; a stage with no orders refuses. */
-  order(side: Side, orders: Orders | null): void;
+  /** Take what the page tells it as it runs (`DuelInput`), before the next step; a stage that takes none refuses. */
+  input(input: Input): void;
   /** Every order given so far, as the bout keeps it: with the recipe, the whole of what made it. */
   tape(): readonly OrdersEntry[];
   dispose(): void;
@@ -64,44 +69,8 @@ export async function teamStage(recipe: TeamRecipe, aftermath: number, engine?: 
       return { verdict: bout.verdict };
     },
     over: () => bout.verdict !== null && bout.clock >= bout.verdict.time + aftermath,
-    order() { throw new Error("a team bout's bodies take no orders"); },
+    input() { throw new Error("a team bout takes no input"); },
     tape: () => [],
-    dispose,
-  };
-}
-
-/** A body of a duel as the page makes its spec: its side. */
-export interface DuelCard { readonly side: Side }
-
-/**
- * **A duel's stage**: `recipe`'s bout built by `buildBout` on `engine`, its minds' data loaded
- * first, playing `tape` as it steps and taking a person's orders on its tape, played until
- * `aftermath` s past its verdict.
- */
-export async function duelStage(recipe: DuelRecipe, tape: readonly OrdersEntry[], aftermath: number, engine?: EngineName): Promise<Stage<DuelCard>> {
-  await loadData(SIDES.flatMap((side) => treeData(recipe.minds?.[side] ?? defaultMind(recipe[side]))));
-  const { world, duel, dispose } = await buildBout(recipe, engine === undefined ? {} : { engine });
-  duel.play(tape);
-  const roster = SIDES.map((side) => ({ id: side, segments: [...duel.duelists[side].built.segments.keys()], card: { side } }));
-  const { length } = frameLayout(roster);
-  const bodies: FramedBody[] = SIDES.map((side) => {
-    const duelist = duel.duelists[side], read = physicalReading(duelist.built);
-    return { segments: duelist.built.segments, life: () => duel.life(side), out: () => duel.eliminated(side),
-      down: () => duelist.body.down, centre: () => read().centre };
-  });
-  let told = false;
-  return {
-    hz: world.hz, roster,
-    step: () => world.step(),
-    frame: () => packFrame(bodies, length, world.time, world.steps),
-    news() {
-      if (told || !duel.verdict) return null;
-      told = true;
-      return { verdict: duel.verdict };
-    },
-    over: () => duel.verdict !== null && duel.clock >= duel.verdict.time + aftermath,
-    order: (side, orders) => duel.order(side, orders),
-    tape: () => duel.tape,
     dispose,
   };
 }

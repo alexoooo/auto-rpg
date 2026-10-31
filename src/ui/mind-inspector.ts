@@ -10,11 +10,15 @@ import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";
 
-/** A mind's public ownership and execution facts, with no executor-specific state: what holds the body (its skills' report), and what the mind reports doing (`MindReport`). */
-interface Inspected {
+/**
+ * A mind's public ownership and execution facts, with no executor-specific state: what holds the
+ * body (its skills' report), and what the mind reports doing (`MindReport`). Plain data where a
+ * worker sends it.
+ */
+export interface Inspected {
   readonly body: Pick<PhysicalBody, "has" | "level">;
-  readonly skills?: { readonly report: Partial<SkillReport> } | null;
-  readonly report?: MindReport | null;
+  readonly skills?: { readonly report: Partial<Pick<SkillReport, "holders" | "actions">> } | null;
+  readonly report?: Pick<MindReport, "engagement" | "actions" | "ended"> | null;
 }
 
 /** Representative controls for the body's continuous services and hand endpoints; any other effector its skills hold gets a row of its own when first held. */

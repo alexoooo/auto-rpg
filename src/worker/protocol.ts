@@ -1,9 +1,8 @@
-import type { DuelRecipe, OrdersEntry } from "../arena/duel.ts";
+import type { OrdersEntry } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
-import type { Orders } from "../core/intent/orders.ts";
-import type { Side } from "../core/spec/body.ts";
 import type { RosterBody } from "./frame.ts";
 import type { StageNews } from "./stage.ts";
+import type { DuelInput, DuelStart } from "./duel-stage.ts";
 
 /**
  * **What a page and its world's worker say to each other.** The page says what to build, then
@@ -13,10 +12,10 @@ import type { StageNews } from "./stage.ts";
 export type ToWorker =
   /** Build a team bout's stage (`teamStage`), played until `aftermath` s past its verdict. */
   | { readonly kind: "team"; readonly recipe: TeamRecipe; readonly aftermath: number }
-  /** Build a duel's stage (`duelStage`), playing `tape`, played until `aftermath` s past its verdict. */
-  | { readonly kind: "duel"; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[]; readonly aftermath: number }
-  /** Order `side` from the next step on, kept on the bout's tape: what a person does. */
-  | { readonly kind: "order"; readonly side: Side; readonly orders: Orders | null }
+  /** Build a duel's stage as the Arena plays it (`duelStage`). */
+  | { readonly kind: "duel"; readonly start: DuelStart }
+  /** What a person does, or what the page looks at, applied before the next step: news of it comes back at once. */
+  | { readonly kind: "input"; readonly input: DuelInput }
   /** Send the bout's tape. */
   | { readonly kind: "tape" }
   /** Run the world in real time, or hold it. */
@@ -33,6 +32,8 @@ export type FromWorker =
   | { readonly kind: "ready"; readonly hz: number; readonly roster: readonly RosterBody[]; readonly frame: Float64Array }
   /** A step taken. */
   | { readonly kind: "frame"; readonly frame: Float64Array; readonly news: StageNews | null }
+  /** The stage's news between steps: as it is built, and once it has taken an input. */
+  | { readonly kind: "news"; readonly news: StageNews }
   /** The steps a `step` message asked for are taken, or as many as the stage had left. */
   | { readonly kind: "stepped" }
   /** The bout's tape, as asked. */

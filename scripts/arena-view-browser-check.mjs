@@ -22,29 +22,36 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(`${message.text()} (${message.location().url})`); });
   const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=duellist,puncher&recovery=15`;
+  /** The person's side's last order on the bout's tape, as its worker keeps it. */
+  const lastOrders = () => page.evaluate(async () => (await __arena.world.tape()).filter(entry => entry.side === "right").at(-1)?.orders);
   await page.goto(url);
-  await page.waitForFunction(() => window.__arena?.duel);
-  await page.keyboard.press("Space");
+  await page.waitForFunction(() => window.__arena?.world);
   await page.evaluate(() => __arena.scene.whenReadyAsync());
+  // The bout's world runs once the page has loaded it; Space then pauses it.
+  await page.waitForFunction(() => __arena.world.newest[1] > 0);
+  await page.keyboard.press("Space");
   await page.screenshot({ path: `${output}/world.png` });
   assert.equal(await page.evaluate(() => document.visibilityState), "visible");
   const startFrame = await page.evaluate(() => __arena.engine.frameId);
   await page.waitForFunction(start => __arena.engine.frameId > start + 2, startFrame);
   const panel = page.locator("#arena-view");
   assert.ok(await panel.isVisible());
+  // The view panel opens folded.
+  assert.equal(await panel.evaluate(e => e.open), false);
+  await panel.locator("summary").click();
   const pick = async (group, name) => {
     await panel.getByRole("group", { name: group, exact: true }).getByRole("button", { name, exact: true }).click();
     await page.waitForTimeout(150);
   };
   await page.evaluate(() => {
-    window.viewBaseline = { duel: __arena.duel, world: __arena.world, snapshot: JSON.stringify(__arena.duel.save()),
+    window.viewBaseline = { world: __arena.world, steps: __arena.world.newest[1],
       resources: [__arena.scene.meshes.length, __arena.scene.materials.length,
         __arena.scene.onBeforeRenderObservable.observers.filter(o => !o._willBeUnregistered).length] };
   });
   await pick("View", "Tactical");
   await page.evaluate(() => __arena.scene.whenReadyAsync());
   assert.ok(await page.evaluate(() => {
-    const names = [...__arena.duel.duelists.left.built.segments.values(), ...__arena.duel.duelists.right.built.segments.values()].map(s => s.node);
+    const names = __arena.puppets.flatMap(puppet => [...puppet.segments.values()].map(s => s.node));
     const meshes = __arena.scene.meshes.filter(m => names.includes(m.parent));
     return meshes.filter(m => /\.(relic|duelist)\./.test(m.name)).every(m => !m.isEnabled()) &&
       meshes.filter(m => m.name.endsWith(".view")).length === 32 && meshes.filter(m => m.name.endsWith(".view")).every(m => m.isEnabled());
@@ -73,20 +80,19 @@ try {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: `${output}/chase.png` });
   for (let i = 0; i < 4; i++) { await pick("View", "Tactical"); await pick("View", "World"); }
-  assert.ok(await page.evaluate(() => viewBaseline.duel === __arena.duel && viewBaseline.world === __arena.world &&
-    viewBaseline.snapshot === JSON.stringify(__arena.duel.save())));
+  assert.ok(await page.evaluate(() => viewBaseline.world === __arena.world && viewBaseline.steps === __arena.world.newest[1]));
   assert.deepEqual(await page.evaluate(() => [__arena.scene.meshes.length, __arena.scene.materials.length,
     __arena.scene.onBeforeRenderObservable.observers.filter(o => !o._willBeUnregistered).length]), await page.evaluate(() => viewBaseline.resources));
   checks.push("World/Tactical, all cameras, focus and projection preserve paused simulation and resource counts");
   const selected = new URL(page.url()).search;
   await page.locator("#restart").click();
-  await page.waitForFunction(() => __arena.duel !== viewBaseline.duel);
+  await page.waitForFunction(() => __arena.world && __arena.world !== viewBaseline.world && __arena.world.newest[1] > 0);
   assert.equal(new URL(page.url()).search, selected);
   await page.keyboard.press("Space");
   await page.locator("#leave").click();
   assert.equal(await panel.isVisible(), false);
   await page.locator("#begin").click();
-  await page.waitForFunction(() => window.__arena?.duel);
+  await page.waitForFunction(() => window.__arena?.world?.newest[1] > 0);
   await page.keyboard.press("Space");
   assert.equal(new URL(page.url()).search, selected);
   checks.push("Replay and setup preserve view settings and appearance URLs");
@@ -94,24 +100,23 @@ try {
   await page.waitForTimeout(1200);
   await page.keyboard.press("Space");
   await page.keyboard.down("w");
-  await page.waitForTimeout(60);
-  const movement = await page.evaluate(() => {
-    const move = __arena.duel.tape.filter(entry => entry.side === "right" && entry.orders.move).at(-1)?.orders.move;
+  let move;
+  for (let tries = 0; tries < 40 && !move; tries++) { await page.waitForTimeout(50); move = (await lastOrders())?.move?.direction; }
+  const movement = await page.evaluate(move => {
     const c = __arena.scene.activeCamera, target = c.getTarget(), x = target.x - c.position.x, z = target.z - c.position.z;
     const size = Math.hypot(x, z); return { move, x: x / size, z: z / size };
-  });
+  }, move);
   await page.keyboard.up("w");
   assert.ok(movement.move && Math.abs(movement.move.x - movement.x) < .02 && Math.abs(movement.move.z - movement.z) < .02);
   const bounds = await panel.getByRole("button", { name: "World", exact: true }).boundingBox();
   await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-  assert.ok(await page.evaluate(() => {
-    const orders = __arena.duel.tape.filter(entry => entry.side === "right").at(-1)?.orders;
-    return orders !== undefined && orders.foe === undefined;
-  }));
+  await page.waitForTimeout(200);
+  const clicked = await lastOrders();
+  assert.ok(clicked !== undefined && clicked.foe === undefined);
   checks.push("Camera-relative walking follows Isometric; panel clicks do not attack");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(url.replace("gap=4", "gap=4&cap=1"));
-  await page.waitForFunction(() => window.__arena?.duel?.verdict);
+  await page.waitForFunction(() => window.__arena?.verdict);
   assert.equal(await panel.evaluate(e => e.open), false);
   await panel.locator("summary").click();
   await pick("Camera", "Chase");

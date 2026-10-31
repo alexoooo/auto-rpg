@@ -935,7 +935,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const page = createPage(physics, loadSkeletonArt());
     const dispose = () => disposePage(page);
     context.own(dispose);
-    const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), page.physicsEngine, HEROES.map(h => h.model), page.signal);
+    const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), HEROES.map(h => h.model), page.signal);
     const updatePreview = async () => {
       try {
         const attributes = attributePanel.read(), hero = choice(heroChoices) as BodyModel;

@@ -169,6 +169,21 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
+/** `side`'s character in `recipe`: its model, with the recipe's balance, haste and attributes over the model's own. */
+const duelCharacter = (recipe: DuelRecipe, side: Side) => resolveCharacter({ model: recipe[side], attributes: {
+  ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
+  ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
+} });
+
+/**
+ * The spec `side` of `recipe` is built from: its character's (`character`, else the recipe's),
+ * stiffened where the recipe says, holding its loadout. A page draws the body a worker builds from it.
+ */
+export function duelSpec(recipe: DuelRecipe, side: Side, character = duelCharacter(recipe, side)): BodySpec {
+  const own = character.spec;
+  return withLoadout(recipe.surfaces ? stiffened(own, recipe.surfaces) : own, loadoutIn(recipe, side));
+}
+
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
 export interface OrdersEntry {
   readonly step: number;
@@ -254,17 +269,6 @@ interface DuelHooks {
   readonly replay?: Readonly<Record<Side, SheetLog>>;
 }
 
-/**
- * `world` as it stands before any bout, to go back to: what this returns, called with no bout in
- * the world, puts its physics and its clock back where they were, so a bout begun after another
- * plays as the same bout in a fresh world does. A disposed bout's bodies leave their slots in the
- * solver, and a later bout's bodies take them in another order.
- */
-export function boutStart(world: World): () => void {
-  const physics = world.physics.save(), state = saveState(world.state);
-  return () => { world.physics.load(physics); loadState(world.state, state); };
-}
-
 export class Duel {
   readonly world: World;
   /** The bout's recipe, as it was given. */
@@ -292,10 +296,7 @@ export class Duel {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
-    const characters = Object.fromEntries(SIDES.map(side => [side, resolveCharacter({ model: recipe[side], attributes: {
-      ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
-      ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
-    } })])) as Record<Side, ReturnType<typeof resolveCharacter>>;
+    const characters = Object.fromEntries(SIDES.map(side => [side, duelCharacter(recipe, side)])) as Record<Side, ReturnType<typeof resolveCharacter>>;
     for (const side of SIDES) {
       const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
       modelHolding(model, loadout, characters[side].config.attributes);
@@ -325,9 +326,8 @@ export class Duel {
       engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation });
     this.rules = rulebook("arena", recipe.rules);
     const enlistments = SIDES.map(side => {
-      const model = recipe[side], loadout = loadoutIn(recipe, side), config = recipe.minds?.[side] ?? defaultMind(model);
-      const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
-      const enlisting = { id: side, side, spec: withLoadout(original, loadout), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
+      const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);
+      const enlisting = { id: side, side, spec: duelSpec(recipe, side, characters[side]), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
         seed: seedOf(boutSeedOf(recipe), side), life: (pool: Pool) => this.lifeOf(pool),
         ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),

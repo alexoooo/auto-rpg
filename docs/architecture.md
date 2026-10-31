@@ -1266,32 +1266,46 @@ a ground (`coreStand`, `freshEngine`); most of `research/` measures on the stand
 
 ## The world in a worker
 
-The crowd fight's world steps in a Web Worker (`src/worker/`); its page only draws. The worker
-builds the world headless from the screen's recipe exactly as Node does (`teamStage`, `stage.ts`,
-through `buildTeamBout`), loading Rapier and the minds' data in its own realm, so its bouts are the
-same to the bit (`tests/world-worker.test.mjs`).
+The Arena's and the crowd fight's worlds step in a Web Worker each (`src/worker/`); their pages
+only draw. The worker builds the world headless from the screen's recipe exactly as Node does
+(`teamStage`, `stage.ts`, through `buildTeamBout`; `duelStage`, `duel-stage.ts`, through
+`buildBout`), loading Rapier and the minds' data in its own realm, so its bouts are the same to the
+bit (`tests/world-worker.test.mjs`).
 
 - **The worker** (`serve`, `serve.ts`; `world.worker.ts` its entry) takes, while the page runs it,
   the steps real time owes, at most a 30 fps frame's worth a pass (`CATCH_UP_SECONDS`), and sends
   each step's frame as it is taken. A world that cannot keep real time falls behind it and plays in
-  slow motion; the page keeps its frame rate. The page holds it while it is busy or hidden.
+  slow motion; the page keeps its frame rate. The page holds it while it is busy, paused or hidden;
+  a stage holds itself where its news says so (`StageNews.held`).
 - **A frame** (`frame.ts`) is one `Float64Array` a step, transferred: the world's time, steps,
   speed and the step's cost; each body's life, down, out and centre of mass; each segment's
   position, rotation, hand pose and toes' bend, in the roster's order (`RosterBody`, sent once).
-  What a stage has to tell beside its frames (the verdict) comes with the frame it happened on.
+  What a stage has to tell beside its frames (`StageNews`: the verdict, a duel's news) comes with
+  the frame it happened on, or at once after a page's input.
 - **The page** (`openWorld`, `client.ts`) makes a puppet of each body from its spec (`puppetBody`,
   `src/render/puppet.ts`: a node a segment, its shapes following its hand's pose and toes by the
   built body's rule, `segmentShapes`), and dresses it as a built body is dressed: skins and shapes
   draw a `DrawnBody` (`src/render/drawn-body.ts`). Each frame it poses the puppets between the two
   frames about the moment it shows (`between`, `posePuppet`), which follows the world's speed one
   step behind the newest frame, so motion is smooth at the display's rate whatever a step costs.
-- **A duel's stage** (`duelStage`) builds the bout by `buildBout`, plays a tape, and takes a
-  person's orders (`order` in the protocol), each given at the next step and kept on the bout's
-  tape (`Duel.order`), which the page may ask for: a bout with a person in it replays from its
-  recipe and tape, in Node as in the worker.
-- **From a console**, `__crowd.step(n)` takes `n` steps in the worker and draws the newest, as a
-  hidden tab needs; `__crowd.world.burden(ms)` makes each step dearer, to see the page keep its
-  rate while the fight slows.
+- **A duel's stage** (`duelStage`, `DuelStart`) plays the bout as the Arena does: the verdict's
+  aftermath under `arenaPlayback`, stopped where a trial was scored, its tape played, and the side a
+  person leads under its team of one (`teamOfOne`), with the previous version's same trial beside
+  it in a world of its own, stepped with it. The page's input (`DuelInput`) is applied before the
+  next step: the person's lead (`LeadInput`: the keys' ground direction, Shift, the pointer's ray
+  and button, which the worker reads against the body's senses, `aimPoint`, `rayTarget`), a click's
+  go, a picked choice, what the page looks at, and whether a new choice holds the bout
+  (`choiceWatch`, read after every step). Every order is kept on the bout's tape (`Duel.order`),
+  which the page may ask for: a bout with a person in it replays from its recipe and tape, in Node
+  as in the worker.
+- **A duel's news** (`DuelNews`), every step: the clock and verdict, each side's status, assist
+  and HUD reading (`fighterReading`, `src/arena/fighter-readout.ts`), its choices and mind's
+  inspection where the page looks, the touches and debris heard (`hearTouches`, `debrisCues`), each
+  side's air (`airOf`), and what a trial's overlays add (`trialTrace`). The page builds each body's
+  spec as the bout does (`duelSpec`, `teamSpec`) and draws from frames and news alone.
+- **From a console**, `__arena.step(n)` and `__crowd.step(n)` take `n` steps in the worker and draw
+  the newest, as a hidden tab needs; `.world.burden(ms)` makes each step dearer, to see the page
+  keep its rate while the fight slows; `__arena.world.tape()` is the bout's tape.
 
 ## State
 
@@ -1328,8 +1342,9 @@ onto the path by the step's end, a fixture and not anatomy), and, where a drill 
 one level impulse at a segment's centre of mass, at a second of the bout or the first step after it that a limb moves at a speed against another
 segment, when it came read as `Duel.shoved`), as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
-`src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
-world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
+`src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page plays each
+bout in a fresh world in its worker ([the world in a worker](#the-world-in-a-worker)) and a body's
+time starts at its first view (`BodyView.born`).
 
 - **Verdict** (`Duel.judge`): a side is out by the first of the recipe's end rules that puts it out
   (`EndRule`, `src/arena/end-rule.ts`; each a part of the list `END_RULES`, `ends.ts`), which
@@ -1580,7 +1595,7 @@ arena, crowd fight, crypt, lab, ratings and tools at `?play=arena`, `?play=crowd
 
 | Screen | Where | What it is |
 |---|---|---|
-| Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
+| Arena | `src/arena/` | two bodies under a `Duel`, to a verdict, its world in a worker |
 | Crowd fight | `src/arena/crowd.ts` | the crowd fight (`crowdFight`, `TeamBout`), five a side, its world in a worker |
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
@@ -1610,10 +1625,11 @@ and plays each trial's recipe and tape in the same screen, stopping it where it 
 second later. The HUD names the trial, its conditions, recorded outcome and why it failed
 (`Evaluation.outcome`'s `why`). Over a trial's bout the overlays (`trialOverlay`,
 `trial-overlay.ts`) draw where the striker's actions aim, the target's path, each action's
-effector's path and each contact between the sides, read after every step. With `previous`, the
-subject's same trial at that version (the same protocol, subjects and condition, `sameTrial`)
-plays beside it in a world of its own, its bodies drawn 4 m along +x as dimmed shapes, stepped
-with the trial's; the reel's code plays both recipes. The trial shown gives
+effector's path and each contact between the sides, read after every step where the bout steps
+(`trialTrace`). With `previous`, the subject's same trial at that version (the same protocol,
+subjects and condition, `sameTrial`) plays beside it in a world of its own in the same worker, its
+bodies drawn 4 m along +x as dimmed shapes, stepped with the trial's; the reel's code plays both
+recipes. The trial shown gives
 the pickers its choices (`caseSearch`), and Setup leaves the reel for them; a bout is otherwise
 assembled from the address (`recipeOf`, `matchup.ts`). Back returns to the Ratings address the reel
 was opened from.
@@ -1683,8 +1699,8 @@ An older pool is listed with what differs from the newest.
   graphics passes. Dungeon keeps exploration and actor visibility without uploading its fog texture.
 - `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena, Dungeon and
   the crowd fight. Each screen supplies its render callback and actual physics-step count, or, where a
-  worker steps its world, the steps that arrived, their cost there and the world's speed; timing never
-  advances a world.
+  worker steps its world (the Arena, the crowd fight), the steps that arrived, their cost there and
+  the world's speed; timing never advances a world.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin

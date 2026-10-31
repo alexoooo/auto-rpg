@@ -11,11 +11,9 @@ import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { resolveCharacter, type BodyModel, type CharacterConfig } from "../core/models.ts";
 import type { BodySpec } from "../core/spec/body.ts";
-import type { PhysicsEngine } from "../core/engine/engine.ts";
-import { createWorld } from "../core/world.ts";
+import { puppetBody, type Puppet } from "./puppet.ts";
 import { dresserFor } from "./dress.ts";
 import { appearanceFor, type Appearance } from "./appearance.ts";
 import { skinSlot, type SkinSlot } from "./skin-slot.ts";
@@ -27,10 +25,10 @@ const upright = (spec: BodySpec): boolean => {
   return spec.stature.value > Math.max(...z) - Math.min(...z);
 };
 
-/** The game's skins on unstepped bodies. Each column has its own camera, so resizing
+/** The game's skins on bodies drawn from their specs (`puppetBody`), at their reference pose. Each column has its own camera, so resizing
  * keeps the characters centred. This scene draws on load, selection and resize;
  * its lighting, framing and plinth sizes are art choices in `docs/art/menu.md`. */
-export async function showHeroLineup(canvas: HTMLCanvasElement, physics: PhysicsEngine,
+export async function showHeroLineup(canvas: HTMLCanvasElement,
   models: readonly BodyModel[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
     setModel(index: number, model: BodyModel, appearance?: Appearance): Promise<void>;
     setCharacter(index: number, character: CharacterConfig, appearance?: Appearance): Promise<void>;
@@ -39,7 +37,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
   signal.throwIfAborted();
   const engine = new Engine(canvas, true, { alpha: true, preserveDrawingBuffer: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
-  const scene = new Scene(engine), world = createWorld(scene, physics, { gravity: false });
+  const scene = new Scene(engine);
   scene.clearColor = new Color4(0, 0, 0, 0);
   scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 128);
   scene.environmentIntensity = .65;
@@ -53,7 +51,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
   const stone = new StandardMaterial("lineup plinth", scene);
   stone.diffuseColor = Color3.FromHexString("#292321"); stone.specularColor = Color3.Black();
   const revisions = models.map(() => 0);
-  const bodies: BuiltBody[] = [], skins: SkinSlot[] = [], cameras: FreeCamera[] = [];
+  const bodies: Puppet[] = [], skins: SkinSlot[] = [], cameras: FreeCamera[] = [];
   const chosen = [...models];
   let ready = false;
   const draw = () => {
@@ -75,7 +73,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     resize.disconnect();
     for (const skin of skins) skin?.dispose();
     for (const body of bodies) body?.dispose();
-    world.dispose(); scene.dispose(); engine.dispose();
+    scene.dispose(); engine.dispose();
   };
   signal.addEventListener("abort", dispose, { once: true });
   const setAppearance = async (index: number, appearance: Appearance) => {
@@ -93,7 +91,8 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     if (!bodies[index] || characterKeys[index] !== key) {
       skins[index]?.dispose(); bodies[index]?.dispose();
       chosen[index] = model; characterKeys[index] = key;
-      const body = bodies[index] = buildBody(resolved.spec, world, { position: [index * 4, 0, 0] });
+      const body = bodies[index] = puppetBody(resolved.spec, scene);
+      for (const segment of body.segments.values()) segment.node.position.x += index * 4;
       const scale = framing[index] = Math.max(resolved.config.attributes.size, resolved.config.attributes.size * Math.sqrt(resolved.config.attributes.weight));
       const camera = cameras[index]!, x = index * 4;
       if (upright(body.spec)) { camera.position.set(x + .2 * scale, 1.05 * scale, 6 * scale); camera.setTarget(new Vector3(x, .95 * scale, 0)); }

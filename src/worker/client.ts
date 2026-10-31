@@ -4,8 +4,7 @@ import { BODY_HEAD, HAND_POSES, SEGMENT_ROW, frameLayout, type RosterBody } from
 import type { FromWorker, ToWorker } from "./protocol.ts";
 import type { StageNews } from "./stage.ts";
 import type { OrdersEntry } from "../arena/duel.ts";
-import type { Orders } from "../core/intent/orders.ts";
-import type { Side } from "../core/spec/body.ts";
+import type { DuelInput } from "./duel-stage.ts";
 
 /** How fast the shown moment is drawn back toward one step behind the newest frame, a share a second. */
 const SHOWN_CORRECTION = 5;
@@ -37,8 +36,8 @@ export interface WorldLink<Card = unknown> {
   run(running: boolean): void;
   /** Take `steps` steps now and show the newest: a console's step, resolved once the frames are here. */
   step(steps: number): Promise<void>;
-  /** Order `side` of a duel from the next step on, kept on its tape: what a person does. */
-  order(side: Side, orders: Orders | null): void;
+  /** Tell a duel what a person does, or what the page looks at (`DuelInput`), before its next step. */
+  input(input: DuelInput): void;
   /** The bout's tape as the worker has it now. */
   tape(): Promise<readonly OrdersEntry[]>;
   /** Make each step at least `ms` dearer in the worker. */
@@ -47,7 +46,7 @@ export interface WorldLink<Card = unknown> {
   between(now: number): Between;
   /** The steps sent since the last call, and the worker's time for them, ms. */
   received(): { readonly steps: number; readonly ms: number };
-  /** Called with each piece of news as its frame arrives, and with a fault's message. */
+  /** Called with each piece of news as it arrives, with its frame or between frames, and with a fault's message. */
   listen(listener: { readonly news?: (news: StageNews) => void; readonly fault?: (message: string) => void }): void;
   dispose(): void;
 }
@@ -59,6 +58,12 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
   const send = (message: ToWorker) => worker.postMessage(message);
   const frames: Float64Array[] = [];
   const listeners: { news?: (news: StageNews) => void; fault?: (message: string) => void }[] = [];
+  /** News that came before anything listened, told to each listener as it listens. */
+  const early: StageNews[] = [];
+  const tell = (news: StageNews) => {
+    if (!listeners.length) { early.push(news); return; }
+    for (const listener of listeners) listener.news?.(news);
+  };
   const clock = { shown: 0, last: -1 }, tally = { steps: 0, ms: 0 };
   let stepped: (() => void)[] = [], taped: ((tape: readonly OrdersEntry[]) => void)[] = [];
   let link: WorldLink<Card> | null = null;
@@ -84,12 +89,12 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
               stepped.push(() => { clock.shown = frames.at(-1)![0]!; done(); });
               send({ kind: "step", steps });
             }),
-            order: (side, orders) => send({ kind: "order", side, orders }),
+            input: (input) => send({ kind: "input", input }),
             tape: () => new Promise((done) => { taped.push(done); send({ kind: "tape" }); }),
             burden: (ms) => send({ kind: "burden", ms }),
             between: (now) => between(frames, clock, now, 1 / data.hz),
             received() { const out = { ...tally }; tally.steps = tally.ms = 0; return out; },
-            listen(listener) { listeners.push(listener); },
+            listen(listener) { listeners.push(listener); for (const news of early) listener.news?.(news); },
             dispose() { signal.removeEventListener("abort", abort); worker.terminate(); },
           };
           resolve(link);
@@ -99,7 +104,10 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
           frames.push(data.frame);
           if (frames.length > FRAMES_HELD) frames.splice(0, frames.length - FRAMES_HELD);
           tally.steps += 1; tally.ms += data.frame[3]!;
-          if (data.news) for (const listener of listeners) listener.news?.(data.news);
+          if (data.news) tell(data.news);
+          return;
+        case "news":
+          tell(data.news);
           return;
         case "stepped": {
           const waiting = stepped;

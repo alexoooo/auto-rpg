@@ -27,11 +27,11 @@ further raster art. Text on either setup screen is limited to names, choices and
 ## The character previews
 
 `src/render/character-preview.ts` draws the Warrior, Rogue and Skeleton in their game skins on
-bodies built from `modelSpec`, in their default boots and armour, in a preview world that never
-steps and never enters a fight's world. The Dungeon lineup uses three orthographic cameras with
+puppets drawn from their specs (`puppetBody`) at the reference pose, in their default boots and
+armour, with no physics. The Dungeon lineup uses three orthographic cameras with
 their own layer masks in equal-width viewports under the three radio labels; each Arena contender
 canvas has one full-body camera. A canvas renders when its assets are ready, on a selection and on
-resize, with no animation loop; teardown disposes its skins, bodies, world, scene and engine.
+resize, with no animation loop; teardown disposes its skins, puppets, scene and engine.
 
 The art choices:
 
