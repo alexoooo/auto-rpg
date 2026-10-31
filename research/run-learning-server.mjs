@@ -3,7 +3,9 @@
  * stdin and stdout as JSON lines (`research/run-train.py`): `{"op":"reset"}` answers every
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
- * last observation in its info (`terminal`). `{"op":"close"}` answers and ends it, its workers with it.
+ * last observation in its info (`terminal`). `{"op":"progress","decisions":N}` tells each environment
+ * that has a use for it the trainer's decisions in all (a curriculum's), and answers.
+ * `{"op":"close"}` answers and ends it, its workers with it.
  * Between messages a worker gives its environments' `idle` work, where they have it, a slice at a
  * time, each slice yielding so that the next message waits for at most one.
  *
@@ -11,7 +13,9 @@
  *
  * The configuration names its environment's file (`environment`, `research/environments/`: its
  * `kind`, one of `KINDS`, and the kind's settings) and gives `workers`, `each` and `seed`; its other
- * keys override the file's settings. Environment i is seeded `seed + i`.
+ * keys override the file's settings. Environment i is seeded `seed + i`. Unset, 8 workers of 4
+ * environments, the fastest read on the 16-core development host
+ * ([the trainer's speed](../docs/reference/learned-punch.md#the-trainers-speed)).
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';
@@ -47,13 +51,14 @@ if (!isMainThread) {
     working = false;
   };
   const idled = (message) => { busy = false; parentPort.postMessage(message); setImmediate(work); };
-  parentPort.on('message', async ({ op, actions }) => {
+  parentPort.on('message', async ({ op, actions, decisions }) => {
     busy = true;
     while (working) await new Promise((resolve) => setImmediate(resolve));
     try {
       const answers = [];
       if (op === 'reset') { for (const e of envs) answers.push({ observation: await e.reset() }); idled({ answers }); return; }
       if (op === 'close') { for (const e of envs) e.dispose(); parentPort.postMessage({ closed: true }); return; }
+      if (op === 'progress') { for (const e of envs) e.progress?.(decisions); idled({ answers: [] }); return; }
       for (let k = 0; k < envs.length; k++) {
         const e = envs[k], r = await e.step(actions[k]);
         const done = r.terminated || r.truncated;
@@ -65,7 +70,7 @@ if (!isMainThread) {
     } catch (error) { parentPort.postMessage({ error: String(error.stack ?? error) }); }
   });
 } else {
-  const { environment, workers: count = 8, each = 1, seed = 1, ...overrides } = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+  const { environment, workers: count = 8, each = 4, seed = 1, ...overrides } = JSON.parse(readFileSync(process.argv[2], 'utf8'));
   if (typeof environment !== 'string') throw new Error("a configuration names its environment's file");
   const settings = { ...JSON.parse(readFileSync(environment, 'utf8')), ...overrides };
   if (!Object.hasOwn(KINDS, settings.kind)) throw new Error(`no kind of learning environment ${settings.kind}: ${Object.keys(KINDS).join(', ')}`);
@@ -88,13 +93,14 @@ if (!isMainThread) {
     return answers.flatMap((a) => a.answers ?? []);
   };
   for await (const line of createInterface({ input: process.stdin })) {
-    const { op, actions } = JSON.parse(line);
+    const { op, actions, decisions } = JSON.parse(line);
     try {
       if (op === 'reset') send({ observations: (await all(() => ({ op }))).map((a) => a.observation) });
       else if (op === 'step') {
         const answers = await all((i) => ({ op, actions: actions.slice(i * each, (i + 1) * each) }));
         send({ observations: answers.map((a) => a.observation), rewards: answers.map((a) => a.reward), dones: answers.map((a) => a.done), infos: answers.map((a) => a.info) });
-      } else if (op === 'close') { send({ closed: true }); process.exit(0); }
+      } else if (op === 'progress') { await all(() => ({ op, decisions })); send({ progressed: decisions }); }
+      else if (op === 'close') { send({ closed: true }); process.exit(0); }
       else throw new Error(`no operation ${op}`);
     } catch (error) { send({ error: String(error.stack ?? error) }); break; }
   }

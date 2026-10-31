@@ -78,7 +78,28 @@ side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 7.1
 Landed blows meet at a median 15 to 16 m/s; the misses are weak blows spread over the places, the
 nearest and farthest most. The window is the one it was trained in: a narrower one (`band` and
 `aside` 0.15 m, or `reach` 0.73) admits the same places but moves the body before the blow, and
-lands 72 and 62 (77 and 68).
+lands 72 and 62 (77 and 68). Trained on past 7.1 M decisions (to 8.3 M), it stays between 84
+and 93 at either rate.
+
+### The club up the ladder
+
+The Strike drill (`npm run evaluate -- strike option/club-blow@buckler,club`), the steered club at
+4a2354fe; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
+left hand and the high mark are refused):
+
+| Rung | Landed of thrown | Fell | Where it misses |
+| --- | ---: | ---: | --- |
+| still (0) | 11 of 15 | 1 | 0.6 and 0.7 m, nearer than it was trained, and 0.9 m square on |
+| moving (1) | 7 of 17 | 0 | a pad moving away, or at 0.6 m/s |
+| stepping (2) | 0 of 1 | 0 | out of its window at 0.8 and 1.2 m |
+| guarding (3) | 3 of 3 | 0 | |
+| punching (4) | 3 of 3 | 0 | |
+| walk (5) | 10 of 29 | 0 | thrown still walking (2 of 16; settled, 8 of 13) |
+| fight | 0 of 4 | 0 | elsewhere or guarded |
+
+Its profile (`assets/core/strike-profiles.json`) is read from the still, stepping, guarding,
+punching and letting-go records (`assets/evaluations/strike/2026-10-31-4a2354fe-*.jsonl`), so
+Option Mind prices the club by them.
 
 ### The cut
 

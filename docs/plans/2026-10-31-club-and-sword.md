@@ -100,6 +100,10 @@ prices it by measurement; then the fight rung and rungs 1 to 5 in the punch's or
 
 Check: each rung's held-out reading at the bar; the owner accepts each rung.
 
+Built: the club's profile from its records; on the ladder it lands on the opponent rungs that
+stand still and falls short where the target moves, is walked to or fights
+([held blows](../reference/held-blows.md#the-club-up-the-ladder)).
+
 ## Done when
 
 The toed Warrior's club blow, sword cut and sword thrust each land 90 % of those thrown at the bar

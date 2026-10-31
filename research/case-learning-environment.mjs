@@ -35,6 +35,12 @@
  * walk in never holds up the trainer's lockstep, and it takes the place of a start no episode is
  * playing. Without a pool, each episode is a trial begun afresh.
  *
+ * `curriculum` moves training from cheaper settings to the file's own: `from`, settings that
+ * replace the file's (`rates`), and `over`, the decisions in all (`progress`, which the
+ * trainer reports) from which the share of fresh starts played on the file's own settings rises
+ * evenly from 0, to which it reaches 1. Each fresh start is drawn on one or the other by that
+ * share, so the mix shifts as the pool is refreshed.
+ *
  * Draws on `seed`: the episodes' picks of a start on one, the fresh starts' conditions on
  * another, so that when the idle time plays them moves neither.
  *
@@ -130,10 +136,20 @@ export async function caseEnvironment(configuration = {}) {
   for (const [name] of percepts) if (!evaluation.percepts?.[name]) throw new Error(`${o.evaluation} has no percept ${name}`);
   const random = generator(o.seed), drawing = generator(o.seed + 7919);
   const pick = (list) => list[Math.floor(drawing() * list.length)];
+  const curriculum = o.curriculum;
+  if (curriculum) {
+    const extra = Object.keys(curriculum.from ?? {}).filter((key) => key !== 'rates');
+    if (extra.length || !Array.isArray(curriculum.over) || curriculum.over.length !== 2 || !(curriculum.over[1] > curriculum.over[0]))
+      throw new Error('a curriculum gives `from` (rates) and `over`, the decisions its share rises between');
+  }
+  let decisions = 0;
+  /** The share of fresh starts played on the file's own settings at `decisions`. */
+  const share = () => Math.min(1, Math.max(0, (decisions - curriculum.over[0]) / (curriculum.over[1] - curriculum.over[0])));
 
   /** A trial at a fresh draw, built and its tape begun, its learner found; null where its condition is in the half `split` leaves out. */
   const begin = async () => {
-    const { place, cases, conditions } = pick(places), hz = o.rates ? pick(o.rates) : undefined;
+    const settings = curriculum && drawing() >= share() ? { ...o, ...curriculum.from } : o;
+    const { place, cases, conditions } = pick(places), hz = settings.rates ? pick(settings.rates) : undefined;
     const condition = place.draw ? drawCondition(place.draw, drawing) : pick(conditions);
     if (o.split && heldOut(condition) !== (o.split === 'held-out')) return null;
     const value = subjectFor(o, condition), world = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
@@ -250,5 +266,7 @@ export async function caseEnvironment(configuration = {}) {
     return { observation, reward, terminated: ended !== 'cut', truncated: ended === 'cut', info };
   };
   const dispose = () => { for (const s of pool) s.built.dispose(); pending?.built.dispose(); if (!pooled) { ep?.built.dispose(); if (unplayed && unplayed !== ep?.start) unplayed.built.dispose(); } };
-  return { reset, step, idle, observationSize, actionSize, dispose, inside: () => ep };
+  /** The trainer's decisions in all so far, which set the curriculum's share. */
+  const progress = (made) => { decisions = made; };
+  return { reset, step, idle, progress, observationSize, actionSize, dispose, inside: () => ep };
 }

@@ -349,6 +349,75 @@ watched it: too close, awkward, not landing.
 
 ### The trainer's speed
 
+**Train a blow with PPO from scratch on 8 workers of 4, on the rate's curriculum: on the club
+blow it reached each held-out landing share up to 70 % at the same decisions as PPO on the
+held-out mix throughout, or fewer, in half to three fifths of the wall time.** A decision at
+480 Hz costs about three at 120 Hz, so training at 120 Hz first and mixing 480 Hz in toward the
+held-out mix buys time, not decisions; both arms level off near 70 % by 1.3 M decisions. A start
+from the punch's network, SAC, and a cheap stand-in target first each trained slower
+([tried and not kept](#tried-and-not-kept)).
+
+The comparison: the club blow's environment (`research/environments/club-blow.json` as at
+4a2354fe: the gaps 0.94 to 1.14 m, 120 and 480 Hz alike), each arm `research/run-train.py`'s
+defaults (PPO, 256 decisions an environment a rollout, two layers of 256) on 8 workers of 4
+environments, seed 2026103111, from scratch unless named. Each kept policy read held out on the
+drill's own target by `research/punch-policy-check.mjs` (60 held-out places at 120 and 480 Hz each,
+seed 1001); the share is the landed of the 120 trials. The first four arms ran together beside the
+club's own training (24 workers of 4) on the development host (16 cores, 32 threads), each with its
+share of the contention, so their minutes compare; the target's curriculum ran later beside two of
+the club's runs, and its minutes do not. Node 24.19, Rapier, at c3c96c90; the runs and their
+readings are kept in `research/runs/trainer-speed/`.
+
+Landed held out, of 120 (the run's minutes at that policy):
+
+| Arm | 0.26 M | 0.52 M | 0.79 M | 1.05 M | 1.31 M | 1.51 M | 1.77 M |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| PPO, the full mix | 22 % (50) | 41 % (99) | 45 % (145) | 59 % (184) | 70 % (221) | 69 % (250) | |
+| PPO, the rate's curriculum | 26 % (25) | 42 % (60) | 56 % (96) | 65 % (136) | 76 % (169) | 69 % (197) | 72 % (231) |
+| PPO, the rate's and the target's curriculum | 8 % (21) | 27 % (43) | 35 % (67) | 42 % (95) | | | |
+| PPO from the punch's network, the rate's curriculum | 6 % (24) | 30 % (59) | 34 % (94) | 45 % (134) | | | |
+| SAC from the punch's network, the rate's curriculum | 7 % (39) | 26 % (85) | 20 % (135) | 27 % (187) | | | |
+
+- **The curriculum** (`curriculum`, `case-learning-environment.mjs`): every fresh start at 120 Hz
+  at first, the share drawn on the file's own rates rising evenly to all of them by 1.5 M decisions
+  (`{"from": {"rates": [120]}, "over": [0, 1500000]}`). It reached each share at the decisions the
+  full mix did, or fewer (56 % at 0.79 M against 45 %), in 50 to 62 % of its minutes; both rates
+  rose together, 46 of 60 each at 1.31 M.
+- **The target's curriculum on top** (`{"from": {"rates": [120], "standIn": "held"}, ...}`, the
+  stand-in as `research/case-learning-environment.mjs@c3c96c90` makes it: the target's body under
+  the bare mind held rigid on a still rail): behind the rate's curriculum alone at every reading,
+  42 % against 65 % at 1.05 M, and 4 falls at 0.52 M. Its own score was 7.3 by 65,536 decisions: a
+  rigid target that does not guard is easy to land on, and what it teaches does not carry to one
+  that does.
+- **Fewer environments learn more from each decision**: 32 reached 45 % by 0.79 M, the club's run
+  on 96 (a rollout of 24,576 decisions an update against 8,192; its kept policies read the same
+  way) 17 % at 1.05 M, 45 % at 2.03 M, 70 % at 3.01 M, 80 % at 4.19 M and 86 % at 5.18 M. The club's run was resumed
+  several times, its places narrowed and its rates balanced on the way, so this is a lead to read,
+  not a measure.
+- **From the punch's network** (`--start`, its 59 inputs and 12 outputs matched by name, the
+  wrist's 6 inputs and 3 outputs zero): 0 of 120 held out at the start, below the club's schedule
+  alone, and behind from scratch at every reading. The punch's pushes are a straight punch's; the
+  club's blow comes over the shoulder.
+- **SAC** (`--algo sac`, the same start, 4 gradient steps of 2,048 decisions each message on the
+  GPU, the entropy's weight learnt from 0.1): 27 % at 1.05 M with 3 falls on the way; it took two
+  fifths more wall time than PPO from the same start to 1.05 M, the updates waiting on the GPU about 11 ms each whatever
+  the batch (CPU: 20 to 41 ms for 256 to 1,024).
+
+**Where a decision's time goes** (`research/learning-speed.mjs`, random steers, 60 s, the club's
+environment as above, 8 workers of 4, beside the club's training at 64 % of the host's threads):
+
+| Rate | Target | Decisions a second |
+|---|---|---:|
+| 120 Hz | the drill's (a Warrior under `drill-stand`) | 366, 415 |
+| 120 Hz | held rigid on a still rail (the bare mind) | 415, 454 |
+| 120 Hz | limp, its lower trunk held | 376, 397 |
+| 480 Hz | the drill's | 126 |
+
+One environment on one thread: 58 at 120 Hz and 16 at 480 Hz, whatever the target. Under V8's
+profiler, the striker's held blow solving its arm's reach (`solveReach`, through the straight
+punch's `drive` and `chamber`) is 32 % of an environment's time and Rapier's step 13 %; the
+target's mind is a few per cent.
+
 **What it trains on, 420 decisions a second with the trainer's update**: `research/run-train.py`
 (PPO, its defaults: 256 decisions an environment a rollout) on `research/environments/punch.json`
 through the case environment (both hands, 120 and 480 Hz, the still places and the walks in, a pool
@@ -395,6 +464,16 @@ numbers (`hullEntry`, `src/core/perception/hull-entry.ts`; the facing plane in `
 
 ## Tried and not kept
 
+- **A stand-in target for training** (`standIn`, `research/case-learning-environment.mjs@c3c96c90`):
+  the drill's target under the bare mind, held rigid on a still rail or pinned by its lower trunk,
+  first in training and mixed out toward the drill's own. It made the club's environment at most a
+  tenth faster, the striker's arm and not the target being the step's cost, and trained on held
+  rigid the club landed 42 % held out at 1.05 M decisions against 65 % without it
+  ([the trainer's speed](#the-trainers-speed)).
+- **Starting a blow from another's network, and SAC**: the punch's network on the club, by PPO
+  and by SAC, trained slower than PPO from scratch ([the trainer's speed](#the-trainers-speed));
+  `--start` and `--algo sac` stay in `research/run-train.py` for the cut and the thrust, whose
+  blows the club's may resemble more.
 - **A layer on the tracked arm** (`drive`, on the planted cross, `research/punch-calibration.mjs`):
   0 of 32 landed on the Warrior at 120 and 480 Hz and 0 of 31 on the Rogue, against today's cross
   38 of 55 at 4.84 m/s. Every driven swing ended on the stroke's bearing-support rule, a foot's

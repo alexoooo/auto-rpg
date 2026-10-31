@@ -18,6 +18,8 @@ public/assets/generated/
 .tools/blender-*/
 .tools/mpfb/
 .tools/ai-lab-venv/
+# The trainer's off-policy updates on the GPU: ai-lab-venv's packages with CUDA's torch (research/run-train.py).
+.tools/ai-lab-cuda-venv/
 .tools/rapier-build/
 .tools/rapier-rebuild-a/
 .tools/rapier-rebuild-b/
