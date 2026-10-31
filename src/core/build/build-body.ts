@@ -79,20 +79,34 @@ const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
-function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
+/**
+ * **A segment's shapes, from its spec alone**: its frame, its rigid body, the pose its hand starts
+ * in (a hand that holds something grips it), a posable hand's configurations, a foot's toes at each
+ * bend, and its rigid body as a hand's pose and its toes' bend stand (`rigidAt`). The built body
+ * and a page's drawn body read the one rule.
+ */
+export function segmentShapes(body: BodySpec, spec: SegmentSpec) {
   const frame = frameOf(spec);
   const rigid = rigidOf(body, spec);
   const initial: HandPose = body.held?.some(held => held.segment === spec.name) ? "grip" : "open";
-  const node = new TransformNode(`${body.model}.${spec.name}`, world.scene);
-  node.position = v3(frame.origin).addInPlace(v3(placement.position));
-  node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
-  const rest = node.rotationQuaternion.clone();
-  if (pose) { node.position.copyFrom(pose.position); node.rotationQuaternion.copyFrom(pose.rotation); }
   const posed = (name: HandPose): HandConfiguration => {
     const shape = handShapeAt(body, spec, name);
     return { shape, rigid: { ...rigid, shapes: [shape, ...rigid.shapes.slice(1)] }, collider: colliderOf(frame, shape) };
   };
   const poses = spec.handPoses && { open: posed("open"), fist: posed("fist"), grip: posed("grip") };
+  const bent = spec.toes ? toesOf(spec, frame, rigid) : undefined;
+  const rigidAt = (pose: HandPose | undefined, toes: ToesState | undefined): Rigid =>
+    poses && pose ? poses[pose].rigid : bent && toes ? bent(toes.bend).rigid : rigid;
+  return { frame, rigid, initial, poses, bent, rigidAt };
+}
+
+function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
+  const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);
+  const node = new TransformNode(`${body.model}.${spec.name}`, world.scene);
+  node.position = v3(frame.origin).addInPlace(v3(placement.position));
+  node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
+  const rest = node.rotationQuaternion.clone();
+  if (pose) { node.position.copyFrom(pose.position); node.rotationQuaternion.copyFrom(pose.rotation); }
   // A posed hand's collider is its initial pose's from the first step, as `handPose.applied` says.
   const shapes = poses ? poses[initial].rigid.shapes : rigid.shapes;
   const [xx, yy, zz] = rigid.tensor;
@@ -118,9 +132,9 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       ...(surface?.friction ? { friction: surface.friction.value } : {}) };
   }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
-  const toes = spec.toes ? flatToes() : undefined, bent = spec.toes ? toesOf(spec, frame, rigid) : undefined;
+  const toes = spec.toes ? flatToes() : undefined;
   return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
-    get rigid() { return poses && handPose ? poses[handPose.applied].rigid : bent && toes ? bent(toes.bend).rigid : rigid; } };
+    get rigid() { return rigidAt(handPose?.applied, toes); } };
 }
 
 

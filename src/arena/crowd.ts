@@ -5,26 +5,21 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { ScreenContext } from "../ui/screen.ts";
 import { need as find } from "../dom.ts";
 import { MENU_HREF } from "../app-route.ts";
-import { loadEngine } from "../core/engine/engines.ts";
-import { createWorld, type World } from "../core/world.ts";
-import { loadData } from "../core/data/store.ts";
-import { treeData, defaultMind } from "../entrants/game.ts";
 import { drawBody, drawHeld } from "../render/body-shapes.ts";
 import { dresserFor } from "../render/dress.ts";
-import { fighterHands } from "../render/strike-hands.ts";
+import { handsOf } from "../render/strike-hands.ts";
+import { puppetBody } from "../render/puppet.ts";
 import { warmScene } from "../render/ready.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
-import { physicalReading } from "../core/observation.ts";
+import { bodyBetween, openWorld, posePuppet, type Between } from "../worker/client.ts";
+import type { TeamCard } from "../worker/stage.ts";
 import { buildArena } from "./scene.ts";
 import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { readArenaView } from "./view.ts";
 import { ARENA_SIDES } from "./side-highlights.ts";
 import { endingText } from "./end-rule.ts";
-import { SIDES } from "./duel.ts";
-import { crowdFight, TeamBout, type Member } from "./team-bout.ts";
-
-/** The most real time one frame steps the world through, s: a frame of a screen at 30 fps; behind it, the fight plays in slow motion. */
-const CATCH_UP_SECONDS = 1 / 30;
+import { crowdFight, teamSpec } from "./team-bout.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /** How long the bodies go on moving once the verdict is given, s. */
 const AFTERMATH_SECONDS = 3;
@@ -32,7 +27,10 @@ const AFTERMATH_SECONDS = 3;
 /**
  * **The crowd fight's screen** (`?play=crowd`, `&seed=` its bout's seed): the crowd fight
  * (`crowdFight`) played in the arena from its first step, a bar for each body, the frame meter,
- * and the verdict. The camera frames the two sides' middles and orbits as the arena's does.
+ * and the verdict. The world steps in a worker (`openWorld`, `src/worker/`): the page draws a
+ * puppet of each body between the last two steps it holds, so it keeps its frame rate when the
+ * world cannot keep real time and the fight plays in slow motion. The camera frames the two sides'
+ * middles and orbits as the arena's does.
  */
 export async function bootCrowd(context: ScreenContext): Promise<void> {
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
@@ -42,44 +40,33 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   need<HTMLButtonElement>("crowd-menu").addEventListener("click", () => context.navigate(MENU_HREF));
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
-  const physicsEngine = await loadEngine();
-  context.signal.throwIfAborted();
-  let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => {
-    context.own(() => scene.dispose());
-    const world = made = createWorld(scene, physicsEngine);
-    context.own(() => world.dispose());
-    return world.physics;
-  }, "open", context.signal);
-  context.signal.throwIfAborted();
-  const world = made as World | null;
-  if (!world) throw new Error("the arena made no world");
+  // The worker builds the world while the page builds the scene.
+  const opening = openWorld<TeamCard>({ kind: "team", recipe, aftermath: AFTERMATH_SECONDS }, context.signal);
+  context.own(() => void opening.then((link) => link.dispose(), () => { /* A world that failed to open has no worker left. */ }));
+  const arena = await buildArena(engine, null, "open", context.signal);
   const { scene, camera, shadows } = arena;
-  await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));
+  context.own(() => scene.dispose());
   const dress = await dresserFor("workshop-fighter", scene);
+  const link = await opening;
   context.signal.throwIfAborted();
 
-  const reads = new Map<string, ReturnType<typeof physicalReading>>();
-  const bout = new TeamBout(world, recipe, {
-    onBuilt: (member: Member, built) => {
-      const hands = fighterHands(member);
-      const skin = dress(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
-      const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[member.side].colour));
-      const held = drawHeld(built, scene);
-      for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
-      context.own(() => { skin.dispose(); shapes.dispose(); held.dispose(); });
-      reads.set(member.id, physicalReading(built));
-    },
+  const bodies = link.roster.map(({ id, card }, k) => {
+    const puppet = puppetBody(teamSpec(recipe[card.side]), scene), hands = handsOf(puppet.handPoses.state);
+    const skin = dress(puppet, { clothing: { boots: true, armour: true }, closure: hands.closure });
+    const shapes = drawBody(puppet, scene, Color3.FromHexString(ARENA_SIDES[card.side].colour));
+    const held = drawHeld(puppet, scene);
+    for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
+    context.own(() => { skin.dispose(); shapes.dispose(); held.dispose(); puppet.dispose(); });
+    return { id, side: card.side, puppet, offset: link.offsets[k]!, centre: new Vector3(), life: 1, out: false };
   });
-  context.own(() => bout.dispose());
 
   // The camera frames each side's middle as the arena's frames each fighter.
-  const middle = (side: typeof SIDES[number]) => {
+  const middle = (side: Side) => {
     const at = new Vector3(), still = Quaternion.Identity();
     return { get position() {
       at.setAll(0);
       let n = 0;
-      for (const member of bout.members) if (member.side === side && !bout.eliminated(member.id)) { at.addInPlace(reads.get(member.id)!().centre); n++; }
+      for (const body of bodies) if (body.side === side && !body.out) { at.addInPlace(body.centre); n++; }
       return n ? at.scaleInPlace(1 / n) : at;
     }, rotation: still, rest: still };
   };
@@ -90,36 +77,67 @@ export async function bootCrowd(context: ScreenContext): Promise<void> {
   canvas.addEventListener("contextmenu", (event) => event.preventDefault(), { signal: context.signal });
 
   // A bar for each body, in its line's order, its side's colour.
-  const bars = new Map(bout.members.map((member, k) => {
+  const bars = bodies.map((body, k) => {
     const row = document.createElement("div"), fill = document.createElement("span");
-    row.className = "crowd-bar"; row.title = `${ARENA_SIDES[member.side].label} ${k % recipe[member.side].count + 1}`;
-    fill.style.background = ARENA_SIDES[member.side].colour;
+    row.className = "crowd-bar"; row.title = `${ARENA_SIDES[body.side].label} ${k % recipe[body.side].count + 1}`;
+    fill.style.background = ARENA_SIDES[body.side].colour;
     row.append(fill); hud.append(row);
-    return [member.id, fill] as const;
-  }));
+    return fill;
+  });
   const meter = frameMeter(engine, context.signal);
   hud.append(meter.element);
 
-  let firstFrame = true, ended = false;
+  link.listen({
+    news: ({ verdict }) => {
+      if (!verdict) return;
+      const { winner, ending } = verdict;
+      note.textContent = winner ? `${ARENA_SIDES[winner].label} wins ${ending === "time" ? "at the bell" : endingText(ending)}` : "A draw";
+    },
+    fault: (message) => { note.textContent = `The world stopped: ${message}`; },
+  });
+
+  /** Pose every body between `at`'s frames, with its bar. */
+  const pose = (at: Between) => bodies.forEach((body, k) => {
+    posePuppet(body.puppet, body.offset, at);
+    const { life, out } = bodyBetween(body.offset, at, body.centre);
+    body.life = life; body.out = out;
+    bars[k]!.style.width = `${(100 * life).toFixed(1)}%`;
+  });
+
+  // The world runs while the screen is idle and shown; a hidden tab draws nothing, so it holds.
+  let running = false, warm = false;
+  const sync = () => {
+    const run = warm && !context.busy && document.visibilityState === "visible";
+    if (run !== running) { running = run; link.run(run); }
+  };
+  document.addEventListener("visibilitychange", sync, { signal: context.signal });
+
+  let last = -1;
   engine.runRenderLoop(() => {
-    if (context.busy) { firstFrame = true; meter.reset(); return; }
+    sync();
+    if (context.busy) { last = -1; meter.reset(); return; }
     meter.frame(() => {
-      const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
-      const left = bout.verdict ? bout.verdict.time + AFTERMATH_SECONDS - bout.clock : Infinity;
-      if (left > 0) meter.physics(() => world.advance(Math.min(seconds, CATCH_UP_SECONDS, left), Math.ceil(CATCH_UP_SECONDS * world.hz)));
-      for (const member of bout.members) bars.get(member.id)!.style.width = `${(100 * bout.life(member.id)).toFixed(1)}%`;
-      if (bout.verdict && !ended) {
-        ended = true;
-        const { winner, ending } = bout.verdict;
-        note.textContent = winner ? `${ARENA_SIDES[winner].label} wins ${ending === "time" ? "at the bell" : endingText(ending)}` : "A draw";
-      }
+      const now = performance.now(), seconds = last < 0 ? 0 : (now - last) / 1000;
+      last = now;
+      meter.world(link.received(), link.newest[2]!);
+      pose(link.between(now));
       rig.frame("fight", subjects, seconds, engine.getAspectRatio(camera));
       scene.render();
     });
   });
   window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
-  Object.assign(window, { __crowd: { bout, world, scene, engine } });
+  /** From a console, `__crowd.step(n)` takes `n` steps in the worker, then draws the newest, as a hidden tab needs. */
+  const step = async (steps = 1) => {
+    await link.step(steps);
+    const newest = link.newest;
+    pose({ from: newest, to: newest, share: 1 });
+    scene.render();
+  };
+  Object.assign(window, { __crowd: { world: link, scene, engine, step } });
   context.own(() => { if ((window as unknown as { __crowd?: { engine: Engine } }).__crowd?.engine === engine) Reflect.deleteProperty(window, "__crowd"); });
+  pose(link.between(performance.now()));
   await warmScene(scene, context.signal);
   note.textContent = "";
+  warm = true;
+  sync();
 }

@@ -4,7 +4,7 @@ import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { DrawnBody } from "./drawn-body.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 import type { Appearance } from "./appearance.ts";
 import { createRobotPart, housing, local, type Finish, type RobotDesign } from "./robot-geometry.ts";
@@ -16,7 +16,7 @@ type Robot = Exclude<Appearance, "default">;
 const DESIGNS: Readonly<Record<Robot, RobotDesign>> = { industrial: industrialRobot, relic: steampunkRobot, duelist: futuristicRobot };
 
 /** Rigid shells ride the simulated segments; only cosmetic finger articulation needs a render callback. */
-export function dressRobot(built: BuiltBody, scene: Scene, appearance: Robot, options: SkinOptions): SkinView {
+export function dressRobot(built: DrawnBody, scene: Scene, appearance: Robot, options: SkinOptions): SkinView {
   const design = DESIGNS[appearance], prefix = `${built.spec.model}.${appearance}.${scene.getUniqueId()}`;
   const materials = {} as Record<Finish, PBRMaterial>;
   for (const [finish, spec] of Object.entries(design.palette) as [Finish, NonNullable<RobotDesign["palette"][Finish]>][]) {

@@ -10,7 +10,9 @@ import "./frame-meter.css";
  *   (`World.advance`) -- with how many (x2 is 60 fps at 120 Hz; more means it is catching up);
  * - `other`: the rest of the render callback -- framing, the HUD, fog, and submitting the draw. Input handlers, garbage
  *   collection and the engine's own frame bookkeeping fall outside it, so the interval less these two is not idle;
- * - `gpu`: the GPU's time per frame, where the browser exposes a timer query (Firefox does not by default).
+ * - `gpu`: the GPU's time per frame, where the browser exposes a timer query (Firefox does not by default);
+ * - `world`, in place of `physics` where a worker steps the world (`src/worker/`): the steps that arrived a frame,
+ *   what each took in the worker, and how fast the world plays, 100% in real time.
  *
  * A frame whose drawing costs R ms, while physics takes a share p of every real second, lasts about R / (1 - p),
  * so the physics share multiplies the cost of everything drawn.
@@ -50,10 +52,11 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
   if (timed) engine.captureGPUFrameTime(true);
   const gpu = timed ? engine.getGPUFrameTimeCounter() : null;
   let since = performance.now(), previous: number | null = null, frames = 0, cpu = 0, physics = 0, substeps = 0;
+  const worker = { steps: 0, ms: 0, speed: null as number | null };
   let gpuTotal = gpu?.total ?? 0, gpuCount = gpu?.count ?? 0;
   const sample = { frame: 0, interval: 0, physics: 0, steps: 0 };
   const reset = () => {
-    since = performance.now(); previous = null; frames = cpu = physics = substeps = 0;
+    since = performance.now(); previous = null; frames = cpu = physics = substeps = 0; worker.steps = worker.ms = 0;
     gpuTotal = gpu?.total ?? 0; gpuCount = gpu?.count ?? 0;
   };
   // A hidden tab renders nothing, and the first window back would otherwise divide its frames by the whole absence.
@@ -67,12 +70,15 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
     const fps = frames * 1000 / span;
     summary.textContent = `${fps.toFixed(fps < 10 ? 1 : 0)} FPS`;
     output.textContent = `Frame   ${(span / frames).toFixed(1)} ms\n`
-      + `Physics ${(physics / frames).toFixed(1)} ms (×${(substeps / frames).toFixed(1)} steps)\n`
-      + `Per step ${substeps ? (physics / substeps).toFixed(2) + " ms" : "unavailable"}\n`
+      + (worker.speed === null
+        ? `Physics ${(physics / frames).toFixed(1)} ms (×${(substeps / frames).toFixed(1)} steps)\n`
+          + `Per step ${substeps ? (physics / substeps).toFixed(2) + " ms" : "unavailable"}\n`
+        : `World   ×${(worker.steps / frames).toFixed(1)} steps, ${(100 * worker.speed).toFixed(0)}% speed\n`
+          + `Per step ${worker.steps ? (worker.ms / worker.steps).toFixed(2) + " ms in its worker" : "unavailable"}\n`)
       + `Other   ${((cpu - physics) / frames).toFixed(1)} ms\n`
       + `GPU     ${gpuMs === null ? "unavailable" : `${gpuMs.toFixed(1)} ms`}`;
     place();
-    since = now; frames = cpu = physics = substeps = 0;
+    since = now; frames = cpu = physics = substeps = 0; worker.steps = worker.ms = 0;
     if (gpu) { gpuTotal = gpu.total; gpuCount = gpu.count; }
   };
   return {
@@ -82,6 +88,10 @@ export function frameMeter(engine: AbstractEngine, signal: AbortSignal) {
       const started = performance.now();
       sample.steps += steps();
       sample.physics += performance.now() - started;
+    },
+    /** Counts the steps a worker sent, the worker's time for them, ms, and the world's speed now; inside `frame`. */
+    world(received: { readonly steps: number; readonly ms: number }, speed: number): void {
+      sample.steps += received.steps; worker.steps += received.steps; worker.ms += received.ms; worker.speed = speed;
     },
     /** Runs one frame's work and counts it. */
     frame(work: () => void): Readonly<typeof sample> {

@@ -219,9 +219,12 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    moved ([one crossing a step](../reference/step-cost.md#one-crossing-a-step)). The garbage-free
    step's contacts' read ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2)
    was this one.
-6. **The world in a worker**, the Arena first, then the Crypt, as the design says. Check: a bout's
-   digest in the worker equals Node's; the page holds the display's rate while a step is made slow
-   on purpose; the owner plays.
+6. **The world in a worker**, the crowd fight, then the Arena, then the Crypt, as the design says.
+   Built for the crowd fight (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
+   its digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's worker too,
+   the first 240 steps of seed 0). Left: the Arena and the Crypt. Check: a bout's digest in the
+   worker equals Node's; the page holds the display's rate while a step is made slow on purpose; the
+   owner plays.
 7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The
    crowd fight to its verdict: the right side won by drain at 104.7 s, 1885 blows landed by 90 s;
    now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe; in the Crypt, whose bodies

@@ -10,7 +10,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows
 import type { Pool } from "../core/rules/pool.ts";
 import { seedOf } from "../core/math/random.ts";
 import { reactionSteps, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
-import { otherSide, type Side } from "../core/spec/body.ts";
+import { otherSide, type BodySpec, type Side } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Hook, World } from "../core/world.ts";
@@ -91,6 +91,13 @@ interface TeamHooks {
 /** The id of `side`'s body at `index` in its line. */
 export const memberId = (side: Side, index: number): string => `${side}-${index}`;
 
+/** The body each of `side`'s members is: its model's, with no attributes of its own, carrying the side's loadout. */
+export function teamSpec({ model, loadout }: TeamSide): BodySpec {
+  const character = resolveCharacter({ model, attributes: {} });
+  modelHolding(model, loadout, character.config.attributes);
+  return withLoadout(character.spec, loadout);
+}
+
 /** Why `recipe` cannot be played, each a sentence; none where it can. */
 export function teamFaults(recipe: TeamRecipe): readonly string[] {
   return SIDES.flatMap((side) => {
@@ -139,10 +146,8 @@ export class TeamBout {
     const contactLabels = new Map<number, ContactTarget>();
     const members: Member[] = [];
     for (const side of SIDES) {
-      const { model, count, loadout, mind } = recipe[side], config = mind ?? defaultMind(model);
-      const character = resolveCharacter({ model, attributes: {} });
-      modelHolding(model, loadout, character.config.attributes);
-      const spec = withLoadout(character.spec, loadout), spawn = levelSpawn(level, side, gap);
+      const { model, count, mind } = recipe[side], config = mind ?? defaultMind(model);
+      const spec = teamSpec(recipe[side]), spawn = levelSpawn(level, side, gap);
       for (let index = 0; index < count; index++) {
         const id = memberId(side, index), across = (index - (count - 1) / 2) * TEAM_SPACING;
         const at: Vec3 = [spawn.position[0], spawn.position[1], spawn.position[2] + across];

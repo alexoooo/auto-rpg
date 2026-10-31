@@ -1,4 +1,4 @@
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { DrawnBody } from "./drawn-body.ts";
 import type { Dresser } from "./dress.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 
@@ -8,7 +8,7 @@ export interface SkinSlot extends SkinView {
 }
 
 /** The latest request owns the skin. Visibility and clothing also apply while assets are loading. */
-export function skinSlot(built: BuiltBody, changed: () => void = () => {}): SkinSlot {
+export function skinSlot(built: DrawnBody, changed: () => void = () => {}): SkinSlot {
   const state = { view: null as SkinView | null, revision: 0, disposed: false, enabled: true,
     clothing: null as SkinOptions["clothing"] | null };
   return {

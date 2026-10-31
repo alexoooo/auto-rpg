@@ -2,7 +2,7 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { CreateCylinderVertexData } from "@babylonjs/core/Meshes/Builders/cylinderBuilder.js";
 import { CreateSphereVertexData } from "@babylonjs/core/Meshes/Builders/sphereBuilder.js";
-import type { BuiltSegment } from "../core/build/build-body.ts";
+import type { DrawnSegment } from "./drawn-body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 
 export type Finish = "frame" | "plate" | "edge" | "light" | "glass";
@@ -13,7 +13,7 @@ export interface RobotDesign {
 }
 interface RobotPart {
   readonly name: string;
-  readonly segment: BuiltSegment;
+  readonly segment: DrawnSegment;
   readonly c: Vector3;
   readonly size: Vector3;
   readonly length: number;
@@ -50,14 +50,14 @@ export function housing(w: number, h: number, d: number, bevel: number, taper = 
   return data;
 }
 
-export function local(segment: BuiltSegment, point: Vec3): Vector3 {
+export function local(segment: DrawnSegment, point: Vec3): Vector3 {
   const { frame } = segment, delta = Vector3.FromArray(point).subtract(Vector3.FromArray(frame.origin));
   return new Vector3(Vector3.Dot(delta, Vector3.FromArray(frame.x)), Vector3.Dot(delta, Vector3.FromArray(frame.y)),
     Vector3.Dot(delta, Vector3.FromArray(frame.z)));
 }
 
 /** Bounds of the physical shape in its segment frame, including capsule end caps. */
-function envelope(segment: BuiltSegment): { centre: Vector3; size: Vector3 } {
+function envelope(segment: DrawnSegment): { centre: Vector3; size: Vector3 } {
   const shape = segment.spec.shape;
   let points: Vector3[];
   switch (shape.kind) {
@@ -99,7 +99,7 @@ function profile(rings: readonly (readonly [number, number, number, number?])[])
 }
 
 /** Designs submit local geometry; the skin owns the resulting meshes and materials. */
-export function createRobotPart(name: string, segment: BuiltSegment): {
+export function createRobotPart(name: string, segment: DrawnSegment): {
   part: RobotPart; buckets: Map<Finish, { positions: number[]; normals: number[]; indices: number[] }>;
 } {
   const { centre: c, size } = envelope(segment);

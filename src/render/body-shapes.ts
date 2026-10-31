@@ -5,7 +5,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import type { createEquipment } from "../core/equipment.ts";
 import { segmentFrame } from "../core/spec/body.ts";
 import type { SegmentFrame, ShapeSpec } from "../core/spec/body.ts";
@@ -95,7 +95,7 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
 const SHAPE_TINT = Object.freeze({ sheen: 0.08, warm: [0.85, 0.45, 0.25], warmShare: 0.35 } as const);
 
 /** Draw `built`'s shapes; `tint` colours the body, and the right side is drawn a shade warmer. */
-export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShapes {
+export function drawBody(built: DrawnBody, scene: Scene, tint: Color3): BodyShapes {
   const left = new StandardMaterial(`${built.spec.model}.view.left`, scene);
   left.diffuseColor = tint;
   left.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
@@ -104,13 +104,13 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
   right.specularColor = left.specularColor;
   const meshes: Mesh[] = [];
   /** `segment`'s regions as its rigid body has them now, drawn in `material`. */
-  const regionsOf = (segment: BuiltSegment, material: StandardMaterial): Mesh[] => segment.rigid.owners.flatMap((owner, k) => {
+  const regionsOf = (segment: DrawnSegment, material: StandardMaterial): Mesh[] => segment.rigid.owners.flatMap((owner, k) => {
     if (owner.kind !== "region") return [];
     const region = shapeMesh(`${segment.node.name}.contact.${owner.region.name}`, segment.frame, segment.rigid.shapes[k]!, scene);
     region.parent = segment.node; region.material = material;
     return [region];
   });
-  const changing: { segment: BuiltSegment; mesh: Mesh; regions: Mesh[]; rigid: BuiltSegment["rigid"] }[] = [];
+  const changing: { segment: DrawnSegment; mesh: Mesh; regions: Mesh[]; rigid: DrawnSegment["rigid"] }[] = [];
   for (const segment of built.segments.values()) {
     // Its own shape and regions as they are now, a hand's in its pose and a foot's with its toes; what it holds is `drawHeld`'s.
     const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.rigid.shapes[0]!, scene);
@@ -173,7 +173,7 @@ export function drawEquipment(item: ReturnType<typeof createEquipment>, scene: S
  * with its natural regions and held items (`rigidOf`); held items and their regions are drawn here.
  * The skin has no mesh for a held item, so World shows these too.
  */
-export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
+export function drawHeld(built: DrawnBody, scene: Scene): BodyShapes {
   const materials = new Map<string, StandardMaterial>();
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {

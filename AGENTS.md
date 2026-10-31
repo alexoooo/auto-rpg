@@ -183,6 +183,9 @@ it never imports them.
 - **A hidden tab does not render** (no paint, no `requestAnimationFrame`, `scene.pick` misses).
   Check `document.visibilityState` and that `engine.frameId` moves; from a background tab step
   `__arena.world.step()` and call `scene.render()` yourself.
+- **The crowd fight's world is in a worker** (`src/worker/`): the page holds it while hidden or
+  loading, and never reaches it but by message. `await __crowd.step(n)` steps it there and draws
+  the newest step; `__crowd.world.burden(ms)` makes each step dearer, slowing the fight, not the page.
 - **Look before probing.** `Material.isReady(mesh)` is false outside a render pass;
   `scene.materials` is incomplete (use `mesh.material`); after a hot reload, navigate.
 

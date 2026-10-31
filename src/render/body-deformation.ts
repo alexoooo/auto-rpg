@@ -1,12 +1,12 @@
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { DrawnBody } from "./drawn-body.ts";
 import { modelSpec, type BodyModel } from "../core/models.ts";
 import { frameOf } from "../core/spec/body.ts";
 import { shapeBounds } from "../core/spec/shape-bounds.ts";
 import { distance } from "../core/spec/vec.ts";
 
 /** Authored body-frame coordinates into a configured segment's local frame, including its surface deformation. */
-export function skinReference(built: BuiltBody, name: string): Matrix {
+export function skinReference(built: DrawnBody, name: string): Matrix {
   const source = modelSpec(built.spec.model as BodyModel).segments.find(s => s.name === name)!;
   const target = built.segments.get(name)!.spec, frame = frameOf(source);
   const reference = Matrix.Compose(Vector3.One(), Quaternion.RotationQuaternionFromAxis(

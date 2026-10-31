@@ -1251,9 +1251,35 @@ world for learning and search.
 5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
-A page advances by real time with `World.advance`, which caps the steps a frame may take;
+A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
+the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
 `scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on
 a ground (`coreStand`, `freshEngine`); most of `research/` measures on the stand ([research/README.md](../research/README.md)).
+
+## The world in a worker
+
+The crowd fight's world steps in a Web Worker (`src/worker/`); its page only draws. The worker
+builds the world headless from the screen's recipe exactly as Node does (`teamStage`, `stage.ts`,
+through `buildTeamBout`), loading Rapier and the minds' data in its own realm, so its bouts are the
+same to the bit (`tests/world-worker.test.mjs`).
+
+- **The worker** (`serve`, `serve.ts`; `world.worker.ts` its entry) takes, while the page runs it,
+  the steps real time owes, at most a 30 fps frame's worth a pass (`CATCH_UP_SECONDS`), and sends
+  each step's frame as it is taken. A world that cannot keep real time falls behind it and plays in
+  slow motion; the page keeps its frame rate. The page holds it while it is busy or hidden.
+- **A frame** (`frame.ts`) is one `Float64Array` a step, transferred: the world's time, steps,
+  speed and the step's cost; each body's life, down, out and centre of mass; each segment's
+  position, rotation, hand pose and toes' bend, in the roster's order (`RosterBody`, sent once).
+  What a stage has to tell beside its frames (the verdict) comes with the frame it happened on.
+- **The page** (`openWorld`, `client.ts`) makes a puppet of each body from its spec (`puppetBody`,
+  `src/render/puppet.ts`: a node a segment, its shapes following its hand's pose and toes by the
+  built body's rule, `segmentShapes`), and dresses it as a built body is dressed: skins and shapes
+  draw a `DrawnBody` (`src/render/drawn-body.ts`). Each frame it poses the puppets between the two
+  frames about the moment it shows (`between`, `posePuppet`), which follows the world's speed one
+  step behind the newest frame, so motion is smooth at the display's rate whatever a step costs.
+- **From a console**, `__crowd.step(n)` takes `n` steps in the worker and draws the newest, as a
+  hidden tab needs; `__crowd.world.burden(ms)` makes each step dearer, to see the page keep its
+  rate while the fight slows.
 
 ## State
 
@@ -1529,8 +1555,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt, lab, ratings and tools at `?play=arena`, `?play=dungeon`, `?play=lab`, `?play=ratings`
-and `?play=tools`.
+arena, crowd fight, crypt, lab, ratings and tools at `?play=arena`, `?play=crowd`, `?play=dungeon`,
+`?play=lab`, `?play=ratings` and `?play=tools`.
 
 - **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
   explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
@@ -1543,6 +1569,7 @@ and `?play=tools`.
 | Screen | Where | What it is |
 |---|---|---|
 | Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
+| Crowd fight | `src/arena/crowd.ts` | the crowd fight (`crowdFight`, `TeamBout`), five a side, its world in a worker |
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
 | Ratings | `src/ratings/` | each evaluation's records, derived in the page (`analysis.ts`); nothing played |
@@ -1642,8 +1669,10 @@ An older pool is listed with what differs from the newest.
 - `src/render/scene-profile.ts` owns the World/Tactical presentation policy for Arena, Dungeon and Lab.
   Tactical draws batched physical geometry with plain materials, suspends decorative updates and disables
   graphics passes. Dungeon keeps exploration and actor visibility without uploading its fog texture.
-- `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena and Dungeon.
-  Each screen supplies its render callback and actual physics-step count; timing never advances a world.
+- `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena, Dungeon and
+  the crowd fight. Each screen supplies its render callback and actual physics-step count, or, where a
+  worker steps its world, the steps that arrived, their cost there and the world's speed; timing never
+  advances a world.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin
