@@ -6,7 +6,7 @@ import { controller, type MindPreset } from "../../core/mind/controller.ts";
 import { createFighter, driveFighter, kitBody, kitSubs, fighterFaults } from "../../core/tactics/fighter.ts";
 import { GAME_MOTOR } from "../../core/mind/kit.ts";
 import { GAME_NAVIGATION } from "../../core/navigation/navigator.ts";
-import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../core/parts/parts.ts";
+import { fitsAll, fitsWhen, slotList, slotOne } from "../../core/parts/parts.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { VANGUARD_PUNCH, type VanguardPunchConfig } from "./punch-part.ts";
@@ -81,7 +81,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
-  fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
+  fits: fitsAll<VanguardConfig>((spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: (config, parts) => fighterFaults(fighter(config), parts),
