@@ -62,7 +62,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
-| [Layering](plans/2026-10-29-layering.md) | No layer holds the one above it, held by a layer check whose list of exceptions only shrinks (built: the check, the part framework in `src/core/parts/`, tactics a package only the minds built on it import, each layer's config with its layer, the skills free of the decider's memory and report, a neutral `Decider` seam, scripts driving any mind by a decider, one way into a body with the command layers a toolkit layer, no sub-minds in the body, the smaller misplacements): the body's shape read from its spec waits for a second body family |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
    ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
@@ -80,10 +79,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    step 13.
    The rest of Recovery step 3: every humanoid is on toes and rises by Option Mind's rise (the
    owner, 2026-10-30); the Rogue with the club standing on toes, and step-up removed.
-   [Layering](plans/2026-10-29-layering.md) in order, each step bit for bit on the fingerprint;
-   its steps 1 to 3 land before the [Commander](plans/2026-10-29-commander.md) begins, which then
-   goes in order: the score (step 1) needs nothing of Option Mind; the Option Commander (step 4)
-   plays the Crypt with Option Mind as its hero.
+   The [Commander](plans/2026-10-29-commander.md) in order: the Option Commander (step 4) plays
+   the Crypt with Option Mind as its hero.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner

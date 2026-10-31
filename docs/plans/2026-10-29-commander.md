@@ -28,10 +28,6 @@ with no foes keeps half the life); the name.
 the score); Option Mind's fingerprint through step 2; the Commander contract's boundary
 (`tests/core-boundary.test.mjs`, `COMMAND_BARRED`).
 
-**Order with the [layering plan](2026-10-29-layering.md)**: after its steps 1 and 2, which settle
-the mind's report (`MindReport`) and the readout's offer types this plan extends; its later steps
-may land before or after.
-
 ## The design
 
 ### The score: life at the exit, less time

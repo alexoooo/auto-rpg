@@ -41,8 +41,14 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
 ## Steps
 
 1. **A second body family and a second purpose.** A Reptile preset on the framework, its crawl,
-   bite and recovery as option kinds, its host from [Layering](2026-10-29-layering.md) (the body's
-   shape read from its spec); the threat reader sensing any striking limb. A preset whose
+   bite and recovery as option kinds, on the command layers (`commandLayers`) like every other
+   mind; the threat reader sensing any striking limb. The body's shape read from its spec, which
+   the Reptile needs: the skills' and motor control's segments read from the spec's effectors and
+   ends, the stance over any set of ends rather than a pair of sides, one field for support ends
+   (`BodySpec.ends` for the quadruped's `effectors[].support`), `commandRefusal`
+   (`src/core/body.ts`) replaced by the parts' fits, and the quadruped's own host
+   (`src/core/reptile/mind.ts`) replaced by the command layers; the layer check's last listed
+   import (`UP_STACK`, `parts/parts.ts -> body.ts`) goes with it. A preset whose
    objective is reaching a place, with no foe, in a Lab scenario.
    Check: the Reptile fights a Warrior and a Reptile in the Arena; the walker reaches its place;
    the owner looks at both.
