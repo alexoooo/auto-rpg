@@ -4,6 +4,7 @@ import { CRAWL } from "./crawl/index.ts";
 import { VANGUARD } from "./vanguard/index.ts";
 import { OPTION } from "./option/index.ts";
 import { OPTION_SKELETON } from "./option-skeleton/index.ts";
+import { OPTION_REPTILE } from "./option-reptile/index.ts";
 import { BARE } from "./bare/index.ts";
 
 /**
@@ -11,4 +12,4 @@ import { BARE } from "./bare/index.ts";
  * one. This module holds its imports and this list and nothing else: a case's code reads it as
  * where each entrant's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const ENTRANTS: readonly Entrant[] = [CLASSIC, CRAWL, VANGUARD, OPTION, OPTION_SKELETON, BARE];
+export const ENTRANTS: readonly Entrant[] = [CLASSIC, CRAWL, VANGUARD, OPTION, OPTION_SKELETON, OPTION_REPTILE, BARE];
