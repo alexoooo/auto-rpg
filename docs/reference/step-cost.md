@@ -20,6 +20,8 @@ node research/crypt-plan.mjs --seeds 1,2,3,4 --profile
 node research/rest-probe.mjs
 node research/rest-probe.mjs --bodies 4
 node research/blow-cost.mjs
+node research/step-time.mjs --crowd --cap 30
+node research/call-count.mjs --crowd --cap 30
 ```
 
 ## Allocation ceilings
@@ -442,6 +444,37 @@ part in 10^12: what any change does to these bouts alone.
 Every row is within the placebo's spread: 30 bouts tell a score apart by about 0.2, not less.
 Fewer blows land a minute with a slower side, and the 30 Hz bouts run longer; drills, the stand-up
 and the look in play were not read.
+
+### The crowd fight
+
+**Ten Option Mind Warriors take about 14 ms a step, and nearly every step is over 8.33 ms: the
+crowd fight plays at about half speed.** The crowd fight (`crowdFight`, `src/arena/team-bout.ts`;
+`?play=crowd`): five Warriors a side in two lines, sword against club, seed 0, its first 30 s.
+Node, core world, `rapier-coordinate`, 120 Hz, pinned to the performance cores, at `efde44ff`;
+the least of each step over three playings (`research/step-time.mjs --crowd --cap 30`):
+
+| Of a step | Mean, ms | 99th per cent, ms | Longest, ms |
+| --- | --- | --- | --- |
+| the whole step | 14.0 | 24.2 | 33.9 |
+| the solver | 2.7 | 3.7 | 5.0 |
+| the rest | 11.3 | 20.4 | 31.3 |
+
+Past the first 2 s, 3356 of 3360 steps are over 8.33 ms, the dearest 30.9 ms. A playing collects
+garbage often: a scavenge every 14 steps (1.8 ms), a mark-compact every 1543 (60 ms, to 161).
+
+Calls a step over the same 30 s, counted by a load hook (`research/call-count.mjs --crowd --cap
+30`), on a playing of its own:
+
+| Counted | Calls a step |
+| --- | --- |
+| into Rapier's wasm | 6543 |
+| `contactsOf` | 140.6 |
+| opening searches (`openingSelector`'s) | 8.6 |
+| `worldShapes`, `menuOf` | 0 |
+
+No body lies down in those 30 s, so nothing reads a lying body's colliders, and nothing reads the
+menu in Node. On a page the same fight plays at about 1 fps in a tab the browser does not paint,
+and its world step in that page takes about 37 ms.
 
 ## The crypt's plan in the step
 

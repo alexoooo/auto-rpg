@@ -185,7 +185,7 @@ control in Rust, dense arithmetic on small matrices whose gain is unmeasured.
 
 ## Steps
 
-Step 2 adds a mode to the Arena and the harnesses that read the rest. Speed rewrites (steps 3 to 6)
+Step 2 adds the crowd fight and the harnesses that read the rest. Speed rewrites (steps 3 to 6)
 do the same operations in the same order: no fingerprint case moved (step 3 names one state's
 digest, as it says), the reference bouts' digests the same, the time before and after in
 [step cost](../reference/step-cost.md). Steps 7 on change what minds or bodies do: each names its
@@ -195,21 +195,15 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 1. **A hand's pose tried cheaply.** Built: the new shape is tested only against colliders whose
    bounds can reach it, built once a pose; the bare-handed bout's standing steps over 8 ms went
    from 54 to 2, the longest 10.0 ms. Those two are read again on step 2's timers.
-2. **What the steps are measured on.**
-   - **A crowd fight**: the Arena's team bout ([roadmap](../roadmap.md#the-game)), five Option
-     Mind Warriors a side, the recipe taking a team a side and its link the page's. They stand in
-     two lines at the gap. Each body is under a duel's rules for one (its life, its falls, the
-     drain); a side is beaten when every body of it is, and at the cap the side with more life
-     summed wins. No Commander: each mind chooses its focus among the other side's. The page
-     shows a bar for each body. Its digest is read as a bout's is; the owner watches it.
-   - **The timers**: `research/step-time.mjs` plays a recipe (minds, loadouts, gap, seed, the
-     crowd fight) and `research/crypt-step.mjs` takes the mind every body plays; both report the
-     dearest step past the first 2 s, the least of three playings.
-   - **A call counter** in `research/`: how many times a step a named function runs
-     (`openingSelector`, `worldShapes`, `contactsOf`, `menuOf`, the calls into Rapier's wasm), by
-     a load hook, as the boundary's count was read.
-   - Check: the crowd fight plays to its verdict in Node and on the page; the timers read the
-     reference bouts, the crowd fight and the Crypt's runs.
+2. **What the steps are measured on.** Built: the crowd fight (`TeamBout`, `crowdFight`,
+   `src/arena/team-bout.ts`; its screen `?play=crowd`, `src/arena/crowd.ts`), five Option Mind
+   Warriors a side in two lines, each body under a duel's rules for one, a side beaten when every
+   body of it is, at the cap the side with more life summed; each mind chooses its focus among the
+   other side's. `research/step-time.mjs` plays an Arena link or the crowd fight,
+   `research/crypt-step.mjs` takes the mind every body plays, both report the dearest step past
+   the first 2 s; `research/call-count.mjs` counts calls a step. The crowd fight's first 30 s:
+   14.0 ms a step, the dearest past 2 s 30.9 ms
+   ([the crowd fight](../reference/step-cost.md#the-crowd-fight)).
 3. **Readings once a step.** A step reading in the toolkit, for each mind a work area made once
    and cleared at its step's start:
    - the foe's colliders read once (`sensedObstacle`) for every clearance and route caller
