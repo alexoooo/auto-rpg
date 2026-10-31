@@ -495,7 +495,7 @@ const LAYERS = [
   ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
-  ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/report.ts"],
+  ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/choice.ts", "mind/report.ts"],
   ["recovery/", "mind/kit.ts"],
   ["tactics/"],
   ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",

@@ -38,7 +38,7 @@ listed (`UP_STACK`), each with the change that removes it, and the list only shr
 | Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
 | Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and sub-minds |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands; the body's readings beside its view's, its ground and how it lies among them (`groundReading`, `lieOf`); the command layers, which any mind may build on its own body (`commandLayers`) |
-| Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
+| Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `choice.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`), what a mind over them reports (`Engagement`, `MindReport`) and the set selection a chooser of a mind or a team runs (`selectSet`) |
 | Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Perception | `src/core/perception/` | what a body reads of another: its openings, the threat of its blows, and where to stand by a body down (`downed/`) |
@@ -792,12 +792,15 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   clinch its falls).
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
   `src/core/option/parts.ts`) in Option Mind's `chooser` slot, each a line in `CHOOSERS` (`valued`, `ranked`;
-  `depth`, `chooserOf`), takes the option on offer of highest
+  `depth`, `chooserOf`), is the toolkit's set selection (`selectSet`, `src/core/mind/choice.ts`:
+  of choices, `Choice`, a shape an option extends with its model and step, the set whose claims do
+  not overlap, priced in its user's terms, `Priced`) over its options, its event the percepts' cues
+  (`eventOf`); it takes the option on offer of highest
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
   `placed`), never the world forked, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/engagement.ts`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
-  `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
+  `rethink` s. It selects a set (`Selection.decide`): a running option that does not yield keeps
   its claims; with none, the target, the foe whose situation's best option is worth most, the one
   it ran at where none is worth more (`Chosen.at`); then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource

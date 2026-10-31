@@ -8,7 +8,8 @@ import type { TechniqueConfig, TechniquePart, TechniqueRun } from "../recovery/g
 import { edgeExpected, type Profile } from "../skills/framework/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
-import { asking, blocked, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
+import { asking, blocked, READY, type Option, type Situation } from "./option.ts";
+import { WHOLE, type Status } from "../mind/choice.ts";
 import type { Sight } from "../mind/decider.ts";
 
 /**

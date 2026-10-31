@@ -62,7 +62,7 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
 
 /**
  * **Option Mind's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
- * at the foe it is worth most to act on (`Chooser.decide`, each foe's situation read by
+ * at the foe it is worth most to act on (`Selection.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
  * following orders (to move, stand or face), a strike of each of its blows (`strike`, from a limb

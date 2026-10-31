@@ -142,6 +142,9 @@ selection:
 - Chance: the valued chooser draws only between offers within its `margin`, none by default, and
   the ranked never draws, so a Commander passes none and needs no seed.
 
+Built: `selectSet` over `Choice<S>` (`src/core/mind/choice.ts`), priced as `Priced<T>`, the
+readout's `Offer` a body's; one toolkit commit, Option Mind's framework being the toolkit's.
+
 Check: the gate; the fingerprint against the commit before, no case moved; one bout of Option Mind
 with `ranked`, its digest equal before and after.
 

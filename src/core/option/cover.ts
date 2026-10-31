@@ -2,7 +2,8 @@ import { cos, sin } from "../math/real.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import { coveringHand, shieldHands } from "../intent/cover-hand.ts";
 import type { Resource } from "../skills/framework/action.ts";
-import { blocked, NOTHING, READY, type Situation, type Option } from "./option.ts";
+import { blocked, READY, type Situation, type Option } from "./option.ts";
+import { NOTHING } from "../mind/choice.ts";
 import { here } from "./position.ts";
 
 /** The longest cover holds a hand up against one run of blows, s. */

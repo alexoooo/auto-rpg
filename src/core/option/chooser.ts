@@ -1,192 +1,33 @@
-import { randomStream } from "../math/random.ts";
 import { deepFreeze } from "../state.ts";
 import type { PartField } from "../parts/fields.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
-import type { Offer } from "../mind/engagement.ts";
-import type { Resource } from "../skills/framework/action.ts";
-import { NOTHING, onOffer, overlaps, placed, type Option, type Situation } from "./option.ts";
+import type { OfferTerms } from "../mind/engagement.ts";
+import { onOffer, selectSet, type Appraise, type Chance, type Deciding, type Selection } from "../mind/choice.ts";
+import { placed, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
 import { FEW_TERMS_PART, type Objective } from "./objective.ts";
 import type { Place } from "./position.ts";
 import { OBEDIENCE, STEADY, type Obedience, type ObedienceLevel } from "./value.ts";
 
-/** When a chooser decides afresh: every `rethink` s, and at once on an event (`eventOf`). */
-export interface Deciding { readonly rethink: number }
-
-/**
- * **Choosing by chance**: among the options worth more than the best less `margin` (in the worth's unit), one drawn in
- * proportion to what each is worth above that floor, from a stream begun at `seed`. A margin of
- * 0 draws nothing and takes the best.
- */
-export interface Chance { readonly margin: number; readonly seed: number }
-
-/** How a chooser decides (`Deciding`), by rank or by worth. */
+/** How a chooser decides (`Deciding`): it rethinks every 0.2 s. */
 const DECIDING: Deciding = Object.freeze({ rethink: .2 });
-
-/** How a chooser prices the option at `i` of its options, now. */
-export type Appraise = (option: Option, i: number, now: Situation) => Offer;
-
-/** **What a chooser decided**: the set running, the first chosen first (empty with none), and the situation it runs at. */
-export interface Chosen {
-  readonly set: readonly Option[];
-  readonly at: Situation;
-}
 
 /**
  * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
- * overlap. Its memory is in `state`, plain data.
+ * overlap: the toolkit's set selection (`selectSet`) over options, priced in a body's terms
+ * (`OfferTerms`), each decision's event its percepts' cues (`eventOf`).
  */
-export interface Chooser {
-  readonly state: object;
-  /**
-   * The set running and where (`Chosen`), after deciding at `now` if it has not yet this step.
-   * Deciding afresh with nothing committed, it prices its options at each of `others` too (the
-   * situation at each other target), and runs the set at the one whose best is worth most; else at
-   * `now`.
-   */
-  decide(now: Situation, others?: () => readonly Situation[]): Chosen;
-  /** The set running, as the last decision left it. */
-  readonly running: readonly Option[];
-  /** What it chose among at its last decision. */
-  readonly offers: readonly Offer[];
-}
+export type Chooser = Selection<Situation, OfferTerms, Option>;
 
 /**
- * **The one policy**: of `options`, the set the body runs, by worth as `appraise` prices each.
- * Once a control step (`decide`), on an event, when an option running is over or out of its entry,
- * when the first chosen reaches its exit, or `rethink` s on, it decides afresh: a running option
- * that does not yield keeps what it claims; with none, it takes the situation (`now`, or one of
- * `others`, another target) whose best option is worth most, `now` where none is worth more; then,
- * of the options on offer there (`onOffer`), each running
- * one raised by what letting it go costs (`Offer.letGo`), it takes the best (drawn by
- * `chance` where it gives a margin), then the best of the rest whose claims are still free, the
- * first of equals, until none is left. The rest options (`hold`, `guard`, `brace`) take a resource
- * nothing else is worth more on: a rest option is chosen with whichever of its claims are still
- * free, the others all of theirs or not at all. Its memory is which options run (their places in `options`, the
- * first chosen first), when it decided, when it next rethinks, the event it decided on, whether the
- * first chosen was at its exit, the offers it chose from, where it draws, its stream's word, and the
+ * **The one policy** (`selectSet`) over `options`, priced by `appraise`, its event the percepts'
+ * cues (`eventOf`), drawn by `chance` where it gives a margin; its memory the selection's, and the
  * memory of the `objective` it prices by, where that keeps one (`Objective.state`).
  */
-export function chooser(options: readonly Option[], appraise: Appraise, deciding: Deciding, chance: Chance = { margin: 0, seed: 0 }, objective: Objective | null = null): Chooser {
-  if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a chooser's margin is finite and not negative, not ${chance.margin}`);
-  const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
-  const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Offer[], ...(stream ? { random: stream.state } : {}),
-    ...(objective?.state ? { objective: objective.state } : {}) };
-  const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: Option[] = [];
-  const current = (): readonly Option[] => { set.length = 0; for (const i of state.running) set.push(options[i]!); return set; };
-  /** Whether what the options chosen hold overlaps `claims`. */
-  const taken = (claims: readonly Resource[]): boolean => { for (const one of held) if (overlaps(one, claims)) return true; return false; };
-  /**
-   * What the option at `i` would hold beside those chosen: all its claims where none is taken, else
-   * none; a rest option, whichever of its claims are free (it takes what nothing else is worth more on).
-   */
-  const freeOf = (i: number): readonly Resource[] => {
-    const option = options[i]!, claims = option.claims;
-    return option.rest ? claims.filter((claim) => !taken([claim])) : taken(claims) ? NOTHING : claims;
-  };
-  const free = (i: number): boolean => freeOf(i).length > 0 || options[i]!.claims.length === 0;
-  const take = (i: number): void => { held.push(freeOf(i)); chosen.push(i); };
-  const exitingOf = (now: Situation): boolean => state.running.length > 0 && options[state.running[0]!]!.status(now) === "exit";
-  /** Whether a running `option` is done: over, or out of its entry. */
-  const done = (option: Option, now: Situation): boolean => option.status(now) === "over" || !onOffer(option, now);
-  /**
-   * Each option not chosen priced at `now` (`values`, the offers), at each of its targets where it
-   * has them and aimed at the best (`Option.aim`), in the order taken (`order`): the best's worth,
-   * -Infinity with none on offer.
-   */
-  const appraiseAt = (now: Situation): number => {
-    state.offers = [];
-    values.length = 0; order.length = 0;
-    options.forEach((option, i) => {
-      values.push(-Infinity);
-      if (chosen.includes(i)) return;
-      const targets = option.targets?.length ?? 0;
-      let best = -Infinity, at = -1;
-      for (let k = 0; k < Math.max(1, targets); k++) {
-        if (targets) option.aim!(k);
-        if (!onOffer(option, now)) continue;
-        const offer = appraise(option, i, now), value = offer.worth + (state.running.includes(i) ? offer.letGo : 0);
-        state.offers.push(offer);
-        if (value > best) { best = value; at = k; }
-      }
-      if (at < 0) return;
-      if (targets) option.aim!(at);
-      values[i] = best;
-      order.push(i);
-    });
-    // Equals by rank, a rest option before the rest: an option takes a resource from rest only worth more.
-    order.sort((a, b) => values[b]! - values[a]! || Number(options[b]!.rest ?? false) - Number(options[a]!.rest ?? false) || a - b);
-    return order.length ? values[order[0]!]! : -Infinity;
-  };
-  const result = { set: set as readonly Option[], at: null as Situation | null };
-  /** What it decided, the set running at `at`: one record, made once. */
-  const decided = (at: Situation): Chosen => { current(); result.at = at; return result as Chosen; };
-  return {
-    state,
-    get running() { return current(); },
-    get offers() { return state.offers; },
-    decide(now, others) {
-      if (state.decided === now.time) return decided(result.at ?? now);
-      let at = now;
-      state.decided = now.time;
-      const event = eventOf(now);
-      let over = false;
-      for (const i of state.running) if (done(options[i]!, now)) over = true;
-      const exiting = !over && exitingOf(now);
-      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return decided(now);
-      state.event = event;
-      state.next = now.time + deciding.rethink;
-      // An option over or out of its entry is ended: it may only be begun afresh.
-      if (over) state.running = state.running.filter((i) => { const option = options[i]!, ended = done(option, now); if (ended) option.end(); return !ended; });
-      chosen.length = 0; held.length = 0;
-      // A running option that does not yield keeps what it claims.
-      for (const i of state.running) if (options[i]!.status(now) === "committed") take(i);
-      // With nothing committed, the target whose best option is worth most; the one at `now` where none is worth more.
-      let top = appraiseAt(now);
-      if (others && chosen.length === 0) {
-        const alternatives = others();
-        for (const other of alternatives) {
-          const best = appraiseAt(other);
-          if (best > top) { top = best; at = other; }
-        }
-        if (alternatives.length) appraiseAt(at);
-        state.event = eventOf(at);
-      }
-      // The first, by chance where a margin is given: one drawn among those free worth more than the best free less the margin.
-      const best = stream ? order.find(free) : undefined;
-      if (stream && best !== undefined) {
-        for (const k of order) if (!free(k)) values[k] = -Infinity;
-        take(drawn(values, values[best]! - chance.margin, best, stream.next));
-      }
-      for (const i of order) if (!chosen.includes(i) && free(i)) take(i);
-      for (const i of state.running) if (!chosen.includes(i)) options[i]!.end();
-      for (const i of chosen) if (!state.running.includes(i)) options[i]!.begin(at);
-      state.running = [...chosen];
-      state.exiting = exitingOf(at);
-      return decided(at);
-    },
-  };
-}
-
-/**
- * Of `values` (each option's, -Infinity off offer), one worth more than `floor`, drawn by `next` in
- * proportion to its worth above the floor; `best` alone where no other is, with nothing drawn.
- */
-function drawn(values: readonly number[], floor: number, best: number, next: () => number): number {
-  let total = 0, count = 0;
-  for (const value of values) if (value > floor) { total += value - floor; count++; }
-  if (count < 2) return best;
-  let left = next() * total;
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i]!;
-    if (!(value > floor)) continue;
-    left -= value - floor;
-    if (left < 0) return i;
-  }
-  return best;
-}
+const chooser = (options: readonly Option[], appraise: Appraise<Situation, OfferTerms, Option>, deciding: Deciding, chance?: Chance, objective: Objective | null = null): Chooser =>
+  selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, eventOf, chance, objective?.state ? { objective: objective.state } : {});
 
 /** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
 export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;

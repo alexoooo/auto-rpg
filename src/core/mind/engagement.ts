@@ -1,11 +1,12 @@
 import type { Readiness, TargetRef } from "../skills/framework/action.ts";
+import type { Priced } from "./choice.ts";
 
 /**
  * What an offer was weighed from, as a readout shows it, each in life (a share of a body's full
  * life) or its own unit: how long it runs, s; the life it deals and takes; the metres of the orders
  * it carries out; and where it leaves the body, the range head to head, m, and the chance it is down.
  */
-interface OfferTerms {
+export interface OfferTerms {
   readonly duration: number;
   readonly dealt: number;
   readonly taken: number;
@@ -13,18 +14,8 @@ interface OfferTerms {
   readonly exit: { readonly range: number; readonly down: number };
 }
 
-/**
- * **An option's worth at a decision** (`Engagement.offers`), the terms it was weighed from, how
- * much it changes the position and what letting it go costs, running; no terms for a fixed worth,
- * which costs nothing to let go.
- */
-export interface Offer {
-  readonly name: string;
-  readonly worth: number;
-  readonly terms: OfferTerms | null;
-  readonly moves: number | null;
-  readonly letGo: number;
-}
+/** **An option's worth at a decision** (`Engagement.offers`), weighed from a body's terms (`Priced`, `OfferTerms`). */
+export type Offer = Priced<OfferTerms>;
 
 /**
  * **A candidate action a decider weighed** (`Engagement.candidates`): its key, the action, the limb

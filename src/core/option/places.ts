@@ -9,7 +9,8 @@ import { gaitsOfMove, type MoveConfig } from "../skills/locomotion/move-part.ts"
 import { gaitDigest, measuredOn, profileFor, readProfile, type Profile } from "../skills/framework/profile.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
 import { deepFreeze } from "../state.ts";
-import { blocked, LEGS, READY, type Option, type Situation, type Status } from "./option.ts";
+import { blocked, LEGS, READY, type Option, type Situation } from "./option.ts";
+import type { Status } from "../mind/choice.ts";
 import { bearingAround, edgeOf, threatened } from "./percepts.ts";
 import { fromHere, type Going } from "./position.ts";
 import type { StrikeOption } from "./strike.ts";
