@@ -247,7 +247,10 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    Check: each one's drill and the match. Built: the surface aim's held opening, one set of aims a
    mind ([the held aim](../reference/step-cost.md#the-held-aim)): opening searches 14.8 a step to
    4.2; the punch's guarding rung lands as before; the match 5 of 12 before, 8 after. The
-   predictions take no share the profiler lists, and are not held.
+   predictions take no share the profiler lists, and are not held. Ground positioning runs only
+   while a foe is low, and no body goes down in the crowd fight's 149 s or in the sword against
+   club duel to its verdict at 41 s; a hand's blocked pose takes no share the profiler lists. Neither
+   is held.
 10. **Phases spread**: the phase grant, given by the duel, the team bout and the Crypt, and
     periodic decisions start at it.
     Check: the crowd fight's dearest step and how many decisions fall on one step.
