@@ -3,6 +3,9 @@ import type { Puppet } from "../render/puppet.ts";
 import { BODY_HEAD, HAND_POSES, SEGMENT_ROW, frameLayout, type RosterBody } from "./frame.ts";
 import type { FromWorker, ToWorker } from "./protocol.ts";
 import type { StageNews } from "./stage.ts";
+import type { OrdersEntry } from "../arena/duel.ts";
+import type { Orders } from "../core/intent/orders.ts";
+import type { Side } from "../core/spec/body.ts";
 
 /** How fast the shown moment is drawn back toward one step behind the newest frame, a share a second. */
 const SHOWN_CORRECTION = 5;
@@ -34,6 +37,10 @@ export interface WorldLink<Card = unknown> {
   run(running: boolean): void;
   /** Take `steps` steps now and show the newest: a console's step, resolved once the frames are here. */
   step(steps: number): Promise<void>;
+  /** Order `side` of a duel from the next step on, kept on its tape: what a person does. */
+  order(side: Side, orders: Orders | null): void;
+  /** The bout's tape as the worker has it now. */
+  tape(): Promise<readonly OrdersEntry[]>;
   /** Make each step at least `ms` dearer in the worker. */
   burden(ms: number): void;
   /** The frames to draw between at `now`, ms on `performance.now()`'s clock. */
@@ -46,14 +53,14 @@ export interface WorldLink<Card = unknown> {
 }
 
 /** Build, in a worker of its own, the world `start` names; resolved once it is built. */
-export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team" }>, signal: AbortSignal): Promise<WorldLink<Card>> {
+export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team" | "duel" }>, signal: AbortSignal): Promise<WorldLink<Card>> {
   signal.throwIfAborted();
   const worker = new Worker(new URL("./world.worker.ts", import.meta.url), { type: "module" });
   const send = (message: ToWorker) => worker.postMessage(message);
   const frames: Float64Array[] = [];
   const listeners: { news?: (news: StageNews) => void; fault?: (message: string) => void }[] = [];
   const clock = { shown: 0, last: -1 }, tally = { steps: 0, ms: 0 };
-  let stepped: (() => void)[] = [];
+  let stepped: (() => void)[] = [], taped: ((tape: readonly OrdersEntry[]) => void)[] = [];
   let link: WorldLink<Card> | null = null;
   return new Promise<WorldLink<Card>>((resolve, reject) => {
     const fail = (message: string) => {
@@ -77,6 +84,8 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
               stepped.push(() => { clock.shown = frames.at(-1)![0]!; done(); });
               send({ kind: "step", steps });
             }),
+            order: (side, orders) => send({ kind: "order", side, orders }),
+            tape: () => new Promise((done) => { taped.push(done); send({ kind: "tape" }); }),
             burden: (ms) => send({ kind: "burden", ms }),
             between: (now) => between(frames, clock, now, 1 / data.hz),
             received() { const out = { ...tally }; tally.steps = tally.ms = 0; return out; },
@@ -96,6 +105,12 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
           const waiting = stepped;
           stepped = [];
           for (const done of waiting) done();
+          return;
+        }
+        case "tape": {
+          const waiting = taped;
+          taped = [];
+          for (const done of waiting) done(data.tape);
           return;
         }
         case "fault":

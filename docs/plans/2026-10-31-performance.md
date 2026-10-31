@@ -222,7 +222,9 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 6. **The world in a worker**, the crowd fight, then the Arena, then the Crypt, as the design says.
    Built for the crowd fight (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
    its digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's worker too,
-   the first 240 steps of seed 0). Left: the Arena and the Crypt. Check: a bout's digest in the
+   the first 240 steps of seed 0); a duel's stage taking a person's orders on its tape
+   (`duelStage`), replayed in Node from that tape. Left: the Arena's page on the duel's stage, and
+   the Crypt. Check: a bout's digest in the
    worker equals Node's; the page holds the display's rate while a step is made slow on purpose; the
    owner plays.
 7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The

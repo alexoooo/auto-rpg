@@ -1,4 +1,7 @@
+import type { DuelRecipe, OrdersEntry } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
+import type { Orders } from "../core/intent/orders.ts";
+import type { Side } from "../core/spec/body.ts";
 import type { RosterBody } from "./frame.ts";
 import type { StageNews } from "./stage.ts";
 
@@ -10,6 +13,12 @@ import type { StageNews } from "./stage.ts";
 export type ToWorker =
   /** Build a team bout's stage (`teamStage`), played until `aftermath` s past its verdict. */
   | { readonly kind: "team"; readonly recipe: TeamRecipe; readonly aftermath: number }
+  /** Build a duel's stage (`duelStage`), playing `tape`, played until `aftermath` s past its verdict. */
+  | { readonly kind: "duel"; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[]; readonly aftermath: number }
+  /** Order `side` from the next step on, kept on the bout's tape: what a person does. */
+  | { readonly kind: "order"; readonly side: Side; readonly orders: Orders | null }
+  /** Send the bout's tape. */
+  | { readonly kind: "tape" }
   /** Run the world in real time, or hold it. */
   | { readonly kind: "run"; readonly running: boolean }
   /** Take `steps` steps now, running or held: a console's step. */
@@ -26,5 +35,7 @@ export type FromWorker =
   | { readonly kind: "frame"; readonly frame: Float64Array; readonly news: StageNews | null }
   /** The steps a `step` message asked for are taken, or as many as the stage had left. */
   | { readonly kind: "stepped" }
+  /** The bout's tape, as asked. */
+  | { readonly kind: "tape"; readonly tape: readonly OrdersEntry[] }
   /** The stage failed: the error's message. */
   | { readonly kind: "fault"; readonly message: string };

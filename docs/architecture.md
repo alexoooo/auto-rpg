@@ -1277,6 +1277,10 @@ same to the bit (`tests/world-worker.test.mjs`).
   draw a `DrawnBody` (`src/render/drawn-body.ts`). Each frame it poses the puppets between the two
   frames about the moment it shows (`between`, `posePuppet`), which follows the world's speed one
   step behind the newest frame, so motion is smooth at the display's rate whatever a step costs.
+- **A duel's stage** (`duelStage`) builds the bout by `buildBout`, plays a tape, and takes a
+  person's orders (`order` in the protocol), each given at the next step and kept on the bout's
+  tape (`Duel.order`), which the page may ask for: a bout with a person in it replays from its
+  recipe and tape, in Node as in the worker.
 - **From a console**, `__crowd.step(n)` takes `n` steps in the worker and draws the newest, as a
   hidden tab needs; `__crowd.world.burden(ms)` makes each step dearer, to see the page keep its
   rate while the fight slows.

@@ -5,7 +5,9 @@
  * made slow on purpose and then not, so the world falls behind and catches up. Every step's frame
  * arrives, in order and none twice, and the poses they carry digest to what the same recipe gives
  * built in-process and stepped to its verdict; the verdict told beside the frames is the
- * in-process bout's: a team bout of two Option Mind Warriors a side, held to `buildTeamBout`.
+ * in-process bout's. A team bout of two Option Mind Warriors a side is held to `buildTeamBout`; a
+ * duel given a person's orders as it runs is held to `buildBout` playing the tape the worker kept,
+ * which the orders changed.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +16,7 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 const { serve } = await import("../src/worker/serve.ts");
 const { frameLayout, BODY_HEAD, SEGMENT_ROW } = await import("../src/worker/frame.ts");
-const { buildTeamBout } = await import("../src/evaluation/bout.ts");
+const { buildBout, buildTeamBout } = await import("../src/evaluation/bout.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { Sha256 } = await import("../src/evaluation/sha256.ts");
 const { crowdFight } = await import("../src/arena/team-bout.ts");
@@ -23,24 +25,27 @@ Logger.LogLevels = Logger.NoneLogLevel;
 
 const crowd = crowdFight(3);
 const TEAM = { ...crowd, left: { ...crowd.left, count: 2 }, right: { ...crowd.right, count: 2 }, capSeconds: 2 };
+const DUEL = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 2 };
 
 /** Wait `ms` of real time. */
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Build `start` in a worker on a channel and play it to its verdict: 30 steps from the console,
- * then run in real time, each step 15 ms dearer for 400 ms. What the page heard.
+ * then run in real time, each step 15 ms dearer for 400 ms; `meanwhile` is told the page's end
+ * once the world runs. What the page heard, and the bout's tape.
  */
-async function played(start) {
+async function played(start, meanwhile = async () => {}) {
   const { port1: page, port2: worker } = new MessageChannel();
   let closed = false;
   serve(worker, () => { closed = true; worker.close(); });
-  const heard = { ready: null, frames: [], verdict: null, faults: [], stepped: 0 };
+  const heard = { ready: null, frames: [], verdict: null, faults: [], stepped: 0, tape: null };
   page.on("message", (message) => {
     switch (message.kind) {
       case "ready": heard.ready = message; return;
       case "frame": heard.frames.push(message.frame); if (message.news?.verdict) heard.verdict = message.news.verdict; return;
       case "stepped": heard.stepped += 1; return;
+      case "tape": heard.tape = message.tape; return;
       case "fault": heard.faults.push(message.message); return;
       default: heard.faults.push(`unknown message ${message.kind}`);
     }
@@ -54,10 +59,11 @@ async function played(start) {
   await until(() => heard.stepped === 1, 20000);
   page.postMessage({ kind: "burden", ms: 15 });
   page.postMessage({ kind: "run", running: true });
-  await wait(400);
-  page.postMessage({ kind: "burden", ms: 0 });
+  await Promise.all([meanwhile(page), wait(400).then(() => page.postMessage({ kind: "burden", ms: 0 }))]);
   await until(() => heard.verdict, 20000);
   await wait(50);
+  page.postMessage({ kind: "tape" });
+  await until(() => heard.tape, 2000);
   page.postMessage({ kind: "stop" });
   await until(() => closed, 2000);
   page.close();
@@ -102,4 +108,27 @@ test("a team bout stepped in its worker digests to Node's, step for step, slow o
   assert.equal(heard.frames.length, node.steps);
   assert.deepEqual(heard.verdict, node.verdict);
   assert.equal(sent, node.digest);
+});
+
+test("a duel given a person's orders in its worker replays in Node from the tape it kept", async () => {
+  const heard = await played({ kind: "duel", recipe: DUEL, tape: [], aftermath: 0 }, async (page) => {
+    await wait(150);
+    page.postMessage({ kind: "order", side: "left", orders: { move: null, face: { x: 1, z: 0 } } });
+    await wait(300);
+    page.postMessage({ kind: "order", side: "left", orders: null });
+  });
+  assert.equal(heard.tape.length, 2, `the tape kept ${JSON.stringify(heard.tape)}`);
+  const sent = framesDigest(heard);
+  const replay = async (tape) => {
+    const { world, duel, dispose } = await buildBout(DUEL);
+    duel.play(tape);
+    const node = stepped(world, duel, ["left", "right"].map((side) => duel.duelists[side].built));
+    dispose();
+    return node;
+  };
+  const node = await replay(heard.tape), unordered = await replay([]);
+  assert.equal(heard.frames.length, node.steps);
+  assert.deepEqual(heard.verdict, node.verdict);
+  assert.equal(sent, node.digest);
+  assert.notEqual(unordered.digest, node.digest, "the orders changed nothing");
 });

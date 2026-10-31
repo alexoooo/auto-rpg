@@ -1,5 +1,5 @@
 import type { FromWorker, ToWorker } from "./protocol.ts";
-import { teamStage, type Stage } from "./stage.ts";
+import { duelStage, teamStage, type Stage } from "./stage.ts";
 
 /** The most real time one pass steps the world through, s: a frame of a screen at 30 fps. Behind it the world plays in slow motion. */
 const CATCH_UP_SECONDS = 1 / 30;
@@ -72,6 +72,15 @@ export function serve(port: Port, close: () => void): void {
     switch (data.kind) {
       case "team":
         build(teamStage(data.recipe, data.aftermath));
+        return;
+      case "duel":
+        build(duelStage(data.recipe, data.tape, data.aftermath));
+        return;
+      case "order":
+        try { stage?.order(data.side, data.orders); } catch (error) { fault(error); }
+        return;
+      case "tape":
+        port.postMessage({ kind: "tape", tape: stage?.tape() ?? [] }, []);
         return;
       case "run":
         running = data.running;
