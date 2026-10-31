@@ -145,6 +145,11 @@ decisions) met every held-out trial weak after 1 M decisions, a median 16 J at 1
 at 9906c33a: 0 of 128 landed, 8 met the mark, median 0.18 J. Neither held sword blow lands either,
 so the Duellist keeps it.
 
+The sword's held blows as Option Mind holds them now (their hand-set records), on the Strike
+drill's still rung at 76f1c94f (`assets/evaluations/strike/2026-10-31-76f1c94f-*.jsonl`): the cut
+threw 7 and landed none (one weak, the rest guarded or elsewhere); the thrust threw 10 and landed
+none.
+
 ## Tried and not kept
 
 - **Faster or stronger arms for the club** (above): no faster at the target, so not kept.
