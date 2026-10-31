@@ -3,6 +3,7 @@ import type { Body, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { standingSkills, type SkillReport, type Skills } from "../skills/framework/skills.ts";
 import type { Intent } from "../intent/intent.ts";
+import { sameOrders, type Orders } from "../intent/orders.ts";
 import type { Engagement } from "./engagement.ts";
 import { skillsReport, type MindReport, type Prospect } from "./report.ts";
 
@@ -69,11 +70,14 @@ export interface Driven {
 
 /**
  * **How often a decider decides** (`driveBy`): every `every`th control step, on the steps `phase`
- * of the way through each run of them (`BodyHost.phase`).
+ * of the way through each run of them (`BodyHost.phase`); and at once on a step its `orders` (a
+ * person's, `Orders`) are not those it last decided on (`sameOrders`), or an action of its
+ * skills has ended since (`SkillReport.ledger`).
  */
 export interface Pace {
   readonly every: number;
   readonly phase: number;
+  readonly orders?: (sight: Sight) => Orders | null;
 }
 
 /** A decider deciding every control step. */
@@ -84,7 +88,7 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
 
 /**
  * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and every step the
- * body is down or back from another mind, it decides on the body's view and the skills' report,
+ * body is down or back from another mind, or its orders change or an action ends, it decides on the body's view and the skills' report,
  * `dt` the time since it last decided; each control step the skills `make` makes (legs and guard
  * with no action, `standingSkills`, unless given) make the command from what it last decided: an
  * action asked again by its id goes on (`Intent.actions`), and an interrupt asked again of an
@@ -93,19 +97,21 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
  * is of the body as it is.
  */
 export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skills = standingSkills, pace: Pace = EVERY_STEP): Driven {
-  const { every, phase } = pace;
+  const { every, phase, orders } = pace;
   if (!Number.isInteger(every) || every < 1 || !(phase >= 0 && phase < 1)) throw new Error(`a decider decides every whole number of steps on a phase in [0, 1), not every ${every} on ${phase}`);
   const skills = make(body), offset = Math.floor(phase * every);
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
-  /** What it last decided, and the step it decided it on. */
-  const state = { held: null as Intent | null, decided: 0 };
+  /** What it last decided, the step it decided it on, the orders it decided on and the last action ended then (`Ended.sequence`). */
+  const state = { held: null as Intent | null, decided: 0, orders: null as Orders | null, ended: 0 };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     if (every === 1) return skills.command(view, decider.decide(sight, dt), dt);
-    const step = Math.round(view.time / dt);
-    if (state.held === null || view.resumed || view.down || ((step - offset) % every + every) % every === 0) {
+    const step = Math.round(view.time / dt), ordered = orders?.(sight) ?? null, ledger = skills.report.ledger, ended = ledger.length ? ledger[ledger.length - 1]!.sequence : 0;
+    if (state.held === null || view.resumed || view.down || ((step - offset) % every + every) % every === 0 || ended !== state.ended || !sameOrders(ordered, state.orders)) {
       state.held = decider.decide(sight, state.held === null ? dt : (step - state.decided) * dt);
       state.decided = step;
+      state.orders = ordered;
+      state.ended = ended;
     }
     return skills.command(view, state.held, dt);
   }, skills.release);

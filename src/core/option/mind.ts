@@ -91,7 +91,7 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions, aims),
     aims, orders: (sight) => wiring.orders(sight.view.senses), parts };
-  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every), make, { every, phase: host.phase });
+  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every), make, { every, phase: host.phase, orders: making.orders });
   skills = driven.skills;
   return { ...driven, state: { ...driven.state, aims: aimsState(aims) } };
 }
