@@ -13,7 +13,7 @@ import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "../mind/kit.ts";
 import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "./tactics-part.ts";
-import { driveBy, type Driven, type Tactics } from "./tactics.ts";
+import { driveBy, type AroundDecider, type Driven } from "../mind/decider.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
 export function fighterFaults(config: FighterConfig, parts: PartLookup): readonly string[] {
@@ -42,7 +42,7 @@ export function kitBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">,
  * blows are those its body throws as armed (`armedActions`); its parts are those `parts` finds.
  * Returns the fighter as driven (`Driven`).
  */
-export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Driven {
+export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: AroundDecider = (decider) => decider): Driven {
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));

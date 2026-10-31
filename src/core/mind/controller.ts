@@ -9,7 +9,7 @@ import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "../parts/parts.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import type { Driven, Tactics } from "../tactics/tactics.ts";
+import type { AroundDecider, Driven } from "./decider.ts";
 
 /**
  * A named configuration, optionally calibrated for particular body models and played on a
@@ -40,7 +40,7 @@ export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodyS
  */
 export interface Scripted {
   body(config: FighterConfig, wiring: MindWiring, parts: PartLookup): BodyOptions;
-  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: (tactics: Tactics) => Tactics): Driven;
+  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: AroundDecider): Driven;
 }
 
 /**

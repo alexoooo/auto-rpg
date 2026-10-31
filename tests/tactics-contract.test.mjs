@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { driveBy, engagementWithDetails } from "../src/core/tactics/tactics.ts";
+import { driveBy } from "../src/core/mind/decider.ts";
+import { engagementWithDetails } from "../src/core/mind/engagement.ts";
 import { saveState } from "../src/core/state.ts";
 import { fighterFaults } from "../src/core/tactics/fighter.ts";
 import { partLookup } from "../src/entrants/game.ts";

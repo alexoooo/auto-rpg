@@ -5,7 +5,7 @@ import type { OwnBody } from "../mind/mind.ts";
 import type { Navigator } from "../navigation/navigator.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { Part, PartConfig } from "../parts/parts.ts";
-import type { Tactics } from "../tactics/tactics.ts";
+import type { Decider } from "../mind/decider.ts";
 import type { Skill } from "../skills/framework/skill.ts";
 import type { StrikeCycleState } from "../skills/strikes/strike-cycle.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -89,7 +89,7 @@ export interface QuadrupedIntent extends TravelOrders {
 export interface QuadrupedSight { readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }
 
 /** **A quadruped's tactics**: its memory names the target it bites at (a foe's part, a point there and the tooth), which its body forgets when it is taken over. */
-interface QuadrupedTactics extends Tactics<QuadrupedSight, QuadrupedIntent> {
+interface QuadrupedTactics extends Decider<QuadrupedSight, QuadrupedIntent> {
   readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null };
 }
 

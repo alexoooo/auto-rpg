@@ -11,8 +11,9 @@ import { orderedFacing } from "../../core/tactics/ordered.ts";
 import { orderAllows, orderedRegions, struckKey } from "../../core/intent/orders.ts";
 import { anyBody, slotList, type PartConfig } from "../../core/parts/parts.ts";
 import type { BodySense } from "../../core/mind/senses.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
-import type { TacticsMaking, TacticsPart } from "../../core/tactics/tactics-part.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { Sight } from "../../core/mind/decider.ts";
+import type { TacticalDecider, TacticsMaking, TacticsPart } from "../../core/tactics/tactics-part.ts";
 
 interface ExchangeConfig extends PartConfig {
   readonly kind: "vanguard:exchange";
@@ -29,7 +30,7 @@ export function exchangeList(config: PartConfig): readonly PartConfig[] | null {
 }
 
 /** Rank physical contact score per attempted second; an unknown choice is sampled before a known one. */
-function exchange(making: TacticsMaking, given: ExchangeConfig): Tactics {
+function exchange(making: TacticsMaking, given: ExchangeConfig): TacticalDecider {
   const config = deepFreeze(structuredConfig(given));
   const actions = deepFreeze(structuredConfig(making.actions));
   const made = config.list.map(part => making.parts.of("behaviour", part).make({ spec: making.spec, actions }, part));

@@ -1,5 +1,6 @@
 import { regionSegments, sensedActionTarget } from "../../core/intent/action-aim.ts";
-import { engagementWithDetails, type Tactics } from "../../core/tactics/tactics.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { TacticalDecider } from "../../core/tactics/tactics-part.ts";
 
 /** Each policy gets six seconds of combat before its observed contact score is compared. */
 const PERIOD = 6;
@@ -9,7 +10,7 @@ const RECENCY = .5;
 const REVISIT = 4;
 
 /** Compare target-impact scores from two ordinary policies, switching only between strokes: with none under way, or every one recovering and holding nothing. */
-export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = false): Tactics {
+export function adaptiveGuard(attacking: TacticalDecider, defensive: TacticalDecider, revisit = false): TacticalDecider {
   const policies = [attacking, defensive];
   const state = { attacking: attacking.state ?? null, defensive: defensive.state ?? null, mode: 0,
     since: null as number | null, score: 0, rates: [0, 0], samples: [0, 0], streak: 0,

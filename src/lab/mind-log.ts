@@ -1,6 +1,6 @@
 import type { HostedBody } from "../core/body.ts";
 import type { Intent } from "../core/intent/intent.ts";
-import type { Sight, Tactics } from "../core/tactics/tactics.ts";
+import type { Sight, Decider } from "../core/mind/decider.ts";
 import type { Hook, World } from "../core/world.ts";
 import { deciding } from "./actor.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -10,7 +10,7 @@ import type { Side } from "../core/spec/body.ts";
  * made, each at the time its mind saw (`BodyView.time`); `logged` tactics write one whenever what
  * they decide, or how their skills are going, is no longer what it was. What they see of their skills
  * is the last step's (`Sight.report`): a strike's phase is noted the step after the skills enter it.
- * Tactics do not decide while a sub-mind has the body, so who has it is noted by a watch of the body
+ * A decider does not decide while a sub-mind has the body, so who has it is noted by a watch of the body
  * (`watchHas`). Free of the DOM.
  */
 
@@ -59,7 +59,7 @@ function said({ report }: Sight, intent: Intent): Readonly<Record<string, string
 }
 
 /** `tactics`, noting in `log` each thing said of a step that is not what was last said of its kind. */
-export function logged<T extends Tactics>(tactics: T, log: MindLog): T {
+export function logged<T extends Decider>(tactics: T, log: MindLog): T {
   const last: Record<string, string | null> = {};
   return deciding(tactics, (sight, dt) => {
     const intent = tactics.decide(sight, dt);

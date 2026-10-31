@@ -1,5 +1,5 @@
 import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
-import type { Engagement } from "../core/tactics/tactics.ts";
+import type { Engagement } from "../core/mind/engagement.ts";
 import type { MindReport } from "../core/mind/report.ts";
 
 /**

@@ -2,7 +2,7 @@ import type { HostedBody } from "../core/body.ts";
 import { carried, paceRound, turnAt, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../core/intent/intent.ts";
 import { wrap } from "../core/math/turn.ts";
-import type { Tactics } from "../core/tactics/tactics.ts";
+import type { Script } from "../core/mind/decider.ts";
 import type { Actor } from "./actor.ts";
 import { startGaitMeter, type GaitReading } from "./gait-meter.ts";
 import { ARRIVED, type Commands } from "./commands.ts";
@@ -173,7 +173,7 @@ interface TrackOptions {
  * asks; given a gait, walking no faster than its `pace` and turning no faster than its `turn` (it
  * asks to face no further round than that from the heading it has).
  */
-interface CourseTactics extends Tactics {
+interface CourseTactics extends Script {
   /** What the tactics know of the course at `time`, with the centre of mass at (x, z). */
   frame(time: number, x: number, z: number): Omit<LocomotionFrame, "speed" | "time" | "heading" | "fallen" | "walking" | "gait" | "wind" | "gusts">;
 }

@@ -9,7 +9,7 @@ import { armed } from "../../src/core/human/grip.ts";
 import { modelSpec } from "../../src/core/models.ts";
 import { woodenClub } from "../../src/core/items/club.ts";
 import { standIntent } from "../../src/core/intent/intent.ts";
-import { driveBy } from "../../src/core/tactics/tactics.ts";
+import { driveBy } from "../../src/core/mind/decider.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { freshEngine } from "./core-stand.mjs";
 import { lying } from "../../src/core/recovery/lie.ts";

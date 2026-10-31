@@ -8,14 +8,14 @@ import { structuredConfig, type Behaviour, type Candidate, type Turn } from "./b
 import type { ConditionConfig } from "../intent/conditions.ts";
 import { FIGHTING, type BehavioursConfig } from "./config.ts";
 import { conditionMatches } from "../intent/conditions.ts";
-import { NO_COVER, type Intent } from "../intent/intent.ts";
+import { NO_COVER } from "../intent/intent.ts";
 import { remainingOf } from "../intent/movement.ts";
 import { orderAllows, orderedRegions, struckKey, type Orders } from "../intent/orders.ts";
 import { orderedFacing } from "./ordered.ts";
 import { slotList, anyBody } from "../parts/parts.ts";
 import type { BodySense } from "../mind/senses.ts";
-import type { Sight, Tactics } from "./tactics.ts";
-import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";
+import type { Sight } from "../mind/decider.ts";
+import type { TacticalDecider, TacticsMaking, TacticsPart } from "./tactics-part.ts";
 
 /** Detached decision facts for status displays and candidate inspection. */
 export interface ActionEngagement {
@@ -48,7 +48,7 @@ type Filling = { -readonly [K in keyof Turn]: Turn[K] };
  * then each behaviour (`BehaviourPart`, made as `making.parts` finds it) fills its part of the
  * intent in rank order (`Turn`).
  */
-export function actionTactics(making: TacticsMaking, settings: BehavioursConfig): Tactics<Sight, Intent> {
+export function actionTactics(making: TacticsMaking, settings: BehavioursConfig): TacticalDecider {
   const { spec, estimates, orders: ordersOf } = making;
   const config = deepFreeze(structuredConfig(settings)), actions = deepFreeze(making.actions.map(action => structuredConfig(action)));
   if (!Number.isFinite(config.choose.rethink) || config.choose.rethink < 0 || !Number.isFinite(config.choose.patience) || config.choose.patience <= 0)

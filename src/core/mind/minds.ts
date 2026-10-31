@@ -7,7 +7,7 @@ import type { Skills } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
-import type { Tactics } from "../tactics/tactics.ts";
+import type { Script } from "./decider.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "../parts/catalog.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
@@ -32,7 +32,7 @@ export interface MindWiring {
   /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
   readonly rules?: Rulebook;
   /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
-  readonly script?: Tactics;
+  readonly script?: Script;
 }
 
 /** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */

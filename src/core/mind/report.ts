@@ -3,7 +3,7 @@ import type { ActionStatus, Ended } from "../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
 import type { NavigationReport } from "../navigation/navigator.ts";
 import type { GaitLimits } from "../intent/travel.ts";
-import type { Engagement } from "../tactics/tactics.ts";
+import type { Engagement } from "./engagement.ts";
 
 /**
  * **What a mind publishes of itself** (`MindMade.report`), for a screen and its Commander, never

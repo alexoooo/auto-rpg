@@ -9,7 +9,7 @@ import { edgeExpected, type Profile } from "../skills/framework/profile.ts";
 import { downTerms, type DownModel } from "./down.ts";
 import { brace } from "./rest.ts";
 import { asking, blocked, READY, WHOLE, type Option, type Situation, type Status } from "./option.ts";
-import type { Sight } from "../tactics/tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 
 /**
  * What a way up is taken to do where no drill measured it, the owner's decision: an edge runs 5 s

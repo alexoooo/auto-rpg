@@ -12,8 +12,9 @@ import type { PartConfig } from "../../core/parts/parts.ts";
 import { slotOne, anyBody } from "../../core/parts/parts.ts";
 import { toggle } from "../../core/parts/fields.ts";
 import type { Orders } from "../../core/intent/orders.ts";
-import { prepareTacticsSkills, tacticsOf, type TacticsPart } from "../../core/tactics/tactics-part.ts";
-import { engagementWithDetails, type DecisionCapability, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
+import { prepareTacticsSkills, tacticsOf, type DecisionCapability, type TacticalDecider, type TacticsPart } from "../../core/tactics/tactics-part.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { Sight } from "../../core/mind/decider.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { adaptiveGuard } from "./adaptive-guard.ts";
 import { flank } from "./flank.ts";
@@ -46,7 +47,7 @@ const behaviourList = (plan: PartConfig): readonly PartConfig[] | null =>
   exchangeList(plan) ?? (plan.kind === "behaviours" && Array.isArray((plan as { list?: unknown }).list) ? (plan as unknown as { list: readonly PartConfig[] }).list : null);
 
 /** Cap only the chosen evasive step, retaining the policy and its report. */
-function limitedEvasion(base: Tactics, orders: (sight: Sight) => Orders | null): Tactics {
+function limitedEvasion(base: TacticalDecider, orders: (sight: Sight) => Orders | null): TacticalDecider {
   const state = { base: base.state ?? null, limited: false, ordered: false };
   const engagement = engagementWithDetails(() => base.engagement, () => [{ label: "Evasion pace",
     value: state.limited ? `${EVADE_PACE} m/s cap` : state.ordered ? "movement ordered" : "no evasive step" }]);
@@ -99,7 +100,7 @@ export const VANGUARD_PLAN: TacticsPart<VanguardPlanConfig> = deepFreeze({
     ...config.lowGuard && kit.support?.kind !== "support-fold" ? ["lowGuard needs the support fold"] : [],
     ...(parts.of("tactics", config.plan).kitFaults?.(config.plan, kit, parts) ?? []).map(fault => `plan: ${fault}`),
   ],
-  make(making, config): Tactics {
+  make(making, config): TacticalDecider {
     const orders = (sight: Sight) => making.orders(sight);
     const ordinary = tacticsOf(making, config.plan), list = behaviourList(config.plan);
     const attacking = config.adaptiveEvade && list ? tacticsOf(making, { ...config.plan, list: list.filter((behaviour) => behaviour.kind !== "evade") }) : null;

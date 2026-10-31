@@ -8,7 +8,7 @@ import type { Orders } from "../intent/orders.ts";
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import { bodyClearance } from "../navigation/sensed-bounds.ts";
 import type { BodySense } from "../mind/senses.ts";
-import type { Sight } from "./tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 
 /** One action, by one effector, at one region of the focus: what the behaviours' selection ranks and waits on. */
 export interface Candidate {
@@ -70,7 +70,7 @@ export interface Turn {
   evading: boolean;
   /** The pending action's entry window when approach owns the legs. */
   approach: Window | null;
-  /** What the tactics report doing (`Tactics.engagement`). */
+  /** What the tactics report doing (`TacticalDecider.engagement`). */
   phase: string;
   /** The candidates in the selection's order. */
   ranked(): readonly Candidate[];

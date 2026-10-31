@@ -4,10 +4,29 @@ import type { Aim } from "../skills/framework/aim-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
-import type { DecisionCapability, Sight, TacticalDecision, Tactics } from "./tactics.ts";
+import type { Decider, Script, Sight } from "../mind/decider.ts";
+import type { Window } from "../skills/framework/action.ts";
+import type { Intent } from "../intent/intent.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import type { ActionEstimates } from "../skills/framework/executor-part.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
+
+/** Operational facts a planner shares with its layers, independently of inspection reports. */
+export interface TacticalDecision {
+  readonly focus?: string | null;
+  readonly evading?: boolean;
+  readonly approach?: Window | null;
+}
+
+/** A declared operational field; a null or false value still supplies the capability. */
+export type DecisionCapability = keyof TacticalDecision;
+
+/**
+ * **Tactics**: the deciders this package makes (`TacticsPart.make`), each publishing this step's
+ * operational context (`TacticalDecision`) where its part declares the capabilities, which its
+ * layers and the skills it prepared read live.
+ */
+export type TacticalDecider = Decider<Sight, Intent, TacticalDecision>;
 
 /** What tactics are made for: the body, the fight's rules, the actions it may start and their estimates, a person's orders, a screen's script and the parts the tree names. */
 export interface TacticsMaking {
@@ -20,7 +39,7 @@ export interface TacticsMaking {
   readonly aims: ReadonlyMap<string, Aim>;
   readonly orders: (sight: Sight) => Orders | null;
   /** The screen's script (`MindWiring.script`), for tactics that need one (`Part.needs`). */
-  readonly script?: Tactics;
+  readonly script?: Script;
   readonly parts: PartLookup;
 }
 
@@ -39,11 +58,11 @@ export interface TacticsPart<C extends PartConfig = PartConfig> extends Part<C> 
   decisionCapabilities?(config: C, parts: PartLookup): readonly DecisionCapability[];
   /** Prepare the shared kit once, from the innermost part out, reading the active composed decision live. */
   prepareSkills?(making: TacticsMaking, config: C, skills: Skills, decision: () => TacticalDecision | undefined): Skills;
-  make(making: TacticsMaking, config: C): Tactics;
+  make(making: TacticsMaking, config: C): TacticalDecider;
 }
 
 /** The tactics `config` names, made as `making.parts` finds them. */
-export const tacticsOf = <C extends PartConfig>(making: TacticsMaking, config: C): Tactics => making.parts.of("tactics", config).make(making, config);
+export const tacticsOf = <C extends PartConfig>(making: TacticsMaking, config: C): TacticalDecider => making.parts.of("tactics", config).make(making, config);
 
 /** Apply a configured planner's construction adapter, independently of its decision policies. */
 export const prepareTacticsSkills = (making: TacticsMaking, config: PartConfig, skills: Skills, decision: () => TacticalDecision | undefined): Skills =>

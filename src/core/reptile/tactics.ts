@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
 import type { Orders } from "../intent/orders.ts";
-import type { Tactics } from "../tactics/tactics.ts";
+import type { Decider } from "../mind/decider.ts";
 import { nearestSurface } from "../intent/targets.ts";
 import { regionSegments } from "../intent/action-aim.ts";
 import { surfaceEntry, surfaceContains } from "../perception/openings.ts";
@@ -26,7 +26,7 @@ import { fitsJaw, type QuadrupedIntent, type QuadrupedSight, type QuadrupedTacti
  * direction facing the surface. Preparation retains that point in the opponent segment frame.
  */
 export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T: typeof REPTILE_BITE, navigation: Navigator,
-  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<QuadrupedSight, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: object } } {
+  biteTarget?: (view: QuadrupedView) => Vec3 | null): Decider<QuadrupedSight, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: object } } {
   const mouth = new Vector3(), { head, lower, hinge, teeth } = mouthOf(own.built);
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();

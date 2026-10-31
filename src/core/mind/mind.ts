@@ -19,8 +19,8 @@ import type { SheetLog } from "./sheets.ts";
  *
  * That command, and what it asks of its assist (`Assist`, none unless its fight allows one), is
  * the whole of what a mind does to the world. How it gets there is its own: the
- * game's bodies run tactics, skills and motor control (`createBody`, `src/core/body.ts`, and
- * `driveBy`, `tactics.ts`), and a mind that writes activations itself is as much a mind.
+ * game's bodies run a decider, skills and motor control (`createBody`, `src/core/body.ts`, and
+ * `driveBy`, `decider.ts`), and a mind that writes activations itself is as much a mind.
  *
  * The seam names no hand and no foot: the channels are the body's own
  * (`MuscleDriver.channels`), so a body of another shape takes a mind through the same call.

@@ -495,8 +495,8 @@ const LAYERS = [
   ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
-  ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts"],
-  ["tactics/", "recovery/", "mind/report.ts"],
+  ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts", "mind/decider.ts", "mind/engagement.ts", "mind/report.ts"],
+  ["tactics/", "recovery/"],
   ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",
     "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
   ["toolkit.ts", "models.ts", "combatant.ts", "tasks/"],
@@ -556,10 +556,10 @@ test("the core's imports run down its layers: an import up them is one of today'
   assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
   // The control: a skill reaching tactics, and a module in no layer, are found; a registry is not held to it.
   assert.deepEqual(layerCrossings([
-    ["skills/sly.ts", `import { driveBy } from "../tactics/tactics.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
+    ["skills/sly.ts", `import { tacticsOf } from "../tactics/tactics-part.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
     ["nowhere/sly.ts", ""],
     ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
-  ]), { up: ["skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics.ts"], unlayered: ["nowhere/sly.ts"] });
+  ]), { up: ["skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics-part.ts"], unlayered: ["nowhere/sly.ts"] });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */

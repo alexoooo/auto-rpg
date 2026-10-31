@@ -28,7 +28,7 @@ import { RISE } from "../src/core/recovery/rise/stages.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { subMindsOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
-import { driveBy } from "../src/core/tactics/tactics.ts";
+import { driveBy } from "../src/core/mind/decider.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { riserOf } from "./core-rise-trials.mjs";

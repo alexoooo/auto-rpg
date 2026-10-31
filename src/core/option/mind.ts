@@ -15,7 +15,7 @@ import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../parts/parts.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
-import { driveBy } from "../tactics/tactics.ts";
+import { driveBy } from "../mind/decider.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
 import { OPTIONS } from "./kinds.ts";

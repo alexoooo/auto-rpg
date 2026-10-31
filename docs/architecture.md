@@ -16,11 +16,12 @@ energy it brings. There is no attack animation and no hit box: the pages draw wh
 
 ## The layers
 
-The table orders the layers by what each is built on. Skills, intent, navigation and tactics
-share contracts, so their imports cross both ways: a skill is a part (`src/core/parts/`, its
-role's `*-part.ts`), reads the vocabulary tactics write (`Intent`, `src/core/intent/`; `Sight`,
-`src/core/tactics/tactics.ts`; the action window, conditions and targets) and runs navigation
-between them; tactics read the `SkillReport` (`src/core/skills/framework/skills.ts`). The
+The table orders the layers by what each is built on. A skill is a part (`src/core/parts/`, its
+role's `*-part.ts`), reads the vocabulary a decider writes (`Intent`, `src/core/intent/`; the
+action window, conditions and targets) and runs navigation between them. Whatever decides a
+body's intent plugs in as a `Decider` (`src/core/mind/decider.ts`), which sees the `Sight` and
+reports an `Engagement` (`src/core/mind/engagement.ts`); the seam and the report sit with the
+skills, and tactics are one implementation of it above them. The
 boundary test (`tests/core-boundary.test.mjs`) holds the order by folder, or by file where a
 folder spans two layers (`LAYERS`): a module imports its own layer or one below, the registries
 (`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt; today's imports up
@@ -35,11 +36,11 @@ shrinks.
 | Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
 | Mind seam | `src/core/mind/` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask: its host, senses, equipment port, actions and kit |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
-| Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`) |
+| Skills | `src/core/skills/`, `src/core/mind/decider.ts`, `engagement.ts`, `report.ts` | an intent turned into the body's command: walk, guard, strike; the executor, locomotion, guard, support and aim parts and their lists; their configs (`skills/config.ts`); the seam a decider plugs into (`Decider`, `driveBy`) and what a mind over them reports (`Engagement`, `MindReport`) |
 | Intent | `src/core/intent/` | what tactics ask of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Perception | `src/core/perception/` | what a body reads of another: its openings, the threat of its blows, and where to stand by a body down (`downed/`) |
-| Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics, planners, behaviours, the fighter; their configs (`tactics/config.ts`) |
+| Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics (deciders, `TacticalDecider`), planners, behaviours, the fighter; their configs (`tactics/config.ts`) |
 | Recovery | `src/core/recovery/` | getting up and lying: the ground executor and its techniques (`ground/`), the staged rise (`rise/`), the sub-minds |
 | Minds | `src/core/parts/`, `src/core/toolkit.ts`, `src/core/mind/config.ts`, `kinds.ts`, `minds.ts`, `src/core/option/`, `src/core/reptile/`; `src/entrants/` | a body's mind made from its config by the controller of its kind, found in a catalog; each AI an entrant's presets and parts |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
@@ -488,7 +489,7 @@ a wanted body through a phase that cannot yield. `hosting(host, subs)` makes one
 3. When a sub-mind takes it, the host gives up what it had asked (`HostMind.release`: goals,
    pushes, stance, the step under way).
 4. When the body is its own again the host is told (`resume`) and the view says so
-   (`BodyView.resumed`): every skill resumes before the tactics decide (`driveBy`).
+   (`BodyView.resumed`): every skill resumes before the decider decides (`driveBy`).
 
 A sub-mind reads whether its body is down from its host's view (`BodyView.down`), never by a bar
 of its own. Who has the body is one number in state (`Body.has`, `"nobody"` while idle). A hand-over
@@ -775,7 +776,7 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   `depth`, `chooserOf`), takes the option on offer of highest
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
-  `placed`), never the world forked, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/tactics/tactics.ts`),
+  `placed`), never the world forked, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/engagement.ts`),
   deciding afresh on a cue's change, when the running option reaches its exit, or every
   `rethink` s. It selects a set (`Chooser.decide`): a running option that does not yield keeps
   its claims; with none, the target, the foe whose situation's best option is worth most, the one
@@ -859,7 +860,8 @@ what the body has done, `Until`, and paced by the balls of the feet, `Pace`) and
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).
 
-**Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, what an action holds, envelope) and
+**Tactics** (`src/core/tactics/`) are deciders (`Decider`, `src/core/mind/decider.ts`): they read
+`Sight` (the view, senses, reports, readiness, what an action holds, envelope) and
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
 posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
 (`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
@@ -877,8 +879,10 @@ Preparation receives a live getter for the composed planner's operational contex
 policies retain separate decision memories over that one prepared kit. A supplied scenario
 script replaces the configured planner and its preparation.
 
-Planner layers read operational facts through `Tactics.decision`: selected focus, evasive
-footwork and the action-entry window being approached (`TacticalDecision`). A part declares
+Planner layers read operational facts through the seam's decision (`Decider.decision`, a
+`TacticalDecision` for tactics, `TacticalDecider`): selected focus, evasive
+footwork and the action-entry window being approached. A screen's script publishes none
+(`Script`). A part declares
 the fields it supplies (`TacticsPart.decisionCapabilities`); composite parts forward them and
 reject enabled layers whose inputs are unavailable. Behaviour tactics publish those facts
 from their selection and footwork, independently of display phases, with changing values in

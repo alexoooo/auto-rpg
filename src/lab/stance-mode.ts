@@ -3,7 +3,7 @@ import type { HostedBody } from "../core/body.ts";
 import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { NO_COVER, type Intent } from "../core/intent/intent.ts";
-import type { Tactics } from "../core/tactics/tactics.ts";
+import type { Script } from "../core/mind/decider.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion/locomotion.ts";
 import type { Actor } from "./actor.ts";
 import type { World } from "../core/world.ts";
@@ -87,7 +87,7 @@ export const LAB_TURN_RATE = 1;
  * heading, the way the keys turn; the locomotion skill turns no faster than the body's envelope at
  * its walk.
  */
-function stanceTactics(orders: StanceOrders): Tactics {
+function stanceTactics(orders: StanceOrders): Script {
   return {
     name: "keys",
     decide({ report }, dt): Intent {

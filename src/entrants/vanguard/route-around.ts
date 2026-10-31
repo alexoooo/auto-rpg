@@ -1,9 +1,11 @@
 import { cos, sin } from "../../core/math/real.ts";
 import type { Orders } from "../../core/intent/orders.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { Sight } from "../../core/mind/decider.ts";
+import type { TacticalDecider } from "../../core/tactics/tactics-part.ts";
 
 /** Ask the navigator for another point at fighting range when the exact entry point is unreachable. */
-export function routeAround(base: Tactics, orders: (sight: Sight) => Orders | null): Tactics {
+export function routeAround(base: TacticalDecider, orders: (sight: Sight) => Orders | null): TacticalDecider {
   const state = { base: base.state ?? null, focus: null as string | null, active: false, decision: "ordinary entry" };
   const engagement = engagementWithDetails(() => base.engagement, () => [{ label: "Entry routing", value: state.decision }]);
   return { ...base, state, engagement, get decision() { return base.decision; },

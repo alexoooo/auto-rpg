@@ -4,7 +4,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { Profile } from "../skills/framework/profile.ts";
 import type { BodySense } from "../mind/senses.ts";
-import type { Sight } from "../tactics/tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 import { READINGS, threatReader } from "../perception/threat.ts";
 import { shieldHands } from "../intent/cover-hand.ts";
 import type { DownModel } from "./down.ts";

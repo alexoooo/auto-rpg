@@ -10,7 +10,7 @@ import type { Cover } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
 import { profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../skills/framework/profile.ts";
 import type { BodySense } from "../mind/senses.ts";
-import type { Sight } from "../tactics/tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../perception/threat.ts";
 import type { Position } from "../recovery/ground/reading.ts";
 import type { DownModel } from "./down.ts";

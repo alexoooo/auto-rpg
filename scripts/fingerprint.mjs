@@ -42,7 +42,7 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
-import { driveBy } from "../src/core/tactics/tactics.ts";
+import { driveBy } from "../src/core/mind/decider.ts";
 import { partOf, MINDS, GAME } from "../src/entrants/game.ts";
 import { PUNCHER } from "../src/entrants/classic/presets.ts";
 import { QUADRUPED } from "../src/core/reptile/config.ts";

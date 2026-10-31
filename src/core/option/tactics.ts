@@ -11,7 +11,8 @@ import { situationReader } from "./situation.ts";
 import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./strike.ts";
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { EngagementDetail, Sight, Tactics } from "../tactics/tactics.ts";
+import type { EngagementDetail } from "../mind/engagement.ts";
+import type { Sight, Decider } from "../mind/decider.ts";
 import type { MotorUnmet } from "../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../skills/framework/skill.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
@@ -80,7 +81,7 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
  * were priced (`profileDetail`).
  */
-export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Tactics {
+export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;

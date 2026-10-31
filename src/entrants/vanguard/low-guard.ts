@@ -4,7 +4,9 @@ import { regionSegments, sensedActionTarget } from "../../core/intent/action-aim
 import { highestSurface } from "../../core/perception/openings.ts";
 import { lowOpponent } from "../../core/navigation/sensed-bounds.ts";
 import { atan2, cos } from "../../core/math/real.ts";
-import { engagementWithDetails, type Sight, type TacticalDecision, type Tactics } from "../../core/tactics/tactics.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { Sight } from "../../core/mind/decider.ts";
+import type { TacticalDecision, TacticalDecider } from "../../core/tactics/tactics-part.ts";
 import type { Skills } from "../../core/skills/framework/skills.ts";
 import { STANCE_LOWER } from "../../core/skills/locomotion/locomotion.ts";
 import type { TargetRef } from "../../core/skills/framework/action.ts";
@@ -48,7 +50,7 @@ const lowFocus = (view: BodyView, decision: TacticalDecision | undefined) =>
 const freeHands = (spec: BodySpec) => handsOf(spec).filter(hand => holdsNothing(spec, hand));
 
 /** Prepare low support and closed-hand cover, optionally holding a standing guard while the low target is down. */
-export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null, replant = false, waitFallen = false): Tactics {
+export function lowGuard(base: TacticalDecider, spec: BodySpec, orders: (sight: Sight) => Orders | null, replant = false, waitFallen = false): TacticalDecider {
   const state = { base: base.state ?? null, unready: null as number | null, misplaced: null as number | null,
     rising: false, riseReason: "rising after support timeout", time: 0, decision: "no low target" };
   const hands = freeHands(spec);

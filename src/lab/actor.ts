@@ -7,7 +7,7 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { FighterConfig } from "../core/tactics/config.ts";
 import { createMind, type MindMade, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
-import type { Sight, Tactics } from "../core/tactics/tactics.ts";
+import type { AroundDecider, Decider, Script, Sight } from "../core/mind/decider.ts";
 import { heldIn } from "../core/skills/strikes/held-strike.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -45,7 +45,7 @@ export interface Actor {
    * Hand the body to its mind with orders and senses, or a scenario script. Returns the mind so
    * driven. A mind of its own takes the orders and senses, and no script, instrument or log.
    */
-  drive(script?: Tactics, driving?: Driving): LabMind;
+  drive(script?: Script, driving?: Driving): LabMind;
   /** Whether its mind gets up by its own skills, no sub-mind taking the body: a mind of its own. */
   readonly risesItself: boolean;
   /** The mind last driven (`drive`), for its skills' and its own report; null before it is driven. */
@@ -69,28 +69,28 @@ interface ActorOptions {
    * that holds what is barred guards, whatever its mind asks of it.
    */
   readonly allows?: (held: string) => boolean;
-  /** What reads the mind's tactics as they decide, in their place: a page's log (`logged`, `mind-log.ts`). */
-  readonly around?: (tactics: Tactics) => Tactics;
+  /** What reads the mind's decider as it decides, in its place: a page's log (`logged`, `mind-log.ts`). */
+  readonly around?: AroundDecider;
 }
 
 /**
- * `tactics` in all but what they decide, which is `decide`'s to say. Everything else of theirs is
- * read through to them, and none of it is the result's own: a spread of it copies nothing.
+ * `decider` in all but what it decides, which is `decide`'s to say. Everything else of its is
+ * read through to it, and none of it is the result's own: a spread of it copies nothing.
  */
-export function deciding<T extends Tactics>(tactics: T, decide: Tactics["decide"]): T {
-  return Object.create(tactics, { decide: { value: decide } }) as T;
+export function deciding<T extends Decider>(decider: T, decide: Decider["decide"]): T {
+  return Object.create(decider, { decide: { value: decide } }) as T;
 }
 
-/** `tactics`, read by `watch` each step before they decide. */
-function watched(tactics: Tactics, watch: Watch): Tactics {
-  return deciding(tactics, (sight, dt) => { watch(sight, dt); return tactics.decide(sight, dt); });
+/** `decider`, read by `watch` each step before it decides. */
+function watched<T extends Decider>(decider: T, watch: Watch): T {
+  return deciding(decider, (sight, dt) => { watch(sight, dt); return decider.decide(sight, dt); });
 }
 
-/** `tactics`, each hand that may not strike (`strikes`) holding the guard's pose, and attacking nothing. */
-function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tactics {
-  if (strikes.left && strikes.right) return tactics;
-  return deciding(tactics, (sight, dt) => {
-    const intent = tactics.decide(sight, dt), { guard, actions } = intent;
+/** `decider`, each hand that may not strike (`strikes`) holding the guard's pose, and attacking nothing. */
+function barred<T extends Decider>(decider: T, strikes: Readonly<Record<Side, boolean>>): T {
+  if (strikes.left && strikes.right) return decider;
+  return deciding(decider, (sight, dt) => {
+    const intent = decider.decide(sight, dt), { guard, actions } = intent;
     return { ...intent, guard: { "hand.left": strikes.left ? guard["hand.left"] ?? null : null, "hand.right": strikes.right ? guard["hand.right"] ?? null : null },
       actions: actions.filter(action => strikeAllowed(action.effector, strikes)) };
   });
@@ -102,7 +102,7 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
  * no skills or `subs` would replace its sub-minds; one with a fault in its tree (`treeFaults`, given
  * a script) is refused.
  */
-export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, subs }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (decider) => decider, subs }: ActorOptions = {}): Actor {
   let input: Driving = {};
   const clock = clockSenses(world);
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
@@ -132,8 +132,8 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     drive(script, driving = {}) {
       input = driving;
       const { watch } = driving;
-      return driven = scripted.drive(body.driver, world, partLookup, fighter, { ...wiring, script }, (tactics) => {
-        const made = barred(around(tactics), strikes);
+      return driven = scripted.drive(body.driver, world, partLookup, fighter, { ...wiring, script }, (decider) => {
+        const made = barred(around(decider), strikes);
         return watch ? watched(made, watch) : made;
       });
     },

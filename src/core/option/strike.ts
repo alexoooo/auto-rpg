@@ -6,7 +6,7 @@ import { orderAllows, orderedRegions } from "../intent/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../skills/framework/profile.ts";
-import type { Sight } from "../tactics/tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 import { asking, blocked, READY, type Asked, type Situation, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { clinched, record, type Terms } from "./value.ts";

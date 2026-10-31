@@ -1,6 +1,6 @@
 import { copyActionTarget, sameActionIdentity } from "../skills/framework/action.ts";
 import type { ActionAround, ActionRequest, Readiness, TargetRef } from "../skills/framework/action.ts";
-import type { Sight } from "./tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 
 /** A script chooses a named action and endpoint; its point may move without changing identity. */
 interface Choice { readonly action: string; readonly effector: string; readonly target: TargetRef }

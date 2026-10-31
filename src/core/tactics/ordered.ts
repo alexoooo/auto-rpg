@@ -1,7 +1,7 @@
 import { atan2, hypot } from "../math/real.ts";
 import type { Intent } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
-import type { Sight } from "./tactics.ts";
+import type { Sight } from "../mind/decider.ts";
 
 /** A facing under 8 cm names no direction: its aim point is over the body itself. */
 export const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;

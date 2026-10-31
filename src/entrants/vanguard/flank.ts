@@ -1,7 +1,9 @@
 import type { Orders } from "../../core/intent/orders.ts";
 import { clearMove } from "../../core/navigation/clear-step.ts";
 import { bodyClearance, lowOpponent } from "../../core/navigation/sensed-bounds.ts";
-import { engagementWithDetails, type Sight, type Tactics } from "../../core/tactics/tactics.ts";
+import { engagementWithDetails } from "../../core/mind/engagement.ts";
+import type { Sight } from "../../core/mind/decider.ts";
+import type { TacticalDecider } from "../../core/tactics/tactics-part.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
 import { cos, sin } from "../../core/math/real.ts";
 import { limitPace } from "./pace.ts";
@@ -10,7 +12,7 @@ import { limitPace } from "./pace.ts";
 const BLOCKS = 2, SECONDS = 1, PACE = .3, AHEAD = .5;
 
 /** Change the standing attack's angle after consecutive blocks, without interrupting a live stroke. */
-export function flank(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null): Tactics {
+export function flank(base: TacticalDecider, spec: BodySpec, orders: (sight: Sight) => Orders | null): TacticalDecider {
   const state = { base: base.state ?? null, sequence: 0, blocked: 0, until: 0, side: -1,
     focus: null as string | null, covers: [] as string[], time: 0, decision: "waiting for blocks" };
   const radius = bodyClearance(spec) + .05;
