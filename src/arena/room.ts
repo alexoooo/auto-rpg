@@ -340,12 +340,12 @@ interface ArenaColliders {
 }
 
 /**
- * The arena's solids (`arenaSolids`) as fixed colliders in `physics`, and as meshes: the ground and walls invisible,
- * the brazier pedestals drawn.
+ * The arena's solids (`arenaSolids`) as fixed colliders in `physics`, where there is one, and as meshes: the ground
+ * and walls invisible, the brazier pedestals drawn.
  */
 function buildArenaColliders(
   scene: Scene,
-  physics: PhysicsWorld,
+  physics: PhysicsWorld | null,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
   level: ArenaLevel = "open",
@@ -353,7 +353,7 @@ function buildArenaColliders(
   const meshes: Mesh[] = [];
   const pairs: VisualColliderPair[] = [];
   const solids = arenaSolids(level);
-  const fixed = addArenaSolids(physics, solids);
+  const fixed = physics ? addArenaSolids(physics, solids) : [];
   // A mesh a collider stands behind says so, for the checks that ask what is solid (`isCollider`).
   const mark = (mesh: Mesh) => { mesh.metadata = { ...mesh.metadata, isCollider: true }; };
   for (const solid of solids) {
@@ -462,7 +462,7 @@ interface ArenaWorld {
 
 export function buildArenaWorld(
   scene: Scene,
-  physics: PhysicsWorld,
+  physics: PhysicsWorld | null,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
   groups: readonly RoomGroup[] = ROOM_GROUPS,

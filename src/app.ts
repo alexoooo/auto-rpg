@@ -51,6 +51,13 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
       const { bootArena } = await modules.arena(); check();
       return bootArena(context);
     }
+    case "crowd": {
+      document.title = "Crowd fight · Auto-RPG";
+      await import("./arena/crowd.css"); check();
+      mount("crowd-screen", root);
+      const { bootCrowd } = await import("./arena/crowd.ts"); check();
+      return bootCrowd(context);
+    }
     case "dungeon": {
       document.title = "The Depths · Auto-RPG";
       await import("./dungeon/style.css"); check(); mount("dungeon-screen", root);

@@ -6,7 +6,7 @@ import { GROUND_APPROACH, beside, highestOpening, hold, lapse, lowered, rise, tu
 import type { GroundReading, GroundIntent } from "./position.ts";
 import { groundRoute } from "./route.ts";
 import { upperSurface } from "../openings.ts";
-import { clearFootTranslation, lowOpponent, sensedObstacle } from "../../navigation/sensed-bounds.ts";
+import { clearFootTranslation, lowOpponent, stepObstacle } from "../../navigation/sensed-bounds.ts";
 import type { BodySense } from "../../mind/senses.ts";
 import { lyingAxis } from "../../intent/targets.ts";
 import { segmentOf } from "../../spec/body.ts";
@@ -70,7 +70,7 @@ export function groundWide(spec: BodySpec, clearMove: (view: BodyView, heading: 
    * clear and a route.
    */
   const plan = (view: BodyView, foe: BodySense, previous: Vec3 | null): boolean => {
-    const target = state.target!, axis = lyingAxis(foe), obstacle = sensedObstacle(foe), clear = obstacle.clear, c = view.stance.centre;
+    const target = state.target!, axis = lyingAxis(foe), obstacle = stepObstacle(view, foe), clear = obstacle.clear, c = view.stance.centre;
     const from: Vec3 = [c.x, view.stance.support.y, c.z];
     let best = Infinity, chosen: number | null = null;
     for (let n = 0; n < GROUND_COMBAT.orientations; n++) {

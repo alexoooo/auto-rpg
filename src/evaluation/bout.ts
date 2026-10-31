@@ -1,6 +1,7 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES, type DuelRecipe } from "../arena/duel.ts";
+import { TeamBout, type TeamRecipe } from "../arena/team-bout.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { GAME_ENDS } from "../arena/end-rule.ts";
 import { addArenaSolids, arenaSolids } from "../arena/room.ts";
@@ -52,3 +53,15 @@ export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>
   save: (built) => built.duel.save(),
   load: (built, saved) => built.duel.load(saved as ReturnType<Duel["save"]>),
 };
+
+/** A world with the arena's solids and `recipe`'s team bout in it, on a scene of its own with no canvas. */
+export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120 }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz });
+  const solids = arenaSolids(recipe.level);
+  addArenaSolids(world.physics, solids);
+  try {
+    const bout = new TeamBout(world, recipe, { solids });
+    return { world, bout, dispose() { bout.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
+  } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
+}

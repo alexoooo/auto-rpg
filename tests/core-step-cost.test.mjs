@@ -23,7 +23,7 @@ import { traceOf } from "../src/evaluation/trace.ts";
  * over it takes its allocation out of the step or, where the allocation is the feature's, raises
  * the ceiling and says why in its commit.
  */
-const CEILING = { standing: 140, mind: 917, down: 206 };
+const CEILING = { standing: 124, mind: 739, down: 82 };
 
 /** What a fighter's right hand may hold in a mind's bout, the first its body and mind take: the left is empty. */
 const HELDS = Object.freeze(["sword", "empty", "club"]);

@@ -124,9 +124,11 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
   const line = (text: string) => Object.assign(document.createElement("p"), { textContent: text });
   return { element,
     reset(): void { previous = ""; restOpen = false; list.replaceChildren(); element.open = false; },
-    refresh(menu: readonly MenuEntry[] | null, { picks, opens }: { readonly picks: boolean; readonly opens: boolean }): void {
+    /** Show `choices`' menu while the list is open; a closed list asks none. */
+    refresh(choices: () => readonly MenuEntry[] | null, { picks, opens }: { readonly picks: boolean; readonly opens: boolean }): void {
       if (opens) element.open = true;
       if (!element.open) return;
+      const menu = choices();
       const signature = JSON.stringify([picks, menu?.map(entry => [choiceKey(entry), readinessText(entry.readiness)]) ?? null]);
       if (signature === previous) return;
       previous = signature;

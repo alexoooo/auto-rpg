@@ -27,7 +27,7 @@ import { generateLevel } from "../../dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../dungeon/map.ts";
 import { LEVELS } from "../../dungeon/run.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
-import { FIGHT_ENTRY, CONTROLLERS, defaultMind } from "../../entrants/game.ts";
+import { FIGHT_ENTRY, CONTROLLERS, cryptMind } from "../../entrants/game.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader, Subject } from "../evaluation.ts";
 
@@ -192,5 +192,5 @@ function crowdCases(protocol: typeof CROWD): Cases<CrowdCondition, CryptReading,
 /** Every protocol the crowd task may be played on, by name. */
 export const CROWD_CASES: Readonly<Record<string, Cases<CrowdCondition, CryptReading, BuiltCrypt>>> = Object.freeze({ standard: crowdCases(CROWD) });
 
-/** The members' mind unless another is named: their model's own. */
-export const CROWD_MIND = defaultMind(CROWD.model);
+/** The members' mind unless another is named: their model's own in the Crypt (`cryptMind`). */
+export const CROWD_MIND = cryptMind(CROWD.model);

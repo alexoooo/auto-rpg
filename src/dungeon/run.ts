@@ -38,7 +38,7 @@ import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
-import { GAME, defaultMind } from "../entrants/game.ts";
+import { GAME, cryptMind } from "../entrants/game.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
@@ -309,7 +309,7 @@ export class DungeonRun {
       id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
-      mind: this.options.mind?.(actor) ?? defaultMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      mind: this.options.mind?.(actor) ?? cryptMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {
@@ -459,9 +459,11 @@ export class DungeonRun {
       time: this.clock, look, lead,
       members: members.filter(built).map((actor): MemberView => {
         const report = actor.fighter?.minded.report;
+        // The menu is built at its first read and kept for the view's other readers.
+        let menu: MemberView["menu"] | undefined;
         return { id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
           reach: actor.attackMetres, home: actor.home, navigation: actor.navigation, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
-          get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; },
+          get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return menu === undefined ? menu = report?.menu ?? null : menu; },
           get prospects() { return report?.prospects ?? null; } };
       }),
       others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive, down: actor.fighter!.body.down, life: actor.vitality })),

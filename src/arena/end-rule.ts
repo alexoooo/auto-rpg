@@ -29,7 +29,7 @@ export interface EndRule<C extends EndRuleConfig = EndRuleConfig> {
   readonly label: string;
   readonly defaults: C;
   /** How `one` is out by this rule under `recipe`, as the verdict names it (a key of `endings`), or null where it is not. */
-  out(one: EndContestant, config: C, recipe: DuelRecipe): string | null;
+  out(one: EndContestant, config: C, recipe: Pick<DuelRecipe, "recoverySeconds">): string | null;
   /** The share of every side's full life it has taken `seconds` into the bout; none unless it says. */
   drained?(seconds: number, config: C): number;
   /** How far into the bout it has taken every side's full life, s: where it drains (`drained`). */

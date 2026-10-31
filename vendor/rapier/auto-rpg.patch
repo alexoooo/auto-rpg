@@ -115,10 +115,10 @@ index b5854dc..f1e40f3 100644
          } else {
              this.raw.step(
 diff --git a/bindings/typescript/src/dynamics/impulse_joint.rs b/bindings/typescript/src/dynamics/impulse_joint.rs
-index d74c6ae..9f98eaa 100644
+index d74c6ae..eaec2f1 100644
 --- a/bindings/typescript/src/dynamics/impulse_joint.rs
 +++ b/bindings/typescript/src/dynamics/impulse_joint.rs
-@@ -309,4 +309,42 @@ impl RawImpulseJointSet {
+@@ -309,4 +309,85 @@ impl RawImpulseJointSet {
                  .set_motor(axis.into(), targetPos, targetVel, stiffness, damping);
          })
      }
@@ -159,6 +159,49 @@ index d74c6ae..9f98eaa 100644
 +    /// The impulse holding the locked `axis`, on the first body, in the last solver substep.
 +    pub fn jointLockedImpulse(&self, handle: FlatHandle, axis: RawJointAxis) -> f32 {
 +        self.map(handle, |j| j.impulses[axis as usize])
++    }
++
++    /// The first `count` motor commands of `commands`, in one call, each made by the calls it
++    /// stands for in their order. A command is seven numbers: the joint's handle, its axis
++    /// (`RawJointAxis` as a number), the command's kind, and its values:
++    /// - 0, a velocity motor: speed and maximum force (`jointConfigureMotorModel` acceleration-based,
++    ///   `jointConfigureMotorVelocity` with infinite damping, `jointSetMotorMaxForce`);
++    /// - 1, a velocity motor with signed bounds: speed, minimum and maximum force (the same with
++    ///   `jointSetMotorForceBounds`);
++    /// - 2, a spring: target, stiffness, minimum and maximum force (`jointConfigureMotorModel`
++    ///   force-based, `jointConfigureMotorPosition` with no damping, `jointSetMotorForceBounds`).
++    #[cfg(feature = "dim3")]
++    pub fn jointSetMotors(&mut self, commands: &[f64], count: usize) {
++        for command in commands.chunks_exact(7).take(count) {
++            let handle = command[0];
++            let axis = || match command[1] as u32 {
++                0 => RawJointAxis::LinX,
++                1 => RawJointAxis::LinY,
++                2 => RawJointAxis::LinZ,
++                3 => RawJointAxis::AngX,
++                4 => RawJointAxis::AngY,
++                5 => RawJointAxis::AngZ,
++                _ => panic!("No joint axis is numbered {}.", command[1]),
++            };
++            match command[2] as u32 {
++                0 => {
++                    self.jointConfigureMotorModel(handle, axis(), RawMotorModel::AccelerationBased);
++                    self.jointConfigureMotorVelocity(handle, axis(), command[3] as f32, f32::INFINITY);
++                    self.jointSetMotorMaxForce(handle, axis(), command[4] as f32);
++                }
++                1 => {
++                    self.jointConfigureMotorModel(handle, axis(), RawMotorModel::AccelerationBased);
++                    self.jointConfigureMotorVelocity(handle, axis(), command[3] as f32, f32::INFINITY);
++                    self.jointSetMotorForceBounds(handle, axis(), command[4] as f32, command[5] as f32);
++                }
++                2 => {
++                    self.jointConfigureMotorModel(handle, axis(), RawMotorModel::ForceBased);
++                    self.jointConfigureMotorPosition(handle, axis(), command[3] as f32, command[4] as f32, 0.0);
++                    self.jointSetMotorForceBounds(handle, axis(), command[5] as f32, command[6] as f32);
++                }
++                _ => panic!("No motor command is numbered {}.", command[2]),
++            }
++        }
 +    }
  }
 diff --git a/bindings/typescript/src/dynamics/integration_parameters.rs b/bindings/typescript/src/dynamics/integration_parameters.rs
@@ -248,11 +291,159 @@ index 9a95f0d..4a7e126 100644
      // pub fn jointConfigureMotorModel(
      //     &mut self,
      //     handle: FlatHandle,
+diff --git a/bindings/typescript/src/dynamics/rigid_body.rs b/bindings/typescript/src/dynamics/rigid_body.rs
+index 3d828ba..f212354 100644
+--- a/bindings/typescript/src/dynamics/rigid_body.rs
++++ b/bindings/typescript/src/dynamics/rigid_body.rs
+@@ -412,6 +412,29 @@ impl RawRigidBodySet {
+         });
+     }
+ 
++    /// Every rigid-body `handles` names, in order, written into `out` in one call, thirteen
++    /// numbers each: its translation, its rotation (x, y, z, w), its linear velocity and its
++    /// angular velocity, as `rbTranslation`, `rbRotation`, `rbLinvel` and `rbAngvel` give them,
++    /// widened to double precision.
++    #[cfg(feature = "dim3")]
++    pub fn rbPosesAndVelocities(&self, handles: &[f64], out: &mut [f64]) {
++        for (k, &handle) in handles.iter().enumerate() {
++            let at = &mut out[13 * k..13 * k + 13];
++            self.map(handle, |rb| {
++                let t = rb.position().translation;
++                let r = rb.position().rotation;
++                let v = rb.linvel();
++                let w = rb.angvel();
++                at.copy_from_slice(&[
++                    t.x as f64, t.y as f64, t.z as f64,
++                    r.x as f64, r.y as f64, r.z as f64, r.w as f64,
++                    v.x as f64, v.y as f64, v.z as f64,
++                    w.x as f64, w.y as f64, w.z as f64,
++                ]);
++            });
++        }
++    }
++
+     /// The velocity of the given world-space point on this rigid-body.
+     ///
+     /// # Parameters
 diff --git a/bindings/typescript/src/geometry/narrow_phase.rs b/bindings/typescript/src/geometry/narrow_phase.rs
-index 22d78a5..6314ea7 100644
+index 22d78a5..edcb5fe 100644
 --- a/bindings/typescript/src/geometry/narrow_phase.rs
 +++ b/bindings/typescript/src/geometry/narrow_phase.rs
-@@ -229,6 +229,12 @@ impl RawContactManifold {
+@@ -59,6 +59,113 @@ impl RawNarrowPhase {
+     }
+ }
+ 
++/// The normal impulse of a manifold's geometric points referenced by its current solver contacts,
++/// each once, in geometric order, in double precision (`total_solver_contact_impulse`).
++fn active_normal_impulse(manifold: &ContactManifold) -> f64 {
++    let mut total = 0.0f64;
++    for (i, point) in manifold.points.iter().enumerate() {
++        if manifold
++            .data
++            .solver_contacts
++            .iter()
++            .any(|contact| contact.contact_indices()[0] as usize == i)
++        {
++            total += point.data.impulse as f64;
++        }
++    }
++    total
++}
++
++/// What `contact_readings` writes: into its array while there is room, and how far it went.
++struct Readings<'a> {
++    out: &'a mut [f64],
++    at: usize,
++}
++
++impl Readings<'_> {
++    fn push(&mut self, value: f64) {
++        if let Some(slot) = self.out.get_mut(self.at) {
++            *slot = value;
++        }
++        self.at += 1;
++    }
++
++    fn set(&mut self, at: usize, value: f64) {
++        if let Some(slot) = self.out.get_mut(at) {
++            *slot = value;
++        }
++    }
++}
++
++#[cfg(feature = "dim3")]
++#[wasm_bindgen]
++impl RawNarrowPhase {
++    /// Every contact of the colliders `handles` names, in their order, written into `out` in one
++    /// call, and how many numbers that takes: `out` holds them only if it is that long. First, for
++    /// the k-th collider, where its record starts; then each collider's record: how many pairs it
++    /// has, and each pair as `contact_pairs_with` gives them: the other collider's handle, 1 if
++    /// the pair names the other collider first (`contact_pair`'s flipped manifolds) and else 0,
++    /// where the pair's record ends, how many manifolds it has, and each manifold: how many solver
++    /// contacts it has, its normal, its active normal impulse (`total_solver_contact_impulse`),
++    /// and each solver contact's point and separation at the bodies' current poses
++    /// (`solver_contact_point`, `solver_contact_separation`). Each value is the one those calls
++    /// give, widened to double precision.
++    pub fn contact_readings(
++        &self,
++        bodies: &RawRigidBodySet,
++        handles: &[f64],
++        out: &mut [f64],
++    ) -> usize {
++        let mut readings = Readings {
++            out,
++            at: handles.len(),
++        };
++        for (k, &flat) in handles.iter().enumerate() {
++            readings.set(k, readings.at as f64);
++            let handle1 = utils::collider_handle(flat);
++            let count_at = readings.at;
++            readings.push(0.0);
++            let mut count = 0usize;
++            for listed in self.0.contact_pairs_with(handle1) {
++                let handle2 = if listed.collider1 == handle1 {
++                    listed.collider2
++                } else {
++                    listed.collider1
++                };
++                count += 1;
++                readings.push(utils::flat_handle(handle2.0));
++                let head = readings.at;
++                readings.push(0.0);
++                readings.push(0.0);
++                readings.push(0.0);
++                if let Some(pair) = self.0.contact_pair(handle1, handle2) {
++                    readings.set(head, if pair.collider1 != handle1 { 1.0 } else { 0.0 });
++                    readings.set(head + 2, pair.manifolds().len() as f64);
++                    for manifold in pair.manifolds() {
++                        let data = &manifold.data;
++                        readings.push(data.solver_contacts.len() as f64);
++                        readings.push(data.normal.x as f64);
++                        readings.push(data.normal.y as f64);
++                        readings.push(data.normal.z as f64);
++                        readings.push(active_normal_impulse(manifold));
++                        for contact in data.solver_contacts.iter() {
++                            let (p1, p2) = data.solver_contact_world_points(contact, &bodies.0);
++                            let u = (p1 + p2) / 2.0;
++                            readings.push(u.x as f64);
++                            readings.push(u.y as f64);
++                            readings.push(u.z as f64);
++                            readings.push((p2 - p1).dot(data.normal) as f64);
++                        }
++                    }
++                }
++                readings.set(head + 1, readings.at as f64);
++            }
++            readings.set(count_at, count as f64);
++        }
++        readings.at
++    }
++}
++
+ #[wasm_bindgen]
+ pub struct RawContactPair(*const ContactPair);
+ #[wasm_bindgen]
+@@ -229,6 +336,12 @@ impl RawContactManifold {
          unsafe { (&(*self.0).points).get(i).map(|c| c.fid2.0).unwrap_or(0) }
      }
  
@@ -265,7 +456,7 @@ index 22d78a5..6314ea7 100644
      pub fn contact_impulse(&self, i: usize) -> Real {
          unsafe {
              (&(*self.0).points)
-@@ -238,6 +244,24 @@ impl RawContactManifold {
+@@ -238,6 +351,13 @@ impl RawContactManifold {
          }
      }
  
@@ -273,24 +464,13 @@ index 22d78a5..6314ea7 100644
 +    /// Cached impulses on discarded points are excluded. Geometric order and double
 +    /// precision preserve the sum made by the JavaScript reader for active points.
 +    pub fn total_solver_contact_impulse(&self) -> f64 {
-+        unsafe {
-+            let manifold = &*self.0;
-+            let mut total = 0.0f64;
-+            for (i, point) in manifold.points.iter().enumerate() {
-+                if manifold.data.solver_contacts.iter().any(|contact| {
-+                    contact.contact_indices()[0] as usize == i
-+                }) {
-+                    total += point.data.impulse as f64;
-+                }
-+            }
-+            total
-+        }
++        unsafe { active_normal_impulse(&*self.0) }
 +    }
 +
      #[cfg(feature = "dim2")]
      pub fn contact_tangent_impulse(&self, i: usize) -> Real {
          unsafe {
-@@ -324,6 +348,17 @@ impl RawContactManifold {
+@@ -324,6 +444,17 @@ impl RawContactManifold {
          }
      }
  

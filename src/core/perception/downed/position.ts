@@ -7,7 +7,7 @@ import { beside, highestOpening, type GroundPhase } from "./approach.ts";
 import { groundNear } from "./near.ts";
 import { groundWide } from "./wide.ts";
 import { highestSurface } from "../openings.ts";
-import { lowOpponent, sensedFootClearance } from "../../navigation/sensed-bounds.ts";
+import { lowOpponent, stepObstacle } from "../../navigation/sensed-bounds.ts";
 import type { BodySense } from "../../mind/senses.ts";
 import { lyingAxis } from "../../intent/targets.ts";
 
@@ -41,7 +41,7 @@ function still(foe: BodySense): boolean {
  * `axis`, the nearer one both soles reach in a straight sweep clear of the foe; the right of equals; null if neither.
  */
 function admissibleHand(view: BodyView, foe: BodySense, target: Vec3, axis: number): Side | null {
-  const clear = sensedFootClearance(foe), c = view.stance.centre, soles = [view.stance.soles.left, view.stance.soles.right];
+  const clear = stepObstacle(view, foe).clear, c = view.stance.centre, soles = [view.stance.soles.left, view.stance.soles.right];
   let chosen: Side | null = null, best = Infinity;
   for (const hand of ["right", "left"] as const) {
     const [x, z] = beside(target, axis, hand === "right" ? 1 : -1, GROUND_ADMISSION.outside, GROUND_ADMISSION.ahead);

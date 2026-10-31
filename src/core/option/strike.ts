@@ -125,9 +125,15 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
     }
     return { ready: null, placed };
   };
-  /** What its entry reads of its limbs at the target the situation names (`targetOf`), once a step. */
-  const offered = { time: NaN, target: null as TargetRef | null, ready: null as Limb | null, placed: null as Limb | null };
-  const offer = (now: Situation): typeof offered => {
+  /**
+   * What its entry reads of its limbs at the target the situation names (`targetOf`), once a step
+   * for each focus: the chooser weighs every foe's situation in a step, each with its own focus.
+   */
+  const offers = new Map<string | null, { time: number; target: TargetRef | null; ready: Limb | null; placed: Limb | null }>();
+  const offer = (now: Situation) => {
+    const focus = now.focus?.id ?? null;
+    let offered = offers.get(focus);
+    if (!offered) offers.set(focus, offered = { time: NaN, target: null, ready: null, placed: null });
     if (offered.time === now.time) return offered;
     offered.time = now.time; offered.target = targetOf(now);
     const scanned = offered.target === null ? { ready: null, placed: null } : scan(now, offered.target);

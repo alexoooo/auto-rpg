@@ -61,15 +61,16 @@ const ARENA_LIGHT = Object.freeze({
 
 /**
  * The arena's scene: its light, its room and its solids, which are fixed colliders in the physics
- * `physicsFor` makes on the scene (the core's world, `createWorld`).
+ * `physicsFor` makes on the scene (the core's world, `createWorld`); with no physics, as where a
+ * worker steps the world (`src/worker/`), the solids are only drawn.
  */
-export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => PhysicsWorld, level: ArenaLevel = "open", signal?: AbortSignal): Promise<Arena> {
+export async function buildArena(engine: Engine, physicsFor: ((scene: Scene) => PhysicsWorld) | null, level: ArenaLevel = "open", signal?: AbortSignal): Promise<Arena> {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(...ARENA_LIGHT.clear);
   scene.ambientColor = new Color3(...ARENA_LIGHT.ambient);
 
   // Physics first: the room's solids go into it as they are built.
-  const physics = physicsFor(scene);
+  const physics = physicsFor?.(scene) ?? null;
 
   const camera = new FreeCamera("camera", new Vector3(...ARENA_LIGHT.camera.start), scene);
   camera.fov = ARENA_LIGHT.camera.fov;

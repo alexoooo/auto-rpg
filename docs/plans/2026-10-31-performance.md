@@ -20,9 +20,9 @@ Three things stand in the way:
 - **One thread.** The world steps and the scene renders on the page's one thread, so every slow
   step is a late frame, and the world's budget is what rendering leaves of each frame.
 
-Nothing plays ten fighters today: the Arena is a duel (`DuelRecipe`, `src/arena/duel.ts`; team
-bouts are open, [roadmap](../roadmap.md#the-game)), and the Crypt's foes play the Duellist
-(`DEFAULT_MINDS`, `src/entrants/game.ts`).
+Only the crowd fight (step 2) plays ten fighters: the Arena is a duel (`DuelRecipe`,
+`src/arena/duel.ts`; team bouts are open, [roadmap](../roadmap.md#the-game)), and a Crypt run's
+encounters are a few bodies, each on Option Mind (`cryptMind`, `src/entrants/game.ts`).
 
 The causes, each measured on the harness below:
 
@@ -185,7 +185,7 @@ control in Rust, dense arithmetic on small matrices whose gain is unmeasured.
 
 ## Steps
 
-Step 2 adds a mode to the Arena and the harnesses that read the rest. Speed rewrites (steps 3 to 6)
+Step 2 adds the crowd fight and the harnesses that read the rest. Speed rewrites (steps 3 to 6)
 do the same operations in the same order: no fingerprint case moved (step 3 names one state's
 digest, as it says), the reference bouts' digests the same, the time before and after in
 [step cost](../reference/step-cost.md). Steps 7 on change what minds or bodies do: each names its
@@ -195,53 +195,49 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 1. **A hand's pose tried cheaply.** Built: the new shape is tested only against colliders whose
    bounds can reach it, built once a pose; the bare-handed bout's standing steps over 8 ms went
    from 54 to 2, the longest 10.0 ms. Those two are read again on step 2's timers.
-2. **What the steps are measured on.**
-   - **A crowd fight**: the Arena's team bout ([roadmap](../roadmap.md#the-game)), five Option
-     Mind Warriors a side, the recipe taking a team a side and its link the page's. They stand in
-     two lines at the gap. Each body is under a duel's rules for one (its life, its falls, the
-     drain); a side is beaten when every body of it is, and at the cap the side with more life
-     summed wins. No Commander: each mind chooses its focus among the other side's. The page
-     shows a bar for each body. Its digest is read as a bout's is; the owner watches it.
-   - **The timers**: `research/step-time.mjs` plays a recipe (minds, loadouts, gap, seed, the
-     crowd fight) and `research/crypt-step.mjs` takes the mind every body plays; both report the
-     dearest step past the first 2 s, the least of three playings.
-   - **A call counter** in `research/`: how many times a step a named function runs
-     (`openingSelector`, `worldShapes`, `contactsOf`, `menuOf`, the calls into Rapier's wasm), by
-     a load hook, as the boundary's count was read.
-   - Check: the crowd fight plays to its verdict in Node and on the page; the timers read the
-     reference bouts, the crowd fight and the Crypt's runs.
-3. **Readings once a step.** A step reading in the toolkit, for each mind a work area made once
-   and cleared at its step's start:
-   - the foe's colliders read once (`sensedObstacle`) for every clearance and route caller
-     (`besideLying`, `groundPosition`, `wide.ts`, `clearFootTranslation`);
-   - each opening found once a step for each action's selector, limb, foe and region (the
-     region's segments and the segments the ledger blocks in its key,
-     `src/core/skills/framework/aims.ts`) for every readiness caller;
-   - the kick's support reading only while a kick is under way, kept out of its `state` (the
-     punches' own reading, whose quiet time counts while idle, stays). The fingerprint names the
-     state's digest as moved, and only it; `research/front-kicks.mjs`, which reads the kick's
-     `state.support`, reads the motion's own.
-
-   Check: the counter's calls a step, before and after.
-4. **The menu once a step**, built from the step reading for the report, the drill Commander and
-   the page. Check: `menuOf` calls a step on the Strike drill in Node, before and after.
-5. **The batched crossing.** The three bulk calls in the vendored Rapier's patch, the tarball built
-   again (`vendor/rapier/build.sh`), its name and the lockfile moved (`auto-rpg.10`),
-   `vendor/rapier/README.md` and [the vendored Rapier](../reference/rapier-vendor.md) updated, and
-   the engine reading and writing through them. The garbage-free step's contacts' read
-   ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2) is this one. Check:
-   calls into wasm a step, allocation, and the step's time, before and after.
-6. **The world in a worker**, the Arena first, then the Crypt, as the design says. Check: a bout's
-   digest in the worker equals Node's; the page holds the display's rate while a step is made slow
-   on purpose; the owner plays.
-7. **The strike option's offer for each foe**: its once-a-step memo keyed on the focus too. Check:
-   `crypt-clear` and the crowd fight, before and after.
-8. **A held decision in the toolkit**: one helper for the four triggers, its memory plain data in
-   the caller's `state`, with the existing variants' rules expressible in it. First user: the
-   place beside a lying foe, made again when the body's centre drifts past `CROWD.settled`, the
-   window's target past its shift, or the way's cheap check (the kept route against the body's
-   footprint) fails. Check: the stomping rung, the side-flip gone, the time while a fighter is
-   down.
+2. **What the steps are measured on.** Built: the crowd fight (`TeamBout`, `crowdFight`,
+   `src/arena/team-bout.ts`; its screen `?play=crowd`, `src/arena/crowd.ts`), five Option Mind
+   Warriors a side in two lines, each body under a duel's rules for one, a side beaten when every
+   body of it is, at the cap the side with more life summed; each mind chooses its focus among the
+   other side's. `research/step-time.mjs` plays an Arena link or the crowd fight,
+   `research/crypt-step.mjs` takes the mind every body plays, both report the dearest step past
+   the first 2 s; `research/call-count.mjs` counts calls a step. The crowd fight's first 30 s:
+   14.0 ms a step, the dearest past 2 s 30.9 ms
+   ([the crowd fight](../reference/step-cost.md#the-crowd-fight)).
+3. **Readings once a step.** Built: a reading stamp on the view (`StepReading`) that moves at
+   each look, after each command and after each physics step; a foe's colliders (`stepObstacle`)
+   and the surface aim's opening kept against it and the foe's observation time; the kick's
+   support read only while it kicks. The crowd fight's calls into wasm a step 14147 to 6543, its
+   step about 0.9 ms less ([readings once a step](../reference/step-cost.md#readings-once-a-step)).
+4. **The menu once a pass.** Built: a member view builds it at its first read for the Commander's
+   decision, and the Arena's page only while its choices list is open. A memo on the stamp would
+   go stale: readiness reads the skills' state, which the command changes, and a Commander reads
+   the menu after the senses move and before the bodies look.
+5. **The batched crossing.** Built: contacts, motors and poses each cross into the wasm once a
+   step (`auto-rpg.10`); the sword against club bout's calls in went from 3623 a step to 227, its
+   allocation from 1205 KiB a step to 673, its step 0.1 to 0.3 ms quicker, no fingerprint case
+   moved ([one crossing a step](../reference/step-cost.md#one-crossing-a-step)). The garbage-free
+   step's contacts' read ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2)
+   was this one.
+6. **The world in a worker**, the crowd fight, then the Arena, then the Crypt, as the design says.
+   Built for the crowd fight (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
+   its digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's worker too,
+   the first 240 steps of seed 0); a duel's stage taking a person's orders on its tape
+   (`duelStage`), replayed in Node from that tape. Left: the Arena's page on the duel's stage, and
+   the Crypt. Check: a bout's digest in the
+   worker equals Node's; the page holds the display's rate while a step is made slow on purpose; the
+   owner plays.
+7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The
+   crowd fight to its verdict: the right side won by drain at 104.7 s, 1885 blows landed by 90 s;
+   now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe; in the Crypt, whose bodies
+   play Option Mind, it serves each foe a body faces.
+8. **A held decision in the toolkit.** Built: `Held`, `stillHeld` and `hold`
+   (`src/core/mind/held.ts`); the place beside a lying foe held by Option Mind's walk into a
+   strike's window (`HeldBeside`), and the drill Commander's spot beside one (`HELD_SPOT`). On the
+   stomping rung (`option/stomp`) the drill's spot jumped more than 0.5 m 124 times before and 6
+   after; it landed 4 of 12 before and 3 of 12 after, one trial falling, within what 12 trials
+   tell apart. The time while a fighter is down is not read: the menu still finds its spot
+   afresh at each decision.
 9. **The rest held**: ground positioning's mode and hand; an aim not yet under way, held as a
    point on its segment as Vanguard's committed aim does
    (`src/entrants/vanguard/committed-aim.ts`); predictions made again on their events. A blocked

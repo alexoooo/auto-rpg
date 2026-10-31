@@ -57,6 +57,18 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
   bodies in place of central and twist friction (multibody contacts always use it). The patch
   adds only accessors; the adapter refuses snapshots across the two configurations
   ([contact friction](../../docs/reference/contact-friction.md)).
+- **Bulk calls**, each one crossing into the wasm with a typed array the caller keeps, each value
+  the one the per-item calls give, widened to double precision:
+  - `RawNarrowPhase.contact_readings(bodies, handles, out)`: every contact of the listed
+    colliders, in their order: each pair as `contact_pairs_with` gives them (the other collider,
+    whether the pair names it first), each manifold's solver contact count, normal and
+    `totalSolverContactImpulse`, and each solver contact's point and current-pose separation. It
+    returns how many numbers that takes, and writes them only if `out` is that long.
+  - `RawImpulseJointSet.jointSetMotors(commands, count)`: motor commands, seven numbers each, made
+    by the setter calls each stands for, in order: a velocity motor with a maximum force or with
+    signed bounds, or a force-based spring with signed bounds.
+  - `RawRigidBodySet.rbPosesAndVelocities(handles, out)`: each listed body's translation,
+    rotation, linear and angular velocity, thirteen numbers a body.
 
 ## Building
 

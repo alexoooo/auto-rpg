@@ -11,6 +11,12 @@
  * (`ReachMeter`, `src/core/control/motor.ts`): how many, their passes, and how many ran to the cap.
  *
  *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
+ *   node research/step-time.mjs --link "?matchup=...&control=option,option&left.loadout=empty,sword" [--cap 60]
+ *   node research/step-time.mjs --crowd [--seed 0] [--cap 120]
+ *
+ * `--link` plays the bout an Arena link names (`recipeOf`); `--crowd` the crowd fight
+ * (`crowdFight`, `src/arena/team-bout.ts`), ten bodies. It also prints the dearest step past
+ * the first `--skip` s (2), what the bout's start and the compiler's first passes leave out.
  *
  * With `--profile` it plays the bout once more under V8's CPU profiler and prints the share of
  * each file and of each function with everything it calls.
@@ -21,16 +27,28 @@ import { Session } from "node:inspector/promises";
 import { PerformanceObserver } from "node:perf_hooks";
 import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { SIDES } from "../src/arena/duel.ts";
-import { buildBout } from "../src/evaluation/bout.ts";
+import { buildBout, buildTeamBout } from "../src/evaluation/bout.ts";
+import { recipeOf } from "../src/arena/matchup.ts";
+import { crowdFight } from "../src/arena/team-bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
   runs: { type: "string", default: "4" }, over: { type: "string", default: "3" }, profile: { type: "boolean", default: false },
+  link: { type: "string" }, crowd: { type: "boolean", default: false }, seed: { type: "string", default: "0" },
+  cap: { type: "string" }, skip: { type: "string", default: "2" },
 } });
-const recipe = { left: values.left, right: values.right, capSeconds: 60 }, over = Number(values.over);
+const cap = values.cap === undefined ? undefined : Number(values.cap), over = Number(values.over), skip = Number(values.skip);
+const recipe = values.link ? { ...recipeOf(values.link, { left: {}, right: {} }, "open"), capSeconds: cap ?? 60 } : { left: values.left, right: values.right, capSeconds: cap ?? 60 };
+const crowd = values.crowd ? { ...crowdFight(Number(values.seed)), ...(cap === undefined ? {} : { capSeconds: cap }) } : null;
+const named = crowd ? `the crowd fight, seed ${values.seed}` : values.link ? `the bout of ${values.link}` : `${values.left} against ${values.right}`;
+/** The bout to play, built: its world, whether it has ended, and its sides' reach meters where it is a duel. */
+const build = async () => {
+  if (crowd) { const { world, bout, dispose } = await buildTeamBout(crowd, { engine: BOUT_ENGINE }); return { world, over: () => bout.verdict !== null, reach: () => [], dispose }; }
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  return { world, over: () => duel.verdict !== null, reach: () => SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach })), dispose };
+};
 // Babylon greets every engine it makes on the console.
 Logger.LogLevels = Logger.NoneLogLevel;
 
@@ -40,13 +58,13 @@ observer.observe({ entryTypes: ["gc"] });
 
 /** One playing: each step's start, its time, and the solver's part of it; and, as `reach`, each side's hands' solves counted. */
 async function play() {
-  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  const { world, over: ended, reach, dispose } = await build();
   const solve = world.physics.step.bind(world.physics);
   let solver = 0;
   world.physics.step = (dt) => { const t = performance.now(); solve(dt); solver = performance.now() - t; };
   const rows = [];
-  while (!duel.verdict) { const t = performance.now(); world.step(); const all = performance.now() - t; rows.push({ t, all, solver, rest: all - solver }); }
-  rows.reach = SIDES.map((side) => ({ side, ...duel.duelists[side].body.state.mind.host.motor.reach }));
+  while (!ended()) { const t = performance.now(); world.step(); const all = performance.now() - t; rows.push({ t, all, solver, rest: all - solver }); }
+  rows.reach = reach();
   dispose();
   return rows;
 }
@@ -63,11 +81,13 @@ await new Promise((resolve) => setTimeout(resolve, 100));
 const read = played.slice(1), n = read[0].length;
 const least = (of) => Array.from({ length: n }, (_, i) => Math.min(...read.map((rows) => rows[i][of])));
 const all = least("all"), solver = least("solver"), rest = least("rest");
-console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${values.left} against ${values.right}, ${n} steps to its verdict, played ${values.runs} times and read on the last ${read.length}; ms\n`);
+console.log(`Node, an arena bout in the core world, ${BOUT_ENGINE}, 120 Hz; ${named}, ${n} steps to its verdict, played ${values.runs} times and read on the last ${read.length}; ms\n`);
 read.forEach((rows, k) => console.log(`playing ${k + 2}, a step: ${stats(rows.map((r) => r.all))}`));
 console.log(`\nthe least of each step over the playings: ${stats(all)}`);
 console.log(`  the solver: ${stats(solver)}`);
 console.log(`  the rest: ${stats(rest)}`);
+const past = Math.round(skip * 120), after = all.slice(past);
+console.log(`  past the first ${skip} s: the dearest step ${Math.max(...after).toFixed(2)}, ${after.filter((v) => v > 1000 / 120).length} of ${after.length} over 8.33`);
 const dearest = all.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).slice(0, 8);
 console.log(`  the eight dearest steps: ${dearest.map(([v, i]) => `step ${i} ${v.toFixed(2)} (solver ${solver[i].toFixed(2)}, rest ${rest[i].toFixed(2)})`).join("; ")}\n`);
 const mine = collections.filter((c) => read.some((rows) => c.at >= rows[0].t && c.at <= rows.at(-1).t + rows.at(-1).all));
@@ -84,9 +104,9 @@ if (values.profile) {
   session.connect();
   await session.post("Profiler.enable");
   await session.post("Profiler.setSamplingInterval", { interval: 100 });
-  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  const { world, over: ended, dispose } = await build();
   await session.post("Profiler.start");
-  while (!duel.verdict) world.step();
+  while (!ended()) world.step();
   const { profile } = await session.post("Profiler.stop");
   dispose();
   session.disconnect();

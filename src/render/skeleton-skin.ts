@@ -9,7 +9,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
 import { loadArtAssets } from "./art-assets.ts";
 import { MeshoptCompression } from "@babylonjs/core/Meshes/Compression/meshoptCompression.js";
-import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import type { SkinView } from "./skin-view.ts";
 import { skinReference } from "./body-deformation.ts";
 
@@ -140,7 +140,7 @@ function bindMatrix(part: string): Matrix {
 }
 
 /** Each shown piece's transform in its segment's frame: its bind in the segment's reference frame. */
-function piecesOnSegments(built: BuiltBody): Map<string, { readonly segment: string; readonly held: Matrix }> {
+function piecesOnSegments(built: DrawnBody): Map<string, { readonly segment: string; readonly held: Matrix }> {
   const out = new Map<string, { segment: string; held: Matrix }>();
   for (const [key, { part, segment }] of Object.entries(SKELETON_PIECES)) {
     const carrier = built.segments.get(segment);
@@ -156,7 +156,7 @@ const BONE = new Color3(0.80, 0.74, 0.62), RUNE = new Color3(0.72, 0.35, 0.12);
 const EYE = 0.16 * 0.2 * 0.7;
 
 /** Dress `built`, the crypt skeleton, in `art`. The meshes and their materials are this view's own. */
-export function dressSkeleton(built: BuiltBody, art: SkeletonArt, scene: Scene): SkinView {
+export function dressSkeleton(built: DrawnBody, art: SkeletonArt, scene: Scene): SkinView {
   const prefix = `${built.spec.model}.skin.`;
   const bone = new PBRMaterial(`${prefix}bone`, scene);
   bone.albedoColor = BONE;
@@ -167,7 +167,7 @@ export function dressSkeleton(built: BuiltBody, art: SkeletonArt, scene: Scene):
   rune.metallic = 0.42;
   rune.roughness = 0.66;
 
-  const rows: { mesh: Mesh; segment: BuiltSegment; held: Matrix }[] = [];
+  const rows: { mesh: Mesh; segment: DrawnSegment; held: Matrix }[] = [];
   const meshes: Mesh[] = [];
   for (const [key, { segment, held }] of piecesOnSegments(built)) {
     const piece = art.get(key);

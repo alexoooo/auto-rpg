@@ -9,8 +9,8 @@ its parity with stock Rapier. The bench's plain package stays npm's.
 
 - Upstream commit `b716d375efc0201003f0cd9ef7168eee0b62c177`, tag `js-v0.21.0`; patch
   `vendor/rapier/auto-rpg.patch`.
-- Package `0.21.0-auto-rpg.9`, archive SHA256
-  `0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c`; the adapter's snapshot
+- Package `0.21.0-auto-rpg.10`, archive SHA256
+  `317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318`; the adapter's snapshot
   revision is `adapter-12`.
 - Toolchain: Rust 1.97.1, Node 24.15.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from the upstream
   lockfiles. Source and cache paths are remapped; declarations are written with LF.
@@ -32,6 +32,7 @@ them. Ordinary contacts and joints solve as upstream's.
 | `.7` | the whole-step accumulator in double precision ([effort precision](effort-precision.md)) | `1bb36b24cc07719a35bd7d078ba247bf476de23684bbade15d32fe33097a6dde` |
 | `.8` | pair-local spring/damper normal rows with a rigid depth backstop, and signed whole-step contact reaction work | `983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f` |
 | `.9` | active-contact impulse aggregation (`totalSolverContactImpulse`) | `0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c` |
+| `.10` | bulk calls: contacts, motor commands, poses and velocities, one crossing each (`contact_readings`, `jointSetMotors`, `rbPosesAndVelocities`) | `317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318` |
 
 ## Readings the adapter takes
 
@@ -52,6 +53,13 @@ them. Ordinary contacts and joints solve as upstream's.
   a discarded point's cached impulse adds nothing. Contact observations and the compliant layer read
   it. `tests/core-active-contact.test.mjs@2a1b29ac` loads a Lab fall checkpoint with four separated
   solver points and a fifth, discarded one holding a cached impulse, and reads zero load.
+- **One crossing a step for each of contacts, motors and poses.** `contact_readings` writes every
+  listed collider's pairs, manifolds and solver points into one array, `jointSetMotors` sets every
+  motor command from one, in the order asked, through the setters each stands for, and
+  `rbPosesAndVelocities` reads every body's pose and velocities into one. Each value is the one
+  the per-item call gives, widened to double precision; the adapter sums contacts in JavaScript in
+  the order it did, so every bout plays to the bit as it did one call at a time
+  ([across the boundary](step-cost.md#one-crossing-a-step)).
 - The adapter also gives stable collider-shape replacement, admitted-pair clearance queries and
   grip observation for coarse hand poses; collider geometry restores through the native snapshot.
 

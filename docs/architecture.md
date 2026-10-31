@@ -65,7 +65,7 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
 
 **Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry and
 what each model's right hand holds; the mind each plays by default is the game's (`defaultMind`,
-`src/entrants/game.ts`).
+`src/entrants/game.ts`), and in the Crypt Option Mind's preset for its model (`cryptMind`).
 
 | Model | Built from |
 |---|---|
@@ -195,7 +195,11 @@ Readings back from the built body:
 `rapier.ts` implements it, with solver conditioning in `SOLVER` (not anatomy). Engine profiles
 (`rapier-coordinate`, the gameplay default, and `rapier`, the reference batteries' parent-axis
 form) share one WASM module and are fixed per engine instance
-([joint limits](reference/joint-limits.md)). `engines.ts` lists the engines (`ENGINES`) and is the
+([joint limits](reference/joint-limits.md)). It crosses into the WASM once a step for each of
+contacts, motors and poses, through the vendored patch's bulk calls
+([the vendored Rapier](reference/rapier-vendor.md)): the motor commands are set together before
+the step, the poses and velocities read after it, and every body's contacts read on the first
+reading after it. `engines.ts` lists the engines (`ENGINES`) and is the
 only module that imports one. A new engine is tried on the physics bench (`src/physics-bench/`)
 first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm test`.
 
@@ -275,6 +279,10 @@ a stance goal) into muscle commands.
   `src/core/body.ts`) read each step, with the body its drivers have (`Body`). They read their
   effectors' touch after each physics interval (`OwnBody.afterPhysics`), labelled by the body's own
   contact labels (`OwnBody.contactIdentity`), and know nothing of the skills, a decider or sub-minds.
+  The view carries the step's reading (`StepReading`): a stamp that moves at each look, after each
+  command and after each physics step, which a reading every caller shares is kept against (a
+  foe's colliders once for each time it is observed at, `stepObstacle`; the surface aim's opening,
+  `SURFACE_AIM`). It is no state: it carries nothing from one step to the next.
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
@@ -696,7 +704,8 @@ Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUEL
 thrust and a ward, holding a short sword, is every humanoid's default (`defaultMind`). A preset
 marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
 or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
-chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
+chooses by participant, side and model (`DungeonRunOptions.mind`), else Option Mind's preset for
+the model (`cryptMind`: `option`, `option-skeleton`, `option-reptile`); the Lab's actor by
 `ActorOptions.mind`.
 
 **Option Mind's options** (`src/core/option/`). An `Option` (`option.ts`) is a
@@ -1020,9 +1029,14 @@ and the place's points are the way round it. A walk into an action's window on a
 (`Window.on`, `approachActionWindow`, `src/core/intent/action-window.ts`) stands beside that body:
 of the places about the window's target at `LYING.bearings` turns from along the body
 (`lyingAxis`), those where each foot keeps `LYING.footRadius` clear of its colliders up to the knee
-(`sensedFootClearance`), the one whose way round it (`groundRoute`, clear over the same column)
+(`stepObstacle`), the one whose way round it (`groundRoute`, clear over the same column)
 and turn to its facing cost least, reckoned `LYING.lead` s along the body's motion, so the place
-it set off for stays its choice.
+it set off for stays its choice. A walker that keeps it (`HeldBeside`; Option Mind's walk into a
+strike's window) holds the place and its way as a held decision (`src/core/mind/held.ts`: made
+again on an event, drift, failure or a deadline), chosen again when another body lies there,
+that body's centre moves `CROWD.settled`, the window's target `LYING.shift`, the place's feet or
+its way stop clearing the body, or `LYING.rethink` s pass; the drill Commander holds the spot its
+member's menu names beside a lying foe the same way (`HELD_SPOT`).
 **The bodies about it** (`src/core/navigation/crowd.ts`): a fallen body, of either side but the one it
 ranges about or goes to a place by, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
@@ -1237,9 +1251,39 @@ world for learning and search.
 5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
-A page advances by real time with `World.advance`, which caps the steps a frame may take;
+A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
+the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
 `scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on
 a ground (`coreStand`, `freshEngine`); most of `research/` measures on the stand ([research/README.md](../research/README.md)).
+
+## The world in a worker
+
+The crowd fight's world steps in a Web Worker (`src/worker/`); its page only draws. The worker
+builds the world headless from the screen's recipe exactly as Node does (`teamStage`, `stage.ts`,
+through `buildTeamBout`), loading Rapier and the minds' data in its own realm, so its bouts are the
+same to the bit (`tests/world-worker.test.mjs`).
+
+- **The worker** (`serve`, `serve.ts`; `world.worker.ts` its entry) takes, while the page runs it,
+  the steps real time owes, at most a 30 fps frame's worth a pass (`CATCH_UP_SECONDS`), and sends
+  each step's frame as it is taken. A world that cannot keep real time falls behind it and plays in
+  slow motion; the page keeps its frame rate. The page holds it while it is busy or hidden.
+- **A frame** (`frame.ts`) is one `Float64Array` a step, transferred: the world's time, steps,
+  speed and the step's cost; each body's life, down, out and centre of mass; each segment's
+  position, rotation, hand pose and toes' bend, in the roster's order (`RosterBody`, sent once).
+  What a stage has to tell beside its frames (the verdict) comes with the frame it happened on.
+- **The page** (`openWorld`, `client.ts`) makes a puppet of each body from its spec (`puppetBody`,
+  `src/render/puppet.ts`: a node a segment, its shapes following its hand's pose and toes by the
+  built body's rule, `segmentShapes`), and dresses it as a built body is dressed: skins and shapes
+  draw a `DrawnBody` (`src/render/drawn-body.ts`). Each frame it poses the puppets between the two
+  frames about the moment it shows (`between`, `posePuppet`), which follows the world's speed one
+  step behind the newest frame, so motion is smooth at the display's rate whatever a step costs.
+- **A duel's stage** (`duelStage`) builds the bout by `buildBout`, plays a tape, and takes a
+  person's orders (`order` in the protocol), each given at the next step and kept on the bout's
+  tape (`Duel.order`), which the page may ask for: a bout with a person in it replays from its
+  recipe and tape, in Node as in the worker.
+- **From a console**, `__crowd.step(n)` takes `n` steps in the worker and draws the newest, as a
+  hidden tab needs; `__crowd.world.burden(ms)` makes each step dearer, to see the page keep its
+  rate while the fight slows.
 
 ## State
 
@@ -1515,8 +1559,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt, lab, ratings and tools at `?play=arena`, `?play=dungeon`, `?play=lab`, `?play=ratings`
-and `?play=tools`.
+arena, crowd fight, crypt, lab, ratings and tools at `?play=arena`, `?play=crowd`, `?play=dungeon`,
+`?play=lab`, `?play=ratings` and `?play=tools`.
 
 - **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
   explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
@@ -1529,6 +1573,7 @@ and `?play=tools`.
 | Screen | Where | What it is |
 |---|---|---|
 | Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
+| Crowd fight | `src/arena/crowd.ts` | the crowd fight (`crowdFight`, `TeamBout`), five a side, its world in a worker |
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
 | Ratings | `src/ratings/` | each evaluation's records, derived in the page (`analysis.ts`); nothing played |
@@ -1628,8 +1673,10 @@ An older pool is listed with what differs from the newest.
 - `src/render/scene-profile.ts` owns the World/Tactical presentation policy for Arena, Dungeon and Lab.
   Tactical draws batched physical geometry with plain materials, suspends decorative updates and disables
   graphics passes. Dungeon keeps exploration and actor visibility without uploading its fog texture.
-- `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena and Dungeon.
-  Each screen supplies its render callback and actual physics-step count; timing never advances a world.
+- `src/ui/frame-meter.ts` owns the FPS counter, timing popover and styling used by Arena, Dungeon and
+  the crowd fight. Each screen supplies its render callback and actual physics-step count, or, where a
+  worker steps its world, the steps that arrived, their cost there and the world's speed; timing never
+  advances a world.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin

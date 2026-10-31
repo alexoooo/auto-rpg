@@ -10,7 +10,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
 import { characterAssetUrl } from "./art-assets.ts";
-import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
@@ -80,8 +80,8 @@ const segmentMatrix = (node: TransformNode): Matrix =>
   Matrix.Compose(Vector3.One(), node.rotationQuaternion!, node.position);
 
 /** The trunk segment whose span holds `point` (body frame), or the nearest span's. */
-function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
-  let best: BuiltSegment | null = null, bestOutside = Infinity;
+function trunkSegment(built: DrawnBody, point: Vector3): DrawnSegment {
+  let best: DrawnSegment | null = null, bestOutside = Infinity;
   for (const name of TRUNK) {
     const segment = built.segments.get(name)!, { frame, spec } = segment;
     const along = Vector3.Dot(point.subtract(Vector3.FromArray(frame.origin)), Vector3.FromArray(frame.y));
@@ -98,7 +98,7 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
  * hand is closed into a fist, 0 relaxed to 1 closed; a hand that holds something (`BodySpec.held`)
  * is closed on its haft.
  */
-export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
+export function dressBody(built: DrawnBody, container: AssetContainer, scene: Scene, clothing: Clothing,
   closure?: (hand: Side) => number): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's, which the scene owns and other bodies share: a body part never

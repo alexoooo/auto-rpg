@@ -38,6 +38,13 @@
         </div>
       </main>
     </template>
+    <template id="crowd-screen">
+      <canvas id="stage" tabindex="0" aria-label="Crowd fight"></canvas>
+      <!-- A bar for each body and the frame meter; filled by src/arena/crowd.ts. -->
+      <div id="crowd-hud"></div>
+      <p id="crowd-note">Loading&hellip;</p>
+      <button id="crowd-menu" class="action quiet" type="button">&larr; Main menu</button>
+    </template>
     <template id="tools-screen">
       <main id="tools" class="directory-screen">
         <div class="menu-content">
@@ -47,6 +54,7 @@
             <a class="menu-entry" href="./control-foundation.html">Control foundation</a>
             <a class="menu-entry" href="./control-tasks.html">Control tasks</a>
             <a class="menu-entry" href="./physics-bench.html">Physics bench</a>
+            <a class="menu-entry" href="?play=crowd">Crowd fight, five against five</a>
           </nav>
           <a class="menu-back" href="./">&larr; Main menu</a>
         </div>
