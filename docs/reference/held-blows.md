@@ -4,8 +4,8 @@ The toed Warrior's club blow, sword cut and sword thrust (`src/core/skills/strik
 read against the held blow's bar: 64.8 J of the rules' energy, met with the item's face (the club
 blunt, the cut its edge, the thrust its point), at the mark asked, the striker up
 ([Club and sword](../plans/2026-10-31-club-and-sword.md#the-bar), `BAR.held`,
-`src/evaluation/strike/read.ts`). The club's searched schedule lands at the bar at its own
-places at both rates, 70 to 86 J; the cut and the thrust do not reach it.
+`src/evaluation/strike/read.ts`). The club, steered, lands 86 and 88 of 100 held-out trials at
+120 and 480 Hz, short of the plan's 90; the cut and the thrust do not reach the bar.
 
 ## What is used
 
@@ -18,11 +18,11 @@ places at both rates, 70 to 86 J; the cut and the thrust do not reach it.
   face meets the target along that line. A held face's arm is solved from its guard each step, so
   a chamber that draws the arm back (a negative `chamber`) leaves one contact pose to drive at.
 - **The records**: `assets/core/club-blow.json`, `sword-cut.json`, `sword-thrust.json`, the toed
-  Warrior's only. The club's is its searched schedule (below), admitted standing 1.04 m from the
-  target (`reach` 0.73 of its 0.90 m arm, shoulder to swell; `band` 0.03 m, `aside` 0.17 m); the
-  cut's and the thrust's are the punch's schedule set by hand. No network yet. A steer reads the
-  layout `assets/core/<kind>.layout.json`: the punch's inputs and outputs and the striking wrist's
-  three channels.
+  Warrior's only. The club's is its searched schedule (below) and the network trained on it
+  ([steered](#the-club-steered)), admitted as it was trained (`reach` 0.6 of its 0.90 m arm,
+  shoulder to swell, `band` 0.25 m, `aside` 0.3 m); the cut's and the thrust's are the punch's
+  schedule set by hand, with no network. A steer reads the layout `assets/core/<kind>.layout.json`:
+  the punch's inputs and outputs and the striking wrist's three channels.
 - **What the drill reads**: a held blow lands only where the rules read its contact with the
   mechanism its part meets with (`ExecutorPart.meets`, `StrikeHit.faced`); a blow met otherwise is
   `weak`, whatever its energy.
@@ -59,6 +59,26 @@ are as they were. The best before it was a knife's edge: 47.6 J at a gap of 1.04
 trials a rate, gaps 0.79 to 1.29 m and 0.15 m across the body to 0.3 m to the hand's side, Option
 Mind's club blow alone): 2 landed at 120 Hz and 1 at 480, 2 falls at each. It lands at its own
 places; a steer has to take it elsewhere.
+
+### The club steered
+
+PPO (`research/run-train.py`) on `research/environments/club-blow.json`: the searched schedule
+steered by a network, Option Mind's club blow alone, the Warrior holding the club and the buckler,
+the still rung's target 0.94 to 1.14 m away and 0.15 m across the body to 0.3 m to the club's
+side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 7.1 M decisions in
+6.4 h.
+
+| Network | Held out (seed 6001, 100 a rate): 120 Hz | 480 Hz |
+| --- | --- | --- |
+| none, the schedule alone (seed 5001, 40, gaps 0.79 to 1.29 m) | 2 of 40, 2 fell | 1 of 40, 2 fell |
+| 5.2 M decisions | 73, 2 fell | 91 |
+| 6.2 M | 85, 1 fell | 85 |
+| 7.1 M, the record's | **86**, none fell | **88**, 1 fell |
+
+Landed blows meet at a median 15 to 16 m/s; the misses are weak blows spread over the places, the
+nearest and farthest most. The window is the one it was trained in: a narrower one (`band` and
+`aside` 0.15 m, or `reach` 0.73) admits the same places but moves the body before the blow, and
+lands 72 and 62 (77 and 68).
 
 ### The cut
 
