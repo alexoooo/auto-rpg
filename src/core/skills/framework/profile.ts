@@ -18,6 +18,7 @@
  */
 import { dataOf } from "../../data/store.ts";
 import { bodyKey, type BodySpec } from "../../spec/body.ts";
+import { reactionSteps } from "../../rules/rulebook.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
 import type { PartConfig } from "../../parts/parts.ts";
@@ -36,7 +37,8 @@ declare module "../../data/store.ts" {
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
  * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz, and
- * how late its senses showed the other body, s (null for a skill that reads none).
+ * how late its senses showed the other body as its mind read it, s (`shownLate`; null for a skill
+ * that reads none).
  */
 export interface Measured {
   readonly body: string;
@@ -105,6 +107,8 @@ export interface Profile {
   /** The body it was measured against; null for a skill with no foe. */
   readonly target: Target | null;
   readonly cells: readonly ProfileCell[];
+  /** The limbs a strike's trials were thrown with (effector segments, `hand.right`), which a foe's strikes are modelled by; absent for a skill thrown with none. */
+  readonly limbs?: readonly string[];
 }
 
 /** Where a skill would begin: the range, m, and the foe's phase. */
@@ -286,6 +290,14 @@ export const gaitDigest = (legs: PartConfig, strike: string): string => digestOf
 /** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), must have been measured on. */
 export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null): Measured =>
   ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction });
+
+/**
+ * **How late a mind is shown another body**, s, in a world at `hz` whose senses are `delay` s late
+ * (`reactionSteps`): the senses read each body as a step begins and the mind decides after the
+ * step's physics (`World.step`), a step later. What a profile measured in that world names
+ * (`Measured.reaction`), as a mind reads it: the senses' time less the other body's.
+ */
+export const shownLate = (delay: number, hz: number): number => (reactionSteps(delay, hz) + 1) / hz;
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;

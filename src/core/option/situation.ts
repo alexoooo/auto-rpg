@@ -11,11 +11,11 @@ import type { DownModel } from "./down.ts";
 import type { Position } from "../control/ground-reading.ts";
 import type { Situation } from "./option.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { PERCEPTS, predictor, type Seen } from "./percepts.ts";
+import { PERCEPTS, predictor, type ModelledStrike, type Seen } from "./percepts.ts";
 
 /**
  * What a situation reader reads with: the body's `spec`, the world's rate `hz`, the fight's `rules`
- * (`BodyHost.rules`), its own strikes measured (`strikes`, `measuredProfile`) and every striker's
+ * (`BodyHost.rules`), its own strikes (`strikes`, each with its profile, `measuredProfile`) and every striker's
  * (`measured`, `dataOf("strike-profiles")`), its orders read
  * through `ordersOf`, the prices of its ways up from the ground (`downs`), and the seconds until
  * it is braced as its rise reads them (`unbraced`; absent, braced at once), and the lookup its
@@ -25,7 +25,7 @@ export interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
   readonly rules: Rulebook;
-  readonly strikes: readonly Profile[];
+  readonly strikes: readonly ModelledStrike[];
   readonly measured: readonly Profile[];
   readonly ordersOf: (sight: Sight) => Orders | null;
   readonly riseFrom?: (posture: Position) => DownModel | null;

@@ -109,7 +109,8 @@ export function optionTactics(making: TacticsMaking, hz: number, deciding: Decid
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;
   const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rules, strikes: measures.flatMap((measure) => measuredProfile(measure) ?? []), measured: tables.strikes,
+  const walk = walker(spec), reader = situationReader({ spec, hz, rules,
+    strikes: actions.map((action, i) => ({ name: action.name, limbs: action.effectors, profile: measuredProfile(measures[i]!) })), measured: tables.strikes,
     ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,

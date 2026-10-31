@@ -5,12 +5,13 @@
  * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
  * target: its measured-on read from each row's world (the left
  * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
- * the recipe's sense delay), its target the right body's; a cell a range, the target's phase as
+ * how late its mind was shown the target under the recipe's senses, `shownLate`), its target the right body's; a cell a range, the target's phase as
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
  * reached the drill) and its posture then (`foeAt.posture`, `ProfileCell.postures`; standing in a
  * record from before the reading held it). A target standing is at its condition's gap; one down,
  * at the range the striker sensed it at then, centre to centre (`foeAt.apart`), to the nearest 0.1 m. A record that does not hold that phase is refused: its rung is played again. The `walk`
  * rung is left out: the range it was asked at is not recorded.
+ * A profile names the limbs its trials were thrown with (`Profile.limbs`), in its action's order.
  * A trial whose drill lets its strike go (`letGo`) counts only toward its cell's cost of letting go,
  * at the progress of the motion it was let go at (the seconds from its start, to the step).
  *
@@ -31,7 +32,8 @@ import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
-import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
+import { measuredOn, shownLate, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
+import { senseDelayOf } from "../src/arena/duel.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
@@ -71,12 +73,13 @@ for (const path of paths) {
     if (!action.effectors.includes(drill.effector)) continue;
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
-    const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
+    const reaction = shownLate(senseDelayOf(recipe), hz);
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction), key = JSON.stringify([measured, target]);
-    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, records: new Set(), cells: new Map() };
+    const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), cells: new Map() };
     profiles.set(key, profile);
     profile.records.add(path);
+    profile.limbs.add(drill.effector);
     if (row.reading.foePhase === undefined) throw new Error(`${path}: no foePhase in its readings; play its rung again`);
     const phase = row.reading.foePhase;
     if (phase === null) continue;
@@ -105,6 +108,7 @@ for (const path of paths) {
 }
 
 const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles.values()].map((profile) => ({ measured: profile.measured, target: profile.target,
+  limbs: profile.effectors.filter((limb) => profile.limbs.has(limb)),
   cells: [...profile.cells.values()].filter((c) => c.trials > 0).sort((a, b) => a.posture.localeCompare(b.posture) || a.phase.localeCompare(b.phase) || a.range - b.range).map((c) => ({
     range: c.range, phase: c.phase, trials: c.trials, done: round(c.done / c.trials), dealt: round(c.dealt / c.trials), taken: round(c.taken / c.trials),
     seconds: round(c.timed ? c.seconds / c.timed : c.length / c.trials), down: round(c.down / c.trials), ends: [], ...(c.ranged ? { exit: { range: round(c.exitRange / c.ranged) } } : {}),

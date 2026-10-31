@@ -756,10 +756,13 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   closes while the senses show it late, each hand's blow at a segment of the focus. The pressure
   (`Pressure`) is what the focus is expected to deal the body a second, over the range, read at how
   the two stand (the focus at its posture, the body standing): measured from the strike profiles on
-  the focus's body where there are any (`profilesOn`), else this body's own, and says how it is
-  priced (`Pressure.priced`); an option is charged it for its time near the focus (`threatened`).
+  the focus's body where there are any (`profilesOn`), else this body's own, each limb the focus
+  strikes with that none of them throws (`Profile.limbs`) by hand, and says how it is priced
+  (`Pressure.priced`); an option is charged it for its time near the focus (`threatened`).
   The body's own strikes press the focus the same way (`pressing`), standing at the focus's
-  posture. A model no drill measured is its prior, read as a measured one is: the pressure's and
+  posture, each strike by its own profile where one is fresh and else by the limbs it is thrown
+  with (`ModelledStrike`), so one unmeasured strike is priced by hand while the others are
+  measured. A model no drill measured is its prior, read as a measured one is: the pressure's and
   the danger's a profile of one cell (`prior`) between two standing bodies, none where either lies;
   the strike's its cell's expectation at the segment it aims (`StrikeOption`'s `priorOf`), a gait's
   braced at once and up, the rise's `BY_HAND`.
@@ -773,7 +776,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   strike's exit takes), and how the two bodies stood as its trials began (`Postures`, both standing
   unless named) (`ProfileCell`). Each names what it
   was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
-  reaction time), and one read on another is stale (`staleness`) and not read; and the body it was
+  reaction time as its mind read it, `shownLate`), and one read on another is stale (`staleness`)
+  and not read; a strike's names the limbs it was thrown with (`limbs`); and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
   `readProfile` (`ProfileReading`), at a pair of postures, its cells measured there alone: its reach in a phase, what it expects from a place (`ProfilePlace`:
   the range, the foe's phase and the motion's progress) against the body struck now (`Expected`, in
