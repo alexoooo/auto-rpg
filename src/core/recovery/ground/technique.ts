@@ -1,4 +1,5 @@
-import { commandRefusal, type BodyView } from "../../body.ts";
+import type { BodyView } from "../../body.ts";
+import { groundRefusal } from "../../control/ground-reading.ts";
 import type { MuscleDriver } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
@@ -92,8 +93,8 @@ export function mirrorPosture(posture: Readonly<Record<string, number>>): Readon
     / (lateral flexion right|rotation right)$/.test(name) ? -value : value]));
 }
 
-/** A technique's `fits`: a body the command layers read (`commandRefusal`), whose limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
-const fitsHumanoid = (spec: BodySpec): string | null => commandRefusal(spec);
+/** A technique's `fits`: a body whose position on the ground is read (`groundRefusal`): its soles and the limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
+const fitsHumanoid = (spec: BodySpec): string | null => groundRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own. */
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"]; moving?: boolean }): TechniquePart<{ readonly kind: K }> =>

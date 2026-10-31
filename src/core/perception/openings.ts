@@ -491,7 +491,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     const margin = margins[hand];
     const observed = view.effectors[HANDS[hand]]!.feedback?.point;
     if (observed) { start[0] = observed[0]; start[1] = observed[1]; start[2] = observed[2]; }
-    else { const fist = view.fists[hand].position; start[0] = fist.x; start[1] = fist.y; start[2] = fist.z; }
+    else { const fist = view.fists[hand]!.position; start[0] = fist.x; start[1] = fist.y; start[2] = fist.z; }
     const guards = guardsOf(foe.spec);
     let count = 0;
     for (let k = 0; k < guards.length; k++) {

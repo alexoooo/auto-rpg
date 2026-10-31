@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { uprightness } from "./ground.ts";
-import { footStatesOf, soleMiddleToRef, withinSupport } from "./support.ts";
+import { footStatesOf, soleMiddleToRef, soleRefusal, withinSupport } from "./support.ts";
 import { centreOfToRef, massCentreToRef, massOf, turnOfToRef } from "../read-motion.ts";
-import type { Side } from "../spec/body.ts";
+import { segmentOf, type BodySpec, type Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /** How a body lies: on its front, its back, or a side (the side that is down). */
@@ -75,9 +75,23 @@ const HAND_BACK_LOAD = 0.9, SLOW = 0.3, SPIN = 1;
 /** A body faster than this, m/s, or spinning faster than this, rad/s, is tumbling. */
 const TUMBLING = 0.5, TUMBLING_SPIN = 1;
 
-/** Read fixed support and body geometry once per step. Reset between periods of ground ownership. */
+/** The segments a ground reading tells how a body lies by, beside its feet: a human's trunk, thighs, shanks, forearms and hands. */
+const LYING_ON: readonly string[] = Object.freeze(["lowerTrunk", "middleTrunk", "upperTrunk", "thigh.left", "thigh.right", "shank.left", "shank.right",
+  "forearm.left", "forearm.right", "hand.left", "hand.right"]);
+
+/** What a ground reading (`groundReading`) lacks of a body of `spec`, a sentence, or null where it reads it: soles to stand on, and the segments it tells how the body lies by (`LYING_ON`). */
+export function groundRefusal(spec: BodySpec): string | null {
+  const soles = soleRefusal(spec);
+  if (soles) return soles;
+  const lacks = LYING_ON.filter((name) => !segmentOf(spec, name));
+  return lacks.length ? `needs ${lacks.join(", ")} to tell how it lies` : null;
+}
+
+/** Read fixed support and body geometry once per step. Reset between periods of ground ownership. It refuses a body it cannot read (`groundRefusal`). */
 export function groundReading(built: ReadBody, dt: number) {
   if (!(dt > 0 && Number.isFinite(dt))) throw new Error("a ground reading needs a positive step time");
+  const refused = groundRefusal(built.spec);
+  if (refused) throw new Error(`${built.spec.model}: the ground reading ${refused}`);
   const parts = built.spec.segments.map(s => built.segments.get(s.name)!);
   const feet = footStatesOf(built), indices = feet.map(f => parts.indexOf(f.segment));
   const mass = massOf(parts), weight = mass * -built.physics.gravity[1];

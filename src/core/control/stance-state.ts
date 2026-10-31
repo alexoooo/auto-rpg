@@ -10,7 +10,7 @@ import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type GaitTuning, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
-import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
+import { footStatesOf, restWidth, soleRefusal, type FootMemory, type FootState } from "./support.ts";
 import { massOf } from "../read-motion.ts";
 import type { Side } from "../spec/body.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
@@ -162,6 +162,8 @@ export interface Stance {
 }
 
 export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist | null): Stance {
+  const refused = soleRefusal(built.spec);
+  if (refused) throw new Error(`${built.spec.model}: the stance ${refused}`);
   const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);
   const segments = [...built.segments.values()], total = massOf(segments);
   const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total

@@ -15,7 +15,7 @@ import { closesToStrike } from "./held-strike.ts";
 import { keepsWalk, PUNCH_DECIDE, punchChannels, punchFeatures, stanceAsks, steerPushes } from "./learned-punch.ts";
 import { learnerOf } from "../../learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
-import { otherSide } from "../../spec/body.ts";
+import { fistOn, otherSide } from "../../spec/body.ts";
 
 /**
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`
@@ -157,9 +157,9 @@ export function timedChannelFault(spec: BodySpec, settings: Pick<StraightPunch, 
   return driven.length ? `pushes ${driven.join(", ")} on the arm it drives` : null;
 }
 
-/** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
+/** Whether a body of `spec` can throw the straight punch: a hand effector each side that makes a fist (`fistOn`), below a chest, and a thoracic joint that turns it. */
 export function straightPunchFits(spec: BodySpec): boolean {
-  const hand = (side: Side) => spec.effectors?.some((e) => e.segment === `hand.${side}` && e.base === "upperTrunk") ?? false;
+  const hand = (side: Side) => spec.effectors?.some((e) => e.segment === `hand.${side}` && e.base === "upperTrunk" && fistOn(spec, side) === e.segment) ?? false;
   return hand("left") && hand("right") && spec.joints.some((j) => j.name === "thoracic");
 }
 
@@ -344,7 +344,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
     for (const g of limb.goals) push(g.channel, g.angle);
     if (state.firedFor !== state.began) { state.firedFor = state.began; state.fired = null; state.decided = -Infinity; state.steeredAt = -Infinity; state.learner.outputs.length = 0; }
     if (settings.fire !== undefined && state.fired === null && since < settings.lead) {
-      const fist = view.fists[hand].position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
+      const fist = view.fists[hand]!.position, dx = state.target[0] - fist.x, dy = state.target[1] - fist.y, dz = state.target[2] - fist.z;
       if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= settings.fire * limb.arm) state.fired = since;
     }
     const start = state.fired ?? settings.lead;
@@ -386,7 +386,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
   const drivenPoint = (view: BodyView, hand: Side, limb: Limb, { accel, steer, arrive }: NonNullable<StraightPunch["driven"]>): PointTask => {
     pointAtToRef(limb.chain, limb.angles, limb.point, goal);
     goal.applyRotationQuaternionToRef(view.root.rotation, goal).addInPlace(view.root.position);
-    const fist = view.fists[hand], v = fist.velocity;
+    const fist = view.fists[hand]!, v = fist.velocity;
     const dx = goal.x - fist.position.x, dy = goal.y - fist.position.y, dz = goal.z - fist.position.z, apart = hypot(dx, dy, dz);
     const speed = apart > 0 ? Math.sqrt(2 * accel * Math.max(apart, arrive)) / apart : 0;
     const ax = steer * (dx * speed - v.x), ay = steer * (dy * speed - v.y), az = steer * (dz * speed - v.z), size = hypot(ax, ay, az);

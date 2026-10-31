@@ -1,4 +1,3 @@
-import { commandRefusal } from "../body.ts";
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { PartField } from "./fields.ts";
@@ -115,14 +114,6 @@ export function anyBody(): string | null {
 /** A part's `fits` for a body `test` passes, refusing any other for `reason`. */
 export function fitsWhen<C = PartConfig>(test: (spec: BodySpec, config: C, parts: PartLookup) => boolean, reason: string): (spec: BodySpec, config: C, parts: PartLookup) => string | null {
   return (spec, config, parts) => test(spec, config, parts) ? null : reason;
-}
-
-/**
- * A mind's `fits` for a body that takes the game's commands: what the command layer lacks of it
- * (`commandRefusal`), or null. A part below such a mind fits by what it uses itself.
- */
-export function takesCommands(spec: BodySpec): string | null {
-  return commandRefusal(spec);
 }
 
 /** A part's `fits` for a body with one of `effectors` at least: what an executor strikes with. */

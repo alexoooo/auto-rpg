@@ -169,6 +169,19 @@ interface EffectorSpec {
   readonly point: string;
 }
 
+/**
+ * **The hand of `spec` on `side` that makes a fist**: the effector whose segment has knuckles
+ * (`SegmentSpec.points`), on that side of the body (its centre of mass's x: +x is the right), or
+ * undefined where it has none.
+ */
+export function fistOn(spec: BodySpec, side: Side): string | undefined {
+  for (const effector of spec.effectors ?? []) {
+    const segment = segmentOf(spec, effector.segment);
+    if (segment?.points?.knuckles && (segment.centreOfMass.value[0] < 0 ? "left" : "right") === side) return effector.segment;
+  }
+  return undefined;
+}
+
 /** **The paws `spec` stands on** (`PawLimb`, `BodySpec.ends`), in its spec's order: the order a crawl lifts them. */
 export const pawsOf = (spec: BodySpec): readonly PawLimb[] => (spec.ends ?? []).filter((end): end is PawLimb => end.kind === "paw");
 

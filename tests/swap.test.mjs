@@ -8,8 +8,8 @@
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
  * through a link unchanged. One bout, the two fixtures facing, holds every stub at once; an
  * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
- * takeover and resumes across its handback. A body the command layers cannot read refuses a mind
- * on them for what they lack, at construction too, and every stock legs for what they stand on.
+ * takeover and resumes across its handback. A body a mind's parts cannot drive refuses the mind
+ * for what the first of them lacks, at construction too, and every stock legs for what they stand on.
  * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
@@ -273,14 +273,16 @@ for (const { part, mind, place } of STUBS) {
   });
 }
 
-test("a body without the command layer refuses a mind for what the layer lacks, at construction too, and every legs for what they stand on", async () => {
-  const reptile = modelSpec("reptile"), layer = /^the command layer needs /;
-  assert.match(treeRefusal(reptile, BLADE_FIGHTER) ?? "", layer);
+test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, and every legs for what they stand on", async () => {
+  const reptile = modelSpec("reptile"), soles = "needs a left and a right foot, each with a box sole";
+  assert.equal(treeRefusal(reptile, BLADE_FIGHTER), "blade-cut: needs hand.left or hand.right to strike with", "a blow names the limb it strikes with");
+  assert.equal(treeRefusal(reptile, { ...BLADE_FIGHTER, executors: [], actions: [] }), `locomotion: ${soles}`, "with no blow, the legs name what they stand on");
   const legs = kindsFor("locomotion", reptile);
   assert.ok(legs.length > 0, "the fixture offers legs to refuse");
-  for (const { kind, reason } of legs) assert.equal(reason, "needs a left and a right foot, each with a box sole", kind);
+  for (const { kind, reason } of legs) assert.equal(reason, soles, kind);
+  // Built on a body it cannot stand, the command layers' motor refuses it for what its stance lacks.
   const stand = await coreStand(reptile);
-  assert.throws(() => commandedBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
+  assert.throws(() => commandedBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => error.message === `reptile: the stance ${soles}`);
 });
 
 test("a Commander registered from outside src/ is listed, leads a team of one and is a Crypt subject", async () => {

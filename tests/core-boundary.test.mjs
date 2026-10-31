@@ -529,10 +529,7 @@ function packageBarring(file, target) {
  * `from -> to` under `src/core/`, by what removes it. The list is exact: such an import not on it
  * fails, and so does one the code no longer has, so it only shrinks.
  */
-const UP_STACK = [
-  // A part's fit by the body's command refusal: the body's shape, read from its spec for a second body family.
-  "parts/parts.ts -> body.ts",
-];
+const UP_STACK = [];
 
 /** The layer of `file` (under `src/core/`) by `LAYERS`, the longest entry ruling; -1 for none. */
 function layerOf(file) {

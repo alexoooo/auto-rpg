@@ -1,13 +1,13 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { COMMAND, commandRefusal, type Body, type BodyCommand, type BodyDriver, type BodyView, type Fist, type LayerOptions } from "../body.ts";
+import { COMMAND, type Body, type BodyCommand, type BodyDriver, type BodyView, type Fist, type LayerOptions } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import { NOTHING_SENSED, type Senses } from "../mind/senses.ts";
 import type { HostMind } from "../mind/sub-mind.ts";
 import { centreReading } from "../observation.ts";
 import type { ReadBody, ReadSegment } from "../read-body.ts";
-import { groundReading } from "./ground-reading.ts";
-import type { Side } from "../spec/body.ts";
+import { groundReading, groundRefusal } from "./ground-reading.ts";
+import { fistOn, type Side } from "../spec/body.ts";
 import { dot } from "../spec/vec.ts";
 import { effectorFeedback } from "./effector-feedback.ts";
 import { uprightness } from "./ground.ts";
@@ -40,25 +40,25 @@ export interface CommandLayers extends HostMind {
  * **The command layers over `own`** (`CommandLayers`), holding its reference pose until something
  * drives them, on `clock`: motor control of the maker `options` names (the whole-body solve unless
  * given), the view, and the effectors' touch where `options` asks for it (`LayerOptions.feedback`),
- * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read a fist on each
- * side, a box sole under each foot and a head (`commandRefusal`), and refuse a body without them.
- * Their touch is read after each completed physics interval (`OwnBody.afterPhysics`), before any
- * observer added after them.
+ * labelled by the body's own contact labels (`OwnBody.contactIdentity`). They read the body as its
+ * spec has it: a fist for each hand with knuckles (`fistOn`), the head where another body aims
+ * high (`BodySpec.marks`), and how it lies on the ground where a ground reading reads it
+ * (`groundRefusal`); what their motor cannot drive, it refuses as it is made (the stance a body
+ * without soles). Their touch is read after each completed physics interval
+ * (`OwnBody.afterPhysics`), before any observer added after them.
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
-  const refused = commandRefusal(own.spec);
-  if (refused) throw new Error(`${own.spec.model}: ${refused}`);
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
   const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), own.contactIdentity,
     segment => contacts?.(segment) ?? []) : null;
-  const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
-  const head = centreReading(built, "head");
+  const fists = (["left", "right"] as const).flatMap((side) => { const hand = fistOn(own.spec, side); return hand ? [[side, fistOf(built, hand)] as const] : []; });
+  const head = centreReading(built, own.spec.marks.high);
   const angles: Record<string, number> = {};
   const upright = uprightness(built);
-  const ground = groundReading(built, clock.dt);
+  const ground = groundRefusal(own.spec) === null ? groundReading(built, clock.dt) : null;
   const goals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
@@ -68,14 +68,14 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
     goals, effectors, time: 0, born: null as number | null, angles,
-    fists: { left: fists.left.fist, right: fists.right.fist },
+    fists: Object.fromEntries(fists.map(([side, reading]) => [side, reading.fist])) as Partial<Record<Side, Fist>>,
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
     motor: motor.state,
     down: false,
     /** The height the last command held the body low at with no stance (`BodyCommand.held`), m, or null. */
     held: null as number | null,
-    ground: ground.state,
+    ground: ground?.state ?? null,
     /** Whether the layers are released (`HostMind.release`): another has the body, and the ground is read whatever the stance. */
     released: false,
     groundActive: false,
@@ -96,7 +96,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     unmet: motor.unmet,
     standing: standingHeight(built),
     get down() { return state.down; },
-    get ground() { return state.groundActive ? ground.state.reading : null; },
+    get ground() { return state.groundActive && ground ? ground.state.reading : null; },
     get resumed() { return state.resumed; },
   };
   let driver: BodyDriver | null = null;
@@ -141,8 +141,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.born ??= senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
-    fists.left.update();
-    fists.right.update();
+    for (let i = 0; i < fists.length; i++) fists[i]![1].update();
     rootFrameToRef(motor.root, state.root);
     for (const segment in effectors) {
       const out = effectors[segment]!, part = built.segments.get(segment)!;
@@ -155,8 +154,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     const standing = motor.standing;
     state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
     state.groundActive = state.down || state.released || state.groundActive && standing === null;
-    if (state.groundActive) ground.read();
-    else ground.reset();
+    if (ground) {
+      if (state.groundActive) ground.read();
+      else ground.reset();
+    }
   };
   const act = (dt: number): void => {
     const next = driver?.(view, dt);
@@ -206,16 +207,16 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
   && a.places.every((place, i) => place.point === b.places[i]!.point && place.position.every((v, k) => v === b.places[i]!.position[k]));
 
 /**
- * The knuckles (`SegmentSpec.points`) of `hand`, where a fist strikes, and their velocity from the
+ * The knuckles (`SegmentSpec.points`) of the hand `segment`, where a fist strikes, and their velocity from the
  * hand body's: its centre's (the engine's linear velocity is the centre of mass's), plus its spin
  * across the arm from the centre to the knuckles. Not the segment's far end: the hand segment runs
  * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
  * nodes: the engine moves a body by more than its velocity when it corrects a constraint's error.
  */
-function fistOf(built: ReadBody, side: Side): { fist: Fist; update(): void } {
-  const hand: ReadSegment | undefined = built.segments.get(`hand.${side}`);
+function fistOf(built: ReadBody, segment: string): { fist: Fist; update(): void } {
+  const hand: ReadSegment | undefined = built.segments.get(segment);
   const knuckles = hand?.spec.points?.knuckles;
-  if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
+  if (!hand || !knuckles) throw new Error(`${built.spec.model} has no hand with knuckles at ${segment}`);
   const { origin, x, y, z } = hand.frame;
   const local = (p: readonly number[]) => { const o = p.map((c, i) => c - origin[i]!); return new Vector3(dot(o, x), dot(o, y), dot(o, z)); };
   // The centre of mass (of the hand and what it holds), and from it to the knuckles, in the hand's own frame.

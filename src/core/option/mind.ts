@@ -13,7 +13,8 @@ import { GAME_MOTOR, kitOf } from "../mind/kit.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
-import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../parts/parts.ts";
+import { slotList, slotOne, type PartConfig, type Slot } from "../parts/parts.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
 import { driveBy } from "../mind/decider.ts";
 import { commandedMind } from "../mind/sub-mind.ts";
@@ -97,7 +98,7 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
-  fits: fitsAll<OptionMindConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
+  fits: (spec: BodySpec, config: OptionMindConfig, parts: PartLookup) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

@@ -30,7 +30,7 @@ function recordFault(spec: BodySpec, config: Config): string | null {
 export const PUNCH_PART: ExecutorPart<Config> = {
   role: "executor", label: "Straight punch", stage: "game", defaults: { kind: "straight-punch", name: "punch" },
   keys: { kind: true, name: true, tuning: true }, tuning: STRAIGHT_PUNCH_KEYS,
-  fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint"),
+  fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk, each with a fist, and a thoracic joint"),
     recordFault, (spec, config) => config.tuning ? timedChannelFault(spec, config.tuning) : null),
   faults: (config) => config.tuning === undefined || validStraightPunchPart(config.tuning) ? [] : ["invalid straight punch tuning"],
   reads: () => ["straight-punch"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,

@@ -12,10 +12,9 @@ import type { MuscleDriver } from "./muscle/driver.ts";
 import type { MotorMaker } from "./control/motor-part.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { EffectorContact, EffectorFeedback } from "./control/effector-feedback.ts";
-import type { BodySpec, Side, HandPose } from "./spec/body.ts";
+import type { Side, HandPose } from "./spec/body.ts";
 import type { GroundReading } from "./control/ground-reading.ts";
 import type { ReadBody } from "./read-body.ts";
-import { segmentOf } from "./spec/body.ts";
 
 /**
  * **A body, commanded and seen**: the body its drivers have under the command layers
@@ -129,15 +128,15 @@ export interface BodyView {
   readonly senses: Senses;
   /** Each freedom's angle, rad, by channel name (`jointAngles`). */
   readonly angles: Readonly<Record<string, number>>;
-  /** Each hand's knuckles in the world: where a fist strikes, and how fast. */
-  readonly fists: Readonly<Record<Side, Fist>>;
+  /** Each hand's knuckles in the world, by its side, for each hand with knuckles (`fistOn`): where a fist strikes, and how fast. */
+  readonly fists: Readonly<Partial<Record<Side, Fist>>>;
   /**
    * The body frame in the world, as the last step left it: the root segment's place and turn
    * (`rootFrameToRef`), the frame an effector's goal is set in. A world point is brought into it with
    * `intoFrameToRef`.
    */
   readonly root: Frame;
-  /** The head's centre of mass, world: where a strike's reach is measured from (`placedReach`, `src/core/skills/strikes/arm-reach.ts`). */
+  /** The head's centre of mass, world, the segment another body aims high at (`BodySpec.marks`): where a strike's reach is measured from (`placedReach`, `src/core/skills/strikes/arm-reach.ts`). */
   readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;
@@ -199,23 +198,3 @@ export interface LayerOptions {
  * where its order sheets are written).
  */
 export type BodyOptions = LayerOptions & Embodying;
-
-/**
- * **What the command layer lacks of a body of `spec`** (`commandLayers`), a sentence, or null where
- * it has all the layer reads: a fist (a hand with knuckles) on each side (`BodyView.fists`), a box
- * sole under each foot for its stance (`BodyView.stance`), and a head its view is centred on
- * (`BodyView.head`). The layer is the humanoid's; a body without these is driven by a mind of its
- * own over its muscles (`BodyHost.take`).
- */
-export function commandRefusal(spec: BodySpec): string | null {
-  const segment = (name: string) => segmentOf(spec, name), lacks: string[] = [];
-  for (const side of ["left", "right"] as const) if (!segment(`hand.${side}`)?.points?.knuckles) lacks.push(`a fist at hand.${side}`);
-  for (const side of ["left", "right"] as const) if (segment(`foot.${side}`)?.shape.kind !== "box") lacks.push(`a box sole at foot.${side}`);
-  if (!segment("head")) lacks.push("a head");
-  return lacks.length ? `the command layer needs ${lacks.join(", ")}` : null;
-}
-
-/** Whether a body of `spec` can take a command (`commandRefusal`). */
-export function commandable(spec: BodySpec): boolean {
-  return commandRefusal(spec) === null;
-}

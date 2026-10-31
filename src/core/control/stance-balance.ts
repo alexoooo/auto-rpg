@@ -2,19 +2,14 @@ import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { BalancePart } from "./balance-part.ts";
 import { stanceControl } from "./stance.ts";
-import { segmentOf } from "../spec/body.ts";
+import { soleRefusal } from "./support.ts";
 
 /** **The stance** (`stanceControl`): the centre of mass carried over two feet, stepping to catch it. */
 interface StanceBalanceConfig { readonly kind: "stance" }
 
-/** Whether a body of `spec` has what the stance stands on: a left and a right foot, each with a box sole. */
-function standsOnSoles(spec: BodySpec): boolean {
-  return (["left", "right"] as const).every((side) => segmentOf(spec, `foot.${side}`)?.shape.kind === "box");
-}
-
-/** A part's `fits` for a body the stance stands (`standsOnSoles`). */
+/** A part's `fits` for a body the stance stands: a left and a right foot, each with a box sole (`soleRefusal`). */
 export function fitsSoles(spec: BodySpec): string | null {
-  return standsOnSoles(spec) ? null : "needs a left and a right foot, each with a box sole";
+  return soleRefusal(spec);
 }
 
 /** **The stance** as a balance: the game's. */

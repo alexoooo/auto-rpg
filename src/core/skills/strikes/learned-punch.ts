@@ -136,7 +136,7 @@ const framed = (view: BodyView, x: number, y: number, z: number, out: Vector3): 
  */
 export function punchFeatures(body: Body, view: BodyView, hand: Side, channels: PunchChannels, since: number, fromShoulder: Vector3, target: readonly number[],
   aimed: readonly number[], touching: boolean, arm: number, out: number[]): number[] {
-  const side = hand === "right" ? 1 : -1, fist = view.fists[hand], muscles = body.muscles;
+  const side = hand === "right" ? 1 : -1, fist = view.fists[hand]!, muscles = body.muscles;
   let k = 0;
   read[k++] = since;
   read[k++] = fromShoulder.x * side; read[k++] = fromShoulder.y; read[k++] = fromShoulder.z;

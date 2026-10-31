@@ -19,7 +19,8 @@ import { takesScript, GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
-import { commandable, type HostedBody } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
+import { groundRefusal } from "../core/control/ground-reading.ts";
 import { enlist } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
@@ -67,7 +68,7 @@ export interface FallCase {
 }
 
 /** Whether the Lab's stand bed can play `fall`: a mind that takes the Lab's script (`takesScript`), on a body the command layers read. */
-const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && commandable(modelSpec(fall.model));
+const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && groundRefusal(modelSpec(fall.model)) === null;
 
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;

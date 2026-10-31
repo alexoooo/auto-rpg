@@ -4,7 +4,9 @@ import { controller } from "../mind/controller.ts";
 import { createFighter, driveFighter, kitBody, kitSubs, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "../mind/kit.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
-import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "../parts/parts.ts";
+import { slotList, slotOne, type Slot } from "../parts/parts.ts";
+import type { BodySpec } from "../spec/body.ts";
+import type { PartLookup } from "../parts/lookup.ts";
 
 /**
  * A fighter's slots: its navigation, its tactics, a skill of each role, its executors, low support
@@ -22,7 +24,7 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 export const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: BLADE_FIGHTER,
   keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
-  fits: fitsAll<FighterConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
+  fits: (spec: BodySpec, config: FighterConfig, parts: PartLookup) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

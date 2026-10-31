@@ -296,7 +296,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       }
       if (id !== null && times.ended === null && !skills.report.actions.some((one) => one.id === id)) { times.ended = world.time; exit = { range: range() }; }
       const aimed = action && action.id === id ? action.aim : null;
-      const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.fists[hand].position ?? null;
+      const tip = !aimed ? null : hand === null || armed ? pointOfToRef(limb, aim, point) : view?.fists[hand]?.position ?? null;
       if (aimed && tip) {
         const dx = tip.x - aimed[0], dy = tip.y - aimed[1], dz = tip.z - aimed[2], apart = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (nearest === null || apart < nearest) nearest = apart;

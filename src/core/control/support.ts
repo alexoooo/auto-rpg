@@ -13,7 +13,7 @@ import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import type { MuscleSpec, Side } from "../spec/body.ts";
+import { segmentOf, type BodySpec, type MuscleSpec, type Side } from "../spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
 import { dot } from "../spec/vec.ts";
 
@@ -183,6 +183,11 @@ interface HeldRegions {
  * What is a foot's own (its sole, its ends' corners, its heel's height flat) is the
  * reference pose's, whatever pose the body is in.
  */
+/** What a body of `spec` lacks for the stance to stand it, a sentence, or null where it has a left and a right foot, each with a box sole. */
+export function soleRefusal(spec: BodySpec): string | null {
+  return (["left", "right"] as const).every((side) => segmentOf(spec, `foot.${side}`)?.shape.kind === "box") ? null : "needs a left and a right foot, each with a box sole";
+}
+
 export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[] {
   const weight = massOf([...built.segments.values()]) * STANDARD_GRAVITY.value;
   const feet = (["left", "right"] as const).map((side): FootState => {

@@ -27,8 +27,8 @@ folder spans two layers (`LAYERS`): a module imports its own layer or one below,
 (`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. Tactics are a
 package, a layer of their own that from outside it only the minds built on it import
 (`CORE_PACKAGES`: Option Mind, the drill opponent, whose body is a fighter by default, and the
-support-entry task, which boots one). Today's imports up the layers or into the package are
-listed (`UP_STACK`), each with the change that removes it, and the list only shrinks.
+support-entry task, which boots one). An import up the layers or into the package would be
+listed (`UP_STACK`), each with the change that removes it; the list is empty and only shrinks.
 
 | Layer | Where | Job |
 |---|---|---|
@@ -280,7 +280,7 @@ a stance goal) into muscle commands.
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
-  foot (`standsOnSoles`). A motor that carries a stance stands the body with the balance its config
+  foot (`soleRefusal`, `support.ts`, which the stance also refuses a body by as it is made). A motor that carries a stance stands the body with the balance its config
   names, and the command layers' view reads the stance from it.
 - **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
@@ -529,10 +529,13 @@ fight reads. A fight passes the config through and reads nothing in it.
   read by asking `commandsBody`, and where the mind drives through the command layers
   (`Mind.body`) the fight's body shows their view (`HostedBody`). A body built outside a fight (a
   test, a study, a task) is built the same way under the command layers (`commandedBody`). The
-  command layers are the humanoid's: their view's fists, head and stance
-  (`BodyView`) and the intent's guarding hands belong to them, beside the general body (segments,
-  joints, effectors, contacts, muscles). `commandLayers` refuses a body they cannot read with what it
-  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules; `HostGrants`); no maker
+  command layers read any body as its spec has it: beside the general body (segments, joints,
+  effectors, contacts, muscles), their view's fists are its hands with knuckles (`fistOn`), its head
+  the segment another body aims high at (`BodySpec.marks`), its stance its motor's, and how it lies
+  its ground reading's where one reads it (`groundRefusal`). What their motor cannot drive it refuses
+  as it is made (the stance a body without soles), and a mind built on them fits a body by its
+  parts: each part's `fits` names what it uses (legs their soles, a guard its hands, a blow the limb it
+  strikes with, a technique the ground reading). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules; `HostGrants`); no maker
   can widen them.
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
@@ -1004,9 +1007,8 @@ its own (`node scripts/entrant-check.mjs`).
    ... }`), its defaults, its faults and its maker, written as one controller
    (`controller<C>({ ... })`). The maker takes its body once through the host (`host.take`), as a
    mind made of its `OwnBody`: a policy (`policyMind`) reads `BodyObservation` and returns
-   `BodyAction`; the game's command layers (`commandedMind`) are built on it only where a body they
-   can read has it (a humanoid's, `commandRefusal`): the game's humanoid parts, sub-minds included,
-   read their view, and a mind on them fits only such a body (`takesCommands`); a host and
+   `BodyAction`; the game's command layers (`commandedMind`), whose view the game's parts,
+   sub-minds included, read, each fitting a body by what it uses of it (`Part.fits`); a host and
    sub-minds of its own (`hosting`), as the quadruped's are. It returns its memory (`state`), which a fight saves and loads with the body, and its
    skills if it runs the game's. It may use any of the toolkit and imports no engine, world or
    builder.
