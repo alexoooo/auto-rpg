@@ -74,8 +74,8 @@ export interface Destination {
 }
 
 /** `spot`'s where it is, read once a step at each focus: its memory, the step and focus it last read at. */
-function once(spot: (now: Situation) => Spot | null): (now: Situation) => Spot | null {
-  const memory = { time: NaN, focus: null as string | null, spot: null as Spot | null };
+function once<T>(spot: (now: Situation) => T | null): (now: Situation) => T | null {
+  const memory = { time: NaN, focus: null as string | null, spot: null as T | null };
   return (now) => {
     const focus = now.focus?.id ?? null;
     if (memory.time !== now.time || memory.focus !== focus) { memory.time = now.time; memory.focus = focus; memory.spot = spot(now); }
@@ -141,27 +141,50 @@ export function outOfPressure(walk: Walker): Destination {
   };
 }
 
+/** Where on the ground a place is, m, as a rule finds it. */
+export interface Ground { readonly x: number; readonly z: number }
+
+/** No place found this step. */
+const NOWHERE = blocked("no place found");
+
 /**
- * **A place on the ground**, (`x`, `z`) m, whatever the focus: facing its way there; a place while
- * the body's centre stands more than `within` m off it, reached within. Its walk goes there
- * (`approachSpot`), kept out of every fallen body's reach (`Walker.kept`).
+ * **A place found by a rule**, `name`: where `where` finds it each step (any rule: geometry, a
+ * search over candidates; read once a step, `once`), null where it finds none; facing its way
+ * there; a place while the body's centre stands more than `within` m off it, reached within. Its
+ * walk goes there (`approachSpot`), kept out of every fallen body's reach (`Walker.kept`). Footwork
+ * of any mind's own walks to it as to the toolkit's places (`walksTo`).
  */
-export function groundPlace(x: number, z: number, within: number, walk: Walker): Destination {
+export function placeBy(name: string, where: (now: Situation) => Ground | null, within: number, walk: Walker): Destination {
   const THERE = blocked("there");
-  const off = (now: Situation): number => hypot(x - now.sight.view.stance.centre.x, z - now.sight.view.stance.centre.z);
-  const spot = (now: Situation): Spot => {
+  const found = once(where);
+  const off = (now: Situation, at: Ground): number => hypot(at.x - now.sight.view.stance.centre.x, at.z - now.sight.view.stance.centre.z);
+  const spot = (now: Situation): Spot | null => {
+    const at = found(now);
+    if (!at) return null;
     const centre = now.sight.view.stance.centre;
-    return { x, z, face: off(now) > 0 ? atan2(x - centre.x, z - centre.z) : now.sight.report.heading };
+    return { x: at.x, z: at.z, face: off(now, at) > 0 ? atan2(at.x - centre.x, at.z - centre.z) : now.sight.report.heading };
   };
   return {
-    name: `to (${x}, ${z})`, spot,
-    entry: (now) => off(now) > within ? READY : THERE,
-    reached: (now) => off(now) <= within,
+    name, spot,
+    entry: (now) => {
+      const at = found(now);
+      return !at ? NOWHERE : off(now, at) > within ? READY : THERE;
+    },
+    reached: (now) => {
+      const at = found(now);
+      return at !== null && off(now, at) <= within;
+    },
     walk: (now) => {
       const at = spot(now);
-      return walk.kept(now, approachSpot(now.sight.view, at, ceilingOf(now), at.face));
+      return walk.kept(now, at ? approachSpot(now.sight.view, at, ceilingOf(now), at.face) : { move: null, face: walk.facing(now) });
     },
   };
+}
+
+/** **A place on the ground**, (`x`, `z`) m, whatever the focus (`placeBy`). */
+export function groundPlace(x: number, z: number, within: number, walk: Walker): Destination {
+  const at: Ground = { x, z };
+  return placeBy(`to (${x}, ${z})`, () => at, within, walk);
 }
 
 /**

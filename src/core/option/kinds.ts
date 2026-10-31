@@ -55,12 +55,18 @@ export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes
 const gaitsGiven = (given: OptionsGiven) => goings(given.spec, given.hz, gaitsOf(given.locomotion),
   given.actions.map((action, i) => ({ name: action.name, skill: given.measures[i]!.measured.skill })), given.tables.gaits);
 
-/** A kind of footwork, `kind`, labelled `label`: an option of each gait (`walkBy`, `gaitsGiven`), each going where it is worth most of the places `places` makes; none where it makes no place. */
-const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
-  kind(name, label, (given) => {
-    const destinations = places(given);
-    return destinations.length === 0 ? [] : gaitsGiven(given).map((going) => walkBy(going, destinations, given.walk));
-  });
+/**
+ * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsGiven`),
+ * each going where it is worth most of them, priced as every walk is (`walkTerms`); none where there
+ * is no destination. A kind of option of any mind's own makes its footwork with it, its places any
+ * rule's (`placeBy`).
+ */
+export const walksTo = (given: OptionsGiven, destinations: readonly Destination[]): readonly Option[] =>
+  destinations.length === 0 ? [] : gaitsGiven(given).map((going) => walkBy(going, destinations, given.walk));
+
+/** A kind of footwork, `kind`, labelled `label`, to the places `places` makes (`walksTo`). */
+export const footwork = <K extends string>(name: K, label: string, places: (given: OptionsGiven) => readonly Destination[]) =>
+  kind(name, label, (given) => walksTo(given, places(given)));
 
 /** **Walking into a strike's window**: footwork to each strike's (`windowPlace`), so a new strike adds its own place. */
 export const WINDOWS_WALK = footwork("walk-into-windows", "Walk into strike windows", (given) => given.strikes.map((one) => windowPlace(one, given.walk)));
@@ -83,7 +89,7 @@ export const placeFaults = (config: { readonly x: number; readonly z: number; re
 export const PLACE_WALK: OptionKindPart<PlaceConfig> = deepFreeze({
   role: "option", label: "Walk to a place", stage: "game", fields: [], slots: [], defaults: { kind: "walk-to-place", x: 0, z: 0, within: .3 },
   keys: { kind: true, x: true, z: true, within: true }, fits: anyBody, faults: placeFaults,
-  make: (config: PlaceConfig, given: OptionsGiven) => gaitsGiven(given).map((going) => walkBy(going, [groundPlace(config.x, config.z, config.within, given.walk)], given.walk)),
+  make: (config: PlaceConfig, given: OptionsGiven) => walksTo(given, [groundPlace(config.x, config.z, config.within, given.walk)]),
 });
 
 /** **The rise**: down, the ground's options (`groundOptions`). */

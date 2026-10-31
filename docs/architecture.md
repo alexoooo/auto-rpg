@@ -1034,7 +1034,10 @@ its own: its choosers, kinds of option, objectives and predictions each a role l
 entrant's own read by config (`PerceptPart`, `PredictionPart`). A kind of option makes its options
 from what the mind gives it (`OptionsGiven`: the body, its legs, executors, actions and profile
 tables, the walk, the strikes and the rise) and builds what else it needs, as footwork builds its
-gaits and the cover its hands' covers. `tests/swap.test.mjs` registers a fixture
+gaits and the cover its hands' covers. Footwork of an entrant's own is a kind of option that walks to
+places it finds by any rule each step (`placeBy`, `src/core/option/places.ts`: geometry, a search
+over candidates), one option a gait priced as every walk is (`walksTo`, `footwork`,
+`src/core/option/kinds.ts`), with no edit of the framework. `tests/swap.test.mjs` registers a fixture
 entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: a fighter, an Option Mind and a
 quadruped of its own) and holds a stub of each role to it: chosen by config, run, forked, replayed
 and linked.
