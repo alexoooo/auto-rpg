@@ -1471,11 +1471,17 @@ whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the s
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
 `validateRoomPlacements` refuses a piece naming a collider the arena lacks, or a solid-looking one
 within reach naming none. `camera.ts` and `view.ts` own the camera and view settings. Cases from
-the Ratings open as a reel (`#reel=<evaluation>&cases=<keys>&at=&auto=&back=`, `case-link.ts`): the
+the Ratings open as a reel (`#reel=<evaluation>&cases=<keys>&at=&auto=&back=&previous=`, `case-link.ts`): the
 Arena reads the evaluation's records once (`reelTrials`, `reel.ts`; one engine and level a reel)
 and plays each trial's recipe and tape in the same screen, stopping it where it was scored
 (`Row.played`), the camera as the person left it; with auto-play, the default, the next begins a
-second later. The HUD names the trial, its conditions and recorded outcome. The trial shown gives
+second later. The HUD names the trial, its conditions, recorded outcome and why it failed
+(`Evaluation.outcome`'s `why`). Over a trial's bout the overlays (`trialOverlay`,
+`trial-overlay.ts`) draw where the striker's actions aim, the target's path, each action's
+effector's path and each contact between the sides, read after every step. With `previous`, the
+subject's same trial at that version (the same protocol, subjects and condition, `sameTrial`)
+plays beside it in a world of its own, its bodies drawn 4 m along +x as dimmed shapes, stepped
+with the trial's; the reel's code plays both recipes. The trial shown gives
 the pickers its choices (`caseSearch`), and Setup leaves the reel for them; a bout is otherwise
 assembled from the address (`recipeOf`, `matchup.ts`). Back returns to the Ratings address the reel
 was opened from.
@@ -1514,7 +1520,7 @@ and a bout case with its world opens in the Arena as a reel of one; an imported 
 drill's subject also shows its trials as a strip, a square a trial coloured by its outcome that
 plays the strip in the Arena from its trial; a reel of each outcome's trials from its legend; the
 reel: every failed trial, the rarest outcome's first, then five passed ones chosen by their keys'
-digests; and whether the owner has accepted its version on a rung
+digests; each other version to play beside it (`&previous=`); and whether the owner has accepted its version on a rung
 (`assets/evaluations/<id>/accepted.json`, written only for the owner).
 An older pool is listed with what differs from the newest.
 

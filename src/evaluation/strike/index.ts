@@ -59,8 +59,48 @@ function actionSubject(name: string): Subject {
     parts: [...subject.parts, { id: "action", value: action }, ...(held === undefined ? [] : [{ id: "held", value: held }])], value };
 }
 
-/** What the strip shows a trial as: its outcome, and whether it passed (landed, the striker on its feet). */
-const strikeOutcome = (reading: StrikeReading) => ({ label: reading.outcome, passed: reading.outcome === "landed" });
+/**
+ * How near its aim the striking limb came for the drill to say it reached it, m: a miss that came
+ * this near found the target gone from where it aimed.
+ */
+const REACHED = .05;
+
+/** The bar's tests a hit failed, in words (`meetsBar`). */
+const failedTests = (hit: NonNullable<StrikeReading["hit"]>): string[] => ([["fast", "slow"], ["heavy", "light"], ["square", "glancing"], ["soon", "late"],
+  ["lined", "across the arm"], ["extended", "the elbow bent"], ["upright", "leaning"], ["hard", "too little energy"]] as const)
+  .filter(([test]) => hit[test] === false).map(([, words]) => words);
+
+/**
+ * Why a trial failed, in the drill's words: outside the entry condition (never admitted, the
+ * reason its readiness gave), balance lost, blocked by the arms, the target moved (the limb reached
+ * where it aimed and the target was not there), short of the aim, off the mark, short of the bar
+ * (the tests it failed), or let go before it committed; undefined for one that passed.
+ */
+function whyFailed(reading: StrikeReading): string | undefined {
+  switch (reading.outcome) {
+    case "landed": return undefined;
+    case "fell": return "balance lost: the striker fell";
+    case "guarded": return "blocked: the limb met the target's arms alone";
+    case "elsewhere": return `off the mark: the limb met the target's ${reading.contacts.find((one) => one.time >= (reading.began ?? 0))?.on ?? "body"}`;
+    case "weak": return `short of the bar: ${reading.hit ? failedTests(reading.hit).join(", ") || "the action did not end" : "no hit"}`;
+    case "missed": {
+      // A record older than the reading's nearest approach does not say it.
+      const nearest = reading.nearest ?? null;
+      return nearest !== null && nearest <= REACHED ? "the target moved: the limb reached its aim and the target was not there"
+        : `short of the aim${nearest === null ? "" : ` by ${nearest.toFixed(2)} m`}`;
+    }
+    case "abandoned": return "let go before it committed";
+    case "outside": case "refused": case "waiting": case "unreached":
+      return `outside the entry condition: ${reading.outcome === "unreached" ? "the fight never came to its moment" : `${reading.phase}${reading.reason ? `, ${reading.reason}` : ""}`}`;
+    default: { const never: never = reading.outcome; return never; }
+  }
+}
+
+/** What the strip shows a trial as: its outcome, whether it passed (landed, the striker on its feet), and why it failed (`whyFailed`). */
+const strikeOutcome = (reading: StrikeReading) => {
+  const why = whyFailed(reading);
+  return { label: reading.outcome, passed: reading.outcome === "landed", ...(why === undefined ? {} : { why }) };
+};
 
 export const STRIKE: Evaluation<StrikeCondition, StrikeReading> = {
   id: "strike",

@@ -164,9 +164,10 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json, B exte
   readonly figures: readonly Figure<R>[];
   /**
    * A drill's: what a trial came to in a word, and whether it passed, as the Ratings strip shows
-   * each trial and its reel plays the failures first.
+   * each trial and its reel plays the failures first; for a failure, why in a phrase where the
+   * drill says (`why`), which the Arena shows when it plays the trial.
    */
-  outcome?(reading: R): { readonly label: string; readonly passed: boolean };
+  outcome?(reading: R): { readonly label: string; readonly passed: boolean; readonly why?: string };
   /**
    * What a learning environment may weigh at a trial's end beside its reading's own numbers
    * (`research/case-learning-environment.mjs`): named terms, each from the reading and its condition.

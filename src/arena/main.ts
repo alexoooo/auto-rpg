@@ -6,7 +6,8 @@ import "@babylonjs/core/Culling/ray.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { appearanceFor, appearancesFor, type Appearance } from "../render/appearance.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
-import { arenaSolids } from "./room.ts";
+import { addArenaSolids, arenaSolids } from "./room.ts";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
@@ -29,6 +30,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, entryRules, SIDES, type Verdict } from "./duel.ts";
+import { trialOverlay } from "./trial-overlay.ts";
 import { endingText } from "./end-rule.ts";
 import { caseSearch, readReel, reelHash, unshown } from "./case-link.ts";
 import { reelTrials, type Trial } from "./reel.ts";
@@ -102,8 +104,15 @@ const trialNote = ({ commit, world }: Trial): string => {
   return `A recorded case from commit ${commit.slice(0, 8)}: the reel plays its recipe and orders as this build's code builds them, `
     + `which may not be the code it was recorded at. Fight plays a new bout of the choices shown.${extra.length ? ` The case also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
 };
+/** Two overlays drawn and taken away together. */
+const joined = (a: ReturnType<typeof trialOverlay>, b: ReturnType<typeof trialOverlay>): ReturnType<typeof trialOverlay> =>
+  ({ update() { a.update(); b.update(); }, dispose() { a.dispose(); b.dispose(); } });
 /** The pause between one trial's end and the next one's start, with auto-play on, ms. */
 const TRIAL_BEAT_MS = 1000;
+/** Where the previous version's same trial plays, beside the trial: this far along +x, the stage's own axis, m. */
+const BESIDE = 4;
+/** How much of its side's colour the previous version's bodies are drawn in: its shapes, dimmed. */
+const BESIDE_SHADE = .55;
 
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
@@ -361,6 +370,40 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let playback: ReturnType<typeof arenaPlayback> | null = null;
   const bodies = new Map<Side, { read: ReturnType<typeof physicalReading>; skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
+  /** A trial's overlays (`trialOverlay`), while the bout plays one. */
+  let overlay: ReturnType<typeof trialOverlay> | null = null;
+  /**
+   * The world the previous version's same trial plays in, beside the trial's: made the first time a
+   * reel plays one, with the arena's solids, its bodies drawn `BESIDE` m along under `root`.
+   */
+  let besideWorld: { readonly world: World; readonly toStart: () => void; readonly root: TransformNode } | null = null;
+  /** The previous version's bout under way beside the trial, its playback, overlays and shapes. */
+  let besideBout: { readonly duel: Duel; readonly playback: ReturnType<typeof arenaPlayback>; dispose(): void } | null = null;
+  /** The bout of `previous` beside the trial, in a world of its own, stepped as the trial's is. */
+  const playBeside = (previous: NonNullable<Trial["previous"]>) => {
+    besideWorld ??= (() => {
+      const other = createWorld(scene, physicsEngine);
+      context.own(() => other.dispose());
+      addArenaSolids(other.physics, arenaSolids(level));
+      const root = new TransformNode("arena.beside", scene);
+      root.position.set(BESIDE, 0, 0);
+      return { world: other, toStart: boutStart(other), root };
+    })();
+    const { world: other, toStart: reset, root } = besideWorld, shapes: BodyShapes[] = [];
+    reset();
+    const bout = new Duel(other, previous.world.recipe, { solids: arenaSolids(level), onBuilt: (duelist, built) => {
+      // Its nodes under the root: the solver writes each node's place in its own world, drawn beside.
+      for (const segment of built.segments.values()) segment.node.parent = root;
+      shapes.push(drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour).scale(BESIDE_SHADE)), drawHeld(built, scene));
+    } });
+    bout.play(previous.world.tape);
+    const shown = arenaPlayback(bout, CATCH_UP_SECONDS, previous.played ?? Infinity), drawn = trialOverlay(scene, bout, root);
+    return { duel: bout, playback: shown, overlay: drawn, right: bout.duelists.right, dispose() {
+      drawn.dispose(); shown.dispose();
+      for (const one of shapes) one.dispose();
+      bout.dispose();
+    } };
+  };
   const applyView = () => {
     for (const { skin, shapes } of bodies.values()) {
       skin.setEnabled(view.view === "world");
@@ -407,6 +450,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const row of rows) row.condition.reset();
     hud.hidden = true;
     playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
+    overlay?.dispose(); overlay = null; besideBout?.dispose(); besideBout = null;
     trial = null; trialShown = false; clearTimeout(nextTimer);
   };
 
@@ -513,7 +557,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const minds = recipe.minds ?? { left: defaultMind(recipe.left), right: defaultMind(recipe.right) };
         const [dress] = await Promise.all([
           Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
-          loadData(SIDES.flatMap((side) => treeData(minds[side]))),
+          loadData([...SIDES.flatMap((side) => treeData(minds[side])), ...given?.previous ? SIDES.flatMap((side) => treeData(given.previous!.world.recipe.minds?.[side] ?? defaultMind(given.previous!.world.recipe[side]))) : []]),
         ]);
         context.signal.throwIfAborted();
         end();
@@ -542,6 +586,15 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         });
         playback = arenaPlayback(bout, CATCH_UP_SECONDS, given?.played ?? Infinity);
         subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
+        if (given) overlay = trialOverlay(scene, bout);
+        if (given?.previous) {
+          const beside = playBeside(given.previous), read = physicalReading(beside.right.built), at = new Vector3();
+          besideBout = { duel: beside.duel, playback: beside.playback, dispose: beside.dispose };
+          overlay = joined(overlay!, beside.overlay);
+          // The camera frames the trial's striker and the previous version's target: both bouts.
+          const own = subjects.right;
+          subjects = { left: subjects.left, right: { get position() { return at.copyFrom(read().centre).addInPlaceFromFloats(BESIDE, 0, 0); }, get rotation() { return own.rotation; }, rest: own.rest } };
+        }
         rig.reset(); applyView();
         const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
         hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
@@ -564,7 +617,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           for (const row of rows) row.condition.sample(time, !feedStopped);
           if (bout.verdict) feedStopped = true;
         });
-        if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; recorded ${given.outcome}`}`;
+        if (given) trialText.textContent = `Trial ${at + 1} of ${trials!.length}: ${given.condition}${given.outcome === null ? "" : `; recorded ${given.outcome}${given.why ? ` (${given.why})` : ""}`}`
+          + (!reel?.previous ? "" : given.previous ? `; beside, version ${given.previous.version.slice(0, 8)}${given.previous.outcome === null ? "" : `: ${given.previous.outcome}${given.previous.why ? ` (${given.previous.why})` : ""}`}`
+            : `; no record holds version ${reel.previous.slice(0, 8)}'s same trial`);
         reelLine.hidden = !given; nextButton.hidden = !given || at + 1 >= trials!.length;
         for (const id of ["random-replay", "bout-end-random"]) need(id).hidden = given !== null;
         hud.hidden = false;
@@ -729,13 +784,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
     clock.textContent = `${(duel.verdict?.time ?? duel.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${trial ? " · replay" : ""}`;
     // A trial ends where it was scored: its verdict, if any, and its outcome as recorded.
-    if (trial && playback?.done && !trialShown) {
+    if (trial && playback?.done && (besideBout?.playback.done ?? true) && !trialShown) {
       trialShown = true;
       const last = at + 1 >= trials!.length, { verdict } = duel;
       need("bout-end").style.setProperty("--side-colour", verdict?.winner ? ARENA_SIDES[verdict.winner].colour : "var(--hot)");
       need("bout-verdict").textContent = `Trial ${at + 1} of ${trials!.length}${trial.outcome === null ? "" : `: ${trial.outcome}`}${last ? " · the reel is played" : ""}`;
       const decided = verdict ? `${verdict.winner ? `${MODEL_DISPLAY[matchup[verdict.winner]].label} ` : ""}${endingText(verdict.ending)} · ` : "";
-      need("bout-ending").textContent = `${trial.condition} · ${decided}${duel.clock.toFixed(1)} s`;
+      need("bout-ending").textContent = `${trial.condition} · ${decided}${duel.clock.toFixed(1)} s${trial.why ? ` · ${trial.why}` : ""}`
+        + (trial.previous ? ` · beside, version ${trial.previous.version.slice(0, 8)}: ${trial.previous.outcome ?? ""}${trial.previous.why ? `, ${trial.previous.why}` : ""}` : "");
       show("bout-end", true); audio.setActive(false); pauseButton.hidden = true;
       if (auto && !last) nextTimer = setTimeout(() => playTrial(at + 1), TRIAL_BEAT_MS);
     }
@@ -762,6 +818,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     if (duel && !paused && !context.busy) {
       const beforePhysics = measurement ? performance.now() : 0;
       playback?.advance(seconds);
+      // The previous version's bout beside the trial, in step: the same time, so the same steps.
+      besideBout?.playback.advance(seconds);
       if (measurement) physicsMs = performance.now() - beforePhysics;
       // A new choice for the person's side pauses the bout for them to pick, where they asked so.
       const own = you ? duel.duelists[you] : null, report = own?.minded.report;
@@ -770,7 +828,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
     if (!paused && !context.busy) arena.fire.burn(seconds);
-    frame(); readout(); audio.update();
+    frame(); readout(); audio.update(); overlay?.update();
     scene.render();
     measurement?.record({ frame: performance.now() - began, interval: seconds * 1000, physics: physicsMs,
       simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });

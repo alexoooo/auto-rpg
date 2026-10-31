@@ -1,7 +1,8 @@
 /**
  * **The Ratings screen** (`?play=ratings`): each evaluation's records as their task's units. The
  * address names what is shown: `&evaluation=`, `&pool=` (the newest unless named), `&subject=` and
- * `&version=` (a subject's history and cases), `&by=` (a battery's condition field), `&case=` (one
+ * `&version=` (a subject's history and cases), `&previous=` (a version of the subject whose same
+ * trials the Arena plays beside the chosen one's), `&by=` (a battery's condition field), `&case=` (one
  * case). Everything is derived from the records in the page (`analysis.ts`); nothing is played
  * here: a case is watched in the Arena, as a reel of one or more (`reelHash`).
  */
@@ -20,7 +21,7 @@ import { acceptedOf, recordNames, recordsOf } from "./records.ts";
 const GROUPS: Readonly<Record<Evaluation["group"], string>> = Object.freeze({ fighters: "Fighters", skills: "Skills", decisions: "Decisions" });
 
 /** What the address may name, in the order it is written. */
-const PARAMS = ["evaluation", "pool", "subject", "version", "by", "case"] as const;
+const PARAMS = ["evaluation", "pool", "subject", "version", "previous", "by", "case"] as const;
 type Address = Partial<Record<typeof PARAMS[number], string>>;
 
 /** The screen's address for `address`. */
@@ -59,11 +60,12 @@ const percent = (share: number) => `${(100 * share).toFixed(0)} %`;
 const estimateText = (estimate: Estimate | null, digits = 3) => estimate === null ? "none" : `${estimate.value.toFixed(digits)} (${estimate.low.toFixed(digits)}–${estimate.high.toFixed(digits)})`;
 /**
  * Where cases are watched: the Arena plays the bout cases of `lines` as a reel, from the one at
- * `at` of them, returning to `back`; null where none is a bout case (an imported case has no world).
+ * `at` of them, returning to `back`, each beside the same trial at version `previous` where given;
+ * null where none is a bout case (an imported case has no world).
  */
-function watchHref(evaluation: string, lines: readonly Kept["lines"][number][], back: string, at = 0): string | null {
+function watchHref(evaluation: string, lines: readonly Kept["lines"][number][], back: string, at = 0, previous: string | null = null): string | null {
   const cases = lines.filter((line) => line.world?.kind === "bout").map((line) => line.key);
-  return cases.length ? `?play=arena${reelHash({ evaluation, cases, at, auto: true, back })}` : null;
+  return cases.length ? `?play=arena${reelHash({ evaluation, cases, at, auto: true, back, previous })}` : null;
 }
 
 /** How many of a drill's passed trials its reel plays after the failures. */
@@ -145,7 +147,7 @@ export async function bootRatings(context: ScreenContext): Promise<void> {
     const history = historyOf(evaluation, subject, pools, versions);
     const chosen = history.find((row) => row.version.subject.version.version === address.version)?.version
       ?? versions.get(pool.newest.get(subject) ?? "") ?? history.at(-1)?.version ?? null;
-    show(heading, poolList, subjectView(subject, history, pools, chosen, pool, contest, evaluation, here, labelOf, context.address.search));
+    show(heading, poolList, subjectView(subject, history, pools, chosen, pool, contest, evaluation, here, labelOf, context.address.search, address.previous ?? null));
     return;
   }
 
@@ -227,18 +229,27 @@ function batteryView(evaluation: Evaluation, pool: Pool, by: string | null, here
       }), "figures")));
 }
 
-/** A subject: each version in its history with its parent and standing, and the chosen version's cases in the pool shown. */
+/**
+ * A subject: each version in its history with its parent and standing, and the chosen version's
+ * cases in the pool shown; a drill's trials played beside version `previous`'s where it is named,
+ * and each other version offered to play beside.
+ */
 function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: readonly Pool[], chosen: NamedVersion | null, pool: Pool, contest: boolean,
-  evaluation: Evaluation, here: (address: Address) => string, labelOf: (name: string) => string, back: string): HTMLElement {
+  evaluation: Evaluation, here: (address: Address) => string, labelOf: (name: string) => string, back: string, previous: string | null): HTMLElement {
   const figures = evaluation.figures;
   const section = el("section", { className: "subject" }, el("h3", { textContent: `${id}: history` }));
   if (history.length === 0) { section.append(el("p", { className: "note", textContent: "No record names this subject." })); return section; }
   const parts = entrantParts(id);
   if (parts) section.append(el("p", { className: "note", textContent: `Mind ${parts.mind}, character and hands ${parts.kit}.` }));
-  section.append(el("div", { className: "scroll" }, table(["Version", "First record", "Parent", "Changed", "Pools"], history.map(({ version, parent, pools: standing }) => [
+  const drill = evaluation.outcome !== undefined && !contest && chosen !== null;
+  /** The chosen version's address with `other` beside it, or without one. */
+  const beside = (other: string | null) => here({ subject: id, version: chosen!.subject.version.version, ...(other === null ? {} : { previous: other }) });
+  section.append(el("div", { className: "scroll" }, table(["Version", "First record", "Parent", "Changed", "Pools", ...drill ? ["Beside"] : []], history.map(({ version, parent, pools: standing }) => [
     version === chosen ? el("strong", { textContent: version.label }) : link(here({ subject: id, version: version.subject.version.version }), version.label),
     recordLabel(version.first.name), parent ? parent.label : "none", version.subject.changes.join(", ") || (parent ? "nothing" : ""),
     standing.map((one) => `${poolId(pools[one.pool]!)}: ${one.rank !== null ? `${one.rank} of ${one.of}, ${fixed(one.rating!)}` : `${one.cases} cases`}`).join("; "),
+    ...drill ? [version === chosen ? "" : version.subject.version.version === previous ? el("span", {}, el("strong", { textContent: "beside" }), " · ", link(beside(null), "alone"))
+      : link(beside(version.subject.version.version), "play beside", `Play each trial with this version's same trial beside it, in step`)] : [],
   ]))));
   if (!chosen) return section;
   const name = chosen.name, other = (one: PoolCase, seat: number) => one.subjects[1 - seat] ?? "";
@@ -254,7 +265,8 @@ function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: r
     section.append(...grouped("By opponent", hardest(casesBy(pool, name, (one, seat) => labelOf(other(one, seat))))),
       ...grouped("By condition", casesBy(pool, name, (one) => conditionText(one.line.condition))));
   }
-  if (evaluation.outcome && !contest) section.append(trialsView(evaluation, mine, here({ subject: id, version: chosen.subject.version.version }), chosen));
+  const besideVersion = previous === null ? null : { version: previous, label: history.find(({ version }) => version.subject.version.version === previous)?.version.label ?? previous };
+  if (drill) section.append(trialsView(evaluation, mine, beside(previous), chosen, besideVersion));
   section.append(el("h4", { textContent: "Each case" }), el("div", { className: "scroll" }, table(contest
     ? ["Opponent", "Side", "Condition", "Outcome", "Ending", "Seconds", "Margin", ""] : ["Condition", ...figures.map((figure) => figure.name), ""],
   mine.map((one) => {
@@ -277,14 +289,15 @@ const OUTCOME_COLOURS = ["#7fb069", "#d9a441", "#c0604a", "#6c6672", "#8a6fb0", 
  * A drill's trials (`Evaluation.outcome`): the reel to play, a reel of each outcome's trials, and
  * the strip, a square a trial coloured by its outcome, a row for each condition but its last field,
  * a column for each value of the last; a square plays the strip's trials in the Arena from its own.
- * Each returns here.
+ * Each returns here, and plays each trial beside version `previous`'s where given.
  */
-function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: string, version: NamedVersion): HTMLElement {
+function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: string, version: NamedVersion, previous: { readonly version: string; readonly label: string } | null): HTMLElement {
   const outcome = evaluation.outcome!, section = el("section", { className: "trials" }, el("h4", { textContent: "Trials" }));
   const accepted = acceptedOf(evaluation.id).filter((one) => one.subject === version.subject.id && one.version === version.subject.version.version);
   section.append(el("p", { className: accepted.length ? "accepted" : "note" }, accepted.length
     ? `Accepted by the owner: ${accepted.map((one) => `rung ${one.protocol} on ${one.date}${one.note ? `, "${one.note}"` : ""}`).join("; ")}.`
     : "Not accepted: only the owner accepts a rung, having watched it. The numbers are not acceptance."));
+  if (previous) section.append(el("p", { className: "note" }, `Each trial plays with ${previous.label}'s same trial beside it, in step, where a record holds it.`));
   const played = mine.filter((one) => !one.line.fault), labels = new Map<string, { passed: boolean; count: number }>();
   for (const one of played) {
     const { label, passed } = outcome(one.line.reading!), seen = labels.get(label) ?? { passed, count: 0 };
@@ -296,11 +309,11 @@ function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: str
   const colour = new Map(ordered.map(([label, { passed }]) => [label, passed ? OUTCOME_COLOURS[0]! : OUTCOME_COLOURS[1 + failures++ % (OUTCOME_COLOURS.length - 1)]!]));
   const lines = (trials: readonly PoolCase[]) => trials.map((one) => one.line);
   const reel = reelOf(evaluation, mine), failed = reel.filter((one) => !outcome(one.line.reading!).passed).length;
-  const start = watchHref(evaluation.id, lines(reel), here);
+  const start = watchHref(evaluation.id, lines(reel), here, 0, previous?.version ?? null);
   section.append(el("p", { className: "reel" },
     start ? link(start, `Play the reel: ${failed} failed trial${failed === 1 ? "" : "s"}, the rarest outcome first, then ${reel.length - failed} passed`) : "No trial to play."),
   el("p", { className: "legend" }, ...ordered.flatMap(([label, { count }]) => {
-    const watch = watchHref(evaluation.id, lines(played.filter((one) => outcome(one.line.reading!).label === label)), here);
+    const watch = watchHref(evaluation.id, lines(played.filter((one) => outcome(one.line.reading!).label === label)), here, 0, previous?.version ?? null);
     return [Object.assign(el("span", { className: "swatch" }), { style: `background: ${colour.get(label)}` }), " ",
       watch ? link(watch, `${label} ${count}`, `Play the ${count} trial${count === 1 ? "" : "s"} ${label}`) : `${label} ${count}`, "   "];
   })));
@@ -317,7 +330,7 @@ function trialsView(evaluation: Evaluation, mine: readonly PoolCase[], here: str
   const strip = [...rows.values()].flatMap((cells) => columns.flatMap((column) => cells.get(column) ?? []));
   const square = (one: PoolCase | undefined) => {
     if (!one) return el("td");
-    const { label } = outcome(one.line.reading!), watch = watchHref(evaluation.id, lines(strip), here, strip.indexOf(one));
+    const { label } = outcome(one.line.reading!), watch = watchHref(evaluation.id, lines(strip), here, strip.indexOf(one), previous?.version ?? null);
     const mark = el("a", { className: "trial", title: `${conditionText(one.line.condition)}: ${label}`, href: watch ?? `${here}&case=${one.line.key}` });
     mark.style.background = colour.get(label)!;
     return el("td", {}, mark);
