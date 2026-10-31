@@ -606,7 +606,8 @@ presets from this registry, with its Script and Guard scenario defaults added.
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`); its presets the `classic` entrant's (`src/entrants/classic/`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting; its preset `crawl` the `crawl` entrant's (`src/entrants/crawl/`) |
-| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/` and `option-skeleton` in `src/entrants/option-skeleton/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` adds the learned punch and the stomp, on the Warrior; `option-skeleton` the low front kick and the support fold, on the Skeleton |
+| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` adds the learned punch and the stomp, on the Warrior; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
+| option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill-opponent | `src/core/mind/drill-opponent.ts` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again); its scripts are the evaluation's, on no menu (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
 | vanguard:mind | `src/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
@@ -770,7 +771,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   (`walk-into-windows`, `windowPlace`, `windowSpot`, `src/core/intent/action-window.ts`), and out of
   the foe's pressure (`walk-out-of-pressure`, `outOfPressure`: past its modelled strikes' reach,
   `edgeOf`, by `closes`, how far it walks at its measured fastest walk in the reaction time), on
-  the line from the focus. A place names its spot on the ground (`Spot`);
+  the line from the focus; and to a place on the ground its config names, whatever the focus
+  (`walk-to-place`, `groundPlace`). A place names its spot on the ground (`Spot`);
   the walk there (`walkTerms`) is priced by the route's length at the gait's pace in each direction
   to the focus, the foe's pressure while within its reach on the way, and where it leaves the body:
   the range and the bearing around the focus, turned by what the focus turns while the walk lasts
@@ -778,7 +780,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   asking it (`Intent.gait`), and leaves the body unbraced for the seconds the Gait drill measured it
   stopping to throw each strike (`ready`, by the action), at its share fallen
   (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
-  gait, an option of each kind; another source of places, a kind. What a walk's place is worth
+  gait, an option of each kind; another source of places, a kind. With no focus a walk is priced
+  by its way and its gait alone. What a walk's place is worth
   beyond the position is the chooser's to look past (below).
 - **The objective** (`Objective`, `objective.ts`), a part of role `objective` (`ObjectivePart`)
   in the valued chooser's `objective` slot, each a line in `OBJECTIVES`: what an option's model
@@ -796,7 +799,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   focus's on it once it has turned to face the body, `turning`),
   and late in the bout the lead at stake within the focus's reach, or a lead behind out of the
   body's own; its rate of play, what holding the place costs (the focus's pressure there, and in a
-  clinch its falls).
+  clinch its falls). Reaching a place (`reach-place`, `reachPlace`) prices an option by how much
+  nearer the place it leaves the body's centre, less a fall's cost and its time (`REACH`), with no
+  foe; the Walker (`src/entrants/walker/`) is Option Mind with it, walking there by `walk-to-place`.
 - **The chooser** (`chooser.ts`), a part of role `chooser` (`ChooserPart`,
   `src/core/option/parts.ts`) in Option Mind's `chooser` slot, each a line in `CHOOSERS` (`valued`, `ranked`;
   `depth`, `chooserOf`), is the toolkit's set selection (`selectSet`, `src/core/mind/choice.ts`:
@@ -861,7 +866,8 @@ where it names none, the stock one (`QUADRUPED_PARTS`): a `support-motor` over t
 (`SUPPORT_MOTORS`: `supportedMotor` on the bearing solve, no assist), a `gait` to travel and
 one to crawl (`GAITS`: the trot and the crawl), a `bite` (`BITES`) and `quadruped-tactics`
 (`QUADRUPED_PLANNERS`) that give approach, facing and bite. Each fits a body by what it uses
-(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)).
+(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)). The Option Reptile (`src/entrants/option-reptile/`) builds on the same layers: its chooser runs
+its options over them, and its righting option hands the body to the righting.
 
 **Policies** (`policyMind`, `mind/direct.ts`) receive a frozen actuator description and
 detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`
@@ -1514,7 +1520,9 @@ may route through a door first (`door-approach.ts`). Sight is the map's (`canSee
 `SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
 `src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).
 
-**The Lab.** Stance, Stand-up, Attack and Locomotion scenarios at 120 or 480 Hz.
+**The Lab.** Stance, Stand-up, Attack, Locomotion and Reach scenarios at 120 or 480 Hz. Reach
+(`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
+Walker (`LAB_WALKER`) unless the address names another, and the place its objective names is marked.
 An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and strikes. Attack
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`). Its explicit target
 part travels in `targetPart` in the address; the default is the body's head. `dummy-spec.ts`

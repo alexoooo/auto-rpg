@@ -41,7 +41,7 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Duellist (the default, with a short sword), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
+| Controller | the mind: Duellist (the default, with a short sword), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite and its Option Reptile. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
@@ -116,6 +116,8 @@ pauses, single-steps, scrubs and slows time.
 - **Attack**: seeded targets for the body's game mind to approach and strike.
 - **Locomotion**: courses (circle, line, square, diamond, random destinations) at a set pace, with
   wind; **Gait** picks what moves it.
+- **Reach a place**: no foe and no orders; the Walker, an Option Mind preset whose objective is a
+  place, walks to the place marked on the floor and stands.
 
 ## Ratings
 

@@ -52,6 +52,18 @@ few terms stay the reference objective; Option Mind keeps its preset id `option`
    objective is reaching a place, with no foe, in a Lab scenario.
    Check: the Reptile fights a Warrior and a Reptile in the Arena; the walker reaches its place;
    the owner looks at both.
+
+   Built: the threat reader senses any limb a body strikes with (`strikingPoints`, a reptile's
+   mouth among them); a body's support ends are its spec's (`PawLimb`, `pawsOf`); `commandRefusal`
+   gives way to the parts' fits (`soleRefusal`, `groundRefusal`, `fistOn`) and `UP_STACK` is
+   empty; the quadruped's layers (`quadrupedLayers`), which its stalk and any quadruped mind build
+   on; the Option Reptile (`src/entrants/option-reptile/`), fighting a Warrior and a Reptile in
+   Node bouts to their verdicts; the Walker (`src/entrants/walker/`: `reach-place`,
+   `walk-to-place`), reaching its place 6.3 m off in the Lab's Reach on every humanoid. Left: the
+   quadruped on the command layers in place of its own layers, whose motor vocabulary (a stance
+   on two soles, a whole-body solve) carries neither the paws' support solve nor the bite's
+   tracking; the stance over any set of ends; the skills' and motor control's segment names read
+   from the spec (94 names in 17 files); the owner's look.
 2. **Every skill tuned per body.** A skill's settings are its body's record, as the straight
    punch's are (`PunchRecord`, `src/core/skills/strikes/punch-records.ts`: no setting in a mind, none
    borrowed from another body, a research `tuning` for experiments); a body with none does not

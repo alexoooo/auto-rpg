@@ -1,5 +1,5 @@
 import type { ScreenContext } from "../ui/screen.ts";
-import { labHref, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
+import { labHref, LAB_WALKER, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
 import { takesScript } from "../entrants/game.ts";
@@ -16,7 +16,8 @@ export function showScenarios(address: LabAddress, context: ScreenContext): void
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
     let mind = address.mind;
-    if (takesScript(mind)) {
+    if (scenario.id === "reach") mind = takesScript(mind) ? LAB_WALKER : mind;
+    else if (takesScript(mind)) {
       let fighter: FighterConfig = mind;
       if (scenario.id === "attack" && fighter.tactics.kind === "script") fighter = LAB_PRESETS.puncher.config;
       else if (scenario.id !== "attack" && fighter.tactics.kind !== "script" && fighter.tactics.kind !== "stand")

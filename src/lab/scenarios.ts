@@ -36,7 +36,7 @@ import { dummyPart } from "./dummy-spec.ts";
  * Pure and free of the DOM. The menu reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "attack" | "locomotion" | "ground";
+export type ScenarioId = "stance" | "attack" | "locomotion" | "ground" | "reach";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -49,6 +49,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "ground", name: "Stand-up" },
   { id: "attack", name: "Attack" },
   { id: "locomotion", name: "Locomotion" },
+  { id: "reach", name: "Reach a place" },
 ];
 
 export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));
@@ -104,13 +105,20 @@ const LAB_MINDS: Readonly<Record<string, MindPreset>> = Object.freeze({ ...MINDS
 /** The scenarios that ask their body only what game orders say (Stand-up: stand, then walk on). */
 const BY_ORDERS: readonly ScenarioId[] = ["ground"];
 
+/** The scenarios that ask their body nothing, its mind deciding for itself by its objective (Reach). */
+const BY_ITSELF: readonly ScenarioId[] = ["reach"];
+
+/** **The Walker** (`walker`), what Reach plays unless the address names another mind that decides for itself; on no other menu. */
+export const LAB_WALKER = MINDS.walker!.config;
+
 /**
  * Whether the Lab can drive `config` in `scenario`: by its script, where it takes one
- * (`takesScript`); or by orders alone, where it carries them out (`treeObeys`) and the scenario
- * asks nothing else (`BY_ORDERS`).
+ * (`takesScript`) and the scenario gives one; by orders alone, where it carries them out
+ * (`treeObeys`) and the scenario asks nothing else (`BY_ORDERS`); or by itself, where it takes no
+ * script and the scenario asks nothing of it (`BY_ITSELF`).
  */
-const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean =>
-  takesScript(config) || scenario !== null && BY_ORDERS.includes(scenario) && treeObeys(config);
+const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean => scenario !== null && BY_ITSELF.includes(scenario) ? !takesScript(config)
+  : takesScript(config) || scenario !== null && BY_ORDERS.includes(scenario) && treeObeys(config);
 
 /** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */
 const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, MindPreset>> =>
@@ -129,24 +137,27 @@ export const labStaging = (scenario: ScenarioId | null): Staging => scenario ===
 
 /**
  * Named calibrations the body `spec` and the scenario can run, including externally registered
- * minds; one driven by orders alone (`labDrives`), only where it is offered on the menus (`offered`).
+ * minds; one driven by orders or by itself (`labDrives`), only where it is offered on the menus
+ * (`offered`) or is the Walker, Reach's own (`LAB_WALKER`).
  * Given the `loadout` that made `spec`, a preset that brings a character (`MindPreset.character`) is
  * judged on the body the loadout makes with it, as choosing it loads it.
  */
 export const labPresets = (spec: BodySpec, scenario: ScenarioId | null, loadout?: LabLoadout) => Object.entries(labMindsForModel(spec.model))
-  .filter(([, preset]) => labDrives(preset.config, scenario) && (takesScript(preset.config) || offered(preset)) && mindFaults(preset.config,
+  .filter(([, preset]) => labDrives(preset.config, scenario) && (takesScript(preset.config) || offered(preset) || preset.config === LAB_WALKER) && mindFaults(preset.config,
     loadout && preset.character ? loadoutSpec({ ...loadout, attributes: { ...loadout.attributes, ...preset.character } }) : spec, labStaging(scenario)).length === 0)
   .map(([id, preset]) => ({ id, ...preset }));
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
- * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack and Script elsewhere.
+ * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack, the Walker in
+ * Reach and Script elsewhere.
  */
 export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: MindConfig; readonly faults: readonly string[] } {
   const driven = labDrives(config, scenario);
   const faults = driven ? mindFaults(config, spec, labStaging(scenario))
-    : [`the Lab drives a mind that takes its script, as a fighter does${scenario !== null && BY_ORDERS.includes(scenario) ? ", or one that carries out orders" : ""}`];
-  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
+    : [scenario !== null && BY_ITSELF.includes(scenario) ? "here the Lab gives no script: a mind that decides for itself"
+      : `the Lab drives a mind that takes its script, as a fighter does${scenario !== null && BY_ORDERS.includes(scenario) ? ", or one that carries out orders" : ""}`];
+  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_PRESETS.script.config, faults };
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
@@ -238,7 +249,7 @@ export function labAddress(search: string): LabAddress {
     balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
     haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
     mind: readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? PUNCHER
-      : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
+      : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : query.get("scenario") === "reach" ? LAB_WALKER : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
