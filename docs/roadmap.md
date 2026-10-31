@@ -325,7 +325,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
-- **Warrior recovery after two rapid Lab shoves remains slow and visually unaccepted**: seed 4, 90 N s twice, the gameplay engine; the reproduction in `tests/idle-settle.test.mjs` uses the Lab's full stand check. The stale recovery action and extra automatic shove are fixed; idle placement yields to disturbances ([record](reference/human-and-strikes.md#disturbances)); smooth rising remains open.
+- **Warrior recovery after two rapid Lab shoves remains slow and visually unaccepted**: seed 4, 90 N s twice, the gameplay engine; the reproduction in `tests/idle-settle.test.mjs` uses the Lab's full stand check. The stale recovery action and extra automatic shove are fixed; idle placement yields to disturbances ([record](reference/human-and-strikes.md#disturbances)); smooth rising remains open. Option Mind stands within the 30 s cap in 35 of seeds 1 to 48 (median 13.6 s of those, Node, Rapier, 120 Hz, at the valuation that prices a way by its route), so seed 4 is one draw of a rise that fails one time in four: from where a fall leaves the Warrior on its front, `front-sit-back` is done 1 of 5 and `staged-down` 2 of 5 (the Rise drill's harness, empty-handed, shoved 16 ways, at `0648ca2d`), against 6 of 6 each from their placed fronts, and the edges' profiles are read from placed and moving starts only.
 - **The foe's phase reads `rising` in bursts** (`PERCEPTS.phase`): only while the fallen body's
   centre of mass climbs faster than 0.2 m/s. On Option Mind's matches (the Warrior, empty hands,
   against six foes, 36 bouts; Node, the bout world, Rapier, 120 Hz, each side's view of the
@@ -358,7 +358,10 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   feet-clear test (`besideLying`, `src/core/intent/action-window.ts`) passes and fails step to step
   and the walk turns back for the far side. Option Mind stomps a lying Warrior 1.2 m off its feet at
   9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
-  instead lands 8 of the stomping rung's 12 against 10.
+  instead lands 8 of the stomping rung's 12 against 10. At `8739fa22` the rung lands 5 of 12: each
+  stomp thrown at a lying Warrior lands (3 of 3), three trials are ready and never thrown, and in
+  the two at 1 m the limp Warrior never lies down (read standing 0.96 m off), a fixture short of
+  its case that the profile reads as a stomp at a standing body.
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.
