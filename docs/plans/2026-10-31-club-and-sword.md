@@ -57,6 +57,14 @@ where it does better on the bar; a part with no reader left is deleted.
 
 Check: the gate; the Strike drill's still rung plays each blow, each trial read against the bar.
 
+Built: the held blow (`src/core/skills/strikes/held-blow.ts`), the straight punch's drive thrown
+with the face of the item in hand (`StrikingFace`), one executor part a blow (`club-blow`,
+`sword-cut`, `sword-thrust`) naming the mechanism it meets with (`ExecutorPart.meets`); each its
+body's record (`assets/core/<kind>.json`) with its steer's layout; Option Mind's Warrior throws
+each holding its item and the buckler; the drill lands a held blow only met with its face
+(`StrikeHit.faced`). `BLADE_STRIKE` stays where no held blow is better on the bar
+([held blows](../reference/held-blows.md)).
+
 ### 2. Searched to the bar, still
 
 Each blow's schedule searched on the Strike drill's still rung against the bar (the punch's
@@ -68,6 +76,11 @@ owner's decision, with its before and after), as the punch's arms and trunk were
 
 Check: the still rung's held-out reading at 120 and 480 Hz, none fallen; the reel watched (the
 failures first).
+
+Built: the club, searched drawn back over three gaps, lands at all six of its places at both
+rates, 70 to 86 J; held out, alone, 2 and 1 of 40 ([held blows](../reference/held-blows.md#the-club)).
+The muscles were not its limit. Left: the cut, whose edge's mass asks 18 m/s of it
+([held blows](../reference/held-blows.md#the-cut)); the thrust, 25 to 28 J.
 
 ### 3. Steered
 

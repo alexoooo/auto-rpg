@@ -14,11 +14,13 @@ searches' readings.
 | Stomp | toed Warrior | the Strike drill's stomping rung ([stomp settings](front-kicks.md#stomp-settings)) |
 | Path strike | toed Warrior | `ATTACK_PATH`, the flat-footed Warrior's search cells ([combat strikes](combat-strikes.md#trajectory-settings)) |
 | Blade cut, blade thrust | toed Warrior | `BLADE_STRIKE`, set by hand with the short sword's actions and read by the blade task |
+| Club blow | toed Warrior | searched on the Strike drill's still rung ([held blows](held-blows.md#the-club)) |
+| Sword cut, sword thrust | toed Warrior | the straight punch's schedule, set by hand ([held blows](held-blows.md)) |
 | Blade cut, blade thrust | toed Rogue, toed Skeleton | searched on the blade task ([below](#the-blades)) |
 | Vanguard's punch | toed Warrior, Rogue, Skeleton | each calibration's strokes for its own body ([Vanguard](vanguard.md#body-motor-profiles)) |
 
-No other body has a row: the path strike, the stomp and the straight punch are the Warrior's
-alone, and the front kick no Rogue's.
+No other body has a row: the path strike, the stomp, the straight punch and the held blows are the
+Warrior's alone, and the front kick no Rogue's.
 
 ## Measurement
 

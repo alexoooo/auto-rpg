@@ -20,7 +20,11 @@ import { PUNCH_ACTIONS } from '../src/core/skills/strikes/learned-punch.ts';
 import { HELD_BLOWS } from '../src/core/skills/strikes/held-blow.ts';
 import { AROUND, decode, mirrored } from './punch-drill.mjs';
 
-/** The longest a drive runs, s: a still blow touches by 0.19 s, and a drive that chases a foe stepping back for longer carries its body over. */
+/**
+ * The longest a punch's drive runs, s: a still blow touches by 0.19 s, and a drive that chases a foe
+ * stepping back for longer carries its body over. A held blow keeps the search's (`AROUND`): drawn
+ * back, it touches later.
+ */
 const LONGEST = 0.3;
 
 const { values, positionals } = parseArgs({ options: { policy: { type: 'string' }, made: { type: 'string' }, halts: { type: 'boolean' }, out: { type: 'string' } }, allowPositionals: true });
@@ -43,7 +47,7 @@ for (const pair of positionals) {
   };
   const right = sided('right'), left = sided('left');
   if (right.driven) throw new Error(`${file}: a learned punch's schedule drives no point`);
-  const settings = { ...AROUND, longest: LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
+  const settings = { ...AROUND, longest: blow ? AROUND.longest : LONGEST, reach, band, aside, squared: true, above, lead: right.lead, through: right.through, ...right.beneath, ...(right.fire === undefined ? {} : { fire: right.fire }),
     ...(right.brake === undefined ? {} : { brake: right.brake }), ...(right.ease === undefined ? {} : { ease: right.ease }), ...(values.halts ? { halts: true } : {}),
     timed: { left: left.pushes, right: right.pushes }, ...(policy ? { steered: true } : {}) };
   records[model] = { made: values.made, settings, network: policy ? { actions: policy.actions, layers: policy.layers } : null };

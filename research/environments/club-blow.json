@@ -1,0 +1,277 @@
+{
+  "kind": "cases",
+  "evaluation": "strike",
+  "part": "mind.executors.0",
+  "layout": "assets/core/club-blow.layout.json",
+  "subjects": [
+    {
+      "where": {
+        "model": "workshop-fighter",
+        "hand": "right"
+      },
+      "value": {
+        "mind": {
+          "kind": "option",
+          "chooser": {
+            "kind": "valued",
+            "depth": 2
+          },
+          "options": [
+            {
+              "kind": "orders"
+            },
+            {
+              "kind": "strikes"
+            },
+            {
+              "kind": "walk-into-windows"
+            },
+            {
+              "kind": "walk-out-of-pressure"
+            },
+            {
+              "kind": "rise"
+            },
+            {
+              "kind": "covers"
+            },
+            {
+              "kind": "hold-position"
+            },
+            {
+              "kind": "hands-at-guard"
+            },
+            {
+              "kind": "brace"
+            }
+          ],
+          "locomotion": {
+            "kind": "move",
+            "rules": [],
+            "otherwise": "braced"
+          },
+          "guard": {
+            "kind": "shield-guard"
+          },
+          "support": {
+            "kind": "support-fold"
+          },
+          "executors": [
+            {
+              "name": "club-blow",
+              "kind": "club-blow",
+              "tuning": {
+                "pace": 1.021,
+                "reach": 0.6,
+                "band": 2,
+                "settle": 0.11413214813261954,
+                "chamber": -0.010387515336289677,
+                "elbow": 0,
+                "brake": 0.20655246411314077,
+                "follow": 0.02,
+                "longest": 0.5,
+                "through": 0.09772867646951384,
+                "hips": 0.377619572774233,
+                "turn": 0.12703108556768108,
+                "lean": 0.39217371400474954,
+                "lead": 0.25678407244060597,
+                "recover": 0.376,
+                "aside": 2,
+                "squared": true,
+                "halts": true,
+                "steered": true,
+                "timed": {
+                  "left": [],
+                  "right": [
+                    {
+                      "channel": "lumbar rotation right",
+                      "level": -0.3547069311499158,
+                      "from": 0.10132239806055796,
+                      "length": 0.27142388512642135
+                    },
+                    {
+                      "channel": "lumbar flexion",
+                      "level": 0.8133428482948384,
+                      "from": 0.045108982995625636,
+                      "length": 0.31547586499405883
+                    },
+                    {
+                      "channel": "hip.left flexion",
+                      "level": 0.43412854191632366,
+                      "from": 0.061437792817814724,
+                      "length": 0.24747721112499022
+                    },
+                    {
+                      "channel": "hip.left abduction",
+                      "level": -0.6266002632990928,
+                      "from": 0.18451991061459647,
+                      "length": 0.4134401046082876
+                    },
+                    {
+                      "channel": "hip.left internal rotation",
+                      "level": 0.39023184722218307,
+                      "from": 0.12224276217615207,
+                      "length": 0.14046220828479986
+                    },
+                    {
+                      "channel": "knee.left flexion",
+                      "level": 0.44595787722194813,
+                      "from": 0.04746817455194916,
+                      "length": 0.11033165021607771
+                    },
+                    {
+                      "channel": "ankle.left dorsiflexion",
+                      "level": -0.3306979399001626,
+                      "from": 0.2061340700880075,
+                      "length": 0.036746533411356544
+                    },
+                    {
+                      "channel": "hip.right abduction",
+                      "level": 0.9141504883771572,
+                      "from": 0.05479966665242698,
+                      "length": 0.345164686793614
+                    },
+                    {
+                      "channel": "hip.right internal rotation",
+                      "level": 0.8449305751204219,
+                      "from": 0.35289352110726246,
+                      "length": 0.23239396376150084
+                    },
+                    {
+                      "channel": "knee.right flexion",
+                      "level": 0.8154962413256774,
+                      "from": 0.12588547020546872,
+                      "length": 0.19839426200498883
+                    },
+                    {
+                      "channel": "shoulder.right flexion",
+                      "level": 0.472018999271842,
+                      "from": 0.005618220808832068,
+                      "length": 0.06671481865975225
+                    },
+                    {
+                      "channel": "shoulder.right abduction",
+                      "level": -0.3907439440002153,
+                      "from": 0.25273770872629975,
+                      "length": 0.11512227637506507
+                    },
+                    {
+                      "channel": "shoulder.right internal rotation",
+                      "level": 0.30600684695087876,
+                      "from": 0.11862845526935537,
+                      "length": 0.03581380500694486
+                    },
+                    {
+                      "channel": "elbow.right flexion",
+                      "level": -0.2937283242187727,
+                      "from": 0.028489667708351072,
+                      "length": 0.09255613403347807
+                    },
+                    {
+                      "channel": "wrist.right flexion",
+                      "level": 0.7577186165945398,
+                      "from": 0.1968604299549159,
+                      "length": 0.17185541009632735
+                    },
+                    {
+                      "channel": "wrist.right radial deviation",
+                      "level": -0.5597661723174979,
+                      "from": 0.05582351840827778,
+                      "length": 0.07580639211515762
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "actions": [
+            {
+              "name": "club-blow",
+              "executor": "club-blow",
+              "effectors": [
+                "hand.right",
+                "hand.left"
+              ],
+              "regions": [
+                {
+                  "kind": "mark",
+                  "mark": "middle"
+                }
+              ],
+              "aim": {
+                "kind": "surface",
+                "tuning": {
+                  "upperTrunk": 1,
+                  "middleTrunk": -1,
+                  "square": 4
+                }
+              }
+            }
+          ],
+          "ground": [
+            {
+              "kind": "staged-roll"
+            },
+            {
+              "kind": "staged-down"
+            },
+            {
+              "kind": "sit-back"
+            },
+            {
+              "kind": "front-sit-back"
+            }
+          ]
+        },
+        "action": "club-blow",
+        "held": {
+          "right": "club",
+          "left": "buckler"
+        }
+      }
+    }
+  ],
+  "places": [
+    {
+      "protocol": "still",
+      "draw": {
+        "model": "workshop-fighter",
+        "mark": [
+          "middle"
+        ],
+        "hand": [
+          "right"
+        ],
+        "across": {
+          "between": [
+            -0.15,
+            0.3
+          ]
+        },
+        "gap": {
+          "between": [
+            0.79,
+            1.29
+          ]
+        }
+      }
+    }
+  ],
+  "rates": [
+    120,
+    480,
+    480
+  ],
+  "pool": 4,
+  "refresh": 16,
+  "split": "train",
+  "reward": {
+    "effort": 0.02,
+    "unmet": -1,
+    "end": {
+      "score": 1,
+      "short": -4,
+      "met": 0
+    }
+  }
+}
