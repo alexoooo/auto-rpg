@@ -4,7 +4,8 @@ import type { BodyView } from "../body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { hypot } from "../math/real.ts";
 import { aimOf } from "../skills/strikes/held-strike.ts";
-import { type Side, frameOf, type BodySpec, segmentOf } from "../spec/body.ts";
+import { fistOn, frameOf, segmentOf, strikersOf, type BodySpec } from "../spec/body.ts";
+import { effectorAim } from "../control/effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "../intent/intent.ts";
@@ -53,22 +54,28 @@ interface Threat {
   readonly closing: number;
 }
 
-const HANDS: readonly Side[] = ["left", "right"];
+/** A limb a threat is read from, and the point it strikes with in its own frame. */
+interface Striking { readonly limb: string; readonly local: Vec3 }
 
-/** The point each hand of `spec` strikes with (`aimOf`), in its hand's own frame; null for a hand the spec has not. */
-function strikingPoints(spec: BodySpec): Readonly<Record<Side, Vec3 | null>> {
-  const point = (hand: Side): Vec3 | null => {
-    const segment = segmentOf(spec, `hand.${hand}`);
-    const at = segment && rigidPoints(spec, segment).get(aimOf(spec, hand));
-    if (!segment || !at) return null;
+/**
+ * **What a blow of a body of `spec` is read from**: each limb it strikes with (`strikersOf`) but
+ * the feet it stands on, whose steps are no blow (a human's hands, a reptile's mouth), and the point
+ * each strikes with, in its own frame: a hand's aim (`aimOf`: what it holds, else its knuckles),
+ * another limb's (`effectorAim`). A limb with no such point is left out.
+ */
+function strikingPoints(spec: BodySpec): readonly Striking[] {
+  const feet = (spec.ends ?? []).flatMap((end) => end.kind === "foot" ? [end.segment] : []);
+  return strikersOf(spec).filter((limb) => !feet.includes(limb)).flatMap((limb): Striking[] => {
+    const segment = segmentOf(spec, limb), hand = fistOn(spec, "left") === limb ? "left" : fistOn(spec, "right") === limb ? "right" : null;
+    const at = segment && rigidPoints(spec, segment).get(hand ? aimOf(spec, hand) : effectorAim(spec, limb));
+    if (!segment || !at) return [];
     const { origin, x, y, z } = frameOf(segment), from = sub(at.value, origin);
-    return [dot(from, x), dot(from, y), dot(from, z)];
-  };
-  return { left: point("left"), right: point("right") };
+    return [{ limb, local: [dot(from, x), dot(from, y), dot(from, z)] }];
+  });
 }
 
 /** Each spec's striking points, found once: a spec is immutable, and so is what is read from it. */
-const STRIKING = new WeakMap<BodySpec, Readonly<Record<Side, Vec3 | null>>>();
+const STRIKING = new WeakMap<BodySpec, readonly Striking[]>();
 
 /** The vectors a threat reading works in, which carry nothing between calls. */
 interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; readonly lever: Vector3 }
@@ -85,7 +92,7 @@ export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
     threatOf: (view: ThreatView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading)?.cover ?? null,
-    /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, its time to contact, s, and whose hand it is. */
+    /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, its time to contact, s, and whose limb it is. */
     blowOf: (view: ThreatView, reading: ThreatReading = READINGS.threat) => threatOf(view, work, reading),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
   };
@@ -138,8 +145,9 @@ export function sensedPhase(view: ThreatView, focus: string): FoePhase {
 
 /**
  * The cover a body's senses ask for: of every other side's body still in the fight, the point
- * each hand strikes with (`aimOf`, placed by the hand's sensed frame, moving with its sensed
- * velocity and spin) that closes fastest on this body's head, if it is a threat (`counts`:
+ * of each limb it strikes with (`strikingPoints`: a hand's aim, a reptile's mouth; placed by the
+ * limb's sensed frame, moving with its sensed velocity and spin) that closes fastest on this body's
+ * head, if it is a threat (`counts`:
  * `THREAT`, unless an experiment passes another); guarded, the head. Null with none. The closing
  * speed is the point's own toward the head as the head stands. What is sensed is as old as the
  * senses' delay, and nothing here corrects for it. With `prediction`, a constant-velocity
@@ -151,16 +159,16 @@ export function sensedPhase(view: ThreatView, focus: string): FoePhase {
  * contact is the crossing's, or with none its distance at its closing speed.
  */
 function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
-  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; hand: Side } | null {
+  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; limb: string } | null {
   const { senses, head } = view;
-  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, by: { foe: BodySense; hand: Side } | null = null;
+  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, by: { foe: BodySense; limb: string } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
     if (!striking) STRIKING.set(other.spec, striking = strikingPoints(other.spec));
-    for (const hand of HANDS) {
-      const local = striking[hand], sensed = other.segments.get(`hand.${hand}`);
-      if (!local || !sensed) continue;
+    for (let k = 0; k < striking.length; k++) {
+      const { limb, local } = striking[k]!, sensed = other.segments.get(limb);
+      if (!sensed) continue;
       point.set(local[0], local[1], local[2]).applyRotationQuaternionToRef(sensed.rotation, point).addInPlace(sensed.position);
       // The point moves with the hand's centre of mass, and with its spin about that centre.
       point.subtractToRef(sensed.centre, lever);
@@ -179,7 +187,7 @@ function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
         if (crossing) { candidate = crossing.position; seconds = crossing.seconds; }
         else if (!hold) continue;
       }
-      fastest = closing; soon = seconds; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, hand };
+      fastest = closing; soon = seconds; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, limb };
     }
   }
   return threat && guarded && by && { cover: { threat, guarded }, closing: fastest, seconds: soon, ...by };
@@ -197,14 +205,14 @@ const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, mi
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
 function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT) {
-  let best: { cover: Cover; seconds: number; closing: number; foe: string; hand: Side } | null = null;
+  let best: { cover: Cover; seconds: number; closing: number; foe: string; limb: string } | null = null;
   for (const foe of view.senses.others) {
     if (foe.side === view.senses.side || foe.out) continue;
     let striking = STRIKING.get(foe.spec);
     if (!striking) STRIKING.set(foe.spec, striking = strikingPoints(foe.spec));
-    for (const hand of HANDS) {
-      const local = striking[hand], sensed = foe.segments.get(`hand.${hand}`);
-      if (!local || !sensed) continue;
+    for (let k = 0; k < striking.length; k++) {
+      const { limb, local } = striking[k]!, sensed = foe.segments.get(limb);
+      if (!sensed) continue;
       point.set(...local).applyRotationQuaternionToRef(sensed.rotation, point).addInPlace(sensed.position);
       point.subtractToRef(sensed.centre, lever); Vector3.CrossToRef(sensed.spin, lever, velocity).addInPlace(sensed.velocity);
       const age = Math.max(0, view.time - (foe.time ?? view.time));
@@ -223,7 +231,7 @@ function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, le
       const threat: Vec3 = [position[0] + seconds * velocity.x, position[1] + seconds * velocity.y, position[2] + seconds * velocity.z];
       const guarded: Vec3 = [view.head.x + seconds * ownVelocity[0], view.head.y + seconds * ownVelocity[1], view.head.z + seconds * ownVelocity[2]];
 
-      best = { cover: { threat, guarded, seconds: Math.max(DEFENSE.minimum, seconds) }, seconds, closing, foe: foe.id, hand };
+      best = { cover: { threat, guarded, seconds: Math.max(DEFENSE.minimum, seconds) }, seconds, closing, foe: foe.id, limb };
     }
   }
   return best;

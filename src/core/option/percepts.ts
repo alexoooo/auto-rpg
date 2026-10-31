@@ -274,7 +274,7 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
   if (!blow) return 0;
   const centre = sight.view.stance.centre, range = hypot(blow.foe.centre.x - centre.x, blow.foe.centre.z - centre.z), phase = ownPhase(seen);
   const measured = foeModel(seen, blow.foe.spec).readings;
-  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, `hand.${blow.hand}`, spec, blow.closing), 1)];
+  const model = measured.length ? measured : [prior(blow.foe.spec, spec, range, LANDS * blowLife(seen.rules, blow.foe.spec, blow.limb, spec, blow.closing), 1)];
   let most = 0;
   for (const reading of model) most = Math.max(most, reading.expect({ range: Math.min(range, reading.reach(phase)), phase }, spec)?.dealt ?? 0);
   return most;

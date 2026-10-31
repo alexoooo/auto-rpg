@@ -109,8 +109,8 @@ place asked; off square, the swell's line from square at 1 s. No run fell. At 0.
 
 ## Threat
 
-A threat (`THREAT`, `src/core/perception/threat.ts`) is a foe's striking point (its knuckles, or the
-swell of the club it holds) within `within` m of a body's head and closing on it at over
+A threat (`THREAT`, `src/core/perception/threat.ts`) is a foe's striking point (its knuckles, the
+swell of the club it holds, a reptile's mouth) within `within` m of a body's head and closing on it at over
 `closing` m/s; the one closing fastest is what a covering hand is told to cover against.
 
 **`THREAT` is within 1.5 m, closing at over 2 m/s**: of the [threat sweep](#threat-sweep) it
