@@ -62,7 +62,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector). Left: the contacts' read, the contact-mass solve, the toolkit's tail, each mind's own |
-| [Ten fighters in real time](plans/2026-10-31-performance.md) | Ten or more fighters at 60 fps, at least 30: minds within real time at 120 Hz (control every step, readings once a step shared by every caller, decisions held and made again only on an event, drift, failure or deadline), Rapier crossed once a step for contacts, motors and poses, the world stepping in a worker while the page renders, and motor control cut (one reach solve a step; control at 60 Hz tried) (built: a lying body's colliders read once a weighing; a hand's pose tried only against colliders near it). Left: readings and the menu once a step, the batched crossing, the worker, the held-decision helper and its users, seeded phases, the reach and 60 Hz control, a ceiling on heavy work |
+| [Ten fighters in real time](plans/2026-10-31-performance.md) | Ten or more fighters at 60 fps, at least 30: minds within real time at 120 Hz (control every step, readings once a step shared by every caller, decisions held and made again only on an event, drift, failure or deadline), Rapier crossed once a step for contacts, motors and poses, the world stepping in a worker while the page renders, and lower rates above physics (the mind at 40 Hz; motor control at 60 Hz tried) (built: a lying body's colliders read once a weighing; a hand's pose tried only against colliders near it). Left: readings and the menu once a step, the batched crossing, the worker, the held-decision helper and its users, seeded phases, the mind at 40 Hz, motor control at 60 Hz, a ceiling on heavy work |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
    ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
@@ -97,9 +97,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
   held to it ([Recovery](plans/2026-10-23-recovery.md)).
 - An optional skeleton costume, after seeing the bones in play.
-- When the world cannot keep real time, whether the fight slows or skips ahead
-  ([Ten fighters in real time](plans/2026-10-31-performance.md#open-to-the-owner)); today it
-  catches up by up to 12 steps a frame.
 
 **To watch:**
 

@@ -8,17 +8,19 @@ Mind Warriors drop the Arena below 10 fps here and there while both stand.
 Three things stand in the way:
 
 - **Spikes.** Minds redo a decision's work every step, from inputs that barely change, in several
-  callers that do not share it. A run of steps over 8.33 ms becomes frames of 100 ms or more,
-  because the page catches up by up to 12 steps a frame (`CATCH_UP_SECONDS`,
-  `src/arena/main.ts`).
-- **The steady cost.** Sword against club takes about 3.3 ms a step: the engine 0.75 (contacts read
-  out one call at a time included), motor control and reach 0.65, and the minds' choices and skills
-  most of the rest ([step cost](../reference/step-cost.md#motor-control-in-the-step)). At that
-  cost for each body, ten bodies take about 16 ms a step: twice the 8.33 ms that 120 Hz allows.
+  callers that do not share it. A run of steps over 8.33 ms makes long frames; past a 30 fps
+  frame's worth of steps the page plays the fight in slow motion (`CATCH_UP_SECONDS`,
+  `src/arena/main.ts`, `src/dungeon/main.ts`).
+- **The steady cost.** Sword against club takes about 2.4 ms a step for two bodies: the engine
+  0.55, the skills 0.66, motor control 0.29, the minds' choices 0.26, and reading the bodies before
+  and after physics most of the rest; 0.29 ms of it is contacts read out of Rapier a call at a time
+  ([step cost](../reference/step-cost.md#where-the-minds-time-goes)). At that cost for each body,
+  ten bodies take at least 12 ms a step, half again the 8.33 ms that 120 Hz allows, and a mind
+  in a crowd reads more foes.
 - **One thread.** The world steps and the scene renders on the page's one thread, so every slow
   step is a late frame, and the world's budget is what rendering leaves of each frame.
 
-The spikes' causes, each measured on the harness below:
+The causes, each measured on the harness below:
 
 - **Beside a lying foe**: 16 places, each with a route round the foe's exact colliders at three
   heights, from up to three callers a step (`besideLying`, `src/core/intent/action-window.ts`):
@@ -42,9 +44,9 @@ The spikes' causes, each measured on the harness below:
   every step while the foe is low.
 - **Predictions**: `foeModel` and `prior` (`src/core/option/percepts.ts`) are built again on every
   read from a constant spec and event-rate inputs.
-- **The body's own contacts**: the punches and the kicks each read every segment's contacts
-  through the engine each step (`supportReadiness`, `src/core/control/support-readiness.ts`):
-  0.26 ms a step.
+- **Idle skills**: the kick reads every segment's contacts through the engine each step, a kick
+  under way or not (`supportReadiness`, `src/core/control/support-readiness.ts`, from the kick's
+  `update`): 0.19 ms a step for two bodies.
 
 Harness: Node, core world, `rapier-coordinate` (the game's engine), 120 Hz, Option Mind's Warriors
 on the Arena's open stage, seed 0, to the verdict at 60 s.
@@ -115,33 +117,32 @@ world from the screen's recipe exactly as Node does, and its bouts are the same 
   The skins and overlays that read a body's segments (`src/render/`, `src/arena/`) read these
   nodes; nothing on the page reaches the world.
 - **Rapier** loads in the worker only; the page loads none.
-- **Falling behind**: when the world cannot keep real time, the screen no longer freezes; whether
-  the fight slows or skips ahead is the owner's call (below).
+- **Falling behind**: when the world cannot keep real time, its clock runs behind real time and
+  the fight plays in slow motion (the owner's choice); the page keeps its frame rate.
 
 Several worlds (rooms, a Crypt floor, a match played in the background) each take a worker.
 Splitting one world's minds across workers is not planned: each step would wait on a message,
 and one thread has room once the steps above are done.
 
-### Motor control
+### Rates
 
-Muscles are Rapier velocity motors with a force bound, solved inside the physics step, so a
-command held for more than one step stays stable; the servo's 0.1 s (`SERVO_SECONDS`) is twelve
-steps at 120 Hz and six at 60. That makes two cuts possible besides the readings:
+Physics stays at 120 Hz. Above it, a body's work can run at a lower rate, its command held between:
+muscles are Rapier velocity motors with a force bound, solved inside the physics step, so a held
+command stays stable, and the servo's 0.1 s (`SERVO_SECONDS`) is many steps at any rate here.
 
-- **One reach solve a step**: the effector tracker solves each limb's chain three times a step, at
-  the step before, now and after, to take its angles' rates and accelerations by differences
-  (`src/core/control/effector-tracker.ts`). The chain's Jacobian at the one solve gives the rates
-  from the path's velocity, and the accelerations from the path's acceleration, at a third of the
-  cost.
-- **Control at 60 Hz**: physics stays at 120 Hz; motor control and the reach run on every other
-  step, holding their commands between, half the bodies on even steps and half on odd so a
-  crowd's step cost stays even. It halves about 0.65 ms a step for two bodies, more with ten. It
-  changes motion everywhere, so it is an experiment, kept only if the battery, the match and the
-  owner's eye find nothing lost.
+- **The mind and its skills at 40 Hz.** A body's driver (its decisions and its skills'
+  commands, the punch's arm solve among them) costs about 0.5 ms a call a body. Called every
+  second, third or fourth step it fought the same mind at 120 Hz to no loss measured
+  ([the mind every few steps](../reference/step-cost.md#the-mind-every-few-steps)). Bodies are
+  staggered, a third deciding on each step, so a crowd's step carries a third of its drivers. For
+  ten bodies that is about 1.7 ms a step for the minds instead of 5. It does not shrink a dear
+  decision: a held decision does that (steps 6 and 7).
+- **Motor control at 60 Hz**: the whole-body solve on alternate steps, bodies staggered. It halves
+  about 0.3 ms a step for two bodies and changes motion everywhere, so it is tried after the mind's
+  rate, and kept only if the battery, the match and the owner's eye find nothing lost.
 
-Motor control written in Rust inside the wasm is not planned: with the crossing batched, it is
-dense arithmetic on small matrices, its gain unmeasured, and it would be taken up only if control
-still dominates once the rest is done.
+The effector tracker's three reach solves a step are 0.02 ms of it, not worth changing; nor is
+motor control in Rust, dense arithmetic on small matrices whose gain is unmeasured.
 
 ## Steps
 
@@ -156,9 +157,9 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 2. **Readings once a step.** A step reading in the toolkit: for each mind, a work area made once
    and cleared at its step's start, holding the foe's colliders read once (`sensedObstacle`) for
    every clearance and route caller (`besideLying`, `groundPosition`, `wide.ts`,
-   `clearFootTranslation`); the body's own contacts, read once for the punches and the kicks
-   (`supportReadiness`); and each opening asked (by limb, family, foe and segment) for every
-   readiness caller. The strike option's memo of its offer (`offer`, `src/core/option/strike.ts`)
+   `clearFootTranslation`); the body's own contacts, read once for whoever asks, and the kick's
+   support reading (`supportReadiness`) only while a kick is under way; and each opening asked
+   (by limb, family, foe and segment) for every readiness caller. The strike option's memo of its offer (`offer`, `src/core/option/strike.ts`)
    is keyed on the time alone, and is keyed on the focus too. Check: `openingSelector`,
    `worldShapes` and `contactsOf` calls a step, before and after.
 3. **The menu once a step**, read from the step reading by the report, the option chooser and
@@ -186,12 +187,13 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    drill and the match.
 8. **Phases from the seed**: periodic decisions start at a seeded phase. Check: a crowd fight of
    ten Option Mind bodies, the dearest step and how many decisions fall on one step.
-9. **One reach solve a step**, the rates from the chain's Jacobian. Check: the punch and guard
-   drills, the match, the reach's time a step.
-10. **Control at 60 Hz, tried**: motor control and reach on alternate steps, bodies staggered.
-    Check: the baseline battery (`npm run evaluate -- baseline`: walk, punch, stand-up, fights)
-    and the match against 120 Hz control; the owner watches. Kept, or recorded in step cost as
-    tried and why not.
+9. **The mind at 40 Hz**: a body's driver every third step at a phase from its seed, the time
+   since its last call its step, a rate in the command layers' options (`LayerOptions`). Check:
+   the baseline battery (`npm run evaluate -- baseline`: walk, punch, stand-up, fights), the
+   match against 120 Hz, a ten-body fight's step; the owner watches.
+10. **Motor control at 60 Hz, tried**: the whole-body solve on alternate steps, bodies staggered.
+    Check: the baseline battery and the match against 120 Hz control; the owner watches. Kept, or
+    recorded in step cost as tried and why not.
 11. **A ceiling on heavy work**: the step-cost test counts the heavy searches a mind makes in a
     step of its bout (opening searches, route searches, shapes built) and holds them under a
     ceiling, as it holds allocation. Counts, not times, so the same on every machine.
@@ -203,10 +205,3 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 - A ten-body fight of Option Minds steps in real time in Node, its dearest step under 8.33 ms.
 - The Arena and the Crypt step their worlds in a worker, and the owner plays them and sees no drop
   below 30 fps.
-
-## Open to the owner
-
-- **When the world cannot keep real time**: the fight slows for a moment (its clock runs behind
-  real time, the screen smooth), or it skips ahead (the world steps several times to catch up and
-  the screen jumps). Today the page catches up by up to 12 steps a frame and the screen freezes;
-  in a worker neither freezes it. Which feels better is the owner's call.

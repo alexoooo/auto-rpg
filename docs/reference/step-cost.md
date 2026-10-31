@@ -383,24 +383,65 @@ work in wasm 0.82 (25 %), the binding's JavaScript 0.21 (6 %), the engine's wrap
 So contacts written by Rapier into an array in one call, and the motors set from one, would take
 about 0.4 ms of the step's 2.9; the minds and motor control in TypeScript are the larger part.
 
-### Motor control in the step
+### Where the minds' time goes
 
-**Motor control is about a fifth of the step; the minds' decisions are the larger part.** The
-same bout at `28bf2efc`, under V8's CPU profiler (100 us), 3.26 ms a step with the profiler on;
-inclusive time a step for both bodies, so nested rows overlap:
+**A step of two Option Minds is about 2.4 ms: the engine a quarter, the minds' choices a tenth,
+and the rest skills and body control doing their work every step whether it changed or not.** The
+sword against club bout above at `d1ef9b8d`, pinned to the performance cores, under V8's CPU
+profiler (100 us): 2.44 ms a step with the profiler on. Inclusive time a step for both bodies,
+read as a call tree, so a row's parts are in it:
 
 | Work | ms a step | What it is |
 | --- | --- | --- |
-| motor control (`control`, `src/core/control/motor.ts`) | 0.41 | the whole-body solve 0.22 (`solveBody`), the ground's share 0.12 (`shareGroundWrench`), the stance 0.16, ground and dynamics reads 0.2 |
-| reach (`solveReach`) | 0.24 | three solves a step for each limb on a path, its angle's rate and acceleration taken by differences (`effector-tracker.ts`) |
-| the strikes' support reading (`supportReadiness`) | 0.26 | every segment's contacts read through the engine each step, once for the punches and again for the kicks |
-| a body's look (`look`, `command-layers.ts`) | 0.22 | angles, effector points, stance and ground read for the mind |
-| the hand's contact feedback (`effector-feedback.ts`) | 0.14 | the struck hand's contacts after physics |
-| the engine's step | 0.75 | Rapier, contacts read out included |
-| the minds' choices and skills | about 1.2 | the rest of `act`: options, tactics, readiness, the aim |
+| the engine's step (`step`, `src/core/engine/rapier.ts`) | 0.55 | Rapier's solve |
+| the minds' choices (`decide`, `src/core/option/tactics.ts`) | 0.26 | the chooser 0.15 (`decide`, `src/core/mind/choice.ts`), the options' steps 0.08, the situation 0.03 |
+| the skills (`command`, `src/core/skills/framework/arbiter.ts`) | 0.66 | the live actions' updates 0.30, the punch's commands 0.19, the walk's route 0.05 |
+| the kick's support reading (`update`, `src/core/skills/strikes/kick.ts`) | 0.19 | every segment's contacts read through the engine each step (`supportReadiness`), a kick under way or not; in the skills' row |
+| the punch's arm (`solve`, `src/core/skills/strikes/straight-punch.ts`) | 0.16 | the arm solved (`solveReach`) to its chamber, and while driven to its chamber and its contact pose, each step; in the skills' row |
+| motor control (`control`, `src/core/control/motor.ts`) | 0.29 | the whole-body solve 0.15 (`solveBody`), the stance 0.05, the servo 0.03; the effector tracker's reach 0.02 |
+| a body's look (`look`, `command-layers.ts`) | 0.16 | angles, effector points, stance and ground read for the mind |
+| after physics | 0.36 | the hand's contact feedback 0.10, touches and blows 0.09, observation 0.07, the bodies' dynamics 0.08 |
 
-Control at half the rate would save about 0.3 ms of the 3.26 (motor control and reach on every
-other step); the support reading, read once for both its users, about 0.13 with nothing moved.
+Contacts read through the engine (`contactsOf`) are 0.29 ms of it, from the kick's reading, the
+hand's feedback and the ground's. Run unpinned, the same profile read 3.26 ms a step.
+
+### The mind every few steps
+
+**A body's mind and skills run every second, third or fourth step with no loss measured in
+fights, and their time a step falls by that factor; a dear decision is as dear on the step it
+lands on.** Each body's driver (its mind's decisions and its skills' commands, the punch's arm
+solve among them, `act` in `src/core/control/command-layers.ts`) called every k-th step with the
+time since its last call, its command held between; motor control, the effector tracker and physics
+every step. Played through a load hook on `d1ef9b8d`, Option Mind's Warriors.
+
+Time, on the sword against club bout at gaps 3, 4 and 5 m, 60 s, pinned to the performance cores,
+weighted by steps:
+
+| Driver every | ms a step, both drivers | ms a call, one body | motor control, ms a step | step, ms |
+| --- | --- | --- | --- | --- |
+| step (120 Hz) | 1.03 | 0.52 | 0.37 | 2.57 |
+| 2nd (60 Hz) | 0.47 | 0.47 | 0.31 | 1.84 |
+| 3rd (40 Hz) | 0.53 | 0.80 | 0.45 | 2.16 |
+| 4th (30 Hz) | 0.29 | 0.58 | 0.33 | 1.62 |
+
+A call costs what it did, give or take its fights (two of the 40 Hz row's three ended early, one
+severed and one fatal, with a body down); the worst call, 35 to 44 ms with the first steps' compiling in it, is the same at every rate.
+
+Play: a side at the rate against the same mind at 120 Hz, each on each side, the five
+representative loadouts on both bodies, gaps 3, 4 and 5 m, the Warrior against the Warrior on the
+open stage, to the verdict (30 bouts a row). The placebo is 120 Hz with its driver's time off by a
+part in 10^12: what any change does to these bouts alone.
+
+| Side | Score | Margin | Life dealt | Life taken | Blows a minute, both sides | Length, s |
+| --- | --- | --- | --- | --- | --- | --- |
+| placebo | 0.47 | 0.00 | 0.66 | 0.66 | 395 | 59 |
+| 60 Hz | 0.53 | 0.01 | 0.66 | 0.65 | 288 | 66 |
+| 40 Hz | 0.47 | -0.06 | 0.59 | 0.65 | 342 | 62 |
+| 30 Hz | 0.50 | 0.02 | 0.76 | 0.74 | 226 | 77 |
+
+Every row is within the placebo's spread: 30 bouts tell a score apart by about 0.2, not less.
+Fewer blows land a minute with a slower side, and the 30 Hz bouts run longer; drills, the stand-up
+and the look in play were not read.
 
 ## The crypt's plan in the step
 
