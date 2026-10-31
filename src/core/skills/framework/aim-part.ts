@@ -6,8 +6,14 @@ import type { Aimed } from "../../intent/action-aim.ts";
 import type { BlowFamily } from "../strikes/attack-path.ts";
 import type { Part, PartConfig } from "../../parts/parts.ts";
 
-/** **An action's aim, made**: where `effector` aims at `target` this step, or null; `ledger` is the body's ended actions. */
-export type Aim = (view: BodyView, target: TargetRef, effector: string, ledger?: readonly Ended[]) => Aimed | null;
+/**
+ * **An action's aim, made**: where `effector` aims at `target` this step, or null; `ledger` is the
+ * body's ended actions. An aim that holds what it chose between steps keeps it in its `state`.
+ */
+export interface Aim {
+  (view: BodyView, target: TargetRef, effector: string, ledger?: readonly Ended[]): Aimed | null;
+  readonly state?: object;
+}
 
 /** **The blow an aim is made for**, where its executor says (`ExecutorPart.blow`): the path's family and the hands' paths. */
 export interface AimedBlow {

@@ -1,3 +1,4 @@
+import type { Aim } from "../skills/framework/aim-part.ts";
 import { SERVO_SECONDS, type Body, type LayerOptions } from "../body.ts";
 import { skillSet } from "../skills/framework/arbiter.ts";
 import type { Skills } from "../skills/framework/skills.ts";
@@ -7,7 +8,7 @@ import type { Clock } from "../clock.ts";
 import { rulesOf, type BodyHost } from "../mind/host.ts";
 import type { SkillKit } from "../skills/config.ts";
 import type { FighterConfig } from "./config.ts";
-import { actionConfigFaults, actionFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
+import { actionConfigFaults, actionFaults, aimsState, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
@@ -55,19 +56,20 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
-    aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
+  const aims = configuredAims(parts, body.built.spec, config.executors, config.actions);
+  const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions, aims),
+    aims,
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts };
   const slot: PartConfig = wiring.script ? SCRIPT_TACTICS.defaults : config.tactics;
   const part: TacticsPart = wiring.script ? SCRIPT_TACTICS : parts.of("tactics", slot);
   const tactics = around(part.make(making, slot));
   let skills: Skills | undefined;
   const driven = driveBy(body, tactics, (made) => {
-    const kit = kitSkills(made, clock, parts, config, () => skills?.report.ledger ?? []);
+    const kit = kitSkills(made, clock, parts, config, () => skills?.report.ledger ?? [], NO_MORE, aims);
     return part.prepareSkills?.(making, slot, kit, tactics) ?? kit;
   });
   skills = driven.skills;
-  return driven;
+  return { ...driven, state: { ...driven.state, aims: aimsState(aims) } };
 }
 
 /** Executors a mind makes itself beside those its config names, and their actions (`kitSkills`). */
@@ -79,14 +81,14 @@ interface MoreSkills {
 /** No executor beyond the config's. */
 const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
 
-/** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims read the body's `ledger`. */
+/** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims are `aims` (the body's one, `configuredAims`) and read the body's `ledger`. */
 export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, ledger: () => readonly Ended[],
-  more: MoreSkills = NO_MORE): Skills {
+  more: MoreSkills = NO_MORE, aims?: ReadonlyMap<string, Aim>): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   return skillSet(made, {
     legs: legsOf(parts, made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
-    executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger), ...more.executors],
+    executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger, aims), ...more.executors],
     actions: [...config.actions, ...more.actions],
   });
 }

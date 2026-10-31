@@ -283,6 +283,14 @@ a stance goal) into muscle commands.
   command and after each physics step, which a reading every caller shares is kept against (a
   foe's colliders once for each time it is observed at, `stepObstacle`; the surface aim's opening,
   `SURFACE_AIM`). It is no state: it carries nothing from one step to the next.
+- **An aim may hold what it chose** (`Aim.state`, `aim-part.ts`): a mind makes its aims once
+  (`configuredAims`), and its tactics, estimates and executors ask the same ones, their held
+  state on the mind's (`Driven.state.aims`). The surface aim holds each opening it finds, for a
+  foe, hand, region and blocked segments, as a point on its segment (`Opening.local`), aimed each
+  ask where that point is now (`openingNow`, `src/core/perception/openings.ts`); it searches
+  again when the striker's head moves about the segment, the segment turns, the striking hand
+  moves about the head (so a blow under way is aimed afresh each step), the body resumes, or a
+  quarter second passes (`HELD_OPENING`, a held decision, `src/core/mind/held.ts`).
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each

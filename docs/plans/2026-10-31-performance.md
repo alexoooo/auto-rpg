@@ -242,7 +242,10 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    point on its segment as Vanguard's committed aim does
    (`src/entrants/vanguard/committed-aim.ts`); predictions made again on their events. A blocked
    hand pose (a body hook, not a mind's) is read again first, and held only if it is still dear.
-   Check: each one's drill and the match.
+   Check: each one's drill and the match. Built: the surface aim's held opening, one set of aims a
+   mind ([the held aim](../reference/step-cost.md#the-held-aim)): opening searches 14.8 a step to
+   4.2; the punch's guarding rung lands as before; the match 5 of 12 before, 8 after. The
+   predictions take no share the profiler lists, and are not held.
 10. **Phases spread**: the phase grant, given by the duel, the team bout and the Crypt, and
     periodic decisions start at it.
     Check: the crowd fight's dearest step and how many decisions fall on one step.
