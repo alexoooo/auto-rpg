@@ -174,8 +174,8 @@ the least over three playings:
 | The Jacobian in closed form (`@45ee2d7d`) | 7200, by time | 48474, 2578 (5.3 %), 1764300 | 2.418, 2.063, 8.047, 21.736 | 1.817, 7.443 |
 | Near full stretch solved otherwise | 3488, the Warrior by a fall | 23706, 447 (1.9 %), 743291 | 2.272, 2.024, 5.824, 15.124 | 1.686, 5.192 |
 
-**A crypt run** (`crypt-clear` standard, seed 10, trial 0, the mob; 19 bodies, the clearer; Node,
-Rapier, 120 Hz, 120 s of the run, `solveReach` timed by a wrapper):
+**A crypt run** (`crypt-clear` standard, `src/evaluation/crypt-clear/cases.ts@164aa9a9`, seed 10,
+trial 0, the mob; 19 bodies, the clearer; Node, Rapier, 120 Hz, 120 s of the run, `solveReach` timed by a wrapper):
 
 | The solve | A step, ms | `solveReach`, ms a step, and its share | Solves at the cap | Passes in solves at the cap |
 |---|---|---|---|---|

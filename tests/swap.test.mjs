@@ -292,7 +292,7 @@ test("a Commander registered from outside src/ is listed, leads a team of one an
     assert.ok(team.commander.state.decided > 0, "the stub's maker made the Commander that led");
   } finally { team.dispose(); dispose(); }
   const [subject] = CRYPT_CLEAR.subjects(["stub-hold"]);
-  assert.deepEqual(CRYPT_CLEAR.protocols.standard.faults(subject.value, CRYPT_CLEAR.protocols.standard.conditions[0]), [], "it leads a party, so the Crypt-clearing task takes it");
+  assert.deepEqual(CRYPT_CLEAR.protocols.alone.faults(subject.value, CRYPT_CLEAR.protocols.alone.conditions[0]), [], "it leads a party, so the Crypt-clearing task takes it");
 });
 
 test("a planner keeps clear of a solid as its body's navigator does: the stock one steps out of a column's clearance, the straight stub keeps clear of nothing", async () => {

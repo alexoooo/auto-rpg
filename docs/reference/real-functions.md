@@ -104,10 +104,10 @@ segment's position and turn on both sides, read every 60 steps and at the verdic
 | Warrior v Rogue | the development server's | 2547 | the Warrior, the Rogue fallen, 21.225 s | 0.9942642965393281, 0.848672812168439 | 44 of 44 |
 | Warrior v Rogue, balance 25 % a side | built | 2112 | the Warrior, the Rogue's head off, 17.6 s | 0.9732457233222181, 0.5696885055513037 | 37 of 37 |
 
-Crypt runs on the page (Chrome 154, the development server's, `crypt-clear`'s cases built and
-stepped by `WORLD_BUILDERS.crypt` in a served page, the `rapier` engine, not the default
-`rapier-coordinate`) beside Node's (Node 24.19, the same module): a
-running digest of every fighting body's segments, read every 120 steps.
+Crypt runs on the page (Chrome 154, the development server's, `crypt-clear`'s `standard` cases
+(`src/evaluation/crypt-clear/cases.ts@164aa9a9`) built and stepped by `WORLD_BUILDERS.crypt` in a
+served page, the `rapier` engine, not the default `rapier-coordinate`) beside Node's (Node 24.19,
+the same module): a running digest of every fighting body's segments, read every 120 steps.
 
 | Case | Seconds | Readings the same as Node's |
 |---|---:|---:|

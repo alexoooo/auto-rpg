@@ -1292,9 +1292,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
   apart), `locomotion` (a mind's body told to walk four ways at two paces, to run, to turn and to
   stop, and shoved standing and after a walk: held, on pace, stopped, top speed, shoves held) and
-  `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
-  Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
-  the members lost). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
+  `crypt-clear` (a party Commander leading the hero alone, under Option Mind: through generated
+  Crypt levels against each enemy Commander, in trials that move the start a little
+  (`trialLayout`): the score (`scoreOf`), the life at the end less a price on the time taken and on
+  the route left at the hero's pace, the price such that a walk of the level's route with no foes
+  costs half the life; a case stops at the exit, at the hero's death, or once the life less the
+  time's price is spent; beside it the life at the end, the share cleared and the time). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
   its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike` and
   `vanguard-warrior/strike` drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at

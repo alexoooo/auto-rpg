@@ -120,6 +120,8 @@ Check: the gate; the fingerprint unchanged; `npm run evaluate -- crypt-clear` wi
 Option Mind as the hero (8 runs: seeds 10 and 25, two trials, the `mob` and `independent` enemies),
 a figure for every run, lost ones below won ones.
 
+Built: the protocol `alone` (`ALONE`, `scoreOf`, `src/evaluation/crypt-clear/cases.ts`).
+
 ### 2. The chooser shared: set selection in the toolkit
 
 Option Mind's set selection (`chooser`, `src/core/option/chooser.ts`) reads of its
