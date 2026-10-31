@@ -56,8 +56,19 @@ export interface Priced<T> {
   readonly letGo: number;
 }
 
-/** When a selection decides afresh: every `rethink` s, and at once on an event (its cue's change). */
-export interface Deciding { readonly rethink: number }
+/**
+ * When a selection decides afresh: at once on an event (its cue's change), and else on its body's
+ * `phase` of each `rethink` s (`BodyHost.phase`, 0 unless given): the first such time at least
+ * half a period on, so a body decides at least every one and a half periods and bodies of one
+ * fight decide on different steps.
+ */
+export interface Deciding { readonly rethink: number; readonly phase?: number }
+
+/** **When `deciding` next decides with no event**, deciding at `now` s: the first time on its phase at least half a period on (`Deciding`). */
+export function nextDecision(deciding: Deciding, now: number): number {
+  const phase = deciding.phase ?? 0, periods = now / deciding.rethink - phase;
+  return deciding.rethink * (Math.floor(periods + 1 / 2) + 1 + phase);
+}
 
 /**
  * **Choosing by chance**: among the choices worth more than the best less `margin` (in the worth's
@@ -198,7 +209,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       const exiting = !over && exitingOf(now);
       if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return decided(now, false);
       state.event = event;
-      state.next = now.time + deciding.rethink;
+      state.next = nextDecision(deciding, now.time);
       // A choice over or out of its entry is ended: it may only be begun afresh.
       if (over) state.running = state.running.filter((i) => { const choice = choices[i]!, ended = done(choice, now); if (ended) choice.end(); return !ended; });
       chosen.length = 0; held.length = 0;

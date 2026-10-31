@@ -598,6 +598,36 @@ Twenty of the fingerprint's 44 lines moved, every bout in which a body aims by t
 The predictions (`foeModel`, `prior`, `src/core/option/percepts.ts`) take no share the profiler
 lists in the same 20 s: they are not held.
 
+### Phases spread
+
+**Deciding on each body's phase of the period takes the crowd fight's steps where all ten bodies
+chose afresh from 16 to 1 in its first 20 s, and its 99th per cent step from 21.3 ms to 12.8.**
+Option Mind's chooser decides afresh on an event or every 0.2 s (`selectSet`,
+`src/core/mind/choice.ts`); ten bodies built on one step made their deadlines on the same steps. Each
+fight now grants each body a phase by its order (`phaseOf`), and a deadline falls on the body's
+phase of the period (`nextDecision`).
+
+The crowd fight, seed 0, its first 20 s, Node, core world, `rapier-coordinate`, 120 Hz. The
+chooser's fresh decisions, counted: 1013 before (976 by the deadline, 14 on an event, 23 on a
+running option ended), 1015 after.
+
+| Steps with this many fresh decisions | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Before (`110e97c9`) | 414 | 34 | 21 | 41 | 3 | 10 | 1 | 1 | 6 | 16 |
+| After | 997 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+The one step after with ten is the first, where every body makes its first choice. Time a step,
+pinned, the least of three playings, before and after alternated twice while another job ran on
+the machine:
+
+| | Mean, ms | 99th per cent, ms | Dearest past 2 s, ms |
+| --- | --- | --- | --- |
+| Before | 9.64, 13.75 | 21.28, 28.27 | 29.61, 39.61 |
+| After | 9.04, 12.40 | 12.78, 19.57 | 18.08, 26.60 |
+
+Three fingerprint lines moved, the duels of Option Mind against itself (sword, club, empty): the
+right side's phase is no longer 0.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors

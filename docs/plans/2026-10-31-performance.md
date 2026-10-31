@@ -252,7 +252,9 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    club duel to its verdict at 41 s; a hand's blocked pose takes no share the profiler lists. Neither
    is held.
 10. **Phases spread**: the phase grant, given by the duel, the team bout and the Crypt, and
-    periodic decisions start at it.
+    periodic decisions start at it. Built: `HostGrants.phase`, `phaseOf`, the chooser's deadline on
+    it (`nextDecision`) ([phases spread](../reference/step-cost.md#phases-spread)): steps where all
+    ten chose afresh 16 to 1, the 99th per cent step 21.3 ms to 12.8.
     Check: the crowd fight's dearest step and how many decisions fall on one step.
 11. **The mind at 30 Hz**: the rate a field of the mind's config, carried to the command layers
     (`kitBody`, `src/core/tactics/fighter.ts`; `LayerOptions`), the driver every fourth step at

@@ -36,8 +36,8 @@ export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C
  * The chooser `config` names, as `parts` finds it, over `options`, its chances drawn from `seed`:
  * a part of the role makes a chooser over the options it is given (`ChooserPart`), which Option Mind's are.
  */
-export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number): Chooser =>
-  parts.of("chooser", config).make(config, options, seed, parts) as Chooser;
+export const chooserOf = (parts: PartLookup, config: PartConfig, options: readonly Option[], seed: number, phase: number): Chooser =>
+  parts.of("chooser", config).make(config, options, seed, parts, phase) as Chooser;
 
 /** How many options ahead the ranked chooser looks: the one it takes. */
 const RANKED_DEPTH = 1;
@@ -113,7 +113,7 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
   faults: (config: ValuedConfig) => [...depthFaults(VALUED_DEPTHS)(config),
     ...config.margin === undefined || Number.isFinite(config.margin) && config.margin >= 0 ? [] : ["margin: a finite worth, not negative"],
     ...config.obedience === undefined || OBEDIENCE.some(([value]) => value === config.obedience) ? [] : [`obedience: one of ${OBEDIENCE.map(([value]) => value).join(", ")}`]],
-  make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup) => {
+  make: (config: ValuedConfig, options: readonly Option[], seed: number, parts: PartLookup, phase = 0) => {
     const obedience = OBEDIENCE.find(([value]) => value === config.obedience)?.[2] ?? STEADY, given = config.objective ?? FEW_TERMS_PART.defaults;
     const objective = parts.of("objective", given).make(given) as Objective, past = config.depth >= 2 ? lookingPast(options, obedience, objective) : null;
     return chooser(options, (option, _, now) => {
@@ -121,7 +121,7 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
       const value = past && terms.exit.at ? own + past(now, terms.exit) : own;
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
-    }, DECIDING, { margin: config.margin ?? 0, seed }, objective);
+    }, { ...DECIDING, phase }, { margin: config.margin ?? 0, seed }, objective);
   },
 });
 
@@ -132,5 +132,6 @@ interface RankedConfig { readonly kind: "ranked"; readonly depth: number }
 export const RANKED_CHOOSER: OptionChooserPart<RankedConfig> = deepFreeze({
   role: "chooser", label: "By rank", stage: "game", fields: [], slots: [], defaults: { kind: "ranked", depth: RANKED_DEPTH },
   keys: { kind: true, depth: true }, fits: anyBody, faults: depthFaults([RANKED_DEPTH]),
-  make: (_config: RankedConfig, options: readonly Option[]) => chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), DECIDING),
+  make: (_config: RankedConfig, options: readonly Option[], _seed: number, _parts: PartLookup, phase = 0) =>
+    chooser(options, (option, i) => ({ name: option.name, worth: options.length - i, terms: null, moves: null, letGo: 0 }), { ...DECIDING, phase }),
 });

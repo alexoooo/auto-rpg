@@ -13,6 +13,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/levels.ts";
 import { reactionSteps, rulebook } from "../core/rules/rulebook.ts";
 import { seedOf } from "../core/math/random.ts";
+import { phaseOf } from "../core/mind/host.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
@@ -310,6 +311,7 @@ export class DungeonRun {
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
       mind: this.options.mind?.(actor) ?? cryptMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      phase: phaseOf(this.actors.indexOf(actor)),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

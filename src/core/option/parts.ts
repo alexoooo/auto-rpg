@@ -10,8 +10,8 @@ import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 export interface ChooserPart<C extends PartConfig = PartConfig, O = unknown, M = unknown> extends Part<C> {
   readonly role: "chooser";
   readonly keys: KeysOf<C>;
-  /** The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by `parts`. */
-  make(config: C, options: readonly O[], seed: number, parts: PartLookup): M;
+  /** The chooser over `options`, its chances drawn from `seed`, the parts its slots name found by `parts`, deciding on its body's `phase` (`BodyHost.phase`), 0 unless given. */
+  make(config: C, options: readonly O[], seed: number, parts: PartLookup, phase?: number): M;
 }
 
 /**

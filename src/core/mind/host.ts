@@ -27,8 +27,19 @@ export interface HostGrants {
   readonly contactIdentity?: ContactIdentity;
   /** The seed its mind's chances are drawn from (`BodyHost.seed`): the fight's for this body (`seedOf`); 0 unless given. */
   readonly seed?: number;
+  /** Where in each period its periodic work falls (`BodyHost.phase`): the fight's for this body (`phaseOf`); 0 unless given. */
+  readonly phase?: number;
   /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
   readonly rules?: Rulebook;
+}
+
+/** The golden ratio's fraction, (sqrt 5 - 1) / 2: successive multiples of it fall evenly over [0, 1). */
+const GOLDEN = (Math.sqrt(5) - 1) / 2;
+
+/** **The phase of the `order`th body a fight builds** (`HostGrants.phase`): `order` times the golden ratio's fraction, less its whole part, so that any run of bodies built in order falls evenly over the period. */
+export function phaseOf(order: number): number {
+  const turns = order * GOLDEN;
+  return turns - Math.floor(turns);
 }
 
 /** The rules a body is played by where its fight names none. */
@@ -49,6 +60,12 @@ export interface BodyHost {
   readonly parts: PartLookup;
   /** A 32-bit word, the fight's for this body (`seedOf`); 0 unless the fight gives one. A mind draws from it alone (`randomStream`), its stream's word in its `state`. */
   readonly seed: number;
+  /**
+   * Where in each period its periodic work falls, a fraction in [0, 1): the fight's for this body
+   * (`phaseOf`); 0 unless the fight gives one. A decision made every so often is made on its
+   * phase's steps (`Deciding.phase`), so bodies built together do not all decide on one step.
+   */
+  readonly phase: number;
   /** The fight's rulebook (`Rulebook`); the arena's unless the fight gives one. */
   readonly rules: Rulebook;
   /**
@@ -91,7 +108,7 @@ export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, par
   let body: PhysicalBody | null = null;
   const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log };
   const host: BodyHost = Object.freeze({
-    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, rules: rulesOf(grants),
+    spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),
     take<M extends Mind>(make: (own: OwnBody) => M): M {
       if (body) throw new Error("a mind takes its body once");
       const taken = hostBody(built, world, given, make);

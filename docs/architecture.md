@@ -586,8 +586,14 @@ fight reads. A fight passes the config through and reads nothing in it.
   its ground reading's where one reads it (`groundRefusal`). What their motor cannot drive it refuses
   as it is made (the stance a body without soles), and a mind built on them fits a body by its
   parts: each part's `fits` names what it uses (legs their soles, a guard its hands, a blow the limb it
-  strikes with, a technique the ground reading). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, rules; `HostGrants`); no maker
+  strikes with, a technique the ground reading). The host applies the fight's grants (senses, assist ceiling, contact labels, seed, phase, rules; `HostGrants`); no maker
   can widen them.
+- **Periodic work falls on the body's phase** (`BodyHost.phase`, a fraction of a period, 0 unless
+  given): each fight grants the `order`th body it builds `phaseOf(order)` (`src/core/mind/host.ts`,
+  the golden ratio's fraction of `order`, so a run of bodies falls evenly), the duel by side, the
+  team bout by place, the Crypt by the body's place in its roster. A selection with no event
+  decides on its phase of each period (`nextDecision`, `src/core/mind/choice.ts`), at least half a
+  period on, so bodies built together do not decide on one step.
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
   report) and the body's side make each mind's (`seedOf`, `src/core/math/random.ts`), the crypt's
@@ -870,8 +876,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   worth: at depth 2 a walk is worth also what the best option at its spot gains over the best on
   offer now (`lookingPast`), each priced there from the percepts the place predicts (`Option.at`,
   `placed`), never the world forked, keeping the running one by what letting it go costs (`Offer.letGo`, `src/core/mind/engagement.ts`),
-  deciding afresh on a cue's change, when the running option reaches its exit, or every
-  `rethink` s. It selects a set (`Selection.decide`): a running option that does not yield keeps
+  deciding afresh on a cue's change, when the running option reaches its exit, or on its body's
+  phase of each `rethink` s. It selects a set (`Selection.decide`): a running option that does not yield keeps
   its claims; with none, the target, the foe whose situation's best option is worth most, the one
   it ran at where none is worth more (`Chosen.at`); then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource

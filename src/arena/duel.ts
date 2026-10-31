@@ -16,6 +16,7 @@ import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import type { Pool } from "../core/rules/pool.ts";
 import { seedOf } from "../core/math/random.ts";
+import { phaseOf } from "../core/mind/host.ts";
 import { reactionSteps, rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import { derive, type Vec3 } from "../core/spec/quantity.ts";
@@ -328,7 +329,7 @@ export class Duel {
     const enlistments = SIDES.map(side => {
       const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);
       const enlisting = { id: side, side, spec: duelSpec(recipe, side, characters[side]), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
-        seed: seedOf(boutSeedOf(recipe), side), life: (pool: Pool) => this.lifeOf(pool),
+        seed: seedOf(boutSeedOf(recipe), side), phase: phaseOf(SIDES.indexOf(side)), life: (pool: Pool) => this.lifeOf(pool),
         ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
       };
