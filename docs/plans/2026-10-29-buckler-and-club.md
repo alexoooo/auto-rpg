@@ -7,20 +7,11 @@ right, its skills proved on the Ratings ladder as every skill is ([Drills](2026-
 not borrowed from another mind. Today Option Mind holding both strikes nothing standing: its punch
 needs an empty hand and it has no club blow, so a buckler and a club leave it the stomp alone. A
 club blow is tuned for each body that throws it, and a body without its own throws none: no mind
-swings a club until one is trained. The club comes before the sword, whose cuts miss their bar
-([sword and buckler](../reference/sword-and-buckler.md#1-a-cut-that-wounds)).
+swings a club until one is trained ([Club and sword](2026-10-31-club-and-sword.md)).
 
 ## The bar
 
-A club blow lands when it meets the mark asked with the club, the striker up and its action
-ended, carrying at least the untrained adult's blow less one SD: 64.8 J, the crutch's
-75.5 ± 10.7 J (Frantz, Sprenger & Jackowski 2026), the household implement nearest a club swung
-one-handed ([human strike reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)).
-The blow's energy is the rules' (`LandedBlow`'s `energy`), what a hit point is priced by: 0.65 hit points at
-100 J a point. Its speed over the last 0.1 m and its time from the action's start are reported,
-not gated: the rod's one-handed speeds have no spread to set a bar by, and the punch's 0.5 s is
-engineering. The bar is the Warrior's; another body's is scaled as the punch's is
-([Punch](2026-10-28-punch.md#the-bar)).
+The club blow's bar and its training are [Club and sword](2026-10-31-club-and-sword.md#the-bar)'s.
 
 A buckler covers when it meets four of five blows that reach the body before the body does, the
 `buckler` evaluation's bar ([sword and buckler](../reference/sword-and-buckler.md#2-the-buckler-against-a-blade)).
@@ -38,22 +29,9 @@ a learning environment carry it too. A blow from a held blunt item is judged by 
 
 Check: the gate.
 
-### 2. The club blow, still
+### 2 and 3. The club blow
 
-A learned club blow on the toed Warrior holding the buckler and the club, trained on the general
-trainer from the Strike drill's still rung with the club (`research/environments/`). Its subject
-is Option Mind's action (`option/<action>@buckler,club`).
-
-Check: the held-out still rung at the bar at 120 and 480 Hz, none fallen; the reel watched; the
-owner accepts rung 0.
-
-### 3. The club blow up the ladder
-
-The fight rung and rungs 1 to 5 in the punch's order ([Punch](2026-10-28-punch.md#2-the-punch-at-its-bar-everywhere)),
-one ground joined at a time; its profile regenerated from the records
-(`research/strike-profiles.mjs`), so Option Mind prices it by measurement.
-
-Check: each rung's held-out reading at the bar; the owner accepts each rung.
+[Club and sword](2026-10-31-club-and-sword.md) builds it, still and up the ladder.
 
 ### 4. The buckler cover
 
@@ -104,7 +82,7 @@ ahead.
 
 ## Done when
 
-The Warrior's club blow on Option Mind has the owner's acceptance on the still rung, the fight rung
-and rungs 1 to 5; its buckler cover on Cover's rungs against a weapon and rung 2; its rise holding both stands as often
-as with the club alone; and Option Mind leads the Duellist and Vanguard holding the buckler and the
+The Warrior's club blow is [Club and sword](2026-10-31-club-and-sword.md)'s, done; its buckler
+cover on Cover's rungs against a weapon and rung 2; its rise holding both stands as often as with
+the club alone; and Option Mind leads the Duellist and Vanguard holding the buckler and the
 club, in matches the owner has watched a bout of and accepted.
