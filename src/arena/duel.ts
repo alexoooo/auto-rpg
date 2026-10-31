@@ -26,6 +26,7 @@ import { sensedBounds } from "../core/navigation/sensed-bounds.ts";
 import { arenaSolids } from "./room.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
+import { carryOnRail, railFaults, type Rail } from "./rail.ts";
 import { BUILD_IDENTITY } from "../build-identity.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 import { otherSide } from "../core/spec/body.ts";
@@ -133,6 +134,8 @@ export interface DuelRecipe {
   readonly start?: Readonly<Partial<Record<Side, { readonly at?: readonly [number, number]; readonly heading?: number }>>>;
   /** The Commander that leads a side as a team of one (`teamOfOne`), giving its orders: a drill's. A side named none is left to its mind. */
   readonly commanders?: Readonly<Partial<Record<Side, CommanderConfig>>>;
+  /** The rail that carries a side's body as a moving target (`Rail`): a drill's. */
+  readonly rail?: Rail;
 }
 
 /** How old what each side of a bout of `recipe` sees of the other is, s: the recipe's, or its rules' reaction time. */
@@ -275,6 +278,8 @@ export class Duel {
   private readonly identity: RecordingIdentity;
   /** The teams of one the recipe's Commanders lead (`DuelRecipe.commanders`), by side. */
   private readonly teams: Readonly<Partial<Record<Side, TeamOfOne>>>;
+  /** What carries the recipe's rail, where it names one. */
+  private readonly rail: Hook | null;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
     if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
@@ -301,6 +306,8 @@ export class Duel {
       return [side, { position: given?.at ? [given.at[0], spawn.position[1], given.at[1]] as Vec3 : spawn.position, heading: given?.heading ?? spawn.heading }];
     })) as Record<Side, { position: Vec3; heading: number }>;
     if (spawns.left.position.every((v, k) => v === spawns.right.position[k])) throw new Error("the two start on one spot");
+    const railFaulted = recipe.rail ? railFaults(recipe.rail) : [];
+    if (railFaulted.length) throw new Error(`invalid rail: ${railFaulted.join("; ")}`);
     this.ends = (recipe.ends ?? GAME_ENDS).map((config) => { const rule = endRuleOf(config); return [rule, { ...rule.defaults, ...config }] as const; });
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
@@ -386,6 +393,7 @@ export class Duel {
       ...(led.length ? { commanders: Object.fromEntries(led.map(([side, team]) => [side, team.state])) } : {}),
     };
     this.judging = world.afterStep(() => this.judge());
+    this.rail = recipe.rail ? carryOnRail(world, duelists[recipe.rail.side].built, recipe.rail, () => this.clock) : null;
     for (const side of SIDES) hooks.onBuilt?.(duelists[side], duelists[side].built);
   }
 
@@ -504,6 +512,7 @@ export class Duel {
 
   dispose(): void {
     for (const side of SIDES) this.teams[side]?.dispose();
+    this.rail?.dispose();
     this.judging.dispose();
     this.feeding.dispose();
     this.watch.dispose();

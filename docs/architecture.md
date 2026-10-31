@@ -1199,8 +1199,10 @@ A bout or a body forks by copying its state. A Crypt run does not save.
 
 A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, cap, level, each
 side's mind (`minds`), loadouts, attributes, reaction time (`senseDelay`), seed (`seed`), end
-rules (`ends`) with the down rule's allowance (`recoverySeconds`) and, where a scenario arranges it, each side's place and heading (`start`) in place of
-the level's spawn, as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
+rules (`ends`) with the down rule's allowance (`recoverySeconds`), where a scenario arranges it, each side's place and heading (`start`) in place of
+the level's spawn, and, where a drill moves its target, the rail that carries a side's body (`rail`; `Rail`, `src/arena/rail.ts`: the body held
+rigid as it was built, lifted and moved along a line, back and forth or round a circle at a speed, every segment given each step what brings it
+onto the path by the step's end, a fixture and not anatomy), as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
 world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
@@ -1329,7 +1331,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   time's price is spent; beside it the life at the end, the share cleared and the time). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
   its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike` and
   `vanguard-warrior/strike` drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
-  hand, offset and range; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
+  hand, offset and range; rung `moving`, the same at a pad on a rail (the Warrior's body under the
+  bare mind, carried in a line toward the striker, away or across its front at 0.3 and 0.6 m/s, the
+  trial's range where it is as the drill may first ask), asked the first step the drill is ready; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
   0.8 to 1.2 m, against a drill opponent (each rung's opponent a mind's preset, `drill-stand` for
   `still`), with the hit points the striker lost in its contacts (`taken`); rungs `letgo` and
   `letgo-punched`, the opponent rungs' trials at `drill-stand` and `drill-punch` with the strike
