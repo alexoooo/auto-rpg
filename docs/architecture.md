@@ -824,6 +824,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
+- **Its prospects** (`Prospect`, `src/core/option/tactics.ts`): each time its chooser decides
+  afresh (`Chosen.fresh`), what it expects of the focus and of each other foe the chooser read, at
+  reach: its strikes' best rate within reach (`StrikeOption.rate`: the most a cell of its profile
+  takes a second at the focus's phase where its model reads the profile, else its prior's) and the
+  focus's pressure's peak (`Pressure.peak`), kept in its state for its Commander.
 - **The walk's limit**: each option that asks the legs keeps its walk out of a solid's clearance and
   every fallen body's reach but the one it means to be near, the focus where it walks to strike
   (`Walker.kept`, by navigation's `keepOut`, `clear-step.ts`); the strike's exit prices the clinch

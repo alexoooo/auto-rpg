@@ -12,6 +12,7 @@ import { measuredProfile, strike, strikeMeasure, type StrikeOption } from "./str
 import { walker } from "./walk.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { EngagementDetail } from "../mind/engagement.ts";
+import type { Prospect } from "../mind/report.ts";
 import type { Sight, Decider } from "../mind/decider.ts";
 import type { MotorUnmet } from "../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../skills/framework/skill.ts";
@@ -60,6 +61,27 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
   return { label: "Profiles", value: [...own, `foe: ${now.predictions.pressure.priced}`, `rise: ${ground.priced}`].join("; ") };
 }
 
+/** No other foe's situation read. */
+const NONE: readonly Situation[] = Object.freeze([]);
+
+/** A prospect as a state keeps it (`Prospect`): plain data, written in place. */
+type Kept = { foe: string; dealt: number; taken: number };
+
+/**
+ * **Write into `prospects` what `now` expects of its focus** (`Prospect`), at reach: the most its
+ * `strikes` are expected to deal the focus a second within their reach (`StrikeOption.rate`), and
+ * the most the focus's are expected to take of it (`Pressure.peak` of `pressure`), in place of what
+ * was kept of that foe; nothing with no focus.
+ */
+function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situation): void {
+  if (!now.focus) return;
+  let dealt = 0;
+  for (const strike of strikes) dealt = Math.max(dealt, strike.rate(now));
+  const foe = now.focus.id, taken = now.predictions.pressure.peak;
+  const kept = prospects.find((one) => one.foe === foe);
+  if (kept) { kept.dealt = dealt; kept.taken = taken; } else prospects.push({ foe, dealt, taken });
+}
+
 /**
  * **Option Mind's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
  * at the foe it is worth most to act on (`Selection.decide`, each foe's situation read by
@@ -79,7 +101,8 @@ function profileDetail(strikes: readonly StrikeOption[], ground: Ground, now: Si
  * (`stepSet`); each option that asks the legs keeps its walk out of a fallen body's reach and a
  * solid's clearance (`Walker.kept`). What it reports doing is the first chosen's name, the offers it chose among,
  * what its controllers did not carry out as it last decided (`unmetDetail`) and how its options
- * were priced (`profileDetail`).
+ * were priced (`profileDetail`). Each time its chooser decides afresh it keeps what it expects of
+each foe it priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
 export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
@@ -92,7 +115,7 @@ export function optionTactics(making: TacticsMaking, hz: number, deciding: Decid
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
     { spec, hz, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
   const chosen = chooserOf(parts, deciding.chooser, options, seed);
-  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state };
+  const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {
     get phase() { return chosen.running[0]?.name ?? "hold"; },
@@ -101,9 +124,13 @@ export function optionTactics(making: TacticsMaking, hz: number, deciding: Decid
   };
   return {
     name: "option", state, engagement,
+    get prospects(): readonly Prospect[] { return state.prospects; },
     decide(seen: Sight, dt: number) {
       last = seen;
-      const { set, at: now } = chosen.decide(reader.read(seen), reader.others);
+      const read = reader.read(seen);
+      let priced: readonly Situation[] = NONE;
+      const { set, at: now, fresh } = chosen.decide(read, () => priced = reader.others());
+      if (fresh) { prospect(state.prospects, strikes, read); for (const other of priced) prospect(state.prospects, strikes, other); }
       lastNow = now;
       reader.keep(now);
       return stepSet(set, now, dt, () => ({ move: null, face: walk.facing(now) }));

@@ -56,6 +56,13 @@ export interface StrikeOption extends Option {
    * limb is ready, or none has a window. The places a walk goes to for it (`windowPlace`).
    */
   window(now: Situation): Window | null;
+  /**
+   * What its blows are expected to take of the focus a second, within its reach, as a share of the
+   * focus's full life, begun afresh: the most any cell of its profile takes at the focus's phase
+   * (`ProfileReading.peak`) where its model reads its profile now, else its prior's (`priorOf`); 0
+   * with no focus. Not at the range now: out of reach it reads what it would deal in reach.
+   */
+  rate(now: Situation): number;
 }
 
 /**
@@ -201,6 +208,13 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
       return scaled === null ? "measured" : `measured, ${scaled}`;
     },
     model: priceOf,
+    rate(now) {
+      const profile = profileNow(now), focus = now.focus;
+      if (!focus) return 0;
+      if (profile && expected(now, 0)) return readProfile(profile, measure.spec, { own: "standing", target: now.foePosture }).peak(now.phase, focus.spec);
+      const prior = priorOf(now, now.range);
+      return prior.seconds > 0 ? prior.dealt / prior.seconds : 0;
+    },
     at(now, there, place) {
       const spot = place.at, window = spot ? windowAny(now) : null;
       if (!spot || !window || !windowHolds(window, spot.x, spot.z, spot.face)) return null;

@@ -156,7 +156,7 @@ with `ranked`, its digest equal before and after.
   Arena's team by the straight distance.
 - `SensedBody.life`: a foe's share of its full life, as its pool's bar (the Arena's `Duel.life`).
 - **The toolkit's commit**: `MindReport.prospects: readonly Prospect[] | null`
-  (`src/core/mind/minds.ts`), each `{ foe, dealt, taken }`: the share of the foe's full life the
+  (`src/core/mind/report.ts`), each `{ foe, dealt, taken }`: the share of the foe's full life the
   body expects to deal it a second, and of its own it expects to take, at reach;
   `MemberView.prospects` carries it, null where the Mind publishes none. The architecture's Command
   table gains it, `TeamLevel.exit` and `route`, and `SensedBody.life`.
@@ -172,6 +172,12 @@ with `ranked`, its digest equal before and after.
 Check: the gate; in a Node stand, Option Mind's prospects against a standing Warrior agree with its
 own pressing and pressure at reach that decision (a printout, no test); a forked bout's prospects
 equal the original's.
+
+Built: `TeamLevel.exit` and `route` (`routeLength`, `src/dungeon/map.ts`; kept a step),
+`SensedBody.life`, `Prospect` and `MindReport.prospects` (`src/core/mind/report.ts`, a decider's
+`Decider.prospects`), `MemberView.prospects`; Option Mind keeps them each time its chooser decides
+afresh (`Chosen.fresh`), its dealt its strikes' best rate within reach (`StrikeOption.rate`: the
+measured peak at the focus's phase, else the prior). `BY_HAND` waits for step 4.
 
 ### 4. The Option Commander
 

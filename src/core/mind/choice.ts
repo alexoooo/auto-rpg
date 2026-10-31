@@ -72,10 +72,14 @@ const NO_CHANCE: Chance = Object.freeze({ margin: 0, seed: 0 });
 /** How a selection prices the choice at `i` of its choices, now. */
 export type Appraise<S, T, C extends Choice<S>> = (choice: C, i: number, now: S) => Priced<T>;
 
-/** **What a selection decided**: the set running, the first chosen first (empty with none), and the situation it runs at. */
+/**
+ * **What a selection decided**: the set running, the first chosen first (empty with none), the
+ * situation it runs at, and whether it decided afresh at that time, pricing its choices.
+ */
 export interface Chosen<S, C extends Choice<S>> {
   readonly set: readonly C[];
   readonly at: S;
+  readonly fresh: boolean;
 }
 
 /**
@@ -177,22 +181,22 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
     order.sort((a, b) => values[b]! - values[a]! || Number(choices[b]!.rest ?? false) - Number(choices[a]!.rest ?? false) || a - b);
     return order.length ? values[order[0]!]! : -Infinity;
   };
-  const result = { set: set as readonly C[], at: null as S | null };
-  /** What it decided, the set running at `at`: one record, made once. */
-  const decided = (at: S): Chosen<S, C> => { current(); result.at = at; return result as Chosen<S, C>; };
+  const result = { set: set as readonly C[], at: null as S | null, fresh: false };
+  /** What it decided, the set running at `at`, `fresh` where it decided afresh: one record, made once. */
+  const decided = (at: S, fresh: boolean): Chosen<S, C> => { current(); result.at = at; result.fresh = fresh; return result as Chosen<S, C>; };
   return {
     state,
     get running() { return current(); },
     get offers() { return state.offers; },
     decide(now, others) {
-      if (state.decided === now.time) return decided(result.at ?? now);
+      if (state.decided === now.time) return decided(result.at ?? now, result.fresh);
       let at = now;
       state.decided = now.time;
       const event = cue(now);
       let over = false;
       for (const i of state.running) if (done(choices[i]!, now)) over = true;
       const exiting = !over && exitingOf(now);
-      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return decided(now);
+      if (!over && event === state.event && now.time < state.next && exiting === state.exiting) return decided(now, false);
       state.event = event;
       state.next = now.time + deciding.rethink;
       // A choice over or out of its entry is ended: it may only be begun afresh.
@@ -222,7 +226,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       for (const i of chosen) if (!state.running.includes(i)) choices[i]!.begin(at);
       state.running = [...chosen];
       state.exiting = exitingOf(at);
-      return decided(at);
+      return decided(at, true);
     },
   };
 }
