@@ -26,25 +26,29 @@ node research/call-count.mjs --crowd --cap 30
 
 ## Allocation ceilings
 
-`tests/harness/step-allocation.mjs`, Node 24.19.0: two standing skeletons, 240 steps after 3 s;
-each game mind on both sides of a bout of the first body it fits, holding the first of a sword,
-nothing and a club it takes, 3 m apart, 240 steps after 2 s; each reading in its own process. A
-ceiling is the highest of five readings plus a quarter, rounded up: `CEILING` is 140 standing, 917
-for every mind's bout, 206 for a down body (KiB a body a step). One ceiling holds every mind, so a
-mind added is read without a number of its own; the [plan](../plans/2026-10-30-garbage-free-step.md)
-lowers it.
+`tests/harness/step-allocation.mjs`, Node 24.15.0: two standing skeletons, 240 steps after 3 s;
+the Warrior lying under its ground reader, 240 steps after 3 s; each game mind on both sides of a
+bout of the first body it fits, holding the first of a sword, nothing and a club it takes, 3 m
+apart, 240 steps after 2 s; each reading in its own process. A ceiling is the highest of five
+readings plus a quarter, rounded up: `CEILING` is 124 standing, 739 for every mind's bout, 82 for a
+down body (KiB a body a step). One ceiling holds every mind, so a mind added is read without a
+number of its own; the [plan](../plans/2026-10-30-garbage-free-step.md) lowers it.
 
 | Fixture | KiB per body per step | Ceiling |
 |---|---|---|
-| Standing (Node 24.15.0) | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
-| Option Mind, Warrior, sword | 703.6, 700.0, 696.4, 733.4, 699.9 | 917 |
-| Duellist, Warrior, sword | 615.7, 615.0, 615.1, 611.5, 610.2 | 917 |
-| Behaviours, Warrior, sword | 556.7, 559.0, 557.1, 553.0, 555.3 | 917 |
-| Classic, Warrior, sword | 543.2, 545.2, 546.1, 545.0, 540.0 | 917 |
-| Puncher, Warrior, sword | 414.2, 409.5, 412.7, 412.7, 407.7 | 917 |
-| Counter, Warrior, sword | 408.6, 410.3, 412.9, 414.5, 415.5 | 917 |
-| Option Skeleton, Skeleton, empty | 325.2, 326.4, 326.2, 324.1, 324.3 | 917 |
-| Crawl, reptile, empty | 286.7, 285.9, 288.2, 286.8, 285.0 | 917 |
+| Standing | 98.7, 97.7, 98.8, 98.4, 98.3 | 124 |
+| Down | 64.0, 64.0, 65.6, 63.5, 64.2 | 82 |
+| Option Mind, Warrior, sword | 586.4, 587.0, 588.8, 586.2, 590.6 | 739 |
+| Duellist, Warrior, sword | 495.1, 491.8, 493.0, 497.0, 489.4 | 739 |
+| Behaviours, Warrior, sword | 440.2, 444.2, 451.8, 460.1, 443.6 | 739 |
+| Classic, Warrior, sword | 432.2, 433.8, 444.1, 435.5, 436.8 | 739 |
+| Puncher, Warrior, sword | 307.2, 302.4, 301.0, 297.1, 305.0 | 739 |
+| Counter, Warrior, sword | 303.7, 301.8, 303.7, 305.0, 303.7 | 739 |
+| Option Skeleton, Skeleton, sword | 183.2, 184.2, 184.5, 184.1, 183.3 | 739 |
+| Riser, Skeleton, sword | 169.2, 166.7, 167.7, 166.8, 169.8 | 739 |
+| Riser, Rogue, sword | 168.8, 167.4, 168.1, 167.4, 166.3 | 739 |
+| Crawl, reptile, empty | 155.7, 156.0, 155.5, 155.5, 155.2 | 739 |
+| Option reptile, reptile, empty | 146.3, 146.2, 145.8, 146.7, 146.9 | 739 |
 
 **The opening selector** (`openingSelector`, `src/core/perception/openings.ts`) works in arrays made once
 a selector and reads every list by index: a call makes only the opening it returns. A `for…of` over
@@ -384,6 +388,40 @@ work in wasm 0.82 (25 %), the binding's JavaScript 0.21 (6 %), the engine's wrap
 
 So contacts written by Rapier into an array in one call, and the motors set from one, would take
 about 0.4 ms of the step's 2.9; the minds and motor control in TypeScript are the larger part.
+
+### One crossing a step
+
+**Contacts, motors and poses each cross into Rapier's wasm once a step: a step's calls in fell from
+3623 to 227, its allocation by 530 KiB, and its time by 0.1 to 0.3 ms, every bout to the bit as it
+was.** The vendored patch's bulk calls ([the vendored Rapier](rapier-vendor.md)) write every listed
+collider's contacts into one array (`contact_readings`), set every motor command from one
+(`jointSetMotors`), and read every body's pose and velocities into one (`rbPosesAndVelocities`);
+the engine (`src/core/engine/rapier.ts`) sums contacts in arrays kept with the world, in the order
+it did. Before is `efde44ff`; after is its change, every fingerprint case's pose and state the same
+on `rapier` and `rapier-coordinate`.
+
+The sword against club bout: Option Mind Warriors, `matchup=workshop-fighter,workshop-fighter`,
+`left.loadout=empty,sword`, `right.loadout=empty,club`, the open stage, 60 s (7200 steps, the right
+side by time), `buildBout` on `rapier-coordinate`, Node 24.15.0. Calls counted by wrapping the
+wasm's exports and imports, on a playing of its own; allocation by V8's sampling heap profiler
+(1 KiB) over a playing after a warm-up one; time pinned to the performance cores, the least of
+three playings after a warm-up, before and after interleaved in pairs on one machine:
+
+| Reading, a step | Before | After |
+|---|---|---|
+| Calls into wasm | 3623 | 227 |
+| Calls out of wasm | 4228 | 268 |
+| Allocation, both bodies, KiB | 1205 | 673 |
+| `contactsOf` with what it calls, KiB | 535 | 31 |
+| Time, ms, three pairs | 2.54, 2.48, 2.59 | 2.21, 2.38, 2.50 |
+
+What `contactsOf` makes now is only the contacts it returns; a read that finds none returns one
+list made once. A collider's handle is read by its index and generation, not as a map's key: a
+handle is a double, and a map boxes it at every lookup. The calls left in are the solver's step,
+the motors' step impulses read one a freedom (70), and the bodies', colliders' and joints' sets
+asked whether they hold a handle (139); the calls out are the binding's contact filter called
+back from the solve (about 110). The time a step moves with the machine by more than it saves:
+the pairs are the comparison, not either column alone.
 
 ### Where the minds' time goes
 

@@ -213,12 +213,12 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    decision, and the Arena's page only while its choices list is open. A memo on the stamp would
    go stale: readiness reads the skills' state, which the command changes, and a Commander reads
    the menu after the senses move and before the bodies look.
-5. **The batched crossing.** The three bulk calls in the vendored Rapier's patch, the tarball built
-   again (`vendor/rapier/build.sh`), its name and the lockfile moved (`auto-rpg.10`),
-   `vendor/rapier/README.md` and [the vendored Rapier](../reference/rapier-vendor.md) updated, and
-   the engine reading and writing through them. The garbage-free step's contacts' read
-   ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2) is this one. Check:
-   calls into wasm a step, allocation, and the step's time, before and after.
+5. **The batched crossing.** Built: contacts, motors and poses each cross into the wasm once a
+   step (`auto-rpg.10`); the sword against club bout's calls in went from 3623 a step to 227, its
+   allocation from 1205 KiB a step to 673, its step 0.1 to 0.3 ms quicker, no fingerprint case
+   moved ([one crossing a step](../reference/step-cost.md#one-crossing-a-step)). The garbage-free
+   step's contacts' read ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2)
+   was this one.
 6. **The world in a worker**, the Arena first, then the Crypt, as the design says. Check: a bout's
    digest in the worker equals Node's; the page holds the display's rate while a step is made slow
    on purpose; the owner plays.

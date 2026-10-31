@@ -195,7 +195,11 @@ Readings back from the built body:
 `rapier.ts` implements it, with solver conditioning in `SOLVER` (not anatomy). Engine profiles
 (`rapier-coordinate`, the gameplay default, and `rapier`, the reference batteries' parent-axis
 form) share one WASM module and are fixed per engine instance
-([joint limits](reference/joint-limits.md)). `engines.ts` lists the engines (`ENGINES`) and is the
+([joint limits](reference/joint-limits.md)). It crosses into the WASM once a step for each of
+contacts, motors and poses, through the vendored patch's bulk calls
+([the vendored Rapier](reference/rapier-vendor.md)): the motor commands are set together before
+the step, the poses and velocities read after it, and every body's contacts read on the first
+reading after it. `engines.ts` lists the engines (`ENGINES`) and is the
 only module that imports one. A new engine is tried on the physics bench (`src/physics-bench/`)
 first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm test`.
 

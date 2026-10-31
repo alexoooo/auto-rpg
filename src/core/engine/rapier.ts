@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
@@ -32,7 +32,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-12/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c";
+const REVISION = "rapier/adapter-12/sha256:317197f478ddd9b7a09846c1683269ed52d583e91f7f283e009e689e25e75318";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -100,29 +100,32 @@ function digest(text: string): number {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 }
 
-/** A body of a world's, or a fixed collider by its handle: a contact's other side as `contactsOf` sums it. */
-type Other = RapierBody | number;
-interface Sum { impulse: number; point: number[]; normal: number[] }
-interface ShapeSum extends Sum { mine: number; theirs: number }
-/** What `contactsOf` reads a body's contacts into (`createRapierPhysics`'s `scan`). */
-interface Scan {
-  /** The body whose contacts are being read; null between reads. */
-  body: RapierBody | null;
-  /** The handle of its collider Rapier is calling back about. */
-  mine: number;
-  wanted: ((other: SegmentBody | null) => boolean) | undefined;
-  /** What the solver pushed on: each pair's point and normal, weighted by its impulse, and the same of each pair of shapes. */
-  pushed: Map<Other, Sum & { pairs: Map<number, ShapeSum> }> | null;
-  /** Everything in contact: each pair's point and normal, and how many pairs. */
-  met: Map<Other, { pairs: number; point: number[]; normal: number[]; first: number[] }> | null;
-  /** What a pair's reading threw, which Rapier's call back would drop: the read throws it once Rapier returns. */
-  fault: { error: unknown } | null;
-}
+/** A contact read that finds nothing: one list, never written. */
+const NONE: readonly never[] = Object.freeze([]);
+/**
+ * The numbers `contactsOf` keeps of each other side it meets (`OTHER` apiece): the fixed
+ * collider's handle, if the side is one; how many of its manifolds have solver contacts, their
+ * points and normals summed and the first normal; whether the solver pushed on it, and then the
+ * impulse and the points and normals weighted by it summed. A numeric layout.
+ */
+const MET = { fixed: 0, pairs: 1, point: 2, normal: 5, first: 8, pushed: 11, impulse: 12, pushedPoint: 13, pushedNormal: 16 } as const;
+const OTHER = 19;
+/** The numbers it keeps of each pair of shapes the solver pushed on (`SHAPE_PAIR` apiece). A numeric layout. */
+const PAIR = { other: 0, key: 1, mine: 2, theirs: 3, impulse: 4, point: 5, normal: 8 } as const;
+const SHAPE_PAIR = 11;
+/** A body's numbers in the pose read (`rbPosesAndVelocities`): translation, rotation, linear and angular velocity. A numeric layout. */
+const POSE = 13;
+/** A motor command's numbers (`jointSetMotors`): the joint, its axis, the kind and four values. A numeric layout. */
+const MOTOR = 7;
+/** The kinds of motor command `jointSetMotors` takes. */
+const MOTOR_KIND = { velocity: 0, bounded: 1, spring: 2 } as const;
 /** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
 interface RapierBody extends SegmentBody {
   /** Rapier's own body: a velocity written to it is read from the next step on (`linearVelocityToRef`). */
   readonly rigid: RAPIER.RigidBody;
 }
+/** A body's velocities as last read from Rapier, each with the moment it was read at (`createRapierPhysics`'s `moment`). */
+interface Velocities { readonly linear: Vector3; readonly angular: Vector3; linearAt: number; angularAt: number }
 interface RapierJoint extends EngineJoint {
   readonly raw: RAPIER.ImpulseJoint;
 }
@@ -154,10 +157,22 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const events = new R.EventQueue(true);
   /** What each body does to find its rigid body again in a world just loaded. */
   const rebinds = new Map<RapierBody, () => void>();
-  /** Each body by its colliders' handles, for a contact's other side: a collider not here is a fixed one. */
-  const bodyOf = new Map<number, RapierBody>();
-  /** Each body collider's place among its body's shapes, as `addBody` was given them, by its handle. */
-  const shapeOf = new Map<number, number>();
+  /**
+   * Each body collider's body, for a contact's other side, and its place among its body's shapes,
+   * as `addBody` was given them, by its handle: a collider not here is a fixed one. A handle is
+   * the collider's index and generation as a double's bits (little-endian, as wasm's memory is),
+   * read here by those two words: a map keyed by the handle would box it at every lookup.
+   */
+  const owners = { body: [] as (RapierBody | undefined)[], shape: [] as number[], generation: [] as number[] };
+  const handleBits = new Float64Array(1), handleWords = new Uint32Array(handleBits.buffer);
+  /** The index of the collider `handle` names in `owners`, or -1 if none of its generation is there. */
+  const ownerAt = (handle: number): number => {
+    handleBits[0] = handle;
+    const index = handleWords[0]!;
+    return owners.generation[index] === handleWords[1] ? index : -1;
+  };
+  const bodyOf = (handle: number): RapierBody | undefined => { const at = ownerAt(handle); return at < 0 ? undefined : owners.body[at]; };
+  const shapeOf = (handle: number): number => owners.shape[ownerAt(handle)]!;
   /** Each body's colliders' handles, in its shapes' order. */
   const colliderHandles = new Map<RapierBody, readonly number[]>();
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
@@ -174,7 +189,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   /** Pair exclusions are shared by discrete contacts and the continuous sweep. */
   const hooks: RAPIER.PhysicsHooks = {
     filterContactPair(a, b) {
-      const first = bodyOf.get(a), second = bodyOf.get(b);
+      const first = bodyOf(a), second = bodyOf(b);
       if (first && second) {
         if (jointPartners.get(first)?.has(second)) return null;
         for (const grip of grips) if ((grip.handle !== null || grip.suppressed)
@@ -200,55 +215,161 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     return false;
   };
   /**
-   * What `contactsOf` is reading, for the one callback Rapier is given each collider in contact
-   * with the body's (`pairWith`), made once with the world: most reads refuse every pair they are
-   * offered, so a read makes nothing until one is wanted. A read writes it whole before Rapier
-   * calls back, and leaves it empty.
+   * The bodies the bulk reads list, in `bodies`' order, with their handles and their
+   * colliders' handles, each body's colliders in its shapes' order; made again once a body comes
+   * or goes (null). `slotOf` is each body's first collider's place among them.
    */
-  const scan: Scan = { body: null, mine: 0, wanted: undefined, pushed: null, met: null, fault: null };
-  const pairWith = (theirs: number): void => {
-    if (scan.fault) return;
-    try { readPair(theirs); } catch (error) { scan.fault = { error }; }
-  };
-  const readPair = (theirs: number): void => {
-    // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
-    const of = bodyOf.get(theirs), other: Other = of ?? theirs, mine = scan.mine;
-    // Before the pair is read: reading one makes objects of Rapier's, and most pairs are refused.
-    if (scan.wanted && !scan.wanted(of ?? null)) return;
-    // A fixed collider is one shape.
-    const shapes = [shapeOf.get(mine)!, of ? shapeOf.get(theirs)! : 0] as const;
-    const pushed = scan.pushed ??= new Map(), met = scan.met ??= new Map();
-    raw.narrowPhase.contactPair(mine, theirs, raw.bodies, (manifold, flipped) => {
-      const impulse = manifold.totalSolverContactImpulse();
-      // In contact is a solver contact point: the two touch, or are within the distance Rapier
-      // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
-      const points = manifold.numSolverContacts();
-      if (points === 0) return;
-      // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
-      const n = manifold.normal(), sign = flipped ? -1 : 1;
-      const at = [0, 0, 0];
-      for (let i = 0; i < points; i++) {
-        const p = manifold.solverContactPoint(i)!;
-        at[0] += p.x / points; at[1] += p.y / points; at[2] += p.z / points;
-      }
-      const seen = met.get(other) ?? { pairs: 0, point: [0, 0, 0], normal: [0, 0, 0], first: [sign * n.x, sign * n.y, sign * n.z] };
-      seen.pairs += 1;
-      for (let c = 0; c < 3; c++) seen.point[c]! += at[c]!;
-      seen.normal[0]! += sign * n.x; seen.normal[1]! += sign * n.y; seen.normal[2]! += sign * n.z;
-      met.set(other, seen);
-      if (!(impulse > 0)) return;
-      const sum = pushed.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0], pairs: new Map() };
-      // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
-      const key = shapes[0] * SHAPES_MOST + shapes[1];
-      const pair: ShapeSum = sum.pairs.get(key) ?? { mine: shapes[0], theirs: shapes[1], impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
-      for (const to of [sum, pair]) {
-        to.impulse += impulse;
-        for (let c = 0; c < 3; c++) to.point[c]! += at[c]! * impulse;
-        to.normal[0]! += sign * n.x * impulse; to.normal[1]! += sign * n.y * impulse; to.normal[2]! += sign * n.z * impulse;
-      }
-      sum.pairs.set(key, pair);
-      pushed.set(other, sum);
+  let listed: { readonly bodies: readonly RapierBody[]; readonly handles: Float64Array; readonly colliders: Float64Array } | null = null;
+  const slotOf = new Map<RapierBody, number>();
+  const listFor = () => {
+    if (listed) return listed;
+    const list = [...bodies], handles = new Float64Array(list.length);
+    const colliders = new Float64Array(list.reduce((n, body) => n + colliderHandles.get(body)!.length, 0));
+    let k = 0;
+    list.forEach((body, i) => {
+      handles[i] = body.id;
+      slotOf.set(body, k);
+      for (const handle of colliderHandles.get(body)!) colliders[k++] = handle;
     });
+    return listed = { bodies: list, handles, colliders };
+  };
+
+  /**
+   * Every listed collider's contacts, read out of Rapier in one call (`contact_readings`, the
+   * vendored patch's) as its narrow phase and the bodies' poses stand: a step, a load or a change
+   * to a body's mass, type or presence makes them stale, and the next reader reads them again.
+   */
+  let contacts = new Float64Array(4096);
+  let contactsFresh = false;
+  const readContacts = () => {
+    if (contactsFresh) return;
+    const { colliders } = listFor();
+    const length = raw.narrowPhase.raw.contact_readings(raw.bodies.raw, colliders, contacts);
+    if (length > contacts.length) {
+      contacts = new Float64Array(2 * length);
+      raw.narrowPhase.raw.contact_readings(raw.bodies.raw, colliders, contacts);
+    }
+    contactsFresh = true;
+  };
+  /** Whether a body's contacts are being read: a reader's `wanted` reads none itself. */
+  let reading = false;
+  /**
+   * What `contactsOf` sums a body's contacts in, kept with the world and grown as needed: the
+   * other sides it meets in the order met (`others`, each a body or null for a fixed collider, and
+   * `met`), the order the solver first pushed on
+   * each (`pushOrder`), and the pairs of shapes it pushed on (`shapePairs`); `order` puts one
+   * side's pairs in order.
+   */
+  const sums = { others: [] as (RapierBody | null)[], met: new Float64Array(8 * OTHER), pushOrder: new Int32Array(8),
+    shapePairs: new Float64Array(8 * SHAPE_PAIR), order: new Int32Array(8) };
+  /**
+   * The index of the side `other`, or the fixed collider `fixed` if it is null, among the sides met
+   * so far, `count` of them: a new one is made, its sums zero.
+   */
+  const sideOf = (other: RapierBody | null, fixed: number, count: number, first0: number, first1: number, first2: number): number => {
+    for (let i = 0; i < count; i++) if (sums.others[i] === other && (other !== null || sums.met[OTHER * i + MET.fixed] === fixed)) return i;
+    if (OTHER * (count + 1) > sums.met.length) {
+      const met = new Float64Array(2 * sums.met.length); met.set(sums.met); sums.met = met;
+      const order = new Int32Array(2 * sums.pushOrder.length); order.set(sums.pushOrder); sums.pushOrder = order;
+    }
+    sums.others[count] = other;
+    const o = OTHER * count;
+    sums.met.fill(0, o, o + OTHER);
+    sums.met[o + MET.fixed] = fixed;
+    sums.met[o + MET.first] = first0; sums.met[o + MET.first + 1] = first1; sums.met[o + MET.first + 2] = first2;
+    return count;
+  };
+  /** The index of the pair of shapes `key` on side `side` among the `count` pushed on so far: a new one is made, its sums zero. */
+  const shapePairOf = (side: number, key: number, mine: number, theirs: number, count: number): number => {
+    for (let i = 0; i < count; i++) {
+      if (sums.shapePairs[SHAPE_PAIR * i + PAIR.other] === side && sums.shapePairs[SHAPE_PAIR * i + PAIR.key] === key) return i;
+    }
+    if (SHAPE_PAIR * (count + 1) > sums.shapePairs.length) {
+      const pairs = new Float64Array(2 * sums.shapePairs.length); pairs.set(sums.shapePairs); sums.shapePairs = pairs;
+      sums.order = new Int32Array(2 * sums.order.length);
+    }
+    const p = SHAPE_PAIR * count;
+    sums.shapePairs.fill(0, p, p + SHAPE_PAIR);
+    sums.shapePairs[p + PAIR.other] = side; sums.shapePairs[p + PAIR.key] = key;
+    sums.shapePairs[p + PAIR.mine] = mine; sums.shapePairs[p + PAIR.theirs] = theirs;
+    return count;
+  };
+
+  /** A push the solver gave, added at `i` of `to`: its impulse, then its point and its normal each weighted by it. */
+  const push = (to: Float64Array, i: number, impulse: number, ax: number, ay: number, az: number, nx: number, ny: number, nz: number) => {
+    to[i]! += impulse;
+    to[i + 1]! += ax * impulse; to[i + 2]! += ay * impulse; to[i + 3]! += az * impulse;
+    to[i + 4]! += nx * impulse; to[i + 5]! += ny * impulse; to[i + 6]! += nz * impulse;
+  };
+  /**
+   * The contacts `contactsOf` summed of `sides` sides, `pushes` of them pushed on in `shapePairs`
+   * pairs of shapes: first what was pushed on, in the order first pushed, each its point the
+   * impulse's mean and its normal made unit, and its pairs of shapes in this body's shapes' order,
+   * then the other's; then what was not, its point the pairs' mean.
+   */
+  const contactsFrom = (sides: number, pushes: number, shapePairs: number): Contact[] => {
+    const out: Contact[] = [], met = sums.met, s = sums.shapePairs, order = sums.order;
+    for (let q = 0; q < pushes; q++) {
+      const side = sums.pushOrder[q]!, other = sums.others[side] ?? null, o = OTHER * side;
+      // Its pairs of shapes, by key: each key is one pair's.
+      let count = 0;
+      for (let p = 0; p < shapePairs; p++) {
+        if (s[SHAPE_PAIR * p + PAIR.other] !== side) continue;
+        let k = count++;
+        for (; k > 0 && s[SHAPE_PAIR * order[k - 1]! + PAIR.key]! > s[SHAPE_PAIR * p + PAIR.key]!; k--) order[k] = order[k - 1]!;
+        order[k] = p;
+      }
+      const pairs: ContactPair[] = [];
+      for (let k = 0; k < count; k++) {
+        const p = SHAPE_PAIR * order[k]!, impulse = s[p + PAIR.impulse]!;
+        const length = hypot(s[p + PAIR.normal]!, s[p + PAIR.normal + 1]!, s[p + PAIR.normal + 2]!);
+        pairs.push({ mine: s[p + PAIR.mine]!, theirs: s[p + PAIR.theirs]!, impulse,
+          point: [s[p + PAIR.point]! / impulse, s[p + PAIR.point + 1]! / impulse, s[p + PAIR.point + 2]! / impulse],
+          normal: [s[p + PAIR.normal]! / length, s[p + PAIR.normal + 1]! / length, s[p + PAIR.normal + 2]! / length] });
+      }
+      const impulse = met[o + MET.impulse]!, at = o + MET.pushedPoint, along = o + MET.pushedNormal;
+      const length = hypot(met[along]!, met[along + 1]!, met[along + 2]!);
+      out.push({ other, fixed: other === null ? met[o + MET.fixed]! : null, impulse,
+        point: [met[at]! / impulse, met[at + 1]! / impulse, met[at + 2]! / impulse],
+        normal: [met[along]! / length, met[along + 1]! / length, met[along + 2]! / length], pairs });
+    }
+    for (let side = 0; side < sides; side++) {
+      const o = OTHER * side;
+      if (met[o + MET.pushed] === 1) continue;
+      const other = sums.others[side] ?? null, pairs = met[o + MET.pairs]!;
+      // Pairs whose normals cancel have no mean direction: the first pair's stands.
+      const length = hypot(met[o + MET.normal]!, met[o + MET.normal + 1]!, met[o + MET.normal + 2]!);
+      const n = length > 0 ? o + MET.normal : o + MET.first, by = length > 0 ? length : 1;
+      out.push({ other, fixed: other === null ? met[o + MET.fixed]! : null, impulse: 0,
+        point: [met[o + MET.point]! / pairs, met[o + MET.point + 1]! / pairs, met[o + MET.point + 2]! / pairs],
+        normal: [met[n]! / by, met[n + 1]! / by, met[n + 2]! / by], pairs: [] });
+    }
+    return out;
+  };
+
+  /** Every listed body's pose and velocities, read out of Rapier in one call (`rbPosesAndVelocities`) after a step. */
+  let poses = new Float64Array(0);
+  /** Each body's velocities as last read from Rapier (`addBody`'s `read`). */
+  const velocities = new Map<RapierBody, Velocities>();
+
+  /**
+   * Motor commands asked for since the joints were last set, `MOTOR` numbers each, set in one
+   * call (`jointSetMotors`) in the order asked: before the step, and before anything else that
+   * changes or reads the world's joints, so each joint is as the commands made one at a time
+   * would have left it.
+   */
+  let motors = new Float64Array(MOTOR * 128);
+  let motorCount = 0;
+  const command = (handle: number, axis: number, kind: number, a: number, b: number, c: number, d: number) => {
+    if (MOTOR * (motorCount + 1) > motors.length) { const more = new Float64Array(2 * motors.length); more.set(motors); motors = more; }
+    const at = MOTOR * motorCount++;
+    motors[at] = handle; motors[at + 1] = axis; motors[at + 2] = kind;
+    motors[at + 3] = a; motors[at + 4] = b; motors[at + 5] = c; motors[at + 6] = d;
+  };
+  const setMotors = () => {
+    if (motorCount === 0) return;
+    joints.jointSetMotors(motors, motorCount);
+    motorCount = 0;
   };
   /** A body of this world's: another engine's, or another world's, is a caller's mistake. */
   const own = (body: SegmentBody): RapierBody => {
@@ -336,18 +457,24 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     let gone = false;
     return { id: handle, dispose() { if (gone || freed) return; gone = true; made.fixed.delete(handle); named = null; raw.removeCollider(raw.getCollider(handle), false); } };
   };
-  /** Every body's node, from its body. */
+  /** Every body's node from its body, and its velocities as read at this moment, out of Rapier in one call. */
   const writeNodes = () => {
-    for (const { node, rigid } of bodies) {
-      const t = rigid.translation(), r = rigid.rotation();
-      node.position.set(t.x, t.y, t.z);
-      (node.rotationQuaternion ??= new Quaternion()).set(r.x, r.y, r.z, r.w);
+    const { bodies: list, handles } = listFor();
+    if (poses.length !== POSE * list.length) poses = new Float64Array(POSE * list.length);
+    raw.bodies.raw.rbPosesAndVelocities(handles, poses);
+    for (let i = 0; i < list.length; i++) {
+      const body = list[i]!, node = body.node, read = velocities.get(body)!, at = POSE * i;
+      node.position.set(poses[at]!, poses[at + 1]!, poses[at + 2]!);
+      (node.rotationQuaternion ??= new Quaternion()).set(poses[at + 3]!, poses[at + 4]!, poses[at + 5]!, poses[at + 6]!);
+      read.linear.set(poses[at + 7]!, poses[at + 8]!, poses[at + 9]!); read.linearAt = moment;
+      read.angular.set(poses[at + 10]!, poses[at + 11]!, poses[at + 12]!); read.angularAt = moment;
     }
   };
 
   const physics: RapierPhysics = {
-    engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { return raw; }, gravity: g,
+    engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { setMotors(); return raw; }, gravity: g,
     save() {
+      setMotors();
       // Rapier's snapshot follows a version, body/grip counts, node poses, grip handles and release exclusions: the solver
       // holds a pose in single precision, and a node before its first step is as it was built.
       const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + NODE_POSE * bodies.size + 2 * grips.length);
@@ -366,6 +493,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return bytes;
     },
     load(bytes) {
+      // A refused load leaves the world as it was, its motors set.
+      setMotors();
       const header = bytes.length >= 8 * HEADER ? new Float64Array(bytes.slice(0, 8 * HEADER).buffer) : [];
       const count = header[1] ?? NaN, gripCount = header[2] ?? NaN;
       if (header[0] === -3) throw new Error("that save is in a format before a save named its world: make it again");
@@ -407,6 +536,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       raw.free();
       raw = next;
       moment += 1;
+      contactsFresh = false;
       joints = raw.impulseJoints.raw;
       for (const rebind of rebinds.values()) rebind();
       for (let i = 0; i < grips.length; i++) {
@@ -440,17 +570,21 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         // Rapier combines two colliders' coefficients by the rule of the higher priority, and Max is the highest.
         if (material?.friction !== undefined) desc.setFriction(material.friction).setFrictionCombineRule(R.CoefficientCombineRule.Max);
         const handle = raw.createCollider(desc, rigid).handle;
-        shapeOf.set(handle, k);
+        handleBits[0] = handle;
+        owners.shape[handleWords[0]!] = k; owners.generation[handleWords[0]!] = handleWords[1]!;
         return handle;
       });
       let properties = mass;
       // The body's velocities as last read from Rapier, each with the moment it was read at: a read
       // crosses into the wasm and makes an object, and control reads each a few times a step. A
-      // call that may change a velocity outside a step forgets them (`unread`).
-      const read = { linear: new Vector3(), angular: new Vector3(), linearAt: -1, angularAt: -1 };
+      // step reads them with the poses (`writeNodes`); a call that may change a velocity outside a
+      // step forgets them (`unread`).
+      const read: Velocities = { linear: new Vector3(), angular: new Vector3(), linearAt: -1, angularAt: -1 };
       const unread = () => { read.linearAt = read.angularAt = -1; };
       const setMass = (m: MassProperties) => {
         unread();
+        // A contact's solver points are anchored at the body's centre of mass.
+        contactsFresh = false;
         properties = m;
         rigid.setAdditionalMassProperties(m.mass, xyz(m.centre), xyz(m.moments), xyzw(m.orientation), true);
         // Rapier applies them at its next step unless told now; an impulse before then meets none.
@@ -490,7 +624,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           const reach = boundOf(desc.shape);
           let clear = true;
           raw.colliders.forEach(other => {
-            if (!clear || bodyOf.get(other.handle) === body || other.isSensor()
+            if (!clear || bodyOf(other.handle) === body || other.isSensor()
               || hooks.filterContactPair(handle, other.handle, rigid.handle, other.parent()?.handle ?? 0) === null) return;
             // Shapes whose bounding spheres stand apart cannot meet: Rapier's test builds the new
             // shape afresh each time it is asked (a hull's whole hull), so it is asked only of those near.
@@ -519,7 +653,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           for (let i = 0; i < vertices.length; i += 3) out.push([vertices[i]!, vertices[i + 1]!, vertices[i + 2]!]);
           return out;
         },
-        setFixed(fixed) { unread(); rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
+        setFixed(fixed) { unread(); contactsFresh = false; rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
         gapTo(point) {
           let gap = Infinity;
           for (let k = 0; k < rigid.numColliders(); k++) {
@@ -535,13 +669,16 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       };
       bodies.add(body);
       made.bodies.set(body, JSON.stringify(["body", shapes, mass, ccd, preparedMaterials])); named = null;
-      for (const collider of colliders) bodyOf.set(collider, body);
+      for (const collider of colliders) owners.body[ownerAt(collider)] = body;
       rebinds.set(body, () => { rigid = raw.getRigidBody(handle); });
       colliderHandles.set(body, colliders);
+      velocities.set(body, read);
+      listed = null; contactsFresh = false;
       return body;
     },
     addJoint(parentBody, childBody, frames) {
       const parent = own(parentBody), child = own(childBody);
+      setMotors();
       const M = R.JointAxesMask, n = frames.limits.length;
       if (n < 1 || n > 3) throw new Error(`a joint has one to three freedoms, not ${n}`);
       const locked = M.LinX | M.LinY | M.LinZ | (n < 2 ? M.AngY : 0) | (n < 3 ? M.AngZ : 0);
@@ -563,28 +700,21 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         joints.jointSetMotorMaxForce(handle, axes[k]! as never, 0);
       });
       return {
-        get raw() { return raw.getImpulseJoint(handle); },
-        setMotor(k, speed, ceiling) {
-          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.AccelerationBased as never);
-          joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
-          joints.jointSetMotorMaxForce(handle, axes[k]! as never, ceiling);
-        },
+        get raw() { setMotors(); return raw.getImpulseJoint(handle); },
+        // Each motor command is set with the others before the step (`setMotors`). A velocity motor
+        // is acceleration-based, Rapier's default model, with infinite damping and no stiffness.
+        setMotor(k, speed, ceiling) { command(handle, axes[k]!, MOTOR_KIND.velocity, speed, ceiling, 0, 0); },
         setMotorBounds(k, speed, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
             || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
-          // A spring (`setSpring`) leaves the freedom's motor force-based; a velocity motor is Rapier's default model.
-          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.AccelerationBased as never);
-          joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
-          joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);
+          command(handle, axes[k]!, MOTOR_KIND.bounded, speed, -positive, negative, 0);
         },
         setSpring(k, target, stiffness, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(target) || !(stiffness > 0) || !Number.isFinite(stiffness)
             || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid spring motor command");
-          // Force-based: the stiffness is N m/rad, not scaled by the bodies' inertia.
-          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.ForceBased as never);
-          joints.jointConfigureMotorPosition(handle, axes[k]! as never, target, stiffness, 0);
-          joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);
+          // Force-based, with no damping: the stiffness is N m/rad, not scaled by the bodies' inertia.
+          command(handle, axes[k]!, MOTOR_KIND.spring, target, stiffness, -positive, negative);
         },
         motorStepImpulse(k) {
           if (!Number.isInteger(k) || k < 0 || k >= n) throw new Error("invalid motor freedom");
@@ -618,6 +748,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           own(parent); own(child);
           if (!grips.includes(slot)) throw new Error("grip is disposed");
           if (slot.handle !== null) return;
+          setMotors();
           const ca = captured ? xyz(captured.anchorParent) : a, cb = captured ? xyz(captured.anchorChild) : b;
           const cqa = captured ? xyzw(captured.frameParent) : qa, cqb = captured ? xyzw(captured.frameChild) : qb;
           if (![...Object.values(ca), ...Object.values(cb), ...Object.values(cqa), ...Object.values(cqb)].every(Number.isFinite)
@@ -630,6 +761,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         },
         release() {
           if (slot.handle === null || freed) return;
+          setMotors();
           raw.removeImpulseJoint(raw.getImpulseJoint(slot.handle), true);
           slot.handle = null;
           slot.suppressed = overlaps(parent, child);
@@ -650,82 +782,96 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     addFixedShape(shape) { return fixed(colliderOf(shape), shape); },
     contactManifoldsOf(segment, wanted) {
       const body = own(segment);
-      if (scan.body) throw new Error("a body's contacts are read while another's are");
-      scan.body = body;
-      const out: ContactManifold[] = [];
-      let fault: { error: unknown } | null = null;
+      if (reading) throw new Error("a body's contacts are read while another's are");
+      readContacts();
+      reading = true;
+      let out: ContactManifold[] | null = null;
       try {
-        for (const mine of colliderHandles.get(body)!) raw.narrowPhase.contactPairsWith(mine, (theirs) => {
-          if (fault) return;
-          try {
-            const other = bodyOf.get(theirs) ?? null;
-            if (wanted && !wanted(other)) return;
-            raw.narrowPhase.contactPair(mine, theirs, raw.bodies, (manifold, flipped) => {
+        // Each collider's record in `contacts` (`contact_readings`): its pairs, each the other
+        // collider, whether it is the pair's first, where the pair ends and its manifolds.
+        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
+        for (let mine = 0; mine < count; mine++) {
+          let at = contacts[slot + mine]!;
+          const pairs = contacts[at++]!;
+          for (let p = 0; p < pairs; p++) {
+            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
+            const other = bodyOf(theirs) ?? null;
+            if (wanted && !wanted(other)) { at = end; continue; }
+            at += 4;
+            for (let m = 0; m < manifolds; m++) {
+              const solver = contacts[at]!, sign = flipped ? -1 : 1;
+              const nx = contacts[at + 1]!, ny = contacts[at + 2]!, nz = contacts[at + 3]!, impulse = contacts[at + 4]!;
+              at += 5;
+              if (solver === 0) continue;
               const points: { point: Vec3; distance: number }[] = [];
-              for (let k = 0; k < manifold.numSolverContacts(); k++) {
-                const p = manifold.solverContactPoint(k)!;
-                points.push({ point: [p.x, p.y, p.z], distance: manifold.solverContactSeparation(k) });
-              }
-              if (!points.length) return;
-              const n = manifold.normal(), sign = flipped ? -1 : 1;
-              const impulse = manifold.totalSolverContactImpulse();
-              out.push({ other, fixed: other === null ? theirs : null, mine: shapeOf.get(mine)!,
-                theirs: other === null ? 0 : shapeOf.get(theirs)!, normal: [sign * n.x, sign * n.y, sign * n.z], points, impulse });
-            });
-          } catch (error) { fault = { error }; }
-        });
-      } finally { scan.body = null; }
-      if (fault) throw (fault as { error: unknown }).error;
-      return out;
+              for (let k = 0; k < solver; k++, at += 4) points.push({ point: [contacts[at]!, contacts[at + 1]!, contacts[at + 2]!], distance: contacts[at + 3]! });
+              (out ??= []).push({ other, fixed: other === null ? theirs : null, mine,
+                theirs: other === null ? 0 : shapeOf(theirs), normal: [sign * nx, sign * ny, sign * nz], points, impulse });
+            }
+          }
+        }
+      } finally { reading = false; }
+      return out ?? NONE;
     },
     contactsOf(segment, wanted) {
       const body = own(segment);
-      if (scan.body) throw new Error("a body's contacts are read while another's are");
-      scan.body = body;
-      scan.wanted = wanted;
-      let pushed: Scan["pushed"], met: Scan["met"], fault: Scan["fault"];
+      if (reading) throw new Error("a body's contacts are read while another's are");
+      readContacts();
+      reading = true;
+      let sides = 0, pushes = 0, shapePairs = 0;
       try {
-        for (const mine of colliderHandles.get(body)!) {
-          scan.mine = mine;
-          raw.narrowPhase.contactPairsWith(mine, pairWith);
+        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
+        for (let mine = 0; mine < count; mine++) {
+          let at = contacts[slot + mine]!;
+          const pairs = contacts[at++]!;
+          for (let p = 0; p < pairs; p++) {
+            // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
+            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
+            const of = bodyOf(theirs);
+            if (wanted && !wanted(of ?? null)) { at = end; continue; }
+            at += 4;
+            // A fixed collider is one shape.
+            const theirShape = of ? shapeOf(theirs) : 0;
+            // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
+            const sign = flipped ? -1 : 1;
+            for (let m = 0; m < manifolds; m++) {
+              // In contact is a solver contact point: the two touch, or are within the distance Rapier
+              // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
+              const points = contacts[at]!, impulse = contacts[at + 4]!;
+              const nx = sign * contacts[at + 1]!, ny = sign * contacts[at + 2]!, nz = sign * contacts[at + 3]!;
+              at += 5;
+              if (points === 0) continue;
+              let ax = 0, ay = 0, az = 0;
+              for (let i = 0; i < points; i++, at += 4) { ax += contacts[at]! / points; ay += contacts[at + 1]! / points; az += contacts[at + 2]! / points; }
+              const side = sideOf(of ?? null, theirs, sides, nx, ny, nz);
+              if (side === sides) sides++;
+              const met = sums.met, o = OTHER * side;
+              met[o + MET.pairs]! += 1;
+              met[o + MET.point]! += ax; met[o + MET.point + 1]! += ay; met[o + MET.point + 2]! += az;
+              met[o + MET.normal]! += nx; met[o + MET.normal + 1]! += ny; met[o + MET.normal + 2]! += nz;
+              if (!(impulse > 0)) continue;
+              if (met[o + MET.pushed] === 0) { met[o + MET.pushed] = 1; sums.pushOrder[pushes++] = side; }
+              // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
+              const pair = shapePairOf(side, mine * SHAPES_MOST + theirShape, mine, theirShape, shapePairs);
+              if (pair === shapePairs) shapePairs++;
+              push(met, o + MET.impulse, impulse, ax, ay, az, nx, ny, nz);
+              push(sums.shapePairs, SHAPE_PAIR * pair + PAIR.impulse, impulse, ax, ay, az, nx, ny, nz);
+            }
+          }
         }
+        return sides === 0 ? NONE : contactsFrom(sides, pushes, shapePairs);
       } finally {
-        pushed = scan.pushed;
-        met = scan.met;
-        fault = scan.fault;
-        scan.body = null;
-        scan.wanted = undefined;
-        scan.pushed = scan.met = null;
-        scan.fault = null;
+        reading = false;
+        for (let i = 0; i < sides; i++) sums.others[i] = null;
       }
-      if (fault) throw fault.error;
-      const out: Contact[] = [];
-      if (!met) return out;
-      const named = (other: Other) => typeof other === "number" ? { other: null, fixed: other } : { other, fixed: null };
-      /** A sum's touch: its point the impulse's mean, its normal made unit. */
-      const touch = ({ impulse, point, normal }: Sum) => {
-        const length = hypot(normal[0]!, normal[1]!, normal[2]!);
-        return { impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse] as Vec3,
-          normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] as Vec3 };
-      };
-      for (const [other, sum] of pushed!) {
-        const pairs = [...sum.pairs.entries()].sort((a, b) => a[0] - b[0]).map(([, pair]) => ({ mine: pair.mine, theirs: pair.theirs, ...touch(pair) }));
-        out.push({ ...named(other), ...touch(sum), pairs });
-      }
-      for (const [other, { pairs, point, normal, first }] of met) {
-        if (pushed!.has(other)) continue;
-        // Pairs whose normals cancel have no mean direction: the first pair's stands.
-        const length = hypot(normal[0]!, normal[1]!, normal[2]!), n = length > 0 ? normal : first, by = length > 0 ? length : 1;
-        out.push({ ...named(other), impulse: 0, point: [point[0]! / pairs, point[1]! / pairs, point[2]! / pairs],
-          normal: [n[0]! / by, n[1]! / by, n[2]! / by], pairs: [] });
-      }
-      return out;
     },
     step(dt) {
       raw.timestep = dt;
       for (const grip of grips) if (grip.suppressed && !overlaps(grip.parent, grip.child)) grip.suppressed = false;
+      setMotors();
       raw.step(events, hooks);
       moment += 1;
+      contactsFresh = false;
       for (const { rigid } of forced) { rigid.resetForces(false); rigid.resetTorques(false); }
       forced.clear();
       writeNodes();
@@ -734,11 +880,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // After the world is freed its bodies went with it.
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
+      setMotors();
+      listed = null; contactsFresh = false;
+      velocities.delete(body);
+      slotOf.delete(body);
       made.bodies.delete(body);
       for (const [key, { parent, child }] of made.joints) if (parent === body || child === body) made.joints.delete(key);
       for (const [key, { parent, child }] of made.grips) if (parent === body || child === body) made.grips.delete(key);
       named = null;
-      for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); }
+      for (const handle of colliderHandles.get(body)!) { const at = ownerAt(handle); owners.body[at] = undefined; owners.generation[at] = -1; }
       colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
@@ -754,9 +904,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       if (freed) return;
       freed = true;
       bodies.clear();
-      bodyOf.clear();
-      shapeOf.clear();
+      owners.body.length = owners.shape.length = owners.generation.length = 0;
       colliderHandles.clear();
+      listed = null; slotOf.clear(); velocities.clear();
+      motorCount = 0;
       forced.clear();
       rebinds.clear();
       for (const grip of grips) { grip.handle = null; grip.suppressed = false; }
