@@ -4,8 +4,8 @@ The toed Warrior's club blow, sword cut and sword thrust (`src/core/skills/strik
 read against the held blow's bar: 64.8 J of the rules' energy, met with the item's face (the club
 blunt, the cut its edge, the thrust its point), at the mark asked, the striker up
 ([Club and sword](../plans/2026-10-31-club-and-sword.md#the-bar), `BAR.held`,
-`src/evaluation/strike/read.ts`). The club, steered, lands 86 and 88 of 100 held-out trials at
-120 and 480 Hz, short of the plan's 90; the cut and the thrust do not reach the bar.
+`src/evaluation/strike/read.ts`). The club, steered, lands 272 and 277 of 300 held-out trials
+at 120 and 480 Hz (91 and 92 %), 3 fallen at 480 Hz; the cut and the thrust do not reach the bar.
 
 ## What is used
 
@@ -65,21 +65,28 @@ places; a steer has to take it elsewhere.
 PPO (`research/run-train.py`) on `research/environments/club-blow.json`: the searched schedule
 steered by a network, Option Mind's club blow alone, the Warrior holding the club and the buckler,
 the still rung's target 0.94 to 1.14 m away and 0.15 m across the body to 0.3 m to the club's
-side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 7.1 M decisions in
-6.4 h.
+side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 8.5 M decisions in
+about 10 h, then 1.05 M more from its 8.5 M network with a narrower spread (`--log-std -1.6`) and a
+slower rate (`--lr 1e-4`) in 2.2 h, 8 workers of 4.
 
 | Network | Held out (seed 6001, 100 a rate): 120 Hz | 480 Hz |
 | --- | --- | --- |
 | none, the schedule alone (seed 5001, 40, gaps 0.79 to 1.29 m) | 2 of 40, 2 fell | 1 of 40, 2 fell |
 | 5.2 M decisions | 73, 2 fell | 91 |
 | 6.2 M | 85, 1 fell | 85 |
-| 7.1 M, the record's | **86**, none fell | **88**, 1 fell |
+| 7.1 M | 86, none fell | 88, 1 fell |
+| 8.5 M | 88, none fell | 90 |
+| 8.5 M, again (seed 7001, 200 a rate) | 174 of 200, 6 fell | 188 of 200 |
+| 8.5 M and 1.05 M narrower, the record's | **89**, none fell | **90**, 1 fell |
+| the same (seed 7001, 200 a rate) | **183 of 200**, none fell | **187 of 200**, 2 fell |
+| the same, 1.5 M narrower | 87, 2 fell | 96 |
 
 Landed blows meet at a median 15 to 16 m/s; the misses are weak blows spread over the places, the
 nearest and farthest most. The window is the one it was trained in: a narrower one (`band` and
 `aside` 0.15 m, or `reach` 0.73) admits the same places but moves the body before the blow, and
-lands 72 and 62 (77 and 68). Trained on past 7.1 M decisions (to 8.3 M), it stays between 84
-and 93 at either rate.
+lands 72 and 62 (77 and 68). From 7 M decisions on it stays between 84 and 96 at either rate, a
+fall in about a hundred trials at one rate or the other; the misses gather at the far side, 1.12 m
+and beyond.
 
 ### The club up the ladder
 
