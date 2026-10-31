@@ -39,6 +39,43 @@ footing keeps its existing 2 cm tolerance. These are control choices, not measur
 An action owning the stance or an explicit stance constraint suppresses idle placement. A lifted
 settling step lands before ordinary walking resumes; control takeover yields immediately.
 
+### Disturbances
+
+Idle placement yields to a stance catch already under way, or when actual horizontal velocity
+misses the stance's planned velocity by more than `CARRIAGE_STILL` (0.1 m/s). Its fixed targets
+and step progress are discarded before a walk or another placement can be requested. The stance
+can then choose the foot and landing that catch the push. Ordinary movement without a disturbance
+still lets an already lifted settling foot land.
+
+**The seed-2 Lab failure includes a regression in staying upright.** Harness: Node core world,
+`rapier-coordinate` (the browser's engine), 120 Hz, 200 m floor, Warrior, empty hands, balance 0%,
+no foe or gusts. Recipe: `?play=lab&scenario=ground&model=workshop-fighter&mind=option&seed=2&groundImpulse=90`.
+The Lab gives up to three automatic shoves at 1, 2.5 and 4 s.
+
+| Source | Automatic seed-2 result |
+|---|---|
+| `50a7f35d`, before idle settling | Resists all three shoves; no fall in 40 s |
+| `5996dba1`, before the merge | Falls; reaches the Lab's cap without quiet standing |
+| `3f975dd2`, after the merge | Same failure and action-transition trace as before the merge |
+| Disturbance yielding in `idleGoal` | Resists all three shoves; no fall in 40 s |
+
+In the failing source, idle placement begins at about 3.7 s; the third shove lands while that
+foot is in the air. Placement continues to ask for its fixed targets after the push. The recovery
+then repeatedly switches among steady, brace and flatten; the action trace contains 76 transitions
+before the Lab stops at its cap. This trace explains a controller discontinuity; it is not a
+visual inspection of the reported convulsions.
+
+A matched forced fall uses the same standing start and two manual 90 N s shoves at 0.2 and 0.3 s,
+with automatic attempts disabled on both sources. Quiet standing is recorded 9.475 s after
+takeover at `50a7f35d`, and 9.408 s with disturbance yielding. Thus the older rise is already slow;
+restoring resistance to the automatic shoves is not proof of a smooth rise. These are stand-check
+readings, not an accepted skill rung or a walking-performance claim. Browser inspection is
+unavailable because the browser access host is unavailable.
+
+Raw rows and the reproduction harness are kept in
+`research/runs/standup-regression-2026-10-30.jsonl` and the adjacent `.mjs`; short six-second
+foot traces and the older three-shove manual run are diagnostics, not the matched forced-fall pair.
+
 ## Turning
 
 A walk's heading turns no faster than the stance's envelope at the pace (`turnAt`,

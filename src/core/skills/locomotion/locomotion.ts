@@ -59,7 +59,7 @@ export const validCarriage = (carriage: Carriage): boolean =>
   && Number.isFinite(carriage.stagger) && carriage.stagger >= 0 && Number.isFinite(carriage.lower) && carriage.lower >= 0
   && (carriage.lead === "left" || carriage.lead === "right");
 
-/** The speed of the centre of mass across the ground under which a stopped walk takes its carriage's footing, m/s. */
+/** Idle placement's quiet speed and maximum horizontal velocity error from its plan before yielding, m/s. */
 const CARRIAGE_STILL = 0.1;
 
 /** A carriage's walk: the stance's steps (`STANCE_GAIT`) at its width; made once a carriage. */
@@ -422,6 +422,10 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
       && goal.pose === undefined && goal.swing === undefined && !goal.halt;
     const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.seconds = 0; };
     if (!free) { reset(); return null; }
+    if (idle.target && (s.own || hypot(s.velocity.x - s.planVelocity.x, s.velocity.z - s.planVelocity.z) > CARRIAGE_STILL)) {
+      // A push breaks the placement's plan: give the stance its catch steps before moving another foot.
+      reset(); return null;
+    }
     if (goal.walk !== null) {
       if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
       reset(); return null;

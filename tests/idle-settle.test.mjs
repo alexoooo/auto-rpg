@@ -9,7 +9,7 @@ import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 const feet = { "foot.left": "left", "foot.right": "right" };
 function fixture(scale = 1) {
   const view = { born: 0, time: 1, standing: scale, down: false, root: { rotation: Quaternion.Identity() }, effectors: {},
-    stance: { centre: new Vector3(0, scale, 0), support: Vector3.Zero(), place: Vector3.Zero(), plan: Vector3.Zero(), velocity: Vector3.Zero(),
+    stance: { centre: new Vector3(0, scale, 0), support: Vector3.Zero(), place: Vector3.Zero(), plan: Vector3.Zero(), planVelocity: Vector3.Zero(), velocity: Vector3.Zero(),
       soles: { left: new Vector3(-.15 * scale, 0, .15 * scale), right: new Vector3(.15 * scale, 0, -.15 * scale) },
       phase: "stand", touching: { left: true, right: true }, own: null } };
   const legs = locomotion(feet, null, { idleFooting: { offsets: { left: [-.15 * scale, 0], right: [.15 * scale, 0] }, length: .25 * scale } });
@@ -137,4 +137,20 @@ test("two manual Lab shoves release recovery back to settling on the gameplay en
     }
     assert.ok(quiet >= STAND_CHECK.quiet, "after the check's walk, idle legs must finish their steps and hold standing");
   } finally { run.dispose(); stand.dispose(); }
+});
+
+
+test("a disturbance cancels idle foot placement and gives catch steps priority", () => {
+  for (const caught of [false, true]) for (const walking of [false, true]) {
+    const { view, legs, ask } = fixture();
+    let command; for (let i = 0; i < 25; i++) command = ask();
+    assert.ok(command.swing, "fixture must begin a settling step");
+    view.stance.phase = "swing";
+    if (caught) view.stance.own = { foot: "right" };
+    else view.stance.velocity.x = 1;
+    const yielded = ask(walking ? { walk: [1, 0] } : {});
+    assert.equal(yielded.swing, undefined, "default settling must not keep its stale swing after a catch or unplanned motion");
+    assert.deepEqual(legs.state.idle, { seconds: 0, target: null });
+    assert.equal(legs.state.placing, null);
+  }
 });

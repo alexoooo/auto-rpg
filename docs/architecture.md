@@ -341,7 +341,8 @@ data (`Carriage`, `CARRIAGES`, the square stance the body is built in its one en
 walk's configuration may give another). Ordinary legs receive reference sole offsets at construction
 (`standingFooting`); idle for 0.2 s, upright and slow on both feet, they step into that footing
 when spacing error exceeds a quarter sole length or a sole is turned over 0.2 rad. Targets stay fixed through placement, with a smaller
-finish tolerance; spacing is read about the soles' midpoint so quiet sway causes no steps. Explicit stance requests and actions owning the
+finish tolerance; spacing is read about the soles' midpoint so quiet sway causes no steps. A catch
+or unexpected velocity discards idle placement before the legs ask for another step. Explicit stance requests and actions owning the
 stance suppress default settling (`LocomotionContext`); composed legs forward that authority.
 Recovery's internal legs omit the idle footing and keep their supports planted. Following orders
 continues only configured blows (`orderedBlow`), so a finished recovery's self-directed actions
