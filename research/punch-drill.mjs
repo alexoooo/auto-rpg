@@ -14,7 +14,7 @@
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--ease] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--driven] [--fire] [--brake] [--ease] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -212,7 +212,7 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, ease: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, driven: { type: "boolean" }, fire: { type: "boolean" }, brake: { type: "boolean" }, ease: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8"));
     const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { driven: found.cell.driven !== false, fire: !!found.cell.fire, brake: !!found.cell.brake, ease: !!found.cell.ease, wrist: !!found.cell.blow, free: !!found.cell.free, chamber: !!found.cell.chamber });
@@ -233,7 +233,7 @@ if (!isMainThread && workerData?.drill) {
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
   const lo = [], hi = [], without = new Set(cell.without);
   for (const channel of channels) { const level = without.has(channel) ? 0 : 1; lo.push(-level, 0, 0); hi.push(level, WINDOW, WINDOW); }
-  for (const [low, high] of [...(cell.gap === null ? [cell.blow ? BLOW_GAPS : GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : []), ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : []), ...(cell.ease ? [EASE] : []), ...(cell.chamber ? [CHAMBER, SETTLE] : [])]) { lo.push(low); hi.push(high); }
+  for (const [low, high] of [...(cell.gap === null ? [cell.blow ? BLOW_GAPS : GAPS] : []), LEAD, THROUGH, HIPS, TURN, LEAN, ...(cell.driven ? [ACCEL, STEER, ARRIVE] : []), ...(cell.fire ? [FIRE] : []), ...(cell.brake ? [BRAKE] : []), ...(cell.ease ? [EASE] : []), ...(cell.chamber ? [values["chamber-range"] ? values["chamber-range"].split(",").map(Number) : CHAMBER, SETTLE] : [])]) { lo.push(low); hi.push(high); }
   if (values.tune) { lo.length = 0; hi.length = 0; for (const [low, high] of TUNE) { lo.push(low); hi.push(high); } }
   const toX = (u) => u.map((v, i) => lo[i] + (hi[i] - lo[i]) * Math.min(1, Math.max(0, v)));
   const fromFile = values.from ? JSON.parse(readFileSync(values.from, "utf8")) : null, from = fromFile ? [...fromFile.best.x] : null;

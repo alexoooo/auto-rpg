@@ -92,3 +92,7 @@ so the Duellist keeps it.
 - **A club met with the palm** (`BLUNT_FACING` the item's z, either way): from the guard it met
   the target's guard, 15.5 J at best, unsearched.
 - **The club at the head** (the high mark): refused, the head above the arm's height band.
+- **The cut drawn back** (`--chamber`, from the cut's best): 4.23 at 17 generations, under the
+  cut's 4.93.
+- **The thrust drawn back nearer the target** (`--chamber --chamber-range 0.3,0.75`, from the
+  thrust's best): 4.76 at 33 generations, under the thrust's 5.57.
