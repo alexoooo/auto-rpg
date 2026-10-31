@@ -24,6 +24,8 @@ import { PERCEPTS, predictor, type ModelledStrike, type Seen } from "./percepts.
 export interface Reading {
   readonly spec: BodySpec;
   readonly hz: number;
+  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */
+  readonly rate?: number;
   readonly rules: Rulebook;
   readonly strikes: readonly ModelledStrike[];
   readonly measured: readonly Profile[];
@@ -43,7 +45,7 @@ export interface Reading {
  * Its memory is the kept focus's id.
  */
 export function situationReader(reading: Reading) {
-  const { spec, hz, rules, strikes, measured, ordersOf } = reading, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
+  const { spec, hz, rules, strikes, measured, ordersOf } = reading, rate = reading.rate ?? hz, riseFrom = reading.riseFrom ?? (() => null), unbraced = reading.unbraced ?? (() => 0);
   const threats = threatReader(), state = { focus: null as string | null }, predicting = predictor(reading.parts), shielded = shieldHands(spec).length > 0;
   /** Whether `other` is a foe in the fight that `orders` let the body focus on. */
   const candidate = (sight: Sight, orders: Orders | null, other: BodySense): boolean =>
@@ -61,7 +63,7 @@ export function situationReader(reading: Reading) {
   };
   /** The situation at `focus`, its predictions read through `predicting`. */
   const at = (sight: Sight, orders: Orders | null, focus: BodySense | null, blow: Seen["blow"], ward: Seen["ward"], predicting: ReturnType<typeof predictor>): Situation => {
-    const seen: Seen = { sight, spec, hz, rules, strikes, measured, orders, focus, blow, ward, threats, riseFrom, unbraced };
+    const seen: Seen = { sight, spec, hz, rate, rules, strikes, measured, orders, focus, blow, ward, threats, riseFrom, unbraced };
     predicting.reset(seen);
     const read: Record<string, unknown> = { sight, time: sight.view.time, predictions: predicting.predictions, perceive: predicting.perceive, predict: predicting.predict };
     for (const [name, percept] of Object.entries(PERCEPTS)) read[name] = percept.read(seen);

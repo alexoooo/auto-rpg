@@ -13,6 +13,7 @@ import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows
 import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/levels.ts";
 import { reactionSteps, rulebook } from "../core/rules/rulebook.ts";
 import { seedOf } from "../core/math/random.ts";
+import { phaseOf } from "../core/mind/host.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
@@ -89,7 +90,7 @@ export function runModels(map: DungeonMap, options: Pick<DungeonRunOptions, "her
 }
 
 /** Who stands for each model in the party list and the target panel. */
-const NAMES = (model: BodyModel) => MODEL_DISPLAY[model].label.toLowerCase();
+export const actorName = (model: BodyModel): string => MODEL_DISPLAY[model].label.toLowerCase();
 
 /** Who a body of the run is, by which its mind is chosen (`DungeonRunOptions.mind`): its id, its side and its model. */
 export type Participant = Pick<DungeonActor, "id" | "side" | "model">;
@@ -262,7 +263,7 @@ export class DungeonRun {
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const character = characters.get(id)!, info = cryptModel(model, character.spec);
       const actor: DungeonActor = {
-        id, name: NAMES(model), model, character, attackMetres: info.attackMetres, side, fighter: null, meshes: [], outAt: null,
+        id, name: actorName(model), model, character, attackMetres: info.attackMetres, side, fighter: null, meshes: [], outAt: null,
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
@@ -310,6 +311,7 @@ export class DungeonRun {
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
       mind: this.options.mind?.(actor) ?? cryptMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      phase: phaseOf(this.actors.indexOf(actor)),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {

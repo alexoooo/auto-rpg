@@ -9,6 +9,7 @@ import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import type { Pool } from "../core/rules/pool.ts";
 import { seedOf } from "../core/math/random.ts";
+import { phaseOf } from "../core/mind/host.ts";
 import { reactionSteps, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import { otherSide, type BodySpec, type Side } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
@@ -145,6 +146,7 @@ export class TeamBout {
     this.senses = createSenses(world, reactionSteps(senseDelayOf(recipe), world.hz), start + ends);
     const contactLabels = new Map<number, ContactTarget>();
     const members: Member[] = [];
+    let order = 0;
     for (const side of SIDES) {
       const { model, count, mind } = recipe[side], config = mind ?? defaultMind(model);
       const spec = teamSpec(recipe[side]), spawn = levelSpawn(level, side, gap);
@@ -152,7 +154,7 @@ export class TeamBout {
         const id = memberId(side, index), across = (index - (count - 1) / 2) * TEAM_SPACING;
         const at: Vec3 = [spawn.position[0], spawn.position[1], spawn.position[2] + across];
         const combatant = enlist(world, {
-          id, side, spec, at, heading: spawn.heading, rules: this.rules, seed: seedOf(recipe.seed ?? 0, id),
+          id, side, spec, at, heading: spawn.heading, rules: this.rules, seed: seedOf(recipe.seed ?? 0, id), phase: phaseOf(order++),
           life: (pool: Pool) => this.lifeOf(pool), senses: this.senses, solids,
           out: () => this.verdict !== null || this.eliminated(id),
           mind: config, catalog: GAME, name: `team ${id}`,

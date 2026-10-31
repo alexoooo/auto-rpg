@@ -292,6 +292,8 @@ export function highestSurface(foe: BodySense, name: string, from?: Vec3): Vec3 
 interface Opening {
   readonly hand: Side;
   readonly target: Vec3;
+  /** The face point the target is predicted from, in its segment's frame (`openingNow`). */
+  readonly local: Vec3;
   readonly family: BlowFamily;
   readonly direction?: Vec3;
   readonly segment: string;
@@ -390,6 +392,24 @@ interface Search {
  * worked in arrays made once a selector and read by index, since a `for…of` over a frozen array
  * allocates at every element.
  */
+/**
+ * **Where an opening held at `local` on `foe`'s segment `name` (`Opening.local`) is aimed now**:
+ * that point where the segment is sensed, led by its motion as the selector leads a face point
+ * (`OPENINGS.prediction` and the sensing's age); null where the segment is not sensed.
+ */
+export function openingNow(view: BodyView, foe: BodySense, name: string, local: Vec3): Vec3 | null {
+  const sensed = foe.segments.get(name);
+  if (!sensed) return null;
+  const at = NOW.set(local[0], local[1], local[2]).applyRotationQuaternionToRef(sensed.rotation, NOW).addInPlace(sensed.position);
+  const ahead = OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time)), spin = sensed.spin, velocity = sensed.velocity;
+  const lx = at.x - sensed.centre.x, ly = at.y - sensed.centre.y, lz = at.z - sensed.centre.z;
+  return [at.x + (velocity.x + (spin.y * lz - spin.z * ly)) * ahead, at.y + (velocity.y + (spin.z * lx - spin.x * lz)) * ahead,
+    at.z + (velocity.z + (spin.x * ly - spin.y * lx)) * ahead];
+}
+
+/** `openingNow`'s work vector, which carries nothing between calls. */
+const NOW = new Vector3();
+
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
@@ -418,6 +438,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
   const shoulder: [number, number, number] = [0, 0, 0], normal: [number, number, number] = [0, 0, 0];
   // Where the hand starts, world; that start in a hull's frame; a capsule's ends and middle, world; and the best target found.
   const start: [number, number, number] = [0, 0, 0], inside: [number, number, number] = [0, 0, 0], bestTarget: [number, number, number] = [0, 0, 0];
+  const bestFront: [number, number, number] = [0, 0, 0];
   const capsuleA: [number, number, number] = [0, 0, 0], capsuleB: [number, number, number] = [0, 0, 0], capsuleMiddle: [number, number, number] = [0, 0, 0];
   const capsuleParts: readonly Vec3[] = [capsuleA, capsuleMiddle, capsuleB];
   // The guarding limbs a call's paths must clear, grown to the most a foe has.
@@ -482,6 +503,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost + off;
       if (!search.found || score < search.score) {
         search.found = true; bestTarget[0] = target[0]; bestTarget[1] = target[1]; bestTarget[2] = target[2];
+        bestFront[0] = front[0]; bestFront[1] = front[1]; bestFront[2] = front[2];
         search.segment = name; search.family = family; search.blocked = blocked; search.reach = reach; search.score = score; search.vertical = terms.vertical;
       }
     }
@@ -574,7 +596,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       if (bottom) consider(bottom, "bottom");
     }
     if (!search.found) return null;
-    return { hand, target: [bestTarget[0], bestTarget[1], bestTarget[2]], segment: search.segment, family: search.family, blocked: search.blocked, reach: search.reach,
+    const chosen = foe.segments.get(search.segment)!;
+    scratch.set(bestFront[0], bestFront[1], bestFront[2]).subtractInPlace(chosen.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(chosen.rotation, inverse), scratch);
+    return { hand, target: [bestTarget[0], bestTarget[1], bestTarget[2]], local: [scratch.x, scratch.y, scratch.z], segment: search.segment, family: search.family, blocked: search.blocked, reach: search.reach,
       score: search.score, ...(search.vertical !== 0 ? { direction: [0, search.vertical, 0] as Vec3 } : {}) };
   };
 }

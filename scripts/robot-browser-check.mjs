@@ -35,7 +35,7 @@ try {
   await page.waitForTimeout(2000);
   await capture("arena-duelist-relic");
   await page.locator("#begin").click();
-  await page.waitForFunction(() => window.__arena?.duel);
+  await page.waitForFunction(() => window.__arena?.world);
   await page.evaluate(() => __arena.scene.whenReadyAsync());
   await page.waitForTimeout(500);
   await capture("arena-fight");
@@ -43,7 +43,7 @@ try {
   assert.ok(await page.evaluate(() => ["duelist", "relic"].every(id => __arena.scene.meshes.some(m => m.name.includes(`.${id}.`)))));
   await page.keyboard.press("Space");
   await page.locator("#restart").click();
-  await page.waitForFunction(() => window.__arena?.duel);
+  await page.waitForFunction(() => window.__arena?.world);
   assert.equal(new URL(page.url()).searchParams.get("appearance"), "duelist,relic");
   await page.keyboard.press("Space");
   await page.locator("#leave").click();

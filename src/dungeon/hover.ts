@@ -3,7 +3,7 @@ import "@babylonjs/core/Layers/effectLayerSceneComponent.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { DungeonActor } from "./run.ts";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 
 /** A narrow silhouette, depth-tested against the scene, with no change to body materials.
  * Babylon's expanded-mesh outline becomes black under this scene's SSAO prepass;
@@ -13,7 +13,8 @@ export class EnemyHover {
   private layer: HighlightLayer | null = null;
   private scene: Scene | null = null;
   private meshes = new Set<Mesh>();
-  show(actor: DungeonActor | null): void {
+  /** Outline what was drawn for a body (`DungeonActor.meshes`), or nothing. */
+  show(actor: { readonly meshes: readonly AbstractMesh[] } | null): void {
     const meshes=new Set(actor?.meshes.filter((m): m is Mesh=>m.isVisible&&m.isEnabled()&&m instanceof Mesh&&m.getTotalVertices()>0)??[]);
     const scene=meshes.values().next().value?.getScene();
     if(scene&&scene!==this.scene){this.dispose();this.scene=scene;

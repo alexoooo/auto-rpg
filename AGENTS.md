@@ -181,11 +181,13 @@ it never imports them.
 ## In a browser
 
 - **A hidden tab does not render** (no paint, no `requestAnimationFrame`, `scene.pick` misses).
-  Check `document.visibilityState` and that `engine.frameId` moves; from a background tab step
-  `__arena.world.step()` and call `scene.render()` yourself.
-- **The crowd fight's world is in a worker** (`src/worker/`): the page holds it while hidden or
-  loading, and never reaches it but by message. `await __crowd.step(n)` steps it there and draws
-  the newest step; `__crowd.world.burden(ms)` makes each step dearer, slowing the fight, not the page.
+  Check `document.visibilityState` and that `engine.frameId` moves.
+- **The Arena's, the crowd fight's and the Crypt's worlds are in workers** (`src/worker/`): the
+  page holds one while hidden, paused or loading, and never reaches it but by message. `await
+  __arena.step(n)`, `__crowd.step(n)` or `__dungeon.step(n)` steps it there and draws the newest
+  step, as a background tab needs; `.world.burden(ms)` makes each step dearer, slowing the fight,
+  not the page; `await __arena.world.tape()` is the bout's tape, `__arena.verdict` its verdict,
+  `__dungeon.run` the run as the page holds it (`RunView`).
 - **Look before probing.** `Material.isReady(mesh)` is false outside a render pass;
   `scene.materials` is incomplete (use `mesh.material`); after a hot reload, navigate.
 

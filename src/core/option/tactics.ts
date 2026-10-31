@@ -83,7 +83,7 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
 }
 
 /**
- * **Option Mind's tactics**: one policy (`chooserOf`) selecting a set of options by what they claim,
+ * **Option Mind's tactics**: one policy (`chooserOf`, deciding on the body's `phase`) selecting a set of options by what they claim,
  * at the foe it is worth most to act on (`Selection.decide`, each foe's situation read by
  * `situationReader`), the options its config names by kind, in rank order (`optionsOf`; `OPTIONS` unless given),
  * each kind making its options from what the mind gives it (`OptionsGiven`) and building what else it needs:
@@ -104,18 +104,18 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
  * were priced (`profileDetail`). Each time its chooser decides afresh it keeps what it expects of
 each foe it priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
-export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising): Decider {
+export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate = hz): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
   const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;
-  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rules,
+  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes, rate));
+  const walk = walker(spec), reader = situationReader({ spec, hz, rate, rules,
     strikes: actions.map((action, i) => ({ name: action.name, limbs: action.effectors, profile: measuredProfile(measures[i]!) })), measured: tables.strikes,
     ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
-    { spec, hz, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
-  const chosen = chooserOf(parts, deciding.chooser, options, seed);
+    { spec, hz, rate, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
+  const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;
   const engagement = {

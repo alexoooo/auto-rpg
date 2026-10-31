@@ -1,8 +1,9 @@
 import type { Body } from "../body.ts";
-import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../tactics/action-config.ts";
+import { actionConfigFaults, aimsState, armedActions, configuredActionEstimates, configuredAims } from "../tactics/action-config.ts";
 import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
+import { everyOf } from "../mind/decider.ts";
 import { kitBody, kitSkills, kitFaults } from "../tactics/fighter.ts";
 import { groundExecutor } from "../recovery/ground/held.ts";
 import { STAND_UP_PART } from "../recovery/ground/stand-up-part.ts";
@@ -44,6 +45,8 @@ export interface OptionMindConfig {
   readonly actions: readonly ActionConfig[];
   readonly ground: readonly TechniqueConfig[];
   readonly motor?: PartConfig | null;
+  /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
+  readonly rate?: number;
 }
 
 /** Its gaits (`move`): the one its options name (`Going`), braced where none does; no rule chooses one. */
@@ -64,6 +67,7 @@ const SLOTS: readonly Slot[] = Object.freeze([
 /** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`STAND_UP_PART.faults`). */
 function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config, parts)];
+  if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
   if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
   else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground }, parts).map((fault) => `ground: ${fault}`));
   return faults;
@@ -81,20 +85,21 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills | undefined;
+  const aims = configuredAims(parts, host.spec, config.executors, config.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
-    { executors: [ground.binding], actions: ground.actions });
-  const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
-  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
-    aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising), make);
+    { executors: [ground.binding], actions: ground.actions }, aims);
+  const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };
+  const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions, aims),
+    aims, orders: (sight) => wiring.orders(sight.view.senses), parts };
+  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every), make, { every, phase: host.phase, orders: making.orders });
   skills = driven.skills;
-  return driven;
+  return { ...driven, state: { ...driven.state, aims: aimsState(aims) } };
 }
 
 /** **Option Mind**: a chooser over its options, on its percepts, over the toolkit's body layer. Its choosers, kinds of option, objectives and predictions are the toolkit's role lists (`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`). */
 export const OPTION_MIND = controller<OptionMindConfig>({
   role: "mind", label: "Option Mind", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [], slots: SLOTS, defaults: OPTION_DEFAULTS,
-  keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true },
+  keys: { kind: true, chooser: true, options: true, predictions: true, navigation: true, locomotion: true, guard: true, support: true, executors: true, actions: true, ground: true, motor: true, rate: true },
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],

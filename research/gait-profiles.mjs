@@ -5,7 +5,7 @@
  * less `TOP`): the share whose strike was admitted, the mean seconds from the stop until it was
  * (`GaitReading.braced`), and the share that fell. Each names what it was measured on: the body as
  * the drill's recipe resolves it, the gait's legs (its mind's Move's, `gaitsOfMove`) and the strike it stopped to throw
- * (`gaitDigest`), the harness's rate, and no reaction time. Option Mind prices where a gait leaves the
+ * (`gaitDigest`), the harness's rate, the rate its mind decides at, and no reaction time. Option Mind prices where a gait leaves the
  * body by them (`src/core/option/tactics.ts`).
  *
  *   node research/gait-profiles.mjs [<record.jsonl> ...] [--write]
@@ -18,6 +18,7 @@ import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
 import { gaitDigest, measuredOn, skillDigest } from "../src/core/skills/framework/profile.ts";
+import { everyOf } from "../src/core/mind/decider.ts";
 import { gaitNamed, STOCK_GAITS } from "../src/core/skills/locomotion/gaits.ts";
 import { gaitsOfMove } from "../src/core/skills/locomotion/move-part.ts";
 
@@ -49,7 +50,7 @@ for (const path of paths) {
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     const gait = gaitNamed(mind.locomotion?.kind === "move" ? gaitsOfMove(mind.locomotion) : STOCK_GAITS, drill.gait);
     if (!gait) throw new Error(`${path}: no gait ${drill.gait} in its mind's legs`);
-    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, spec, mind.executors, action)), hz, null), key = JSON.stringify(measured);
+    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, spec, mind.executors, action)), hz, null, hz / everyOf(mind.rate, hz)), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.gait}`, rows: [] };
     profiles.set(key, profile);
     profile.rows.push(row.reading);
@@ -65,6 +66,6 @@ const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles
 }) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   const c = out.profiles[i].cells[0];
-  console.log(`${profile.label} (${profile.measured.body}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz): at its top, ${round(profile.top)} m/s, ${c.trials} trials, admitted ${c.done}, ${c.seconds} s unbraced, down ${c.down}`);
+  console.log(`${profile.label} (${profile.measured.body}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}): at its top, ${round(profile.top)} m/s, ${c.trials} trials, admitted ${c.done}, ${c.seconds} s unbraced, down ${c.down}`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

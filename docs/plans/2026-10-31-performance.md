@@ -140,8 +140,8 @@ to the bit.
 - **From a console** `__arena` and `__dungeon` step and read through the worker. AGENTS.md's
   browser rules and the scripts that drive a page (`scripts/arena-view-browser-check.mjs`) change
   with them.
-- **Rapier** loads in the worker only for these two pages; the Lab, the physics bench and the
-  control pages keep theirs.
+- **Rapier** loads in the worker only for these two pages (the setup previews draw puppets); the
+  Lab, the physics bench and the control pages keep theirs.
 - **Falling behind**: when the world cannot keep real time, its clock runs behind real time and
   the fight plays in slow motion (the owner's choice); the page keeps its frame rate.
 
@@ -220,11 +220,17 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    step's contacts' read ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2)
    was this one.
 6. **The world in a worker**, the crowd fight, then the Arena, then the Crypt, as the design says.
-   Built for the crowd fight (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
-   its digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's worker too,
-   the first 240 steps of seed 0); a duel's stage taking a person's orders on its tape
-   (`duelStage`), replayed in Node from that tape. Left: the Arena's page on the duel's stage, and
-   the Crypt. Check: a bout's digest in the
+   Built for the crowd fight, the Arena and the Crypt (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
+   the crowd fight's digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's
+   worker too, the first 240 steps of seed 0); the Arena's bout plays on a duel's stage
+   (`duelStage`) with its aftermath, a trial and the one beside it, a person's lead through the
+   team of one, holds on a new choice, the HUD, sounds and overlays read from each step's news, and
+   a bout a person led replays in Node from the tape the worker kept; the setup previews draw
+   puppets, so the Arena's page loads no Rapier; a Crypt run plays on its stage (`cryptStage`), its
+   foes' puppets made as the run builds them, its fog, doors, party, selection, notice, routes,
+   hearing and inspected mind read from each step's news, the person's commands, selection, drawn
+   routes and lead its input, and a run a person commanded replays in Node from the tape the worker
+   kept; the Crypt's page loads no Rapier. Check: a bout's digest in the
    worker equals Node's; the page holds the display's rate while a step is made slow on purpose; the
    owner plays.
 7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The
@@ -242,9 +248,17 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    point on its segment as Vanguard's committed aim does
    (`src/entrants/vanguard/committed-aim.ts`); predictions made again on their events. A blocked
    hand pose (a body hook, not a mind's) is read again first, and held only if it is still dear.
-   Check: each one's drill and the match.
+   Check: each one's drill and the match. Built: the surface aim's held opening, one set of aims a
+   mind ([the held aim](../reference/step-cost.md#the-held-aim)): opening searches 14.8 a step to
+   4.2; the punch's guarding rung lands as before; the match 5 of 12 before, 8 after. The
+   predictions take no share the profiler lists, and are not held. Ground positioning runs only
+   while a foe is low, and no body goes down in the crowd fight's 149 s or in the sword against
+   club duel to its verdict at 41 s; a hand's blocked pose takes no share the profiler lists. Neither
+   is held.
 10. **Phases spread**: the phase grant, given by the duel, the team bout and the Crypt, and
-    periodic decisions start at it.
+    periodic decisions start at it. Built: `HostGrants.phase`, `phaseOf`, the chooser's deadline on
+    it (`nextDecision`) ([phases spread](../reference/step-cost.md#phases-spread)): steps where all
+    ten chose afresh 16 to 1, the 99th per cent step 21.3 ms to 12.8.
     Check: the crowd fight's dearest step and how many decisions fall on one step.
 11. **The mind at 30 Hz**: the rate a field of the mind's config, carried to the command layers
     (`kitBody`, `src/core/tactics/fighter.ts`; `LayerOptions`), the driver every fourth step at

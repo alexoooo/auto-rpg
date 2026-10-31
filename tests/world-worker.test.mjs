@@ -2,12 +2,15 @@
  * **A world a worker steps is Node's world** (Node, core world, the game's engine, 120 Hz). The
  * worker's own code (`serve`, `src/worker/serve.ts`) is driven through one end of a message channel,
  * as a page drives it, capped at 2 s, stepped from the console, then run in real time with each step
- * made slow on purpose and then not, so the world falls behind and catches up. Every step's frame
- * arrives, in order and none twice, and the poses they carry digest to what the same recipe gives
- * built in-process and stepped to its verdict; the verdict told beside the frames is the
- * in-process bout's. A team bout of two Option Mind Warriors a side is held to `buildTeamBout`; a
- * duel given a person's orders as it runs is held to `buildBout` playing the tape the worker kept,
- * which the orders changed.
+ * made slow on purpose and then not, so the world falls behind and catches up, then stepped from the
+ * console to its end. Every step's frame arrives, in order and none twice, and the poses they carry
+ * digest to what the same recipe gives built in-process and stepped to its end; the verdict told
+ * beside the frames is the in-process bout's. A team bout of two Option Mind Warriors a side is held
+ * to `buildTeamBout`; a duel as the Arena plays it (`duelStage`), a side led by a person's keys and
+ * pointer as it runs, is held to `buildBout` under the Arena's playback (`arenaPlayback`) playing
+ * the tape the worker kept, which the person's lead changed. A Crypt run (`cryptStage`) whose hero
+ * stands until a person draws it a route to the exit, an enemy built on the way, is held to
+ * `buildCryptRun` taking the inputs on the tape the worker kept at the steps it kept them.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -20,6 +23,8 @@ const { buildBout, buildTeamBout } = await import("../src/evaluation/bout.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { Sha256 } = await import("../src/evaluation/sha256.ts");
 const { crowdFight } = await import("../src/arena/team-bout.ts");
+const { arenaPlayback } = await import("../src/arena/playback.ts");
+const { buildCryptRun } = await import("../src/worker/crypt-stage.ts");
 
 Logger.LogLevels = Logger.NoneLogLevel;
 
@@ -31,19 +36,22 @@ const DUEL = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 2 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Build `start` in a worker on a channel and play it to its verdict: 30 steps from the console,
- * then run in real time, each step 15 ms dearer for 400 ms; `meanwhile` is told the page's end
- * once the world runs. What the page heard, and the bout's tape.
+ * Build `start` in a worker on a channel and play it to its end: 30 steps from the console, then
+ * run in real time, each step 15 ms dearer for 400 ms, `meanwhile` told the page's end once the
+ * world runs; then held, and the rest stepped from the console, at most `rest` steps. What the page
+ * heard, and the stage's tape.
  */
-async function played(start, meanwhile = async () => {}) {
+async function played(start, meanwhile = async () => {}, rest = 1e6) {
   const { port1: page, port2: worker } = new MessageChannel();
   let closed = false;
   serve(worker, () => { closed = true; worker.close(); });
-  const heard = { ready: null, frames: [], verdict: null, faults: [], stepped: 0, tape: null };
+  const heard = { ready: null, frames: [], verdict: null, crypt: [], faults: [], stepped: 0, tape: null };
+  const told = (news) => { if (news?.verdict) heard.verdict = news.verdict; if (news?.crypt) heard.crypt.push(news.crypt); };
   page.on("message", (message) => {
     switch (message.kind) {
       case "ready": heard.ready = message; return;
-      case "frame": heard.frames.push(message.frame); if (message.news?.verdict) heard.verdict = message.news.verdict; return;
+      case "frame": heard.frames.push(message.frame); told(message.news); return;
+      case "news": told(message.news); return;
       case "stepped": heard.stepped += 1; return;
       case "tape": heard.tape = message.tape; return;
       case "fault": heard.faults.push(message.message); return;
@@ -60,15 +68,17 @@ async function played(start, meanwhile = async () => {}) {
   page.postMessage({ kind: "burden", ms: 15 });
   page.postMessage({ kind: "run", running: true });
   await Promise.all([meanwhile(page), wait(400).then(() => page.postMessage({ kind: "burden", ms: 0 }))]);
-  await until(() => heard.verdict, 20000);
-  await wait(50);
+  page.postMessage({ kind: "run", running: false });
+  page.postMessage({ kind: "step", steps: rest });
+  await until(() => heard.stepped === 2, 20000);
   page.postMessage({ kind: "tape" });
   await until(() => heard.tape, 2000);
   page.postMessage({ kind: "stop" });
   await until(() => closed, 2000);
   page.close();
   assert.deepEqual(heard.faults, []);
-  assert.ok(heard.verdict && closed, `the bout gave no verdict in the worker, or it did not close: ${JSON.stringify(heard.verdict)}`);
+  const ended = heard.verdict ?? (heard.crypt.at(-1)?.status === "playing" ? null : heard.crypt.at(-1)?.status);
+  assert.ok(ended && closed, `the stage did not end in the worker, or it did not close: ${JSON.stringify(ended)}`);
   assert.ok(heard.frames.some((frame) => frame[2] < 0.9), "no frame ran behind real time");
   return heard;
 }
@@ -90,11 +100,11 @@ function framesDigest({ ready: { roster, frame: first }, frames }) {
   return hash.hex().slice(0, 16);
 }
 
-/** `bout`'s bodies stepped in-process to its verdict: their digest, the steps and the verdict. */
-function stepped(world, bout, builts) {
+/** `bout`'s bodies stepped in-process until `done`: their digest, the steps and the verdict. */
+function stepped(world, bout, builts, done) {
   const trace = traceOf(builts);
   let steps = 0;
-  while (!(bout.verdict && bout.clock >= bout.verdict.time)) { world.step(); trace.take(); steps++; }
+  while (!done()) { world.step(); trace.take(); steps++; }
   return { digest: trace.digest(), steps, verdict: bout.verdict };
 }
 
@@ -103,26 +113,29 @@ test("a team bout stepped in its worker digests to Node's, step for step, slow o
   const sent = framesDigest(heard);
   const { world, bout, dispose } = await buildTeamBout(TEAM);
   assert.deepEqual(heard.ready.roster.map(({ id, segments }) => ({ id, segments })), bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()] })));
-  const node = stepped(world, bout, bout.members.map((member) => member.built));
+  const node = stepped(world, bout, bout.members.map((member) => member.built), () => bout.verdict && bout.clock >= bout.verdict.time);
   dispose();
   assert.equal(heard.frames.length, node.steps);
   assert.deepEqual(heard.verdict, node.verdict);
   assert.equal(sent, node.digest);
 });
 
-test("a duel given a person's orders in its worker replays in Node from the tape it kept", async () => {
-  const heard = await played({ kind: "duel", recipe: DUEL, tape: [], aftermath: 0 }, async (page) => {
+test("a duel a person leads in its worker replays in Node from the tape it kept", async () => {
+  const start = { recipe: DUEL, tape: [], played: null, person: "left", hold: false, traced: false, beside: null };
+  const heard = await played({ kind: "duel", start }, async (page) => {
     await wait(150);
-    page.postMessage({ kind: "order", side: "left", orders: { move: null, face: { x: 1, z: 0 } } });
+    const ray = { origin: [0, 3, 6], direction: [0, -0.6, -0.8], length: 50 };
+    page.postMessage({ kind: "input", input: { kind: "lead", lead: { keys: { x: 0, z: -1 }, walk: true, ray, attacking: false } } });
     await wait(300);
-    page.postMessage({ kind: "order", side: "left", orders: null });
+    page.postMessage({ kind: "input", input: { kind: "lead", lead: null } });
   });
-  assert.equal(heard.tape.length, 2, `the tape kept ${JSON.stringify(heard.tape)}`);
+  assert.ok(heard.tape.some((entry) => entry.side === "left" && entry.orders?.move), `the tape kept no move of the person's: ${JSON.stringify(heard.tape)}`);
   const sent = framesDigest(heard);
   const replay = async (tape) => {
     const { world, duel, dispose } = await buildBout(DUEL);
+    const playback = arenaPlayback(duel);
     duel.play(tape);
-    const node = stepped(world, duel, ["left", "right"].map((side) => duel.duelists[side].built));
+    const node = stepped(world, duel, ["left", "right"].map((side) => duel.duelists[side].built), () => playback.done);
     dispose();
     return node;
   };
@@ -131,4 +144,57 @@ test("a duel given a person's orders in its worker replays in Node from the tape
   assert.deepEqual(heard.verdict, node.verdict);
   assert.equal(sent, node.digest);
   assert.notEqual(unordered.digest, node.digest, "the orders changed nothing");
+});
+
+/**
+ * A corridor a body wide: the hero at its west end, the exit 6 m east, and a skeleton waiting 19 m
+ * east, past the distance a party member wakes it from (`WAKE_METRES`, 16 m) until the hero walks.
+ */
+function corridor() {
+  const size = 24, floor = new Uint8Array(size * size);
+  for (let z = 1; z <= 3; z++) for (let x = 1; x <= 22; x++) floor[z * size + x] = 1;
+  return { seed: 0, size, floor, rooms: [{ id: 0, centre: { x: 11, z: 2 }, min: { x: 1, z: 1 }, max: { x: 22, z: 3 } }], doors: [], obstacles: [],
+    start: { x: 2, z: 2 }, exit: { x: 8, z: 2 }, spawns: [{ x: 21, z: 2 }] };
+}
+
+test("a Crypt run a person commands in its worker replays in Node from the tape it kept", async () => {
+  const lead = { mode: { keyboard: false, facing: false }, cursor: null, right: 0, up: 0, walk: false, toward: { x: 0, z: 1 } };
+  const start = { seed: 0, layout: corridor(), minds: {}, attributes: {}, lead };
+  const heard = await played({ kind: "crypt", start }, async (page) => {
+    await wait(150);
+    const input = (input) => page.postMessage({ kind: "input", input });
+    input({ kind: "select", ids: null });
+    input({ kind: "lead", lead: { ...lead, mode: { keyboard: false, facing: true }, cursor: { x: 8, z: 2 } } });
+    input({ kind: "command", command: { kind: "go", route: { points: [{ x: 3, z: 2 }], drawing: true } } });
+    await wait(40);
+    input({ kind: "route", points: [{ x: 3, z: 2 }, { x: 5, z: 2.2 }], drawing: true });
+    await wait(40);
+    input({ kind: "route", points: [{ x: 3, z: 2 }, { x: 5, z: 2.2 }, { x: 8, z: 2 }], drawing: false });
+  }, 12000);
+  const built = heard.crypt.map((news) => news.actors.find((actor) => actor.id === "enemy-0").built);
+  assert.equal(heard.crypt.at(-1).status, "won", `the hero did not reach the exit: ${JSON.stringify(heard.crypt.at(-1))}`);
+  assert.ok(!built[0] && built.at(-1), `the enemy was not built while the run played: ${built[0]} then ${built.at(-1)}`);
+  assert.deepEqual(heard.tape.map((entry) => entry.input.kind), ["select", "lead", "command", "route", "route"]);
+  const sent = framesDigest(heard);
+  const { run, apply, dispose } = await buildCryptRun(start);
+  const hash = new Sha256(), row = new Float64Array(7), bytes = new Uint8Array(row.buffer);
+  let steps = 0, entry = 0;
+  while (run.status === "playing") {
+    while (heard.tape[entry]?.step === run.world.steps) apply(heard.tape[entry++].input);
+    run.step(); steps++;
+    heard.ready.roster.forEach((body, b) => {
+      const segments = run.actors[b].fighter?.built.segments;
+      for (const name of body.segments) {
+        const node = segments?.get(name).node;
+        if (node) row.set([node.position.x, node.position.y, node.position.z, node.rotationQuaternion.x, node.rotationQuaternion.y,
+          node.rotationQuaternion.z, node.rotationQuaternion.w]);
+        else row.set([0, 0, 0, 0, 0, 0, 1]);
+        hash.update(bytes);
+      }
+    });
+  }
+  dispose();
+  assert.equal(entry, heard.tape.length, "the replay did not reach every input on the tape");
+  assert.equal(heard.frames.length, steps);
+  assert.equal(sent, hash.hex().slice(0, 16));
 });

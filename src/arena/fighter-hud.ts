@@ -1,6 +1,5 @@
-import type { Combatant } from "../core/combatant.ts";
-import { phaseLabels } from "../entrants/game.ts";
-import { actionFeed, damageReadout } from "./fighter-readout.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import { damageDiagram, type FighterReading } from "./fighter-readout.ts";
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -11,7 +10,7 @@ function damageColour(remaining: number): string {
   return `rgb(${from.map((value, i) => Math.round(value + (to[i]! - value) * amount)).join(" ")})`;
 }
 
-/** One fighter's diagram and feed own DOM only; the Arena owns their sampling hook. */
+/** One fighter's diagram and feed own DOM only: what they show is read where the bout steps (`fighterReading`). */
 export function fighterHud(side: string) {
   const element = document.createElement("section"), damage = document.createElement("div"), feed = document.createElement("ol");
   const diagram = document.createElementNS(SVG, "svg"), caption = document.createElement("output");
@@ -28,30 +27,31 @@ export function fighterHud(side: string) {
   for (const type of ["pointerdown", "pointermove", "wheel"]) element.addEventListener(type, event => event.stopPropagation());
   element.addEventListener("keydown", event => { if (event.key !== "Escape") event.stopPropagation(); });
   summary.addEventListener("click", () => summary.blur());
-  const history = actionFeed(), nodes = new Map<string, { path: SVGPathElement; text: HTMLLIElement; previous: string }>();
+  const nodes = new Map<string, { path: SVGPathElement; text: HTMLLIElement; previous: string }>();
   const entries = new Map<string, HTMLLIElement>();
-  let fighter: Combatant | null = null, reading: ReturnType<typeof damageReadout> | null = null;
+  let parts: readonly { readonly name: string; readonly label: string; readonly path: string }[] | null = null, reading: FighterReading | null = null;
   let selected: string | null = null, pinned: string | null = null, description = "";
   const reset = () => {
-    fighter = null; reading = null; selected = null; pinned = null; description = "";
-    history.reset(); nodes.clear(); entries.clear(); diagram.replaceChildren(); list.replaceChildren(); feed.replaceChildren();
+    parts = null; reading = null; selected = null; pinned = null; description = "";
+    nodes.clear(); entries.clear(); diagram.replaceChildren(); list.replaceChildren(); feed.replaceChildren();
     details.open = false; unavailable.hidden = true; caption.textContent = "No damage";
   };
+  const labelOf = (name: string) => parts?.find(part => part.name === name)?.label ?? name;
   const describe = () => {
     const part = reading?.parts.find(part => part.name === (selected ?? pinned));
-    const text = part ? `${part.label}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}` : description;
+    const text = part ? `${labelOf(part.name)}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}` : description;
     if (caption.textContent !== text) caption.textContent = text;
   };
   return { element, reset,
-    bind(next: Combatant): void {
-      reset(); fighter = next; reading = damageReadout(next.built.spec, next.pool); history.label(phaseLabels(next.mind));
-      unavailable.hidden = !!next.minded.report;
+    /** Draw `spec`'s diagram, every part whole. */
+    bind(spec: BodySpec): void {
+      reset(); parts = damageDiagram(spec);
       for (const [x, label] of [[9, "R"], [91, "L"]] as const) {
         const text = document.createElementNS(SVG, "text");
         text.setAttribute("x", String(x)); text.setAttribute("y", "11"); text.setAttribute("aria-hidden", "true"); text.textContent = label;
         diagram.append(text);
       }
-      for (const part of reading.parts) {
+      for (const part of parts) {
         const path = document.createElementNS(SVG, "path"), text = document.createElement("li");
         path.setAttribute("d", part.path); path.dataset.part = part.name;
         path.setAttribute("tabindex", "0"); path.setAttribute("role", "button");
@@ -65,20 +65,18 @@ export function fighterHud(side: string) {
         diagram.append(path); list.append(text); nodes.set(part.name, { path, text, previous: "" });
       }
     },
-    sample(time: number, actions = true): void {
-      if (!fighter) return;
-      reading!.sample(time);
-      if (actions) history.sample(fighter.minded.report, fighter.body, time);
-    },
-    render(time: number): void {
-      if (!reading) return;
+    /** Show `next`, read at `time`, the bout's s. */
+    render(next: FighterReading, time: number): void {
+      if (!parts) return;
+      reading = next;
+      unavailable.hidden = next.reports;
       let damaged = 0, missing = 0;
       for (const part of reading.parts) {
         if (!part.attached) missing++; else if (part.remaining < 1) damaged++;
         const node = nodes.get(part.name)!, flash = part.flashUntil > time, signature = `${part.remaining}/${part.attached}/${flash}`;
         if (signature === node.previous) continue;
         node.previous = signature;
-        const text = `${part.label}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}`;
+        const text = `${labelOf(part.name)}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}`;
         node.path.setAttribute("fill", damageColour(part.remaining)); node.path.setAttribute("aria-label", text);
         node.path.dataset.remaining = part.remaining.toFixed(4); node.path.dataset.attached = String(part.attached);
         node.path.classList.toggle("is-missing", !part.attached); node.path.classList.toggle("is-flashing", flash);
@@ -86,7 +84,7 @@ export function fighterHud(side: string) {
       }
       description = damaged || missing ? [damaged ? `${damaged} damaged` : "", missing ? `${missing} missing` : ""].filter(Boolean).join(" · ") : "No damage";
       describe();
-      const visible = history.read(time), keys = new Set(visible.map(entry => entry.key));
+      const visible = next.feed, keys = new Set(visible.map(entry => entry.key));
       for (const [key, node] of entries) if (!keys.has(key)) { node.remove(); entries.delete(key); }
       visible.forEach((entry, i) => {
         let node = entries.get(entry.key);

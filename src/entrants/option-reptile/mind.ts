@@ -87,19 +87,19 @@ interface ValuedConfig { readonly kind: "option-reptile:valued"; readonly object
 /**
  * **By worth**: the toolkit's set selection (`selectSet`) over the Option Reptile's options, each
  * worth its model by its objective (`ReptileObjective`), deciding afresh on its cue's change
- * (`cueOf`) or every `RETHINK` s.
+ * (`cueOf`) or on its body's phase of each `RETHINK` s (`nextDecision`).
  */
 export const VALUED_CHOOSER: ChooserPart<ValuedConfig, ReptileOption, (fighting: Fighting) => ReptileChooser> = deepFreeze({
   role: "chooser", label: "By worth", stage: "game", fields: [], slots: [slotOne("objective", "Objective", "objective", true, FIGHT_OBJECTIVE.defaults)],
   defaults: { kind: "option-reptile:valued" }, keys: { kind: true, objective: true }, fits: anyBody, faults: () => [],
-  make: (config: ValuedConfig, options: readonly ReptileOption[], _seed: number, parts: PartLookup) => (fighting: Fighting) => {
+  make: (config: ValuedConfig, options: readonly ReptileOption[], _seed: number, parts: PartLookup, phase = 0) => (fighting: Fighting) => {
     const given = config.objective ?? FIGHT_OBJECTIVE.defaults;
     const objective = (parts.of("objective", given).make(given) as (fighting: Fighting) => ReptileObjective)(fighting);
     return selectSet<ReptileSituation, OfferTerms, ReptileOption>(options, (option, _i, now) => {
       const terms = option.model(now), worth = objective.worth(terms, now);
       if (!Number.isFinite(worth)) throw new Error(`${option.name} is worth ${worth}`);
       return { name: option.name, worth, terms, moves: null, letGo: 0 };
-    }, { rethink: RETHINK }, cueOf(fighting.window));
+    }, { rethink: RETHINK, phase }, cueOf(fighting.window));
   },
 });
 
@@ -148,7 +148,7 @@ function optionReptile(host: BodyHost, wiring: MindWiring, config: OptionReptile
       const terms = biteOption.model(now);
       return terms.duration > 0 ? terms.dealt / terms.duration : 0;
     };
-    const chooser = (parts.of("chooser", config.chooser).make(config.chooser, options, host.seed, parts) as (fighting: Fighting) => ReptileChooser)({ window, biting });
+    const chooser = (parts.of("chooser", config.chooser).make(config.chooser, options, host.seed, parts, host.phase) as (fighting: Fighting) => ReptileChooser)({ window, biting });
     const reader = reptileReader(host.spec, host.rules, (seen) => wiring.orders(seen.senses));
     const state = { righting: false, focus: null as string | null };
     const forget = () => { stalk.state.target = null; stalk.state.pending = 0; stalk.state.phase = null; };

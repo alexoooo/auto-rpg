@@ -547,6 +547,87 @@ on the same machine while another job ran on it:
 No opening search is asked twice at one stamp in the crowd fight's first 30 s; the memo answers
 the menu's and a Commander's asks, which the crowd fight does not make.
 
+### The held aim
+
+**Holding each opening as a point on its segment cuts the crowd fight's opening searches from 14.8
+a step to 4.2, and the search's own share of the step from 11.5 % to 2.9 %.** The surface aim
+(`SURFACE_AIM`, `src/core/skills/framework/aims.ts`) keeps each opening it finds and aims at that
+point on its segment where the segment is now (`openingNow`), searching again on its triggers
+(`HELD_OPENING`): the striker's head moved 0.05 m and a tenth of their distance about the
+segment, the segment turned 0.08 of a quaternion's components, the striking hand moved 0.05 m
+about the head, or 0.25 s passed. A mind makes its aims once and every caller asks the same ones.
+
+The crowd fight, seed 0, its first 20 s, Node, core world, `rapier-coordinate`, 120 Hz, at
+`85d0a5c8` and after. Calls a step, counted (`research/call-count.mjs --crowd --cap 20`):
+
+| Counted | Before | After |
+| --- | --- | --- |
+| opening searches | 14.8 | 4.2 |
+
+Why a held opening was searched again over those 20 s, as the triggers were set, each ask a step
+counted once:
+
+| Held to | Kept | Deadline | Head moved | Segment turned |
+| --- | --- | --- | --- | --- |
+| 0.1 s, 0.05 m, 0.03 | 18939 | 10990 | 1274 | 961 |
+| 0.25 s, 0.05 m, 0.03 | 20000 | 1101 | 8496 | 2627 |
+| 0.25 s, 0.05 m and a tenth, 0.03 | 23850 | 2315 | 1030 | 7884 |
+| 0.25 s, 0.05 m and a tenth, 0.08 | 27500 | 4897 | 714 | 2452 |
+
+Shares of the bout under V8's CPU profiler (`research/step-time.mjs --crowd --cap 20 --profile`,
+pinned, while another job ran), each function with everything it calls unless it says its own:
+
+| Of the bout, % | Before | After |
+| --- | --- | --- |
+| `hull-entry.ts`, its own | 6.1 | 1.5 |
+| `openings.ts`, its own | 5.4 | 1.4 |
+| Option Mind's tactics (`decide`, `option/tactics.ts`) | 23.4 | 14.9 |
+| the surface aim (`aims.ts`) | 13.1 | 3.9 |
+
+The step's time was not read apart: alternated before and after under the other job, the mean
+step moved by more between two playings of one side than between the sides.
+
+On the punch drill's guarding rung (`npm run evaluate -- strike option/straight-punch --protocol
+guarding`), the opening held through the stroke too (no hand drift) cut the 0.8 m gap's left punch
+from 107 J to 26 J and left the right one weak (52 J); with the hand's drift, all six middle-mark
+trials land at 7.4 to 7.9 m/s, as before (7.4 to 8.0). The standard match of `option` against
+`duellist` (`npm run match`): 5 won of 12 before, 8 of 12 after, within what 12 bouts tell apart.
+Twenty of the fingerprint's 44 lines moved, every bout in which a body aims by the surface aim
+(the arena's fights, the data bout, the crypt's fights).
+
+The predictions (`foeModel`, `prior`, `src/core/option/percepts.ts`) take no share the profiler
+lists in the same 20 s: they are not held.
+
+### Phases spread
+
+**Deciding on each body's phase of the period takes the crowd fight's steps where all ten bodies
+chose afresh from 16 to 1 in its first 20 s, and its 99th per cent step from 21.3 ms to 12.8.**
+Option Mind's chooser decides afresh on an event or every 0.2 s (`selectSet`,
+`src/core/mind/choice.ts`); ten bodies built on one step made their deadlines on the same steps. Each
+fight now grants each body a phase by its order (`phaseOf`), and a deadline falls on the body's
+phase of the period (`nextDecision`).
+
+The crowd fight, seed 0, its first 20 s, Node, core world, `rapier-coordinate`, 120 Hz. The
+chooser's fresh decisions, counted: 1013 before (976 by the deadline, 14 on an event, 23 on a
+running option ended), 1015 after.
+
+| Steps with this many fresh decisions | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Before (`110e97c9`) | 414 | 34 | 21 | 41 | 3 | 10 | 1 | 1 | 6 | 16 |
+| After | 997 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+The one step after with ten is the first, where every body makes its first choice. Time a step,
+pinned, the least of three playings, before and after alternated twice while another job ran on
+the machine:
+
+| | Mean, ms | 99th per cent, ms | Dearest past 2 s, ms |
+| --- | --- | --- | --- |
+| Before | 9.64, 13.75 | 21.28, 28.27 | 29.61, 39.61 |
+| After | 9.04, 12.40 | 12.78, 19.57 | 18.08, 26.60 |
+
+Three fingerprint lines moved, the duels of Option Mind against itself (sword, club, empty): the
+right side's phase is no longer 0.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors

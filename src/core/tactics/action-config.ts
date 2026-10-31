@@ -34,11 +34,15 @@ export function configuredAims(parts: PartLookup, spec: BodySpec, executors: rea
   }));
 }
 
-/** Compile the executors' measured estimates without exposing execution kinds to the selector. */
-export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): ActionEstimates {
+/** What the aims of `aims` hold between steps (`Aim.state`): what a mind hangs on its state. */
+export const aimsState = (aims: ReadonlyMap<string, Aim>): readonly object[] => [...aims.values()].flatMap((aim) => aim.state ? [aim.state] : []);
+
+/** Compile the executors' measured estimates without exposing execution kinds to the selector; each action's aim is `aims`', the body's one (`configuredAims`). */
+export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[],
+  aims: ReadonlyMap<string, Aim> = configuredAims(parts, spec, executors, actions)): ActionEstimates {
   const providers: Record<string, ActionEstimates[string]> = {};
   for (const action of actions) {
-    const executor = executors.find(entry => entry.name === action.executor), aim = aimOf(parts, spec, executors, action);
+    const executor = executors.find(entry => entry.name === action.executor), aim = aims.get(action.name);
     if (!executor || !aim) continue;
     const provider = parts.of("executor", executor).estimate?.(spec, executor, action, aim, parts.of("aim", action.aim!).unit);
     if (provider) providers[action.name] = provider;
@@ -133,11 +137,11 @@ export function actionConfigFaults(parts: PartLookup, spec: BodySpec, executors:
   return faults;
 }
 
-/** Build each named motion state once and resolve every action through its own aim (`configuredAims`). */
-export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => []): readonly ExecutorBinding[] {
+/** Build each named motion state once and resolve every action through its own aim, `aims`' (the body's one, `configuredAims`). */
+export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => [],
+  aims: ReadonlyMap<string, Aim> = configuredAims(parts, body.built.spec, executors, actions)): readonly ExecutorBinding[] {
   const faults = actionConfigFaults(parts, body.built.spec, executors, actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const aims = configuredAims(parts, body.built.spec, executors, actions);
   const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger()) ?? null };
   return executors.map(config => ({ name: config.name, kind: config.kind, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
 }

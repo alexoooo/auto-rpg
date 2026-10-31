@@ -1,4 +1,6 @@
 import { commandsBody } from "../core/body.ts";
+import type { Combatant } from "../core/combatant.ts";
+import { phaseLabels } from "../entrants/game.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
 import type { Pool } from "../core/rules/pool.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -51,16 +53,20 @@ const REPTILE: Readonly<Record<string, string>> = {
 /** Every body diagram, each a path by segment name. */
 const DIAGRAMS: readonly Readonly<Record<string, string>>[] = [HUMAN, REPTILE];
 
-/** Fixed diagram geometry and current damage, keyed by the pool's actual segments. */
-export function damageReadout(spec: BodySpec, pool: Pool) {
+/** Each segment of `spec` as its body's diagram draws it: its name, its label and its path. */
+export function damageDiagram(spec: BodySpec): readonly { readonly name: string; readonly label: string; readonly path: string }[] {
   // The diagram that draws every segment the body has: a body family is drawn by its segments, not its name.
   const paths = DIAGRAMS.find(diagram => spec.segments.every(segment => Object.hasOwn(diagram, segment.name)));
-  const parts = spec.segments.map(segment => {
+  return spec.segments.map(segment => {
     const path = paths?.[segment.name];
     if (!path) throw new Error(`No damage diagram part for ${spec.model}/${segment.name}`);
-    return { name: segment.name, label: partLabel(segment.name), path,
-      remaining: 1, attached: true, flashUntil: -Infinity, hp: pool.hp(segment.name) };
+    return { name: segment.name, label: partLabel(segment.name), path };
   });
+}
+
+/** Current damage, keyed by the pool's actual segments. */
+function damageReadout(spec: BodySpec, pool: Pool) {
+  const parts = damageDiagram(spec).map(({ name }) => ({ name, remaining: 1, attached: true, flashUntil: -Infinity, hp: pool.hp(name) }));
   return { parts, sample(time: number): void {
     for (const part of parts) {
       const hp = pool.hp(part.name), attached = pool.attached(part.name);
@@ -103,7 +109,7 @@ const actionLabel = (action: Pick<ActionStatus, "action" | "effector">) => `${ti
  * tactical decisions are quieter than executor stages or per-step control writes, each shown by
  * the label its part gives it (`labels`, `phaseLabels`), and not at all where that is null.
  */
-export function actionFeed() {
+function actionFeed() {
   const state = { entries: [] as FeedEntry[], sequence: 0, serial: 0, pending: null as string | null,
     since: 0, settled: null as string | null, time: -Infinity };
   let labels: Readonly<Record<string, string | null>> = {};
@@ -161,6 +167,37 @@ export function actionFeed() {
       prune(time);
       return state.entries.slice(0, 5).map(entry => ({ ...entry,
         opacity: entry.active ? 1 : Math.max(0, Math.min(1, (6 - (time - entry.time)) / 2)) }));
+    },
+  };
+}
+
+/** A line of a fighter's feed as its HUD shows it (`actionFeed`'s `read`). */
+type FeedLine = ReturnType<ReturnType<typeof actionFeed>["read"]>[number];
+
+/**
+ * **What a fighter's HUD shows at a moment** (`fighterReading`), plain data a worker sends: each
+ * part's health, a fraction, whether it is attached, and until when it flashes, s; the recent
+ * actions; and whether its mind reports them at all.
+ */
+export interface FighterReading {
+  readonly parts: readonly { readonly name: string; readonly remaining: number; readonly attached: boolean; readonly flashUntil: number }[];
+  readonly feed: readonly FeedLine[];
+  readonly reports: boolean;
+}
+
+/** `fighter`'s damage and recent actions, sampled after each step (`sample`) and read as its HUD shows them (`read`). */
+export function fighterReading(fighter: Combatant) {
+  const damage = damageReadout(fighter.built.spec, fighter.pool), history = actionFeed();
+  history.label(phaseLabels(fighter.mind));
+  return {
+    /** Sample at `time`, the bout's s; the actions too unless `actions` is false. */
+    sample(time: number, actions = true): void {
+      damage.sample(time);
+      if (actions) history.sample(fighter.minded.report, fighter.body, time);
+    },
+    read(time: number): FighterReading {
+      return { parts: damage.parts.map(({ name, remaining, attached, flashUntil }) => ({ name, remaining, attached, flashUntil })),
+        feed: history.read(time), reports: !!fighter.minded.report };
     },
   };
 }
