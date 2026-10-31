@@ -49,6 +49,8 @@ export interface CommandLayers extends HostMind {
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
+  const every = options.every ?? 1, offset = Math.floor((options.phase ?? 0) * every);
+  if (!Number.isInteger(every) || every < 1) throw new Error(`a driver is called every whole number of steps, not ${every}`);
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
   const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
@@ -80,6 +82,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     released: false,
     groundActive: false,
     resumed: false,
+    /** The step its driver was last called on, or the step before it was resumed; null before its first call. */
+    driven: null as number | null,
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
@@ -166,10 +170,14 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     }
   };
   const act = (dt: number): void => {
-    const next = driver?.(view, dt);
-    if (next) obey(next);
+    const step = clock.steps;
+    if (every === 1 || state.down || ((step - offset) % every + every) % every === 0) {
+      const next = driver?.(view, every === 1 || state.driven === null ? dt : (step - state.driven) * dt);
+      if (next) obey(next);
+      state.driven = step;
+      state.resumed = false;
+    }
     motor.control(muscles, dt);
-    state.resumed = false;
     moved();
   };
   const drive: Body["drive"] = (next, onRelease) => { if (driver && driver !== next) released?.(view, "replaced"); driver = next; released = onRelease; };
@@ -190,10 +198,13 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       motor.reset();
       for (const segment in goals) goals[segment] = null;
     },
-    resume() { state.released = false; state.resumed = true; },
+    resume() { state.released = false; state.resumed = true; state.driven = clock.steps - 1; },
     dispose() { drive(null); },
   };
 }
+
+/** **How many steps apart a mind deciding at `rate` Hz calls its driver** at `hz` (`LayerOptions.every`): the nearest whole number, at least 1; every step where it names no rate. */
+export const everyOf = (rate: number | undefined, hz: number): number => rate === undefined ? 1 : Math.max(1, Math.round(hz / rate));
 
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);

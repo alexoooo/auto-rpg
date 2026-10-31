@@ -35,8 +35,9 @@ declare module "../../data/store.ts" {
 
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
- * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz, and
- * how late its senses showed the other body, s (null for a skill that reads none).
+ * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz,
+ * how late its senses showed the other body, s (null for a skill that reads none), and the rate its
+ * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`).
  */
 export interface Measured {
   readonly body: string;
@@ -44,7 +45,11 @@ export interface Measured {
   readonly skill: string;
   readonly hz: number;
   readonly reaction: number | null;
+  readonly rate?: number;
 }
+
+/** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
+export const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
 
 /** The body a profile was measured against: its body (`bodyKey`) and its spec's digest (`specDigest`). */
 export interface Target {
@@ -292,9 +297,9 @@ export const techniqueDigest = (technique: PartConfig): string => digestOf(techn
 /** A gait's digest: its legs' config (`GAITS`) and the digest of the strike its drill stops to throw (`skillDigest`), whose readiness ends the time it leaves the body unbraced. */
 export const gaitDigest = (legs: PartConfig, strike: string): string => digestOf({ legs, strike });
 
-/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), must have been measured on. */
-export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null): Measured =>
-  ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction });
+/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz (the world's unless given), must have been measured on. */
+export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate = hz): Measured =>
+  ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}) });
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
@@ -306,6 +311,7 @@ export function staleness(profile: Profile, now: Measured): string | null {
   if (was.spec !== now.spec) return `measured on another ${now.body}`;
   if (was.skill !== now.skill) return "measured on another version of the skill";
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
+  if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
   if (!sameReaction(was.reaction, now.reaction, now.hz))
     return `measured with senses ${was.reaction} s late, read ${now.reaction} s late`;
   return null;
@@ -336,14 +342,15 @@ export function profileFor(profiles: readonly Profile[], now: Measured): Found |
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s
- * late, of any skill (`fresh`): what a foe of that body is measured to deal; and, for none, why
- * (`stale`): the first measured on its body that is stale (`staleness`), or none measured on it.
+ * late and a mind's driver at `rate` Hz (the world's unless given), of any skill (`fresh`): what a
+ * foe of that body is measured to deal; and, for none, why (`stale`): the first measured on its
+ * body that is stale (`staleness`), or none measured on it.
  */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null): { readonly fresh: readonly Profile[]; readonly stale: string } {
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate = hz): { readonly fresh: readonly Profile[]; readonly stale: string } {
   const body = bodyKey(spec), digest = specDigest(spec), fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
-    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction });
+    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}) });
     if (why === null) fresh.push(profile);
     else if (profile.measured.body === body) stale ??= why;
   }

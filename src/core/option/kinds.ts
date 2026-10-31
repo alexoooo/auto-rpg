@@ -25,6 +25,8 @@ import type { Walker } from "./walk.ts";
 export interface OptionsGiven {
   readonly spec: BodySpec;
   readonly hz: number;
+  /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */
+  readonly rate?: number;
   readonly parts: PartLookup;
   readonly locomotion: LocomotionConfig;
   readonly executors: readonly ExecutorEntry[];
@@ -53,7 +55,7 @@ export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes
 
 /** **Each gait its legs go by** (`gaitsOf`) as the Gait drill measured it stopping to throw each of its strikes (`goings`). */
 const gaitsGiven = (given: OptionsGiven) => goings(given.spec, given.hz, gaitsOf(given.locomotion),
-  given.actions.map((action, i) => ({ name: action.name, skill: given.measures[i]!.measured.skill })), given.tables.gaits);
+  given.actions.map((action, i) => ({ name: action.name, skill: given.measures[i]!.measured.skill })), given.tables.gaits, given.rate);
 
 /**
  * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsGiven`),
