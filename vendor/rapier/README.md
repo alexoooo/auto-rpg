@@ -49,8 +49,7 @@ test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symm
 - **Pair-local compliant contact** (`PhysicsHooks.contactLayer`): spring stiffness, damping and
   maximum compression for a manifold, an implicit normal row with a rigid depth backstop, and
   `contactLayerWork`, the reaction times anchor displacement over substeps. Parameters and
-  readings are serialized. The core opts in physical points against a declared material, and a
-  declared sole against fixed colliders (`ContactMaterial.sole`).
+  readings are serialized. The core installs no layer: every contact it makes is rigid.
 - **Angular-limit gradients** (`coordinateAngularLimits`): impulse-joint and external limit rows
   follow the spatial gradient of their reported coordinate; motor rows are unchanged. Serialized;
   the adapter's `rapier-coordinate` ([joint limits](../../docs/reference/joint-limits.md)).

@@ -226,7 +226,7 @@ const CRYPT_LOOK = new Set(["src/dungeon/decals.ts", "src/dungeon/dressing.ts", 
 /** The falls' builders (the Lab's starts and shoves, and the rising bed's techniques alone) and the Lab's scenarios. */
 const FALL_BUILDERS = ["src/evaluation/fall.ts", "src/evaluation/rising.ts"];
 const LAB_SCENARIOS = ["src/lab/scenarios.ts", "src/lab/lab-scenario.ts", "src/lab/attack-scenario.ts", "src/lab/locomotion-scenario.ts",
-  "src/lab/stance-scenario.ts", "src/lab/ground-scenario.ts"];
+  "src/lab/stance-scenario.ts", "src/lab/ground-scenario.ts", "src/lab/reach-scenario.ts"];
 
 /** Each listed evaluation's cases (the `cases.ts` beside its module), which write their worlds. */
 const caseModules = () => ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"), true, true).importedFiles

@@ -1,4 +1,5 @@
-import { anyBody } from "../parts/parts.ts";
+import { hypot } from "../math/real.ts";
+import { anyBody, type KeysOf } from "../parts/parts.ts";
 import { deepFreeze } from "../state.ts";
 import type { Situation } from "./option.ts";
 import type { ObjectivePart } from "./parts.ts";
@@ -95,4 +96,42 @@ export const FEW_TERMS: Objective = deepFreeze({ name: "few terms", worth: fewTe
 export const FEW_TERMS_PART: ObjectivePart<{ readonly kind: "few-terms" }, Objective> = deepFreeze({
   role: "objective", label: "Few terms", stage: "game", fields: [], slots: [], defaults: { kind: "few-terms" }, keys: { kind: true },
   fits: anyBody, faults: () => [], make: () => FEW_TERMS,
+});
+
+/**
+ * What reaching a place weighs, the owner's to set for the result: lying down costs as much as
+ * standing `down` m further off, and a second spent as `second` m, so of two ways there the quicker
+ * is worth more.
+ */
+const REACH = deepFreeze({ down: 10, second: .1 });
+
+/** **A place on the ground to reach**: where it is, m. */
+export interface ReachConfig { readonly kind: "reach-place"; readonly x: number; readonly z: number }
+
+/**
+ * **Reaching a place** (`ReachConfig`), with no foe to fight: an option worth how much nearer the
+ * place it leaves the body's centre (where its walk ends, `Place.at`, else where the body stands),
+ * less a fall's cost at the chance it is down there (`REACH.down`), and its time (`REACH.second`).
+ * Holding the position is worth nothing beside it, so the body walks there and stands.
+ */
+function reachPlace(config: ReachConfig): Objective {
+  const off = (now: Situation, place: Place): number => {
+    const at = place.at ?? now.sight.view.stance.centre;
+    return hypot(config.x - at.x, config.z - at.z) + place.down * REACH.down;
+  };
+  return deepFreeze({
+    name: "reach a place",
+    worth: (terms: Terms, now: Situation): Worth => {
+      const moves = off(now, here(now)) - off(now, terms.exit);
+      return { worth: moves - REACH.second * terms.duration, moves, letGo: 0 };
+    },
+  });
+}
+
+/** **Reaching a place** (`reachPlace`) as a part of role `objective`. */
+export const REACH_PLACE_PART: ObjectivePart<ReachConfig, Objective> = deepFreeze({
+  role: "objective", label: "Reach a place", stage: "game", fields: [], slots: [], defaults: { kind: "reach-place", x: 0, z: 0 },
+  keys: { kind: true, x: true, z: true } as KeysOf<ReachConfig>, fits: anyBody,
+  faults: (config: ReachConfig) => Number.isFinite(config.x) && Number.isFinite(config.z) ? [] : ["x, z: a place, m"],
+  make: reachPlace,
 });

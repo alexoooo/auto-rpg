@@ -38,7 +38,7 @@ export function bladeStriker(style: BladeStyle, mark: Mark, tuning?: Json): Mind
  * after a blow the striker counts as felled by it, and how long the task runs on for the swing
  * under way to return, s. A change here is a new protocol.
  */
-const BLADE = deepFreeze({
+export const BLADE = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],
   styles: ["cut", "thrust"] as BladeStyle[],
   marks: ["high", "middle"] as Mark[],
@@ -73,7 +73,8 @@ export type BladeReading = {
 const tuningOf = (value: Json): Json | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length > 0 ? value : undefined;
 
-function bladeCases(protocol: typeof BLADE): Cases<BladeCondition, BladeReading> {
+/** The blade task's cases on `protocol` (`BLADE` or another of its shape): a search plays its own (`research/skill-search.mjs`). */
+export function bladeCases(protocol: Omit<typeof BLADE, "gap"> & { readonly gap: number }): Cases<BladeCondition, BladeReading> {
   const conditions: BladeCondition[] = [];
   for (const model of protocol.models) for (const style of protocol.styles) for (const mark of protocol.marks) conditions.push({ model, style, mark });
   return {

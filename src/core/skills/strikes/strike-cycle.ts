@@ -30,8 +30,6 @@ interface Motion {
   readonly contactVelocity: Vec3;
   /** A physical adapter can keep intended touch pending until its stroke actually closes. */
   readonly closing?: boolean;
-  /** A material adapter measures normal compression instead of free endpoint travel. */
-  readonly contactDepth?: number;
   readonly seconds: number;
 }
 export interface StrikeLimits {
@@ -43,7 +41,8 @@ export interface StrikeLimits {
   readonly prepareLimit: number;
   readonly returnLimit: number;
   readonly followSeconds: number;
-  readonly impact?: { readonly impactSeconds: number; readonly impactTravel: number };
+  /** An impact's longest time, s, and, where named, the travel from its contact that ends it sooner, m. */
+  readonly impact?: { readonly impactSeconds: number; readonly impactTravel?: number };
 }
 
 /** Numeric setting: independent event bit masks; the limb adapter records counts and placement work. */
@@ -80,15 +79,15 @@ export function advanceStrike(state: StrikeCycleState, motion: Motion, limits: S
       if (impact && state.impact) {
         state.impact.elapsed += dt;
         const failed = motion.down || !motion.supported || !motion.requested || (motion.touching && (!motion.intended || !motion.aligned));
-        if (failed || motion.complete || state.impact.elapsed >= impact.impactSeconds || (motion.contactDepth ?? distance(state.impact.origin)) >= impact.impactTravel) {
+        if (failed || motion.complete || state.impact.elapsed >= impact.impactSeconds || impact.impactTravel !== undefined && distance(state.impact.origin) >= impact.impactTravel) {
           event = STRIKE_EVENT.thrown | (failed ? STRIKE_EVENT.aborted : 0); strikeTransition(state, "return", motion.velocity);
         }
       } else if (motion.complete) { event = STRIKE_EVENT.thrown; strikeTransition(state, "return", motion.velocity);
       } else if (impact && motion.touching && !state.touching && motion.closing !== false && !motion.down && motion.supported && motion.requested
-        && impact.impactSeconds > 0 && impact.impactTravel > 0 && motion.intended) {
+        && impact.impactSeconds > 0 && (impact.impactTravel === undefined || impact.impactTravel > 0) && motion.intended) {
         const unit = hypot(...motion.contactVelocity);
         if (motion.aligned && unit > 0) {
-          state.impact = { origin: [...motion.at], finish: motion.at.map((v, k) => v + motion.contactVelocity[k]! / unit * impact.impactTravel) as unknown as Vec3, elapsed: 0 };
+          state.impact = { origin: [...motion.at], finish: motion.at.map((v, k) => v + motion.contactVelocity[k]! / unit * (impact.impactTravel ?? 0)) as unknown as Vec3, elapsed: 0 };
           state.sequence++; state.velocity = motion.velocity; event = STRIKE_EVENT.admitted;
         } else { event = STRIKE_EVENT.thrown | STRIKE_EVENT.aborted; strikeTransition(state, "return", motion.velocity); }
       } else if (!motion.requested || (impact && (motion.down || !motion.supported)) || (motion.touching && !state.touching && !pendingClosing)

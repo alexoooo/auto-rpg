@@ -3,7 +3,7 @@ import { loadoutAttributes, strikesOf } from "../loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
 import { LAB_HANDS, LAB_WORN, MODELS, labStaging, labPresets } from "../scenarios.ts";
 import { HELD as HOLDS, heldItem, type Held } from "../../core/items/held.ts";
-import { choice, entries, fold, following, group, menu, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
+import { choice, entries, fold, following, group, menu, switches, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
 import { writeMind } from "../../ui/mind-link.ts";
 import type { LabPage } from "./sections.ts";
@@ -35,7 +35,6 @@ export function characterSection(page: LabPage): readonly Control[] {
         following(() => page.shown.model, model => menu("Appearance", appearancesFor(model).map(row => ({ value: row.id, name: row.name })),
           () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
       attributeControl,
-      toggle("Compliant soles", () => page.shown.sole, () => page.load({ ...page.shown, sole: !page.shown.sole })),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>

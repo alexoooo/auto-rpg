@@ -295,7 +295,7 @@ function pointLimbs(built: ReadBody): PointLimb[] {
     return {
       limb: {
         segment, memory: { channels: [] }, stem: [], reach: 1,
-        task: { on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(m), given: new Float64Array(m).fill(NaN) },
+        task: { on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(m) },
         work: { at: new Vector3(), rows: LINEAR, ahead: new Array<number>(m).fill(NaN), toward: new Array<number>(m).fill(0), patch: null, share: 1 },
       },
       points, chain: free.map((f) => f.name),

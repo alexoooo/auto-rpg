@@ -125,7 +125,7 @@ function unknownLimb(limb: never): never {
   throw new Error(`a limb of no known kind: ${JSON.stringify(limb)}`);
 }
 
-const taskOf = (freedoms: number): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(freedoms), given: new Float64Array(freedoms).fill(NaN) });
+const taskOf = (freedoms: number): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(freedoms) });
 
 /** `limb` bears at its point: the point held across the ground and brought to `ground`, its segment's spin damped. */
 function hold(limb: Limb, rate: number, ground: number): void {

@@ -265,13 +265,14 @@ export function digestOf(value: unknown): string {
 export const specDigest = (spec: BodySpec): string => digestOf(spec);
 
 /**
- * **A strike's digest**: what it does, not what it is called: its action's config and its
- * executor's (the one the action names), each without its name, and the mind data the executor
- * reads (`Part.reads`, a learned skill's weights), as the mind holds them.
+ * **A strike's digest** on a body of `spec`: what it does, not what it is called: its action's
+ * config and its executor's (the one the action names), each without its name, and the body's own
+ * row of each record the executor reads (`Part.reads`: an executor's data is its skills' records by
+ * `bodyKey`, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
-export function skillDigest(parts: PartLookup, executors: readonly ExecutorEntry[], action: ActionConfig): string {
-  const executor = executors.find((entry) => entry.name === action.executor) ?? null;
-  const data = executor ? (parts.of("executor", executor).reads?.(executor) ?? []).map((key) => digestOf(dataOf(key))) : [];
+export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
+  const executor = executors.find((entry) => entry.name === action.executor) ?? null, body = bodyKey(spec);
+  const data = executor ? (parts.of("executor", executor).reads?.(executor) ?? []).map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null)) : [];
   const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }

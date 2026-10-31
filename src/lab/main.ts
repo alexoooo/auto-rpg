@@ -35,6 +35,7 @@ import { resolveCharacter } from "../core/models.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
+import { reachScenario } from "./reach-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { MindConfig } from "../core/mind/config.ts";
@@ -92,6 +93,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   attack: attackScenario,
   locomotion: locomotionScenario,
   ground: groundScenario,
+  reach: (scene) => reachScenario(scene),
 };
 
 /**

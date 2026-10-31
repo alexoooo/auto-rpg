@@ -37,13 +37,12 @@
  *   sole's middle, leaves the sole low and its toes catch the ground short of the landing).
  *
  * It works in arrays made with the solve (`makeWholeBody`), sized from the body and its limbs; a
- * call writes every entry it reads, and keeps nothing: a sole's torque lag is the limb's own
- * (`LimbTask.given`, `soleTorque`).
+ * call writes every entry it reads, and keeps nothing.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { bearsNow, carried, give, jacobianTo, keepRows, soleTorque, type Limb, type Row } from "./bearing.ts";
+import { bearsNow, carried, give, jacobianTo, keepRows, type Limb, type Row } from "./bearing.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -273,18 +272,15 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     }
     if (!clipped || last) break;
   }
-  // The commands: every freedom but a pushed one, a bearing sole's leg's through its lag.
+  // The commands: every freedom but a pushed one.
   for (let i = 0; i < n; i++) if (!(work.fixed[i] && !inLimb[i])) give(muscles, i, b.torque[i]!);
   for (let k = 0; k < ask.limbs.length; k++) {
     const limb = ask.limbs[k]!, { task } = limb, channels = limb.memory.channels, out = ask.asked[k]!;
     const share = bearsNow(limb) ? b.shares[b.bearing.indexOf(limb)]! : null;
-    const sole = share !== null && limb.segment.spec.surface?.sole !== undefined;
     for (let c = 0; c < channels.length; c++) {
       const i = channels[c]!;
       task.accel[c] = x[6 + i]!;
-      if (sole) give(muscles, i, soleTorque(task, c, b.torque[i]!));
     }
-    if (!sole) task.given.fill(NaN);
     if (share) { out.at.copyFrom(patchPlace(limb.work.patch!)); out.force.copyFrom(share.force); out.moment.copyFrom(share.moment); }
     else { out.force.setAll(0); out.moment.setAll(0); }
   }

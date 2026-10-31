@@ -49,7 +49,7 @@ for (const path of paths) {
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     const gait = gaitNamed(mind.locomotion?.kind === "move" ? gaitsOfMove(mind.locomotion) : STOCK_GAITS, drill.gait);
     if (!gait) throw new Error(`${path}: no gait ${drill.gait} in its mind's legs`);
-    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, mind.executors, action)), hz, null), key = JSON.stringify(measured);
+    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, spec, mind.executors, action)), hz, null), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.gait}`, rows: [] };
     profiles.set(key, profile);
     profile.rows.push(row.reading);

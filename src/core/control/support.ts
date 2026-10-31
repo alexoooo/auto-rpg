@@ -26,7 +26,7 @@ export const groundContact = (contact: ReadContact, minUp: number): boolean =>
  * (`docs/reference/rising.md#stages`). A limb's point within it bears, and a corner of a sole props
  * what it hangs from (the rise); an end of a sole over the ground by more is in the air, and the
  * foot bears on the other end alone (`standingOn`, `bearingOf`, `bearingSole`): a sole flat on the
- * ground reads its ends within a few millimetres of it, a shoe's sole gives 6 mm (`SHOE_SOLE`), and
+ * ground reads its ends within a few millimetres of it, and
  * a sole driven into the ground sinks unevenly; one that has landed on its toes or its heel, the
  * other end still in the air, holds nothing with it until it comes down. A leg reaching behind
  * lands its toes first, the heel 0.1 m up.

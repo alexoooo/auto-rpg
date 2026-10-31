@@ -22,7 +22,7 @@ const upper = (segment: string): boolean => /^(head|neck|pelvis)|Trunk$/.test(se
  * that cut nothing counted as none; the wound its cuts did; its actions' endings and longest
  * return; and whether the striker fell.
  */
-function bladeSummary(reading: BladeReading) {
+export function bladeSummary(reading: BladeReading) {
   const swings = reading.actions.filter((action) => action.committed !== null);
   const cuts = swings.map((swing) => reading.blows.filter((blow) => blow.time >= swing.committed! && blow.time <= swing.ended && upper(blow.segment) && blow.mechanism === reading.mechanism)
     .reduce<BladeReading["blows"][number] | null>((best, blow) => best === null || blow.energy > best.energy ? blow : best, null));

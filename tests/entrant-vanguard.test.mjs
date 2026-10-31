@@ -157,8 +157,8 @@ test("a Vanguard preset's edited slots reach construction unchanged and its full
   const spec = modelSpec("crypt-skeleton"), presets = Object.entries(VANGUARD.presets);
   for (const [, { config }] of presets) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] });
   const base = MINDS["vanguard-skeleton"].config;
-  const edited = replacedAt(replacedAt(replacedAt(replacedAt(base, "tactics.flank", false), "executors.punch.lead", .2),
-    "executors.punch.anchorAtDrive", false), "locomotion", { kind: "stance-walk" });
+  const edited = replacedAt(replacedAt(replacedAt(base, "tactics.flank", false), "executors.punch.tuning", { lead: .2, anchorAtDrive: false }),
+    "locomotion", { kind: "stance-walk" });
   const stand = await coreStand(spec), seen = [];
   const parts = { of(role, config) {
     const part = partLookup.of(role, config);
@@ -469,7 +469,7 @@ test("independent body-relative punches fork through preparation, commitment and
   const base = CONTROLLERS["vanguard:mind"].defaults;
   const config = { ...base,
     executors: base.executors.flatMap(executor => executor.name === "punch"
-      ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}`, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1 })) : [executor]),
+      ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}`, tuning: { predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1 } })) : [executor]),
     actions: base.actions.flatMap(action => action.executor === "punch"
       ? ["left", "right"].map(side => ({ ...action, name: `strike.${side}`, executor: `punch.${side}`, effectors: [`hand.${side}`] })) : [action]),
   };

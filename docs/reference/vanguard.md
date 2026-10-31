@@ -290,9 +290,9 @@ These failed-campaign conditions are development evidence, not fresh qualificati
 The explicit calibrations in [Vanguard's controller](../../src/entrants/vanguard/mind.ts)
 are `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton`, each offered for its named body.
 Their source profile table is `assets/entrants/vanguard/body-profiles.json@a9cddb72`; the measured
-calibrated preset at `9b3fecd0` names its source below. A selected configuration runs its own walk,
-planner flags and punch settings, without body-based overrides. Its complete settings travel in
-an edited mind link.
+calibrated preset at `9b3fecd0` names its source below. A selected configuration runs its own walk
+and planner flags, which travel in an edited mind link; its punch's strokes are its body's record
+(`assets/entrants/vanguard/punch.json`, `punch-part.ts`), each body's calibration below.
 
 The conservative `VANGUARD_WALK` uses `turnLimit: 0.3` rad/s, `turnStartupSeconds: 2` s and
 `turnStartupLimit: 0.2` rad/s. Its ordinary fields preserve the calibration through editing and

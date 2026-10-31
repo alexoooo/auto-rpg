@@ -7,7 +7,7 @@
  *   node research/locomotion-run.mjs [--models workshop-fighter,workshop-rogue] [--holds empty,club]
  *     [--tracks circle,shuttle,square,diamond,random,forward,right,back,left]
  *     [--paces max,0.5,1,1.5] [--winds 0:0,1:50] [--seeds 1,2] [--seconds 30] [--side 6] [--radius 4] [--distance 6] [--area 10]
- *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--sole] [--played] [--workers 16] [--out runs.jsonl]
+ *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--played] [--workers 16] [--out runs.jsonl]
  *
  * - The courses are the scenario's: its tracks (`--side` the square's and the diamond's, `--radius`
  *   the circle's, `--distance` the shuttle's straight), random commands (`random`, over a square of
@@ -23,7 +23,6 @@
  *   With `--played` it is built as the Lab plays it, its walk taken no faster than its envelope
  *   holds each way (`paceToward`).
  * - `--stance` is an experiment's stance tuning (`StanceTuning`). Its `gait` merges into `STANCE_GAIT`.
- * - `--sole` builds the body shod (`withSoles`): each foot gives as a shoe's sole against the ground.
  * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
  *   muscles), as a probe of whether the body or the controller caps a walk.
  * - `--stop` asks the body to stand that many seconds into each run; its record's `rest` is the
@@ -131,9 +130,9 @@ function rockerFoot(foot, radius, facets) {
   foot.body.changeShape(0, { kind: "hull", points });
 }
 
-async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, sole, probe, stop = null, played = false }) {
-  const [{ withSoles }, { modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }, { armedWith }] = await Promise.all([
-    import("../src/core/human/sole.ts"), import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
+async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop = null, played = false }) {
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }, { armedWith }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/commands.ts"), import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
     import("../src/core/items/held.ts"),
   ]);
@@ -145,7 +144,7 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   // The ground reaches past the end of every course: a body walking off its edge falls through.
   const held = hold === "empty" ? modelSpec(model, physique ?? undefined) : armedWith(modelSpec(model, physique ?? undefined), "right", hold);
   const spec = probe ? probed(held, probe) : held;
-  const stand = await coreStand(sole ? withSoles(spec) : spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
+  const stand = await coreStand(spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
   if (probe?.rocker) for (const side of ["left", "right"]) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
@@ -298,13 +297,13 @@ if (!isMainThread) {
   const legs = arg("legs") ? JSON.parse(arg("legs")) : null, stance = arg("stance") ? JSON.parse(arg("stance")) : null;
   const stop = arg("stop") ? Number(arg("stop")) : null, played = process.argv.includes("--played");
   if (paces.includes("max") && !played) throw new Error("a pace of max needs --played: a body measured has no envelope to take its fastest walk from");
-  const physique = arg("physique") ? JSON.parse(arg("physique")) : null, sole = process.argv.includes("--sole");
+  const physique = arg("physique") ? JSON.parse(arg("physique")) : null;
   const probe = arg("probe") ? JSON.parse(arg("probe")) : null;
   const out = arg("out"), workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
 
   const jobs = [];
   for (const model of models) for (const hold of holds) for (const track of tracks) for (const wind of winds) for (const pace of paces) for (const seed of seeds)
-    jobs.push({ id: jobs.length, model, hold, track, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, sole, probe, stop, played });
+    jobs.push({ id: jobs.length, model, hold, track, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop, played });
   // A calm wind blows the same on every seed, on a track: one seed is enough. Random commands are drawn from the seed.
   const todo = jobs.filter((job) => job.wind.rate > 0 && job.wind.strength > 0 || job.track === "random" || job.seed === seeds[0]);
   const results = [];
@@ -324,7 +323,7 @@ if (!isMainThread) {
       feed(worker);
     }
   });
-  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${sole ? ", shod" : ""}${probe ? `, probe ${JSON.stringify(probe)}` : ""}`);
+  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${probe ? `, probe ${JSON.stringify(probe)}` : ""}`);
   for (const model of models) for (const hold of holds) for (const track of tracks) for (const wind of winds) {
     console.log(`\n${model} ${hold} ${track} wind ${wind.rate}/s ${wind.strength} N`);
     let held = null, holding = true, made = null, making = true;

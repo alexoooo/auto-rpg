@@ -1,0 +1,29 @@
+{
+  "workshop-fighter+toes": {
+    "made": "The path strike's search cells on the flat-footed Warrior (docs/reference/combat-strikes.md#trajectory-settings): ATTACK_PATH, src/core/skills/strikes/attack-path.ts@b308919e, no impact limits.",
+    "settings": {
+      "paths": {
+        "chamberSeconds": 0.22,
+        "swingSeconds": 0.12,
+        "returnSeconds": 0.32,
+        "contactSpeed": 5,
+        "windup": 0.12,
+        "across": 0.05,
+        "followSeconds": 0.04,
+        "torso": 0.2,
+        "hookSeconds": 0.18,
+        "curve": 0.05,
+        "hookAcross": 0.15,
+        "overhandWindup": 0.35,
+        "uppercutWindup": 0.12,
+        "uppercutSeconds": 0.25,
+        "elbowExtension": 0,
+        "prepareLimit": 0.8,
+        "returnLimit": 1.2,
+        "near": 0.05,
+        "slow": 0.6,
+        "hold": 0.05
+      }
+    }
+  }
+}

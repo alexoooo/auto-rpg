@@ -102,14 +102,8 @@ export type ColliderShape =
   | { readonly kind: "sphere"; readonly centre: Vec3; readonly radius: number }
   | { readonly kind: "hull"; readonly points: readonly Vec3[] };
 
-/** Optional collider friction and compliance against fixed ground. */
+/** A collider's own contact material. */
 export interface ContactMaterial {
-  /**
-   * A layer the collider gives against any fixed collider, as a shoe's sole gives against the
-   * floor: the whole pair's spring, N/m, and dashpot, N s/m, and the deepest it compresses before
-   * the contact is rigid, m. Against a body, the contact is as it would be without it.
-   */
-  readonly sole?: { readonly stiffness: number; readonly damping: number; readonly depth: number };
   /** Its coefficient of friction: a contact it is in takes the greater of this and the other collider's. */
   readonly friction?: number;
 }
@@ -172,8 +166,6 @@ export interface ContactPair {
   readonly normal: Vec3;
   /** The impulse the solver pushed the pair apart with in the last step, N s. */
   readonly impulse: number;
-  /** Actual normal compression of an admitted material layer, m; absent for rigid contact. */
-  readonly compression?: number;
 }
 
 /**
