@@ -35,17 +35,11 @@
  * walk in never holds up the trainer's lockstep, and it takes the place of a start no episode is
  * playing. Without a pool, each episode is a trial begun afresh.
  *
- * Training alone may play a cheaper target than its case's (`standIn`, a bout's right side):
- * `held`, the target's body under the bare mind held rigid as it was built by a rail standing still
- * (`Rail`, `src/arena/rail.ts`, as the moving rung's pad, lifted its `height`), whose muscles and
- * control cost nothing; `pinned`, the same limp body held by its lowest trunk segment alone (the
- * rail's hold given that segment), the rest of it free to give. A held-out reading never plays one.
- *
- * `curriculum` moves training from easier settings to the file's own: `from`, settings that
- * replace the file's (`standIn`, `rates`), and `over`, the decisions in all (`progress`, which the
+ * `curriculum` moves training from cheaper settings to the file's own: `from`, settings that
+ * replace the file's (`rates`), and `over`, the decisions in all (`progress`, which the
  * trainer reports) from which the share of fresh starts played on the file's own settings rises
  * evenly from 0, to which it reaches 1. Each fresh start is drawn on one or the other by that
- * share, so the target and the rate shift together as the pool is refreshed.
+ * share, so the mix shifts as the pool is refreshed.
  *
  * Draws on `seed`: the episodes' picks of a start on one, the fresh starts' conditions on
  * another, so that when the idle time plays them moves neither.
@@ -58,28 +52,6 @@ import '../tests/harness/preload-data.mjs';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { EVALUATIONS } from '../src/evaluation/evaluations.ts';
 import { WORLD_BUILDERS } from '../src/evaluation/worlds.ts';
-import { opponentOf } from '../src/evaluation/drill-opponents.ts';
-import { carryOnRail } from '../src/arena/rail.ts';
-
-/** The stand-in targets' rail: still, where the body was built, lifted as the moving rung's pad is. */
-const STILL_RAIL = Object.freeze({ side: 'right', path: Object.freeze({ kind: 'line', along: Object.freeze([0, 0]) }), speed: 0, height: .02 });
-/** The segment a `pinned` stand-in is held by. */
-const PINNED = 'lowerTrunk';
-
-/** `world`, a bout's recipe, with its target (the right side) a stand-in of kind `standIn`: the bare mind, `held` on a still rail. */
-export function standInWorld(world, standIn) {
-  if (world.kind !== 'bout') throw new Error(`a stand-in target replaces a bout's; this world is a ${world.kind}`);
-  if (standIn !== 'held' && standIn !== 'pinned') throw new Error(`no stand-in target ${standIn}: held, pinned`);
-  const bare = opponentOf('bare').config;
-  return { ...world, recipe: { ...world.recipe, minds: { ...world.recipe.minds, right: bare }, ...(standIn === 'held' ? { rail: STILL_RAIL } : {}) } };
-}
-
-/** For a `pinned` stand-in in `built`, a bout of `standInWorld`'s: the rail's hold given its one segment, `PINNED`. */
-export function pinStandIn(built, standIn) {
-  if (standIn !== 'pinned') return;
-  const segment = built.duel.duelists.right.built.segments.get(PINNED);
-  carryOnRail(built.world, { segments: new Map([[PINNED, segment]]) }, STILL_RAIL, () => 0);
-}
 
 /** Whether `condition` is held out of training: half of the conditions, by a digest of its fields in sorted order (FNV-1a). */
 export function heldOut(condition) {
@@ -166,9 +138,9 @@ export async function caseEnvironment(configuration = {}) {
   const pick = (list) => list[Math.floor(drawing() * list.length)];
   const curriculum = o.curriculum;
   if (curriculum) {
-    const extra = Object.keys(curriculum.from ?? {}).filter((key) => key !== 'standIn' && key !== 'rates');
+    const extra = Object.keys(curriculum.from ?? {}).filter((key) => key !== 'rates');
     if (extra.length || !Array.isArray(curriculum.over) || curriculum.over.length !== 2 || !(curriculum.over[1] > curriculum.over[0]))
-      throw new Error('a curriculum gives `from` (standIn, rates) and `over`, the decisions its share rises between');
+      throw new Error('a curriculum gives `from` (rates) and `over`, the decisions its share rises between');
   }
   let decisions = 0;
   /** The share of fresh starts played on the file's own settings at `decisions`. */
@@ -180,12 +152,10 @@ export async function caseEnvironment(configuration = {}) {
     const { place, cases, conditions } = pick(places), hz = settings.rates ? pick(settings.rates) : undefined;
     const condition = place.draw ? drawCondition(place.draw, drawing) : pick(conditions);
     if (o.split && heldOut(condition) !== (o.split === 'held-out')) return null;
-    const value = subjectFor(o, condition), cased = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
-    const world = settings.standIn ? standInWorld(cased, settings.standIn) : cased;
+    const value = subjectFor(o, condition), world = cases.world([value], condition, cases.engine ?? o.engine, [o.character]);
     const kind = WORLD_BUILDERS[world.kind], built = await kind.build(world, hz === undefined ? {} : { hz });
     try {
       if (hz !== undefined && built.world.hz !== hz) throw new Error(`a ${world.kind} world is not built at a rate`);
-      if (settings.standIn) pinStandIn(built, settings.standIn);
       const { learner, body } = learnerIn(kind, built, value), reader = cases.read(built, condition);
       kind.start?.(built, world);
       return { built, kind, cases, condition, hz, reader, learner, body };

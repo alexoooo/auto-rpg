@@ -1217,7 +1217,11 @@ world for learning and search.
   progress, halt and upright; the Strike drill's legs left undone, `unmet`) and, at the end, its terms and readings (`Evaluation.terms`: the
   Strike drill's bar score, whether it met it, how short of its aim the fist stayed). Where the
   world kind saves (`WorldKind.save`, a bout's) it keeps a pool of saved starts, refreshed while the
-  trainer updates; a bout builds at the rate a trial draws (`WorldKind.build`).
+  trainer updates; a bout builds at the rate a trial draws (`WorldKind.build`). A curriculum
+  draws its fresh starts on cheaper settings (`curriculum.from`, a lower rate) and on the file's
+  own by a share that rises with the decisions the trainer reports (`progress`). The trainer
+  (`research/run-train.py`) runs PPO or SAC, and may start from another part's network, its inputs
+  and outputs matched by their layouts' names.
 
 ## One world step
 

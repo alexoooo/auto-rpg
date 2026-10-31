@@ -19,6 +19,11 @@ folded again through the normalisation as it has come to read. All count among t
 and the start as written is kept as policy-<decisions>.json. Each chunk tells the server the decisions so
 far (`progress`), which an environment's curriculum reads.
 
+SAC's updates run on the GPU (`--device cuda`) from .tools/ai-lab-cuda-venv, ai-lab-venv's packages
+with CUDA's torch: `python -m venv .tools/ai-lab-cuda-venv`, then its pip installs
+`torch==2.9.1 --index-url https://download.pytorch.org/whl/cu126` and
+`stable_baselines3==2.7.1 gymnasium==1.2.3 numpy==2.2.6`.
+
   .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--algo ppo|sac] [--steps N] [--keep N] [--resume] [--keywords stood,seconds] [--start <network.json> --start-layout <layout.json>]
 """
 import argparse

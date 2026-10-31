@@ -10,8 +10,8 @@
  *   node research/punch-policy-check.mjs --config <environment.json> --policy <policy.json|none> [--trials 60] [--seed 1001] [--rates 120,480] [--workers 14]
  *
  * The body is the environment's `character` (its attributes; none, the model's own). `--config` is
- * an environment file or a training run's configuration (`environment` and its overrides); every
- * trial is the drill's own, its target the case's whatever stand-in training played.
+ * an environment file or a training run's configuration (`environment` and its overrides, its
+ * curriculum unread: the trials are at `--rates`).
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
  */
