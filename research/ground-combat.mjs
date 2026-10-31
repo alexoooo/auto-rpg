@@ -31,7 +31,7 @@ export async function groundFight(options = {}) {
    turnAboutToRef(Vector3.RightReadOnly,pose?.pitch??0,pitchTurn);targetTurn.multiplyInPlace(pitchTurn);
    spinBetweenToRef(a.body.view.root.rotation,targetTurn,1,poseError);
    a.body.muscles.dynamics.root.segment.body.angularVelocityToRef(rootSpin);a.built.segments.get('upperTrunk').body.angularVelocityToRef(trunkSpin);
-   supportMotion.push({time:bout.duel.clock,stage:skills.report.support.stage,depth:skills.state.support.depth,phase:skills.report.engagement.phase,
+   supportMotion.push({time:bout.duel.clock,stage:skills.report.support.stage,depth:skills.state.support.depth,phase:a.minded.report.engagement.phase,
     down:a.body.down,owner:a.body.has,comSpeed:a.body.view.stance.velocity.length(),facing:a.body.view.stance.facing,heading:skills.report.heading,
     rootError:poseError.length(),rootSpin:rootSpin.asArray(),trunkSpin:trunkSpin.asArray(),target:stance?{heading:stance.heading,pitch:pose?.pitch??0}:null});
   }
@@ -56,7 +56,7 @@ export async function groundFight(options = {}) {
    }
    if(attackedLow&&report.stage==='stand'&&!skills.report.actions.length)summary.returnedStanding=true;
    if(step%120===119)rows.push({time:bout.duel.clock,head:a.body.view.head.asArray(),foeHead:b.body.view.head.asArray(),foeDown:b.body.down,foeOwner:b.body.has,
-    support:structuredClone(report),phase:skills.report.engagement.phase,strike:skills.report.actions[0]?.stage??null,ground:structuredClone(skills.state.tactics.ground)});
+    support:structuredClone(report),phase:a.minded.report.engagement.phase,strike:skills.report.actions[0]?.stage??null,ground:structuredClone(a.minded.state.decider.ground)});
   }
   summary.cycles=cycles.reading();summary.assist={force:a.body.assist.meter.force,moment:a.body.assist.meter.moment};
   if(combatFingerprint()!==fingerprint)console.warn('ground combat source changed during a physical trial: the results may mix two versions of the code');

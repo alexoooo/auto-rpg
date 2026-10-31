@@ -555,7 +555,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           row.condition.bind(duelist);
           row.condition.sample(world.time); row.condition.render(world.time);
           row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
-            ? { body: duelist.body, skills: minded.skills ?? null } : null);
+            ? { body: duelist.body, skills: minded.skills ?? null, report: minded.report ?? null } : null);
           row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
         }
         let feedStopped = false;
@@ -711,7 +711,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       row.bar.value = duel.life(row.side);
       row.condition.render(duel.state.start + (duel.verdict?.time ?? duel.clock));
       const mind = fighter.minded, controller = controllers[row.side];
-      const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
+      const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.report?.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = duel.verdict
         ? duel.verdict.winner === null ? "Draw" : duel.verdict.winner === row.side ? "Winner" : "Defeated"

@@ -68,7 +68,7 @@ export function fighterHud(side: string) {
     sample(time: number, actions = true): void {
       if (!fighter) return;
       reading!.sample(time);
-      if (actions) history.sample(fighter.minded.skills?.report ?? (fighter.minded.report ? { engagement: fighter.minded.report.engagement } : undefined), fighter.body, time);
+      if (actions) history.sample(fighter.minded.report, fighter.body, time);
     },
     render(time: number): void {
       if (!reading) return;

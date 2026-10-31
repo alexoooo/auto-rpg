@@ -42,7 +42,7 @@ test("the driver prepares skills once, and uses the prepared report, resume, com
     assert.equal(skills, original); assert.equal(decision(), tactics.decision); calls.push("prepare"); return prepared;
   } };
   const making = { parts: { of: () => part } };
-  assert.equal(driveBy(body, tactics, () => prepareTacticsSkills(making, { kind: "fixture" }, original, () => tactics.decision)), prepared);
+  assert.equal(driveBy(body, tactics, () => prepareTacticsSkills(making, { kind: "fixture" }, original, () => tactics.decision)).skills, prepared);
   for (let i = 0; i < 2; i++) assert.equal(body.command(view, .1), "command");
   assert.equal(body.release, prepared.release);
   assert.deepEqual(calls, ["prepare", ["resume", view], ["decide", .1], ["command", view, "intent", .1],
@@ -85,11 +85,11 @@ test("the Lab's supplied script replaces configured tactics and passes through i
   const script = { name: "fixture", state, decide(sight) { state.calls++; return standIntent(sight.report.heading); } };
   const actor = labActor(stand.built, stand.world, { mind: COUNTER_PUNCHER });
   try {
-    const skills = actor.drive(script, { watch: sight => seen.push(sight.report) });
+    const mind = actor.drive(script, { watch: sight => seen.push(sight.report) });
     for (let i = 0; i < 3; i++) stand.step();
     assert.equal(state.calls, 3);
     assert.equal(seen.length, state.calls);
-    assert.ok(seen.every(report => report === skills.report));
-    assert.equal(skills.state.tactics, state, "the supplied script's memory belongs to the driven kit");
+    assert.ok(seen.every(report => report === mind.skills.report));
+    assert.equal(mind.state.decider, state, "the supplied script's memory belongs to the driven mind");
   } finally { actor.dispose(); stand.dispose(); }
 });

@@ -108,12 +108,12 @@ export async function combatTrial(config) {
     while (!duel.verdict) {
       world.step();
       for (const side of ['left', 'right']) {
-        const d = duel.duelists[side], out = sides[side], report = d.minded.skills ? d.minded.skills.report : null;
+        const d = duel.duelists[side], out = sides[side], report = d.minded.skills ? d.minded.skills.report : null, engagement = d.minded.report?.engagement ?? null;
         if (d.body.down && !out.wasDown) out.falls++;
         if (!d.body.down && out.wasDown) out.recoveries++;
         out.wasDown = d.body.down;
         if (d.body.down) out.downSeconds += world.dt;
-        const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.actions[0]?.phase ?? 'guard' : d.body.has;
+        const phase = d.body.has === 'command' ? engagement?.phase ?? report?.actions[0]?.phase ?? 'guard' : d.body.has;
         const committed = report?.actions.find(action => action.phase === 'commit');
         if (committed && out.lastPhase !== committed.id) {
           out.pathLaunches[committed.action] = (out.pathLaunches[committed.action] ?? 0) + 1;
@@ -169,7 +169,7 @@ export async function combatTrial(config) {
       delete out.witness; delete out.wasDown; delete out.pressureRun;
       delete out.touching; delete out.drivenThisStep;
       delete out.lastPhase;
-      const tactics = d.minded.skills?.state?.tactics;
+      const tactics = d.minded.skills ? d.minded.state.decider : null;
       const learned = tactics?.spacing;
       if(d.minded.skills)out.actionEndings=structuredClone(d.minded.skills.report.ledger);
       if (learned) out.approachSpacing = structuredClone(learned);

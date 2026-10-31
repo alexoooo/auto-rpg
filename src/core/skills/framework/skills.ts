@@ -4,7 +4,6 @@ import type { Body, BodyCommand, BodyView } from "../../body.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import type { Intent } from "../../intent/intent.ts";
-import type { Tactics } from "../../tactics/tactics.ts";
 import { type ActionAround, type ActionStatus, type Ended, type Readiness, type Resource, type TargetRef } from "./action.ts";
 import { skillSet, type Holders } from "./arbiter.ts";
 import { guardSkill } from "../guard/guard.ts";
@@ -50,7 +49,6 @@ export interface SkillReport {
   readonly ledger: readonly Ended[];
   /** The hands its guard put a cover before a threat with at its last step, by segment (`Intent.guard`). */
   readonly covering: readonly string[];
-  readonly engagement?: Tactics["engagement"];
   readonly support?: SupportReport;
   readonly holders: Holders;
   readonly reservations: Readonly<Record<string, number>>;
@@ -58,5 +56,5 @@ export interface SkillReport {
 }
 
 /** Continuous locomotion and the guard, with no action: a body's skills where its tactics throw nothing. */
-export const standingSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}): Skills =>
-  skillSet(body, tactics, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });
+export const standingSkills = (body: Body): Skills =>
+  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });

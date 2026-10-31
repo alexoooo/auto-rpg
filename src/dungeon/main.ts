@@ -808,7 +808,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     if (page.inspected?.actor !== actor || page.inspected.fighter !== fighter) {
       const minded = fighter.minded;
       const inspector = mindInspector(fighter.mind, fighter.built.spec, () => actor.fighter === fighter
-        ? { body: minded.body, skills: minded.skills ?? null } : null);
+        ? { body: minded.body, skills: minded.skills ?? null, report: minded.report ?? null } : null);
       page.inspected = { actor, fighter, inspector };
       need("mind-who").textContent = `${actor.name.replaceAll("-", " ")} · ${actor.side === "enemy" ? "enemy" : "party"}`;
       need("mind-view").replaceChildren(inspector.element);

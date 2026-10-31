@@ -496,7 +496,7 @@ const LAYERS = [
   ["parts/", "data/", "learning/"],
   ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
   ["skills/", "intent/", "navigation/", "perception/", "mind/kit.ts"],
-  ["tactics/", "recovery/"],
+  ["tactics/", "recovery/", "mind/report.ts"],
   ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "mind/drill-opponent.ts",
     "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
   ["toolkit.ts", "models.ts", "combatant.ts", "tasks/"],
@@ -511,9 +511,6 @@ const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/k
  * so it only shrinks.
  */
 const UP_STACK = [
-  // The skills hold nothing of the layer above (layering step 2).
-  "skills/framework/arbiter.ts -> tactics/tactics.ts", "skills/framework/executor-part.ts -> tactics/tactics-part.ts", "skills/framework/skills.ts -> tactics/tactics.ts",
-  "skills/strikes/combat.ts -> tactics/tactics.ts",
   // The data store typed by what each key's reader declares (layering step 10).
   "data/edge-profiles.ts -> skills/framework/profile.ts", "data/gait-profiles.ts -> skills/framework/profile.ts", "data/store.ts -> skills/framework/profile.ts",
   "data/store.ts -> skills/strikes/punch-records.ts", "data/straight-punch.ts -> skills/strikes/punch-records.ts", "data/strike-profiles.ts -> skills/framework/profile.ts",

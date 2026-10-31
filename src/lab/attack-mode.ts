@@ -82,7 +82,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
     if (state.targets.some((target) => target.id === id && target.hit === null)) state.selected = id;
   };
   for (let i = 0; i < options.count; i++) if (!spawn()) break;
-  const skills = actor.drive(undefined, {
+  const { skills, report } = actor.drive(undefined, {
     senses,
     orders: () => state.selected === null ? null : { face: null, foe: state.selected },
     contactIdentity: (other) => {
@@ -123,9 +123,9 @@ export function startAttack(actor: Actor, options: AttackOptions) {
     }
     });
   return {
-    state, skills, wind, select,
-    frame: () => ({ time: body.view.time, hits: state.hits, totals: { ...state.totals }, selected: skills.report.engagement?.focus ?? null,
-      actions: structuredClone(skills.report.actions), ledger: structuredClone(skills.report.ledger), engagement: structuredClone(skills.report.engagement),
+    state, skills, report, wind, select,
+    frame: () => ({ time: body.view.time, hits: state.hits, totals: { ...state.totals }, selected: report.engagement?.focus ?? null,
+      actions: structuredClone(skills.report.actions), ledger: structuredClone(skills.report.ledger), engagement: structuredClone(report.engagement),
       phase: skills.report.actions[0]?.stage ?? null, down: body.view.down, wind: [...wind.state.force],
       targets: state.targets.map((target) => {
         const dummy = targets.get(target.id)!.dummy;

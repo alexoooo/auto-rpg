@@ -13,7 +13,7 @@ import {motionAtToRef} from '../../src/core/read-motion.ts';
 export async function combinationStand({lead='right',mode='hit',tuning={}}={}) {
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
- const skills=combatSkills(body,{},{paths:{...ATTACK_PATH,...tuning},overlap:true});
+ const skills=combatSkills(body,{paths:{...ATTACK_PATH,...tuning},overlap:true});
  const obstacle=mode==='hit'?s.world.physics.addFixedBox([0,1.63,.64],[.6,.2,.08]):null;
  const cycles=actionCycles(skills);
  const policy={cycles:cycles.state,stage:'lead',hand:lead,cancelled:false,pairs:0,overlaps:[],witness:null};

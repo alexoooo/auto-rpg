@@ -88,7 +88,7 @@ export function attackScenario(scene: Scene): LabScenario {
           for (let i = moment.targets.length; i < balls.length; i++) balls[i]!.mesh.setEnabled(false);
           shown.write({ ...Object.fromEntries(Object.entries(moment.totals).map(([key, value]) => [key, String(value)])) as Record<keyof typeof moment.totals, string>, hits: String(moment.hits), target: moment.selected ?? "None", phase: moment.phase ?? "Guard",
             state: moment.down ? "Down" : "Upright", wind: norm(moment.wind).toFixed(1) });
-          actionDetails.refresh({ actions: moment.actions, ledger: moment.ledger, engagement: moment.engagement });
+          actionDetails.refresh({ actions: moment.actions, ended: moment.ledger, engagement: moment.engagement });
           return moment.time;
         },
         closure: (hand) => history.at(player.shownFrame() ?? history.live())?.closure[hand] ?? hands.closure(hand),

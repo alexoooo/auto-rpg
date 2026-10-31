@@ -3,14 +3,16 @@ import type { MindConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
 import type { Staging } from "./mind-link.ts";
 import type { SkillReport } from "../core/skills/framework/skills.ts";
+import type { MindReport } from "../core/mind/report.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
 import { actionReadout } from "./action-readout.ts";
 
-/** A mind's public ownership and execution facts, with no executor-specific state. */
+/** A mind's public ownership and execution facts, with no executor-specific state: what holds the body (its skills' report), and what the mind reports doing (`MindReport`). */
 interface Inspected {
   readonly body: { readonly has: string };
   readonly skills?: { readonly report: Partial<SkillReport> } | null;
+  readonly report?: MindReport | null;
 }
 
 /** Representative controls for the body's continuous services and hand endpoints; any other effector its skills hold gets a row of its own when first held. */
@@ -53,6 +55,6 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
     if (now && now.body.has !== "command" && now.body.has !== "nobody") holding.add("subs");
     for (const holder of tree.element.querySelectorAll<HTMLElement>(".mind-slot[data-slot]")) holder.classList.remove("live");
     for (const key of holding) for (const holder of slots(key)) holder.classList.add("live");
-    actions.refresh(report ?? null);
+    actions.refresh(now?.report ?? null);
   } };
 }

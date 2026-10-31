@@ -529,7 +529,9 @@ fight reads. A fight passes the config through and reads nothing in it.
   (`MenuEntry`, `src/core/skills/framework/menu.ts`: each action, limb, foe and region, and whether it
   could start from where the body stands), read when asked and changing nothing, which the mind
   contract holds. A mind that runs the game's skills and gives
-  them (`MindMade.skills`) publishes theirs (`skillsReport`); one that runs its own, as the
+  them (`MindMade.skills`) publishes theirs with its planner's (`skillsReport`,
+  `src/core/mind/report.ts`; `driveBy` returns the skills, the memory and the report together,
+  `Driven`); the skills report none of the layer above. One that runs its own, as the
   quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
   or state; a scene that
   drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
@@ -1145,9 +1147,10 @@ keeps its own as bytes (`PhysicsWorld.save`, `load`); every other module keeps i
   Shared objects stay shared.
 - **A constant a state points at is frozen** (`deepFreeze`): a load puts a copy in its slot. Blows
   and verdicts are frozen as made.
-- **The states hang on one root.** A body's is its mind's (`Body.state`), its skills' include their
-  tactics' (`Skills.state`), and a bout's (`Duel.state`) holds its own (start, verdict, orders,
-  tape) with the world's, senses', blow watch's and each side's.
+- **The states hang on one root.** A body's is its mind's (`Body.state`), a mind driven over the
+  skills holds its skills' and its planner's side by side (`Driven.state`: `skills`, `decider`), and
+  a bout's (`Duel.state`) holds its own (start, verdict, orders, tape) with the world's, senses',
+  blow watch's and each side's.
 
 `Duel.save()` is a bout at a step: its identity, recipe, physics bytes and state. `Duel.load(saved)`
 restores it into any bout of the same recipe, and the next step is the one after the save; another

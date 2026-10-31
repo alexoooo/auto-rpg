@@ -13,7 +13,7 @@ import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "../mind/kit.ts";
 import { prepareTacticsSkills, tacticsOf, type TacticsMaking } from "./tactics-part.ts";
-import { driveBy, type Tactics } from "./tactics.ts";
+import { driveBy, type Driven, type Tactics } from "./tactics.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
 export function fighterFaults(config: FighterConfig, parts: PartLookup): readonly string[] {
@@ -40,21 +40,23 @@ export function kitBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">,
 /**
  * Named executors are built once; behaviours select actions without rebuilding motion state. Its
  * blows are those its body throws as armed (`armedActions`); its parts are those `parts` finds.
+ * Returns the fighter as driven (`Driven`).
  */
-export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
+export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Driven {
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
     aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts };
-  const tactics = wiring.script ?? tacticsOf(making, config.tactics);
-  let skills: Skills;
-  skills = driveBy(body, around(tactics), (made, driving) => {
-    const kit = kitSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []);
-    return wiring.script ? kit : prepareTacticsSkills(making, config.tactics, kit, () => driving.decision);
+  const tactics = around(wiring.script ?? tacticsOf(making, config.tactics));
+  let skills: Skills | undefined;
+  const driven = driveBy(body, tactics, (made) => {
+    const kit = kitSkills(made, clock, parts, config, () => skills?.report.ledger ?? []);
+    return wiring.script ? kit : prepareTacticsSkills(making, config.tactics, kit, () => tactics.decision);
   });
-  return skills;
+  skills = driven.skills;
+  return driven;
 }
 
 /** Executors a mind makes itself beside those its config names, and their actions (`kitSkills`). */
@@ -67,10 +69,10 @@ interface MoreSkills {
 const NO_MORE: MoreSkills = Object.freeze({ executors: Object.freeze([]), actions: Object.freeze([]) });
 
 /** The skills `config` names, each part the one `parts` finds, a mind's own included, and `more` beside them; action aims read the body's `ledger`. */
-export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[],
+export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, ledger: () => readonly Ended[],
   more: MoreSkills = NO_MORE): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
-  return skillSet(made, driving, {
+  return skillSet(made, {
     legs: legsOf(parts, made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
     executors: [...configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger), ...more.executors],
@@ -79,8 +81,7 @@ export function kitSkills(made: Body, clock: Clock, parts: PartLookup, config: S
 }
 
 /** **A fighter**: its body and sub-minds (`kitBody`), driven by its tactics over its skills (`driveFighter`). */
-export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring) {
+export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring): Driven {
   const body = host.command(kitBody(config, wiring, host.parts));
-  const skills = driveFighter(body, host.clock, host.parts, config, wiring);
-  return { skills, state: skills.state };
+  return driveFighter(body, host.clock, host.parts, config, wiring);
 }

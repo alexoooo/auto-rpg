@@ -331,7 +331,7 @@ const isCommands = (course: Track | Commands): course is Commands => "area" in c
 export function startLocomotion(actor: Actor, course: Track | Commands, { top, facing, wind }: LocomotionOptions = {}): LocomotionSession {
   const { body, world } = actor;
   const tactics = isCommands(course) ? commandsTactics(course, { top }) : trackTactics(course, { top, facing });
-  const { report } = actor.drive(tactics);
+  const { report } = actor.drive(tactics).skills;
   const meter = startGaitMeter(body.built, world);
   const blowing = startWind(body.built, world, wind?.settings ?? { rate: 0, strength: 0 }, wind?.seed ?? 0);
   const frame = (): LocomotionFrame => {

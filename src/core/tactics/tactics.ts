@@ -5,6 +5,7 @@ import { standingSkills, type SkillReport, type Skills } from "../skills/framewo
 import type { Intent } from "../intent/intent.ts";
 import type { ActionEngagement } from "./action-tactics.ts";
 import type { Window } from "../skills/framework/action.ts";
+import { skillsReport, type MindReport } from "../mind/report.ts";
 
 /** Operational facts a planner shares with its layers, independently of inspection reports. */
 export interface TacticalDecision {
@@ -51,8 +52,8 @@ export interface Tactics<S = Sight, I = Intent> {
   readonly name: string;
   decide(sight: S, dt: number): I;
   /**
-   * Their memory, if they have any (`src/core/state.ts`), saved and loaded with their body's skills'
-   * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.
+   * Their memory, if they have any (`src/core/state.ts`), saved and loaded with their mind's
+   * (`Driven.state`). Tactics that keep what they remember anywhere else do not fork.
    */
   readonly state?: object;
   /** What they report doing (`Engagement`), read by status displays and inspection, never by the rules. */
@@ -117,18 +118,28 @@ export interface Sight {
 }
 
 /**
+ * **A mind driven by its tactics over its skills** (`driveBy`): the skills, the mind's memory, its
+ * skills' and its tactics' (`MindMade.state`), and its report (`skillsReport`).
+ */
+export interface Driven {
+  readonly skills: Skills;
+  readonly state: { readonly skills: object; readonly decider: object | null };
+  readonly report: MindReport;
+}
+
+/**
  * Hand `body` to `tactics`: each control step they decide on the body's view and the skills'
  * report, and the skills `make` makes (legs and guard with no action, `standingSkills`, unless given) make the command.
- * Returns the skills, for their report. On the step the body is back from another mind
+ * Returns the mind so driven (`Driven`). On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the tactics decide, so the report they read
  * is of the body as it is.
  */
-export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = standingSkills): Skills {
-  const skills = make(body, tactics);
+export function driveBy(body: Body, tactics: Tactics, make: (body: Body) => Skills = standingSkills): Driven {
+  const skills = make(body);
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);
   }, skills.release);
-  return skills;
+  return { skills, state: { skills: skills.state, decider: tactics.state ?? null }, report: skillsReport(skills, tactics) };
 }

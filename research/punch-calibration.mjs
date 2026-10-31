@@ -68,7 +68,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
   const action = { name: 'strike', executor: executor.name, effectors: [`hand.${hand}`], regions: [{ kind: 'mark', mark: 'high' }], aim: { kind: 'centre', lead: 0 },
     ...(executor.kind === 'path-strike' ? { family, armExtension } : {}) };
   const guard=guardSkill(spec);
-  const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard,
+  const skills=skillSet(body, { legs:locomotion(body.envelope), guard,
     executors:configuredExecutors(partLookup,body,s.world,guard.posture,[executor],[action]), actions:[action] });
   const cycles=actionCycles(skills);
   const target=[(hand==='right'?.1:-.1)+across,height,ahead];

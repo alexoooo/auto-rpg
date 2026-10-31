@@ -61,7 +61,7 @@ test("the Attack field builds the selected torso and Vanguard senses an eligible
     assert.deepEqual(targets[0].marks.middle, [part]);
     attack.select(attack.state.targets[0].id);
     stand.step();
-    const candidates = attack.skills.report.engagement.candidates;
+    const candidates = attack.report.engagement.candidates;
     assert.ok(candidates.length > 0, "the selected target reached the real planner's candidate selection");
     assert.ok(candidates.some(candidate => candidate.eligible));
     assert.ok(candidates.every(candidate => candidate.readiness.reason !== "no such region"));

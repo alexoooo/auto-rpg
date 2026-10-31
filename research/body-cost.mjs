@@ -42,7 +42,7 @@ async function cost(count) {
   world.physics.addFixedBox([0, -0.5, 0], [60, 1, 60]);
   const driven = (built, subs = []) => {
     const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, subs });
-    return { body, skills: driveBy(body, { name: "stand", decide: () => standIntent(0) }) };
+    return { body, skills: driveBy(body, { name: "stand", decide: () => standIntent(0) }).skills };
   };
   const bodies = Array.from({ length: count }, (_, i) => driven(buildBody(spec, world, { position: [3 * (i - (count - 1) / 2), 0, 0] })));
   const level = (to) => { for (const { body } of bodies) body.setLevel(to); };

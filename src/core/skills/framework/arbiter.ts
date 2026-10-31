@@ -2,7 +2,6 @@ import { kitOf, menuOf } from "./menu.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import { stockClearance } from "../../navigation/clear-step.ts";
 import type { Intent } from "../../intent/intent.ts";
-import type { Tactics } from "../../tactics/tactics.ts";
 import type { Body, BodyCommand, BodyView } from "../../body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, MusclePush, PointTask } from "../../control/motor.ts";
@@ -39,7 +38,7 @@ export interface SkillParts {
 export type Holders = Record<string, number | "default">;
 
 /** Admit, update and compose all commitments through the same anatomical ownership map. */
-export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, tactics: Pick<Tactics, "state" | "engagement">, services: SkillParts) {
+export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, services: SkillParts) {
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
@@ -48,7 +47,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
   const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
   const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
-  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
+  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
     /** The hands a cover drove at the last step (`SkillReport.covering`). */
@@ -80,7 +79,6 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
     get legs() { return legs.unmet ?? ALL_MET; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, get covering() { return state.covering; }, holders: state.owners, reservations: state.reservations,
-    get engagement() { return tactics.engagement; },
     ...(navigation ? { navigation: navigation.report } : {}),
     ...(support ? { support: support.report } : {}),
   };

@@ -2,7 +2,6 @@ import type { AttributeOverrides } from "../character-attributes.ts";
 import type { Body, BodyOptions } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { Pose } from "../spec/pose.ts";
-import type { Skills } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { MindConfig } from "./config.ts";
 import type { FighterConfig } from "../tactics/config.ts";
@@ -10,7 +9,7 @@ import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "../parts/parts.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import type { Tactics } from "../tactics/tactics.ts";
+import type { Driven, Tactics } from "../tactics/tactics.ts";
 
 /**
  * A named configuration, optionally calibrated for particular body models and played on a
@@ -36,11 +35,12 @@ export const presetFitsModel = (preset: Pick<MindPreset, "models">, model: BodyS
 /**
  * How a scene drives a mind by a script of its own in its tactics' place (the Lab's modes, a fall
  * on the stand bed): the options its body is made with, and the drive that hands the body its
- * skills under the script (`MindWiring.script`). A mind that takes a script has a fighter's slots.
+ * skills under the script (`MindWiring.script`), returning the mind so driven. A mind that takes a
+ * script has a fighter's slots.
  */
 export interface Scripted {
   body(config: FighterConfig, wiring: MindWiring, parts: PartLookup): BodyOptions;
-  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: (tactics: Tactics) => Tactics): Skills;
+  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: (tactics: Tactics) => Tactics): Driven;
 }
 
 /**

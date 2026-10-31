@@ -111,7 +111,7 @@ function stanceTactics(orders: StanceOrders): Tactics {
 export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession {
   const { body, world } = actor;
   const orders = restOrders();
-  const { report } = actor.drive(stanceTactics(orders));
+  const { report } = actor.drive(stanceTactics(orders)).skills;
   const shoving = shoveBody(body, world, () => report.heading, pushed);
 
   const frame = (): StanceFrame => {

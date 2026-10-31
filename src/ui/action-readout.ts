@@ -1,6 +1,6 @@
-import type { SkillReport } from "../core/skills/framework/skills.ts";
 import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
 import type { Engagement } from "../core/tactics/tactics.ts";
+import type { MindReport } from "../core/mind/report.ts";
 
 /**
  * What a planner's report says (`Engagement`), a line each: its focus and phase, its own details
@@ -38,8 +38,8 @@ export function actionReadout() {
     for (const observation of record.observations) text(`${observation.time.toFixed(3)} s · ${observation.phase} · ${observation.kind} · ${observation.struck ? `${observation.struck.body}/${observation.struck.segment}` : "world or object"}`);
     if (total > record.observations.length) text(`${total - record.observations.length} observation entries omitted; totals include every onset.`);
   };
-  return { element, refresh(report: Partial<SkillReport> | null) {
-    const state = JSON.stringify([report?.engagement, report?.actions, report?.ledger]);
+  return { element, refresh(report: Partial<Pick<MindReport, "engagement" | "actions" | "ended">> | null) {
+    const state = JSON.stringify([report?.engagement, report?.actions, report?.ended]);
     if (state === previous) return;
     const open = element.querySelector("details")?.open ?? false;
     previous = state; element.replaceChildren();
@@ -49,7 +49,7 @@ export function actionReadout() {
       text(`#${action.id} ${action.action} · ${action.effector} · ${action.phase}/${action.stage} · holds ${action.holds.join(", ") || "none"}`);
       contacts(action);
     }
-    const ledger = report.ledger ?? [];
+    const ledger = report.ended ?? [];
     if (ledger.length) {
       const details = document.createElement("details"), summary = document.createElement("summary"), history = document.createElement("div");
       details.open = open;

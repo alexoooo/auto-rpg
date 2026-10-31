@@ -15,7 +15,7 @@ import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type PartConfig, type Slot } from "../parts/parts.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
-import { driveBy, type Tactics } from "../tactics/tactics.ts";
+import { driveBy } from "../tactics/tactics.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
 import { OPTIONS } from "./kinds.ts";
@@ -78,14 +78,15 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const body = host.command(kitBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, parts));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
-  let skills: Skills;
-  const make = (made: Body, driving: Pick<Tactics, "state" | "engagement">) => kitSkills(made, host.clock, parts, config, driving, () => skills?.report.ledger ?? [],
+  let skills: Skills | undefined;
+  const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions });
   const hz = Math.round(1 / host.clock.dt), rising = { executor: ground, registry };
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions),
     aims: configuredAims(parts, host.spec, config.executors, config.actions), orders: (sight) => wiring.orders(sight.view.senses), parts };
-  skills = driveBy(body, optionTactics(making, hz, config, host.seed, rising), make);
-  return { skills, state: skills.state };
+  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising), make);
+  skills = driven.skills;
+  return driven;
 }
 
 /** **Option Mind**: a chooser over its options, on its percepts, over the toolkit's body layer. Its choosers, kinds of option, objectives and predictions are the toolkit's role lists (`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`). */

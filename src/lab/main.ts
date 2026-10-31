@@ -291,7 +291,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       subs: scenario.subs?.(to),
       assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
-    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), labStaging(to.scenario)));
+    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

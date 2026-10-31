@@ -8,7 +8,13 @@ import type { PartField } from "../../parts/fields.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { Aimed } from "../../intent/action-aim.ts";
 import type { Aim, AimedBlow } from "./aim-part.ts";
-import type { ActionEstimates } from "../../tactics/tactics-part.ts";
+
+/** An action's own registration supplies measured estimates without exposing its executor kind. */
+interface ActionEstimate {
+  readonly unit: "opening" | "net";
+  read(view: BodyView, target: TargetRef, effector: string): number | null;
+}
+export type ActionEstimates = Readonly<Record<string, ActionEstimate>>;
 
 /** An executor's config: its kind and the name a fighter's actions call it by. */
 interface NamedConfig extends PartConfig {

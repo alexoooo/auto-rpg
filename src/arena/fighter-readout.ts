@@ -4,8 +4,7 @@ import type { Pool } from "../core/rules/pool.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
 import { blocked, cleanMiss, landed } from "../core/skills/framework/action-instances.ts";
-import type { SkillReport } from "../core/skills/framework/skills.ts";
-import type { Engagement } from "../core/tactics/tactics.ts";
+import type { MindReport } from "../core/mind/report.ts";
 import { partLabel } from "../ui/part-label.ts";
 
 /** A front-facing body; screen left is the fighter's anatomical right. */
@@ -121,7 +120,7 @@ export function actionFeed() {
   return { reset,
     /** Show phases by `next` (`phaseLabels` of the mind being read). */
     label(next: Readonly<Record<string, string | null>>): void { labels = next; },
-    sample(report: (Partial<Pick<SkillReport, "actions" | "ledger">> & { readonly engagement?: Engagement | null }) | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
+    sample(report: Pick<MindReport, "actions" | "ended" | "engagement"> | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
       if (!report) return;
@@ -139,7 +138,7 @@ export function actionFeed() {
           default: { const never: never = action.phase; throw new Error(`Unknown phase ${never}`); }
         }
       }
-      for (const record of report.ledger ?? []) {
+      for (const record of report.ended ?? []) {
         if (record.sequence <= state.sequence) continue;
         state.sequence = record.sequence;
         if (record.ending.kind === "refused") continue;

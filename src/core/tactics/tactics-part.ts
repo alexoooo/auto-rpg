@@ -1,5 +1,3 @@
-import type { BodyView } from "../body.ts";
-import type { TargetRef } from "../skills/framework/action.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { ActionConfig, SkillKit } from "../skills/config.ts";
 import type { Aim } from "../skills/framework/aim-part.ts";
@@ -8,14 +6,8 @@ import type { Orders } from "../intent/orders.ts";
 import type { KeysOf, Part, PartConfig } from "../parts/parts.ts";
 import type { DecisionCapability, Sight, TacticalDecision, Tactics } from "./tactics.ts";
 import type { Skills } from "../skills/framework/skills.ts";
+import type { ActionEstimates } from "../skills/framework/executor-part.ts";
 import type { Rulebook } from "../rules/rulebook.ts";
-
-/** An action's own registration supplies measured estimates without exposing its executor kind. */
-interface ActionEstimate {
-  readonly unit: "opening" | "net";
-  read(view: BodyView, target: TargetRef, effector: string): number | null;
-}
-export type ActionEstimates = Readonly<Record<string, ActionEstimate>>;
 
 /** What tactics are made for: the body, the fight's rules, the actions it may start and their estimates, a person's orders, a screen's script and the parts the tree names. */
 export interface TacticsMaking {

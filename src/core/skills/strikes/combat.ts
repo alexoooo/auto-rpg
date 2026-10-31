@@ -6,7 +6,6 @@ import { intoFrameToRef } from "../../control/kinematics.ts";
 import { cos, sin } from "../../math/real.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
-import type { Tactics } from "../../tactics/tactics.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { skillSet, type SkillParts } from "../framework/arbiter.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning, type BlowFamily } from "./attack-path.ts";
@@ -69,9 +68,9 @@ export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnS
   };
 }
 
-/** The path strike's usual skill set of `body` (`pathParts`), which `tactics` will hand their intent. */
-export const combatSkills = (body: Body, tactics: Pick<Tactics, "state" | "engagement"> = {}, settings: CombatSettings = {}): Skills =>
-  skillSet(body, tactics, pathParts(body, settings));
+/** The path strike's usual skill set of `body` (`pathParts`), which a decider hands its intent. */
+export const combatSkills = (body: Body, settings: CombatSettings = {}): Skills =>
+  skillSet(body, pathParts(body, settings));
 
 /** A path action's own trajectory and optional low-support request. */
 interface PathAction {

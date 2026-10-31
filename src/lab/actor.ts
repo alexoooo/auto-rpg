@@ -5,10 +5,9 @@ import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { partLookup, partOf, scriptedBy, treeFaults, GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { FighterConfig } from "../core/tactics/config.ts";
-import { createMind, type MindWiring } from "../core/mind/minds.ts";
+import { createMind, type MindMade, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
 import type { Sight, Tactics } from "../core/tactics/tactics.ts";
-import type { Skills } from "../core/skills/framework/skills.ts";
 import { heldIn } from "../core/skills/strikes/held-strike.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -17,6 +16,9 @@ import { strikeAllowed } from "./loadout.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
 type Watch = (sight: Sight, dt: number) => void;
+
+/** A mind the Lab drives: its skills, for their report, its memory and what it reports doing. */
+type LabMind = Required<MindMade>;
 
 /** A mode's orders and senses, or its script, and optional instruments. */
 interface Driving {
@@ -40,14 +42,14 @@ export interface Actor {
   /** Whether each hand may attack: what it holds is not barred (`ActorOptions.allows`). A mode asks no strike of a hand that may not. */
   readonly strikes: Readonly<Record<Side, boolean>>;
   /**
-   * Hand the body to its mind with orders and senses, or a scenario script. Returns the skills for
-   * their report. A mind of its own takes the orders and senses, and no script, instrument or log.
+   * Hand the body to its mind with orders and senses, or a scenario script. Returns the mind so
+   * driven. A mind of its own takes the orders and senses, and no script, instrument or log.
    */
-  drive(script?: Tactics, driving?: Driving): Skills;
+  drive(script?: Tactics, driving?: Driving): LabMind;
   /** Whether its mind gets up by its own skills, no sub-mind taking the body: a mind of its own. */
   readonly risesItself: boolean;
-  /** The skills its mind last drove it with (`drive`), for their report; null before it is driven. */
-  readonly skills: Skills | null;
+  /** The mind last driven (`drive`), for its skills' and its own report; null before it is driven. */
+  readonly mind: LabMind | null;
   dispose(): void;
 }
 
@@ -109,12 +111,13 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const scripted = scriptedBy(mind);
   if (!scripted) {
     if (subs) throw new Error(`${partOf(mind).label} takes no script, so the Lab cannot replace its sub-minds`);
-    const own = createMind(GAME, built, world, mind, wiring), skills = own.skills;
-    if (!skills || !("view" in own.body)) throw new Error(`${partOf(mind).label} runs no skills the Lab can read`);
+    const own = createMind(GAME, built, world, mind, wiring), skills = own.skills, report = own.report;
+    if (!skills || !report || !("view" in own.body)) throw new Error(`${partOf(mind).label} runs no skills the Lab can read`);
+    const made: LabMind = { state: own.state, skills, report };
     return {
       body: own.body as HostedBody, world, strikes, risesItself: true,
-      drive(_script, driving = {}) { input = driving; return skills; },
-      get skills() { return skills; },
+      drive(_script, driving = {}) { input = driving; return made; },
+      get mind() { return made; },
       dispose: () => own.body.dispose(),
     };
   }
@@ -123,7 +126,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   if (fault) throw new Error(fault);
   const body = createBody(built, world, { ...scripted.body(fighter, wiring, partLookup), stance, measuring,
     ...(subs ? { subs } : {}) });
-  let driven: Skills | null = null;
+  let driven: LabMind | null = null;
   return {
     body, world, strikes, risesItself: false,
     drive(script, driving = {}) {
@@ -134,7 +137,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
         return watch ? watched(made, watch) : made;
       });
     },
-    get skills() { return driven; },
+    get mind() { return driven; },
     dispose: () => body.dispose(),
   };
 }

@@ -206,18 +206,18 @@ test("the Lab drives Vanguard's chosen kit, with its planner or a supplied scrip
   assert.deepEqual(labMind(config, spec, "attack"), { plays: config, faults: [] });
   const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: config });
   try {
-    const skills = actor.drive();
+    const planned = actor.drive(), skills = planned.skills;
     stand.step();
-    assert.ok(engagementLines(skills.report.engagement).some(line => line.startsWith("Evasion policy:")));
+    assert.ok(engagementLines(planned.report.engagement).some(line => line.startsWith("Evasion policy:")));
     const state = { calls: 0 }, observed = [], script = { name: "fixture", state, decide() { state.calls++; return { ...standIntent(0), move: [.1, 0] }; } };
     const scripted = actor.drive(script, { watch: sight => observed.push(sight.report) });
     stand.step();
     assert.equal(state.calls, 1);
-    assert.deepEqual(observed, [scripted.report]);
-    assert.equal(scripted.state.tactics, state);
+    assert.deepEqual(observed, [scripted.skills.report]);
+    assert.equal(scripted.state.decider, state);
     assert.ok(skills.gait.envelope.turns.length > 0, "the fixture exposes measured turn limits");
-    assert.ok(scripted.state.legs.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
-    assert.deepEqual(scripted.gait.envelope, skills.gait.envelope, "the same calibrated legs drive both paths");
+    assert.ok(scripted.skills.state.legs.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
+    assert.deepEqual(scripted.skills.gait.envelope, skills.gait.envelope, "the same calibrated legs drive both paths");
   } finally { actor.dispose(); stand.dispose(); }
 });
 
