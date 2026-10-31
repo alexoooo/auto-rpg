@@ -32,7 +32,7 @@ test("recovery option handoffs keep the whole body claimed through the action ar
     for (let step = 0; step < 120 && !planted; step++) {
       const position = step === 0 ? "front" : "fours";
       const view = { ...body.view, time: step * stand.world.dt, down: true, ground: { ...ground, lie: "front", raw: position,
-        position, settled: true, height: .2, footLoad: new Float64Array(2), flat: new Uint8Array(2) } };
+        position, settled: true, height: position === "fours" ? .6 : .2, footLoad: new Float64Array(2), flat: new Uint8Array(2) } };
       const now = { time: view.time, range: Infinity, down: true, sight: { view, instance: () => instances.instance(), needs: (...args) => instances.needs(...args),
         report: { heading: 0, actions: instances.live, ledger: instances.ledger } } };
       const selected = chooser.decide(now);

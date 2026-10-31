@@ -13,9 +13,9 @@
       "motorSpeed": 2,
       "blendSeconds": 1,
       "postures": {
-        "right": { "hip flexion": 1.2, "knee flexion": 2.3, "shoulder flexion": 0.5, "elbow flexion": 1.2, "hip abduction": 0.2, "shoulder abduction": 0.6, "lumbar flexion": 0.3 },
-        "gather": { "hip flexion": 2, "knee flexion": 2.4, "shoulder flexion": 0.8, "elbow flexion": 0.8, "hip abduction": 0.2, "shoulder abduction": 0.4, "wrist flexion": -1, "lumbar flexion": 0.2 },
-        "plant": { "hip flexion": 2, "knee flexion": 1.5, "ankle dorsiflexion": 0.6, "shoulder flexion": 0.8, "elbow flexion": 0.8, "hip abduction": 0.2, "shoulder abduction": 0.4, "wrist flexion": -1, "lumbar flexion": 0.2 }
+        "right": { "hip flexion": 1.2, "hip.right flexion": 0.6, "knee flexion": 2.3, "shoulder flexion": 0.5, "shoulder.right flexion": -0.7, "shoulder.right abduction": 1, "elbow flexion": 1.2, "elbow.right flexion": 0.1, "hip abduction": 0.2, "shoulder abduction": 0.6, "lumbar flexion": 0.3 },
+        "gather": { "hip flexion": 1.4, "knee flexion": 2.3, "ankle dorsiflexion": -0.5, "shoulder flexion": 1.3, "elbow flexion": 0.1, "hip abduction": 0.2, "shoulder abduction": 0.7, "wrist flexion": -1, "lumbar flexion": 0 },
+        "plant": { "hip flexion": 1.4, "knee flexion": 2.3, "ankle dorsiflexion": 0.8, "shoulder flexion": 1.3, "elbow flexion": 0.1, "hip abduction": 0.2, "shoulder abduction": 0.7, "wrist flexion": -1, "lumbar flexion": 0 }
       }
     }
   }

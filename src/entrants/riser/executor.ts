@@ -19,9 +19,9 @@ export const RECOVERY_EXECUTOR: ExecutorPart<{ readonly kind: "riser:recovery"; 
   fits: (spec) => groundRefusal(spec) ?? recoveryRecordFault(spec, {}), faults: () => [], effectors: ["foot.left"], aims: false, actionKeys: [], actionFaults: () => [],
   make({ body, clock }) {
     const n = body.muscles.channels.length, activation = new Float64Array(n), velocity = new Float64Array(n);
-    const own = heldBody(body, activation, velocity), movement = recoveryControl(own, body.view, clock.dt);
+    const own = heldBody(body, activation, velocity), movement = recoveryControl(own);
     const holds = Object.freeze([...bodyEffectors(body.built).map(e => e.model.segment), "legs", "trunk"]);
-    const state = { live: null as { id: number; move: RecoveryMove; done: boolean; stalled: boolean } | null, next: null as RecoveryMove | null, stable: 0,
+    const state = { live: null as { id: number; move: RecoveryMove; done: boolean; stalled: boolean } | null,
       movement: movement.state, activation, velocity };
     const pushes = own.muscles.channels.map(c => ({ channel: c.name, sense: 1 as 1 | -1, level: 0, speed: 0 }));
     const claim: ActionClaim = { legs: null, pushes };
@@ -31,10 +31,10 @@ export const RECOVERY_EXECUTOR: ExecutorPart<{ readonly kind: "riser:recovery"; 
         const move = moveOf(action);
         return move && recoveryMove(view) === move ? { kind: "ready" } : { kind: "blocked", reason: "the contact task is not available" };
       },
-      start(_view, request) {
+      start(view, request) {
         const move = moveOf(request.action);
         if (!move || state.live) throw new Error("invalid recovery admission");
-        state.live = { id: request.id, move, done: false, stalled: false }; state.next = move; state.stable = 0; movement.begin(move); movement.step(clock.dt);
+        state.live = { id: request.id, move, done: false, stalled: false }; movement.begin(move, view); movement.step(view, clock.dt);
       },
       update(view, continued, _around, dt) {
         const live = state.live;
@@ -44,13 +44,13 @@ export const RECOVERY_EXECUTOR: ExecutorPart<{ readonly kind: "riser:recovery"; 
           return [{ id: live.id, ending: { kind: live.stalled ? "stalled" : live.done ? "completed" : "cancelled" } }];
         }
         if (!live.done) {
-          const done = movement.step(dt), next = recoveryMove(view);
-          state.stable = next === state.next ? state.stable + dt : 0; state.next = next;
-          live.done = done || (state.stable >= .2 && next !== live.move && !(live.move === "extend" && next === null));
+          live.done = movement.step(view, dt);
           if (!live.done && movement.state.elapsed >= 12) { live.done = true; live.stalled = true; }
         }
         // Completion keeps the claim until the arbiter replaces it, with no standing-control gap.
-        return [{ id: live.id, phase: live.done ? "release" : "commit", stage: live.stalled ? `stalled:${live.move}` : live.move, holds }];
+        const side = movement.state.leadLoaded ? "right" : "left", clearance = movement.state.landingClearance[movement.state.leadLoaded ? 1 : 0]!;
+        const stage = live.move === "plant" ? `plant ${side} (${clearance.toFixed(3)} m clear)` : live.move;
+        return [{ id: live.id, phase: live.done ? "release" : "commit", stage: live.stalled ? `stalled:${live.move}` : stage, holds }];
       },
       command() {
         for (let i = 0; i < n; i++) { const push = pushes[i]!; push.sense = velocity[i]! < 0 ? -1 : 1; push.level = activation[i]!; push.speed = velocity[i]!; }
