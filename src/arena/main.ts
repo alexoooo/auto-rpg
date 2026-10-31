@@ -789,7 +789,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         : `${controller} - ${phase}`;
       if (row.mind.open) row.inspector?.refresh();
       const leads = led !== null && row.side === you && !duel.verdict;
-      row.choices.refresh(fighter.minded.report?.menu ?? null, { picks: leads, opens: leads && choosing });
+      row.choices.refresh(() => fighter.minded.report?.menu ?? null, { picks: leads, opens: leads && choosing });
     }
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
@@ -838,8 +838,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         });
         // A new choice for the person's side pauses the bout for them to pick, where they asked so.
         const own = you ? duel.duelists[you] : null, report = own?.minded.report;
-        if (pauseOnChoice && led && own && report?.menu && !duel.verdict
-          && watch.changed(report.menu, report.ended ?? [], own.body.down, duel.clock)) setPaused(true, "choice");
+        const menu = pauseOnChoice && led && own && !duel.verdict ? report?.menu : null;
+        if (menu && watch.changed(menu, report!.ended ?? [], own!.body.down, duel.clock)) setPaused(true, "choice");
         for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
       }
       if (!paused && !context.busy && profile.view === "world") arena.fire.burn(seconds);

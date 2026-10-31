@@ -83,6 +83,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
+  // The step's reading: its stamp moves wherever the view may, so it is no state and carries nothing on.
+  let stamp = 0;
+  const moved = (): void => { stamp++; };
+  const reading = { get stamp() { return stamp; } };
   const view = {
     handPoses: Object.fromEntries(built.handPoses.model.map((hand) => [hand.segment, built.handPoses.state[hand.hand]!])), effectors,
     get time() { return state.time; },
@@ -98,6 +102,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     get down() { return state.down; },
     get ground() { return state.groundActive && ground ? ground.state.reading : null; },
     get resumed() { return state.resumed; },
+    reading,
   };
   let driver: BodyDriver | null = null;
   let released: ((view: BodyView, reason: "takeover" | "idle" | "replaced") => void) | undefined;
@@ -137,6 +142,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   obey(restCommand());
 
   const look = (senses: Senses): void => {
+    moved();
     state.time = senses.time;
     state.born ??= senses.time;
     view.senses = senses;
@@ -164,9 +170,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     if (next) obey(next);
     motor.control(muscles, dt);
     state.resumed = false;
+    moved();
   };
   const drive: Body["drive"] = (next, onRelease) => { if (driver && driver !== next) released?.(view, "replaced"); driver = next; released = onRelease; };
-  own.afterPhysics((step) => { feedback?.read(step); });
+  own.afterPhysics((step) => { moved(); feedback?.read(step); });
   const envelope = !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
   const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics };
   return {

@@ -18,6 +18,7 @@ import {KICK_PATH} from '../src/core/skills/strikes/kick.ts';
 import {NO_COVER} from '../src/core/intent/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/read-motion.ts';
 import {supportRecovery} from '../src/core/recovery/rise/support-recovery.ts';
+import {supportReadiness} from '../src/core/control/support-readiness.ts';
 import { partLookup } from "../src/entrants/game.ts";
 import {GAME_GUARD,kitOf} from '../src/core/mind/kit.ts';
 import {coarseForces} from './punch-calibration.mjs';
@@ -43,6 +44,8 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
     recovery?[(own,view)=>supportRecovery(own,view,s.world,kitOf(partLookup,own.spec,{guard:GAME_GUARD}))]:[]);
   const parts=pathParts(body,{kick:{...KICK_PATH,...tuning}}), skills=skillSet(body,parts), cycles=actionCycles(skills);
   const kickState=parts.executors.find(entry=>entry.name==='kicks').executor.state;
+  // The feet's support as the last step left it, read here each step: the kick reads its own only while it kicks.
+  const support=supportReadiness(s.built);
   const target=[foot==='right'?.1:-.1,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),height,ahead],{face:'compliant',size:[.2,.08,.11],...pad});
   body.drive((view,dt)=>{
@@ -56,13 +59,14 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
   const state={cycles:cycles.state,requesting:true,phases:[],samples:[],impacts:[],active:null,last:'',previousPhase:null,launch:0,seen:0,
     fell:false,floorContacts:0,drivenPeak:0,witness:null,unloadedLaunches:0,loadedLaunches:0,effort:effort.state};
   const before=s.world.beforeStep(()=>{
+    support.read(body.view.stance.centre,body.view.stance.velocity,s.world.dt);
     const kick=skills.report.actions.find(action=>action.effector===`foot.${foot}`),phase=cycles.phase(`foot.${foot}`),key=`${kick?.stage??'idle'}:${phase}`;
     pointOfToRef(limb,limb.spec.points.strike.value,point);motionAtToRef(limb,point,velocity,spin);
     if(key!==state.last){state.phases.push({time:s.world.time,stage:kick?.stage??'idle',phase,
-      point:point.asArray(),centre:body.view.stance.centre.asArray(),support:structuredClone(kickState.support)});state.last=key;}
+      point:point.asArray(),centre:body.view.stance.centre.asArray(),support:structuredClone(support.state)});state.last=key;}
     if(phase==='swing'&&state.previousPhase!=='swing'){
       state.launch++;
-      if(kickState.support.loads[foot]===0)state.unloadedLaunches++;else state.loadedLaunches++;
+      if(support.state.loads[foot]===0)state.unloadedLaunches++;else state.loadedLaunches++;
     }
     state.previousPhase=phase;
     state.witness={time:s.world.time,phase,launch:state.launch,point:point.asArray(),velocity:velocity.asArray(),

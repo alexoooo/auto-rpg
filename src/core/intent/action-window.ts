@@ -5,9 +5,9 @@ import type { Window } from "../skills/framework/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "./movement.ts";
-import { sensedObstacle } from "../navigation/sensed-bounds.ts";
 import type { BodySense } from "../mind/senses.ts";
 import { lyingAxis } from "./targets.ts";
+import { stepObstacle } from "../navigation/sensed-bounds.ts";
 
 /** Braking begins one second before the centre would enter its window. */
 const RESPONSE = 1;
@@ -95,13 +95,13 @@ type Beside = { readonly offset: Offset; readonly route: readonly Vec3[]; readon
  * about the window's target, `LYING.bearings` of them from facing along that body (`lyingAxis`), so
  * they stay put while it lies still,
  * those where each foot, as far to its side as the soles stand now, keeps `LYING.footRadius` clear
- * of that body's colliders over its column (`sensedFootClearance`), the one whose way round that
+ * of that body's colliders over its column (`stepObstacle`), the one whose way round that
  * body over the column, from where the body's motion carries it `LYING.lead` s on, and turn from
  * `heading` to its facing cost least (a walk along its way, turning to it, keeps it the cheapest);
  * null where none is.
  */
 function besideLying(view: BodyView, window: Window, lying: BodySense, heading: number): Beside | null {
-  const obstacle = sensedObstacle(lying), clear = obstacle.clear, axis = lyingAxis(lying), { soles, centre } = view.stance, y = view.stance.support.y;
+  const obstacle = stepObstacle(view, lying), clear = obstacle.clear, axis = lyingAxis(lying), { soles, centre } = view.stance, y = view.stance.support.y;
   const width = hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z) / 2, velocity = view.stance.velocity;
   const from: Vec3 = [centre.x + velocity.x * LYING.lead, y, centre.z + velocity.z * LYING.lead];
   const stands = (x: number, z: number): boolean => {

@@ -51,6 +51,9 @@ export const CENTRE_AIM: AimPart<CentreConfig> = deepFreeze({
   },
 });
 
+/** Whether `a` and `b` name the same segments in the same order. */
+const sameNames = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((name, k) => name === b[k]);
+
 /** **The surface aim**'s config: the opening reader's (`openingSelector`) choice of a surface point, by its preferences. */
 interface SurfaceConfig { readonly kind: "surface"; readonly tuning: OpeningTuning }
 
@@ -74,12 +77,21 @@ export const SURFACE_AIM: AimPart<SurfaceConfig> = deepFreeze({
   aimsWith: (effector: string) => effector === "hand.left" || effector === "hand.right",
   make(spec, config: SurfaceConfig, blow) {
     const surface = openingSelector(spec, config.tuning, blow?.paths), family = blow?.family ?? "straight";
+    // Each opening found at `of`'s reading's `stamp`, for its foe as observed at its time, hand, region and blocked segments: every caller's while they stand.
+    const found: { foe: BodySense; time: number; side: Side; names: readonly string[]; blocked: readonly string[]; aimed: Aimed | null }[] = [];
+    let of: BodyView | null = null, stamp = -1;
     return aimOn((view, foe, names, effector, ledger) => {
       if (effector !== "hand.left" && effector !== "hand.right") return null;
       const side = effector.slice(5) as Side;
       const blocked = ledger.filter(record => record.target.body === foe.id).flatMap(record => record.contacts.blockedSegments);
-      const found = surface(view, foe, side, null, "mixed", { family, segments: names, blocked });
-      return found ? { at: found.target, ...(found.direction ? { direction: found.direction } : {}), estimate: { unit: "opening", value: -found.score } } : null;
+      if (of !== view || stamp !== view.reading.stamp) { of = view; stamp = view.reading.stamp; found.length = 0; }
+      const time = foe.time;
+      if (time !== undefined) for (const one of found)
+        if (one.foe === foe && one.time === time && one.side === side && sameNames(one.names, names) && sameNames(one.blocked, blocked)) return one.aimed;
+      const opening = surface(view, foe, side, null, "mixed", { family, segments: names, blocked });
+      const aimed: Aimed | null = opening ? deepFreeze<Aimed>({ at: opening.target, ...(opening.direction ? { direction: opening.direction } : {}), estimate: { unit: "opening", value: -opening.score } }) : null;
+      if (time !== undefined) found.push({ foe, time, side, names, blocked, aimed });
+      return aimed;
     });
   },
 });

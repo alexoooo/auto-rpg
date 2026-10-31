@@ -68,7 +68,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     phase: "prepare" | "commit" | "release"; time: number; held: number; heading: number; height: number; target: Vec3;
     initial: ReturnType<typeof capture>; back: Vec3 | null; withdrawn: boolean; ending: ActionEnding; bearing: Vec3;
     bearingRotation: Rotation; setting: Side | null; footing: Record<Side, readonly [number, number]> };
-  const state = { live: null as Motion | null, support: support.state,
+  // The support is read only while a kick is under way: each of its readings is of that step alone.
+  const state = { live: null as Motion | null,
     cycles: { left: strikes.left.state, right: strikes.right.state } };
   const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
   const stage = (next: Motion["stage"]) => {
@@ -123,7 +124,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready", window };
     },
-    resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); support.state.quiet = 0; },
+    resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); },
     start(view, request, around) {
       if (state.live) throw new Error("kick executor already owns an instance");
       const foot = sideOf(request.effector), other = otherSide(foot);
@@ -139,9 +140,9 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         footing: foot === "left" ? { left: [x, z], right: beside } : { left: beside, right: [x, z] } };
     },
     update(view, continued, _around, dt) {
-      support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle);
       const live = state.live;
       if (!live) return [];
+      support.read(view.stance.centre, view.stance.velocity, dt); readSupport(feet, feet, middle);
       if (view.down) return [finish({ kind: "interrupted", reason: "body is down" })];
       const foot = live.foot, other = otherSide(foot), strike = strikes[foot], velocity = strike.read(view, dt);
       const request = continued.find(one => one.id === live.request.id);

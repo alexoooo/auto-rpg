@@ -157,6 +157,23 @@ export interface BodyView {
   readonly ground: GroundReading | null;
   /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
   readonly resumed: boolean;
+  /** What the body reads once a step for all its callers (`StepReading`). */
+  readonly reading: StepReading;
+}
+
+/**
+ * **What a body's readings are kept by**: an answer every caller shares while what it was read
+ * from stands (a foe's colliders, `stepObstacle`; an opening, `SURFACE_AIM`), kept by its reader
+ * against this reading's stamp (`commandLayers`). It carries nothing from one step to the next, so
+ * it is no state.
+ */
+export interface StepReading {
+  /**
+   * A count that moves wherever the body's view may have: at each look, after each command and
+   * after each physics step. An answer kept from another count is stale; one read of a foe is
+   * stale too once that foe's observation time (`BodySense.time`) moves, as the senses show it again.
+   */
+  readonly stamp: number;
 }
 
 /** Where a fist's knuckles are and how they move, in the world, as the last step left them. */

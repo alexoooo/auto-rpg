@@ -275,6 +275,10 @@ a stance goal) into muscle commands.
   `src/core/body.ts`) read each step, with the body its drivers have (`Body`). They read their
   effectors' touch after each physics interval (`OwnBody.afterPhysics`), labelled by the body's own
   contact labels (`OwnBody.contactIdentity`), and know nothing of the skills, a decider or sub-minds.
+  The view carries the step's reading (`StepReading`): a stamp that moves at each look, after each
+  command and after each physics step, which a reading every caller shares is kept against (a
+  foe's colliders once for each time it is observed at, `stepObstacle`; the surface aim's opening,
+  `SURFACE_AIM`). It is no state: it carries nothing from one step to the next.
 - **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
   `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
   the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
@@ -1020,7 +1024,7 @@ and the place's points are the way round it. A walk into an action's window on a
 (`Window.on`, `approachActionWindow`, `src/core/intent/action-window.ts`) stands beside that body:
 of the places about the window's target at `LYING.bearings` turns from along the body
 (`lyingAxis`), those where each foot keeps `LYING.footRadius` clear of its colliders up to the knee
-(`sensedFootClearance`), the one whose way round it (`groundRoute`, clear over the same column)
+(`stepObstacle`), the one whose way round it (`groundRoute`, clear over the same column)
 and turn to its facing cost least, reckoned `LYING.lead` s along the body's motion, so the place
 it set off for stays its choice.
 **The bodies about it** (`src/core/navigation/crowd.ts`): a fallen body, of either side but the one it

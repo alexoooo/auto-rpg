@@ -1,4 +1,4 @@
-import type { BodyView } from "../body.ts";
+import type { BodyView, StepReading } from "../body.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rigidOf } from "../build/rigid.ts";
 import { frameOf, handShapeAt, type HandPose, type BodySpec, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
@@ -93,15 +93,13 @@ export function sensedBounds(foe: BodySense): readonly SolidSense[] {
   return worldShapes(foe).map(boundsOf);
 }
 
-/** A foot's sweep against a body's colliders, as `sensedFootClearance` gives it. */
+/**
+ * A foot's sweep against a body's colliders: exact against round colliders, against conservative
+ * bounds for polyhedral ones, admitting a sweep that separates outward.
+ */
 export type FootClearance = (from: Vec3, to: Vec3, radius: number) => boolean;
 
-/** Feet sweep against exact round colliders and conservative polyhedral bounds, admitting outward separation. */
-export function sensedFootClearance(foe: BodySense): FootClearance {
-  return footClearanceOf(worldShapes(foe));
-}
-
-/** A body's colliders read once, as both `sensedBounds` and `sensedFootClearance` give them. */
+/** A body's colliders read once: their bounds, as `sensedBounds` gives them, and a foot's sweep against them. */
 export interface SensedObstacle { readonly bounds: readonly SolidSense[]; readonly clear: FootClearance }
 
 /** `foe`'s colliders where it is sensed, read once: for a caller that sweeps and bounds the same pose many times. */
@@ -110,11 +108,32 @@ export function sensedObstacle(foe: BodySense): SensedObstacle {
   return { bounds, clear: footClearanceOf(shapes, bounds) };
 }
 
+/** Each body's foes' colliders as read (`stepObstacle`), by its step reading: the stamp they were read at, and each foe's, with the time it was observed at. */
+const READ = new WeakMap<StepReading, { stamp: number; read: Map<BodySense, { time: number; obstacle: SensedObstacle }> }>();
+
 /**
- * `sensedFootClearance` on `shapes`, a polyhedral one swept against its bounds in `bounds`
+ * **`foe`'s colliders where `view`'s body senses it** (`sensedObstacle`), read once for every caller
+ * while the view's reading keeps its stamp and the foe its observation time (`StepReading`). A foe
+ * with no observation time is read at every ask.
+ */
+export function stepObstacle(view: BodyView, foe: BodySense): SensedObstacle {
+  if (foe.time === undefined) return sensedObstacle(foe);
+  const reading = view.reading;
+  let kept = READ.get(reading);
+  if (!kept) READ.set(reading, kept = { stamp: reading.stamp, read: new Map() });
+  if (kept.stamp !== reading.stamp) { kept.stamp = reading.stamp; kept.read.clear(); }
+  const found = kept.read.get(foe);
+  if (found && found.time === foe.time) return found.obstacle;
+  const obstacle = sensedObstacle(foe);
+  kept.read.set(foe, { time: foe.time, obstacle });
+  return obstacle;
+}
+
+/**
+ * The foot's sweep against `shapes`, a polyhedral one swept against its bounds in `bounds`
  * (`boundsOf`, found once) as `clearStep` sweeps one solid, in a work array made once.
  */
-function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonly SolidSense[] = shapes.map(boundsOf)): FootClearance {
+function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonly SolidSense[]): FootClearance {
   const work = new Float64Array(SWEEP);
   return (from: Vec3, to: Vec3, radius: number): boolean => shapes.every((shape, i) => {
     if (!shape.radius) {
@@ -135,7 +154,7 @@ function footClearanceOf(shapes: ReturnType<typeof worldShapes>, bounds: readonl
 
 /** Sweep both observed soles by a world translation against the opponent's physical bounds. */
 export function clearFootTranslation(view: BodyView, foe: BodySense, dx: number, dz: number, radius: number): boolean {
-  const clear = sensedFootClearance(foe);
+  const clear = stepObstacle(view, foe).clear;
   return [view.stance.soles.left, view.stance.soles.right].every(sole => !!sole && clear(
     [sole.x, sole.y, sole.z], [sole.x + dx, sole.y, sole.z + dz], radius));
 }

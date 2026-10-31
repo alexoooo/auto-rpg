@@ -204,21 +204,15 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    the first 2 s; `research/call-count.mjs` counts calls a step. The crowd fight's first 30 s:
    14.0 ms a step, the dearest past 2 s 30.9 ms
    ([the crowd fight](../reference/step-cost.md#the-crowd-fight)).
-3. **Readings once a step.** A step reading in the toolkit, for each mind a work area made once
-   and cleared at its step's start:
-   - the foe's colliders read once (`sensedObstacle`) for every clearance and route caller
-     (`besideLying`, `groundPosition`, `wide.ts`, `clearFootTranslation`);
-   - each opening found once a step for each action's selector, limb, foe and region (the
-     region's segments and the segments the ledger blocks in its key,
-     `src/core/skills/framework/aims.ts`) for every readiness caller;
-   - the kick's support reading only while a kick is under way, kept out of its `state` (the
-     punches' own reading, whose quiet time counts while idle, stays). The fingerprint names the
-     state's digest as moved, and only it; `research/front-kicks.mjs`, which reads the kick's
-     `state.support`, reads the motion's own.
-
-   Check: the counter's calls a step, before and after.
-4. **The menu once a step**, built from the step reading for the report, the drill Commander and
-   the page. Check: `menuOf` calls a step on the Strike drill in Node, before and after.
+3. **Readings once a step.** Built: a reading stamp on the view (`StepReading`) that moves at
+   each look, after each command and after each physics step; a foe's colliders (`stepObstacle`)
+   and the surface aim's opening kept against it and the foe's observation time; the kick's
+   support read only while it kicks. The crowd fight's calls into wasm a step 14147 to 6543, its
+   step about 0.9 ms less ([readings once a step](../reference/step-cost.md#readings-once-a-step)).
+4. **The menu once a pass.** Built: a member view builds it at its first read for the Commander's
+   decision, and the Arena's page only while its choices list is open. A memo on the stamp would
+   go stale: readiness reads the skills' state, which the command changes, and a Commander reads
+   the menu after the senses move and before the bodies look.
 5. **The batched crossing.** The three bulk calls in the vendored Rapier's patch, the tarball built
    again (`vendor/rapier/build.sh`), its name and the lockfile moved (`auto-rpg.10`),
    `vendor/rapier/README.md` and [the vendored Rapier](../reference/rapier-vendor.md) updated, and

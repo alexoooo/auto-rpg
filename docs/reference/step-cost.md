@@ -467,14 +467,47 @@ Calls a step over the same 30 s, counted by a load hook (`research/call-count.mj
 
 | Counted | Calls a step |
 | --- | --- |
-| into Rapier's wasm | 6543 |
-| `contactsOf` | 140.6 |
+| into Rapier's wasm | 14147 |
+| `contactsOf` | 300.6 |
 | opening searches (`openingSelector`'s) | 8.6 |
 | `worldShapes`, `menuOf` | 0 |
 
 No body lies down in those 30 s, so nothing reads a lying body's colliders, and nothing reads the
 menu in Node. On a page the same fight plays at about 1 fps in a tab the browser does not paint,
 and its world step in that page takes about 37 ms.
+
+### Readings once a step
+
+**Reading a foe's colliders and each opening once for every caller, and the kick's support only
+while it kicks, halves the crowd fight's calls into Rapier and takes about 0.9 ms off its step.**
+A body's view carries a reading stamp (`StepReading`, `src/core/body.ts`) that moves at each look,
+after each command and after each physics step; a foe's colliders (`stepObstacle`,
+`src/core/navigation/sensed-bounds.ts`) and the surface aim's opening (`SURFACE_AIM`) are kept
+against it and the foe's observation time. The kick reads its feet's support only while a kick is
+under way. The menu is built once a Commander's decision and on the Arena's page only while its
+choices list is open. No fingerprint case's poses moved; four bouts' state digests did, the kick's
+state no longer holding its support reading.
+
+The crowd fight, seed 0, Node, core world, `rapier-coordinate`, 120 Hz, pinned. Calls a step over
+its first 30 s, before (`6795ee50`) and after:
+
+| Counted | Before | After |
+| --- | --- | --- |
+| into Rapier's wasm | 14147 | 6543 |
+| `contactsOf` | 300.6 | 140.6 |
+| opening searches | 8.6 | 8.6 |
+
+Time a step over its first 10 s, the least of three playings, before and after alternated twice
+on the same machine while another job ran on it:
+
+| | Before, ms | After, ms |
+| --- | --- | --- |
+| the whole step, mean | 12.26, 12.24 | 11.44, 11.33 |
+| the solver, mean | 2.33, 2.35 | 2.39, 2.38 |
+| the rest, mean | 9.90, 9.84 | 9.00, 8.89 |
+
+No opening search is asked twice at one stamp in the crowd fight's first 30 s; the memo answers
+the menu's and a Commander's asks, which the crowd fight does not make.
 
 ## The crypt's plan in the step
 
