@@ -58,8 +58,7 @@ const FLOOR = 200;
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario owns what it does to the body, its panels and its marks; the shell owns the rest.
  * The HUD is sections (`hud/sections.ts`): the shell fills them with its own controls, each
- * section's in its module, then with the scenario's panels; Restart and the view's choices sit in
- * the transport's bar.
+ * section's in its module, then with the scenario's panels; View has its own section; Restart sits in the transport's bar.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
@@ -189,17 +188,16 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const sections = labSections(context.root);
   const thinking = thinkingSection();
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
-    scenario: scenarioSection(page), character: characterSection(page), thinking: [thinking],
+    scenario: scenarioSection(page), character: characterSection(page), thinking: [thinking], view: viewSection(page),
   };
-  const restart = controlsSection(page), view = viewSection(page);
+  const restart = controlsSection(page);
   for (const name of SECTIONS) sections[name].append(...(controls[name] ?? []).map((control) => control.element));
   need("transport").prepend(...restart.map((control) => control.element));
-  need("transport").append(...view.map((control) => control.element));
   const underWay = Object.assign(document.createElement("div"), { className: "under-way" });
   underWay.append(...(scenario.panels.controls ?? []).map((control) => control.element));
   sections.scenario.append(...(scenario.panels.scenario ?? []).map((control) => control.element), underWay);
   sections.readout.append(...(scenario.panels.readout ?? []).map((control) => control.element));
-  const shellControls = [...Object.values(controls).flat(), ...restart, ...view];
+  const shellControls = [...Object.values(controls).flat(), ...restart];
   const audio = new GameAudio(false, need("transport"));
   context.own(() => audio.dispose());
   context.own(() => { disposed = true; engine.stopRenderLoop(); unload(); context.remember(labHref(shown, location.search)); });

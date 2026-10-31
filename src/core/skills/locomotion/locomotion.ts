@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { BodyView } from "../../body.ts";
 import { fastestTurning, paceToward, turnAt, type StanceEnvelope } from "../../control/stance-envelope.ts";
@@ -320,7 +320,15 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null, idle: { seconds: 0, target: null },
     asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
-  const acrossScratch = new Vector3();
+  const acrossScratch = new Vector3(), footTurn = new Quaternion();
+  /** A sole's yaw relative to the heading the legs hold, rad. Effectors report turns relative to the body frame. */
+  const turned = (view: BodyView, side: Side): number => {
+    const effector = view.effectors?.[`foot.${side}`];
+    if (!effector) return 0;
+    view.root.rotation.multiplyToRef(effector.rotation, footTurn);
+    return Math.abs(wrap(atan2(2 * (footTurn.x * footTurn.z + footTurn.w * footTurn.y),
+      1 - 2 * (footTurn.x * footTurn.x + footTurn.y * footTurn.y)) - state.heading));
+  };
   const apart = (a: readonly [number, number], b: readonly [number, number]): number => hypot(a[0] - b[0], a[1] - b[1]);
   /** The heading the body faces: the reference pose's left-to-right axis is x, and facing h about up turns it to (cos h, 0, -sin h). */
   const facing = (view: BodyView): number => {
@@ -329,7 +337,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
   };
   /** Until its first step the stance faces as the body was built. */
   const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
-  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near): StanceGoal | null => {
+  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near, alignment?: number): StanceGoal | null => {
     born(view);
     state.pace = 0;
     state.going = 0;
@@ -348,7 +356,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     state.placed = false;
     // A step of the stance's own under way is finished first.
     if (s.phase !== "stand") return base;
-    const off = (foot: Side): number => placing.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]);
+    const off = (foot: Side): number => placing.stepped[foot] ? 0 : Math.max(apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]), alignment === undefined ? 0 : turned(view, foot) * near / alignment);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
     if (off(foot) <= near) { state.placed = true; return base; }
     placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
@@ -406,7 +414,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     },
   };
 
-  /** Idle settling's debounce and hysteresis: 0.2 s, a quarter sole to begin, at most 2 cm or an eighth sole to finish. */
+  /** Idle settling: spacing about the feet's midpoint, yaw within 0.2 rad; fixed steps aim within 0.05 rad (docs/reference/human-and-strikes.md#idle-settling). */
   function idleGoal(view: BodyView, goal: SidedAsk, dt: number, context?: LocomotionContext): StanceGoal | null {
     const idle = state.idle, s = view.stance;
     const free = idleFooting && state.carriage.width === null && !view.down && context?.idleSettle !== false && goal.footing === undefined
@@ -415,27 +423,28 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.seconds = 0; };
     if (!free) { reset(); return null; }
     if (goal.walk !== null) {
-      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target);
+      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
       reset(); return null;
     }
     if (idle.target) {
-      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8));
+      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
       if (state.placed) reset();
       return result;
     }
     if (state.rising || !still(view) || !s.touching.left || !s.touching.right || s.own) { idle.seconds = 0; return null; }
     idle.seconds = Math.min(0.2, idle.seconds + dt);
     if (idle.seconds + dt / 2 < 0.2) return null;
-    const c = s.centre, h = state.heading, rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
+    // Read the feet's arrangement about their midpoint: sway alone never changes the desired spacing.
+    const c = s.support, h = state.heading, rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
     const at = (side: Side): readonly [number, number] => {
       const [x, z] = idleFooting.offsets[side];
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
     };
     const target = { left: at("left"), right: at("right") };
-    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4)) return null;
+    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4 && turned(view, side) <= 0.2)) return null;
     idle.target = target;
     state.placing = null;
-    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8));
+    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
   }
 
   /** Whether the body stands still enough to take its carriage's footing: no step under way, and slower than `CARRIAGE_STILL`. */

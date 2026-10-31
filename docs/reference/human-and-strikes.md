@@ -27,14 +27,14 @@ Ordinary standing legs correct an awkward footing with the existing weight shift
 (`locomotion`, `standingFooting`). Recovery controllers keep their supports planted.
 
 The reference sole offsets come from the body's reference geometry, centred at their midpoint;
-idle targets rotate those offsets into the legs' heading about the current centre of mass.
+idle targets rotate those offsets into the legs' heading about the current soles' midpoint. Body sway alone changes no target.
 The targets remain fixed through an adjustment. The shorter reference sole's heel-to-toe length
 includes flat toes. No muscle strength or assist changes.
 
 Controller settings, chosen for a quiet standing adjustment: 0.2 s continuously available and
 still before starting, horizontal speed below `CARRIAGE_STILL` (0.1 m/s), both feet touching and
-no resumed height transition or step under way. A quarter sole length starts an adjustment;
-`PLACING.near` (2 cm) or an eighth sole length, whichever is smaller, finishes it. Explicit
+no resumed height transition or step under way. A quarter sole length of spacing error or a sole yaw error over 0.2 rad starts an adjustment;
+`PLACING.near` (2 cm) or an eighth sole length, whichever is smaller, finishes its positional adjustment. Corrective steps also target yaw within 0.05 rad. Explicit
 footing keeps its existing 2 cm tolerance. These are control choices, not measured limits.
 An action owning the stance or an explicit stance constraint suppresses idle placement. A lifted
 settling step lands before ordinary walking resumes; control takeover yields immediately.

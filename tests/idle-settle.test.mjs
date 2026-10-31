@@ -7,7 +7,7 @@ import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 
 const feet = { "foot.left": "left", "foot.right": "right" };
 function fixture(scale = 1) {
-  const view = { born: 0, time: 1, standing: scale, down: false, root: { rotation: Quaternion.Identity() },
+  const view = { born: 0, time: 1, standing: scale, down: false, root: { rotation: Quaternion.Identity() }, effectors: {},
     stance: { centre: new Vector3(0, scale, 0), support: Vector3.Zero(), place: Vector3.Zero(), plan: Vector3.Zero(), velocity: Vector3.Zero(),
       soles: { left: new Vector3(-.15 * scale, 0, .15 * scale), right: new Vector3(.15 * scale, 0, -.15 * scale) },
       phase: "stand", touching: { left: true, right: true }, own: null } };
@@ -53,5 +53,35 @@ test("idle legs correct a physically established stagger and stop stepping", asy
     made.run(1, () => ({}));
     assert.equal(s.phase, "stand");
     assert.ok(s.touching.left && s.touching.right);
+  } finally { made.dispose(); }
+});
+
+
+test("idle settling ignores body sway but steps a turned sole even at the right position", () => {
+  const { view, ask } = fixture();
+  view.stance.soles.left.z = 0; view.stance.soles.right.z = 0;
+  for (let i = 0; i < 90; i++) {
+    view.stance.centre.x = .1 * Math.sin(i);
+    assert.equal(ask().swing, undefined, "centre-of-mass sway must not start another foot placement");
+  }
+  view.effectors["foot.left"] = { rotation: Quaternion.RotationAxis(new Vector3(0, 1, 0), .5) };
+  assert.equal(ask().swing.foot, "left", "a turned foot needs a corrective step even when its middle is correctly placed");
+});
+
+test("idle placement untwists a physically turned footing", async () => {
+  const made = await rig();
+  const yaw = side => {
+    const q = made.view.root.rotation.multiply(made.view.effectors[`foot.${side}`].rotation);
+    return Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y));
+  };
+  try {
+    const s = made.view.stance, footing = { "foot.left": [s.soles.left.x, s.soles.left.z + .1], "foot.right": [s.soles.right.x, s.soles.right.z + .1] };
+    made.run(3, () => ({ legs: { footing, heading: .4 } }));
+    assert.ok(Math.max(Math.abs(yaw("left")), Math.abs(yaw("right"))) > .25 && !made.view.down, "fixture must establish turned soles while upright");
+    made.run(5, () => ({}));
+    assert.ok(!made.view.down);
+    assert.ok(Math.abs(yaw("left")) < .2 && Math.abs(yaw("right")) < .2, `sole yaws ${yaw("left")}, ${yaw("right")} rad, limits .2`);
+    made.run(1, () => ({}));
+    assert.equal(s.phase, "stand");
   } finally { made.dispose(); }
 });

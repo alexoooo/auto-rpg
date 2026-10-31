@@ -342,8 +342,8 @@ on a free trunk, a low action on its own. The stance walk holds a carriage, a fi
 data (`Carriage`, `CARRIAGES`, the square stance the body is built in its one entry; a stance
 walk's configuration may give another). Ordinary legs receive reference sole offsets at construction
 (`standingFooting`); idle for 0.2 s, upright and slow on both feet, they step into that footing
-when the error exceeds a quarter sole length. Targets stay fixed through placement, with a smaller
-finish tolerance; quiet sway causes no steps. Explicit stance requests and actions owning the
+when spacing error exceeds a quarter sole length or a sole is turned over 0.2 rad. Targets stay fixed through placement, with a smaller
+finish tolerance; spacing is read about the soles' midpoint so quiet sway causes no steps. Explicit stance requests and actions owning the
 stance suppress default settling (`LocomotionContext`); composed legs forward that authority.
 Recovery's internal legs omit the idle footing and keep their supports planted. A carriage with an
 explicit width places the feet where it stands them; walking,

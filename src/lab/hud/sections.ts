@@ -8,7 +8,7 @@ import type { LabAddress } from "../scenarios.ts";
  */
 
 /** Every section, by the name its `data-section` carries. */
-export const SECTIONS = ["scenario", "readout", "character", "thinking"] as const;
+export const SECTIONS = ["scenario", "readout", "character", "thinking", "view"] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
 /** What the shell offers a section's controls. */
@@ -27,7 +27,7 @@ export interface LabPage {
 const STORED = "lab.closed";
 
 /** The sections closed until a person opens them. */
-const CLOSED_FIRST: readonly SectionName[] = ["character", "thinking"];
+const CLOSED_FIRST: readonly SectionName[] = ["character", "thinking", "view"];
 
 /** The sections `text` says are closed, among `names`. */
 function collapsedFrom(text: string | null, names: readonly string[]): string[] {

@@ -23,7 +23,7 @@
    past its share of the column: an open section with another open below it takes at most half,
    and the lowest open one what is left. Only a section or the transport takes the pointer;
    between them it is the canvas's. */
-:where(#screen-root[data-screen="lab"]) #hud { --column: 300px; position: absolute; inset: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+:where(#screen-root[data-screen="lab"]) #hud { --column: 300px; position: fixed; inset: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
 :where(#screen-root[data-screen="lab"]) #sections { flex: 1; min-height: 0; display: flex; justify-content: space-between; gap: 12px; }
 :where(#screen-root[data-screen="lab"]) .column { width: var(--column); min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 :where(#screen-root[data-screen="lab"]) .column.readings { --column: 270px; }
