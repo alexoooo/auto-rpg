@@ -6,15 +6,27 @@ import type { GaitLimits } from "../intent/travel.ts";
 import type { Engagement } from "./engagement.ts";
 
 /**
+ * **What a body expects of a fight with one foe**, at reach: the share of the foe's full life it
+ * expects to deal it a second (`dealt`), and of its own it expects to take (`taken`).
+ */
+export interface Prospect {
+  readonly foe: string;
+  readonly dealt: number;
+  readonly taken: number;
+}
+
+/**
  * **What a mind publishes of itself** (`MindMade.report`), for a screen and its Commander, never
- * for the rules: what it reports doing (`Engagement`), and where it walks, its heading, its gait's
- * limits (`GaitLimits`) and its navigation's report; the actions its body has (`KitEntry`), those
- * under way and those ended, and its choices now (`MenuEntry`), read when asked and changing
- * nothing; null for what it does not say. A mind that runs the game's skills publishes theirs and
- * its decider's (`skillsReport`); any other may publish its own.
+ * for the rules: what it reports doing (`Engagement`), what it expects of each foe it has priced
+ * (`Prospect`), and where it walks, its heading, its gait's limits (`GaitLimits`) and its
+ * navigation's report; the actions its body has (`KitEntry`), those under way and those ended, and
+ * its choices now (`MenuEntry`), read when asked and changing nothing; null for what it does not
+ * say. A mind that runs the game's skills publishes theirs and its decider's (`skillsReport`); any
+ * other may publish its own.
  */
 export interface MindReport {
   readonly engagement: Engagement | null;
+  readonly prospects: readonly Prospect[] | null;
   readonly heading: number | null;
   readonly gait: GaitLimits | null;
   readonly navigation: NavigationReport | null;
@@ -25,8 +37,8 @@ export interface MindReport {
 }
 
 /** What a mind says of itself, live (`MindReport`): what its `decider` reports doing, and the rest as its `skills` report it. */
-export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement }): MindReport {
-  return { get engagement() { return decider.engagement ?? null; }, get heading() { return skills.report.heading; }, gait: skills.gait,
+export function skillsReport(skills: Skills, decider: { readonly engagement?: Engagement; readonly prospects?: readonly Prospect[] }): MindReport {
+  return { get engagement() { return decider.engagement ?? null; }, get prospects() { return decider.prospects ?? null; }, get heading() { return skills.report.heading; }, gait: skills.gait,
     get navigation() { return skills.report.navigation ?? null; }, kit: skills.kit, get actions() { return skills.report.actions; },
     get ended() { return skills.report.ledger; }, get menu() { return skills.menu(); } };
 }

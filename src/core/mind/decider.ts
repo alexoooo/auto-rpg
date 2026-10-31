@@ -4,7 +4,7 @@ import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { standingSkills, type SkillReport, type Skills } from "../skills/framework/skills.ts";
 import type { Intent } from "../intent/intent.ts";
 import type { Engagement } from "./engagement.ts";
-import { skillsReport, type MindReport } from "./report.ts";
+import { skillsReport, type MindReport, type Prospect } from "./report.ts";
 
 /**
  * **A decider**: each control step, what a body sees (`S`) becomes what it asks (`I`, an `Intent`
@@ -22,6 +22,8 @@ export interface Decider<S = Sight, I = Intent, D = unknown> {
   readonly state?: object;
   /** What it reports doing (`Engagement`), read by status displays and inspection, never by the rules. */
   readonly engagement?: Engagement;
+  /** What it expects of each foe it has priced (`Prospect`), where it says, read by its team's Commander, never by the rules. */
+  readonly prospects?: readonly Prospect[];
   /** What it decided this step that the skills prepared for it read live (`D`), where it publishes one. */
   readonly decision?: D;
 }

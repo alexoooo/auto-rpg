@@ -13,7 +13,7 @@ import { paceToward } from "../../core/control/stance-envelope.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateEncounterLevel } from "../../dungeon/encounters.ts";
-import { distance, findPath, walkable, type DungeonMap, type Point } from "../../dungeon/map.ts";
+import { distance, routeLength, walkable } from "../../dungeon/map.ts";
 import { MINDS } from "../../entrants/game.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptLayout } from "../crypt.ts";
 import type { Cases, Json } from "../evaluation.ts";
@@ -77,15 +77,6 @@ export type ClearReading = {
   readonly enemies: number;
   readonly defeated: number;
 };
-
-/** The length of the route a body of `radius` walks from `from` to `to` (`findPath`, doors opened on the way), m; null where there is none. */
-function routeLength(map: DungeonMap, from: Point, to: Point, radius: number): number | null {
-  const path = findPath(map, from, to, radius);
-  if (path.length === 0) return null;
-  let metres = 0, at = from;
-  for (const point of path) { metres += distance(at, point); at = point; }
-  return metres;
-}
 
 /** The price of time, the share of full life a second: `walk` of it for the route from the start to the exit at `pace`. */
 const priceOf = (walk: number, route: number, pace: number): number => walk * pace / route;

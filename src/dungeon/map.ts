@@ -155,6 +155,15 @@ export function reveal(map: DungeonMap, hero: Point, explored: Set<number>, rang
   return visible;
 }
 
+/** The length of the route a body of `radius` walks from `from` to `to` (`findPath`, doors opened on the way), m; null where there is none. */
+export function routeLength(map: DungeonMap, from: Point, to: Point, radius: number): number | null {
+  const path = findPath(map, from, to, radius);
+  if (path.length === 0) return null;
+  let metres = 0, at = from;
+  for (const point of path) { metres += distance(at, point); at = point; }
+  return metres;
+}
+
 /** Frontier choice uses only explored cells and their immediate unknown neighbours. */
 export function explorationGoal(map: DungeonMap, from: Point, explored: Set<number>, radius: number): Point | null {
   if (explored.has(cellKey(map, map.exit))) return { ...map.exit };

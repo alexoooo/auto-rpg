@@ -98,7 +98,7 @@ async function played(recipe, hooks, fork, { read = false } = {}) {
       for (const side of SIDES) {
         const report = duel.duelists[side].minded.report;
         if (!report) continue;
-        JSON.stringify({ engagement: report.engagement, heading: report.heading, navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
+        JSON.stringify({ engagement: report.engagement, prospects: report.prospects, heading: report.heading, navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
         reading.menus += JSON.parse(JSON.stringify(report.menu ?? [])).length; reading.kit += report.kit?.length ?? 0;
       }
     };

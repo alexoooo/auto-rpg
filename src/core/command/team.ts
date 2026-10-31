@@ -4,6 +4,7 @@ import type { Orders } from "../intent/orders.ts";
 import type { GaitLimits } from "../intent/travel.ts";
 import type { ActionStatus, Ended } from "../skills/framework/action.ts";
 import type { KitEntry, MenuEntry } from "../skills/framework/menu.ts";
+import type { Prospect } from "../mind/report.ts";
 import type { Command } from "./commands.ts";
 
 /**
@@ -98,6 +99,8 @@ export interface MemberView {
   readonly ended: readonly Ended[] | null;
   /** Its choices now (`MenuEntry`), as its Mind reports them, read when asked; null where its Mind reports none. */
   readonly menu: readonly MenuEntry[] | null;
+  /** What it expects of each foe its Mind has priced (`Prospect`), as its Mind reports them; null where its Mind publishes none. */
+  readonly prospects: readonly Prospect[] | null;
 }
 
 /** A body some member senses. */
@@ -107,6 +110,8 @@ export interface SensedBody {
   readonly fighting: boolean;
   /** Whether it lies on the ground (its body's `down`). */
   readonly down: boolean;
+  /** What is left of its life: its pool's bar, 1 whole, 0 spent. */
+  readonly life: number;
 }
 
 /**
@@ -147,6 +152,10 @@ export interface TeamLevel {
   doorway(from: GroundPoint, to: GroundPoint, radius: number): { readonly door: number; readonly point: GroundPoint } | null;
   /** Whether door `door` is open. */
   open(door: number): boolean;
+  /** The exit, once the team has seen its cell; null before, and where the level has none. */
+  exit(): GroundPoint | null;
+  /** The length of the route a body of `radius` walks from `from` to `to`, doors opened on the way, m; null where there is none. */
+  route(from: GroundPoint, to: GroundPoint, radius: number): number | null;
 }
 
 /** What a Commander's maker is given in place of the world: the level as its adapter answers it. */

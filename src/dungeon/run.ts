@@ -16,7 +16,7 @@ import { seedOf } from "../core/math/random.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { isBody } from "../core/read-body.ts";
-import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, sightIndex, walkable,
+import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
 import { DungeonCommands, screenMovement } from "./commands.ts";
 import { buildDungeonWorld } from "./world.ts";
@@ -414,9 +414,15 @@ export class DungeonRun {
     else if (alive.some(member => !member.fighter?.body.down && distance(member.feet(), this.map.exit) < EXIT_METRES)) this.status = "won";
   }
 
-  /** The ground as a team of the run knows it (`TeamLevel`): the map's, its doors as they stand; `look` is what the team's look reveals. */
+  /**
+   * The ground as a team of the run knows it (`TeamLevel`): the map's, its doors as they stand, its
+   * exit once the party has seen its cell; `look` is what the team's look reveals. A route's length
+   * is kept for the step it was asked at, so a decision that asks one again is answered without a
+   * search.
+   */
   private ground(look: TeamLevel["look"]): TeamLevel {
-    const map = this.map;
+    const map = this.map, routes = new Map<string, number | null>();
+    let asked = -1;
     return {
       sees: (from, to, metres) => canSee(map, from, to, metres, this.sightIndex()),
       look,
@@ -426,6 +432,14 @@ export class DungeonRun {
       frontier: (from, radius) => explorationGoal(map, from, this.explored, radius),
       doorway: (from, to, radius) => doorApproach(map, this.level.sensedSolids, from, to, radius),
       open: (door) => map.doors.find((d) => d.id === door)?.open ?? false,
+      exit: () => this.explored.has(cellKey(map, map.exit)) ? { x: map.exit.x, z: map.exit.z } : null,
+      route: (from, to, radius) => {
+        if (asked !== this.clock) { routes.clear(); asked = this.clock; }
+        const key = `${from.x} ${from.z} ${to.x} ${to.z} ${radius}`;
+        let metres = routes.get(key);
+        if (metres === undefined) routes.set(key, metres = routeLength(map, from, to, radius));
+        return metres;
+      },
     };
   }
 
@@ -447,9 +461,10 @@ export class DungeonRun {
         const report = actor.fighter?.minded.report;
         return { id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
           reach: actor.attackMetres, home: actor.home, navigation: actor.navigation, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
-          get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; } };
+          get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; },
+          get prospects() { return report?.prospects ?? null; } };
       }),
-      others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive, down: actor.fighter!.body.down })),
+      others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive, down: actor.fighter!.body.down, life: actor.vitality })),
     };
   }
 

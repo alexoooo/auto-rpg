@@ -13,12 +13,13 @@ import { otherSide } from "../core/spec/body.ts";
 
 /**
  * The arena's ground as a team of one knows it: every body within range in sight, no door, nothing
- * to explore. A lone member asks where no other stands, and its Mind's own navigator routes it round
- * the stage's solids.
+ * to explore, no exit, and every route the straight way. A lone member asks where no other stands,
+ * and its Mind's own navigator routes it round the stage's solids.
  */
 const OPEN_GROUND: TeamLevel = Object.freeze<TeamLevel>({
   sees: (from, to, metres) => hypot(to.x - from.x, to.z - from.z) <= metres,
   look: () => {}, fits: () => true, passes: () => true, reaches: () => true, frontier: () => null, doorway: () => null, open: () => true,
+  exit: () => null, route: (from, to) => hypot(to.x - from.x, to.z - from.z),
 });
 
 /** **One side of a bout led as a team of one** (`teamOfOne`): its Commander, and what the person leading it gives. */
@@ -55,8 +56,10 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): Team
     const report = duelist.minded.report;
     const member: MemberView = { id: side, at: at(side), fighting: !duel.eliminated(side), held: false, vitality: duel.life(side), radius, reach: attackMetres, home,
       navigation: report?.navigation ?? null, gait: report?.gait ?? null, heading: report?.heading ?? null, kit: report?.kit ?? null,
-      get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; } };
-    return { time: duel.clock, look: true, lead: team.lead, members: [member], others: [{ id: other, at: at(other), fighting: !duel.eliminated(other), down: duel.duelists[other].body.down }] };
+      get actions() { return report?.actions ?? null; }, get ended() { return report?.ended ?? null; }, get menu() { return report?.menu ?? null; },
+      get prospects() { return report?.prospects ?? null; } };
+    return { time: duel.clock, look: true, lead: team.lead, members: [member],
+      others: [{ id: other, at: at(other), fighting: !duel.eliminated(other), down: duel.duelists[other].body.down, life: duel.life(other) }] };
   };
   const leading: Hook = duel.world.sense(() => {
     if (duel.verdict) return;

@@ -542,7 +542,9 @@ fight reads. A fight passes the config through and reads nothing in it.
   within it of the best, in proportion to their worth above that floor; 0, the default, draws
   nothing. A mind that draws is read over repeated trials.
 - A mind publishes what it is doing (`MindMade.report`, `MindReport`): what its planner reports
-  (`Engagement`: its phase, focus, candidates or offers, and details of its own), its heading,
+  (`Engagement`: its phase, focus, candidates or offers, and details of its own), what it expects
+  of each foe it has priced (`Prospect`: the share of the foe's life it expects to deal it a second
+  and of its own to take, at reach; its decider's `Decider.prospects`, null where it says none), its heading,
   its gait's limits and its navigation's report, and what its body can do: its kit (each action,
   its executor's kind, its limbs and regions), the actions under way and ended, and its menu
   (`MenuEntry`, `src/core/skills/framework/menu.ts`: each action, limb, foe and region, and whether it
@@ -1050,8 +1052,8 @@ down longer than a stand-up's cap on the owner's target (`worthFighting`, `goals
 | Aspect | Contract |
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `kind.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
-| Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`), the way they face, and its kit, actions under way and ended, and menu, from its Mind's report; every other body the members sense, where it is, whether it is in the fight and whether it lies down; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
+| Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes and their length, `route`, the explored edge, doors, the exit once seen, `exit`), never the world; the Crypt run answers a route's length by `findPath` (`routeLength`, `src/dungeon/map.ts`), kept for the step it was asked at, the Arena's team of one by the straight distance and no exit |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`), the way they face, and its kit, actions under way and ended, menu and prospects of each foe (`MemberView.prospects`, `Prospect`), from its Mind's report; every other body the members sense, where it is, whether it is in the fight, whether it lies down and its life (`SensedBody.life`, its pool's bar); whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
 | It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
 | It hears | a leader's command (`Command`, `commands.ts`) at once |
