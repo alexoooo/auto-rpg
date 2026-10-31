@@ -5,7 +5,7 @@
  * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
  * target: its measured-on read from each row's world (the left
  * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
- * how late its mind was shown the target under the recipe's senses, `shownLate`), its target the right body's; a cell a range, the target's phase as
+ * the recipe's sense delay), its target the right body's; a cell a range, the target's phase as
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
  * reached the drill) and its posture then (`foeAt.posture`, `ProfileCell.postures`; standing in a
  * record from before the reading held it). A target standing is at its condition's gap; one down,
@@ -32,8 +32,7 @@ import { EMPTY_LOADOUT, withLoadout } from "../src/core/items/held.ts";
 import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
-import { measuredOn, shownLate, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
-import { senseDelayOf } from "../src/arena/duel.ts";
+import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
@@ -73,7 +72,7 @@ for (const path of paths) {
     if (!action.effectors.includes(drill.effector)) continue;
     const marks = marksOf(action);
     if (marks && !marks.includes(row.condition.mark)) continue;
-    const reaction = shownLate(senseDelayOf(recipe), hz);
+    const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
     const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), cells: new Map() };
