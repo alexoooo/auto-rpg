@@ -2,7 +2,8 @@ import { QUADRUPED, type QuadrupedConfig } from "./config.ts";
 import { controller, NO_POSTURE } from "../mind/controller.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { slotOne } from "../parts/parts.ts";
-import { QUADRUPED_PARTS, quadrupedMind } from "./mind.ts";
+import { quadrupedMind } from "./mind.ts";
+import { QUADRUPED_PARTS } from "./layers.ts";
 import { fitsQuadruped } from "./parts.ts";
 import { REPTILE_BITE } from "./tuning.ts";
 

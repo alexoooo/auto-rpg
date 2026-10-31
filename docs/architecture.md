@@ -508,7 +508,7 @@ while idle). A hand-over changes only state, so a load mid-hand-over calls none 
 Sub-minds are no part of a body: a mind that hands its body over builds `hosting` itself, a
 fighter over its command layers (`commandedMind`, `sub-mind.ts`: the layers, then each sub-mind
 made over their view, `SubMindMaker`, then their first look), the quadruped (`quadrupedMind`) over
-its own crawl; a test or a study hands its own to a body it builds (`commandedBody`). Released, the
+its layers (`quadrupedLayers`); a test or a study hands its own to a body it builds (`commandedBody`). Released, the
 command layers read the ground whatever the stance (`BodyView.ground`).
 
 **A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
@@ -848,7 +848,14 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   follow-orders option running (`followOrders`, `options/orders.ts`), whose blows are those the
   orders allow and whose ordered way round a body lying is not kept off it.
 
-**The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
+**The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its body
+is driven through its layers (`quadrupedLayers`, `src/core/reptile/layers.ts`), any quadruped
+mind's to build on its own body: its paws (`pawsOf`) under its support motor, its gaits, its bite
+and its effector tracker, read through its view (`QuadrupedView`) each step and handed an intent
+(`QuadrupedIntent`, with the foe's part it bites at) by whatever decides; they choose the gait,
+reacquire their footing after another had the body, and make its righting (`recover`) over the
+same motor. The quadruped kind (`quadrupedMind`) decides by its tactics and hands the body to the
+righting while it is down (`hosting`). It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
 where it names none, the stock one (`QUADRUPED_PARTS`): a `support-motor` over the paws
 (`SUPPORT_MOTORS`: `supportedMotor` on the bearing solve, no assist), a `gait` to travel and
