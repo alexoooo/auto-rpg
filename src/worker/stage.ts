@@ -2,11 +2,13 @@ import { physicalReading } from "../core/observation.ts";
 import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import { defaultMind, treeData } from "../entrants/game.ts";
-import { SIDES, type OrdersEntry, type Verdict } from "../arena/duel.ts";
+import { SIDES, type Verdict } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
 import type { Side } from "../core/spec/body.ts";
 import { buildTeamBout } from "../evaluation/bout.ts";
 import type { DuelNews } from "./duel-stage.ts";
+import type { CryptNews } from "./crypt-stage.ts";
+import type { TapeEntry } from "./protocol.ts";
 import { frameLayout, packFrame, type FramedBody, type RosterBody } from "./frame.ts";
 
 /** What a stage tells the page beside its frames. */
@@ -17,6 +19,8 @@ export interface StageNews {
   readonly held?: boolean;
   /** A duel's, every step (`duelStage`). */
   readonly duel?: DuelNews;
+  /** A Crypt run's, every step (`cryptStage`). */
+  readonly crypt?: CryptNews;
 }
 
 /**
@@ -34,10 +38,10 @@ export interface Stage<Card = unknown, Input = never> {
   news(): StageNews | null;
   /** Whether it has played what it is for: no step is taken past it. */
   over(): boolean;
-  /** Take what the page tells it as it runs (`DuelInput`), before the next step; a stage that takes none refuses. */
+  /** Take what the page tells it as it runs (`DuelInput`, `CryptInput`), before the next step; a stage that takes none refuses. */
   input(input: Input): void;
-  /** Every order given so far, as the bout keeps it: with the recipe, the whole of what made it. */
-  tape(): readonly OrdersEntry[];
+  /** Every order or input given so far, as the stage keeps it: with what built it, the whole of what made it. */
+  tape(): readonly TapeEntry[];
   dispose(): void;
 }
 

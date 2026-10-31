@@ -18,11 +18,8 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
-import type { PhysicsEngine } from "../core/engine/engine.ts";
-import { loadEngine } from "../core/engine/engines.ts";
 import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
-import { treeData, cryptMind } from "../entrants/game.ts";
-import { loadData } from "../core/data/store.ts";
+import { cryptMind } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -30,12 +27,13 @@ import type { Clothing } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { fighterHands } from "../render/strike-hands.ts";
-import { debrisCues } from "../audio/cues.ts";
+import { handsOf } from "../render/strike-hands.ts";
 import { GameAudio } from "../audio/game-audio.ts";
-import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun, prepareDungeonCharacters, runMap, runModels, runParticipants, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
+import { prepareDungeonCharacters, runMap, runModels, runParticipants, type Participant, type RunStatus } from "./run.ts";
+import { leadOf, RunView, type ViewActor } from "./run-view.ts";
+import { openWorld } from "../worker/client.ts";
+import type { CryptCard } from "../worker/crypt-stage.ts";
 import { runAttributes } from "./run-attributes.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { cellKey } from "./map.ts";
@@ -196,13 +194,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     }
   };
 
-  /**
-   * The most real time one frame steps the world through, s: a frame of a screen at 30 fps. A page
-   * that falls behind plays the fight in slow motion rather than freezing the screen to catch up.
-   * A numeric setting.
-   */
-  const CATCH_UP_SECONDS = 1 / 30;
-
   /** What the party's panel gives the rest of the page. */
   interface Party {
     /** Builds one row a member of the run's party. */
@@ -216,7 +207,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   /** The crypt page: what lasts as long as the page does, what the start panel chose, and the run on show with
    * everything built for it, which the next run replaces. */
   interface DungeonPage {
-    readonly physicsEngine: PhysicsEngine;
     readonly skeletonArt: Promise<SkeletonArt>;
     readonly engine: Engine;
     readonly audio: GameAudio;
@@ -247,9 +237,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     seed: number;
     cryptPlan: CryptRoomPlan | undefined;
     scene: Scene | null;
-    run: DungeonRun | null;
-    /** What hears the run: its bodies' touches and air, where the party sees. */
-    hearing: RunHearing | null;
+    /** The run, its world in a worker (`RunView`). */
+    run: RunView | null;
     camera: FreeCamera | null;
     lighting: DungeonLighting | null;
     referenceLook: Awaited<ReturnType<typeof dressReference>> | null;
@@ -273,13 +262,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     /** Where the pointer is over the canvas, for the hover's pick; null when it is not over it. */
     hoverPointer: { clientX: number; clientY: number } | null;
     /** The enemy under the pointer, outlined; null when there is none. */
-    hovered: DungeonActor | null;
-    /** The body whose mind the HUD's inspector shows, its combatant, and the inspector; null before one is shown. */
-    inspected: { readonly actor: DungeonActor; readonly fighter: NonNullable<DungeonActor["fighter"]>; readonly inspector: ReturnType<typeof mindInspector> } | null;
+    hovered: ViewActor | null;
+    /** The body whose mind the HUD's inspector shows, and the inspector; null before one is shown. */
+    inspected: { readonly actor: ViewActor; readonly inspector: ReturnType<typeof mindInspector> } | null;
   }
 
   /** The page before its first run: the engines, the sound, the look's probe and the frame meter. */
-  function createPage(physicsEngine: PhysicsEngine, skeletonArt: Promise<SkeletonArt>): DungeonPage {
+  function createPage(skeletonArt: Promise<SkeletonArt>): DungeonPage {
     const engine = new Engine(canvas, true, { stencil: true, antialias: true });
     engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
     const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
@@ -294,14 +283,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("pause-button").before(panel, meter.element);
     const abort = new AbortController();
     const page: DungeonPage = {
-      physicsEngine, skeletonArt, engine, audio, hover,
+      skeletonArt, engine, audio, hover,
       probe: lookProbe(engine, () => page.scene && page.lighting ? { scene: page.scene, lighting: page.lighting } : null),
       meter,
       abort, signal: abort.signal,
       party: null,
       selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
       selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
-      seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
+      seed: 0, cryptPlan: undefined, scene: null, run: null, camera: null, lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], route: null, routeSignature: "",
       paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
     };
@@ -314,6 +303,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     if (!run || !page.scene) return;
     if (run.status !== "playing") value = true;
     page.paused = value;
+    if (value) run.play(false);
     page.audio.setActive(!value && run.status === "playing");
     page.held.clear();
     run.commands.right = run.commands.up = 0;
@@ -378,8 +368,6 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.lighting?.dispose();
     page.lighting = null;
     undraw(page);
-    page.hearing?.dispose();
-    page.hearing = null;
     page.run?.dispose();
     page.run = null;
     geometry?.dispose(); geometry = null; bodies.length = 0;
@@ -435,14 +423,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     camera.maxZ = 160;
     // The skin of each model the run fields, loaded once a scene; a body whose skin did not load is drawn as its shapes.
     const dressers = new Map<BodyModel, Dresser>();
-    await Promise.all([...runModels(layout, fielded).map((model) =>
-      dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })),
-      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? cryptMind(participant.model))))]);
+    await Promise.all(runModels(layout, fielded).map((model) =>
+      dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
     stillShown();
-    const dress = (actor: DungeonActor) => {
-      const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;
-      const skin = dressers.get(actor.model)!(built, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(built, scene);
-      const shapes = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[actor.model].tint));
+    const dress = (actor: ViewActor) => {
+      const puppet = actor.puppet!, hands = handsOf(puppet.handPoses.state);
+      const skin = dressers.get(actor.model)!(puppet, { clothing: page.clothing, closure: hands.closure }), held = drawHeld(puppet, scene);
+      const shapes = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[actor.model].tint));
       bodies.push({ skin, shapes });
       skin.setEnabled(view === "world"); for (const mesh of shapes.meshes) mesh.setEnabled(view === "tactical");
       page.drawn.push(hands, skin, held, shapes);
@@ -450,21 +437,24 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     };
     await stage("Building the dungeon");
     stillShown();
-    const run = page.run = new DungeonRun(scene, {
-      seed, engine: page.physicsEngine,
-      visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
-      layout, prepared, hero: page.selectedHero, companions: page.companions, mind: page.mind, attributes: page.attributes, onBuilt: dress,
-      party: page.commanders.party, enemies: page.commanders.enemies,
-      // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
-      onBlow: (blow) => {
-        const heard = page.run;
-        if (heard?.visible.has(cellKey(heard.map, { x: blow.point[0], z: blow.point[2] }))) for (const cue of debrisCues(blow)) audio.cue(cue);
-      },
-    });
-    page.hearing = hearRun(run, (cue) => audio.cue(cue));
-    run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    // The run's world steps in a worker (`cryptStage`), which hears it (`hearRun`) and says what it heard.
+    const participants = runParticipants(layout, fielded), mode = { keyboard: keyboard.checked, facing: facing.checked };
+    const lead = leadOf({ mode, cursor: null, right: 0, up: 0, walk: false }, toward);
+    const minds = Object.fromEntries(participants.flatMap((participant) => { const mind = page.mind(participant); return mind ? [[participant.id, mind]] : []; }));
+    const link = await openWorld<CryptCard>({ kind: "crypt", start: { seed, layout, hero: page.selectedHero, companions: page.companions, minds,
+      attributes: Object.fromEntries(participants.map((participant) => [participant.id, page.attributes(participant)])),
+      party: page.commanders.party, enemies: page.commanders.enemies, lead } }, page.signal);
+    // The worker is the run's from here: torn down with it, or now where the run is not made.
+    let made: RunView;
+    try {
+      stillShown();
+      made = new RunView(scene, link, {
+        map: layout, visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
+        characters: prepared.characters, mind: (card) => page.mind(card) ?? cryptMind(card.model), lead, built: dress, heard: (cue) => audio.cue(cue),
+      });
+    } catch (error) { link.dispose(); throw error; }
+    const run = page.run = made;
     run.pitch = pitch;
-    run.toward = toward;
     // The look is page code no Node test loads, so the rule that it adds no collider is held here, where it runs.
     const solids = run.level.solids.length;
     const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed));
@@ -513,8 +503,17 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     stillShown();
     page.freshFrame = true;
     setPaused(page, false);
+    /** From a console: `step(n)` takes `n` steps in the worker, then draws the newest, as a hidden tab needs. */
+    const step = async (steps = 1) => {
+      if (page.run !== run) return;
+      await link.step(steps);
+      run.pose({ from: link.newest, to: link.newest, share: 1 });
+      framing(page); refreshHud(page, page.party!);
+      scene.render();
+    };
     Object.assign(window, { __dungeon: {
-      get run() { return page.run; }, get scene() { return page.scene; }, get camera() { return page.camera; },
+      get run() { return page.run; }, get world() { return page.run === run ? link : null; }, step,
+      get scene() { return page.scene; }, get camera() { return page.camera; },
       get lighting() { return page.lighting; }, look: page.probe, engine,
     } });
   }
@@ -638,7 +637,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         button.setAttribute("aria-pressed", String(selected.has(member.id)));
         button.classList.toggle("fallen", !member.alive);
         button.querySelector("progress")!.value = member.vitality;
-        button.querySelector("small")!.textContent = member.alive ? `· ${run.report(member).task}` : "· fallen";
+        button.querySelector("small")!.textContent = member.alive ? `· ${member.news.task}` : "· fallen";
       }
     };
     const selectMember = (id: string, add: boolean) => {
@@ -794,8 +793,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     if (!run || !scene) return;
     const walks = run.party.filter((member) => member.alive).map((member) => {
       return {
-        force: run.report(member).forced, from: member.feet(),
-        points: member.navigation?.route ?? [],
+        force: member.news.forced, from: member.news.feet,
+        points: member.news.route ?? [],
       };
     }).filter((walk) => walk.points.length);
     const signature = JSON.stringify(walks.map((walk) => [walk.force, walk.points]));
@@ -822,14 +821,15 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need<HTMLProgressElement>("hero-hp").value = run.hero.vitality;
     need("hp-label").textContent = `${Math.ceil(run.hero.vitality * 100)}% HP`;
     party.partyStatus();
-    const target = run.leader.target;
+    const target = run.targetOf(run.leader);
     need("target-panel").hidden = !target || !target.alive;
     if (target) {
       need("target-name").textContent = target.name.replaceAll("-", " ");
       need<HTMLProgressElement>("target-hp").value = target.vitality;
     }
-    need("notice").textContent = run.notice;
-    need("notice").hidden = !run.notice;
+    const notice = run.fault === null ? run.notice : `The run stopped: ${run.fault}`;
+    need("notice").textContent = notice;
+    need("notice").hidden = !notice;
     drawRoutes(page);
     inspectMind(page, run);
   }
@@ -839,16 +839,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
    * on, else of the first selected party member, else the hero's (`mindInspector`): who has the
    * body and which part of the mind holds each part of it, as the start panel chose it.
    */
-  function inspectMind(page: DungeonPage, run: DungeonRun): void {
-    const target = run.leader.target?.alive ? run.leader.target : null;
+  function inspectMind(page: DungeonPage, run: RunView): void {
+    const leading = run.targetOf(run.leader), target = leading?.alive ? leading : null;
     const selected = run.selected, actor = page.hovered ?? target ?? run.party.find((member) => selected.has(member.id)) ?? run.hero;
-    const fighter = actor.fighter;
-    if (!fighter) return;
-    if (page.inspected?.actor !== actor || page.inspected.fighter !== fighter) {
-      const minded = fighter.minded;
-      const inspector = mindInspector(fighter.mind, fighter.built.spec, () => actor.fighter === fighter
-        ? { body: minded.body, skills: minded.skills ?? null, report: minded.report ?? null } : null);
-      page.inspected = { actor, fighter, inspector };
+    if (!actor.puppet) return;
+    run.look(actor.id);
+    if (page.inspected?.actor !== actor) {
+      const inspector = mindInspector(actor.mind, actor.spec, () => run.inspected?.id === actor.id ? run.inspected.inspected : null);
+      page.inspected = { actor, inspector };
       need("mind-who").textContent = `${actor.name.replaceAll("-", " ")} · ${actor.side === "enemy" ? "enemy" : "party"}`;
       need("mind-view").replaceChildren(inspector.element);
     }
@@ -856,7 +854,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   }
 
   /** Outlines the enemy under the pointer, when the pointer is over the canvas and nothing of the HUD covers it. */
-  function hoverEnemy(page: DungeonPage, scene: Scene, run: DungeonRun): void {
+  function hoverEnemy(page: DungeonPage, scene: Scene, run: RunView): void {
     const { hover, hoverPointer, camera, engine } = page;
     if (!hoverPointer || !camera || document.elementFromPoint(hoverPointer.clientX, hoverPointer.clientY) !== canvas) {
       page.hovered = null;
@@ -870,23 +868,28 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     hover.show(page.hovered);
   }
 
-  /** One drawn frame: the world and the torches advanced by the real time since the last unless the page is paused,
-   * then the camera, the sound, the HUD at most ten times a second, the hover and the picture. */
+  /** One drawn frame: unless the page is paused, the person's lead sent to the run and the torches advanced by the real
+   * time since the last; the bodies drawn between the last two steps the worker sent; then the camera, the sound, the
+   * HUD at most ten times a second, the hover and the picture. */
   function frame(page: DungeonPage, party: Party): void {
     const { scene, run, engine, meter, audio } = page;
-    if (!scene || !run || page.launching || context.busy) { meter.reset(); return; }
+    if (!scene || !run || page.launching || context.busy) { run?.play(false); meter.reset(); return; }
     if (page.freshFrame) meter.reset();
     meter.frame(() => {
       const seconds = page.freshFrame ? 0 : engine.getDeltaTime() / 1000;
       page.freshFrame = false;
       const playing = () => run.status === "playing";
+      // The world runs while the page draws it, unpaused: never under the loading screen or in a hidden tab.
+      run.play(!page.paused && playing());
       if (!page.paused && playing()) {
-        meter.physics(() => run.advance(seconds, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
-        page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
+        run.send();
+        meter.world(run.received(), run.speed);
+        for (const { id, speed, at } of run.air) audio.swish(id, speed, at);
         if (view === "world") page.lighting?.burn(seconds);
-        // The steps may have ended the run.
-        if (!playing()) setPaused(page, true);
       }
+      run.pose(run.between(performance.now()));
+      // The steps may have ended the run.
+      if (!page.paused && !playing()) setPaused(page, true);
       framing(page);
       const seen = page.soundTorches.filter((torch) =>
         run.visible.has(cellKey(run.map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z })));
@@ -930,9 +933,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   }
 
   async function boot(): Promise<void> {
-    const physics = await loadEngine();
-    context.signal.throwIfAborted();
-    const page = createPage(physics, loadSkeletonArt());
+    const page = createPage(loadSkeletonArt());
     const dispose = () => disposePage(page);
     context.own(dispose);
     const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), HEROES.map(h => h.model), page.signal);

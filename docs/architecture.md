@@ -1161,7 +1161,7 @@ Its host asks it once a step, after the senses and before every Mind. **A person
 (`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
 sensed foe (with an action, a limb and a region where it names them, `StrikeChoice`), face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
-The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
+The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`, reach it as a worker's input, `cryptStage`), each
 side's Commander its options' config (`party`, `enemies`: the person's party and a mob, `RUN_COMMANDERS`, unless the page's
 Options or the address, `&party=`, `&enemies=`, name another, and a kind no Commander of that side has is said); an
 Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
@@ -1272,11 +1272,12 @@ a ground (`coreStand`, `freshEngine`); most of `research/` measures on the stand
 
 ## The world in a worker
 
-The Arena's and the crowd fight's worlds step in a Web Worker each (`src/worker/`); their pages
-only draw. The worker builds the world headless from the screen's recipe exactly as Node does
-(`teamStage`, `stage.ts`, through `buildTeamBout`; `duelStage`, `duel-stage.ts`, through
-`buildBout`), loading Rapier and the minds' data in its own realm, so its bouts are the same to the
-bit (`tests/world-worker.test.mjs`).
+The Arena's, the crowd fight's and the Crypt's worlds step in a Web Worker each (`src/worker/`);
+their pages only draw. The worker builds the world headless from the screen's recipe exactly as
+Node does (`teamStage`, `stage.ts`, through `buildTeamBout`; `duelStage`, `duel-stage.ts`, through
+`buildBout`; `cryptStage`, `crypt-stage.ts`, through `buildCryptRun`), loading Rapier and the
+minds' data in its own realm, so its bouts and runs are the same to the bit
+(`tests/world-worker.test.mjs`).
 
 - **The worker** (`serve`, `serve.ts`; `world.worker.ts` its entry) takes, while the page runs it,
   the steps real time owes, at most a 30 fps frame's worth a pass (`CATCH_UP_SECONDS`), and sends
@@ -1286,8 +1287,8 @@ bit (`tests/world-worker.test.mjs`).
 - **A frame** (`frame.ts`) is one `Float64Array` a step, transferred: the world's time, steps,
   speed and the step's cost; each body's life, down, out and centre of mass; each segment's
   position, rotation, hand pose and toes' bend, in the roster's order (`RosterBody`, sent once).
-  What a stage has to tell beside its frames (`StageNews`: the verdict, a duel's news) comes with
-  the frame it happened on, or at once after a page's input.
+  What a stage has to tell beside its frames (`StageNews`: the verdict, a duel's or a Crypt run's
+  news) comes with the frame it happened on, or at once after a page's input.
 - **The page** (`openWorld`, `client.ts`) makes a puppet of each body from its spec (`puppetBody`,
   `src/render/puppet.ts`: a node a segment, its shapes following its hand's pose and toes by the
   built body's rule, `segmentShapes`), and dresses it as a built body is dressed: skins and shapes
@@ -1309,9 +1310,24 @@ bit (`tests/world-worker.test.mjs`).
   inspection where the page looks, the touches and debris heard (`hearTouches`, `debrisCues`), each
   side's air (`airOf`), and what a trial's overlays add (`trialTrace`). The page builds each body's
   spec as the bout does (`duelSpec`, `teamSpec`) and draws from frames and news alone.
-- **From a console**, `__arena.step(n)` and `__crowd.step(n)` take `n` steps in the worker and draw
-  the newest, as a hidden tab needs; `.world.burden(ms)` makes each step dearer, to see the page
-  keep its rate while the fight slows; `__arena.world.tape()` is the bout's tape.
+- **A Crypt run's stage** (`cryptStage`, `CryptStart`: the run's options, each participant's mind
+  and attributes by id, the person's lead) frames every body of the run from the first, an enemy
+  not yet built at the origin. Its input (`CryptInput`) is the person's command, the route a drag
+  draws as it grows (`DrawnRoute`), the selection, the lead (`CryptLead`: the control modes, the
+  pointer's ground point where it aims, the keys, Caps Lock's walk, the way to the camera) and the
+  mind the page looks at; all but the look go on the run's tape (`CryptTapeEntry`, the step each was
+  applied before), which `cryptInput` replays on a run `buildCryptRun` builds. Its news
+  (`CryptNews`), every step: the clock, status, notice, leader and selection; each body's
+  build, life, place, Commander's report and route; the doors open, the cells newly explored and
+  those in sight where they changed; what the run heard where the party sees (`hearRun`, debris)
+  and the air there; the inspected mind. The page (`RunView`, `src/dungeon/run-view.ts`) draws the
+  level with no colliders, opening its doors as the news says (`opened`), makes and dresses a
+  body's puppet once the news says it is built, picks members and foes among the puppets' meshes,
+  and sends the lead and a drawn route as they change.
+- **From a console**, `__arena.step(n)`, `__crowd.step(n)` and `__dungeon.step(n)` take `n` steps
+  in the worker and draw the newest, as a hidden tab needs; `.world.burden(ms)` makes each step
+  dearer, to see the page keep its rate while the fight slows; `__arena.world.tape()` is the bout's
+  tape, `__dungeon.world.tape()` the run's.
 
 ## State
 

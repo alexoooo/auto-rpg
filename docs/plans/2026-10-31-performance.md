@@ -220,13 +220,17 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    step's contacts' read ([a garbage-free step](2026-10-30-garbage-free-step.md#steps), its step 2)
    was this one.
 6. **The world in a worker**, the crowd fight, then the Arena, then the Crypt, as the design says.
-   Built for the crowd fight and the Arena (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
+   Built for the crowd fight, the Arena and the Crypt (`src/worker/`, [the world in a worker](../architecture.md#the-world-in-a-worker)):
    the crowd fight's digest in the worker equals Node's (`tests/world-worker.test.mjs`; in Chrome's
    worker too, the first 240 steps of seed 0); the Arena's bout plays on a duel's stage
    (`duelStage`) with its aftermath, a trial and the one beside it, a person's lead through the
    team of one, holds on a new choice, the HUD, sounds and overlays read from each step's news, and
    a bout a person led replays in Node from the tape the worker kept; the setup previews draw
-   puppets, so the Arena's page loads no Rapier. Left: the Crypt. Check: a bout's digest in the
+   puppets, so the Arena's page loads no Rapier; a Crypt run plays on its stage (`cryptStage`), its
+   foes' puppets made as the run builds them, its fog, doors, party, selection, notice, routes,
+   hearing and inspected mind read from each step's news, the person's commands, selection, drawn
+   routes and lead its input, and a run a person commanded replays in Node from the tape the worker
+   kept; the Crypt's page loads no Rapier. Check: a bout's digest in the
    worker equals Node's; the page holds the display's rate while a step is made slow on purpose; the
    owner plays.
 7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The

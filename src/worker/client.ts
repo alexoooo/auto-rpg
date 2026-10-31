@@ -1,10 +1,8 @@
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { Puppet } from "../render/puppet.ts";
 import { BODY_HEAD, HAND_POSES, SEGMENT_ROW, frameLayout, type RosterBody } from "./frame.ts";
-import type { FromWorker, ToWorker } from "./protocol.ts";
+import type { FromWorker, TapeEntry, ToWorker, WorldInput } from "./protocol.ts";
 import type { StageNews } from "./stage.ts";
-import type { OrdersEntry } from "../arena/duel.ts";
-import type { DuelInput } from "./duel-stage.ts";
 
 /** How fast the shown moment is drawn back toward one step behind the newest frame, a share a second. */
 const SHOWN_CORRECTION = 5;
@@ -36,10 +34,10 @@ export interface WorldLink<Card = unknown> {
   run(running: boolean): void;
   /** Take `steps` steps now and show the newest: a console's step, resolved once the frames are here. */
   step(steps: number): Promise<void>;
-  /** Tell a duel what a person does, or what the page looks at (`DuelInput`), before its next step. */
-  input(input: DuelInput): void;
-  /** The bout's tape as the worker has it now. */
-  tape(): Promise<readonly OrdersEntry[]>;
+  /** Tell the stage what a person does, or what the page looks at (`DuelInput`, `CryptInput`), before its next step. */
+  input(input: WorldInput): void;
+  /** The stage's tape as the worker has it now. */
+  tape(): Promise<readonly TapeEntry[]>;
   /** Make each step at least `ms` dearer in the worker. */
   burden(ms: number): void;
   /** The frames to draw between at `now`, ms on `performance.now()`'s clock. */
@@ -52,7 +50,7 @@ export interface WorldLink<Card = unknown> {
 }
 
 /** Build, in a worker of its own, the world `start` names; resolved once it is built. */
-export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team" | "duel" }>, signal: AbortSignal): Promise<WorldLink<Card>> {
+export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team" | "duel" | "crypt" }>, signal: AbortSignal): Promise<WorldLink<Card>> {
   signal.throwIfAborted();
   const worker = new Worker(new URL("./world.worker.ts", import.meta.url), { type: "module" });
   const send = (message: ToWorker) => worker.postMessage(message);
@@ -65,7 +63,7 @@ export function openWorld<Card>(start: Extract<ToWorker, { readonly kind: "team"
     for (const listener of listeners) listener.news?.(news);
   };
   const clock = { shown: 0, last: -1 }, tally = { steps: 0, ms: 0 };
-  let stepped: (() => void)[] = [], taped: ((tape: readonly OrdersEntry[]) => void)[] = [];
+  let stepped: (() => void)[] = [], taped: ((tape: readonly TapeEntry[]) => void)[] = [];
   let link: WorldLink<Card> | null = null;
   return new Promise<WorldLink<Card>>((resolve, reject) => {
     const fail = (message: string) => {

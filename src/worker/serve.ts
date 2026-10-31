@@ -1,7 +1,7 @@
-import type { FromWorker, ToWorker } from "./protocol.ts";
+import type { FromWorker, ToWorker, WorldInput } from "./protocol.ts";
 import { teamStage, type Stage } from "./stage.ts";
 import { duelStage } from "./duel-stage.ts";
-import type { DuelInput } from "./duel-stage.ts";
+import { cryptStage } from "./crypt-stage.ts";
 
 /** The most real time one pass steps the world through, s: a frame of a screen at 30 fps. Behind it the world plays in slow motion. */
 const CATCH_UP_SECONDS = 1 / 30;
@@ -24,7 +24,7 @@ export interface Port {
  * (`StageNews.held`) stops the world until the page runs it again. `close` ends the worker.
  */
 export function serve(port: Port, close: () => void): void {
-  let stage: Stage<unknown, DuelInput> | null = null, running = false, burden = 0, owed = 0, last = 0;
+  let stage: Stage<unknown, WorldInput> | null = null, running = false, burden = 0, owed = 0, last = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const marks: { real: number; world: number }[] = [];
   const fault = (error: unknown) => {
@@ -33,7 +33,7 @@ export function serve(port: Port, close: () => void): void {
     port.postMessage({ kind: "fault", message: error instanceof Error ? error.message : String(error) }, []);
   };
   /** Take a step and send its frame; whether the stage holds there. */
-  const step = (built: Stage<unknown, DuelInput>): boolean => {
+  const step = (built: Stage<unknown, WorldInput>): boolean => {
     const started = performance.now();
     built.step();
     while (performance.now() - started < burden) { /* The burden: a step made slow on purpose. */ }
@@ -70,7 +70,7 @@ export function serve(port: Port, close: () => void): void {
     owed = 0; last = performance.now(); marks.length = 0;
     timer = setTimeout(pass, 0);
   };
-  const build = (building: Promise<Stage<unknown, DuelInput>>) => building.then((built) => {
+  const build = (building: Promise<Stage<unknown, WorldInput>>) => building.then((built) => {
     stage = built;
     const frame = built.frame(), news = built.news();
     port.postMessage({ kind: "ready", hz: built.hz, roster: built.roster, frame }, [frame.buffer]);
@@ -84,6 +84,9 @@ export function serve(port: Port, close: () => void): void {
         return;
       case "duel":
         build(duelStage(data.start));
+        return;
+      case "crypt":
+        build(cryptStage(data.start));
         return;
       case "input":
         try {

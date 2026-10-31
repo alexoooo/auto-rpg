@@ -7,7 +7,7 @@ import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
-import { cellKey, isFloor, type DungeonMap, type Point } from "./map.ts";
+import { cellKey, isFloor, type Door, type DungeonMap, type Point } from "./map.ts";
 import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
 import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
@@ -178,6 +178,17 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   const senseSolids = () => solidSenses(solids.filter(solid => !solid.name.startsWith("door.") || !map.doors.find(door => solid.name === `door.${door.id}`)?.open)
     .map(solid => ({ ...solid, kind: "box" as const })));
   let sensed = senseSolids();
+  /** Opens each of `opening` still closed: its collider gone, its leaf hidden. */
+  const open = (opening: readonly Door[]) => {
+    let changed = false;
+    for (const door of opening) if (!door.open) {
+      door.open = true;
+      changed = true;
+      doors[door.id].collider?.dispose();
+      for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
+    }
+    if (changed) sensed = senseSolids();
+  };
   return {
     fog, surfaces, markers: [exit],
     /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
@@ -187,15 +198,10 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     /** Materials may be dressed; visibility and collision remain owned by openNearby. */
     doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0], iron: door.leaf[1] }] : []),
     openNearby(actors: readonly Point[]) {
-      let changed = false;
-      for (const door of map.doors) if (!door.open && actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)) {
-        door.open = true;
-        changed = true;
-        doors[door.id].collider?.dispose();
-        for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
-      }
-      if (changed) sensed = senseSolids();
+      open(map.doors.filter(door => actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)));
     },
+    /** Opens the doors of these ids, as a run in another world says it opened them. */
+    opened(ids: readonly number[]) { open(map.doors.filter(door => ids.includes(door.id))); },
     /** An iron sconce under each torch's flame, hidden until the floor it faces is explored, as its flame is. The fog
      * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a
      * diagonal neighbour is explored: without the gate, the front of a sconce would be drawn without its top. */
