@@ -320,6 +320,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.
+- **Warrior recovery after two rapid Lab shoves remains slow and visually unaccepted**: seed 4, 90 N s twice, the gameplay engine; the reproduction in `tests/idle-settle.test.mjs` uses the Lab's full stand check. The stale recovery action and extra automatic shove are fixed; smooth rising remains open.
 - **The foe's phase reads `rising` in bursts** (`PERCEPTS.phase`): only while the fallen body's
   centre of mass climbs faster than 0.2 m/s. On Option Mind's matches (the Warrior, empty hands,
   against six foes, 36 bouts; Node, the bout world, Rapier, 120 Hz, each side's view of the

@@ -1,3 +1,4 @@
+import { buttonInput as button } from "./inputs.ts";
 import type { Ended, Readiness, Region } from "../core/skills/framework/action.ts";
 import type { MenuEntry } from "../core/skills/framework/menu.ts";
 import type { StrikeChoice } from "../core/command/commands.ts";
@@ -120,11 +121,6 @@ export function choicePanel(name: (foe: string) => string, pick: (strike: Picked
   for (const type of ["pointerdown", "pointermove", "wheel"]) element.addEventListener(type, event => event.stopPropagation());
   summary.addEventListener("click", () => summary.blur());
   let previous = "", restOpen = false;
-  const button = (text: string, act: () => void) => {
-    const one = Object.assign(document.createElement("button"), { type: "button", textContent: text });
-    one.addEventListener("click", () => { one.blur(); act(); });
-    return one;
-  };
   const line = (text: string) => Object.assign(document.createElement("p"), { textContent: text });
   return { element,
     reset(): void { previous = ""; restOpen = false; list.replaceChildren(); element.open = false; },

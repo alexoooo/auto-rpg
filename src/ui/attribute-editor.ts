@@ -1,3 +1,4 @@
+import { buttonInput as button } from "./inputs.ts";
 import { CHARACTER_ATTRIBUTES, type AttributeName, type AttributeOverrides } from "../core/character-attributes.ts";
 import { characterDefaults, resolveCharacter, type CharacterConfig, type ResolvedCharacter } from "../core/models.ts";
 import type { Control } from "./controls.ts";
@@ -25,10 +26,6 @@ export function attributeEditor(character: CharacterConfig, options: {
   const fields = document.createElement("div"), error = document.createElement("p");
   fields.className = "attribute-fields"; error.className = "attribute-error"; error.setAttribute("role", "alert");
   const rows = new Map<AttributeName, { input: HTMLInputElement; reset: HTMLButtonElement }>();
-  const button = (label: string, run: () => void) => {
-    const b = Object.assign(document.createElement("button"), { type: "button", textContent: label });
-    b.addEventListener("click", () => { b.blur(); run(); }); return b;
-  };
   let apply: HTMLButtonElement | undefined;
   const validate = (): ResolvedCharacter | null => {
     try {

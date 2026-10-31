@@ -345,7 +345,9 @@ walk's configuration may give another). Ordinary legs receive reference sole off
 when spacing error exceeds a quarter sole length or a sole is turned over 0.2 rad. Targets stay fixed through placement, with a smaller
 finish tolerance; spacing is read about the soles' midpoint so quiet sway causes no steps. Explicit stance requests and actions owning the
 stance suppress default settling (`LocomotionContext`); composed legs forward that authority.
-Recovery's internal legs omit the idle footing and keep their supports planted. A carriage with an
+Recovery's internal legs omit the idle footing and keep their supports planted. Following orders
+continues only configured blows (`orderedBlow`), so a finished recovery's self-directed actions
+release instead of keeping authority over the body. A carriage with an
 explicit width places the feet where it stands them; walking,
 its width is the steps' (`StanceGoal.gait`, the step pattern the gait asks of the stance). What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
@@ -1564,6 +1566,9 @@ An older pool is listed with what differs from the newest.
 - Sound: `cues.ts` makes a cue from an energy and two materials, `game-audio.ts` mixes,
   `body-sounds.ts` hears a body's touches (`hearTouches`) and air (`airOf`)
   ([look](reference/look.md#sound)).
+- `src/ui/inputs.ts` owns buttons and selects for HUD controls, mind/attribute editors and action
+  choices. `editor-inputs.ts` owns labelled editor fields and the one `PartField` renderer, including
+  choice labels, numeric bounds, units and read-only state.
 - `src/render/view.ts`, `camera-math.ts` and `src/ui/view-controls.ts` are the shared view types and
   controls; each screen owns its camera rig, input and URL.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;

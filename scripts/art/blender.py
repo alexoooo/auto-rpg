@@ -23,6 +23,24 @@ elif mode == 'export':
     for bone in rig.pose.bones:
         bone.matrix_basis = Matrix.Identity(4)
     bpy.context.scene.frame_set(1)
+    # The boot's toe encloses the bare foot. Stretch only its toe box beyond the ball;
+    # the ankle, cuff and heel retain their authored fit and skin weights.
+    bare = bpy.data.objects['bare__feet']
+    for side in ('l', 'r'):
+        boot = bpy.data.objects['boots__' + side]
+        sign = 1 if rig.data.bones['foot_' + side].head_local.x > 0 else -1
+        toe = min((bare.matrix_world @ v.co).y for v in bare.data.vertices
+                  if (bare.matrix_world @ v.co).x * sign > 0)
+        front = min((boot.matrix_world @ v.co).y for v in boot.data.vertices)
+        pivot = (rig.matrix_world @ rig.data.bones['ball_' + side].head_local).y
+        if front > toe and front < pivot:
+            ratio = (toe - pivot) / (front - pivot)
+            inverse = boot.matrix_world.inverted()
+            for vertex in boot.data.vertices:
+                at = boot.matrix_world @ vertex.co
+                if at.y < pivot:
+                    at.y = pivot + (at.y - pivot) * ratio
+                    vertex.co = inverse @ at
     bpy.ops.object.select_all(action='DESELECT')
     for obj in bpy.context.scene.objects:
         if not obj.get('authoringOnly'):

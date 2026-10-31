@@ -1,3 +1,4 @@
+import { buttonInput, selectInput } from "./inputs.ts";
 import type { Color3 } from "@babylonjs/core/Maths/math.color.js";
 
 /**
@@ -30,10 +31,7 @@ const fixed = (element: HTMLElement): Control => ({ element, refresh() {} });
 
 /** A button that blurs when clicked, so the keys stay the page's. */
 function button(name: string, run: () => void, title?: string): HTMLButtonElement {
-  const made = Object.assign(document.createElement("button"), { textContent: name });
-  if (title) made.title = title;
-  made.addEventListener("click", () => { made.blur(); run(); });
-  return made;
+  return buttonInput(name, run, { title });
 }
 
 /** `parts` in a row beside `label`, which is also read out. */
@@ -73,16 +71,13 @@ export function choice<T>(label: string, options: readonly Entry<T>[], selected:
  * blurs once chosen, so the keys stay the page's.
  */
 export function menu<T>(label: string, options: readonly Entry<T>[], selected: () => T, pick: (value: T) => void): Control {
-  const select = document.createElement("select");
-  select.setAttribute("aria-label", label);
-  options.forEach(({ name, title }, i) => select.append(Object.assign(document.createElement("option"), { value: String(i), textContent: name, title: title ?? "" })));
-  const refresh = (): void => { select.value = String(options.findIndex(({ value }) => value === selected())); };
-  select.addEventListener("change", () => {
-    select.blur();
-    const chosen = options[Number(select.value)];
+  const select = selectInput(options.map(({ name, title }, i) => ({ value: String(i), text: name, title })), "", value => {
+    const chosen = options[Number(value)];
     if (chosen && chosen.value !== selected()) pick(chosen.value);
     refresh();
   });
+  select.setAttribute("aria-label", label);
+  const refresh = (): void => { select.value = String(options.findIndex(({ value }) => value === selected())); };
   refresh();
   return field(label, [{ element: select, refresh }]);
 }

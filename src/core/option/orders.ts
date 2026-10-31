@@ -12,6 +12,10 @@ import { orderAllows, orderedRegions } from "../intent/orders.ts";
 import { around } from "./strike.ts";
 import type { ActionRequest } from "../skills/framework/action.ts";
 
+/** Whether an admitted action is one of the configured blows that following orders may continue. */
+export const orderedBlow = (actions: readonly ActionConfig[], action: Pick<ActionRequest, "action" | "effector">): boolean =>
+  actions.some(config => config.name === action.action && config.effectors.includes(action.effector));
+
 /** How far ahead following orders is priced, s. */
 const AHEAD = 1;
 
@@ -50,7 +54,7 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: rea
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
       // Its blows under way go on where the orders allow them; one they do not is let go where it can be.
-      const asks: ActionRequest[] = now.sight.report.actions.filter((action) => action.target.kind !== "body" || orderAllows(now.orders, action.target.body, action.action, action.effector))
+      const asks: ActionRequest[] = now.sight.report.actions.filter((action) => orderedBlow(actions, action) && (action.target.kind !== "body" || orderAllows(now.orders, action.target.body, action.action, action.effector)))
         .map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredClone(action.target) }));
       if (now.focus && now.orders?.foe === now.focus.id) outer: for (const action of actions) {
         if (!action.regions) continue;

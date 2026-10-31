@@ -1,9 +1,9 @@
+import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, type EntryRule } from "../entrants/game.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { BehavioursConfig, FighterConfig } from "../core/tactics/config.ts";
-import type { PartField } from "../core/parts/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
@@ -36,52 +36,6 @@ interface EditorOptions {
 
 /** What a person calls `part`, its stage said where it is research. */
 const named = (part: Part): string => part.stage === "experimental" ? `${part.label} (experimental)` : part.label;
-
-/** A row: `label` beside `input`. */
-function row(label: string, input: HTMLElement): HTMLElement {
-  const made = document.createElement("label"), name = document.createElement("span");
-  made.className = "field"; name.textContent = label;
-  made.append(name, input);
-  return made;
-}
-
-/** A picker of `options`, `value` chosen, which blurs on change so the keys stay the page's. */
-function picker(options: readonly { readonly value: string; readonly text: string; readonly disabled?: boolean }[], value: string,
-  change: (value: string) => void, readOnly: boolean): HTMLSelectElement {
-  const select = document.createElement("select");
-  for (const option of options) select.append(Object.assign(document.createElement("option"), { value: option.value, textContent: option.text, disabled: !!option.disabled }));
-  select.value = value; select.disabled = readOnly;
-  select.addEventListener("change", () => { select.blur(); change(select.value); });
-  return select;
-}
-
-/** A button that blurs when clicked. */
-function button(text: string, title: string, run: () => void, readOnly: boolean): HTMLButtonElement {
-  const made = Object.assign(document.createElement("button"), { type: "button", textContent: text, title, disabled: readOnly });
-  made.setAttribute("aria-label", title);
-  made.addEventListener("click", () => { made.blur(); run(); });
-  return made;
-}
-
-/** The input of a field of `config`, which writes what is set through the field (`PartField.write`). */
-function fieldInput<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
-  switch (field.kind) {
-    case "choice":
-      return picker(field.options.map(([value, text]) => ({ value, text })), field.read(config), (text) => write(field.write(config, text) ?? config), readOnly);
-    case "text": {
-      const input = Object.assign(document.createElement("input"), { type: "text", value: field.read(config), disabled: readOnly });
-      input.addEventListener("change", () => { input.blur(); write(field.write(config, input.value) ?? config); });
-      return input;
-    }
-    case "number": {
-      const input = Object.assign(document.createElement("input"), { type: "number", min: String(field.least), max: String(field.most), step: String(field.step), value: field.read(config), disabled: readOnly });
-      input.setAttribute("aria-label", `${field.label}, ${field.unit}`);
-      input.addEventListener("change", () => { input.blur(); write(field.write(config, input.value) ?? config); });
-      return input;
-    }
-    default: { const never: never = field; throw new Error(`no field of kind ${JSON.stringify(never)}`); }
-  }
-}
 
 /**
  * **A mind's editor** for a body of `spec`: each part's settings, its research `tuning` read-only,

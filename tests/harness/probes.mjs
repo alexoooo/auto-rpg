@@ -33,8 +33,8 @@ export const lookupWith = (more) => Object.freeze({ of: (role, config) => more[c
  * motor is given.
  */
 export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = GAME_MOTOR, lookup = partLookup, wrapLegs = (legs) => legs,
-  filter = (command) => command } = {}) {
-  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec), stand = await coreStand(spec, { posture: guard });
+  filter = (command) => command, engine } = {}) {
+  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec), stand = await coreStand(spec, { posture: guard, engine });
   const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
   const legs = wrapLegs(legsOf(lookup, hosted.driver, legsConfig));
   let ask = () => ({});

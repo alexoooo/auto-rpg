@@ -1,3 +1,4 @@
+import { buttonInput } from "./inputs.ts";
 import type { Offered } from "../entrants/game.ts";
 import type { TechniquePart } from "../core/recovery/ground/technique.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
@@ -18,10 +19,9 @@ export function techniqueEditor(chosen: readonly PartConfig[], offered: readonly
     enabled.addEventListener("change", () => { enabled.blur(); write(enabled.checked ? [...chosen, technique.defaults] : chosen.filter((item) => item.kind !== kind)); });
     label.append(enabled, `${technique.label}${technique.stage === "experimental" ? " (experimental)" : ""}`); line.append(label);
     for (const [text, delta] of [["Up", -1], ["Down", 1]] as const) {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = text;
-      button.disabled = readOnly || index < 0 || index + delta < 0 || index + delta >= chosen.length;
-      button.addEventListener("click", () => { button.blur(); const techniques = [...chosen];
-        [techniques[index], techniques[index + delta]] = [techniques[index + delta]!, techniques[index]!]; write(techniques); });
+      const button = buttonInput(text, () => { const techniques = [...chosen];
+        [techniques[index], techniques[index + delta]] = [techniques[index + delta]!, techniques[index]!]; write(techniques);
+      }, { disabled: readOnly || index < 0 || index + delta < 0 || index + delta >= chosen.length });
       line.append(button);
     }
     const detail = document.createElement("small"); detail.textContent = reason === null

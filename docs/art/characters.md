@@ -8,6 +8,10 @@ through shared generated geometry and textures. The workshop descriptor adds aut
 motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
 delivery. The reptile's procedural skin is [at the end](#the-reptile).
 
+The shared Blender export fits each boot's toe box to the bare foot's toe, stretching only
+vertices ahead of the ball. The heel, ankle, cuff and skin weights retain their authored fit.
+World views and the character workshop use that same exported geometry.
+
 ## Where each file comes from
 
 | File | Made by | Read by |

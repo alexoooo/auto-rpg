@@ -109,10 +109,11 @@ plays it by itself (`&party=clearer`), and the enemies as a mob or each on its o
 
 **Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
 readout sit at the sides; **Character** picks the body, loadout, balance and mind; the transport
-pauses, single-steps, scrubs and slows time.
+pauses, single-steps, scrubs and slows time. **View** uses the shared World/Tactical and camera controls.
 
 - **Stance**: walk it from the keyboard and shove it.
 - **Stand-up**: the owner's falls, on an open floor or against a column, wall, tomb or bench.
+  **Shove again** applies one shove per click and replaces pending automatic attempts.
 - **Attack**: seeded targets for the body's game mind to approach and strike.
 - **Locomotion**: courses (circle, line, square, diamond, random destinations) at a set pace, with
   wind; **Gait** picks what moves it.

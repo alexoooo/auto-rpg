@@ -1,3 +1,4 @@
+import { editorRow as row, editorPicker, editorButton, editorInput, partFieldInput } from "./editor-inputs.ts";
 import type { ConditionConfig } from "../core/intent/conditions.ts";
 import type { ActionConfig } from "../core/skills/config.ts";
 import type { BehavioursConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/tactics/config.ts";
@@ -93,26 +94,13 @@ export function selectionEditor(config: BehavioursConfig, write: (config: Behavi
 
 /** `field` of `config`, a choice or a box, writing `config` with the value it takes. */
 function fieldRow<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
-  return field.kind === "choice" ? row(field.label, selectInput(field.options.map(([value]) => value), field.read(config), value => write(field.write(config, value) ?? config), readOnly))
-    : input(field.label, field.read(config), value => write(field.write(config, value) ?? config), readOnly, field.kind === "number");
+  return row(field.label, partFieldInput(field, config, write, readOnly));
 }
 
 const names = (value: string) => value.split(",").map(v => v.trim()).filter(Boolean);
-function row(label: string, child: HTMLElement): HTMLElement {
-  const row = document.createElement("label"), name = document.createElement("span"); row.className = "field"; name.textContent = label; row.append(name, child); return row;
-}
 function input(label: string, value: string, changed: (value: string) => void, disabled: boolean, numeric = false): HTMLElement {
-  const input = Object.assign(document.createElement("input"), { type: numeric ? "number" : "text", value, disabled });
-  if (numeric) input.step = "any";
-  input.addEventListener("change", () => { input.blur(); changed(input.value); }); return row(label, input);
+  return row(label, editorInput(value, changed, { disabled, numeric }));
 }
-function selectInput(values: readonly string[], selected: string, changed: (value: string) => void, disabled: boolean): HTMLElement {
-  const select = document.createElement("select"); select.disabled = disabled;
-  values.forEach(value => select.append(Object.assign(document.createElement("option"), { value, textContent: value })));
-  select.value = selected; select.addEventListener("change", () => { select.blur(); changed(select.value); }); return select;
-}
-const select = (label: string, values: readonly string[], value: string, changed: (value: string) => void, disabled: boolean) => row(label, selectInput(values, value, changed, disabled));
-function button(label: string, run: () => void, disabled: boolean): HTMLElement {
-  const button = Object.assign(document.createElement("button"), { type: "button", textContent: label, disabled });
-  button.addEventListener("click", () => { button.blur(); run(); }); return button;
-}
+const select = (label: string, values: readonly string[], value: string, changed: (value: string) => void, disabled: boolean) =>
+  row(label, editorPicker(values.map(value => ({ value, text: value })), value, changed, disabled));
+const button = (label: string, run: () => void, disabled: boolean) => editorButton(label, label, run, disabled);

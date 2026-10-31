@@ -199,7 +199,11 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   return {
     body, meter, dummy, state, check, environment,
     frame: () => ({ ...meter.frame(), level: address.ground.level, status: state.status, check: { ...check.state }, round: round ? roundSummary() : null }),
-    shove() { meter.beginFall(); check.reset(); state.status = "running"; shoving.shove(shove.impulse, shove.degrees); },
+    shove() {
+      // An explicit shove replaces the pending automatic start and its retries; every click is one shove.
+      state.shoved = true; state.shovedAt = world.time; state.shoves = SHOVED.most;
+      meter.beginFall(); check.reset(); state.status = "running"; shoving.shove(shove.impulse, shove.degrees);
+    },
     dispose() { checking.dispose(); reading.dispose(); disturbance.dispose(); wind.dispose(); shoving.dispose(); sound?.dispose(); dummy?.dispose(); hub.dispose(); actor.dispose(); for (const collider of fixed) collider.dispose(); },
   };
 }
