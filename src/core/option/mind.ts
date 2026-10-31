@@ -3,7 +3,7 @@ import { actionConfigFaults, aimsState, armedActions, configuredActionEstimates,
 import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
-import { everyOf } from "../control/command-layers.ts";
+import { everyOf } from "../mind/decider.ts";
 import { kitBody, kitSkills, kitFaults } from "../tactics/fighter.ts";
 import { groundExecutor } from "../recovery/ground/held.ts";
 import { STAND_UP_PART } from "../recovery/ground/stand-up-part.ts";
@@ -45,7 +45,7 @@ export interface OptionMindConfig {
   readonly actions: readonly ActionConfig[];
   readonly ground: readonly TechniqueConfig[];
   readonly motor?: PartConfig | null;
-  /** The rate its driver decides and commands at, Hz (`everyOf`, `LayerOptions.every`): every step unless given; motor control goes on every step. */
+  /** The rate it decides at, Hz (`everyOf`, `Pace`): every control step unless given; its skills make the command every step from what it last decided. */
   readonly rate?: number;
 }
 
@@ -81,18 +81,17 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
   const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
-  const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz);
-  const { body } = host.take((own) => commandedMind(own, { ...kitBody(config, parts), every, phase: host.phase }, host.clock));
+  const { body } = host.take((own) => commandedMind(own, kitBody(config, parts), host.clock));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills | undefined;
   const aims = configuredAims(parts, host.spec, config.executors, config.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions }, aims);
-  const rising = { executor: ground, registry };
+  const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };
   const making: TacticsMaking = { spec: host.spec, rules: host.rules, actions: config.actions, estimates: configuredActionEstimates(parts, host.spec, config.executors, config.actions, aims),
     aims, orders: (sight) => wiring.orders(sight.view.senses), parts };
-  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every), make);
+  const driven = driveBy(body, optionTactics(making, hz, config, host.seed, rising, host.phase, hz / every), make, { every, phase: host.phase });
   skills = driven.skills;
   return { ...driven, state: { ...driven.state, aims: aimsState(aims) } };
 }

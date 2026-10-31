@@ -18,7 +18,7 @@ import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
 import { gaitDigest, measuredOn, skillDigest } from "../src/core/skills/framework/profile.ts";
-import { everyOf } from "../src/core/control/command-layers.ts";
+import { everyOf } from "../src/core/mind/decider.ts";
 import { gaitNamed, STOCK_GAITS } from "../src/core/skills/locomotion/gaits.ts";
 import { gaitsOfMove } from "../src/core/skills/locomotion/move-part.ts";
 

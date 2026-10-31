@@ -49,8 +49,6 @@ export interface CommandLayers extends HostMind {
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
-  const every = options.every ?? 1, offset = Math.floor((options.phase ?? 0) * every);
-  if (!Number.isInteger(every) || every < 1) throw new Error(`a driver is called every whole number of steps, not ${every}`);
   const { built, muscles } = own;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
   const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
@@ -82,10 +80,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     released: false,
     groundActive: false,
     resumed: false,
-    /** The step its driver was last called on, or the step before it was resumed; null before its first call. */
-    driven: null as number | null,
-    /** Whether the command held pushes a muscle or drives a point: its driver closes that loop, and is called every step. */
-    closed: false,
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
@@ -138,7 +132,6 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     motor.setPoints(command.points ?? NO_POINTS);
     motor.setStance(command.stance);
     state.held = command.stance ? null : command.held ?? null;
-    state.closed = command.pushes.length > 0 || (command.points?.length ?? 0) > 0;
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];
       if (!goal) { if (was) motor.release(segment); }
@@ -173,14 +166,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     }
   };
   const act = (dt: number): void => {
-    const step = clock.steps;
-    if (every === 1 || state.down || state.closed || ((step - offset) % every + every) % every === 0) {
-      const next = driver?.(view, every === 1 || state.driven === null ? dt : (step - state.driven) * dt);
-      if (next) obey(next);
-      state.driven = step;
-      state.resumed = false;
-    }
+    const next = driver?.(view, dt);
+    if (next) obey(next);
     motor.control(muscles, dt);
+    state.resumed = false;
     moved();
   };
   const drive: Body["drive"] = (next, onRelease) => { if (driver && driver !== next) released?.(view, "replaced"); driver = next; released = onRelease; };
@@ -201,13 +190,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       motor.reset();
       for (const segment in goals) goals[segment] = null;
     },
-    resume() { state.released = false; state.resumed = true; state.driven = clock.steps - 1; },
+    resume() { state.released = false; state.resumed = true; },
     dispose() { drive(null); },
   };
 }
-
-/** **How many steps apart a mind deciding at `rate` Hz calls its driver** at `hz` (`LayerOptions.every`): the nearest whole number, at least 1; every step where it names no rate. */
-export const everyOf = (rate: number | undefined, hz: number): number => rate === undefined ? 1 : Math.max(1, Math.round(hz / rate));
 
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);

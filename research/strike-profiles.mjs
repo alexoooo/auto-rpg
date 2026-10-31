@@ -33,7 +33,7 @@ import { resolveCharacter } from "../src/core/models.ts";
 import { partIn, partLookup } from "../src/entrants/game.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
-import { everyOf } from "../src/core/control/command-layers.ts";
+import { everyOf } from "../src/core/mind/decider.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";

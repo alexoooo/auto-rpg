@@ -206,15 +206,6 @@ export interface LayerOptions {
   readonly measuring?: boolean;
   /** What makes what turns its goals into its muscles' command: its mind's motor (`motorOf`), the whole-body solve (`motorControl`) unless given. */
   readonly motor?: MotorMaker | null;
-  /**
-   * How many steps apart its driver is called (`commandLayers`), its command held between: on the
-   * steps `phase` of the way through each run of `every`; and every step while the body is down
-   * or holds a command that pushes a muscle or drives a point, whose loop its driver closes on what
-   * the body does (`BodyCommand.pushes`, `BodyCommand.points`). Every step unless given.
-   */
-  readonly every?: number;
-  /** Where in each run of `every` steps its driver is called, a fraction in [0, 1) (`BodyHost.phase`); 0 unless given. */
-  readonly phase?: number;
 }
 
 /**
