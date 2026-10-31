@@ -66,10 +66,19 @@ function recorded(way: Way, tried: Tried | undefined, from: Position): Way {
   return { ...way, done, ends: way.ends.map((end) => ({ at: end.at, share: end.share * (1 - done) / failed })) };
 }
 
-/** Where a way up's failures most come to rest: `from` where none is named. */
-function restOf(way: Way, from: Position): Position {
+/**
+ * Where a way up's failures most come to rest, as a rise's price counts them (`price`): one that
+ * comes to rest where no rise is priced (`priced`) counts as resting where it began, `from`, as
+ * does the share no end names.
+ */
+function restOf(way: Way, from: Position, priced: (posture: Position) => boolean): Position {
+  const shares = new Map<Position, number>();
+  for (const end of way.ends) {
+    const at = priced(end.at as Position) ? end.at as Position : from;
+    shares.set(at, (shares.get(at) ?? 0) + end.share);
+  }
   let best: Position = from, share = 0;
-  for (const end of way.ends) if (end.share > share) { share = end.share; best = end.at as Position; }
+  for (const [at, one] of shares) if (one > share) { share = one; best = at; }
   return best;
 }
 
@@ -90,10 +99,12 @@ function restOf(way: Way, from: Position): Position {
  * less than what a brace saves (`calm`), the steady on its feet, landing while the body's position
  * is not yet read; brace, the rest option, takes the body where nothing else is worth more.
  *
- * Each is worth where it leaves the body, by the position value: an edge, its expected seconds, and
- * the posture it reaches in its share done, standing or another (`Place.posture`), the rest down
+ * Each is worth where it leaves the body, by the position value, and its seconds down (`downTerms`):
+ * an edge as the route on through it to standing (`routeOf`), its expected seconds and those of
+ * the rise on from the posture it reaches in its share done, standing in that share, the rest down
  * where its failures come to rest (`restOf`); a lying posture is worth the rise from it
- * (`riseFrom`). A way's share done is its profile's, by hand where none is measured
+ * (`riseFrom`), so that a way is chosen as the rise is priced. A way's share done is its
+ * profile's, by hand where none is measured
  * (`BY_HAND`), moved by the rise's record of its attempts from that posture (`recorded`): a way that
  * fails from there is priced the dearer for it, and another taken. The steady is priced as a way
  * from where it stands, its seconds left; landing, as holding where it is. The rise from a posture
@@ -151,6 +162,18 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const riseAt = (posture: Position): DownModel | null => {
     const seconds = price().get(posture) ?? Infinity;
     return Number.isFinite(seconds) ? { seconds, stands: 1, shelter: 0 } : null;
+  };
+  /** Whether a rise from `posture` is priced (`price`). */
+  const priced = (posture: Position): boolean => Number.isFinite(price().get(posture) ?? Infinity);
+  /**
+   * **The route on through `way` from `from` to `to`** (`DownModel`): its seconds and, in its share
+   * done, the rise's on from `to` (`price`), standing in that share; where no rise on from `to` is
+   * priced, the way alone, leaving the body down there.
+   */
+  const routeOf = (way: Way, from: Position, to: Position): { readonly model: DownModel; readonly posture: Position } => {
+    const onward = price().get(to) ?? Infinity;
+    return Number.isFinite(onward) ? { model: { seconds: way.seconds + way.done * onward, stands: way.done, shelter: 0 }, posture: restOf(way, from, priced) }
+      : { model: { seconds: way.seconds, stands: 0, shelter: 0 }, posture: to };
   };
   const back = riseAt("back");
   const why = unpriced.length ? `; unmeasured ${unpriced.join("; ")}` : "";
@@ -241,9 +264,9 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
       (now) => {
         const g = now.sight.view.ground;
         if (!g) return downTerms({ seconds: BY_HAND.edge.seconds, stands: BY_HAND.edge.done, shelter: 0 })(now);
-        const from = state.current?.name === one.name ? state.current.from : fromOf(one, g), to = toOf(one, from, g) ?? from, way = wayOf(one, from);
-        const standing = to === "standing";
-        return downTerms({ seconds: way.seconds, stands: standing ? way.done : 0, shelter: 0 }, standing ? restOf(way, from) : to)(now);
+        const from = state.current?.name === one.name ? state.current.from : fromOf(one, g), to = toOf(one, from, g) ?? from;
+        const route = routeOf(wayOf(one, from), from, to);
+        return downTerms(route.model, route.posture)(now);
       },
       // Its attempt, recorded as it ends (`since`).
       (now) => { const g = now.sight.view.ground; if (g) state.current = { name: one.name, from: fromOf(one, g), id: null }; });

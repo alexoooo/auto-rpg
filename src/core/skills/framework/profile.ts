@@ -100,6 +100,13 @@ export interface Postures {
 /** Both bodies standing: what a cell that names no postures was measured at, and what a profile is read at unless asked otherwise. */
 export const STANDING: Postures = Object.freeze({ own: "standing", target: "standing" });
 
+/** Whether `cell` was measured with the bodies standing as `postures` say (`ProfileCell.postures`, both standing where it names none). */
+const cellAt = (cell: ProfileCell, postures: Postures): boolean =>
+  (cell.postures ?? STANDING).own === postures.own && (cell.postures ?? STANDING).target === postures.target;
+
+/** **Whether `profile` measured its skill with the bodies standing as `postures` say**: a cell of it was (`cellAt`); one that was not says nothing of them. */
+export const measuredAt = (profile: Profile, postures: Postures): boolean => profile.cells.some((cell) => cellAt(cell, postures));
+
 export interface Profile {
   readonly measured: Measured;
   /** The body it was measured against; null for a skill with no foe. */
@@ -170,7 +177,7 @@ export function readProfile(profile: Profile, striker: BodySpec, postures: Postu
   const key = `${postures.own} ${postures.target}`, known = byPostures.get(key);
   if (known) return known;
   const own = striker.wounds.hp.value;
-  const cells = profile.cells.filter((cell) => (cell.postures ?? STANDING).own === postures.own && (cell.postures ?? STANDING).target === postures.target);
+  const cells = profile.cells.filter((cell) => cellAt(cell, postures));
   const phaseOf = (phase: string): string => cells.some((cell) => cell.phase === phase) ? phase : "clear";
   const reach = (phase: string): number => {
     const at = phaseOf(phase);

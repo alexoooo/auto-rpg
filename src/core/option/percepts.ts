@@ -8,7 +8,7 @@ import { strikersOf, type BodySpec, type Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
-import { profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../skills/framework/profile.ts";
+import { measuredAt, profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../skills/framework/profile.ts";
 import type { BodySense } from "../mind/senses.ts";
 import type { Sight } from "../mind/decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../perception/threat.ts";
@@ -171,15 +171,20 @@ const byHand = (strike: ModelledStrike, reaction: number | null, hz: number): st
   !strike.profile ? "no drill measured it as it is"
     : sameReaction(strike.profile.measured.reaction, reaction, hz) ? null : `measured with senses ${strike.profile.measured.reaction} s late, read ${reaction} s late`;
 
+/** Why `strike` is priced by hand at `postures`, a sentence: stale (`byHand`), or measured fresh with the bodies standing otherwise (`measuredAt`); null where its profile reads them. */
+const byHandAt = (strike: ModelledStrike, reaction: number | null, hz: number, postures: Postures): string | null =>
+  byHand(strike, reaction, hz) ?? (measuredAt(strike.profile!, postures) ? null : `measured with no ${postures.own} striker at a ${postures.target} target`);
+
 /**
  * **The model** (`Model`) of `strikes` thrown by a body of `striker`, read at `postures`: each
- * whose profile is fresh at the senses' reaction time read through it, each other by the prior of
- * every limb it is thrown with.
+ * whose profile is fresh at the senses' reaction time and measured at those postures read through
+ * it, each other by the prior of every limb it is thrown with: a strike measured only on a body
+ * standing says nothing of one lying (`measuredAt`).
  */
 function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySpec, postures: Postures): Model {
   const reaction = reactionOf(seen), measured: Model["measured"][number][] = [], unmeasured = new Set<string>(), why: string[] = [];
   for (const strike of strikes) {
-    const stale = byHand(strike, reaction, seen.hz);
+    const stale = byHandAt(strike, reaction, seen.hz, postures);
     if (stale === null) measured.push({ limbs: strike.limbs, reading: readProfile(strike.profile!, striker, postures) });
     else { why.push(`${strike.name} by hand, ${stale}`); for (const limb of strike.limbs) unmeasured.add(limb); }
   }
@@ -324,33 +329,52 @@ function lifeOf(seen: Seen, blow: Seen["blow"]): number {
 }
 
 /**
- * **What a second costs the body down rather than on its feet**, own life a second, against a foe
- * of `foe`: the blows of the foe standing over it (`Pressure.peak`), and what a second on its feet
- * is worth: the most its own strikes take of the foe a second less the most the foe's take of it,
- * none below nothing, since a body on its feet can keep out of reach. Each side's strikes are read
- * at the phase the other is in now.
+ * **What a second down costs**, own life a second (`downRateOf`): the blows of a foe standing over
+ * the body as it lies, and what a second on its feet is worth.
  */
-function downRateOf(seen: Seen, foe: BodySpec): { readonly blows: number; readonly standing: number } {
-  const { focus, spec } = seen, blows = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
+export interface DownRate { readonly blows: number; readonly standing: number }
+
+/**
+ * **What a second costs the body down in `posture` rather than on its feet** (`DownRate`) against
+ * a foe of `foe`: the blows of the foe standing over it (`Pressure.peak`: the foe's strikes read
+ * at a target lying in that posture, in the phase down), and what a second on its feet is worth:
+ * the most its own strikes take of the foe a second less the most the foe's take of it, the two
+ * standing, each read at the phase the other is in now, none below nothing, since a body on its
+ * feet can keep out of reach.
+ */
+function downRateOf(seen: Seen, foe: BodySpec, posture: Position): DownRate {
+  const { focus, spec } = seen, blows = pressureBy(seen, foeModel(seen, foe, { own: "standing", target: posture }), "down", foe, spec, "over").peak;
+  const theirs = pressureBy(seen, foeModel(seen, foe), ownPhase(seen), foe, spec, "over").peak;
   const own = pressureBy(seen, ownModel(seen), focus ? foePhase(focus, seen.blow) : "clear", spec, foe, "over").peak;
-  return { blows, standing: Math.max(0, own - blows) };
+  return { blows, standing: Math.max(0, own - theirs) };
+}
+
+/** **What a second down costs a way up of `model`** at `rate` (`DownRate`), own life: the blows it does not keep off (`DownModel.shelter`) and what a second on its feet is worth. */
+export const downSecond = (rate: DownRate, model: DownModel): number => rate.blows * (1 - model.shelter) + rate.standing;
+
+/** **What a second down costs in each posture** (`downRateOf`) against the focus, and with none one of its own kind; each found once a posture. */
+function downRateAtOf(seen: Seen): (posture: Position) => DownRate {
+  const foe = seen.focus?.spec ?? seen.spec, rates = new Map<Position, DownRate>();
+  return (posture) => {
+    let rate = rates.get(posture);
+    if (!rate) rates.set(posture, rate = downRateOf(seen, foe, posture));
+    return rate;
+  };
 }
 
 /**
- * **What lying in a posture is expected to cost**, own life: each second down (`downRateOf`) over
- * the rise from there, against the focus, and with none one of its own kind: its time down over
- * its chance of standing (`Seen.riseFrom`), the foe's blows less the share it keeps off; all the
- * life it has where none stands it. With no foe able to strike, it still costs what the body's own
- * strikes would take on its feet, so that down, a way up is worth more than lying still.
+ * **What lying in a posture is expected to cost**, own life: each second down there (`downSecond`,
+ * `downRate`) over the rise from there (`Seen.riseFrom`), its time down over its chance of
+ * standing; all the life it has where none stands it. With no foe able to strike, it still costs
+ * what the body's own strikes would take on its feet, so that down, a way up is worth more than
+ * lying still.
  */
 function downCostAtOf(seen: Seen): (posture: Position) => number {
-  const { focus, spec } = seen, foe = focus?.spec ?? spec, life = seen.sight.view.senses.life;
-  let rate: ReturnType<typeof downRateOf> | null = null;
+  const life = seen.sight.view.senses.life, rateAt = downRateAtOf(seen);
   return (posture) => {
     const down = seen.riseFrom(posture);
     if (!down || down.stands <= 0) return life;
-    rate ??= downRateOf(seen, foe);
-    return Math.min(life, (rate.blows * down.seconds * (1 - down.shelter) + rate.standing * down.seconds) / down.stands);
+    return Math.min(life, downSecond(rateAt(posture), down) * down.seconds / down.stands);
   };
 }
 
@@ -412,7 +436,7 @@ export interface Prediction<V> {
  * **Every prediction Option Mind reads**, by name: the own life the blow coming is expected to take
  * (`lifeOf`), 0 with none; what the focus is expected to deal the body (`Pressure`), and
  * what its own strikes are expected to deal the focus (`pressingOf`); what a fall would cost
- * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life; how far the focus walks in the time the senses show it late
+ * from standing, lying on its back (`FALLEN`), and lying in each posture (`downCostAtOf`), own life, and what a second down in each posture costs (`downRateAtOf`); how far the focus walks in the time the senses show it late
  * (`closesOf`), m; how fast the focus turns to face (`turnOf`), rad/s, Infinity with none; and the
  * focus's life a blow of a limb at a segment of its takes by the rules (`blowLife`), 0 with no focus.
  */
@@ -422,6 +446,7 @@ export const PREDICTIONS = Object.freeze({
   pressing: { read: pressingOf } as Prediction<Pressure>,
   downCost: { read: (seen) => downCostAtOf(seen)(FALLEN) } as Prediction<number>,
   downCostAt: { read: downCostAtOf } as Prediction<(posture: Position) => number>,
+  downRate: { read: downRateAtOf } as Prediction<(posture: Position) => DownRate>,
   closes: { read: closesOf } as Prediction<number>,
   turns: { read: ({ focus }) => focus ? turnOf(focus.spec) : Infinity } as Prediction<number>,
   blows: { read: ({ focus, spec, rules }) => (limb: string, segment: string): number => focus ? blowLife(rules, spec, limb, focus.spec, undefined, segment) : 0 } as Prediction<(limb: string, segment: string) => number>,

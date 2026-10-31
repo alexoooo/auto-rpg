@@ -720,10 +720,14 @@ them: a technique is on offer where its own entry admits the body as it lies
 (`BY_HAND.braced`); brace while the body tumbles off its feet short of that, the steady on its
 feet, land while its position is unread. A technique begun runs to its end, yielding where its run
 says it may; the others yield. Each is priced where it leaves the body (`downTerms` with its
-`Place.posture`): an edge its expected seconds and, in its share done, the posture it reaches, the
-rest down where its failures come to rest; a lying posture is worth the rise from it
-(`Ground.riseFrom`, the prediction `downCostAt`), the least expected seconds to standing over the
-edges from it and the steady's. A way's share done is its profile's, by hand where none is
+`Place.posture`) and by its seconds down, each at what a second down where the body lies costs
+(the prediction `downRate`), as a posture's price counts them: an edge as the route on through it
+to standing (`routeOf`), its expected seconds and, in its share done, the rise's on from the
+posture it reaches, the rest down where its failures come to rest (one resting where no rise is
+priced counted where it began, as the rise's price counts it, `restOf`); a lying posture is worth
+the rise from it (`Ground.riseFrom`, the prediction `downCostAt`), the least expected seconds to
+standing over the edges from it and the steady's, so a way is chosen as the rise is priced,
+whatever a second down costs. A way's share done is its profile's, by hand where none is
 measured (`BY_HAND`), moved by the rise's record of its attempts from that posture (`recorded`),
 so a way that fails is priced the dearer and another is taken. A rise runs from the step the body
 goes down until it stands ready with nothing under way and the steady not climbing. On its feet
@@ -856,8 +860,10 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
   ordered, and a named foe's life worth more; the position where it leaves the body less the
   position now (`placeWorth`), a fall's chance there at what lying there costs (`downCostAt` of the posture the place names, else `downCost`, a fall onto the back: the blows of
-  a foe standing over the body, the focus's, down or not, and with none one of its own kind, over
-  its rise's price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
+  a foe standing over the body as it lies in that posture, the focus's, down or not, and with none one of its own kind, each
+  strike read where its profile measured a target lying so and by its limb's prior where none did
+  (`measuredAt`), and what a second on its feet is worth, the two standing, over its rise's
+  price, at most the life the senses say it has); its time at the rate of play; and, running, what letting it go costs: the life the body
   loses while it comes back beyond what holding the position as long costs. Ranked worth is the
   options' order.
 - **Its prospects** (`Prospect`, `src/core/option/tactics.ts`): each time its chooser decides
