@@ -26,8 +26,10 @@ mind, never in the preset.
    change. Keep the rows and watch the losses. The [combat record](../reference/option-skeleton-combat.md)
    holds the readings and their scope.
 4. **Improve one implementation at a time**: its strikes' profiles measured on its body, low
-   targets, the punch's exchange, threat prediction, approach and retreat, then option selection
-   as the fights require. Each iteration names its question, changes one part, and is read
+   targets (its low kick has no searched setting that lands at a body lying limp,
+   [skill records](../reference/skill-records.md#the-skeletons-front-kick)), the punch's
+   exchange, threat prediction, approach and retreat, then option selection as the fights
+   require. Each iteration names its question, changes one part, and is read
    paired against the version before. Search and training are offline; execution keeps to the
    Mind contract and replayable state.
 5. **Widen the panel to the whole Arena field**: every valid mind, body and loadout, Vanguard,
