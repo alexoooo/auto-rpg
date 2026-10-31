@@ -222,8 +222,10 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 6. **The world in a worker**, the Arena first, then the Crypt, as the design says. Check: a bout's
    digest in the worker equals Node's; the page holds the display's rate while a step is made slow
    on purpose; the owner plays.
-7. **The strike option's offer for each foe**: its once-a-step memo keyed on the focus too. Check:
-   `crypt-clear` and the crowd fight, before and after.
+7. **The strike option's offer for each foe.** Built: its once-a-step memo kept for each focus. The
+   crowd fight to its verdict: the right side won by drain at 104.7 s, 1885 blows landed by 90 s;
+   now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe, and the Crypt's bodies
+   played the Duellist, which has no strike option.
 8. **A held decision in the toolkit**: one helper for the four triggers, its memory plain data in
    the caller's `state`, with the existing variants' rules expressible in it. First user: the
    place beside a lying foe, made again when the body's centre drifts past `CROWD.settled`, the
