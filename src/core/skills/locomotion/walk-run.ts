@@ -1,3 +1,4 @@
+import { standingFooting } from "../../control/support.ts";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
@@ -166,7 +167,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
-  const legs = locomotion(stanceFeetOf(body.built.spec), body.envelope);
+  const legs = locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) });
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
   const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
@@ -233,15 +234,15 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     get placed() { return !memory.running && legs.placed; },
     get unmet() { return memory.running ? memory.unmet : legs.unmet; },
     resume(view) { if (memory.running) walkOn(view); else legs.resume(view); },
-    goal(view, goal, dt): LegsDrive {
+    goal(view, goal, dt, context): LegsDrive {
       const s = view.stance, v = s.velocity, asked = goal.walk, face = goal.face;
       if (goal.footing) {
         if (memory.running) walkOn(view);
-        return legs.goal(view, goal, dt);
+        return legs.goal(view, goal, dt, context);
       }
       if (view.down) {
         if (memory.running) walkOn(view);
-        return legs.goal(view, { ...goal, walk: null }, dt);
+        return legs.goal(view, { ...goal, walk: null }, dt, context);
       }
       if (!memory.running) {
         const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
@@ -256,7 +257,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
         if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
-        else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt);
+        else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt, context);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
       // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
@@ -274,7 +275,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
       if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && Math.sqrt(v.x * v.x + v.z * v.z) <= settings.run) {
         walkOn(view);
-        return legs.goal(view, goal, dt);
+        return legs.goal(view, goal, dt, context);
       }
       // What the body's balance gives the run (`gaitAssist`): its pelvis as its stance hip last held it.
       aim.heading = h;

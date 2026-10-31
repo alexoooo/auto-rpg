@@ -141,6 +141,17 @@ export type Footing = Readonly<Record<Side, readonly [number, number]>>;
  */
 const PLACING = { near: 0.02 } as const;
 
+/** Whether discrete skills leave the stance available for default settling this step. */
+export interface LocomotionContext { readonly idleSettle: boolean }
+
+/** Construction settings; recovery legs omit idleFooting to keep their supports planted. */
+interface WalkOptions {
+  readonly turnLimit?: number;
+  readonly turnStartup?: TurnStartup;
+  readonly carriage?: Carriage;
+  readonly idleFooting?: { readonly offsets: Footing; readonly length: number };
+}
+
 /**
  * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
  * control step the legs complete the legs goal (`goal`) as the legs' command, and say which way
@@ -154,7 +165,7 @@ export interface Locomotion extends Skill {
    * step; or, for legs that drive themselves, their own drive (`LegsDrive`), which carries out
    * none of the stance's fields. Asked a `footing`, legs that place no feet stand.
    */
-  goal(view: BodyView, goal: LegsAsked, dt: number): LegsDrive;
+  goal(view: BodyView, goal: LegsAsked, dt: number, context?: LocomotionContext): LegsDrive;
   /** The heading the legs face, rad: the frame a walk is asked in. */
   readonly heading: number;
   /**
@@ -272,6 +283,7 @@ interface LocomotionState extends LegsMemory {
   placed: boolean;
   /** Where the carriage's feet stand, taken where the walk last stopped; null walking, or in a carriage of no width. */
   stood: Footing | null;
+  idle: { seconds: number; target: Footing | null };
   /** The centre and the height its last stance goal asked, world (x, z) and over the soles, m; null where it asked none. */
   asked: readonly [number, number] | null;
   askedHeight: number | null;
@@ -301,11 +313,11 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup, carriage: Carriage = CARRIAGES.square): StanceWalk {
+export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { turnLimit, turnStartup, carriage = CARRIAGES.square, idleFooting }: WalkOptions = {}): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   if (!validCarriage(carriage)) throw new Error("locomotion carriage needs a positive width or none, and a finite stagger and lowering");
-  const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null,
+  const state: LocomotionState = { reference: null, rising: null, carriage, heading: 0, pace: 0, going: 0, placing: null, placed: false, stood: null, idle: { seconds: 0, target: null },
     asked: null, askedHeight: null, unmet: { ...ALL_MET }, ...(turnStartup ? { walkTime: 0 } : {}) };
   const legs = stanceLegs(state);
   const acrossScratch = new Vector3();
@@ -317,7 +329,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
   };
   /** Until its first step the stance faces as the body was built. */
   const born = (view: BodyView): void => { if (view.time <= view.born) state.heading = facing(view); };
-  const place = (view: BodyView, footing: Footing, height?: number): StanceGoal | null => {
+  const place = (view: BodyView, footing: Footing, height?: number, near: number = PLACING.near): StanceGoal | null => {
     born(view);
     state.pace = 0;
     state.going = 0;
@@ -330,7 +342,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
     if (placing.step) {
       // A step is over when the stance, having taken it, stands again.
       if (s.phase !== "stand") placing.lifted = true;
-      else if (placing.lifted) { placing.stepped[placing.step.foot] = true; placing.step = null; }
+      else if (placing.lifted && s.touching[placing.step.foot]) { placing.stepped[placing.step.foot] = true; placing.step = null; }
       if (placing.step) return { ...base, swing: placing.step };
     }
     state.placed = false;
@@ -338,7 +350,7 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
     if (s.phase !== "stand") return base;
     const off = (foot: Side): number => placing.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing.footing[foot]);
     const foot: Side = off("left") >= off("right") ? "left" : "right";
-    if (off(foot) <= PLACING.near) { state.placed = true; return base; }
+    if (off(foot) <= near) { state.placed = true; return base; }
     placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
     placing.lifted = false;
     return { ...base, swing: placing.step };
@@ -358,12 +370,13 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
       state.placing = null;
       state.placed = false;
       state.stood = null;
+      state.idle.seconds = 0; state.idle.target = null;
       state.asked = null;
       state.askedHeight = null;
       state.unmet.fields = ALL_MET.fields; state.unmet.centre = 0; state.unmet.height = 0;
       state.rising = { from: view.stance.centre.y - view.stance.support.y, at: view.time };
     },
-    goal(view, given, dt) {
+    goal(view, given, dt, context) {
       // The goal's ends made the stance's feet; an end the stance does not stand on is unmet.
       const { goal, refused } = onStanceFeet(given, feet);
       // What the last goal asked, as the stance held it standing; and the gait by name, which the stance walk has none of.
@@ -373,10 +386,12 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
       // A heading asked beside a walk is not carried out: the walk's steps turn the stance to its own.
       const leaves = setIn(goal, FIELD_BIT.gait | (goal.walk && !goal.footing ? FIELD_BIT.heading : 0));
       unmet.fields = fieldsOf(leaves | refused);
-      if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; }
+      if (goal.carriage !== undefined && CARRIAGES[goal.carriage] !== state.carriage) { state.carriage = CARRIAGES[goal.carriage]; state.stood = null; state.idle.target = null; state.idle.seconds = 0; state.placing = null; }
       const held = state.carriage;
       let stance: StanceGoal | null;
-      if (goal.footing) { state.stood = null; stance = place(view, goal.footing, goal.height); }
+      const settles = idleGoal(view, goal, dt, context);
+      if (settles) { stance = settles; state.stood = null; state.placed = false; }
+      else if (goal.footing) { state.stood = null; stance = place(view, goal.footing, goal.height); }
       else if (goal.walk === null && held.width !== null && (state.stood || still(view))) {
         // Stopped, the feet are set where the carriage stands them; no footing was asked.
         state.stood ??= footingOf(view, held, held.width);
@@ -390,6 +405,38 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, tu
       return { kind: "stance", goal: done };
     },
   };
+
+  /** Idle settling's debounce and hysteresis: 0.2 s, a quarter sole to begin, at most 2 cm or an eighth sole to finish. */
+  function idleGoal(view: BodyView, goal: SidedAsk, dt: number, context?: LocomotionContext): StanceGoal | null {
+    const idle = state.idle, s = view.stance;
+    const free = idleFooting && state.carriage.width === null && !view.down && context?.idleSettle !== false && goal.footing === undefined
+      && goal.feet === undefined && goal.height === undefined && goal.heading === undefined && goal.centre === undefined
+      && goal.pose === undefined && goal.swing === undefined && !goal.halt;
+    const reset = (): void => { if (idle.target) state.placing = null; idle.target = null; idle.seconds = 0; };
+    if (!free) { reset(); return null; }
+    if (goal.walk !== null) {
+      if (idle.target && s.phase === "swing" && state.placing?.step) return place(view, idle.target);
+      reset(); return null;
+    }
+    if (idle.target) {
+      const result = place(view, idle.target, undefined, Math.min(PLACING.near, idleFooting.length / 8));
+      if (state.placed) reset();
+      return result;
+    }
+    if (state.rising || !still(view) || !s.touching.left || !s.touching.right || s.own) { idle.seconds = 0; return null; }
+    idle.seconds = Math.min(0.2, idle.seconds + dt);
+    if (idle.seconds + dt / 2 < 0.2) return null;
+    const c = s.centre, h = state.heading, rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
+    const at = (side: Side): readonly [number, number] => {
+      const [x, z] = idleFooting.offsets[side];
+      return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
+    };
+    const target = { left: at("left"), right: at("right") };
+    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4)) return null;
+    idle.target = target;
+    state.placing = null;
+    return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8));
+  }
 
   /** Whether the body stands still enough to take its carriage's footing: no step under way, and slower than `CARRIAGE_STILL`. */
   function still(view: BodyView): boolean {

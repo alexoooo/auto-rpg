@@ -340,7 +340,13 @@ the stance's shape to the legs (`foldCarries`) down to the height it asks, befor
 it, and asks its trunk flexion of whatever holds the trunk (`SupportReport.posture`): the defaults
 on a free trunk, a low action on its own. The stance walk holds a carriage, a fighting pose as
 data (`Carriage`, `CARRIAGES`, the square stance the body is built in its one entry; a stance
-walk's configuration may give another): stopped, its feet are set where it stands them; walking,
+walk's configuration may give another). Ordinary legs receive reference sole offsets at construction
+(`standingFooting`); idle for 0.2 s, upright and slow on both feet, they step into that footing
+when the error exceeds a quarter sole length. Targets stay fixed through placement, with a smaller
+finish tolerance; quiet sway causes no steps. Explicit stance requests and actions owning the
+stance suppress default settling (`LocomotionContext`); composed legs forward that authority.
+Recovery's internal legs omit the idle footing and keep their supports planted. A carriage with an
+explicit width places the feet where it stands them; walking,
 its width is the steps' (`StanceGoal.gait`, the step pattern the gait asks of the stance). What a walk
 under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
 feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place

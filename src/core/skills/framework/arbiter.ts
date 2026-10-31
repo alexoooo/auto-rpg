@@ -150,7 +150,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
           support.tick(view, goal.height, !!goal.walk, dt);
           goal = support.lay(view, goal);
         }
-        const drive = legs.goal(view, goal, dt);
+        const drive = legs.goal(view, goal, dt, { idleSettle: !legOwner });
         switch (drive.kind) {
           case "stance": stance = drive.goal; break;
           case "drive": {

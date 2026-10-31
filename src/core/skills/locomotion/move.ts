@@ -142,15 +142,15 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
       memory.unmet.fields = ALL_MET.fields; memory.unmet.centre = 0; memory.unmet.height = 0;
       told().resume(view);
     },
-    goal(view, goal, dt) {
+    goal(view, goal, dt, context) {
       if (goal.footing) {
         choose(view, false, undefined, goal.gait);
         memory.driven = false;
-        return report(goal, told().goal(view, goal, dt), true);
+        return report(goal, told().goal(view, goal, dt, context), true);
       }
       // Not yet the gait wanted, a gait that drives the legs is asked to stand, and gives them back to the stance.
       const chosen = choose(view, goal.walk !== null, goal.destination, goal.gait);
-      const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt);
+      const drive = told().goal(view, chosen || goal.walk === null ? goal : { ...goal, walk: null }, dt, context);
       memory.driven = drive.kind === "drive";
       return report(goal, drive, chosen);
     },

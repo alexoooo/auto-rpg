@@ -340,6 +340,23 @@ export function standingHeight(built: ReadBody): number {
   return moment / mass - sole / count;
 }
 
+/** The reference soles' offsets about their midpoint and the shorter sole's length, m; independent of the built pose. */
+export function standingFooting(built: ReadBody): { offsets: Record<Side, readonly [number, number]>; length: number } {
+  const middle = (side: Side): readonly [number, number] => {
+    const foot = built.segments.get(`foot.${side}`)!;
+    const corners = soleCorners(foot, true);
+    return [corners.reduce((sum, corner) => sum + corner[0], 0) / corners.length,
+      corners.reduce((sum, corner) => sum + corner[2], 0) / corners.length];
+  };
+  const left = middle("left"), right = middle("right"), x = (left[0] + right[0]) / 2, z = (left[1] + right[1]) / 2;
+  const length = (side: Side): number => {
+    const foot = built.segments.get(`foot.${side}`)!, shape = foot.spec.shape;
+    if (shape.kind !== "box") throw new Error("standing footing requires box soles");
+    return shape.size.value[1] + (foot.spec.toes?.length.value ?? 0);
+  };
+  return { offsets: { left: [left[0] - x, left[1] - z], right: [right[0] - x, right[1] - z] }, length: Math.min(length("left"), length("right")) };
+}
+
 /** `foot`'s leg's length, hip to ankle, with its knee bent by `bend` rad from straight (null, straight), m. */
 export function legLength(foot: FootState, bend: number | null): number {
   const [a, b] = foot.lengths;

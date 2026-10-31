@@ -1,3 +1,4 @@
+import { standingFooting } from "../../control/support.ts";
 import type { KitEntry, MenuEntry } from "./menu.ts";
 import type { Clearance } from "../../navigation/clear-step.ts";
 import type { Body, BodyCommand, BodyView } from "../../body.ts";
@@ -57,4 +58,4 @@ export interface SkillReport {
 
 /** Continuous locomotion and the guard, with no action: a body's skills where its tactics throw nothing. */
 export const standingSkills = (body: Body): Skills =>
-  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });
+  skillSet(body, { legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) }), navigation: null, guard: guardSkill(body.built.spec), executors: [], actions: [] });

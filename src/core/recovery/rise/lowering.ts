@@ -2,7 +2,7 @@ import type { Body, BodyView } from "../../body.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import { footStatesOf } from "../../control/support.ts";
 import { cos, sin } from "../../math/real.ts";
-import type { LegsDrive, Locomotion } from "../../skills/locomotion/locomotion.ts";
+import type { LegsDrive, Locomotion, LocomotionContext } from "../../skills/locomotion/locomotion.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../skills/framework/skill.ts";
 import { heldBody } from "../../mind/held-body.ts";
 import { stagedRise } from "./staged.ts";
@@ -83,17 +83,17 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
       state.lowering = -1;
       legs.resume(view);
     },
-    goal(view: BodyView, goal: LegsAsked, dt: number): LegsDrive {
+    goal(view: BodyView, goal: LegsAsked, dt: number, context?: LocomotionContext): LegsDrive {
       const asked = goal.feet === undefined ? -1 : playable.findIndex((one) => sameEnds(goal.feet!, one.ends));
       if (asked < 0 || state.phase !== "legs" && state.lowering !== asked) back(view);
-      if (asked < 0) return legs.goal(view, goal, dt);
-      if (state.phase === "failed") return legs.goal(view, { ...goal, feet: undefined }, dt);
+      if (asked < 0) return legs.goal(view, goal, dt, context);
+      if (state.phase === "failed") return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       const chosen = playable[asked]!;
       if (state.phase === "legs" && legs.placed === undefined) {
         // Legs that do not say when their feet are placed cannot be waited on.
         state.phase = "failed";
         state.lowering = asked;
-        return legs.goal(view, { ...goal, feet: undefined }, dt);
+        return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       }
       if (state.phase === "legs") {
         // Each foot's end set ahead of where its sole stands, along the way the legs face.
@@ -109,7 +109,7 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
         state.still = 0;
       }
       if (state.phase === "placing") {
-        const drive = legs.goal(view, { ...goal, walk: null, feet: undefined, footing: state.footing }, dt);
+        const drive = legs.goal(view, { ...goal, walk: null, feet: undefined, footing: state.footing }, dt, context);
         const v = view.stance.velocity, still = legs.placed && view.stance.phase === "stand" && v.x * v.x + v.y * v.y + v.z * v.z < SETTLE.speed * SETTLE.speed;
         state.still = still ? state.still + dt : 0;
         if (state.still + dt / 2 < SETTLE.seconds) return drive;
@@ -123,7 +123,7 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
       if (player.state.phase !== "rise") {
         state.phase = "failed";
         legs.resume(view);
-        return legs.goal(view, { ...goal, feet: undefined }, dt);
+        return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       }
       return { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing };
     },
