@@ -6,6 +6,7 @@ import type { ActionStatus, Readiness, Region, Window } from "../skills/framewor
 import { GAIT_NAMES, type GaitName } from "../skills/locomotion/gaits.ts";
 import type { MenuEntry } from "../skills/framework/menu.ts";
 import { deepFreeze } from "../state.ts";
+import { hold, letGo, stillHeld, unheld } from "../mind/held.ts";
 import type { CommanderConfig, CommanderEntry } from "./kind.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, TeamView } from "./team.ts";
 
@@ -100,6 +101,13 @@ const STAND: Orders = deepFreeze({ move: null, face: null, firm: true });
 const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null && b !== null
   && (a.kind === "mark" ? b.kind === "mark" && a.mark === b.mark : b.kind === "segment" && a.segment === b.segment);
 
+/**
+ * How a spot beside a body lying is held (`Held`): chosen again once that body's middle moves
+ * `moved` m, or `rethink` s on. The menu reads its spot afresh at each ask, and a window read from
+ * where a sole stands moves with each stride, which would turn the walk from one side to the other.
+ */
+const HELD_SPOT = Object.freeze({ moved: .3, rethink: 1 });
+
 /** The choice a drill orders: an action, a limb and a region. */
 type Choice = { readonly action: string; readonly limb: string; readonly region: Region };
 
@@ -117,6 +125,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
     window: null as Window | null, walked: false, held: false, set: null as number | null,
     /** Where its member's menu last said the body would stand in its choice's window, where that is beside a body lying, with the way round it: null where it stands straight. */
     spot: null as Spot | null,
+    /** The spot beside a body lying as held (`HELD_SPOT`). */
+    spotHeld: unheld(),
     /** The choice it orders, once its member's menu offers one that fits its config and could start or be walked to. */
     choice: null as Choice | null,
     /** Where its member stood at its last decision, and when: what its speed over the ground is read from. */
@@ -220,7 +230,13 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
       const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z), settled = state.still !== null && view.time - state.still >= STILL_FOR;
       if (readiness.kind === "position") state.window = readiness.window;
-      if (entry?.spot) state.spot = entry.spot.route ? entry.spot : null;
+      if (entry?.spot) {
+        const offered = entry.spot.route ? entry.spot : null, drift = [{ at: [foe.at.x, foe.at.z], within: HELD_SPOT.moved }];
+        if (!offered) { state.spot = null; letGo(state.spotHeld); }
+        else if (!state.spot || !stillHeld(state.spotHeld, view.time, HELD_SPOT.rethink, offered.by ?? "", drift, () => true)) {
+          state.spot = offered; hold(state.spotHeld, view.time, offered.by ?? "", drift);
+        }
+      }
       const window = state.window;
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
         const middle = middleOf(window), within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;

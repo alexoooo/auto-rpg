@@ -1026,7 +1026,12 @@ of the places about the window's target at `LYING.bearings` turns from along the
 (`lyingAxis`), those where each foot keeps `LYING.footRadius` clear of its colliders up to the knee
 (`stepObstacle`), the one whose way round it (`groundRoute`, clear over the same column)
 and turn to its facing cost least, reckoned `LYING.lead` s along the body's motion, so the place
-it set off for stays its choice.
+it set off for stays its choice. A walker that keeps it (`HeldBeside`; Option Mind's walk into a
+strike's window) holds the place and its way as a held decision (`src/core/mind/held.ts`: made
+again on an event, drift, failure or a deadline), chosen again when another body lies there,
+that body's centre moves `CROWD.settled`, the window's target `LYING.shift`, the place's feet or
+its way stop clearing the body, or `LYING.rethink` s pass; the drill Commander holds the spot its
+member's menu names beside a lying foe the same way (`HELD_SPOT`).
 **The bodies about it** (`src/core/navigation/crowd.ts`): a fallen body, of either side but the one it
 ranges about or goes to a place by, is a fixed footprint it routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies

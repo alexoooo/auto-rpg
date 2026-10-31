@@ -226,12 +226,13 @@ moved cases, is read against the version before on its drill (`--previous`) and 
    crowd fight to its verdict: the right side won by drain at 104.7 s, 1885 blows landed by 90 s;
    now the left wins by drain at 117.0 s, 3796 by 90 s. A duel has one foe, and the Crypt's bodies
    played the Duellist, which has no strike option.
-8. **A held decision in the toolkit**: one helper for the four triggers, its memory plain data in
-   the caller's `state`, with the existing variants' rules expressible in it. First user: the
-   place beside a lying foe, made again when the body's centre drifts past `CROWD.settled`, the
-   window's target past its shift, or the way's cheap check (the kept route against the body's
-   footprint) fails. Check: the stomping rung, the side-flip gone, the time while a fighter is
-   down.
+8. **A held decision in the toolkit.** Built: `Held`, `stillHeld` and `hold`
+   (`src/core/mind/held.ts`); the place beside a lying foe held by Option Mind's walk into a
+   strike's window (`HeldBeside`), and the drill Commander's spot beside one (`HELD_SPOT`). On the
+   stomping rung (`option/stomp`) the drill's spot jumped more than 0.5 m 124 times before and 6
+   after; it landed 4 of 12 before and 3 of 12 after, one trial falling, within what 12 trials
+   tell apart. The time while a fighter is down is not read: the menu still finds its spot
+   afresh at each decision.
 9. **The rest held**: ground positioning's mode and hand; an aim not yet under way, held as a
    point on its segment as Vanguard's committed aim does
    (`src/entrants/vanguard/committed-aim.ts`); predictions made again on their events. A blocked

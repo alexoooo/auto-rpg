@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { BodySpec } from "../spec/body.ts";
-import { approachActionWindow, approachSpot, windowSpot, type Spot } from "../intent/action-window.ts";
+import { approachActionWindow, approachSpot, heldBeside, windowSpot, type Spot } from "../intent/action-window.ts";
 import type { PartConfig } from "../parts/parts.ts";
 import type { Readiness } from "../skills/framework/action.ts";
 import type { GaitName } from "../skills/locomotion/gaits.ts";
@@ -67,6 +67,8 @@ type Walk = ReturnType<Walker["kept"]>;
  */
 export interface Destination {
   readonly name: string;
+  /** What it holds from step to step (`HeldBeside`), where it holds anything: plain data, in its walk's state. */
+  readonly state?: object;
   spot(now: Situation): Spot | null;
   entry(now: Situation): Readiness;
   reached(now: Situation): boolean;
@@ -98,17 +100,19 @@ const ceilingOf = (now: Situation): number => now.orders?.pace ?? Infinity;
  */
 export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
   const NO_WINDOW = blocked(`no window to walk to for ${strike.name}`);
+  // The place beside a body lying, held while it holds, for its spot and its walk alike.
+  const state = { beside: heldBeside() };
   const into = once((now) => {
     const window = strike.window(now);
-    return window ? windowSpot(now.sight.view, window, now.sight.report.heading) : null;
+    return window ? windowSpot(now.sight.view, window, now.sight.report.heading, state.beside) : null;
   });
   return {
-    name: `into ${strike.name}'s window`, spot: into,
+    name: `into ${strike.name}'s window`, spot: into, state,
     entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : NO_WINDOW,
     reached: (now) => strike.window(now) === null,
     walk: (now) => {
       const window = strike.window(now);
-      const asked = window ? approachActionWindow(now.sight.view, window, now.sight.report.heading, ceilingOf(now)) : { move: null, face: walk.facing(now) };
+      const asked = window ? approachActionWindow(now.sight.view, window, now.sight.report.heading, ceilingOf(now), undefined, undefined, state.beside) : { move: null, face: walk.facing(now) };
       return walk.kept(now, asked, now.focus?.id ?? null);
     },
   };
@@ -244,7 +248,7 @@ function alongWithin(x: number, z: number, dx: number, dz: number, reach: number
  * Named for the gait and where it goes. Its memory is which place it runs at.
  */
 export function walkBy(going: Going, places: readonly Destination[], walk: Walker): Option {
-  const state = { at: 0 }, gait = going.label.toLowerCase();
+  const state = { at: 0, places: places.map((one) => one.state ?? null) }, gait = going.label.toLowerCase();
   const to = (): Destination => places[state.at]!;
   return {
     get name() { return `${gait} ${to().name}`; },
