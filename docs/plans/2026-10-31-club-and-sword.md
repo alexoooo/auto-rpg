@@ -89,6 +89,9 @@ both rates. The owner asked for it now, ahead of Option Mind's design steps (202
 
 Check: the held-out reading; the owner accepts the still rung for each blow.
 
+Built: the club steered, 86 and 88 of 100 held out at 120 and 480 Hz, one fallen
+([held blows](../reference/held-blows.md#the-club-steered)); short of 90, training goes on.
+
 ### 4. Priced and up the ladder
 
 Each blow's profile regenerated from its records (`research/strike-profiles.mjs`), so Option Mind
