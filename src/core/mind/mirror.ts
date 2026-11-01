@@ -343,6 +343,8 @@ export interface Mirror {
    * (the margin over the inertia beyond the joint), the root as the joints and its own motion carry
    * it (`forecast`). While anything but its legs' ends touches (`legSegments`), the forecast does
    * not know the contact: it reads the body as it was, and the command it answers expects nothing.
+   * A command made while the body touched otherwise than it touches now (`touchingOf`: a foot's
+   * strike or lift-off since) carries it no further: what the command planned for is gone.
    * With no delay it does nothing. Read after `refresh` with dynamics.
    */
   ahead(dt: number): void;
@@ -618,9 +620,10 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       if (reading) dynamics!.update(jointAngles, motion_);
     },
     ahead(dt) {
+      const d = flight.expect.length;
+      if (d === 0) return;
       flight.legs = onLegs(read, legs);
       flight.touching = touchingOf(read, records);
-      const d = flight.expect.length;
       if (!flight.legs) return;
       for (let k = 0; k < d; k++) {
         const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, from = flight.from[slot]!, mass = dynamics!.mass;
