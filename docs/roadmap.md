@@ -248,8 +248,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of
-  the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue's lands about half
-  at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
+  the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue's lands about two
+  thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
   [Punch](plans/2026-10-28-punch.md)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
