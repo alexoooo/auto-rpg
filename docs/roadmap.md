@@ -237,8 +237,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   (`--mind` Option Mind's preset) stands the toed Warrior from 31 of the target's 32 falls, 5
   within 6 s, a median of 9.14 s (with the club 10.78 s, empty-handed 8.71 s), and from 32 of the
   32 fresh falls, 8.69 s ([Option Mind's rise](reference/rising.md#option-minds-rise-on-the-target)).
-  Option Mind is built on the Rogue, leaving out the strikes not tuned for the toed Rogue (all of
-  them, so it fights in no bout); its rise plays the Rogue's falls and is not read yet. The
+  Option Mind is built on the Rogue, leaving out the strikes not tuned for the toed Rogue; its rise
+  stands the Rogue from 25 of the target's 32 falls, a median of 17.2 s, short of the Warrior: its
+  arms do not straighten under it on hands and knees, so its sit-back cannot take its weight back
+  ([Option Mind's rise](reference/rising.md#option-minds-rise-on-the-target)); a rise that does not
+  push up on the arms is open. The
   owner watched the rise in the Lab's Stand-up (Option Mind, toes) on 2026-10-29: it looks good,
   and good enough for now; its end changed on 2026-10-31 (the climb kept by the technique, one
   settling step), and waits on the owner's look. The Rise drill's reel waits on a page that plays a technique case

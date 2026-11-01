@@ -1320,9 +1320,23 @@ On the target itself (`npm run evaluate -- rising-target --mind <Option Mind's p
 the club 15 of 16, 10.78 s; empty-handed 16 of 16, 8.71 s. On the fresh falls (`rise-trace.mjs
 --offsets 11.25`) it stands 32 of 32, a median of 8.69 s. With the ankles pressed in `up`
 ([the sit-back](#the-sit-back)), `rise-trace.mjs` on the target's falls stands the Warrior 32 of
-32, 9.17 s, and the Rogue 25 of 32, none within 6 s, 4 within 10 s, a median of 17.2 s: its
-sit-back is done 24 times of 52 from the front and 3 of 19 from hands and knees, most failures its
-`up` waiting out its 4 s with the balls still up.
+32, 9.17 s, and the Rogue 25 of 32, none within 6 s, 4 within 10 s, a median of 17.2 s (on the
+fresh falls 17 of 32, 20.3 s): its sit-back is done 24 times of 52 from the front and 3 of 19 from
+hands and knees, most failures its `up` waiting out its 4 s with the balls still up.
+
+**The Rogue's arms do not straighten under it.** From `tuck` on, its elbows bear at 1.0 to 1.6 rad
+at full activation (elbow extension 23 to 27 N m, the Warrior's 57), so it comes to `plant` on its
+forearms, its shoulders 0.28 m up against the Warrior's 0.57 on straight arms. Its centre of mass
+stays 3 cm ahead of its knees, `sit back`'s knees flex by lifting the feet (0.29 m up, unloaded)
+instead of taking the hips back, and `up` never finds the balls down. The Warrior sits back with
+his centre of mass 5 cm behind his knees and his feet bearing a quarter of him. Tried on the
+target's 32 falls, none kept (Rogue stood, against 25): `plant` held until the elbows are under
+0.5 rad (0: they never are); `sit back`'s hips at 1.5 and 1.2 rad (14, 22; the Warrior 32 and 31);
+`fours` bearing a tenth on each hand (14; the Warrior 32); the Rogue's roll at the Warrior's
+timing (19), `prop` at half and a quarter of its time (17, 16), the stance's climb at 0.6, 0.7,
+0.8 and 1.6 s (24, 25, 25, 21; at 0.7 on the fresh falls 19 against 17, a slower median), and a
+settling speed of 0.2 m/s (22). What is left is a rise that does not push up on the arms, or the
+arms' strength in use (`IN_USE`, `src/core/human/muscle.ts`), which moves every human's strikes.
 
 What moves it, each read on the same falls against the one before:
 
