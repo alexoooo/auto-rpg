@@ -69,6 +69,8 @@ for (const path of paths) {
     const drill = led?.kind === "drill" ? { kind: "drill", action: led.action, effector: led.limb, letGo: led.letGo } : partIn(mind, "drill");
     if (row.fault || !row.reading || row.world.kind !== "bout" || drill?.kind !== "drill" || rung === "walk") continue;
     const spec = specOf(recipe), actions = armedActions(partLookup, spec, mind.executors, mind.actions), action = actions.find((one) => one.name === drill.action);
+    // A body that does not throw the action (a rung's other model) was refused it, and measures nothing.
+    if (!action && row.reading.outcome === "refused" && row.reading.reason === "no such choice on its menu") continue;
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     if (!action.effectors.includes(drill.effector)) continue;
     const marks = marksOf(action);
