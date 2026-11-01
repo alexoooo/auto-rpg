@@ -767,24 +767,28 @@ Tried and not kept:
 
 ### Lag behind real time
 
-**The reference duels keep real time; the Crypt falls 15 to 38 ms behind in the step that builds a
-foe ([bodies built ahead](#bodies-built-ahead)); the crowd fight never keeps it: its mean step is
-over the 8.33 ms 120 Hz allows.** A
+**The reference duels and the Crypt at seed 10 keep real time; the Crypt at seed 25 falls 9 ms
+behind over five steps of a fight; the crowd fight does not keep it: its mean step is about the
+8.33 ms 120 Hz allows, and it falls 1.3 to 8 s behind over its two minutes.** A
 world's lag after step k is `max(0, lag + t_k - dt)` (`lagOf`, `research/lag.mjs`), read on each
 playing's own steps, collections included, from 2 s on; the figure is the least of the playings'
 worst. A lag under a step (8.33 ms) is never seen: the page draws a step behind the newest frame.
 
-Node 24.15.0, 120 Hz, pinned to the performance cores, at `a83a8003`: the bouts by
+Node 24.15.0, 120 Hz, pinned to the performance cores, at `901f7ca9`: the bouts by
 `research/step-time.mjs` on `rapier-coordinate`, three playings read after a warm-up; the Crypt by
 `research/crypt-step.mjs --seconds 60 --runs 3` on `rapier`, the hero exploring alone.
 
 | Run | Mean step, ms | Dearest past 2 s, ms | Worst lag, ms | What built it |
 | --- | --- | --- | --- | --- |
-| sword against club, to its verdict | 1.49 | 7.36 | 0.61 | one step (a playing's worst 1.15) |
-| bare hands, to its verdict | 1.65 | 7.96 | 4.60 | a mark-compact of 10.1 ms (another playing's: 18.3, a mark-compact of 11.8) |
-| crowd fight, its first 60 s | 10.08 | 20.06 | 19 300 | every step from 2 s on, 6690 of 6960 over 8.33; mark-compacts of 35 to 103 ms |
-| Crypt, seed 10, 60 s | 2.89 | 25.56 | 38.08 | one step, building a body |
-| Crypt, seed 25, 60 s | 4.16 | 21.80 | 14.78 | one step, building a body |
+| sword against club, to its verdict | 1.69 to 1.73 | 6.36 | 0.11 | one step (a playing's worst 1.41) |
+| bare hands, to its verdict | 1.21 to 1.25 | 6.73 | 0.00 | none (another playing's: 2.21, one step) |
+| crowd fight, to its verdict | 8.37 to 8.89 | 15.18 | 1310 | 2206 of the steps from 8867 to 13623 over 8.33 (the other playings: 7087 and 8057, from 2 s on) |
+| Crypt, seed 10, 60 s | 2.53 | 10.85 | 6.51 | one step |
+| Crypt, seed 25, 60 s | 4.06 | 12.20 | 9.40 | five steps of a fight |
+
+The mean step is each playing's; the dearest is the least of each step over the playings. Before
+(`a83a8003`): the crowd fight's first 60 s a mean step of 10.08 ms and 19.3 s behind; the Crypt
+38 and 15 ms behind in a step building a body.
 
 The crowd fight's playings collected garbage with a scavenge every 20 or so steps (1 to 3 ms) and
 two mark-compacts a minute. With a mind's reading of a profile made for one prior no longer kept
