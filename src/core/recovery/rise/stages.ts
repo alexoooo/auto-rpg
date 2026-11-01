@@ -486,7 +486,7 @@ export const SIT_BACK: Recipe = deepFreeze({
     { kind: "pose", name: "sit back", posture: bothSides(TUCK_SIT), seconds: 1.5, drive: { speed: 3, within: 0.2, turning: true }, until: { past: bothSides({ "knee.@ flexion": 2.5 }), for: 0.05 } },
     {
       kind: "pose", name: "up", posture: bothSides(UPRIGHT), seconds: 4, drive: { speed: 2, within: 0.2, turning: true },
-      pace: { rate: 1.6, lift: 0.03, slow: 0.3 }, press: { above: 0.015, gains: { "hip.@ flexion": 8 } }, until: { along: 0.85, slow: 0.3, for: 0.05 },
+      pace: { rate: 1.6, lift: 0.03, slow: 0.3 }, press: { above: 0.015, gains: { "hip.@ flexion": 8, "ankle.@ dorsiflexion": 8 } }, until: { along: 0.85, slow: 0.3, for: 0.05 },
     },
   ],
 });

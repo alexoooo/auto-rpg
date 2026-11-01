@@ -1251,9 +1251,15 @@ sit-back is begun only from the first.
 
 - **The way up is paced by the balls of the feet** (`Pace`): the posture moves on from where `up`
   begins only while both balls are within 0.03 m of the ground and the centre of mass is slower
-  than 0.3 m/s, and each hip is flexed 8 rad a metre its foot's ball stands over 0.015 m (`Press`):
-  a rising heel is a ball lifting, and the hip turns it back down. Without that press the rise stands
-  1 of 32; it is what keeps the weight over the toes.
+  than 0.3 m/s, and each hip and ankle is flexed 8 rad a metre its foot's ball stands over 0.015 m
+  (`Press`): a rising heel is a ball lifting, and the hip turns it back down. Without the hip's press
+  the rise stands 1 of 32; it is what keeps the weight over the toes. The ankle's frees a pace that
+  would wait forever: `up` asks the posture it began in until the balls are down, so a body that
+  begins it with its ankles short of what holds the balls down never moves on. The Rogue sat back
+  holds its ankles at 0.25 rad, its balls up; on the target's 32 falls (`rise-trace.mjs`) it stands
+  25 with the ankles pressed, a median of 17.2 s, against 16 with the ankles alone, 18 and 16 with
+  the hips pressed 12 and 16 rad a metre, and 2 with the hips pressed the other way. The Warrior
+  stands 32, 9.17 s, against 31, 9.14 s without it.
 - **A stage ends on what the body has done** (`Until`), each reading held a moment, its time the
   most it may take, past which the attempt is over. The plant ends on the balls down, not on the
   feet's load: a foot can touch without bearing 5 per cent of the weight, and by load the plant
@@ -1312,8 +1318,11 @@ stages, and how it ended.
 On the target itself (`npm run evaluate -- rising-target --mind <Option Mind's preset>`, at
 `d98f96c1`) the Warrior stands 31 of 32, 5 within 6 s, a median of 9.14 s (8.53 to 10.78): with
 the club 15 of 16, 10.78 s; empty-handed 16 of 16, 8.71 s. On the fresh falls (`rise-trace.mjs
---offsets 11.25`) it stands 32 of 32, a median of 8.69 s. The Rogue's falls fault there: Option
-Mind refuses the toed Rogue, which has no straight punch record.
+--offsets 11.25`) it stands 32 of 32, a median of 8.69 s. With the ankles pressed in `up`
+([the sit-back](#the-sit-back)), `rise-trace.mjs` on the target's falls stands the Warrior 32 of
+32, 9.17 s, and the Rogue 25 of 32, none within 6 s, 4 within 10 s, a median of 17.2 s: its
+sit-back is done 24 times of 52 from the front and 3 of 19 from hands and knees, most failures its
+`up` waiting out its 4 s with the balls still up.
 
 What moves it, each read on the same falls against the one before:
 
@@ -1347,10 +1356,9 @@ What moves it, each read on the same falls against the one before:
 | idle settling steps one foot | 239 | 121 | 10.15 | 41, 8 |
 | the climb is the technique's | 254 | 184 | 8.77 | 122, 14 |
 
-The Rogue cannot be read with Option Mind as it is: its strikes have no record for the toed
-Rogue, and the mind refuses that body. Read with a copy of the mind that has no strikes, on the
-same 256 falls, it stands 39 before, 53 after the first two changes, and 160 after all five
-(empty-handed 102, a median of 14.5 s; with the club 58).
+The Rogue, read with a copy of the mind that has no strikes on the same 256 falls, stands 39
+before, 53 after the first two changes, and 160 after all five (empty-handed 102, a median of
+14.5 s; with the club 58).
 
 **Where a stood fall's time goes** (the Warrior, medians over the falls stood): 0.53 s before
 the first edge, 4.33 s in the edges that take it up, and 1.80 s from the climb's start to verified
