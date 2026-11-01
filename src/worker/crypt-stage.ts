@@ -12,7 +12,7 @@ import { modelInfo, type BodyModel } from "../core/models.ts";
 import { physicalReading } from "../core/observation.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
-import { cryptMind, treeData } from "../entrants/game.ts";
+import { defaultMind, treeData } from "../entrants/game.ts";
 import { debrisCues, type SoundCue, type SoundPoint } from "../audio/cues.ts";
 import { hearRun } from "../dungeon/hearing.ts";
 import { cellKey, type DungeonMap } from "../dungeon/map.ts";
@@ -31,7 +31,7 @@ export interface CryptStart {
   readonly layout?: DungeonMap;
   readonly hero?: BodyModel;
   readonly companions?: readonly BodyModel[];
-  /** Each participant's mind by id; its model's (`cryptMind`) where none is given. */
+  /** Each participant's mind by id; its model's (`defaultMind`) where none is given. */
   readonly minds: Readonly<Record<string, MindConfig>>;
   /** Each participant's attributes over its model's, by id; none where none is given. */
   readonly attributes: Readonly<Record<string, AttributeOverrides>>;
@@ -137,7 +137,7 @@ export async function buildCryptRun(start: CryptStart, cues: SoundCue[] = []) {
     ...start.hero ? { hero: start.hero } : {}, ...start.companions ? { companions: start.companions } : {},
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
-  await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? cryptMind(participant.model))));
+  await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
   const prepared = prepareDungeonCharacters(fielded.layout, fielded), engine = new NullEngine(), scene = new Scene(engine);
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
   const run: DungeonRun = new DungeonRun(scene, { ...fielded, prepared, engine: await loadEngine(start.engine), visuals: false, mind,

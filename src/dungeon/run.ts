@@ -42,7 +42,7 @@ import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
-import { GAME, cryptMind } from "../entrants/game.ts";
+import { GAME, defaultMind } from "../entrants/game.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
@@ -370,7 +370,7 @@ export class DungeonRun {
 
   /** `actor`'s mind: the one the run was given for it, else its model's in the Crypt. */
   private mindOf(actor: DungeonActor): MindConfig {
-    return this.options.mind?.(actor) ?? cryptMind(actor.model);
+    return this.options.mind?.(actor) ?? defaultMind(actor.model);
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * **The unseen report's cases**: a mind on a character with a loadout no mind is rated on, against
- * the Duellist with sword and buckler on the same character, on each side.
+ * Option Mind with sword and buckler on the same character, on each side.
  */
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
@@ -12,8 +12,8 @@ import { sideAttributes, type Cases, type Json, type Reader } from "../evaluatio
 import { TOURNAMENT } from "../tournament/cases.ts";
 import { otherSide } from "../../core/spec/body.ts";
 
-/** The opponent: the Duellist with sword and buckler, the sword-and-buckler reference. */
-const OPPONENT = Object.freeze({ mind: "duellist", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });
+/** The opponent: Option Mind with sword and buckler, the sword-and-buckler reference. */
+const OPPONENT = Object.freeze({ mind: "option", loadout: TOURNAMENT.loadouts.find((loadout) => loadoutKey(loadout) === "buckler,sword")! });
 
 /** The tournament's rules on every loadout of the catalogue the tournament does not rate, against `OPPONENT`. */
 const UNSEEN = Object.freeze({

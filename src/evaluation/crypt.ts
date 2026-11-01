@@ -18,7 +18,7 @@ import type { World } from "../core/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../dungeon/map.ts";
 import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../dungeon/run.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
-import { cryptMind } from "../entrants/game.ts";
+import { defaultMind } from "../entrants/game.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -225,7 +225,7 @@ export const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" 
   minds: ({ crypt }) => {
     const [hero, ...companions] = crypt.party;
     return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
-      .map((one) => one.side === "party" ? crypt.mind ?? cryptMind(one.model) : cryptMind(one.model));
+      .map((one) => one.side === "party" ? crypt.mind ?? defaultMind(one.model) : defaultMind(one.model));
   },
   parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
   hosted: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.minded] : []),

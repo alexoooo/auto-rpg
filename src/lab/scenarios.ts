@@ -9,7 +9,6 @@ import { hasteFrom } from "../core/human/attributes.ts";
 import { HELD, type Held, type Loadout } from "../core/items/held.ts";
 import { takesScript, treeObeys, MINDS } from "../entrants/game.ts";
 import { offered, presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
-import { CLASSIC, PUNCHER } from "../entrants/classic/presets.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { BLADE_FIGHTER, type FighterConfig } from "../core/tactics/config.ts";
 import type { Provision } from "../core/parts/parts.ts";
@@ -90,13 +89,10 @@ type LabRate = (typeof LAB_RATES)[number];
 
 /**
  * **The minds the Lab names**, by the id its address carries, beside the registry's (`MINDS`).
- * Attack defaults to Puncher and carries out game orders; Classic offers the blade fighter. Other
- * scenarios default to Script, which carries out their tactics. Guard stands still. Each tree is
- * editable (`mindEditor`).
+ * Scenarios but Attack and Reach default to Script, which carries out their tactics. Guard stands
+ * still. Each tree is editable (`mindEditor`).
  */
-export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "puncher", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
-  classic: { label: "Classic", config: CLASSIC },
-  puncher: { label: "Puncher", config: PUNCHER },
+export const LAB_PRESETS: Readonly<Record<"script" | "guard", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
   script: { label: "Script", config: { ...BLADE_FIGHTER, tactics: { kind: "script" } } },
   guard: { label: "Guard", config: { ...BLADE_FIGHTER, tactics: { kind: "stand" } } },
 });
@@ -106,6 +102,9 @@ const LAB_MINDS: Readonly<Record<string, MindPreset>> = Object.freeze({ ...MINDS
 
 /** The scenarios that ask their body nothing, its mind deciding for itself by its objective (Reach). */
 const BY_ITSELF: readonly ScenarioId[] = ["reach"];
+
+/** **Option Mind** (`option`), what Attack plays unless the address names another mind; it carries out the scenario's orders. */
+export const LAB_ATTACKER = MINDS.option!.config;
 
 /** **The Walker** (`walker`), what Reach plays unless the address names another mind that decides for itself; on no other menu. */
 export const LAB_WALKER = MINDS.walker!.config;
@@ -148,7 +147,7 @@ export const labPresets = (spec: BodySpec, scenario: ScenarioId | null, loadout?
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
- * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack, the Walker in
+ * (`mindFaults`): a faulty mind plays the scenario's default, Option Mind in Attack, the Walker in
  * Reach and Script elsewhere.
  */
 export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: MindConfig; readonly faults: readonly string[] } {
@@ -156,7 +155,7 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
   const faults = driven ? mindFaults(config, spec, labStaging(scenario))
     : [scenario !== null && BY_ITSELF.includes(scenario) ? "here the Lab gives no script: a mind that decides for itself"
       : "the Lab drives a mind that takes its script, as a fighter does, or one that carries out orders"];
-  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_PRESETS.script.config, faults };
+  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? LAB_ATTACKER : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_PRESETS.script.config, faults };
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
@@ -239,7 +238,7 @@ export function labAddress(search: string): LabAddress {
     const text = query.get(key), value = text === null || text.trim() === "" ? NaN : Number(text);
     return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
   };
-  const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? PUNCHER
+  const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? LAB_ATTACKER
     : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : query.get("scenario") === "reach" ? LAB_WALKER : LAB_PRESETS.script.config);
   return {
     ground: {

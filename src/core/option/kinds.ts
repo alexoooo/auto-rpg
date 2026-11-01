@@ -113,6 +113,9 @@ export const BRACE_OPTION = kind("brace", "Brace", (given) => [given.ground.rest
 export const OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, STRIKE_OPTION, WINDOWS_WALK, PRESSURE_WALK, RISE_OPTION, COVER_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION]
   .map((part) => part.defaults));
 
+/** **Standing where it is**: the rise, holding the position, the hands at guard and the brace; a body under these alone strikes, walks and covers nothing. */
+export const STANDING_OPTIONS: readonly PartConfig[] = deepFreeze([RISE_OPTION, HOLD_OPTION, GUARD_OPTION, BRACE_OPTION].map((part) => part.defaults));
+
 /** The options `configs` name, each kind's as `of` finds it, made from `given`, in their order. */
 export const optionsOf = (of: (config: PartConfig) => OptionKindPart, configs: readonly PartConfig[], given: OptionsGiven): readonly Option[] =>
   configs.flatMap((config) => of(config).make(config, given));

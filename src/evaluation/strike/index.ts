@@ -3,8 +3,8 @@
  * the mark it was asked, and come back without felling the striker? Each rung is a protocol (rung
  * 0, `still`: a still target; rung 1, `moving`: a pad carried on a rail; rungs 2 to 4, `stepping`, `guarding`, `punching`: a drill opponent;
  * rung 5, `walk`: one walked to, asked settled or still walking), its trials laid out by body, mark, hand, offset and range. The
- * subject is a mind and one of its actions (`puncher/strike`), and what its striker holds where
- * it names a loadout (`vanguard-warrior/strike@buckler,empty`, its left hand first); the drill puts its own tactics in
+ * subject is a mind and one of its actions (`option/straight-punch`), and what its striker holds where
+ * it names a loadout (`option/club-blow@buckler,club`, its left hand first); the drill puts its own tactics in
  * the mind's tactics slot, so the skill, its executor's settings and the body's other parts are
  * the mind's.
  */
@@ -22,8 +22,8 @@ const whereOf = (condition: StrikeCondition) => "foe" in condition ? `${conditio
 import { meetsBar, type StrikeReading } from "./read.ts";
 import { barScore } from "./score.ts";
 
-/** The strikes drilled when none is named: each empty-handed strike skill of the fighting minds. */
-const DRILLED = ["puncher/strike", "vanguard-warrior/strike"];
+/** The strike drilled when none is named: Option Mind's straight punch. */
+const DRILLED = ["option/straight-punch"];
 
 /**
  * A subject given whole (a file or JSON): its mind and action, and the character its bodies take

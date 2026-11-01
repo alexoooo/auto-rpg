@@ -7,7 +7,7 @@ import { partLookup, MINDS } from "../src/entrants/game.ts";
 import { withLoadout } from "../src/core/items/held.ts";
 import { regionSegments } from "../src/core/intent/action-aim.ts";
 import { dummyPart, dummyParts, dummySpec } from "../src/lab/dummy-spec.ts";
-import { attackTargetWarnings } from "../src/lab/attack-target.ts";
+import { attackTargetPart, attackTargetWarnings } from "../src/lab/attack-target.ts";
 import { labAddress, labHref } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startAttack } from "../src/lab/attack-mode.ts";
@@ -26,8 +26,11 @@ test("Lab dummy choices construct their real part, preserve anatomical regions, 
       assert.equal(address.targetPart, part);
       assert.deepEqual(labAddress(labHref(address)), address);
     }
-    assert.equal(labAddress(`?scenario=attack&model=${model}`).targetPart, spec.marks.high);
-    assert.equal(labAddress(`?scenario=attack&model=${model}&targetPart=missing`).targetPart, spec.marks.high);
+    // Unnamed or unknown, the target part is the one the Attack's default mind aims at most.
+    const aimed = attackTargetPart(spec, labAddress(`?scenario=attack&model=${model}`).mind);
+    assert.ok(parts.includes(aimed));
+    assert.equal(labAddress(`?scenario=attack&model=${model}`).targetPart, aimed);
+    assert.equal(labAddress(`?scenario=attack&model=${model}&targetPart=missing`).targetPart, aimed);
     assert.equal(dummyPart(spec, "missing"), spec.marks.high);
     assert.equal(new URLSearchParams(labHref({ ...labAddress(`?model=${model}`), targetPart: "missing" })).has("targetPart"), false);
   }

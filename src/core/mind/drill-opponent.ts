@@ -1,5 +1,6 @@
 import type { MindConfig } from "./config.ts";
-import { BLADE_FIGHTER } from "../tactics/config.ts";
+import { OPTION_MIND, type OptionMindConfig } from "../option/mind.ts";
+import { STANDING_OPTIONS } from "../option/kinds.ts";
 import { controller, type Controller } from "./controller.ts";
 import type { MindWiring } from "./minds.ts";
 import { STAND_ORDERS, type Orders } from "../intent/orders.ts";
@@ -32,8 +33,8 @@ export interface DrillOpponentConfig {
   readonly beats: readonly Beat[];
 }
 
-/** As it starts: the blade fighter standing in guard, throwing nothing, with no script. */
-const DRILL_DEFAULTS: DrillOpponentConfig = deepFreeze({ kind: "drill-opponent", body: { ...BLADE_FIGHTER, tactics: { kind: "stand" }, actions: [], executors: [] }, beats: [] });
+/** As it starts: Option Mind standing where it is (`STANDING_OPTIONS`), throwing nothing, with no script. */
+const DRILL_DEFAULTS: DrillOpponentConfig = deepFreeze({ kind: "drill-opponent", body: { ...(OPTION_MIND.defaults as OptionMindConfig), options: STANDING_OPTIONS }, beats: [] });
 
 /** Its one slot: the mind that moves its body. */
 const SLOTS: readonly Slot[] = Object.freeze([slotOne("body", "Body", "mind")]);

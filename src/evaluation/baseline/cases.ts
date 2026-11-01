@@ -38,8 +38,8 @@ import { otherSide } from "../../core/spec/body.ts";
 /** The body every competence is read on. */
 export const BODY: BodyModel = "workshop-fighter";
 
-/** The minds a subject fights, by preset: none of them the reference mind's own. */
-export const OPPONENTS = deepFreeze(["duellist", "vanguard-warrior"]);
+/** The minds a subject fights, by preset: Option Mind's, so a configuration is read against the game's. */
+export const OPPONENTS = deepFreeze(["option"]);
 
 /** The Strike drill's rungs the punch is read on. */
 const RUNGS = deepFreeze(["still", "walk"] as const);

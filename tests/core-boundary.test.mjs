@@ -510,10 +510,10 @@ const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/k
  * **The packages**: a folder of the layers that, from outside it, only the minds built on it and
  * the registries import, each with those minds. Tactics are one implementation of the `Decider`
  * seam: the fighter kind is inside the package; Option Mind builds its body layer with the
- * package's kit and carries out orders by its ordered intent; the drill opponent's body is a fighter
- * unless its config names another, and the support-entry task boots its body under one.
+ * package's kit and carries out orders by its ordered intent; the support-entry task boots its body
+ * under a fighter.
  */
-const CORE_PACKAGES = Object.freeze({ "tactics/": Object.freeze(["option/", "mind/drill-opponent.ts", "tasks/support-entry.ts"]) });
+const CORE_PACKAGES = Object.freeze({ "tactics/": Object.freeze(["option/", "tasks/support-entry.ts"]) });
 
 /** The package `target` is in that `file`, outside it and not built on it, may not import; null where none. */
 function packageBarring(file, target) {

@@ -1,27 +1,33 @@
 import type { MindPreset } from "../core/mind/controller.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { FIGHTING } from "../core/tactics/config.ts";
 import type { DrillOpponentConfig } from "../core/mind/drill-opponent.ts";
+import type { OptionMindConfig } from "../core/option/mind.ts";
+import { ORDERS_OPTION, STANDING_OPTIONS, STRIKE_OPTION, WINDOWS_WALK, COVER_OPTION } from "../core/option/kinds.ts";
 import { deepFreeze } from "../core/state.ts";
-import { CLASSIC, PUNCHER } from "../entrants/classic/presets.ts";
 import { MINDS } from "../entrants/game.ts";
 
-/** Who is struck: a Warrior with empty hands that stands in guard and throws nothing. */
-export const STANDS: MindConfig = deepFreeze({ ...CLASSIC, tactics: { kind: "stand" }, actions: [], executors: [] });
+/** Option Mind as its entrant configures it (`option`): its body layer, its rate and its rise. */
+const OPTION = MINDS.option!.config as OptionMindConfig;
 
-/** A body that goes where it is ordered, its hands held in the pose, and throws nothing. */
-const MOVES: MindConfig = deepFreeze({ ...STANDS, tactics: { ...FIGHTING, list: [{ kind: "follow-orders" }, { kind: "cover", guard: "pose" }] } });
+/** Who is struck: Option Mind standing where it is (`STANDING_OPTIONS`), its hands at guard, throwing nothing and taking no orders. */
+export const STANDS: MindConfig = deepFreeze({ ...OPTION, options: STANDING_OPTIONS, executors: [], actions: [] });
 
-/** A body that goes where it is ordered and covers a threat with its hands. */
-const GUARDS: MindConfig = deepFreeze({ ...MOVES, tactics: { ...FIGHTING, list: [{ kind: "follow-orders" }, { kind: "cover", guard: "cover" }] } });
+/** A body that goes where it is ordered, its hands held at guard, and throws nothing. */
+export const MOVES: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, ...STANDING_OPTIONS] });
+
+/** A body that goes where it is ordered and covers a blow at its head with a hand (`COVER_OPTION`), else holds its hands at guard. */
+const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, COVER_OPTION.defaults, ...STANDING_OPTIONS] });
+
+/** Option Mind's straight punch (`straight-punch`), as its entrant configures it: the body's record (`PunchRecord`) at the trunk's middle, the band it is trained in. */
+const PUNCH = OPTION.actions.find((action) => action.name === "straight-punch")!;
 
 /**
- * A body that goes where it is ordered and, ordered at its foe, closes and throws the Puncher's
- * straight punch with either hand (its rear one, mostly; with its lead hand alone the first comes
- * after 3.6 s from 1.4 m, too late for a rhythm).
+ * A body that goes where it is ordered and, ordered at its foe, walks into its punch's window and
+ * throws Option Mind's straight punch (`PUNCH`) with either hand, its hands otherwise at guard.
  */
-const PUNCHES: MindConfig = deepFreeze({ ...PUNCHER,
-  tactics: { ...FIGHTING, list: [{ kind: "follow-orders" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "pose" }] } });
+const PUNCHES: MindConfig = deepFreeze({ ...STANDS,
+  options: [ORDERS_OPTION.defaults, STRIKE_OPTION.defaults, WINDOWS_WALK.defaults, ...STANDING_OPTIONS],
+  executors: OPTION.executors.filter((executor) => executor.name === PUNCH.executor), actions: [PUNCH] });
 
 /** **Each drill opponent**, by the id a drill names it by: its script over a body that plays its part (`DrillOpponentConfig`). None is on a menu. */
 export const DRILL_OPPONENTS: Readonly<Record<string, MindPreset<DrillOpponentConfig>>> = deepFreeze({

@@ -26,8 +26,7 @@ boundary test (`tests/core-boundary.test.mjs`) holds the order by folder, or by 
 folder spans two layers (`LAYERS`): a module imports its own layer or one below, the registries
 (`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. Tactics are a
 package, a layer of their own that from outside it only the minds built on it import
-(`CORE_PACKAGES`: Option Mind, the drill opponent, whose body is a fighter by default, and the
-support-entry task, which boots one). An import up the layers or into the package would be
+(`CORE_PACKAGES`: Option Mind and the support-entry task, which boots one). An import up the layers or into the package would be
 listed (`UP_STACK`), each with the change that removes it; the list is empty and only shrinks.
 
 | Layer | Where | Job |
@@ -64,8 +63,8 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
 - anything held. An item states a surface or is rigid.
 
 **Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry and
-what each model's right hand holds; the mind each plays by default is the game's (`defaultMind`,
-`src/entrants/game.ts`), and in the Crypt Option Mind's preset for its model (`cryptMind`).
+what each model's right hand holds; the mind each plays by default, in the Arena and in the Crypt, is
+Option Mind's preset for its model (`defaultMind`, `src/entrants/game.ts`).
 
 | Model | Built from |
 |---|---|
@@ -683,7 +682,7 @@ presets from this registry, with its Script and Guard scenario defaults added.
 | option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
 | option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
-| drill-opponent | `src/core/mind/drill-opponent.ts` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again); its scripts are the evaluation's, on no menu (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
+| drill-opponent | `src/core/mind/drill-opponent.ts` | a drill's opponent: its body's mind (`body`, an Option Mind config; standing where it is, `STANDING_OPTIONS`, unless given) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own choice, each for some seconds, round again); its scripts are the evaluation's, on no menu (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`, each Option Mind with the options its part needs) |
 | vanguard:mind | `src/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/parts/parts.ts`). A part has a role (`Role`: one
@@ -732,12 +731,13 @@ Over the tree:
 nothing empty-handed or holding a blunt item; the `classic` entrant's `CLASSIC`
 (`src/entrants/classic/presets.ts`) adds `MOVE` and the game's Stand up
 (`STAND_UP`, the toed rise). Puncher (the straight punch as its body's record has it),
-Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUELLIST`), the blade
-thrust and a ward, holding a short sword, is every humanoid's default (`defaultMind`). A preset
+Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUELLIST`) thrusts with
+the blade and covers with a ward. A preset
 marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
 or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
-chooses by participant, side and model (`DungeonRunOptions.mind`), else Option Mind's preset for
-the model (`cryptMind`: `option`, `option-skeleton`, `option-reptile`); the Lab's actor by
+chooses by participant, side and model (`DungeonRunOptions.mind`); either, where none is named,
+plays Option Mind's preset for the model (`defaultMind`: `option`, `option-skeleton`,
+`option-reptile`); the Lab's actor by
 `ActorOptions.mind`.
 
 **Option Mind's options** (`src/core/option/`). An `Option` (`option.ts`) is a
@@ -1510,8 +1510,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the route left at the hero's pace, the price such that a walk of the level's route with no foes
   costs half the life; a case stops at the exit, at the hero's death, or once the life less the
   time's price is spent; beside it the life at the end, the share cleared and the time). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
-  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike` and
-  `vanguard-warrior/strike` drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
+  its rungs its protocols: `strike` (a mind and one of its strike actions, `option/straight-punch`
+  drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rung `moving`, the same at a pad on a rail (the Warrior's body under the
   bare mind, carried in a line toward the striker, away or across its front at 0.3 and 0.6 m/s, the
   trial's range where it is as the drill may first ask), asked the first step the drill is ready; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
@@ -1522,7 +1522,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   no return (`DrillCommanderConfig.letGo`, the condition's `letGo`), read for when the hand was back
   at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
-  its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
+  its bout against Option Mind on the Warrior's body, which fights on; rung `stomping`, thrown with
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
   round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a

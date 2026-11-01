@@ -26,13 +26,13 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
   schedule: "versus",
   analysis: {
     /**
-     * The default panel: eight minds, each character and loadout of the field at least once;
-     * chosen for variety, not strength.
+     * The default panel: eight entrants, Option Mind's presets on each character and loadout of
+     * the field at least once; chosen for variety, not strength.
      */
     panel: [
-      "duellist/workshop-fighter/buckler,sword", "behaviours/crypt-skeleton/buckler,sword", "duellist/workshop-rogue/buckler,sword",
-      "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/workshop-fighter/empty,empty",
-      "vanguard-rogue/workshop-rogue/empty,empty", "duellist/crypt-skeleton/empty,sword",
+      "option/workshop-fighter/buckler,club", "option-skeleton/crypt-skeleton/buckler,sword", "option/workshop-rogue/buckler,sword",
+      "option-reptile/reptile/empty,empty", "option/workshop-fighter/empty,sword", "option/workshop-fighter/empty,empty",
+      "option/workshop-rogue/empty,club", "option-skeleton/crypt-skeleton/empty,sword",
     ],
     /**
      * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at

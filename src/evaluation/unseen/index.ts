@@ -1,6 +1,6 @@
 /**
  * **The unseen report**: how far does a mind carry to a loadout no mind is rated on? Each mind on
- * each character and unrated loadout it fits, against the Duellist with sword and buckler on the
+ * each character and unrated loadout it fits, against Option Mind with sword and buckler on the
  * same character, on each side. Beside the tournament's ratings, never in them.
  */
 import { loadoutKey } from "../../core/items/held.ts";
