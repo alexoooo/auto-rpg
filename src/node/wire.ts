@@ -1,5 +1,6 @@
 import type { At, ReportNow, SeatAsk } from "../core/mind/apart.ts";
-import type { MirrorChannel } from "../core/mind/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../core/mind/mirror.ts";
+import type { BodySpec } from "../core/spec/body.ts";
 import type { MenuEntry } from "../core/skills/framework/menu.ts";
 
 /**
@@ -17,11 +18,26 @@ export const DONE = 1;
 /** Numbers both threads share. */
 export const SHARED_NUMBERS = (length: number): Float64Array => new Float64Array(new SharedArrayBuffer(8 * length));
 
-/** What of its channel goes with an ask: the told entries since the last ask, and its numbers where they were made anew. */
+/**
+ * A body's spec as it crosses: its number in the thread's table of specs. A spec is millions of
+ * characters with its provenance, dear to copy, and a fight's bodies share a few: each crosses to a
+ * thread once (`Carried.specs`), and is named by its number after.
+ */
+export type SpecNumber = number;
+
+/** What the world tells a mirror, as it crosses: a spec by its number. */
+export type ToldCrossing = MirrorChannel["told"][number] extends infer T ? T extends { readonly spec: BodySpec } ? Omit<T, "spec"> & { readonly spec: SpecNumber } : T : never;
+
+/** An ask as it crosses: a recipe's spec by its number. */
+export type AskCrossing = Exclude<SeatAsk, { readonly kind: "make" }>
+  | { readonly kind: "make"; readonly recipe: Omit<Extract<SeatAsk, { readonly kind: "make" }>["recipe"], "statics"> & { readonly statics: Omit<MirrorStatics, "spec"> & { readonly spec: SpecNumber } }; readonly at: At };
+
+/** What of its channel goes with an ask: the specs the thread has not had, the told entries since the last ask, and its numbers where they were made anew. */
 export interface Carried {
   readonly seat: number;
-  readonly ask: SeatAsk;
-  readonly told?: readonly MirrorChannel["told"][number][];
+  readonly ask: AskCrossing;
+  readonly specs?: readonly (readonly [SpecNumber, BodySpec])[];
+  readonly told?: readonly ToldCrossing[];
   readonly inbound?: Float64Array;
   readonly outbound?: Float64Array;
 }

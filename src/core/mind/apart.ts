@@ -76,6 +76,11 @@ export interface MindPlace {
    * statics and first numbers the world has written; it is asked to make the mind at `at`.
    */
   seat(catalog: Catalog, recipe: Omit<MindRecipe, "catalog">, channel: MirrorChannel, at: At): Seat;
+  /**
+   * Make a mind of `recipe` on `channel` and let it go, everywhere a seat may run, without waiting:
+   * what a mind derives from its spec and config alone is derived there before a fight needs it.
+   */
+  warm(catalog: Catalog, recipe: Omit<MindRecipe, "catalog">, channel: MirrorChannel, at: At): void;
   /** Send what has been asked and not yet sent: the world calls it after its post-physics observers (`MindsApart`, `src/core/world.ts`). */
   dispatch(): void;
   /** Stop the minds' threads, where it has any. */

@@ -1,8 +1,9 @@
 import { MessageChannel, receiveMessageOnPort, Worker, type MessagePort } from "node:worker_threads";
 import { catalogName, type MindPlace, type ReportNow, type Seat, type SeatAsk, type SeatSays } from "../core/mind/apart.ts";
-import type { MirrorChannel } from "../core/mind/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../core/mind/mirror.ts";
+import type { BodySpec } from "../core/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
-import { DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Carried, type Reply } from "./wire.ts";
+import { DONE, POSTED, SHARED_NUMBERS, waitPast, type AskCrossing, type Batch, type Carried, type Reply, type SpecNumber, type ToldCrossing } from "./wire.ts";
 
 /**
  * How the world waits on a minds' thread, ms: spinning `spin` first, about a step, since it has
@@ -11,7 +12,7 @@ import { DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Carried, type 
  */
 const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
 
-/** One minds' thread as the world holds it: the thread, its port and counters, the asks not yet sent and whose they are, the batches posted. */
+/** One minds' thread as the world holds it: the thread, its port and counters, the asks not yet sent and whose they are, the batches posted, and the specs it has been sent, by their numbers. */
 interface Thread {
   readonly worker: Worker;
   readonly port: MessagePort;
@@ -19,6 +20,7 @@ interface Thread {
   readonly queue: Carried[];
   readonly asking: Held[];
   posted: number;
+  readonly specs: Map<BodySpec, SpecNumber>;
 }
 
 /** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, and what its mind last said. */
@@ -49,10 +51,10 @@ export function mindWorkers(threads: number): MindPlace {
     const { port1, port2 } = new MessageChannel(), control = new Int32Array(new SharedArrayBuffer(8));
     const worker = new Worker(new URL("./mind-worker.ts", import.meta.url), { workerData: { port: port2, control }, transferList: [port2] });
     worker.unref();
-    return { worker, port: port1, control, queue: [], asking: [], posted: 0 };
+    return { worker, port: port1, control, queue: [], asking: [], posted: 0, specs: new Map() };
   });
   const seats = new Map<number, Held>();
-  let next = 0, disposed = false;
+  let next = 0, warming = -1, disposed = false;
   const send = (thread: Thread, batch: Omit<Batch, "seq">) => {
     thread.posted += 1;
     thread.port.postMessage({ ...batch, seq: thread.posted } satisfies Batch);
@@ -83,11 +85,27 @@ export function mindWorkers(threads: number): MindPlace {
       }
     }
   };
+  // Asks queued for `thread`, each spec they name by its number, with the specs the thread has not had.
+  const queue = (thread: Thread, asks: readonly { readonly seat: number; readonly ask: SeatAsk; readonly told?: readonly MirrorChannel["told"][number][]; readonly inbound?: Float64Array; readonly outbound?: Float64Array }[]) => {
+    const specs: [SpecNumber, BodySpec][] = [];
+    const numbered = (spec: BodySpec): SpecNumber => {
+      let number = thread.specs.get(spec);
+      if (number === undefined) { thread.specs.set(spec, number = thread.specs.size); specs.push([number, spec]); }
+      return number;
+    };
+    const statics = (of: MirrorStatics) => ({ ...of, spec: numbered(of.spec) });
+    for (const { seat, ask, told, inbound, outbound } of asks) {
+      const crossing: AskCrossing = ask.kind === "make" ? { ...ask, recipe: { ...ask.recipe, statics: statics(ask.recipe.statics) } } : ask;
+      const tells = told?.map((entry): ToldCrossing => entry.kind === "other" ? { ...entry, spec: numbered(entry.spec) } : entry);
+      thread.queue.push({ seat, ask: crossing, ...(specs.length > 0 ? { specs: specs.splice(0) } : {}), ...(tells ? { told: tells } : {}),
+        ...(inbound ? { inbound } : {}), ...(outbound ? { outbound } : {}) });
+    }
+  };
   const carry = (seat: number, held: Held, ask: SeatAsk) => {
     const { channel } = held, told = channel.told.length > held.told ? channel.told.slice(held.told) : undefined;
     held.told = channel.told.length;
     const inbound = channel.inbound !== held.inbound ? (held.inbound = channel.inbound) : undefined;
-    held.thread.queue.push({ seat, ask, ...(told ? { told } : {}), ...(inbound ? { inbound } : {}) });
+    queue(held.thread, [{ seat, ask, ...(told ? { told } : {}), ...(inbound ? { inbound } : {}) }]);
     if (!held.queued) { held.queued = true; held.thread.asking.push(held); }
     if (ask.kind !== "observe") flush(held.thread);
   };
@@ -98,7 +116,7 @@ export function mindWorkers(threads: number): MindPlace {
       const seat = next++, thread = pool[seat % pool.length]!;
       const held: Held = { thread, channel, told: channel.told.length, sent: 0, queued: true, inbound: channel.inbound, says: { has: recipe.name, observes: false, report: null }, kit: null, gait: null };
       seats.set(seat, held);
-      thread.queue.push({ seat, ask: { kind: "make", recipe: { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) }, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound });
+      queue(thread, [{ seat, ask: { kind: "make", recipe: { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) }, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound }]);
       thread.asking.push(held);
       // Sent at once: its thread makes it while the world goes on, and the world waits for it only where it needs it.
       flush(thread);
@@ -113,6 +131,16 @@ export function mindWorkers(threads: number): MindPlace {
         },
       };
       return handle;
+    },
+    warm(catalog, recipe, channel, at) {
+      if (disposed) throw new Error("the minds' threads were stopped");
+      const made = { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) };
+      for (const thread of pool) {
+        // A seat of its own, below every fight's, made and let go in one batch that nothing waits on.
+        const seat = warming--;
+        queue(thread, [{ seat, ask: { kind: "make", recipe: made, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound }, { seat, ask: { kind: "dispose" } }]);
+        flush(thread);
+      }
     },
     dispatch() { for (const thread of pool) flush(thread); },
     dispose() {
