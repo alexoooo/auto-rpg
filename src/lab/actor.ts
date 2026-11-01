@@ -4,7 +4,7 @@ import { commandedBody } from "../core/mind/host.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
-import { partLookup, partOf, scriptedBy, treeFaults, GAME } from "../entrants/game.ts";
+import { partLookup, partOf, scriptedBy, treeFaults, treeObeys, GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { createMind, type MindMade, type MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
@@ -14,6 +14,10 @@ import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
 import { LAB_PRESETS } from "./scenarios.ts";
 import { strikeAllowed } from "./loadout.ts";
+import type { Intent } from "../core/intent/intent.ts";
+import type { Orders } from "../core/intent/orders.ts";
+import { directMovement } from "../core/intent/movement.ts";
+import { cos, hypot, sin } from "../core/math/real.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
 type Watch = (sight: Sight, dt: number) => void;
@@ -34,8 +38,8 @@ interface Driving {
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
  * or an experiment gives a body is given here, and a mode knows none of it. Its mind is one that
  * takes a script (`ActorOptions.mind`, `Controller.scripted`), carrying out game orders or a mode's
- * script; or one of its own, made as a fight makes it (`createMind`), carrying out the mode's orders
- * and given no script. A mode takes its actor over: it disposes it with itself.
+ * script; or one of its own, made as a fight makes it (`createMind`), carrying out the mode's orders,
+ * or its script made orders (`scriptOrders`). A mode takes its actor over: it disposes it with itself.
  */
 export interface Actor {
   readonly body: HostedBody;
@@ -44,7 +48,8 @@ export interface Actor {
   readonly strikes: Readonly<Record<Side, boolean>>;
   /**
    * Hand the body to its mind with orders and senses, or a scenario script. Returns the mind so
-   * driven. A mind of its own takes the orders and senses, and no script, instrument or log.
+   * driven. A mind of its own takes the orders and senses, or the script as orders where it carries
+   * them out (`treeObeys`), and no log.
    */
   drive(script?: Script, driving?: Driving): LabMind;
   /** Whether its mind gets up by its own skills, no sub-mind taking the body: a mind of its own. */
@@ -98,10 +103,44 @@ function barred<T extends Decider>(decider: T, strikes: Readonly<Record<Side, bo
 }
 
 /**
+ * **A script's intent as orders**, for a mind that carries out orders and takes no script: its walk
+ * as a direct one across the ground (turned from the body's `heading` into the world's frame) at no
+ * more than its speed, its facing, its gait and its walking, all held to before the mind's own
+ * judgement (`Orders.firm`). What orders do not say, its actions, its height and how far it has to
+ * go, is not given.
+ */
+function intentOrders({ move, face, gait, walk }: Intent, heading: number): Orders {
+  const kept = { face: { x: sin(face), z: cos(face) }, firm: true as const, ...(gait === undefined ? {} : { gait }), ...(walk ? { walk } : {}) };
+  if (move === null || move[0] === 0 && move[1] === 0) return { move: null, ...kept };
+  const [forward, right] = move, s = sin(heading), c = cos(heading);
+  return { move: directMovement(forward * s + right * c, forward * c - right * s), pace: hypot(forward, right), ...kept };
+}
+
+/**
+ * `script`'s orders for `made`'s mind on `body` (`intentOrders`): it decides, `watch` reading first,
+ * once a step, on the step's first ask, from what the mind's skills see; any later ask that step is
+ * given the same.
+ */
+function scriptOrders(script: Script, watch: Watch | undefined, body: HostedBody, world: World, skills: LabMind["skills"]): () => Orders {
+  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf,
+    instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
+  let time: number | null = null, orders: Orders | null = null;
+  return () => {
+    if (orders === null || time !== body.view.time) {
+      const dt = time === null ? world.dt : body.view.time - time;
+      time = body.view.time;
+      watch?.(sight, dt);
+      orders = intentOrders(script.decide(sight, dt), skills.report.heading);
+    }
+    return orders;
+  };
+}
+
+/**
  * `built`, a human in its reference pose on the ground of `world`, as a mode's actor. A mind that
  * takes no script (`scriptedBy`) is made as a fight makes it (`createMind`), refused where it runs
- * no skills or `subs` would replace its sub-minds; one with a fault in its tree (`treeFaults`, given
- * a script) is refused.
+ * no skills or `subs` would replace its sub-minds, and given a script where it carries out no orders;
+ * one that takes a script with a fault in its tree (`treeFaults`, given a script) is refused.
  */
 export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (decider) => decider, subs }: ActorOptions = {}): Actor {
   let input: Driving = {};
@@ -117,7 +156,13 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     const made: LabMind = { state: own.state, skills, report };
     return {
       body: own.body as HostedBody, world, strikes, risesItself: true,
-      drive(_script, driving = {}) { input = driving; return made; },
+      drive(script, driving = {}) {
+        if (!script) { input = driving; return made; }
+        if (!treeObeys(mind)) throw new Error(`${partOf(mind).label} carries out no orders, so the Lab cannot give it a script`);
+        const ordered = scriptOrders(script, driving.watch, own.body as HostedBody, world, skills);
+        input = { ...driving, orders: ordered };
+        return made;
+      },
       get mind() { return made; },
       dispose: () => own.body.dispose(),
     };

@@ -124,7 +124,8 @@ export function startAttack(actor: Actor, options: AttackOptions) {
     });
   return {
     state, skills, report, wind, select,
-    frame: () => ({ time: body.view.time, hits: state.hits, totals: { ...state.totals }, selected: report.engagement?.focus ?? null,
+    // A mind that reports no focus (`MindReport.engagement`) is shown at the target ordered.
+    frame: () => ({ time: body.view.time, hits: state.hits, totals: { ...state.totals }, selected: report.engagement?.focus === undefined ? state.selected : report.engagement.focus,
       actions: structuredClone(skills.report.actions), ledger: structuredClone(skills.report.ledger), engagement: structuredClone(report.engagement),
       phase: skills.report.actions[0]?.stage ?? null, down: body.view.down, wind: [...wind.state.force],
       targets: state.targets.map((target) => {

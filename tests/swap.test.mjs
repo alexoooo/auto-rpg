@@ -74,7 +74,8 @@ test("the fixture entrant is registered from outside src/", () => {
 
 test("the Lab plays the fixture fighter, prepares its planner once, and replaces it completely with a supplied script", async () => {
   assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
-  assert.deepEqual(labMind(SWAP_OPTION_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
+  // A mind that takes no script and carries out orders plays a scripted scenario by its script made orders.
+  assert.deepEqual(labMind(SWAP_OPTION_DEFAULTS, spec, "stance"), { plays: SWAP_OPTION_DEFAULTS, faults: [] });
   const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_DEFAULTS });
   try {
     const planned = actor.drive(); stand.step();

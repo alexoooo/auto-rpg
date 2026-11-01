@@ -108,7 +108,8 @@ plays it by itself (`&party=clearer`), and the enemies as a mob or each on its o
 ## The Lab
 
 **Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
-readout sit at the sides; **Character** picks the body, loadout, balance and mind; the transport
+readout sit at the sides; **Character** picks the body, loadout, balance and mind (the Option Mind
+plays every scenario); the transport
 pauses, single-steps, scrubs and slows time. **View** uses the shared World/Tactical and camera controls.
 
 - **Stance**: walk it from the keyboard and shove it.

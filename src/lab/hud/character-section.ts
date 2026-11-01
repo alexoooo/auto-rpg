@@ -1,7 +1,8 @@
 import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { loadoutAttributes, strikesOf } from "../loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
-import { LAB_HANDS, LAB_WORN, MODELS, labStaging, labPresets } from "../scenarios.ts";
+import { LAB_HANDS, LAB_WORN, MODELS, labMind, labStaging, labPresets, labWithMind } from "../scenarios.ts";
+import { takesScript } from "../../entrants/game.ts";
 import { HELD as HOLDS, heldItem, type Held } from "../../core/items/held.ts";
 import { choice, entries, fold, following, group, menu, switches, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
@@ -49,17 +50,18 @@ export function characterSection(page: LabPage): readonly Control[] {
           () => presets.find(preset => writeMind(preset.config) === writeMind(page.shown.mind))?.id ?? "",
           // A preset's character comes with it (`MindPreset.character`).
           id => { const preset = presets.find(preset => preset.id === id);
-            if (preset) page.load({ ...page.shown, mind: preset.config, ...(preset.character ? { attributes: { ...page.shown.attributes, ...preset.character } } : {}) }); });
+            if (preset) page.load({ ...labWithMind(page.shown, preset.config), ...(preset.character ? { attributes: { ...page.shown.attributes, ...preset.character } } : {}) }); });
       }),
-      // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind asks.
-      following(() => page.spec, (spec) => switches("Strikes",
+      // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind
+      // asks of it. A mind of its own is not read through (`labActor`), so nothing of its is barred.
+      when(() => takesScript(labMind(page.shown.mind, page.spec, page.shown.scenario).plays), following(() => page.spec, (spec) => switches("Strikes",
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),
         (held) => !page.shown.barred.includes(held),
-        (held) => page.load({ ...page.shown, barred: HOLDS.filter((h) => (h === held) !== page.shown.barred.includes(h)) }))),
+        (held) => page.load({ ...page.shown, barred: HOLDS.filter((h) => (h === held) !== page.shown.barred.includes(h)) })))),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       fold("Edit the mind", [following(() => page.spec, (spec) => {
         const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
-          onChange: (mind) => page.load({ ...page.shown, mind }) });
+          onChange: (mind) => page.load(labWithMind(page.shown, mind)) });
         return { element: editor.element, refresh() {} };
       })]),
     ]),

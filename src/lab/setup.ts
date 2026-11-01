@@ -1,5 +1,5 @@
 import type { ScreenContext } from "../ui/screen.ts";
-import { labHref, LAB_WALKER, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
+import { labHref, labWithMind, LAB_WALKER, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
 import { takesScript } from "../entrants/game.ts";
@@ -25,7 +25,7 @@ export function showScenarios(address: LabAddress, context: ScreenContext): void
       if (scenario.id === "ground") fighter = groundMind(fighter);
       mind = fighter;
     }
-    const chosen = { ...address, mind, scenario: scenario.id };
+    const chosen = { ...labWithMind(address, mind), scenario: scenario.id };
     card.href = labHref(chosen, context.address.search);
     card.append(Object.assign(document.createElement("strong"), { textContent: scenario.name }));
     return card;

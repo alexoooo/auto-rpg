@@ -2,7 +2,7 @@ import { LAB_RATES, labMind, type LabAddress } from "../scenarios.ts";
 import { entries, following, menu, when, type Control, type Named } from "../../ui/controls.ts";
 import type { LabPage } from "./sections.ts";
 import { dummyPart, dummyParts } from "../dummy-spec.ts";
-import { attackTargetWarnings } from "../attack-target.ts";
+import { attackTargetWarnings, strikeKit } from "../attack-target.ts";
 import { takesScript } from "../../entrants/game.ts";
 
 const RATES: Named<LabAddress["hz"]> = {
@@ -21,8 +21,9 @@ export function scenarioSection(page: LabPage): readonly Control[] {
     const next = [page.spec, page.shown.mind, page.shown.barred, page.shown.targetPart];
     if (next.every((value, index) => value === previous[index])) return;
     previous = next;
-    const mind = labMind(page.shown.mind, page.spec, "attack").plays;
-    const warnings = takesScript(mind) ? attackTargetWarnings(page.spec, mind, page.shown.targetPart, page.shown.barred) : [];
+    // A mind of its own is not barred from a strike (`labActor`).
+    const mind = labMind(page.shown.mind, page.spec, "attack").plays, kit = strikeKit(mind);
+    const warnings = kit ? attackTargetWarnings(page.spec, kit, page.shown.targetPart, takesScript(mind) ? page.shown.barred : []) : [];
     feedback.textContent = warnings.join(" "); feedback.hidden = warnings.length === 0;
   } };
   return [

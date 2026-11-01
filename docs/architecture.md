@@ -1676,9 +1676,14 @@ may route through a door first (`door-approach.ts`). Sight is the map's (`canSee
 **The Lab.** Stance, Stand-up, Attack, Locomotion and Reach scenarios at 120 or 480 Hz. Reach
 (`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
 Walker (`LAB_WALKER`) unless the address names another, and the place its objective names is marked.
-An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and strikes. Attack
+Every other scenario plays a mind that takes its script, or one that carries out orders (`treeObeys`),
+the Option Mind among them: the scenario's own orders, or its script made orders each step, a
+direct walk, a facing and a gait held to before the mind's own judgement (`Orders.firm`).
+An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and, a mind that takes
+its script, its strikes. Attack
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`). Its explicit target
-part travels in `targetPart` in the address; the default is the body's head. `dummy-spec.ts`
+part travels in `targetPart` in the address; the default is the part the most of its mind's actions
+aim at, the head first (`attackTargetPart`). `dummy-spec.ts`
 constructs that part's ball and preserves its middle and leg membership. The setup's anatomical
 compatibility feedback (`attack-target.ts`) reads armed actions, their declared regions and barred
 effectors using the same region and permission rules as execution. It changes no mind settings
