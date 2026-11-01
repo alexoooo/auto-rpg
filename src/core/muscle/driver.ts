@@ -154,19 +154,11 @@ export interface MuscleDriver {
   /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
   readonly pulled: Float64Array;
   /**
-   * **What the command was solved for**, an efference copy: the motion motor control expects its
-   * command to give the body, in the dynamics' rows (`BodyDynamics`): the root's angular
-   * acceleration and its centre's (world), then each channel's speed's change; NaN where it
-   * expects nothing of its own (a row left to the body). A mind a step or more behind its body
-   * carries its sense of the body forward by it (`Mirror.forecast`).
-   */
-  readonly planned: Float64Array;
-  /**
-   * **The speed each channel's command expects** by the end of the step it is applied in, rad/s;
-   * NaN where it expects none. A command sent a step or more before it is applied carries it
-   * (`embody`): a torque the command gives is then a velocity motor toward that speed, held within
-   * `PLAN_REFLEX` of the channel's strength around the torque, so the body corrects at once what
-   * the late command could not see.
+   * **The speed each channel's command was solved to reach**, an efference copy: rad/s by the end
+   * of the step it is applied in; NaN where the command expects none. In a world with a delay, a
+   * torque the command gives is a velocity motor toward that speed, held within `PLAN_REFLEX` of
+   * the channel's strength around the torque, so the body corrects at once what the late command
+   * could not see; and a mind carries its sense of the body forward by it (`Mirror.forecast`).
    */
   readonly expect: Float64Array;
   /** Its memory (`src/core/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
@@ -250,11 +242,10 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   let hook: Hook | null = null;
   let after: Hook | null = null;
   // The commands sent and not yet applied, a slot a step of the world's delay and one more; none where none was sent that long ago.
-  const line = delayLine(world.delay), none = new Float64Array(n), unexpected = new Float64Array(n).fill(NaN);
+  const line = delayLine(world.delay), none = new Float64Array(n), unexpected = new Float64Array(n).fill(NaN), late = world.delay > 0;
   const state = {
     level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
-    planned: new Float64Array(6 + n).fill(NaN),
     expect: new Float64Array(n).fill(NaN),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) },
     /** Each side's tendon's stretch after the last step, rad; 0 where it has none. */
@@ -269,7 +260,6 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     velocity: state.velocity,
     ceiling: state.ceiling,
     pulled: state.pulled,
-    planned: state.planned,
     expect: state.expect,
     bounds: state.bounds,
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
@@ -350,7 +340,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const along = c.dof.sign > 0;
       // A torque the command expects a speed of is held around it toward that speed (`expect`).
       const expects = expected[i]!;
-      if (!Number.isFinite(target) && Number.isFinite(expects) && Number.isFinite(activation)) {
+      if (late && !Number.isFinite(target) && Number.isFinite(expects) && Number.isFinite(activation)) {
         const up = driver.strength(i, 1), down = driver.strength(i, -1), margin = PLAN_REFLEX * (up > down ? up : down);
         const torque = target > 0 ? activation * up : -activation * down;
         const low = Math.max(torque - margin, -down), high = Math.min(torque + margin, up);

@@ -145,24 +145,28 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
     if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
   };
-  // The motion each command in flight was solved for (`MuscleDriver.planned`) and the speeds it expects, a slot a step of the world's delay: a mind carries its mirror forward by them.
-  const flight = { plans: [] as Float64Array[], expect: [] as Float64Array[], motion: new Float64Array(0), sent: 0 };
+  // The speeds each command in flight was solved to reach (`MuscleDriver.expect`) and its accelerations, a slot a step of the world's delay: a mind carries its mirror forward by them.
+  const flight = { expect: [] as Float64Array[], solved: [] as Float64Array[], motion: new Float64Array(0), sent: 0 };
+  const standing = standingSegments(built.spec);
   const muscles = driveMuscles(built, world, (driver, dt) => {
     if (mirrored) {
       mirrored.writer.write();
       mirrored.mirror.refresh({ dynamics: true });
-      // What it decides now moves the body once the commands in flight have: it reads the body as they leave it, oldest first.
-      const mirror = mirrored.mirror, planned = mirror.muscles.planned, d = flight.plans.length;
-      for (let k = 0; k < d; k++) forecast(mirror, flight.plans[(flight.sent + k) % d]!, flight.expect[(flight.sent + k) % d]!, flight.motion, dt);
+      const mirror = mirrored.mirror, expect = mirror.muscles.expect, d = flight.expect.length;
+      // On its legs, what it decides moves the body once the commands in flight have: it reads the body as they leave it, oldest first.
+      // Anything else touching, the forecast does not know the contact, and it reads the body as it was.
+      const feet = onFeet(mirror, standing);
+      if (feet) for (let k = 0; k < d; k++) forecast(mirror, flight.expect[(flight.sent + k) % d]!, flight.solved[(flight.sent + k) % d]!, flight.motion, dt);
       mind!.step(mirror.senses, dt);
       if (d > 0) {
-        // A command sent ahead expects each channel's speed: the one it was solved for (`MuscleDriver.expect`).
-        for (let i = 0; i < driver.expect.length; i++) driver.expect[i] = mirror.muscles.speed(i) + dt * planned[6 + i]!;
-        flight.plans[flight.sent % d]!.set(planned);
-        flight.expect[flight.sent % d]!.set(driver.expect);
+        const slot = flight.sent % d, solved = flight.solved[slot]!;
+        if (!feet) expect.fill(NaN);
+        for (let i = 0; i < expect.length; i++) solved[i] = (expect[i]! - mirror.muscles.speed(i)) / dt;
+        flight.expect[slot]!.set(expect);
+        driver.expect.set(expect);
         flight.sent += 1;
       }
-      planned.fill(NaN);
+      expect.fill(NaN);
       mirrored.mirror.answer();
       mirrored.writer.carry(request);
     } else mind!.step(sense(), dt);
@@ -178,7 +182,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     mind!.idle?.();
     help!.reset();
     line.reset();
-    for (const plan of [...flight.plans, ...flight.expect]) plan.fill(NaN);
+    for (const slot of [...flight.expect, ...flight.solved]) slot.fill(NaN);
     posed.asked.length = 0;
     for (const slot of posed.sent) slot.length = 0;
   }, world.mirrored ? { dynamics: false } : {});
@@ -190,10 +194,10 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     mirrored = { writer, mirror: mirrorBody(statics, writer.channel) };
     const n = mirrored.mirror.muscles.channels.length;
     for (let k = 0; k < world.delay; k++) {
-      flight.plans.push(new Float64Array(6 + n).fill(NaN));
       flight.expect.push(new Float64Array(n).fill(NaN));
+      flight.solved.push(new Float64Array(n).fill(NaN));
     }
-    flight.motion = new Float64Array(6 + n);
+    flight.motion = new Float64Array(6 + n).fill(NaN);
   }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
@@ -229,21 +233,32 @@ function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { read
     hands: hands.splice(0) });
 }
 
+/** The segments `spec`'s legs bear it on: its feet, paws and propped shins (`BodySpec.ends`), not its hands. */
+function standingSegments(spec: BodySpec): ReadonlySet<string> {
+  return new Set((spec.ends ?? []).filter((end) => end.kind !== "end").map((end) => end.segment));
+}
+
+/** Whether `mirror`'s body touches anything with none but the segments its legs bear it on (`standing`), as last read. */
+function onFeet(mirror: Mirror, standing: ReadonlySet<string>): boolean {
+  for (const segment of mirror.read.segments.values())
+    if (!standing.has(segment.spec.name) && mirror.read.physics.contactsOf(segment.body).length > 0) return false;
+  return true;
+}
+
 /**
- * Carries a mirror a step forward through a command in flight: the root as the command was solved
- * to move it, and each channel the command expects a speed of toward that speed, as far as the
- * plan's reflex (`PLAN_REFLEX`) can take it from the motion solved: the margin over the inertia
- * beyond the joint.
+ * Carries a mirror a step forward through a command in flight: each channel toward the speed the
+ * command expects (`MuscleDriver.expect`), as far as the plan's reflex (`PLAN_REFLEX`) can take it
+ * from the acceleration solved: the margin over the inertia beyond the joint. The root moves as the
+ * joints and its own motion carry it.
  */
-function forecast(mirror: Mirror, plan: Float64Array, expect: Float64Array, motion: Float64Array, dt: number): void {
+function forecast(mirror: Mirror, expect: Float64Array, solved: Float64Array, motion: Float64Array, dt: number): void {
   const muscles = mirror.muscles, mass = muscles.dynamics.mass;
-  motion.set(plan);
   for (let i = 0; i < expect.length; i++) {
-    const solved = plan[6 + i]!;
-    if (Number.isNaN(solved) || Number.isNaN(expect[i]!)) continue;
+    const a = solved[i]!;
+    if (Number.isNaN(a)) { motion[6 + i] = NaN; continue; }
     const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
     const wanted = (expect[i]! - muscles.speed(i)) / dt;
-    motion[6 + i] = wanted < solved - reach ? solved - reach : wanted > solved + reach ? solved + reach : wanted;
+    motion[6 + i] = wanted < a - reach ? a - reach : wanted > a + reach ? a + reach : wanted;
   }
   mirror.forecast(motion, dt);
 }

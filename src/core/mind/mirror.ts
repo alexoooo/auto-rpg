@@ -291,8 +291,8 @@ export interface Mirror {
   /** Write what its mind asked into the channel's outbound numbers, and forget the hands' requests sent. */
   answer(): void;
   /**
-   * **Carry the body forward a step of `dt`** under `motion`, a command's efference copy
-   * (`MuscleDriver.planned`): each segment's spin and its centre's velocity change by what the
+   * **Carry the body forward a step of `dt`** under `motion`, in the dynamics' rows
+   * (`BodyDynamics`; NaN where the body moves as it was): each segment's spin and its centre's velocity change by what the
    * motion accelerates it at (`BodyDynamics.accelerationToRef`), its pose moves by them as the
    * solver moves a body, its joints are read again from the poses and spins, and its dynamics
    * read there. Its contacts, hands and senses stay as last read. Read after `refresh` with dynamics.
@@ -400,12 +400,12 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
-    planned: new Float64Array(6 + n).fill(NaN), bounds: { negative: new Float64Array(n), positive: new Float64Array(n) } };
+    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) } };
   const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const muscles: MuscleDriver = {
-    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, planned: state.planned, expect: new Float64Array(n).fill(NaN), bounds: state.bounds,
+    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, expect: new Float64Array(n).fill(NaN), bounds: state.bounds,
     get dynamics() { return dynamics!; },
     get level() { return state.level; },
     angle: (i) => angles[i]!, rate: (i) => rates[i]!, speed: (i) => speeds[i]!, turning: (i, k) => turning[3 * i + k]!,

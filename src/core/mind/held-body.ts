@@ -13,7 +13,6 @@ export function heldBody(body: Pick<Body, "built" | "muscles" | "assist" | "view
   const muscles: MuscleDriver = {
     channels: real.channels, activation, velocity, dynamics: real.dynamics, ceiling: real.ceiling, bounds: real.bounds, pulled: real.pulled,
     // It plans no motion of its own: what it commands is carried as pushes.
-    planned: new Float64Array(real.planned.length).fill(NaN),
     expect: new Float64Array(real.expect.length).fill(NaN),
     get state() { return real.state; }, get level() { return real.level; },
     angle: (i) => real.angle(i), rate: (i) => real.rate(i), speed: (i) => real.speed(i), turning: (i, k) => real.turning(i, k),
