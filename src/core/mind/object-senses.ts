@@ -9,8 +9,21 @@ export type SolidSense =
   | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3; readonly turn?: number }
   | { readonly name: string; readonly kind: "hull"; readonly centre: Vec3; readonly points: readonly Vec3[] };
 
-/** Trusted grants are copied and frozen; changing the caller's geometry changes no policy input. */
+/** Each list granted, its frozen copy (`solidSenses`): every body granted the same list senses one copy. */
+const GRANTED = new WeakMap<readonly SolidSense[], readonly SolidSense[]>();
+
+/** Trusted grants are copied and frozen, once a list; changing the caller's geometry changes no policy input. */
 export function solidSenses(definitions: readonly SolidSense[]): readonly SolidSense[] {
+  let granted = GRANTED.get(definitions);
+  if (!granted) {
+    GRANTED.set(definitions, granted = copiedSolids(definitions));
+    // A copy granted again is itself.
+    GRANTED.set(granted, granted);
+  }
+  return granted;
+}
+
+function copiedSolids(definitions: readonly SolidSense[]): readonly SolidSense[] {
   const ids = new Set<string>(), tuple = (v: Vec3) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
   for (const solid of definitions) {
     if (!solid.name || ids.has(solid.name) || !tuple(solid.centre)) throw new Error("invalid sensed solid identity or position");

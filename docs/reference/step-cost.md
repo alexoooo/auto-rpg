@@ -738,6 +738,22 @@ The first make of a model reads its data and is compiled: about 140 ms for the W
 Skeleton, as before. What is left of a warm make is the body's own: its rise's limbs and their
 work, its motors, its first look at its contacts, its skills' executors.
 
+In the Crypt each actor resolves its own character, so a spec is shared only if what arms it is
+(`armedWith`, made once for each spec, hand and item), and every body is granted the level's
+solids (`solidSenses`, one frozen copy a list). A foe's whole build (`DungeonRun.build`: body,
+pool, senses and mind), each run's enemies built in turn outside a step, seeds 1 to 8, the first
+build of each model left out; pinned:
+
+| Foe | At `02d2af80`, median, ms | Least | Now, median, ms | Least |
+| --- | --- | --- | --- | --- |
+| Skeleton (26 builds) | 18.8 | 14.2 | 6.3 | 5.1 |
+| Reptile (91 builds) | 3.1 | 2.3 | 1.9 | 1.3 |
+
+**A body's first step costs about what its next does**: on the stand, thirty Skeletons added one
+at a time to a warm world, their first steps took 314 ms in all against 297 for their second,
+half a millisecond a body; in the Crypt the step after a foe's build is 0.6 to 2 ms over the
+steps that follow it. The 10 ms read before was the make's work done lazily.
+
 ## The crypt's plan in the step
 
 `research/crypt-plan.mjs`: a crypt run with no visuals, the hero exploring with three Warriors
