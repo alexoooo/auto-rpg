@@ -153,6 +153,14 @@ none.
 
 ## Tried and not kept
 
+- **The toed Rogue's club blow**: its schedule searched from the Warrior's on the still rung
+  (`research/punch-drill.mjs --blow club-blow`, gaps 0.9 to 1.1 m) lands 2 of 24 unsteered, most
+  blows weak at 15 to 37 J against its scaled bar's 33.5. Steered by PPO on the Warrior's
+  environment (`research/environments/club-blow.json`) with the Rogue in his place: from the
+  Warrior's network, whole or with its outputs scaled by a quarter, it lands none (score -0.5);
+  from scratch, 5.4 M decisions, its training score rose from 1.2 to 5 and the share meeting the
+  bar stayed at 2 to 9 %, no better than unsteered. No record; Option Mind leaves the club blow out
+  on the Rogue.
 - **Faster or stronger arms for the club** (above): no faster at the target, so not kept.
 - **A club met with the palm** (`BLUNT_FACING` the item's z, either way): from the guard it met
   the target's guard, 15.5 J at best, unsearched.

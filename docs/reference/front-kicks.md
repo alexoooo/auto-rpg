@@ -105,6 +105,13 @@ before it asks.
   (0.3 to 0.5 / 0.55 to 0.75 m), whose blows with the knee bent 43 to 66 degrees reached 47 to 126 J,
   but where 2 to 3 trials of 12 fell and 2 to 10 never reached the window.
 
+**The toed Rogue has no front kick.** The Warrior's settings, its lengths scaled by the Rogue's
+stature (`research/skill-search.mjs front-kick workshop-rogue --try`), put nothing on the mark
+(-0.99). Searched from there on the kicking rung's 12 trials (27 generations of 16), the best
+scored 7.76 and 8.04; on the 18 fresh trials of `--confirm` they landed 8 and 5 and fell 3 and
+5, so neither is kept (a kept kick falls no more than its start, which never fell). Option Mind
+leaves the kick out on the Rogue.
+
 ## Harness and qualification
 
 `node research/front-kicks.mjs` records six cases in `front-kicks.json.gz`: Node unpinned Warrior
