@@ -35,11 +35,23 @@ const DUEL = { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 2 
 /** Wait `ms` of real time. */
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Let the messages already sent be heard: they are taken before an immediate runs. */
+const heardOut = () => new Promise((resolve) => setImmediate(resolve));
+
+/**
+ * How long the page waits for an answer it asked for, ms: what has not come by then is not coming.
+ * The worker shares the page's thread, so a slow build or a long console step delays the answer
+ * without losing it; this is many times the slowest seen with the machine loaded.
+ */
+const PATIENCE_MS = 60000;
+
 /**
  * Build `start` in a worker on a channel and play it to its end: 30 steps from the console, then
  * run in real time, each step 15 ms dearer for 400 ms, `meanwhile` told the page's end once the
  * world runs; then held, and the rest stepped from the console, at most `rest` steps. What the page
- * heard, and the stage's tape.
+ * heard, and the stage's tape. An answer that does not come, or a fault, fails naming what the page
+ * waited for; however it ends, the stage is stopped and the channel closed, or the open channel
+ * would hold the test's process alive.
  */
 async function played(start, meanwhile = async () => {}, rest = 1e6) {
   const { port1: page, port2: worker } = new MessageChannel();
@@ -58,27 +70,43 @@ async function played(start, meanwhile = async () => {}, rest = 1e6) {
       default: heard.faults.push(`unknown message ${message.kind}`);
     }
   });
-  const until = async (done, ms) => { const end = Date.now() + ms; while (!done() && Date.now() < end && !heard.faults.length) await wait(5); };
-  page.postMessage(start);
-  await until(() => heard.ready, 20000);
-  assert.deepEqual(heard.faults, []);
-  assert.ok(heard.ready, "the worker built no stage");
-  page.postMessage({ kind: "step", steps: 30 });
-  await until(() => heard.stepped === 1, 20000);
-  page.postMessage({ kind: "burden", ms: 15 });
-  page.postMessage({ kind: "run", running: true });
-  await Promise.all([meanwhile(page), wait(400).then(() => page.postMessage({ kind: "burden", ms: 0 }))]);
-  page.postMessage({ kind: "run", running: false });
-  page.postMessage({ kind: "step", steps: rest });
-  await until(() => heard.stepped === 2, 20000);
-  page.postMessage({ kind: "tape" });
-  await until(() => heard.tape, 2000);
-  page.postMessage({ kind: "stop" });
-  await until(() => closed, 2000);
-  page.close();
+  /** Wait until `done()`: a fault, or `PATIENCE_MS` without it, fails saying `what` the page waited for. */
+  const until = async (what, done) => {
+    const end = Date.now() + PATIENCE_MS;
+    for (;;) {
+      if (!done() && Date.now() >= end) await heardOut();
+      if (done()) return;
+      assert.deepEqual(heard.faults, [], `the ${start.kind} stage's worker faulted while the page waited for ${what}`);
+      assert.ok(Date.now() < end, `the ${start.kind} stage's worker sent no ${what} in ${PATIENCE_MS / 1000} s: ${heard.frames.length} frames heard`);
+      await wait(5);
+    }
+  };
+  try {
+    page.postMessage(start);
+    await until("ready (its stage built)", () => heard.ready);
+    page.postMessage({ kind: "step", steps: 30 });
+    await until("stepped after the first 30 console steps", () => heard.stepped === 1);
+    page.postMessage({ kind: "burden", ms: 15 });
+    page.postMessage({ kind: "run", running: true });
+    await Promise.all([meanwhile(page), wait(400).then(() => page.postMessage({ kind: "burden", ms: 0 }))]);
+    page.postMessage({ kind: "run", running: false });
+    page.postMessage({ kind: "step", steps: rest });
+    await until(`stepped after the rest of the console steps (at most ${rest})`, () => heard.stepped === 2);
+    page.postMessage({ kind: "tape" });
+    await until("tape", () => heard.tape);
+    page.postMessage({ kind: "stop" });
+    await until("close (it was told to stop)", () => closed);
+  } finally {
+    if (!closed) {
+      page.postMessage({ kind: "stop" });
+      for (const end = Date.now() + PATIENCE_MS; !closed && Date.now() < end;) await wait(5);
+    }
+    page.close();
+    worker.close();
+  }
   assert.deepEqual(heard.faults, []);
   const ended = heard.verdict ?? (heard.crypt.at(-1)?.status === "playing" ? null : heard.crypt.at(-1)?.status);
-  assert.ok(ended && closed, `the stage did not end in the worker, or it did not close: ${JSON.stringify(ended)}`);
+  assert.ok(ended, `the stage did not end in the worker: ${JSON.stringify(ended)}`);
   assert.ok(heard.frames.some((frame) => frame[2] < 0.9), "no frame ran behind real time");
   return heard;
 }
