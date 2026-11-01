@@ -1309,6 +1309,12 @@ which are neither the target's nor the fresh falls. They are read with `research
 (Node, core world, Rapier, 120 Hz), which logs each ground action a fall takes: where it began, its
 stages, and how it ended.
 
+On the target itself (`npm run evaluate -- rising-target --mind <Option Mind's preset>`, at
+`d98f96c1`) the Warrior stands 31 of 32, 5 within 6 s, a median of 9.14 s (8.53 to 10.78): with
+the club 15 of 16, 10.78 s; empty-handed 16 of 16, 8.71 s. On the fresh falls (`rise-trace.mjs
+--offsets 11.25`) it stands 32 of 32, a median of 8.69 s. The Rogue's falls fault there: Option
+Mind refuses the toed Rogue, which has no straight punch record.
+
 What moves it, each read on the same falls against the one before:
 
 - **A low body lies** (`LYING`, `src/core/control/ground-reading.ts`). A body under 0.3 of its
