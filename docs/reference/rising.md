@@ -58,7 +58,9 @@ npm run evaluate -- rising-target [riser ...]
   counts at the cap; a fall not made is no stand-up.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
   16 within 6 s in each body and loadout group, and 61 of 64 overall; every cardinal direction
-  within 6 s; a failure-inclusive median of at most 4 s.
+  within 6 s; a failure-inclusive median of at most 10 s (the owner, 2026-10-31: Option Mind's
+  fastest tenth of the Warrior's 64 falls, the target's and the fresh, stand by 10.45 s at
+  `bfdae8db`, its median 17.0 s).
 - **Against people** ([competencies](competencies.md#targets)): young adults rising from the floor
   at a comfortable rate take a mean 1.4 to 2.6 s by starting position, and from the back a third
   less asked for speed; healthy older adults take 2.4 to 5.5 s (Alexander et al. 1997). College-age
@@ -67,9 +69,9 @@ npm run evaluate -- rising-target [riser ...]
   Bond University, the abstract). Their clock runs from a cued start at rest to a switch 0.9 m up;
   the target's also holds the landing and settling after the fall and the steadying to a verified,
   quiet stance (on step-up's stood falls a median 1.1 s before the rise and 2.7 after it, [where the rise
-  stops](#where-the-rise-stops)). A young
-  adult's comfortable rise leaves 1.4 to 2.6 s of the 4 s median for those, and the 6 s a fall is
-  above the older adults' slowest mean.
+  stops](#where-the-rise-stops)). With
+  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s median, and
+  the 6 s a fall is above the older adults' slowest mean.
 - **The baseline** is the game's Stand up (`step-up`) ([Step-up on the owner's target](#step-up-on-the-owners-target)).
 - **A controller that acts on the muscles from an observation** runs on the stand-up screen's
   sixteen falls, made afresh each run:
@@ -854,7 +856,7 @@ Every humanoid stands up by Stand up with `step-up`, in the Arena and the Crypt.
 | Rogue | empty | 13 | 15.5 |
 | Rogue | club | 9 | 20.7 |
 
-53 of 64; none within 6 s, and the 4 s median is not met (15.1 s). Without the other side's retry
+53 of 64; none within 6 s, and the median is not met (15.1 s). Without the other side's retry
 it stood 52.
 
 - **The run's leg strength is what the rise loses**: with the legs' torques at their measured peaks
@@ -873,8 +875,8 @@ it stood 52.
 
 ## The budget
 
-Of the target's 4 s median, the body is first slow 0.6 s after takeover, and step-up's hand-back
-from the end of its rise to verified standing takes 1.7 s: about 1.7 s is left for the rise. The
+Of the target's 10 s median, the body is first slow 0.6 s after takeover, and step-up's hand-back
+from the end of its rise to verified standing takes 1.7 s: about 7.7 s is left for the rise. The
 stance alone from the squat takes 2.1 to 3.4 s to verified standing. Back and side falls (53 of 64)
 all go through the roll; front falls stand least.
 
@@ -912,17 +914,16 @@ fall not stood counts at the 30 s cap.
   all). Past standing height the trunk pitches forward (its up axis at 0.84 of vertical 1 s in, on
   seed 4) and is upright and still about 1.6 s in; then the 0.5 s quiet. The Rogue in the Warrior's
   squat stands from 1 of its 9 placed draws.
-- **The allowance**: a median fall has 4 s less 0.6 s, about 3.4 s from first slow to verified
-  standing. Ended at step-up's lunge, about 1.7 s of that is the rise's; handed to the stance in a
-  squat, at most about 1.3 s.
+- **The allowance**: a median fall has 10 s less 0.6 s, about 9.4 s from first slow to verified
+  standing. Ended at step-up's lunge, about 7.7 s of that is the rise's; handed to the stance in a
+  squat, at most about 7.3 s.
 
 ## A fast route
 
 The body gets off the ground fast: closed-loop phases rise from the back to a crouch on the feet in
 1.55 s and from hands and knees in 1.48 s, and stand to verified standing in 4.89 and 3.68 s from
 rest. The slow part is from the crouch to quiet standing, 2.2 to 3.3 s, the stance's settling
-([the budget](#the-budget)). With a hand-back near 1 s, the rise from the back would come within
-the target's allowance of about 3.4 s. Neither witness is robust: the push-off stands from its own
+([the budget](#the-budget)). Both come within the target's allowance of about 9.4 s. Neither witness is robust: the push-off stands from its own
 start only, the rock-up from 3 of 4.
 
 `node research/rise-witness.mjs --move <move>` (Node stand, core world, Rapier, 120 Hz, the

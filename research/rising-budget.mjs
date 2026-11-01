@@ -1,6 +1,6 @@
 /**
  * **The stand-up's time budget** on the owner's target (Node stand, core world, Rapier, 120 Hz):
- * what of the 4 s median is spent before and after the rise. Two readings:
+ * what of the target's median is spent before and after the rise. Two readings:
  *
  * - The target's 64 falls under Stand up with Step up alone (`risingJobs`, the falls
  *   `npm run evaluate -- rising-target` plays): each fall's lie when the body is first slow

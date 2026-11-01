@@ -228,7 +228,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([Recovery](plans/2026-10-23-recovery.md)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
   at least 15 of 16 verified recoveries within 6 s in every group, 61 of 64 overall, every
-  cardinal direction in every group, a failure-inclusive median at most 4 s, unassisted. Step-up,
+  cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. Step-up,
   the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
   edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
   Rogue with the club (9 and 10 of 16 against 11 and 12). The fast edge from hands and knees on

@@ -298,7 +298,7 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
  * handed back), within 6 and 12 s, the failure-inclusive median (a fall not stood counts at its
  * cap), and each technique's attempts. On the owner's target, its gates: every direction once in
  * each group, 15 of 16 within 6 s in each, 61 of 64 overall, every cardinal direction within 6 s,
- * a median of at most 4 s.
+ * a median of at most 10 s.
  */
 export function risingReport(rows: readonly RisingRow[], target = false) {
   if (target && rows.some(row => row.obstacle || row.level && row.level !== "open")) throw new Error("obstacle falls cannot satisfy the open-floor target");
@@ -337,7 +337,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
       eachGroup15of16: complete && groups.every(group => group.within6 >= 15),
       total61of64: complete && rows.filter(row => successful(row, 6)).length >= 61,
       allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, 6)),
-      median4: complete && medianOf(rows.map(row => time(row) ?? 30))! <= 4 };
+      median10: complete && medianOf(rows.map(row => time(row) ?? 30))! <= 10 };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
   const obstacles = rows.length > 0 && rows.every(row => row.obstacle), equipped = rows.length > 0 && rows.every(row => row.equipped);
