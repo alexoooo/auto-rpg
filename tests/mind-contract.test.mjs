@@ -43,8 +43,8 @@ const STEPS = 180, FORK = 90, GAP = 0.9;
 /** The most a segment's centre may move, m/s, and a body's centre of mass: as the smoke test holds a bout to. */
 const FLUNG = Object.freeze({ segment: 40, body: 12 });
 
-/** Every registered Mind: each preset and drill opponent by id, then each controller's defaults by its kind where no preset is them. */
-const MINDS = [...Object.entries(PRESETS), ...Object.entries(DRILL_OPPONENTS)];
+/** Every registered Mind: each preset and drill opponent's mind by id, then each controller's defaults by its kind where no preset is them. */
+const MINDS = [...Object.entries(PRESETS), ...Object.entries(DRILL_OPPONENTS).map(([id, { label, mind }]) => [id, { label, config: mind }])];
 for (const [kind, controller] of Object.entries(CONTROLLERS)) if (!MINDS.some(([, preset]) => preset.config === controller.defaults)) MINDS.push([kind, { config: controller.defaults }]);
 
 test("the game's catalog has no fault, and refuses an entrant's unscoped kind, a preset id twice and a preset of two entrants' kinds", () => {

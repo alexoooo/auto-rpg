@@ -15,12 +15,11 @@
  * `research/core-stance-trials.mjs`): the Warrior 8 N s each way, 55 forward, forward right and
  * back, and 60 to each side, at the middle trunk.
  */
-import type { MindConfig } from "../../core/mind/config.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Shove } from "../../arena/shove.ts";
 import { sideAttributes, type Cases, type Json } from "../evaluation.ts";
-import { opponentOf } from "../drill-opponents.ts";
+import { opponentOf, opposed } from "../drill-opponents.ts";
 import { faultsOf, loadoutsOf, striker, type StrikeSubject } from "../strike/cases.ts";
 import type { Hand, Mark } from "../strike/read.ts";
 import { readStand, type StandReading } from "./read.ts";
@@ -112,7 +111,7 @@ function standCases(rung: StandRung): Cases<StandCondition, StandReading> {
           ...loadoutsOf(subject),
           // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
           start: { left: { at: [-rung.gap / 2, 0], heading: Math.PI / 2 }, right: { at: [rung.gap / 2, 0], heading: -Math.PI / 2 } },
-          minds: { left: led.mind, right: opponentOf(FOE)!.config as MindConfig }, commanders: { left: led.commander }, shove: shoveOf(rung, condition) } };
+          ...opposed(led, opponentOf(FOE)!), shove: shoveOf(rung, condition) } };
     },
     read: (built, condition) => readStand(built, condition, rung),
   };

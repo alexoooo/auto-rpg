@@ -16,7 +16,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { readCover, type CoverReading } from "./read.ts";
-import { opponentOf } from "../drill-opponents.ts";
+import { opponentOf, opposed } from "../drill-opponents.ts";
 
 /** What the subject holds in its right hand: nothing, or a club. */
 type CoverHeld = "empty" | "club";
@@ -75,7 +75,7 @@ function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
           loadouts: { left: loadoutOf(condition), right: protocol.foe },
           // Along +x, as the open stage's spawns are.
           start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: [gap / 2, across], heading: -Math.PI / 2 } },
-          minds: { left: value as unknown as MindConfig, right: opponentOf(protocol.opponent)!.config as MindConfig }, commanders: { left: STANDING } } };
+          ...opposed({ mind: value as unknown as MindConfig, commander: STANDING }, opponentOf(protocol.opponent)!) } };
     },
     read: (built) => readCover(built, protocol),
   };
