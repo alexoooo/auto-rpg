@@ -220,9 +220,10 @@ export interface StanceControl {
   launch(driver: MuscleDriver): void;
   /**
    * Withdraw what the solve expects (`MuscleDriver.expect`) of a swinging leg whose foot still
-   * touches the ground: the solve moves it as free, and the ground holds it.
+   * touches the ground: the solve moves it as free, and the ground holds it. A stance that swings
+   * no leg leaves it out.
    */
-  unexpect(driver: MuscleDriver): void;
+  unexpect?(driver: MuscleDriver): void;
   /**
    * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next
    * command begins from the body as it is. The steps counted stay.
