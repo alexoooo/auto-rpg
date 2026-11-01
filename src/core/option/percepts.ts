@@ -8,7 +8,7 @@ import { strikersOf, type BodySpec, type Side } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { Cover } from "../intent/intent.ts";
 import type { Orders } from "../intent/orders.ts";
-import { measuredAt, profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../skills/framework/profile.ts";
+import { measuredAt, profileReading, profilesOn, readProfile, sameReaction, STANDING, type Measured, type Postures, type Profile, type ProfileReading } from "../skills/framework/profile.ts";
 import type { BodySense } from "../mind/senses.ts";
 import type { Sight } from "../mind/decider.ts";
 import { foePhase, sensedPosture, threatReader, type FoePhase } from "../perception/threat.ts";
@@ -153,7 +153,7 @@ const BY_HAND: Measured = Object.freeze({ body: "", spec: "", skill: "by hand", 
  * phase, `life` of `struck`'s life every `seconds` s.
  */
 function prior(striker: BodySpec, struck: BodySpec, range: number, life: number, seconds: number): ProfileReading {
-  return readProfile({ measured: BY_HAND, target: null,
+  return profileReading({ measured: BY_HAND, target: null,
     cells: [{ range, phase: "clear", trials: 1, done: 1, dealt: life * struck.wounds.hp.value, taken: 0, seconds, down: 0, ends: [] }] }, striker);
 }
 

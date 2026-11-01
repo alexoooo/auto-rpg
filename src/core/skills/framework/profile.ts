@@ -181,6 +181,13 @@ export function readProfile(profile: Profile, striker: BodySpec, postures: Postu
   if (!byPostures) bySpec.set(striker, byPostures = new Map());
   const key = `${postures.own} ${postures.target}`, known = byPostures.get(key);
   if (known) return known;
+  const reading = profileReading(profile, striker, postures);
+  byPostures.set(key, reading);
+  return reading;
+}
+
+/** `profile` read for a skill of a body of `striker` at `postures` (`readProfile`), made anew: for a profile made for one reading, which no later read asks again. */
+export function profileReading(profile: Profile, striker: BodySpec, postures: Postures = STANDING): ProfileReading {
   const own = striker.wounds.hp.value;
   const cells = profile.cells.filter((cell) => cellAt(cell, postures));
   const phaseOf = (phase: string): string => cells.some((cell) => cell.phase === phase) ? phase : "clear";
@@ -224,7 +231,6 @@ export function readProfile(profile: Profile, striker: BodySpec, postures: Postu
       return body !== target.body ? `measured against ${target.body}, read against ${body}` : specDigest(struck) !== target.spec ? `measured against another ${body}` : null;
     },
   };
-  byPostures.set(key, reading);
   return reading;
 }
 

@@ -712,7 +712,10 @@ Node 24.15.0, 120 Hz, pinned to the performance cores, at `a83a8003`: the bouts 
 | Crypt, seed 25, 60 s | 4.16 | 21.80 | 14.78 | one step, building a body |
 
 The crowd fight's playings collected garbage with a scavenge every 20 or so steps (1 to 3 ms) and
-two mark-compacts a minute.
+two mark-compacts a minute. With a mind's reading of a profile made for one prior no longer kept
+(`profileReading`, `src/core/skills/framework/profile.ts`), a mark-compact pauses the step 2 to 4 ms
+with one crowd world in its process and 11 and 13 ms in `research/step-time.mjs`'s later playings,
+whose heap holds the playings before (`--trace-gc`, pinned): its marking runs beside the steps.
 
 ### Making a mind
 
