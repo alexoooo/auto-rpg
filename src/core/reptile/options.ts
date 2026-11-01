@@ -1,47 +1,47 @@
-import type { Choice, Status } from "../../core/mind/choice.ts";
-import { WHOLE } from "../../core/mind/choice.ts";
-import type { OfferTerms } from "../../core/mind/engagement.ts";
-import type { SubMind } from "../../core/mind/sub-mind.ts";
-import type { OptionPart } from "../../core/option/parts.ts";
-import { record } from "../../core/option/value.ts";
-import type { KeysOf, PartConfig } from "../../core/parts/parts.ts";
-import { STAND_TRAVEL } from "../../core/reptile/crawl.ts";
-import type { BiteSelection, QuadrupedLayers } from "../../core/reptile/layers.ts";
-import { fitsJaw, fitsPaws, type QuadrupedIntent, type QuadrupedSight } from "../../core/reptile/parts.ts";
-import { REPTILE_BITE, REPTILE_TROT } from "../../core/reptile/tuning.ts";
-import type { Decider } from "../../core/mind/decider.ts";
-import type { Rulebook } from "../../core/rules/rulebook.ts";
-import type { Readiness } from "../../core/skills/framework/action.ts";
-import type { BodySpec } from "../../core/spec/body.ts";
-import { deepFreeze } from "../../core/state.ts";
-import { priorRate, type ReptileSituation } from "./situation.ts";
+import type { Choice, Status } from "../mind/choice.ts";
+import { WHOLE } from "../mind/choice.ts";
+import type { OfferTerms } from "../mind/engagement.ts";
+import type { SubMind } from "../mind/sub-mind.ts";
+import type { OptionPart } from "../option/parts.ts";
+import { record } from "../option/value.ts";
+import type { KeysOf, PartConfig } from "../parts/parts.ts";
+import { STAND_TRAVEL } from "./crawl.ts";
+import type { BiteSelection, QuadrupedLayers } from "./layers.ts";
+import { fitsJaw, fitsPaws, type QuadrupedIntent, type QuadrupedSight } from "./parts.ts";
+import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
+import type { Decider } from "../mind/decider.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
+import type { Readiness } from "../skills/framework/action.ts";
+import type { BodySpec } from "../spec/body.ts";
+import { deepFreeze } from "../state.ts";
+import { priorRate, type QuadrupedSituation } from "./situation.ts";
 
 /**
  * **What an option asks in a step**: an intent for the body's layers (`QuadrupedLayers.act`) and
  * the foe's part its bite aims at; or, with no intent, that the righting has the body.
  */
-export interface ReptileAsk {
+export interface QuadrupedAsk {
   readonly intent: QuadrupedIntent | null;
   readonly selection: BiteSelection;
 }
 
 /**
- * **An Option Reptile's option**: a skill of its body applied to its focus, a choice of the
+ * **A quadruped's option**: a skill of its body applied to its focus, a choice of the
  * toolkit's set selection (`Choice`, `selectSet`), with its model (`OfferTerms`: its duration, what
  * it deals and takes, the orders it carries out and where it leaves the body) and its step.
  */
-export interface ReptileOption extends Choice<ReptileSituation> {
-  model(now: ReptileSituation): OfferTerms;
-  step(now: ReptileSituation, dt: number): ReptileAsk;
+export interface QuadrupedOption extends Choice<QuadrupedSituation> {
+  model(now: QuadrupedSituation): OfferTerms;
+  step(now: QuadrupedSituation, dt: number): QuadrupedAsk;
 }
 
 /**
- * **What the Option Reptile gives each kind of its options** to make them from: its body's spec,
+ * **What a quadruped's frame gives each kind of its options** to make them from: its body's spec,
  * the fight's rules, its layers, its stalk (the quadruped's tactics, which approach, creep and bite
  * at the first exposed surface, and carry out a person's orders), its righting, the limb it bites
  * with (`strikersOf`) and its bite's window (`biteWindow`).
  */
-export interface ReptileGiven {
+export interface QuadrupedGiven {
   readonly spec: BodySpec;
   readonly limb: string;
   readonly rules: Rulebook;
@@ -51,8 +51,8 @@ export interface ReptileGiven {
   readonly window: number;
 }
 
-/** **A kind of the Option Reptile's options** (`OptionPart`): made from what it gives (`ReptileGiven`). */
-export type ReptileOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, ReptileGiven, ReptileOption>;
+/** **A kind of a quadruped's options** (`OptionPart`): made from what it gives (`QuadrupedGiven`). */
+export type QuadrupedOptionPart<C extends PartConfig = PartConfig> = OptionPart<C, QuadrupedGiven, QuadrupedOption>;
 
 /** What the legs hold, and what the legs and jaw hold. */
 const LEGS = Object.freeze(["legs"]), LEGS_AND_JAW = Object.freeze(["legs", "jaw"]);
@@ -73,19 +73,19 @@ const RIGHTING_SECONDS = 3;
 const KEPT = 2;
 
 /** Where an option that does not move the body leaves it: as it stands, on its paws. */
-const standing = (now: ReptileSituation) => ({ range: now.range, down: 0 });
+const standing = (now: QuadrupedSituation) => ({ range: now.range, down: 0 });
 
 /** The focus's direction across the ground from the body's centre, or null with none. */
-function toward(now: ReptileSituation): { readonly x: number; readonly z: number } | null {
+function toward(now: QuadrupedSituation): { readonly x: number; readonly z: number } | null {
   if (!now.focus) return null;
   const dx = now.focus.centre.x - now.view.centre.x, dz = now.focus.centre.z - now.view.centre.z, far = Math.sqrt(dx * dx + dz * dz);
   return far > 0 ? { x: dx / far, z: dz / far } : null;
 }
 
 /** A kind of option with no settings of its own, `kind`, labelled `label`, fitting a body by `fits`, made by `make`. */
-function kind<K extends string>(kind: K, label: string, fits: ReptileOptionPart["fits"], make: (given: ReptileGiven) => readonly ReptileOption[]): ReptileOptionPart<{ readonly kind: K }> {
-  return deepFreeze({ role: "option", label, stage: "game", fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
-    fits, faults: () => [], make: (_config: { readonly kind: K }, given: ReptileGiven) => make(given) });
+function kind<K extends string>(kind: K, label: string, fits: QuadrupedOptionPart["fits"], make: (given: QuadrupedGiven) => readonly QuadrupedOption[]): QuadrupedOptionPart<{ readonly kind: K }> {
+  return deepFreeze({ role: "option", label, stage: "game", frame: "quadruped", fields: [], slots: [], defaults: { kind }, keys: { kind: true } as KeysOf<{ readonly kind: K }>,
+    fits, faults: () => [], make: (_config: { readonly kind: K }, given: QuadrupedGiven) => make(given) });
 }
 
 /**
@@ -93,9 +93,9 @@ function kind<K extends string>(kind: K, label: string, fits: ReptileOptionPart[
  * the bite's window; slowing as it closes, as the stalk does (`REPTILE_BITE.approach`, `braking`).
  * Worth where it leaves the body, in the window.
  */
-function crawl(given: ReptileGiven): ReptileOption {
+function crawl(given: QuadrupedGiven): QuadrupedOption {
   const state = {};
-  const gap = (now: ReptileSituation) => Math.max(0, now.range - given.window);
+  const gap = (now: QuadrupedSituation) => Math.max(0, now.range - given.window);
   return {
     name: "crawl", state, claims: LEGS,
     entry: (now) => now.down ? DOWN : !now.focus ? NO_FOCUS : now.range <= given.window ? NEAR : READY,
@@ -114,10 +114,10 @@ function crawl(given: ReptileGiven): ReptileOption {
 }
 
 /** The stalk's memory forgotten: no target, nothing pending. */
-const forget = (given: ReptileGiven): void => { const memory = given.stalk.state; memory.target = null; memory.pending = 0; memory.phase = null; };
+const forget = (given: QuadrupedGiven): void => { const memory = given.stalk.state; memory.target = null; memory.pending = 0; memory.phase = null; };
 
 /** The stalk's step: its intent, and the foe's part it bites at. */
-const stalked = (given: ReptileGiven, dt: number): ReptileAsk => {
+const stalked = (given: QuadrupedGiven, dt: number): QuadrupedAsk => {
   const intent = given.stalk.decide({ view: given.layers.view, bite: given.layers.bite.state.cycle }, dt);
   return { intent, selection: given.stalk.state.target };
 };
@@ -128,7 +128,7 @@ const stalked = (given: ReptileGiven, dt: number): ReptileAsk => {
  * the jaw is in its stroke. Its blow is priced by the prior (`priorRate`) at the focus's legs, where
  * a reptile's mouth meets a standing body.
  */
-function bite(given: ReptileGiven): ReptileOption {
+function bite(given: QuadrupedGiven): QuadrupedOption {
   const state = { running: false };
   const cycle = given.layers.bite.state.cycle;
   return {
@@ -150,7 +150,7 @@ function bite(given: ReptileGiven): ReptileOption {
  * **Carry out the orders** a person gives: the stalk, which walks where they send the body by its
  * navigation and bites only the foe they name. On offer while they ask a move or a facing.
  */
-function orders(given: ReptileGiven): ReptileOption {
+function orders(given: QuadrupedGiven): QuadrupedOption {
   const state = {};
   return {
     name: "orders", state, claims: LEGS_AND_JAW,
@@ -167,7 +167,7 @@ function orders(given: ReptileGiven): ReptileOption {
  * and rising; committed until it hands the body back. Priced by hand until a drill measures it
  * (`RIGHTING_SECONDS`), leaving the body on its paws.
  */
-function righting(given: ReptileGiven): ReptileOption {
+function righting(given: QuadrupedGiven): QuadrupedOption {
   const state = {};
   return {
     name: "righting", state, claims: WHOLE,
@@ -180,7 +180,7 @@ function righting(given: ReptileGiven): ReptileOption {
 }
 
 /** **Hold the position**, facing the focus: a rest option, worth nothing, on its paws. */
-function hold(): ReptileOption {
+function hold(): QuadrupedOption {
   const state = {};
   return {
     name: "hold", state, claims: LEGS, rest: true,
@@ -192,11 +192,11 @@ function hold(): ReptileOption {
   };
 }
 
-export const CRAWL_OPTION = kind("option-reptile:crawl", "Crawl to the foe", fitsPaws, (given) => [crawl(given)]);
-export const BITE_OPTION = kind("option-reptile:bite", "Bite", fitsJaw, (given) => [bite(given)]);
-export const ORDERS_OPTION = kind("option-reptile:orders", "Follow orders", fitsPaws, (given) => [orders(given)]);
-export const RIGHTING_OPTION = kind("option-reptile:righting", "Right itself", fitsPaws, (given) => [righting(given)]);
-export const HOLD_OPTION = kind("option-reptile:hold", "Hold the position", fitsPaws, () => [hold()]);
+export const QUADRUPED_CRAWL = kind("quadruped-crawl", "Crawl to the foe", fitsPaws, (given) => [crawl(given)]);
+export const QUADRUPED_BITE = kind("quadruped-bite", "Bite", fitsJaw, (given) => [bite(given)]);
+export const QUADRUPED_ORDERS = kind("quadruped-orders", "Follow orders", fitsPaws, (given) => [orders(given)]);
+export const QUADRUPED_RIGHTING = kind("quadruped-righting", "Right itself", fitsPaws, (given) => [righting(given)]);
+export const QUADRUPED_HOLD = kind("quadruped-hold", "Hold the position", fitsPaws, () => [hold()]);
 
 /** Its options as it starts, in rank order: orders, the bite, the crawl, righting itself, then holding the position. */
-export const REPTILE_OPTIONS: readonly PartConfig[] = deepFreeze([ORDERS_OPTION, BITE_OPTION, CRAWL_OPTION, RIGHTING_OPTION, HOLD_OPTION].map((part) => part.defaults));
+export const QUADRUPED_OPTIONS: readonly PartConfig[] = deepFreeze([QUADRUPED_ORDERS, QUADRUPED_BITE, QUADRUPED_CRAWL, QUADRUPED_RIGHTING, QUADRUPED_HOLD].map((part) => part.defaults));

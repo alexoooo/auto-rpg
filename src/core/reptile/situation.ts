@@ -1,21 +1,21 @@
-import type { Orders } from "../../core/intent/orders.ts";
-import { nearestSurface } from "../../core/intent/targets.ts";
-import type { BodySense } from "../../core/mind/senses.ts";
-import { blowLife, limbReach, record } from "../../core/option/value.ts";
-import type { QuadrupedView } from "../../core/reptile/crawl.ts";
-import { REPTILE_BITE } from "../../core/reptile/tuning.ts";
-import type { Rulebook } from "../../core/rules/rulebook.ts";
-import { strikersOf, type BodySpec } from "../../core/spec/body.ts";
-import type { Vec3 } from "../../core/spec/quantity.ts";
+import type { Orders } from "../intent/orders.ts";
+import { nearestSurface } from "../intent/targets.ts";
+import type { BodySense } from "../mind/senses.ts";
+import { blowLife, limbReach, record } from "../option/value.ts";
+import type { QuadrupedView } from "./crawl.ts";
+import { REPTILE_BITE } from "./tuning.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
+import { strikersOf, type BodySpec } from "../spec/body.ts";
+import type { Vec3 } from "../spec/quantity.ts";
 
 /**
- * **What the Option Reptile decides on**, read once a control step: the clock, whether it is down,
+ * **What Option Mind decides on over a quadruped's frame**, read once a control step: the clock, whether it is down,
  * its view and orders, its focus (the foe its orders name, else the nearest in the fight), how far
  * the focus's nearest surface is from its centre of mass across the ground (`range`, m; Infinity
  * with no focus), how far apart the two centres are (`apart`), and the life a second the focus's
  * blows are expected to take of it where it stands (`pressure`).
  */
-export interface ReptileSituation {
+export interface QuadrupedSituation {
   readonly time: number;
   readonly down: boolean;
   readonly view: QuadrupedView;
@@ -70,10 +70,10 @@ function pressureOf(rules: Rulebook, spec: BodySpec, focus: BodySense | null, ap
 /** Any surface point. */
 const ANY = (): boolean => true;
 
-/** **The Option Reptile's situation reader** for a body of `spec` under `rules`, its orders read by `ordersOf` from what it senses. */
-export function reptileReader(spec: BodySpec, rules: Rulebook, ordersOf: (view: QuadrupedView) => Orders | null) {
+/** **A quadruped's situation reader** for a body of `spec` under `rules`, its orders read by `ordersOf` from what it senses. */
+export function quadrupedReader(spec: BodySpec, rules: Rulebook, ordersOf: (view: QuadrupedView) => Orders | null) {
   return {
-    read(view: QuadrupedView): ReptileSituation {
+    read(view: QuadrupedView): QuadrupedSituation {
       const senses = view.senses, orders = ordersOf(view), centre = view.centre;
       let focus: BodySense | null = null, apart = Infinity;
       for (const other of senses.others) {

@@ -558,8 +558,8 @@ of its own. Who has the body is one number in state, named by the mind (`Mind.ha
 while idle). A hand-over changes only state, so a load mid-hand-over calls none of these.
 Sub-minds are no part of a body: a mind that hands its body over builds `hosting` itself, over
 its command layers (`commandedMind`, `sub-mind.ts`: the layers, then each sub-mind made over their
-view, `SubMindMaker`, then their first look), or the quadruped (`quadrupedMind`) and the Option
-Reptile over their layers (`quadrupedLayers`), the righting their sub-mind; a test or a study hands its own to a body it builds (`commandedBody`). Released, the
+view, `SubMindMaker`, then their first look), or the quadruped's frame over its layers
+(`quadrupedLayers`), the righting its sub-mind; a test or a study hands its own to a body it builds (`commandedBody`). Released, the
 command layers read the ground whatever the stance (`BodyView.ground`).
 
 **A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
@@ -640,7 +640,7 @@ fight reads. A fight passes the config through and reads nothing in it.
 - Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
 **Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
-(`src/core/option/mind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`):
+(`src/core/option/mind.ts`, an entrant's `mind.ts`):
 the toolkit's are listed in `MIND_KINDS` (`src/core/mind/kinds.ts`), an entrant's in its manifest
 (`Entrant.minds`), and each manifest is one line of `ENTRANTS` (`src/entrants/index.ts`). Each list
 holds its imports and the list and nothing else, so a case's code can begin each kind's own code there.
@@ -657,7 +657,7 @@ toolkit controller alone is no pick.
 
 **An entrant** (`Entrant`, `src/core/parts/entrant.ts`) is one AI: its name (its folder's), its own
 kinds of mind (`minds`), its own parts of any role (`parts`) and its presets. Every kind it registers
-is scoped by its name (`option-reptile:valued`, `scopeOf`); the toolkit's kinds are not. A tree names the
+is scoped by its name (`riser:recovery`, `scopeOf`); the toolkit's kinds are not. A tree names the
 toolkit's kinds and one entrant's at most (`treeScope`), so an entrant builds on the toolkit and
 never on another entrant; a part two entrants want belongs in the toolkit. The catalog refuses, as a
 value in `Catalog.faults` with the entry left out, an unscoped or misscoped kind, a kind twice, a
@@ -669,9 +669,7 @@ out orders, a scenario's script made orders (`scriptOrders`, `src/lab/actor.ts`)
 
 | Kind | Maker | What it composes |
 |---|---|---|
-| quadruped | `src/core/reptile/` | crawl, trot, bite, righting; no preset: the host a swapped quadruped part runs in (`tests/swap.test.mjs`) |
-| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it (the Skeleton's the low front kick alone); `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
-| option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
+| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `walker` in `src/entrants/walker/` and `option-reptile` in `src/entrants/option-reptile/` | a chooser over its options (below), on its situation and percepts, over a body layer: its own, the toolkit's humanoid kit, or a frame's (`FramePart`, `frame`: the quadruped's, `QUADRUPED_FRAME`, `src/core/reptile/frame.ts`). Over its kit, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it (the Skeleton's the low front kick alone); `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach. Over the quadruped's frame, the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser made for the frame (`quadruped-valued`) over an objective (`quadruped-fight`) and its options (`quadruped-crawl`, `-bite`, `-orders`, `-righting`, `-hold`, `QUADRUPED_OPTIONS`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; it decides every control step on its priors; `option-reptile` is it, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 
 **A mind is a tree of parts** (`Part`, `src/core/parts/parts.ts`). A part has a role (`Role`: one
@@ -928,15 +926,17 @@ mind's to build on its own body: its paws (`pawsOf`) under its support motor, it
 and its effector tracker, read through its view (`QuadrupedView`) each step and handed an intent
 (`QuadrupedIntent`, with the foe's part it bites at) by whatever decides; they choose the gait,
 reacquire their footing after another had the body, and make its righting (`recover`) over the
-same motor. The quadruped kind (`quadrupedMind`) decides by its tactics and hands the body to the
-righting while it is down (`hosting`). It is
+same motor. Option Mind over the quadruped's frame decides by its options and hands the body to the
+righting while it is down (`hosting`): the quadruped's frame (`QUADRUPED_FRAME`,
+`src/core/reptile/frame.ts`) is the body layer Option Mind decides over on a quadruped. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
 where it names none, the stock one (`QUADRUPED_PARTS`): a `support-motor` over the paws
 (`SUPPORT_MOTORS`: `supportedMotor` on the bearing solve, no assist), a `gait` to travel and
 one to crawl (`GAITS`: the trot and the crawl), a `bite` (`BITES`) and `quadruped-tactics`
 (`QUADRUPED_PLANNERS`) that give approach, facing and bite. Each fits a body by what it uses
-(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)). The Option Reptile (`src/entrants/option-reptile/`) builds on the same layers: its chooser runs
-its options over them, and its righting option hands the body to the righting.
+(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)). The frame's chooser runs
+its options over the layers, its stalk carries out the bite and a person's orders, and its righting
+option hands the body to the righting.
 
 **Policies** (`policyMind`, `mind/direct.ts`) receive a frozen actuator description and
 detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`
@@ -1057,10 +1057,10 @@ An AI is an entrant: a folder `src/entrants/<name>/` whose `index.ts` exports it
 own folder and its own data, and nothing else (`tests/core-boundary.test.mjs`), so a change to it is
 its own (`node scripts/entrant-check.mjs`).
 
-1. **Most entrants are presets**: configs of the toolkit's kinds of mind (`option`, `quadruped`)
-   holding the toolkit's parts and its own (`option`, `walker`).
+1. **Most entrants are presets**: configs of the toolkit's kind of mind (`option`) holding the
+   toolkit's parts and their own (`option`, `walker`, `option-reptile`, `riser`).
 2. **A part of its own**, of any role (any slot's, an action's aim, an option, a chooser's
-   objective, the quadruped's motor, gaits, bite and planner), is a module in its folder and a
+   objective, a frame, the quadruped's motor, gaits, bite and stalk), is a module in its folder and a
    line of its manifest's `parts`, its kind `<name>:<kind>` (the swap fixture's stubs,
    `swap:stub-option`, `swap:stub-objective`, `tests/fixtures/swap/`).
    Its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with
@@ -1078,17 +1078,23 @@ its own (`node scripts/entrant-check.mjs`).
    the core, in a change of its own read on the fingerprint across every entrant.
 
 The Option framework (`src/core/option/`) is the toolkit's example of a kind of mind with roles of
-its own: its choosers, kinds of option, objectives and predictions each a role list
-(`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`), and percepts and predictions of an
+its own: its choosers, kinds of option, objectives, predictions and frames each a role list
+(`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`, `QUADRUPED_FRAMES`), and percepts and predictions of an
 entrant's own read by config (`PerceptPart`, `PredictionPart`). A kind of option makes its options
 from what the mind gives it (`OptionsGiven`: the body, its legs, executors, actions and profile
 tables, the walk, the strikes and the rise) and builds what else it needs, as footwork builds its
 gaits and the cover its hands' covers. Footwork of an entrant's own is a kind of option that walks to
 places it finds by any rule each step (`placeBy`, `src/core/option/places.ts`: geometry, a search
 over candidates), one option a gait priced as every walk is (`walksTo`, `footwork`,
-`src/core/option/kinds.ts`), with no edit of the framework. `tests/swap.test.mjs` registers a fixture
-entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: an Option Mind and a quadruped of
-its own) and holds a stub of each role to it: chosen by config, run, forked, replayed
+`src/core/option/kinds.ts`), with no edit of the framework. **A new family of bodies is a frame** (`FramePart`,
+`src/core/option/parts.ts`), not a new kind of mind: it takes its body from its host, reads its
+situation, makes the options the mind names from what it gives them and its chooser over them, and
+carries out what they ask; its choosers and options say the frame they are made for (`ForFrame`), and
+Option Mind refuses one made for another body layer. Over a frame, Option Mind's config is its
+chooser, its options and the frame (`FramedOptionMindConfig`); over its own kit, the kit's parts as
+above (`OptionMindConfig`). `tests/swap.test.mjs` registers a fixture
+entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: an Option Mind of its own, over its
+kit and over the quadruped's frame) and holds a stub of each role to it: chosen by config, run, forked, replayed
 and linked.
 
 Once registered it is offered by its presets in `MINDS`, and

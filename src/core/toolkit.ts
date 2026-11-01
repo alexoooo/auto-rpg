@@ -22,6 +22,7 @@ import { BITES } from "./reptile/bites.ts";
 import { GAITS } from "./reptile/gaits.ts";
 import { QUADRUPED_PLANNERS } from "./reptile/planners.ts";
 import { SUPPORT_MOTORS } from "./reptile/support-motors.ts";
+import { QUADRUPED_FRAMES } from "./reptile/frames.ts";
 import type { MoveRuleConfig } from "./skills/locomotion/move-part.ts";
 import { MOVE_RULES } from "./skills/locomotion/move-rules.ts";
 
@@ -50,7 +51,7 @@ function merged<L extends readonly Readonly<Record<string, Part>>[]>(...lists: L
  */
 export function toolkitLists(): CatalogLists {
   const below: Covered = merged(TECHNIQUES, MOVE_RULES, LOCOMOTIONS, GUARDS, SUPPORTS, EXECUTORS, MOTORS, BALANCES, NAVIGATIONS, AIMS,
-    SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS);
+    SUPPORT_MOTORS, GAITS, BITES, QUADRUPED_PLANNERS, CHOOSERS, OPTION_KINDS, OBJECTIVES, PREDICTIONS, QUADRUPED_FRAMES);
   return { minds: MIND_KINDS, parts: [below], entrants: [] };
 }
 

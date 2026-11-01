@@ -1,14 +1,19 @@
+import type { MindPreset } from "../../core/mind/controller.ts";
+import type { FramedOptionMindConfig } from "../../core/option/mind.ts";
 import type { Entrant } from "../../core/parts/entrant.ts";
-import { FIGHT_OBJECTIVE, OPTION_REPTILE_MIND, OPTION_REPTILE_PRESETS, VALUED_CHOOSER } from "./mind.ts";
-import { BITE_OPTION, CRAWL_OPTION, HOLD_OPTION, ORDERS_OPTION, RIGHTING_OPTION } from "./options.ts";
+import { QUADRUPED } from "../../core/reptile/config.ts";
+import { QUADRUPED_VALUED } from "../../core/reptile/frame.ts";
+import { QUADRUPED_OPTIONS } from "../../core/reptile/options.ts";
+import { deepFreeze } from "../../core/state.ts";
+
+/** The toolkit's Option Mind over the quadruped's frame, every layer the stock one: by worth, over the quadruped's options. */
+const OVER_QUADRUPED: FramedOptionMindConfig = deepFreeze({ kind: "option", frame: QUADRUPED, chooser: QUADRUPED_VALUED.defaults, options: QUADRUPED_OPTIONS });
 
 /**
- * **The Option Reptile**: the Option framework on a second body family, a chooser over the
- * reptile's crawl, bite and righting as option kinds, over the toolkit's quadruped layers.
+ * **The Option Reptile**: the toolkit's Option Mind on a second body family, a chooser over the
+ * reptile's crawl, bite and righting as option kinds, over the quadruped's frame (`QUADRUPED_FRAME`).
  */
 export const OPTION_REPTILE: Entrant = Object.freeze({
   name: "option-reptile",
-  minds: [OPTION_REPTILE_MIND],
-  parts: [VALUED_CHOOSER, FIGHT_OBJECTIVE, ORDERS_OPTION, BITE_OPTION, CRAWL_OPTION, RIGHTING_OPTION, HOLD_OPTION],
-  presets: OPTION_REPTILE_PRESETS,
+  presets: deepFreeze({ "option-reptile": { label: "Option Reptile", config: OVER_QUADRUPED, models: ["reptile"] } } satisfies Record<string, MindPreset>),
 });

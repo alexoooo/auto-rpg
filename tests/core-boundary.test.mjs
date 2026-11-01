@@ -507,9 +507,10 @@ const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/k
 /**
  * **The packages**: a folder of the layers that, from outside it, only the minds built on it and
  * the registries import, each with those minds. Option Mind is one implementation of the `Decider`
- * seam: nothing else in the core reaches into it, so another mind is built beside it, not on it.
+ * seam: nothing else in the core reaches into it but what is built on it, the quadruped's frame
+ * (`FramePart`), so another mind is built beside it, not on it.
  */
-const CORE_PACKAGES = Object.freeze({ "option/": Object.freeze([]) });
+const CORE_PACKAGES = Object.freeze({ "option/": Object.freeze(["reptile/frame.ts", "reptile/options.ts", "reptile/situation.ts"]) });
 
 /** The package `target` is in that `file`, outside it and not built on it, may not import; null where none. */
 function packageBarring(file, target) {

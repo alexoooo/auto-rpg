@@ -1,7 +1,7 @@
 /**
  * **A part of any converted role swaps in from outside the shared code** (Node, core world,
  * vendored Rapier, 120 Hz). The fixture entrant (`tests/fixtures/swap/`, `swap`), with an Option
- * Mind and a quadruped of its own, is registered by a line of the entrants list, outside
+ * Mind of its own, over its kit or the quadruped's frame, is registered by a line of the entrants list, outside
  * `src/`, and holds a stub of each converted role as its own parts (`swap:<kind>`). For each,
  * chosen by its config alone: the catalog offers it in its own entrant's trees and no other's, a
  * tree that names it and another entrant's kinds is refused, the part its maker made is the part a bout
@@ -14,7 +14,7 @@
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. The
- * quadruped fixture holds a stub of each of the quadruped's roles (motor, gait, bite, planner), and
+ * quadruped fixture, Option Mind over the quadruped's frame, holds a stub of each of the frame's roles (motor, gait, bite, stalk), and
  * the Option Mind fixture one aim, one chooser, one option and one balance.
  */
 import "./fixtures/swap/hooks.mjs";
@@ -221,7 +221,7 @@ test("a match admits complete pairs within named calibrations and preserves the 
   assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
 });
 
-test("nested slot faults reach links with their path, and another entrant's part however deep makes the tree two entrants'", () => {
+test("nested slot faults reach links with their path, another entrant's part however deep makes the tree two entrants', and a part made for another body layer is refused", () => {
   const base = MINDS.option.config, reptile = MINDS["option-reptile"].config, warrior = modelSpec("workshop-fighter"), crawler = modelSpec("reptile");
   const option = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-option").part, objective = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-objective").part;
   for (const [config, faults] of [
@@ -235,13 +235,21 @@ test("nested slot faults reach links with their path, and another entrant's part
     assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults }, "the screen's link parser returns the faulty configuration and its diagnostic");
   }
   // Another entrant's part, in a list or a slot below a slot, makes the tree two entrants': refused at its root, through a link too.
-  const two = "it names the kinds of option-reptile and swap: a tree is one entrant's";
+  const riser = MINDS["riser-rogue"].config, two = (first, second) => `it names the kinds of ${first} and ${second}: a tree is one entrant's`;
   for (const [config, faults] of [
-    [{ ...reptile, options: [...reptile.options ?? [], option.defaults] }, [`options.${(reptile.options ?? []).length}: swap:stub-option is not the Option Reptile's`, two]],
-    [{ ...reptile, chooser: { ...reptile.chooser, objective: objective.defaults } }, [two]],
+    [{ ...riser, options: [...riser.options, option.defaults] }, [two("riser", "swap")]],
+    [{ ...riser, chooser: { kind: "valued", depth: 2, objective: objective.defaults } }, [two("swap", "riser")]],
   ]) {
     assert.deepEqual(treeFaults(config), faults);
-    assert.deepEqual(parseMind(JSON.stringify(config), crawler, FIGHT_ENTRY), { config, faults });
+    assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults });
+  }
+  // A chooser or an option made for another body layer is refused where it is, through a link too: one of the kit's over the quadruped's frame, and the frame's over the kit.
+  for (const [config, spec, faults] of [
+    [{ ...reptile, options: [...reptile.options, option.defaults] }, crawler, [`options.${reptile.options.length}: swap:stub-option is made for Option Mind's own kit, not the quadruped frame`]],
+    [{ ...base, chooser: reptile.chooser }, warrior, ["chooser: quadruped-valued is made for the quadruped frame, not Option Mind's own kit"]],
+  ]) {
+    assert.deepEqual(treeFaults(config), faults);
+    assert.deepEqual(parseMind(JSON.stringify(config), spec, FIGHT_ENTRY), { config, faults });
   }
 });
 
@@ -377,8 +385,8 @@ test("each part a bout runs is the one its config names, and the bout forks, res
 });
 
 test("each part a quadruped's config names is the one its mind runs, and its bout forks and resumes", async () => {
-  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: CONTROLLERS.quadruped.defaults };
-  const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 2, minds }, { engine: BOUT_ENGINE });
+  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: MINDS["option-reptile"].config };
+  const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 1, minds }, { engine: BOUT_ENGINE });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built);

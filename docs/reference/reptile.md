@@ -161,7 +161,7 @@ accelerates: the commanded heading can arrive before the body turns.
 | Crawl aligns the actual heading within .05 rad before trotting | 0 | 13.715 |
 
 **Travel speed** (`node research/reptile-motion.mjs@60c3ecc3 --sweep`; two seconds standing, then ten seconds
-of forward travel on a 100 m ground, driven and unstruck; overrides passed into `quadrupedMind`):
+of forward travel on a 100 m ground, driven and unstruck; overrides passed into `quadrupedMind`, `src/core/reptile/mind.ts@ae88d42c`):
 
 | Commanded speed, m/s | COM height multiplier | Distance in 10 s, m | Mean speed, m/s | Steps down | Counted paws |
 | --- | --- | ---: | ---: | ---: | ---: |

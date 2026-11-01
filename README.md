@@ -41,7 +41,7 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Option Mind (the default; its Skeleton preset on the Skeleton), the Option Reptile on the Reptile, and the Riser on the Rogue and the Skeleton |
+| Controller | the mind: Option Mind (the default on every humanoid), the Option Reptile (Option Mind over the quadruped's frame) on the Reptile, and the Riser on the Rogue and the Skeleton |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
