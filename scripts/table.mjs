@@ -4,7 +4,7 @@
  * against its bar (`verdictOf`), each reading's drill link at the version read and whether that is
  * the subject's version now.
  *
- *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--play] [--json <file>]
+ *   npm run evaluate -- table [--body <model>] [--skill <name>] [--loadout <left,right>] [--play] [--workers N] [--json <file>]
  *
  * A reading is found in the newest record of its drill and protocol that holds its subject, by id
  * or by the same config. `--play` plays each reading whose subject has no record at its version
@@ -89,7 +89,7 @@ const MARK = { met: "met", short: "short", unread: "not read" };
 /** Print the table for the command line's options, playing first with `--play`. */
 export function main() {
   const { values } = parseArgs({ allowPositionals: true, options: {
-    body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, play: { type: "boolean" }, json: { type: "string" } } });
+    body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, play: { type: "boolean" }, workers: { type: "string" }, json: { type: "string" } } });
   const cells = tableCells().filter((cell) => (!values.body || cell.body === values.body) && (!values.skill || cell.skill === values.skill)
     && (!values.loadout || loadoutKey(cell.loadout) === values.loadout));
   const readings = cells.flatMap((cell) => cell.readings);
@@ -98,7 +98,7 @@ export function main() {
     for (const { reading, read, fault } of evidence.values()) {
       if (fault || read?.current) continue;
       console.log(`playing ${reading.drill} ${reading.protocol} ${reading.subject}`);
-      execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write"], { cwd: ROOT, stdio: "inherit" });
+      execFileSync(process.execPath, [join(ROOT, "scripts/evaluate.mjs"), reading.drill, reading.subject, "--protocol", reading.protocol, "--write", ...(values.workers ? ["--workers", values.workers] : [])], { cwd: ROOT, stdio: "inherit" });
     }
     evidence = evidenceOf(readings);
   }
