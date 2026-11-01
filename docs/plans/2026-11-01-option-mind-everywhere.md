@@ -36,7 +36,7 @@ At `418f4809`, from the records ([Option Mind's rise](../reference/rising.md#opt
 | Straight punch | 83 % held out | about 67 % at its scaled bar | no record |
 | Stomp, front kick | both recorded | the stomp; no kick | a low kick |
 | Club blow | 91 and 92 % held out, 3 fallen at 480 Hz | the Warrior's network did not transfer | no record |
-| Sword cut, thrust | short of the bar: the edge asks 18 m/s, the thrust gives 25 to 28 J | the arm's path only (`BLADE_STRIKE`) | the arm's path only |
+| Sword cut, thrust | the best cut 15 to 20 J at the edge, the best thrust 25 to 28 J at the point; neither read at the bars below | the arm's path only (`BLADE_STRIKE`) | the arm's path only |
 | Buckler cover | held between the weapon and the body; the Cover drill has no rung against a weapon | — | — |
 
 ## The bars
@@ -54,13 +54,17 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
   of those thrown land, since every reading must pass at once and each already sits at the mean
   less one SD; in a fight, 90 % of those that meet the foe past its arms. Impulse is reported, not
   gated.
-- **A held blow** (`BAR.held`; the club, the sword's cut and thrust): 64.8 J of the rules'
-  energy, the crutch's 75.5 ± 10.7 J less one SD
-  ([human strike reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)),
-  met with the item's face (the club blunt, the cut its edge, the thrust its point), on the mark
-  asked, the striker up; 90 %, read holding the buckler in the left hand where the loadout has it.
-  One energy for every held blow, the sword judged by the club's source: decided here, which the
-  owner may reverse.
+- **A held blow**: a person's motion with that item, in its own measure, as the punch's is; the
+  rules price the wound, which is reported beside it. Each meets with the item's face (the club
+  blunt, the cut its edge, the thrust its point, as the rules read the contact), on the mark asked,
+  the striker up; 90 %, read holding the buckler in the left hand where the loadout has it.
+  - The club (`BAR.held`): 64.8 J of the rules' energy, the crutch's 75.5 ± 10.7 J less one SD
+    ([human strike reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)).
+  - The cut: the edge's speed at its striking point, the lay men's one-handed rod (Muggenthaler
+    2018, 23.9 m/s at the tip) less one SD, read at the edge's place on the blade
+    ([human strike reference](../reference/human-strike-reference.md#3-one-handed-sword-cut)).
+  - The thrust: a person's stab, the mean less one SD of a source read at its source first
+    (Horsfall et al. 1999, [wounds](../reference/wounds.md#mechanisms)).
 - **The front kick and the stomp**: no human figure is held yet. Their step sources one in the
   human strike reference first, the mean less one SD, before any search.
 - **The buckler's cover**: it meets four of five blows that reach the body before the body does
@@ -152,7 +156,30 @@ in the Lab's Locomotion courses and in the Arena.
 
 ### 6. The strikes on every body
 
-In order: the punch; the stomp and the front kick; the club blow; the sword's cut and thrust; the
+**A point wounds by its depth** (the owner, 2026-11-01), before the sword is trained. Pricing a
+point's whole energy at 33 times blunt (`MECHANISM_PRICE`, `src/core/rules/rulebook.ts`, from an
+arrow's penetration) makes today's 25 J thrust about 8.5 HP, more than a whole Warrior. A point's
+impact instead goes in as deep as its energy past the skin's breach drives it against the
+tissue's resistance, no deeper than the point's own length, and takes the struck part's hit
+points in proportion to the depth over the part's thickness, all of them for a point through:
+
+    depth = min(length, max(0, energy - breach) / resistance)
+    wound = part's hit points x min(1, depth / thickness)
+
+- `energy` is the struck side's share of the blow (`energyShares`), as every mechanism reads it.
+- `breach` (J) and `resistance` (N) are sourced, one each for every body (Gilchrist et al. 2008's
+  0.25 J for a sharp knife, read at its source; a stab-penetration source for the resistance);
+  the rules do not tell tissues apart for any mechanism.
+- `length` is the directed point surface's own (`directed`, a stated depth; the sword's blade from
+  its tip to its base), so any pointed item or body states it.
+- `thickness` is the struck part's least width, derived from its collider in the spec.
+- A point never takes a part off, and its wound does not walk to the attached parts.
+
+The bite keeps its press (`pointLoad`); blunt, the edge and the axe keep their prices. Check: the
+gate; the fingerprint, the moved cases named; a table of the cut and the thrust as measured,
+their wounds on each part before and after; [wounds](../reference/wounds.md#mechanisms) updated.
+
+Then, in order: the punch; the stomp and the front kick; the club blow; the sword's cut and thrust; the
 buckler's cover. Each on the Warrior first, then on the Rogue and the Skeleton seeded from it (the
 Warrior's network the start, its outputs scaled down, as the Rogue's punch was), with each body's
 own schedule and window at its scaled bar. Where a body cannot reach a bar, its ceiling for the
