@@ -6,10 +6,13 @@ import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "../parts/catalog.ts";
-import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
+import { bodyHost, rulesOf, type BodyHost, type HostGrants } from "./host.ts";
+import { mirrorDriven, type Embodying, type OwnBody } from "./mind.ts";
+import { isMindPlace, type At, type MindPlace, type MindRecipe, type Seat, type SeatSays } from "./apart.ts";
+import type { Hook } from "../world.ts";
+import { physicalBody, type PhysicalBody } from "../physical-body.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { Senses } from "./senses.ts";
-import type { PhysicalBody } from "../physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), and its orders. */
@@ -52,14 +55,83 @@ export function builtAngles(catalog: Catalog, spec: BodySpec, config: MindConfig
  * (`Catalog.controllers`) through a host of the body (`bodyHost`) that finds only the parts its tree names
  * (`treeLookup`); a config with a fault anywhere in its
  * tree (`treeFaults`) is refused. Given a `log`, its order
- * sheets are written in it (`SheetLog`).
+ * sheets are written in it (`SheetLog`). Where the world runs its minds apart (`World.minds`), it
+ * is made there, on a mirror of its body (`embodyApart`): it has no skills to read here, and its
+ * memory is where it runs.
  */
 export function createMind(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = catalog.treeFaults(config)[0];
   if (fault) throw new Error(fault);
+  if (world.minds) {
+    if (!isMindPlace(world.minds)) throw new Error("the world's minds run in a place no mind can be seated in");
+    const apart = embodyApart(built, world, world.minds, catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: rulesOf(wiring),
+      ...(wiring.experiment ? { experiment: wiring.experiment } : {}) }, wiring.orders,
+    { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
+    return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
+  }
   const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), log);
   const mind = catalog.controllerOf(config).create(host, config, wiring);
   return { ...mind, kind: config.kind, body: made() };
+}
+
+/** What a mind apart keeps in place of its memory: a mind's memory is where it runs, so a body under one is neither saved nor forked. */
+class MemoryApart {}
+export const MIND_APART: object = Object.freeze(new MemoryApart());
+
+/** **A body under a mind apart** (`embodyApart`): the body as its fight holds it, and what its mind last said of itself. */
+export interface EmbodiedApart {
+  readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
+  /** Who has the body, as its mind last said (`Mind.has`). */
+  has(): string;
+  /** What its mind publishes, as it last said it, its menu asked for when read (`MindReport`). */
+  readonly report: MindReport;
+  /** The body's memory: what is kept here, the mind's kept where it runs. */
+  readonly state: object;
+  dispose(): void;
+}
+
+/**
+ * **Give `built` a mind apart from `world`**, made in `place` from `recipe` read in `catalog`: the
+ * world's side of a mind on its mirror (`embody`, `World.mirrored`) whose mind runs where `place`
+ * runs it (`MindPlace`). As each step is prepared the body is written to its channel and the mind
+ * asked to step, with `orders` as its fight gives them now where they have changed; its command is
+ * carried out on the body as the step's controls run, once the mind has made it. Its observers of
+ * the physics are asked to observe each completed interval, from the first step after it asks to.
+ * What it is given and does is the same as on its body, step for step.
+ */
+export function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: Catalog, recipe: Omit<MindRecipe, "catalog" | "statics" | "dt">,
+  orders: (senses: Senses) => Orders | null, given: Embodying = {}): EmbodiedApart {
+  const at = (): At => ({ steps: world.steps, time: world.time });
+  let seat: Seat | null = null, observed: Hook | null = null, sent: string | undefined;
+  // What the mind says once every ask so far is carried out; the first time it says it observes, the world observes for it.
+  const heard = (): SeatSays => {
+    const says = seat!.says();
+    if (says.observes && !observed) observed = world.afterPhysics(() => { heard(); writer.write(); seat!.ask({ kind: "observe", at: at() }); });
+    return says;
+  };
+  const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: heard, idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
+  seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
+  const thinking = world.prepare(() => {
+    if (muscles.level !== "full") return;
+    // Nothing it was asked still reads the numbers.
+    heard();
+    writer!.write();
+    const now = orders(sense()), key = JSON.stringify(now);
+    seat!.ask(key === sent ? { kind: "step", at: at() } : { kind: "step", at: at(), orders: now });
+    sent = key;
+  });
+  const said = () => heard().report;
+  const report: MindReport = {
+    get engagement() { return said()?.engagement ?? null; }, get prospects() { return said()?.prospects ?? null; }, get heading() { return said()?.heading ?? null; },
+    get gait() { return said()?.gait ?? null; }, get navigation() { return said()?.navigation ?? null; }, get kit() { return said()?.kit ?? null; },
+    get actions() { return said()?.actions ?? null; }, get ended() { return said()?.ended ?? null; },
+    get menu() { heard(); seat!.ask({ kind: "menu", at: at() }); return heard().menu ?? null; },
+  };
+  return {
+    held: { muscles, assist: help.assist, senses: sense }, report, has: () => heard().has,
+    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, mind: MIND_APART },
+    dispose: () => { seat!.ask({ kind: "dispose" }); observed?.dispose(); thinking.dispose(); muscles.dispose(); },
+  };
 }
 
 /**

@@ -195,17 +195,23 @@ export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number)
   return side.peak * forceVelocityFactor(sense * speed, side.curve);
 }
 
-/** What a driver is made with beside its body and world: whether it reads the body's dynamics for its mind (`MuscleDriver.dynamics`), as it does unless told its mind reads them elsewhere. */
-interface DrivingOptions { readonly dynamics?: false }
+/**
+ * What a driver is made with beside its body and world, how it reads for its mind: without the
+ * body's dynamics (`dynamics: false`, where its mind reads them from a mirror); and as the step is
+ * prepared rather than just before its control (`prepared`, where its mind reads the body before the
+ * step's controls run, `World.prepare`).
+ */
+interface DrivingOptions { readonly dynamics?: false; readonly prepared?: true }
 
 /** Called every world step, before the driver sends the command and applies the one sent the world's delay ago; `dt` is the step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
 /**
  * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the
- * body is at `full`. `idle` is called as it leaves `full`, before its motors are zeroed.
+ * body is at `full`, its joints read just before (`DrivingOptions`). `idle` is called as it leaves
+ * `full`, before its motors are zeroed.
  */
-export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void, { dynamics: reading = undefined }: DrivingOptions = {}): MuscleDriver {
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void, { dynamics: reading = undefined, prepared = undefined }: DrivingOptions = {}): MuscleDriver {
   // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
   const read = readView(built);
   const trackers: JointTracker[] = [];
@@ -239,7 +245,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const dynamics = bodyDynamics(read, world.physics.gravity);
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
-  let hook: Hook | null = null;
+  let hook: Hook | null = null, reads: Hook | null = null;
   let after: Hook | null = null;
   // The commands sent and not yet applied, a slot a step of the world's delay and one more; none where none was sent that long ago.
   const line = delayLine(world.delay), none = new Float64Array(n), unexpected = new Float64Array(n).fill(NaN), late = world.delay > 0;
@@ -293,16 +299,22 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     dispose() {
       hook?.dispose();
       hook = null;
+      reads?.dispose();
+      reads = null;
       after?.dispose();
       after = null;
       channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
     },
   };
-  hook = world.beforeStep(() => {
-    if (state.level !== "full") return;
+  const sense = () => {
     for (const { body, w } of spins) body.angularVelocityToRef(w);
     for (const tracker of trackers) tracker.update(angularVelocity);
     if (reading !== false) dynamics.update(angles, motion);
+  };
+  if (prepared) reads = world.prepare(() => { if (state.level === "full") sense(); });
+  hook = world.beforeStep(() => {
+    if (state.level !== "full") return;
+    if (!prepared) sense();
     control?.(driver, dt);
     const slot = line.written();
     state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity); state.sent.expect[slot]!.set(state.expect); state.expect.fill(NaN);

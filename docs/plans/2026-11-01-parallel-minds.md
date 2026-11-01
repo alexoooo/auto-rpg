@@ -111,9 +111,13 @@ fingerprint case.
    `SharedArrayBuffer` each way, `Atomics` to wait: spinning briefly, then sleeping); each worker
    loads the minds' data and makes its bodies' minds, the Crypt's as it builds them ahead
    (`DungeonRun.build`), the world waiting for a mind it needs before the body's first step.
+   The workers work at any delay, the same code: at none the world waits each step for each
+   mind's answer before its muscles take it; at a step or more it steps while the minds think, an
+   answer carried into the rings as it comes, which needs the driver's and the assist's rings
+   written apart from what they apply (`driveMuscles`, `createAssist`).
    Check: the crowd fight, the reference bouts and the Crypt at seeds 10 and 25 the same to the
-   bit with 1 to 4 workers as on one thread; each one's lag, pinned and not, in
-   [step cost](../reference/step-cost.md).
+   bit with 1 to 4 workers as on one thread; each one's lag at the game's delay, pinned and not,
+   in [step cost](../reference/step-cost.md).
 5. **In the browser.** The world's worker (`src/worker/serve.ts`) starts the mind workers. The
    pages are cross-origin isolated: the headers in `vite.config.ts` for the dev server and preview,
    and `public/coi-sw.js` scoped to the game's pages on GitHub Pages, so a first visit reloads
@@ -125,8 +129,8 @@ fingerprint case.
 ## Done when
 
 - The crowd fight to its verdict, the reference bouts and the Crypt at seeds 10 and 25 are never
-  more than a step behind real time with the mind workers, pinned and not (Node, core world,
-  `rapier-coordinate`, 120 Hz, the least of three playings' worst lag).
+  more than a step behind real time with the mind workers at the game's delay, pinned and not
+  (Node, core world, `rapier-coordinate`, 120 Hz, the least of three playings' worst lag).
 - A bout is the same to the bit on one thread and on any number of mind workers, in Node and in
   the browser.
 - The owner plays the crowd fight and the Crypt and sees 60 fps, never below 30, and no slow motion.

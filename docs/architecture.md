@@ -536,9 +536,33 @@ and each segment's contacts and manifolds. The mirror reads the body's dynamics 
 then does not, `driveMuscles`'s `dynamics`). What the mind asks goes back as numbers
 (`MirrorChannel.outbound`: the command, the assist's ask, the hands' requests), and what it meets
 for the first time (a contact's other body, a sensed body or object, the senses' side) is told it
-once, in order (`MirrorChannel.told`). A bout on mirrors is the bout on bodies, step for step
-(`tests/mind-contract.test.mjs`). What is read of a mind from outside (its report and menu, its
-orders, its clock, its contact labels, its idling, its saved state) still reaches it directly.
+once, in order (`MirrorChannel.told`), with each touched body's contact label where the fight
+labels contacts. A bout on mirrors is the bout on bodies, step for step
+(`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
+written there, and the driver carries out its answer.
+
+**Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
+`src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
+(`embodyApart`, `src/core/mind/mind.ts`) and keeps the body's side (the muscles, the assist, the
+command's rings, the order sheet). Everything else crosses as data, in order: the world asks the
+seat to make the mind from a recipe (its config, the catalog's name, its grants, its body's
+statics), to step on the numbers just written with its orders where they changed, to observe the
+completed physics, to go idle, for its menu, and to go (`SeatAsk`); the seat says who has the body,
+whether it observes, its report and its menu (`SeatSays`). The mind's side is a host of seats
+(`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
+orders those last sent, its observers run when asked. At any delay the world waits for a mind's
+answer before its driver applies it, so a bout apart is the bout on bodies, step for step, and the
+same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+neither saved nor forked (`MIND_APART`).
+
+In Node, `mindWorkers(threads)` (`src/node/minds.ts`) is the place: worker threads
+(`src/node/mind-worker.ts`) that load the minds' data, the seats dealt to them in turn. The
+channels' numbers are shared memory (`SHARED_NUMBERS`); the asks go by message on a port, an ask
+to observe batched with the others made after physics, every other at once, and two shared
+counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins about a step,
+then sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
+(`BoutOptions.minds`, `DungeonRunOptions.minds`); offline work, the tests and the pages keep their
+minds on their bodies.
 
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
@@ -1231,12 +1255,15 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 (`PHYSICS_HZ`). A step runs, in order:
 
 1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
-2. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
-   the mind steps, the assist gives, the motors are set), and a page's own (the Crypt's
-   `DungeonRun.plan`, added first, which asks its Commanders; the Lab's shove);
-3. one solver step, which writes every node; the clock advances;
-4. the post-physics observations (`afterPhysics`: effector feedback, contacts);
-5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
+2. the preparing hooks in the order added (`World.prepare`): what a step's commands are made from,
+   the Crypt's planning (`DungeonRun.plan`, which asks its Commanders), each body's hands' and toes'
+   shapes, and a mind on a mirror or apart thinking on what its world wrote;
+3. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
+   the mind steps, the assist gives, the motors are set), and a page's own (the Lab's shove);
+4. one solver step, which writes every node; the clock advances;
+5. the post-physics observations (`afterPhysics`: effector feedback, contacts), then what they
+   asked of minds apart sent together (`MindsApart.dispatch`);
+6. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
 ### The command delay

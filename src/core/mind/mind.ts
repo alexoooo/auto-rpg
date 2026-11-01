@@ -6,8 +6,8 @@ import { rootSegment, type ReadBody } from "../read-body.ts";
 import { readView } from "../build/read-view.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
-import { driveMuscles, PLAN_REFLEX, type MuscleDriver } from "../muscle/driver.ts";
-import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorWriter } from "./mirror.ts";
+import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
+import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorStatics, type MirrorWriter } from "./mirror.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
@@ -136,68 +136,30 @@ export interface Embodying {
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
-  let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null;
-  // The hand poses asked since the last sheet, which the next sheet carries.
-  const hands: HandPoseRequest[] = [];
-  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step of the world's delay and one more.
-  const line = delayLine(world.delay), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
-  const request = (requests: readonly HandPoseRequest[]) => {
-    for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
-    if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
-  };
-  // The speeds each command in flight was solved to reach (`MuscleDriver.expect`) and its accelerations, a slot a step of the world's delay: a mind carries its mirror forward by them.
-  const flight = { expect: [] as Float64Array[], solved: [] as Float64Array[], motion: new Float64Array(0), sent: 0 };
-  const standing = standingSegments(built.spec);
+  let mind: M | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null, thinking: Hook | null = null;
+  const way = commandWay(built, world, log);
   const muscles = driveMuscles(built, world, (driver, dt) => {
-    if (mirrored) {
-      mirrored.writer.write();
-      mirrored.mirror.refresh({ dynamics: true });
-      const mirror = mirrored.mirror, expect = mirror.muscles.expect, d = flight.expect.length;
-      // On its legs, what it decides moves the body once the commands in flight have: it reads the body as they leave it, oldest first.
-      // Anything else touching, the forecast does not know the contact, and it reads the body as it was.
-      const feet = onFeet(mirror, standing);
-      if (feet) for (let k = 0; k < d; k++) forecast(mirror, flight.expect[(flight.sent + k) % d]!, flight.solved[(flight.sent + k) % d]!, flight.motion, dt);
-      mind!.step(mirror.senses, dt);
-      if (d > 0) {
-        const slot = flight.sent % d, solved = flight.solved[slot]!;
-        if (!feet) expect.fill(NaN);
-        for (let i = 0; i < expect.length; i++) solved[i] = (expect[i]! - mirror.muscles.speed(i)) / dt;
-        flight.expect[slot]!.set(expect);
-        driver.expect.set(expect);
-        flight.sent += 1;
-      }
-      expect.fill(NaN);
-      mirrored.mirror.answer();
-      mirrored.writer.carry(request);
-    } else mind!.step(sense(), dt);
-    if (log) record(log, world.steps, driver, help!.asked, hands);
-    help!.apply();
-    const slot = posed.sent[line.written()]!;
-    slot.length = 0;
-    for (const one of posed.asked.splice(0)) slot.push(one);
-    const due = line.applied();
-    line.advance();
-    if (due >= 0 && posed.sent[due]!.length > 0) built.handPoses.request(posed.sent[due]!.splice(0));
-  }, () => {
-    mind!.idle?.();
-    help!.reset();
-    line.reset();
-    for (const slot of [...flight.expect, ...flight.solved]) slot.fill(NaN);
-    posed.asked.length = 0;
-    for (const slot of posed.sent) slot.length = 0;
-  }, world.mirrored ? { dynamics: false } : {});
-  help = createAssist(built, rootSegment(built), ceiling, world.delay);
+    if (mirrored) mirrored.writer.carry(way.request);
+    else mind!.step(sense(), dt);
+    way.settle(driver);
+  }, () => { mind!.idle?.(); way.reset(); }, world.mirrored ? { dynamics: false, prepared: true } : {});
+  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
   if (world.mirrored) {
-    const statics = mirrorStatics(built), writer = mirrorWriter(built, statics, world, muscles, help, sense);
+    const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
+    const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, contactIdentity ? { labels: contactIdentity } : {});
     // Its fight senses for it from its first step: made, it reads its body alone.
     writer.write({ sensing: false });
-    mirrored = { writer, mirror: mirrorBody(statics, writer.channel) };
-    const n = mirrored.mirror.muscles.channels.length;
-    for (let k = 0; k < world.delay; k++) {
-      flight.expect.push(new Float64Array(n).fill(NaN));
-      flight.solved.push(new Float64Array(n).fill(NaN));
-    }
-    flight.motion = new Float64Array(6 + n).fill(NaN);
+    const mirror = mirrorBody(statics, writer.channel);
+    mirrored = { writer, mirror };
+    // It thinks as the step is prepared, on its mirror; its command is carried out on its body as the step's controls run.
+    thinking = world.prepare((dt) => {
+      if (muscles.level !== "full") return;
+      writer.write();
+      mirror.refresh({ dynamics: true });
+      mirror.ahead(dt);
+      mind!.step(mirror.senses, dt);
+      mirror.answer();
+    });
   }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
@@ -207,9 +169,10 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   };
   const mirror = mirrored?.mirror;
   const own: OwnBody = { spec: built.spec,
-    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: () => mirror.senses }
-      : { built: readView(built), muscles, assist: help.assist, requestHandPoses: request, senses: sense }),
-    ...(contactIdentity ? { contactIdentity } : {}), ...(experiment ? { experiment } : {}),
+    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: () => mirror.senses,
+      ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}) }
+      : { built: readView(built), muscles, assist: way.help.assist, requestHandPoses: way.request, senses: sense, ...(contactIdentity ? { contactIdentity } : {}) }),
+    ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
       observed ??= world.afterPhysics(observe);
       listeners.add(listener);
@@ -217,11 +180,84 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     } };
   let made: M;
   try { made = make(own); }
-  catch (error) { observed?.dispose(); muscles.dispose(); throw error; }
+  catch (error) { observed?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
   mind = made;
-  return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
-    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, flight, toes: built.toes, mind: made.state ?? null },
-    dispose: () => { made.dispose?.(); observed?.dispose(); listeners.clear(); muscles.dispose(); } };
+  return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
+    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null },
+    dispose: () => { made.dispose?.(); observed?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
+}
+
+/**
+ * **The way a mind's command goes to its body**, the same whoever made it and wherever: the hand
+ * poses it asks (`request`), checked and kept until their step comes, a slot a step of the world's
+ * delay and one more; and, once the muscles have the command, the sheet written where a `log` is
+ * given, the assist's ask given within its ceiling, and the hand poses due asked of the hands
+ * (`settle`). Its assist is given once made (`assisted`).
+ */
+function commandWay(built: BuiltBody, world: World, log: SheetLog | undefined) {
+  let help: ReturnType<typeof createAssist> | null = null;
+  // The hand poses asked since the last sheet, which the next sheet carries.
+  const hands: HandPoseRequest[] = [];
+  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step of the world's delay and one more.
+  const line = delayLine(world.delay), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
+  return {
+    posed,
+    get help() { return help!; },
+    assisted(made: ReturnType<typeof createAssist>) { help = made; },
+    request(requests: readonly HandPoseRequest[]) {
+      for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
+      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
+    },
+    settle(driver: MuscleDriver) {
+      if (log) record(log, world.steps, driver, help!.asked, hands);
+      help!.apply();
+      const slot = posed.sent[line.written()]!;
+      slot.length = 0;
+      for (const one of posed.asked.splice(0)) slot.push(one);
+      const due = line.applied();
+      line.advance();
+      if (due >= 0 && posed.sent[due]!.length > 0) built.handPoses.request(posed.sent[due]!.splice(0));
+    },
+    reset() {
+      help!.reset();
+      line.reset();
+      posed.asked.length = 0;
+      for (const slot of posed.sent) slot.length = 0;
+    },
+  };
+}
+
+/** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the hand poses in flight, the numbers written for its mind and what they are first told, and its senses. */
+export interface MirrorDriven {
+  readonly muscles: MuscleDriver;
+  readonly help: ReturnType<typeof createAssist>;
+  readonly posed: ReturnType<typeof commandWay>["posed"];
+  readonly writer: MirrorWriter;
+  readonly statics: MirrorStatics;
+  readonly senses: () => Senses;
+}
+
+/**
+ * **`built` driven by a mind that reads it from a mirror elsewhere** (`embodyApart`,
+ * `src/core/mind/minds.ts`): the muscles read the joints as the step is prepared, the mind's numbers
+ * are written in `allocate`'s memory, and as the step's controls run, once the mind has `answered`,
+ * its command is carried out as `embody` carries out a mind's, the same rings, assist and sheets;
+ * `idle` is called as the body leaves `full`. Written once, with the senses as nothing yet read.
+ */
+export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: number) => Float64Array, { answered, idle }: { answered(): void; idle(): void },
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log }: Embodying = {}): MirrorDriven {
+  const way = commandWay(built, world, log);
+  let writer: MirrorWriter | null = null;
+  const muscles = driveMuscles(built, world, (driver) => {
+    answered();
+    writer!.carry(way.request);
+    way.settle(driver);
+  }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true });
+  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
+  const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
+  writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
+  writer.write({ sensing: false });
+  return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */
@@ -231,34 +267,4 @@ function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { read
   sheets.push({ step, activation: driver.activation.slice(), velocity: driver.velocity.slice(),
     force: [asked.force.x, asked.force.y, asked.force.z], moment: [asked.moment.x, asked.moment.y, asked.moment.z],
     hands: hands.splice(0) });
-}
-
-/** The segments `spec`'s legs bear it on: its feet, paws and propped shins (`BodySpec.ends`), not its hands. */
-function standingSegments(spec: BodySpec): ReadonlySet<string> {
-  return new Set((spec.ends ?? []).filter((end) => end.kind !== "end").map((end) => end.segment));
-}
-
-/** Whether `mirror`'s body touches anything with none but the segments its legs bear it on (`standing`), as last read. */
-function onFeet(mirror: Mirror, standing: ReadonlySet<string>): boolean {
-  for (const segment of mirror.read.segments.values())
-    if (!standing.has(segment.spec.name) && mirror.read.physics.contactsOf(segment.body).length > 0) return false;
-  return true;
-}
-
-/**
- * Carries a mirror a step forward through a command in flight: each channel toward the speed the
- * command expects (`MuscleDriver.expect`), as far as the plan's reflex (`PLAN_REFLEX`) can take it
- * from the acceleration solved: the margin over the inertia beyond the joint. The root moves as the
- * joints and its own motion carry it.
- */
-function forecast(mirror: Mirror, expect: Float64Array, solved: Float64Array, motion: Float64Array, dt: number): void {
-  const muscles = mirror.muscles, mass = muscles.dynamics.mass;
-  for (let i = 0; i < expect.length; i++) {
-    const a = solved[i]!;
-    if (Number.isNaN(a)) { motion[6 + i] = NaN; continue; }
-    const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
-    const wanted = (expect[i]! - muscles.speed(i)) / dt;
-    motion[6 + i] = wanted < a - reach ? a - reach : wanted > a + reach ? a + reach : wanted;
-  }
-  mirror.forecast(motion, dt);
 }

@@ -8,6 +8,7 @@ import { addArenaSolids, arenaSolids } from "../arena/room.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { DEFAULT_ENGINE, loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { createWorld, type World } from "../core/world.ts";
+import type { MindPlace } from "../core/mind/apart.ts";
 import { defaultMind } from "../entrants/game.ts";
 
 /** How a bout's world is built beside its recipe. */
@@ -20,6 +21,8 @@ interface BoutOptions {
   readonly actuation?: World["actuation"];
   /** Each mind on its mirror (`World.mirrored`); on its body unless given. */
   readonly mirrored?: true;
+  /** Where its minds run (`World.minds`); in the world's thread unless given. */
+  readonly minds?: MindPlace;
   readonly hooks?: ConstructorParameters<typeof Duel>[2];
 }
 
@@ -32,9 +35,9 @@ export interface BuiltBout {
 }
 
 /** A world with the arena's solids and `recipe`'s bout in it, on a scene of its own with no canvas. */
-export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, mirrored, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
+export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, mirrored, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, actuation, ...(mirrored ? { mirrored } : {}) });
+  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, actuation, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
   try {
@@ -57,9 +60,9 @@ export const BOUT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "bout" }>
 };
 
 /** A world with the arena's solids and `recipe`'s team bout in it, on a scene of its own with no canvas. */
-export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, mirrored }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
+export async function buildTeamBout(recipe: TeamRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, mirrored, minds }: Omit<BoutOptions, "hooks" | "actuation"> = {}): Promise<{ readonly world: World; readonly bout: TeamBout; dispose(): void }> {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, ...(mirrored ? { mirrored } : {}) });
+  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   addArenaSolids(world.physics, solids);
   try {

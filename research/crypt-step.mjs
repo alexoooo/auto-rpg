@@ -11,14 +11,15 @@
  * body's touches, and its air, asked here every step where a page asks once a frame, by a
  * listener that does nothing with them. The row's first figures are the unheard run's.
  *
- *   node research/crypt-step.mjs [--seeds 1,2,3,4] [--seconds 120] [--companions 0] [--listen] [--mind option] [--runs 1]
+ *   node research/crypt-step.mjs [--seeds 1,2,3,4] [--seconds 120] [--companions 0] [--listen] [--mind option] [--runs 1] [--minds 3]
  *
  * `--mind` names the preset (`MINDS`) every body plays, the party's and the enemies'; each its
  * model's own unless given. `--runs` plays each seed that many times: a run is the same to the
  * bit each time, so the least of each step's times over the playings is its work, and the row's
  * last figures are the dearest such step past the first 2 s and the worst lag behind real time
  * from then (`lagOf`, `research/lag.mjs`), the least of each playing's own, with the bodies built
- * and the collections in the run of steps that built that playing's worst.
+ * and the collections in the run of steps that built that playing's worst. `--minds` runs every
+ * mind apart, on that many worker threads (`mindWorkers`, `src/node/minds.ts`).
  *
  * Wall time on the machine it runs on, one row at a time: read it on a quiet one, with the
  * process held to cores of one kind (`docs/reference/play.md`, Hearing in the step, says how). On
@@ -34,24 +35,25 @@ import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { MINDS } from "../src/entrants/game.ts";
 import { PerformanceObserver } from "node:perf_hooks";
 import { lagOf } from "./lag.mjs";
+import { mindWorkers } from "../src/node/minds.ts";
 
 const collections = [];
 new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration }); }).observe({ entryTypes: ["gc"] });
 
-const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" }, listen: { type: "boolean", default: false }, mind: { type: "string" }, runs: { type: "string", default: "1" } } });
+const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" }, listen: { type: "boolean", default: false }, mind: { type: "string" }, runs: { type: "string", default: "1" }, minds: { type: "string" } } });
 const mind = values.mind === undefined ? undefined : MINDS[values.mind]?.config;
 if (values.mind !== undefined && !mind) throw new Error(`no mind preset ${values.mind}`);
 const seconds = Number(values.seconds), companions = Array.from({ length: Number(values.companions) }, () => "workshop-fighter");
 
 /** A run of `seed`, heard or not, and the wall time its steps have taken: all of them, and its slowest second's. */
 async function begun(seed, heard) {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, companions, ...(mind ? { mind: () => mind } : {}) });
+  const engine = new NullEngine(), scene = new Scene(engine), place = values.minds ? mindWorkers(Number(values.minds)) : null;
+  const run = new DungeonRun(scene, { seed, engine: await freshEngine(), visuals: false, companions, ...(mind ? { mind: () => mind } : {}), ...(place ? { minds: place } : {}) });
   // The hero explores by itself in this mode, and fights what it meets.
   run.commands.setMode({ keyboard: false, facing: true });
   const hearing = heard ? hearRun(run, () => {}) : null;
   const airing = hearing ? run.world.afterStep(() => hearing.airs(() => {})) : null;
-  return { run, total: 0, worst: 0, dispose() { airing?.dispose(); hearing?.dispose(); run.dispose(); scene.dispose(); engine.dispose(); } };
+  return { run, total: 0, worst: 0, dispose() { airing?.dispose(); hearing?.dispose(); run.dispose(); scene.dispose(); engine.dispose(); place?.dispose(); } };
 }
 
 async function played(seed) {

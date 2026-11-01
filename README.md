@@ -162,6 +162,7 @@ reliable: getting up from every fall, finishing a fight decisively, and AI above
 | `src/render/`, `src/audio/`, `src/ui/` | drawing, sound and panels the screens share |
 | `src/app.ts`, `index.html` | the main menu and routing |
 | `src/evaluation/` | evaluations: the match and every question of how well something does; records in `assets/evaluations/` |
+| `src/node/` | Node's own: a fight's minds on worker threads (`mindWorkers`) |
 | `tests/` | the gate's few contract tests (`node --test`) |
 | `research/` | measurement scripts ([README](research/README.md)) |
 | `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
