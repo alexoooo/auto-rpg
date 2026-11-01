@@ -31,6 +31,12 @@ export interface World {
   readonly dt: number;
   /** The actuator law shared by every body: symmetric reference bounds or each side's own muscle bounds. */
   readonly actuation: "symmetric" | "directional";
+  /**
+   * Whether each body's mind reads its body from a mirror (`mirrorBody`, `src/core/mind/mirror.ts`),
+   * refreshed from the numbers the world writes, rather than from the body itself. A bout is the same
+   * either way, step for step.
+   */
+  readonly mirrored: boolean;
   /** Steps taken since the world was made. */
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
@@ -73,10 +79,12 @@ interface WorldOptions {
   /** Standard gravity, or none, for reading a body alone. */
   readonly gravity?: boolean;
   readonly actuation?: World["actuation"];
+  /** Each body's mind on its mirror (`World.mirrored`); on its body unless given. */
+  readonly mirrored?: true;
 }
 
 /** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric" }: WorldOptions = {}): World {
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", mirrored = undefined }: WorldOptions = {}): World {
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
@@ -95,7 +103,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, state,
+    scene, physics, hz, dt, state, mirrored: mirrored === true,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },

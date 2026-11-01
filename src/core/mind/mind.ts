@@ -7,6 +7,7 @@ import { readView } from "../build/read-view.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
+import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorWriter } from "./mirror.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
@@ -89,7 +90,10 @@ export interface OwnBody {
 type MindMaker<M extends Mind = Mind> = (own: OwnBody) => M;
 
 interface Embodied<M extends Mind = Mind> {
+  /** The body its mind was made with: the body itself, or its mirror where the world puts minds on mirrors (`World.mirrored`). */
   readonly own: OwnBody;
+  /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
+  readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
   readonly mind: M;
   /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, and the mind's own, or null. */
   readonly state: object;
@@ -129,25 +133,44 @@ export interface Embodying {
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
-  let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
+  let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null;
   // The hand poses asked since the last sheet, which the next sheet carries.
   const hands: HandPoseRequest[] = [];
+  const request = (requests: readonly HandPoseRequest[]) => {
+    built.handPoses.request(requests);
+    if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
+  };
   const muscles = driveMuscles(built, world, (driver, dt) => {
-    mind!.step(sense(), dt);
+    if (mirrored) {
+      mirrored.writer.write();
+      mirrored.mirror.refresh({ dynamics: true });
+      mind!.step(mirrored.mirror.senses, dt);
+      mirrored.mirror.answer();
+      mirrored.writer.carry(request);
+    } else mind!.step(sense(), dt);
     if (log) record(log, world.steps, driver, help!.asked, hands);
     help!.apply();
-  }, () => mind!.idle?.());
+  }, () => mind!.idle?.(), world.mirrored ? { dynamics: false } : {});
   help = createAssist(built, rootSegment(built), ceiling);
+  if (world.mirrored) {
+    const statics = mirrorStatics(built), writer = mirrorWriter(built, statics, world, muscles, help, sense);
+    // Its fight senses for it from its first step: made, it reads its body alone.
+    writer.write({ sensing: false });
+    mirrored = { writer, mirror: mirrorBody(statics, writer.channel) };
+  }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
-  const own: OwnBody = { spec: built.spec, built: readView(built), muscles, assist: help.assist,
-    requestHandPoses: (requests) => {
-      built.handPoses.request(requests);
-      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
-    },
-    senses: sense, ...(contactIdentity ? { contactIdentity } : {}), ...(experiment ? { experiment } : {}),
+  const observe = () => {
+    if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); }
+    for (const one of listeners) one(world.steps, world.time);
+  };
+  const mirror = mirrored?.mirror;
+  const own: OwnBody = { spec: built.spec,
+    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: () => mirror.senses }
+      : { built: readView(built), muscles, assist: help.assist, requestHandPoses: request, senses: sense }),
+    ...(contactIdentity ? { contactIdentity } : {}), ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
-      observed ??= world.afterPhysics(() => { for (const one of listeners) one(world.steps, world.time); });
+      observed ??= world.afterPhysics(observe);
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     } };
@@ -155,7 +178,8 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   try { made = make(own); }
   catch (error) { observed?.dispose(); muscles.dispose(); throw error; }
   mind = made;
-  return { own, mind: made, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, toes: built.toes, mind: made.state ?? null },
+  return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
+    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, toes: built.toes, mind: made.state ?? null },
     dispose: () => { made.dispose?.(); observed?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 

@@ -835,6 +835,28 @@ solver timed, read the world's part 4.87 ms, the solver 3.10 of it, the minds 4.
 - **Read with every copy whole**: each thread runs every mind and the world, more than a split's
   thread would hold, so a part here is if anything dearer than in the split.
 
+### Minds on their mirrors
+
+**With every mind on its mirror (`World.mirrored`), the crowd fight's step past the solver is 7.5 to
+7.8 ms against 6.1, about 0.15 ms a body: the world writes each body twice a step, 1.04 ms for the
+ten, and the mirrors read it, 0.95 ms with the dynamics the driver no longer reads.**
+`research/step-time.mjs --crowd --cap 20 --runs 3`, mirrored (`--mirrored`) and not, in turn,
+mirrored first and last; Node 24.19, core world, Rapier, 120 Hz, unpinned, beside another agent's
+runs on the host, so read the rows against each other; the writes and reads timed apart by a
+temporary hook over 1800 steps, mirrored:
+
+| Run | The solver, mean ms | The rest, mean ms | Its 99th per cent | Scavenges |
+| --- | --- | --- | --- | --- |
+| mirrored | 3.05 | 7.52 | 11.6 | one every 21 steps |
+| on bodies | 3.05 | 6.14 | 9.96 | one every 26 |
+| mirrored | 3.12 | 7.82 | 11.9 | one every 21 |
+
+- **The writes are the world's**: split off, they land on the world's thread, whose part sets the
+  split's step ([above](#the-minds-split-off-the-world)), about 0.1 ms a body.
+- **Each write reads every segment's contacts and manifolds**, since a mind may read any segment's.
+  They change only with the solver's step, a load, a level, or a body added or removed, but the
+  engine does not say when its readings went stale, so a body's are read at each write.
+
 ### Making a mind
 
 **A warm Warrior's Option Mind is made in about 5.5 ms, a Skeleton's in about 3.3: a quarter and a

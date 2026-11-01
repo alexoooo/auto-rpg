@@ -39,6 +39,13 @@ export interface Assist {
   readonly withdrawn: boolean;
 }
 
+/** `v` shortened to `limit` into `out` (`Assist.clipToRef`): none where it is not finite, nothing, or the limit is none. */
+export function clipToRef(v: Vector3, limit: number, out: Vector3): void {
+  const size = v.length();
+  if (!Number.isFinite(size) || size === 0 || limit <= 0) out.setAll(0);
+  else out.copyFrom(v).scaleInPlace(Math.min(1, limit / size));
+}
+
 /** `built`'s assist under `ceiling`, on `root`; `apply` gives the step's ask, and is the seam's to call (`embody`). */
 export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): {
   assist: Assist; apply(): void; state: object;
@@ -52,18 +59,13 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
   const state = { asked, given, meter, withdrawn: false };
   const at = new Vector3();
   const on = (): boolean => !state.withdrawn && (most.force > 0 || most.moment > 0);
-  const clip = (v: Vector3, limit: number, out: Vector3): void => {
-    const size = v.length();
-    if (!Number.isFinite(size) || size === 0 || limit <= 0) out.setAll(0);
-    else out.copyFrom(v).scaleInPlace(Math.min(1, limit / size));
-  };
   const assist: Assist = {
     get on() { return on(); },
     get withdrawn() { return state.withdrawn; },
     most, given, meter,
     clipToRef(force, moment, givenForce, givenMoment) {
-      clip(force, state.withdrawn ? 0 : most.force, givenForce);
-      clip(moment, state.withdrawn ? 0 : most.moment, givenMoment);
+      clipToRef(force, state.withdrawn ? 0 : most.force, givenForce);
+      clipToRef(moment, state.withdrawn ? 0 : most.moment, givenMoment);
     },
     ask(force, moment) { asked.force.copyFrom(force); asked.moment.copyFrom(moment); },
     withdraw() { state.withdrawn = true; },
