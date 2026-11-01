@@ -8,7 +8,8 @@
  * - `turn`: told to go forward with no pace for `WALK` s, then `way` degrees aside for `WALK` s, then
  *   to stop;
  * - `shove`: standing, shoved level at the middle trunk by `impulse` N s from `way` degrees at
- *   `SHOVE` s;
+ *   `SHOVE` s; a protocol names the Warrior's impulses, and each body is shoved by its own share
+ *   of them (`shoveOf`);
  * - `shoved-walk`: told to walk forward at `pace` for `WALK` s, then to stop, and shoved by
  *   `impulse` from `way` degrees `SETTLE` s after the stop is asked;
  * - `run-held`: told to run forward with no pace for `RUN_UP` s and `HOLD` s more, then to stop;
@@ -25,7 +26,7 @@ import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import type { Orders } from "../../core/intent/orders.ts";
 import { cos, sin } from "../../core/math/real.ts";
-import type { BodyModel } from "../../core/models.ts";
+import { modelSpec, type BodyModel } from "../../core/models.ts";
 import { loadoutKey, REPRESENTATIVE, type Loadout } from "../../core/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import type { Cases, Json, Subject } from "../evaluation.ts";
@@ -123,6 +124,14 @@ function faultsOf(value: Json, model: BodyModel, subject?: Subject): readonly st
 /** How long a turning run's way turns: a circle at `TURN_RATE`, s. */
 export const TURNING = 2 * Math.PI / TURN_RATE;
 
+/**
+ * **The shove a body takes for the Warrior's `impulse`**, N s: the one that changes its speed as
+ * much as the Warrior's changes his, `impulse` times its mass over his (`BodySpec.mass`). The
+ * Warrior's is `impulse` itself.
+ */
+export const shoveOf = (model: BodyModel, impulse: number): number =>
+  impulse * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value);
+
 /** The conditions of `protocol`, body by body, in the order the kinds are listed above. */
 function conditionsOf(protocol: Protocol): LocomotionCondition[] {
   return screenOf(protocol, {});
@@ -134,8 +143,8 @@ function screenOf(protocol: Protocol, held: Held): LocomotionCondition[] {
     ...protocol.ways.flatMap((way) => protocol.paces.map((pace) => ({ kind: "walk" as const, model, way, pace }))),
     { kind: "run" as const, model },
     ...protocol.turns.map((way) => ({ kind: "turn" as const, model, way })),
-    ...protocol.shoves.impulses.flatMap((impulse) => protocol.shoves.ways.map((way) => ({ kind: "shove" as const, model, way, impulse }))),
-    ...protocol.walked.ways.map((way) => ({ kind: "shoved-walk" as const, model, way, impulse: protocol.walked.impulse, pace: protocol.walked.pace })),
+    ...protocol.shoves.impulses.flatMap((impulse) => protocol.shoves.ways.map((way) => ({ kind: "shove" as const, model, way, impulse: shoveOf(model, impulse) }))),
+    ...protocol.walked.ways.map((way) => ({ kind: "shoved-walk" as const, model, way, impulse: shoveOf(model, protocol.walked.impulse), pace: protocol.walked.pace })),
   ].map((condition) => ({ ...condition, ...held })));
 }
 
