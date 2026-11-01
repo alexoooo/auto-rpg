@@ -216,13 +216,59 @@ names as a foot end (`BearingEndSpec`), spared as a hand is. A foot shares a blo
 
 ## Mechanisms
 
-The rulebook's prices are blunt 1 : an edge 5.7 : a point 33, a joule (`MECHANISM_PRICE`,
-`src/core/rules/rulebook.ts`). Every blow is blunt until an item states an edge or a point.
-Against the literature (none of the five opened at its source; each is read again before a number
-of it enters a spec):
+Blunt, an edge and an axe are priced by the joule, blunt 1 : an edge 5.7 : an axe 7.7
+(`MECHANISM_PRICE`, `src/core/rules/rulebook.ts`). Every blow is blunt until an item states an
+edge or a point. A point wounds by its depth (`pointWound`, `owner-point-depth`):
 
-- **A point is in range.** People stab at up to 64 J underarm and 115 J overarm (Horsfall et al.
-  1999); a sharp knife breaches skin at about 0.25 J (Gilchrist et al. 2008).
+    depth = min(length, max(0, energy - breach) / resistance)
+    wound = part's hit points x min(1, depth / thickness)
+
+- `energy` is the struck side's share of the blow (`energyShares`).
+- `breach` is the sum over the layers over every part (`Rulebook.layers`): the skin's 0.25 J, the
+  energy for a knife to penetrate a skin simulant, 0.17 to 0.56 J over four household knives
+  (Gilchrist et al. 2008, read at its source, `gilchrist-2008`). A point short of a layer meets as
+  blunt with the energy that reached it.
+- `resistance` is 20 N (`Rulebook.resistance`): the force those knives penetrated the skin simulant
+  at, 18 to 36 N (Gilchrist et al. 2008). It bounds the tissue past the skin from above: once the
+  skin is perforated, further penetration meets negligible resistance (Knight 1975, as Horsfall et
+  al. 1999 read it at its source).
+- `length` is the point's own `depth` (`SurfaceSpec.directed`): the short sword's 0.475 m, its tip
+  to the blade's base.
+- `thickness` is the struck part's least width (`partThickness`, `src/core/rules/pool.ts`): a
+  capsule's diameter, a box's least side, a hull's extent along its least principal axis.
+- A point's wound stays in its part (`Blow.contained`): it never takes the part off and does not
+  walk. A point meeting an item meets it blunt. An anatomical point (the reptile's bite) wounds by
+  its press (`pointLoad`), not by this rule.
+
+So any held point past about 5.5 J goes through a Warrior's trunk, and one past 3.9 J through its
+head, which is fatal. The cut and the thrust as measured ([held blows](held-blows.md)), each on a
+toed body's parts at 120 Hz's best blows (the struck share about 1, the sword rigid; one side of
+each pair):
+
+| Part | Warrior HP | thickness, m | Cut 15 / 20 J | Thrust 25 / 28 J, at 33 x blunt | by its depth |
+| --- | ---: | ---: | --- | --- | --- |
+| head | 0.446 | 0.183 | 0.86 / 1.15 | 8.35 / 9.35 | 0.446, through |
+| upper trunk | 0.776 | 0.261 | 0.86 / 1.15 | 8.35 / 9.35 | 0.776, through |
+| middle trunk | 0.788 | 0.215 | 0.86 / 1.15 | 8.35 / 9.35 | 0.788, through |
+| lower trunk | 0.612 | 0.258 | 0.86 / 1.15 | 8.35 / 9.35 | 0.612, through |
+| upper arm | 0.238 | 0.107 | 0.86 / 1.15 | 8.35 / 9.35 | 0.238, through |
+| forearm | 0.169 | 0.078 | 0.86 / 1.15 | 8.35 / 9.35 | 0.169, through |
+| hand | 0.088 | 0.053 | 0.86 / 1.15 | 8.35 / 9.35 | 0.088, through |
+| thigh | 0.717 | 0.190 | 0.86 / 1.15 | 8.35 / 9.35 | 0.717, through |
+| shank | 0.325 | 0.099 | 0.86 / 1.15 | 8.35 / 9.35 | 0.325, through |
+| foot | 0.151 | 0.098 | 0.86 / 1.15 | 8.35 / 9.35 | 0.151, through |
+
+The Rogue's (4 HP) and the Skeleton's (6 HP) parts go the same way: every one is through at 25 J
+(the Rogue's head 0.145 m thick, through past 3.1 J; the Skeleton's 0.131 m, past 2.9 J). The cut
+is unchanged; it walks, and severs where the margin allows. At 33 times blunt the thrust took more
+than a whole Warrior; by its depth it takes the part it meets. Computed from the rules
+(`pointWound`, `partHitPoints`, `partThickness`) at the branch's commit, Node.
+
+Against the literature (none of these opened at its source but where said):
+
+- **People stab** at 28.1 J mean, 6.0 m/s, underarm (men, 142 stabs; 95th percentile 54.9 J,
+  8.3 m/s; at most 63.4 J), and up to 115 J overarm (Horsfall et al. 1999, Table 1, read at its
+  source; [the thrust's bar](human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)).
 - **An edge is plausible on soft tissue**, and only 1.5 to 3.4 times blunt on bone (Gentile et al.
   2019; Gaudet et al. 2020).
 - **An axe against a sword** is supported by nothing found either way.

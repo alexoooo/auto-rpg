@@ -1607,12 +1607,20 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   series, the softer takes more. An item with no stated surface is rigid and takes none; two rigid
   items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare hand or
   foot on flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
-- **Damage** (`rulebook.ts`): impact energy times the mechanism's worth, 100 J of blunt blow per HP.
-  A surface's `directed` edge or point, met square, is priced as a cut or thrust; otherwise blunt.
-  Anatomical points wound by sustained load (`pointLoad`, `pointsInto`).
+- **Damage** (`rulebook.ts`): a blunt blow, an edge or an axe's is its side's share of the energy
+  times the mechanism's worth, 100 J of blunt blow per HP. A surface's `directed` edge, met square,
+  is priced as a cut; otherwise blunt.
+- **A point wounds by its depth** (`pointWound`): a held point met square on a body's own surface
+  breaches the layers over every part (`Rulebook.layers`, the skin today) and goes in against the
+  tissue's `resistance` as deep as the energy left drives it, no deeper than its own `depth`; it
+  takes the part's hit points in proportion to that depth over the part's thickness (its collider's
+  least width, `partThickness`, `pool.ts`). One that breaches no layer meets as blunt, as does a
+  point meeting an item. Anatomical points wound by sustained load instead (`pointLoad`,
+  `pointsInto`). Worn armour would be more layers.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section.
-  Excess spreads to neighbours; an emptied part may come off (never the trunk). A body is out when
-  its pool is empty or a vital part is emptied or off (`BodySpec.wounds`).
+  Excess spreads to neighbours; an emptied part may come off (never the trunk). A point's wound is
+  contained: it stays in its part and never takes it off. A body is out when its pool is empty or
+  a vital part is emptied or off (`BodySpec.wounds`).
 - **Balance** (`AttributeSpec.balance`): a per cent of the body's weight, the most force its assist
   gives, with the moment `Rulebook.balance` gives each per cent (`balanceCeiling`). A fight sets each
   ceiling from the character and withdraws it when the body is out. The stance steps for a push only
