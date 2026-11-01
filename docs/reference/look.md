@@ -262,8 +262,8 @@ how large anything is drawn.
 ([the crypt's art](../art/crypt.md#the-rootbound-crypt)): 42 degrees up, at a bearing of 135
 degrees, zoom 6.5.
 
-Random Crypt opens at zoom 5.2, with the camera target 2.8 m to screen-left of the hero
-(`framing`, `src/dungeon/main.ts`), keeping the hall and its torchlit wall in view.
+Random Crypt opens at zoom 5.2 and centres the camera on the hero at every zoom
+(`framing`, `src/dungeon/main.ts`).
 
 ## Crypt light
 
@@ -294,6 +294,9 @@ facing -z, its flame at (12, 2.05, 13.35) and its light at (12, 2.05, 13).
 
 The torches burn on a time of their own, which only the page moves (`DungeonLighting.burn`), by at
 most 50 ms a frame; a paused run's flames stand still, as the forge's do, as the owner chose.
+`FLAME_VOLUME` (`src/dungeon/fire.ts`) bounds each flame in 0.48 by 0.82 by 0.48 m.
+The shader integrates 32 samples through a 3D density field with rising turbulence and a hot core.
+Each torch has its own phase; the volume stays aligned to the world as the camera moves.
 
 ## Crypt fog
 
@@ -341,8 +344,9 @@ cut, and a torch whose rock cell lies beyond one is hidden with its wall.
 
 `REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and (13.5, 8.2),
 m. The Random Crypt's is wet under the guard hall's torches and those of its damp chambers
-(`CRYPT_TORCH`), with irregular patches of half-extents 3.8 by 2.7 m, a wet roughness of 0.16
-and albedo multiplier 0.64 (`CryptDamp`).
+(`CRYPT_TORCH`), with irregular patches of half-extents 3.8 by 2.7 m, a wet roughness of 0.24
+and albedo multiplier 0.64 (`CryptDamp`). The water film suppresses 70% of normal-map relief,
+retaining the chipped geometry. Specular antialiasing broadens unresolved normal detail's highlights.
 
 A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced (`shadowMapSize`;
 [the crypt's art](../art/crypt.md#random-crypt)).
@@ -390,7 +394,7 @@ bands at 0.55 m and 1.85 m up, 0.12 m high, 0.28 m deep and 2.9 m wide; and a ri
 
 `SCONCE`: nothing of it stands more than 0.08 m off the wall; its plate is 0.20 m by 0.44 m by
 0.02 m, centred 1.82 m up. Its iron basket is centred 1.84 m up, 0.50 m wide and 0.42 m high,
-with two oval rims, five bars and two plate rivets. The flame quad's centre stands 0.20 m above
+with two oval rims, five bars and two plate rivets. The flame volume's centre stands 0.20 m above
 its anchor (`DUNGEON_LOOK.flameLift`), exposing the cage beneath the fire. A recessed fitting
 moves down by the difference between its flame anchor and `DRESSING.torchHeight`.
 

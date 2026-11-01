@@ -1,30 +1,61 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Effect } from "@babylonjs/core/Materials/effect.js";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import "../render/fire.ts";
 import { cutAway } from "./fog.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Point } from "./map.ts";
 
-/**
- * The flame (`flame` in `src/render/fire.ts`) has a white-hot core and times a `fade`, so a torch inside the cut-away ghosts with the wall
- * and sconce behind it rather than floating in front of a hole. Derived from that shader's text rather than copied,
- * and refused at load if the text has moved, so `flame` stays the one source of the flame.
- *
- * The fade scales the colour as well as the alpha. The flame's core is HDR, and blending adds
- * colour times alpha: a flame faded by its alpha alone still tone-maps to a bright core and only loses its bloom, so
- * it reads as dimmer rather than see-through. Scaling both fades it as the wall beside it fades.
- */
-const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(c,a*.82);}";
-const flame = Effect.ShadersStore.flameFragmentShader;
-if (!flame.includes(HEAD) || !flame.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
-Effect.ShadersStore.dungeonFireFragmentShader = flame.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
-  .slice(0, -TAIL.length) + "vec3 fire=mix(vec3(1.8,.42,.035)*tint,vec3(3.5,2.8,1.6),smoothstep(.08,.65,field));gl_FragColor=vec4(fire*fade,a*.82*fade);}";
+/** A small world-aligned volume above the basket, m (`docs/reference/look.md#crypt-light`). */
+export const FLAME_VOLUME = Object.freeze({ width: .48, height: .82, depth: .48 });
 
-/** Which shaders a dungeon flame draws with: the flame's vertex, the fading fragment. */
-const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });
+Effect.ShadersStore.dungeonFireVertexShader = `precision highp float;
+attribute vec3 position; uniform mat4 worldViewProjection; varying vec3 flamePosition;
+void main(){flamePosition=position;gl_Position=worldViewProjection*vec4(position,1.0);}`;
+/** Integrate emission through a 3D density field. Noise advects upward in the torch's space, never in screen space. */
+Effect.ShadersStore.dungeonFireFragmentShader = `precision highp float;
+varying vec3 flamePosition;
+uniform vec3 rayDirection, tint; uniform float time, phase, fade;
+float fireHash(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+float fireNoise(vec3 p){
+  vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(fireHash(i),fireHash(i+vec3(1,0,0)),f.x),
+    mix(fireHash(i+vec3(0,1,0)),fireHash(i+vec3(1,1,0)),f.x),f.y),
+    mix(mix(fireHash(i+vec3(0,0,1)),fireHash(i+vec3(1,0,1)),f.x),
+    mix(fireHash(i+vec3(0,1,1)),fireHash(i+vec3(1,1,1)),f.x),f.y),f.z);
+}
+void main(){
+  vec3 ray=normalize(rayDirection);
+  vec3 bounds=vec3(${FLAME_VOLUME.width/2},${FLAME_VOLUME.height/2},${FLAME_VOLUME.depth/2});
+  // The rasterized front face is the ray's entry. The slab intersection gives its exit.
+  vec3 safeRay=(step(vec3(0),ray)*2.0-1.0)*max(abs(ray),vec3(.00001));
+  vec3 farPlane=max((-bounds-flamePosition)/safeRay,(bounds-flamePosition)/safeRay);
+  float stepLength=max(0.0,min(farPlane.x,min(farPlane.y,farPlane.z)))/32.0;
+  vec3 radiance=vec3(0);float opacity=0.0;
+  float clock=time+phase;
+  for(int i=0;i<32;i++){
+    vec3 p=flamePosition+ray*(float(i)+.5)*stepLength;
+    float height=(p.y+bounds.y)/${FLAME_VOLUME.height};
+    vec2 bend=vec2(sin(height*7.0-clock*2.1),sin(height*5.0+clock*1.7))*.045*height;
+    vec3 flow=vec3((p.xz-bend)*11.0,height*5.5-clock*2.2);
+    float turbulence=fireNoise(flow)*.7+fireNoise(flow*2.1+11.7)*.3;
+    float radius=.18*pow(max(0.0,1.0-height),.75);
+    float field=radius*(.45+turbulence)-length(p.xz-bend)+(turbulence-.5)*.12;
+    float density=smoothstep(-.015,.055,field)*smoothstep(0.0,.06,height)*(1.0-smoothstep(.78,1.0,height));
+    float hot=smoothstep(.055,.15,field)*(1.0-smoothstep(.12,.55,height));
+    vec3 emission=mix(vec3(2.0,.45,.02)*tint,vec3(4.0,3.0,1.5),hot);
+    float absorb=1.0-exp(-density*stepLength*17.0);
+    radiance+=(1.0-opacity)*absorb*emission;
+    opacity+=(1.0-opacity)*absorb;
+  }
+  if(opacity<.002)discard;
+  // Alpha blending expects straight colour; fade also dims HDR emission at the cutaway.
+  gl_FragColor=vec4(radiance/max(opacity,.001)*fade,opacity*fade);
+}`;
+
+const DUNGEON_FIRE = Object.freeze({ vertex: "dungeonFire", fragment: "dungeonFire" });
 
 /**
  * The one material every torch's flame draws with, and each flame's own fade. The fade is written as a flame binds:
@@ -34,12 +65,17 @@ const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" })
  */
 export function flameMaterial(scene: Scene) {
   const material = new ShaderMaterial("dungeon.fire", scene, DUNGEON_FIRE, {
-    attributes: ["position", "uv"], uniforms: ["worldViewProjection", "time", "fade", "tint"], needAlphaBlending: true,
+    attributes: ["position"], uniforms: ["worldViewProjection", "rayDirection", "time", "phase", "fade", "tint"], needAlphaBlending: true,
   });
-  material.backFaceCulling = false; material.disableDepthWrite = true;
+  material.disableDepthWrite = true;
+  material.setFloat("time",0);
   const fades = new Map<AbstractMesh, number>();
   const tints = new Map<AbstractMesh, Color3>(), white=Color3.White();
+  const direction=new Vector3(),forward=Vector3.Forward();
   const binding = material.onBindObservable.add(mesh => {
+    scene.activeCamera?.getDirectionToRef(forward,direction);
+    material.getEffect()?.setVector3("rayDirection",direction);
+    material.getEffect()?.setFloat("phase",mesh.position.x*1.37+mesh.position.z*2.19);
     material.getEffect()?.setFloat("fade", fades.get(mesh) ?? 1);
     material.getEffect()?.setColor3("tint", tints.get(mesh) ?? white);
   });

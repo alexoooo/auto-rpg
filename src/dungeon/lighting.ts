@@ -5,7 +5,6 @@ import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline.js";
 import type { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
 import type { Camera } from "@babylonjs/core/Cameras/camera.js";
@@ -18,7 +17,7 @@ import { isTactical } from "../render/scene-profile.ts";
 import { postPipeline } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH, cameraDistance } from "./camera.ts";
-import { flameFade, flameMaterial } from "./fire.ts";
+import { FLAME_VOLUME, flameFade, flameMaterial } from "./fire.ts";
 import { orthographicLightProxy } from "./light-proxy.ts";
 import { cellKey, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
@@ -37,7 +36,7 @@ const DUNGEON_LOOK = Object.freeze({
   lantern: Object.freeze({ color: "#ffcf8f", intensity: 9, height: 2.6, behind: 0.8 }),
   /** A torch, and how far its flicker swings the intensity either way. */
   torch: Object.freeze({ color: "#ff8a3d", intensity: 6, flicker: 0.6 }),
-  /** The flame quad's centre stands above its anchor so the iron basket shows beneath the fire. */
+  /** The flame volume's centre stands above its anchor so the iron basket shows beneath the fire. */
   flameLift: .20,
   /** Contact shadow at the foot of walls and bodies, sized for a camera that stands 30 m off. */
   ssao: Object.freeze({ ratio: 0.5, radius: 0.35, totalStrength: 1.1, samples: 8 }),
@@ -114,10 +113,10 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   const flameLook = flameMaterial(scene), fire = flameLook.material;
   const torchColor = Color3.FromHexString(DUNGEON_LOOK.torch.color);
   const flames = torches.map((torch, i) => {
-    const flame = MeshBuilder.CreatePlane(`torch.flame.${i}`, { width: 0.42, height: 0.66 }, scene);
+    const flame = MeshBuilder.CreateBox(`torch.flame.${i}`, { ...FLAME_VOLUME }, scene);
     flame.position.set(torch.flame.x, torch.flame.y+DUNGEON_LOOK.flameLift, torch.flame.z);
     if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
-    flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false; flame.isVisible = false;
+    flame.material = fire; flame.isPickable = false; flame.isVisible = false;
     return { flame, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) };
   });
   const lights = torches.map((torch, i) => {

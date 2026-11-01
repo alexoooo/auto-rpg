@@ -96,7 +96,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 **To watch:**
 
 - Random Crypt's guard hall against the owner's torchlit wet-stone reference: fractured masonry,
-  chipped paving, detailed stone and timber materials, damp highlights and the composed camera
+  chipped paving, detailed stone and timber materials, damp highlights and the hero-centred camera
   (`?play=dungeon&scene=random-crypt&seed=42`, [art](art/crypt.md#random-crypt)).
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).

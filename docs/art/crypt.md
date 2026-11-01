@@ -33,7 +33,7 @@ Everything is built at runtime from the level's cells; there is no model file.
   comparison.
 - **Dressing.** `src/dungeon/dressing.ts` places torches and floor clutter (`DRESSING`,
   `torchPlacements`); `src/dungeon/decals.ts` paints the decal atlas in code; `src/dungeon/fire.ts`
-  draws the flames.
+  draws animated 3D flame volumes.
 - **Light.** `lightDungeon` (`src/dungeon/lighting.ts`) builds the lights, SSAO and the post
   pipeline from `DUNGEON_LOOK`; many torch lights share a `ClusteredLightContainer`.
 - **Fog and cutaways.** `src/dungeon/fog-plugin.ts` and `src/dungeon/fog.ts` darken what the party

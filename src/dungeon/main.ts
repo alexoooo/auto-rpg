@@ -328,10 +328,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const target = page.reference && !page.cryptPlan
       ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow }
       : hero;
-    // Leave the hall and its torchlit wall in view to the hero's left, as in the guard-hall reference.
-    const aside=page.cryptPlan ? 2.8 : 0;
-    const framed={x:target.x+toward.z*aside,z:target.z-toward.x*aside};
-    frameDungeon(camera, framed, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    frameDungeon(camera, target, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward);
     run.level.setHero(hero);
   }

@@ -70,8 +70,11 @@ class CryptDamp extends MaterialPluginBase {
           ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(3.8,2.7)));`).join("\n")}
           return 1.0-smoothstep(0.30,1.05,wetDistance+edge);
         }`,
-      CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.64, cryptDamp(vPositionW.xz));",
-      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.16, cryptDamp(vPositionW.xz));",
+      // Water fills the finest pores. Preserve the chipped mesh normal while smoothing the normal map under the film.
+      CUSTOM_FRAGMENT_BEFORE_LIGHTS: `float cryptWet=cryptDamp(vPositionW.xz);
+        surfaceAlbedo *= mix(1.0,0.64,cryptWet);
+        normalW=normalize(mix(normalW,geometricNormalW,cryptWet*.7));`,
+      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.24, cryptDamp(vPositionW.xz));",
     } : null;
   }
 }
@@ -152,6 +155,8 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const textured = (name: string, colour: string, family = "wall") => {
     const channels = sets[plan ? families.indexOf(families.includes(family) ? family : "floor") : 0]!;
     const material = flatStone(scene, name, colour);
+    // Broaden highlights when normal detail is smaller than a pixel instead of letting it sparkle as the camera moves.
+    material.enableSpecularAntiAliasing = true;
     material.useRoughnessFromMetallicTextureAlpha = false;
     material.useRoughnessFromMetallicTextureGreen = true;
     material.useMetallnessFromMetallicTextureBlue = true;
