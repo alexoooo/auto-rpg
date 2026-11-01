@@ -111,10 +111,13 @@ export interface Catalog {
   treeData(config: PartConfig): readonly DataKey[];
   /**
    * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
-   * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`). Fit is
-   * only that: what a scenario asks beyond it is its entry rules (`EntryRule`).
+   * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`), a skill
+   * it cannot use aside (`Slot.skills`, left out). Fit is only that: what a scenario asks beyond it
+   * is its entry rules (`EntryRule`).
    */
   treeRefusal(spec: BodySpec, config: PartConfig, at?: string): string | null;
+  /** **The skills of the tree `config` roots that a body of `spec` cannot use** (`Slot.skills`), left out on it: a sentence each, named. */
+  unusedParts(spec: BodySpec, config: PartConfig): readonly string[];
   /** **Whether a body of `spec` can stage what `config` roots** on its screen: fit (`treeRefusal`), then the scenario's entry rules (`EntryRule`); the first reason, or null. */
   stageRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null;
   /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */
@@ -322,11 +325,27 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     for (const { slot, parts } of held(config)) {
       const path = at ? `${at}.${slot.key}` : slot.key;
       for (const [i, child] of parts.entries()) {
+        // A skill the body cannot use is left out, not a refusal (`Slot.skills`).
+        if (slot.skills && isPart(child) && partOf(child).fits(spec, child, partLookup) !== null) continue;
         const refused = treeRefusal(spec, child as PartConfig, slot.many ? `${path}.${i}` : path);
         if (refused !== null) return refused;
       }
     }
     return null;
+  }
+
+  function unusedParts(spec: BodySpec, config: PartConfig): readonly string[] {
+    const unused: string[] = [];
+    const visit = (one: PartConfig): void => {
+      for (const { slot, parts } of held(one)) for (const child of parts) {
+        if (!isPart(child)) continue;
+        const refused = slot.skills ? partOf(child).fits(spec, child, partLookup) : null;
+        if (refused === null) visit(child);
+        else unused.push(`${(child as PartConfig & { name?: string }).name ?? partOf(child).label}: ${refused}`);
+      }
+    };
+    visit(config);
+    return unused;
   }
 
   /** **Why the tree `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
@@ -432,6 +451,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
       return [...keys];
     },
     treeRefusal,
+    unusedParts,
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
       treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
     withoutTuning,

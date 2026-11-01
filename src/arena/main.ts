@@ -270,6 +270,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     control.addEventListener("change", () => { control.blur(); showSettings(MINDS[control.value]!.config); });
     // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
     // The minds offered are those the body, holding what it holds, can carry out (`controlsFor`).
+    // `fromLink`: the first listing, where the side's mind is the link's.
+    let fromLink = true;
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
       const model = select.value as BodyModel, hands = modelHolds(model);
@@ -282,8 +284,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       const holds = loadout(), previous = control.value;
       let choices: readonly string[];
       try { choices = controlsFor(model, holds, attributes[side]); } catch { choices = controlsFor(model, holds); }
-      // The menu lists the offered minds (`offered`), and the one the link chose if it is another.
+      // The menu lists the offered minds (`offered`), and the one the link chose if it is another,
+      // offered or not: its panel says why the body cannot play it, and the bout is not played.
       const listed = choices.filter(value => offered(MINDS[value]!) || value === previous);
+      if (fromLink && !listed.includes(previous) && Object.hasOwn(MINDS, previous)) listed.push(previous);
+      fromLink = false;
       control.replaceChildren(...listed.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
       const fallback = defaultControl(model, holds);
       const preferred = listed.includes(fallback) ? fallback : listed[0]!;

@@ -14,7 +14,7 @@ import { SIDES, senseDelayOf } from "../src/arena/duel.ts";
 import { reactionSteps } from "../src/core/rules/rulebook.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS } from "../src/core/models.ts";
-import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefusal } from "../src/entrants/game.ts";
+import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefusal, unusedParts } from "../src/entrants/game.ts";
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
@@ -22,7 +22,7 @@ import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { modelHolding, modelSpec } from "../src/core/models.ts";
 import { replayedBody } from "../src/core/mind/sheets.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
@@ -32,7 +32,9 @@ import { buildBody } from "../src/core/build/build-body.ts";
 import { poseAngles } from "../src/core/control/kinematics.ts";
 import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
-import { freshEngine } from "./harness/core-stand.mjs";
+import { coreStand, freshEngine } from "./harness/core-stand.mjs";
+import { builtAngles, createMind } from "../src/core/mind/minds.ts";
+import { HUMANOID_MODELS } from "../src/core/human/spec.ts";
 
 /** The bout's steps, the step it is forked at, and the gap its sides start at, m: near enough for a blow. */
 const STEPS = 180, FORK = 90, GAP = 0.9;
@@ -294,4 +296,27 @@ test("every registered Mind is built on each character and catalog loadout it fi
     } catch (error) { failed.push(`${left.id}/${left.model}/${loadoutKey(left.loadout)} or ${right.id}/${right.model}/${loadoutKey(right.loadout)}: ${error.message}`); }
   }
   assert.deepEqual(failed, []);
+});
+
+test("Option Mind's preset fits and is built on every humanoid with every loadout, leaving out only the skills a body cannot use", async () => {
+  // A mind is a choice of skills: on a body, it runs the chosen skills the body can use, and the
+  // mind panel names the rest (`unusedParts`); a skill a body cannot use never refuses the mind.
+  const config = PRESETS.option.config, refused = [], left = new Map();
+  const executors = new Set(config.executors.map((one) => one.name ?? one.kind));
+  for (const model of HUMANOID_MODELS) for (const loadout of LOADOUTS) {
+    const at = `${model}/${loadoutKey(loadout)}`, refusal = modelRefusal(model, config, loadout, []);
+    if (refusal !== null) { refused.push(`${at}: ${refusal}`); continue; }
+    const spec = modelHolding(model, loadout), unused = unusedParts(spec, config);
+    left.set(at, unused);
+    const stand = await coreStand(spec, { joints: builtAngles(GAME, spec, config), engine: BOUT_ENGINE });
+    try {
+      const minded = createMind(GAME, stand.built, stand.world, config, { name: at, orders: () => null });
+      stand.step(12);
+      assert.ok(Number.isFinite(minded.body.view.stance.centre.x), `${at}: the body is not finite after its first steps`);
+    } finally { stand.dispose(); }
+  }
+  assert.ok([...left.values()].some((unused) => unused.length > 0), "the fixture reaches a body that leaves a skill out");
+  assert.deepEqual(refused, []);
+  const named = [...left].flatMap(([at, unused]) => unused.filter((line) => !executors.has(line.slice(0, line.indexOf(":")))).map((line) => `${at}: ${line}`));
+  assert.deepEqual(named, [], "only the preset's skills are left out");
 });

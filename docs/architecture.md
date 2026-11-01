@@ -103,7 +103,11 @@ cannot close on it; `Loadout` names both hands, `withLoadout` assigns them and `
 the equipped spec. Item numbers are in [Arena items](reference/arena-items.md).
 
 **What a body can do is read from its spec.** Fit is whether the body, as armed, can carry out
-what every part of a mind commands (`treeRefusal`). What a scenario asks beyond fit is its entry
+what every part of a mind commands (`treeRefusal`). A mind's skills are a choice, not a demand: a
+skills slot (`slotSkills`, `Slot.skills`, `src/core/parts/parts.ts`; the executors of Option Mind,
+the fighter and Vanguard) builds on a body only the skills that body can use (`usableSkills`,
+`src/core/tactics/action-config.ts`) with the actions they drive, and the rest are named
+(`unusedParts`, shown in the mind panel), never refusing the mind. What a scenario asks beyond fit is its entry
 rules (`EntryRule`, `entryRefusal`, `src/core/parts/catalog.ts`): `attacks`, some part strikes with
 something the body has (`Part.strikes`; executors declare the effectors they strike with,
 `ExecutorPart.strikesWith`), and `uses-held`, every held item has a use (`Part.strikes`,
@@ -423,7 +427,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   `research/skill-search.mjs`, [skill records](reference/skill-records.md); the straight punch's,
   `research/punch-export.mjs`).
   The bodies with a record are known before they load (`<skill>.meta.json`): a body with none is
-  refused by the executor's fit (`recordFault`), a returned sentence, and a new body is rows, not
+  refused by the executor's fit (`recordFault`), a returned sentence that leaves the skill out of
+  a mind on that body, and a new body is rows, not
   code. A mind carries no skill's settings; an experiment's research `tuning` sets them over its
   body's record, all of them where it has none. A strike's digest reads only the thrower's row
   (`skillDigest`), so another body's row moves no profile.
@@ -666,14 +671,15 @@ never on another entrant; a part two entrants want belongs in the toolkit. The c
 value in `Catalog.faults` with the entry left out, an unscoped or misscoped kind, a kind twice, a
 preset id twice, a preset whose tree is not formed and a preset naming another entrant's kinds. A preset may name the body models it is calibrated for (`MindPreset.models`,
 `presetFitsModel`) and the character it plays them on (`MindPreset.character`, above). Arena, Lab and named evaluation entries use that availability as well as
-physical fit; a custom configuration still fits by its parts. The Lab discovers script-compatible
+physical fit; a preset that names none, Option Mind's among them, is a configuration for any
+body it fits, and a custom configuration fits by its parts. The Lab discovers script-compatible
 presets from this registry, with its Script and Guard scenario defaults added.
 
 | Kind | Maker | What it composes |
 |---|---|---|
 | fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`); its presets the `classic` entrant's (`src/entrants/classic/`) |
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting; its preset `crawl` the `crawl` entrant's (`src/entrants/crawl/`) |
-| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` adds the learned punch and the stomp, on the Warrior; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
+| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
 | option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 | drill-opponent | `src/core/mind/drill-opponent.ts` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again); its scripts are the evaluation's, on no menu (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
@@ -712,7 +718,8 @@ Over the tree:
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
   sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors
-  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path;
+  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path,
+  past a skill a skills slot leaves out;
   `kindsFor` lists every part of a role a tree's slot may hold, the toolkit's and the
   tree's own entrant's, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
@@ -1741,7 +1748,8 @@ An older pool is listed with what differs from the newest.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin
-  says the faults; a link whose side names no mind this build has shows its preset and says so
+  says the faults; a link's named preset is played as named, on the side's menu or not
+  (`readControls`, `src/arena/matchup.ts`); a link whose side names no mind this build has shows its preset and says so
   (`unreadMinds`). `mindInspector` shows who has
   the body, live actions, reservations and the ledger, a row for each holder it is shown; the
   Arena's `fighter-hud.ts` and `fighter-readout.ts` read a mind's report (`MindReport`; the

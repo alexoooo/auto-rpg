@@ -32,6 +32,11 @@ export interface Slot {
   readonly optional: boolean;
   /** The part an optional slot runs where it holds none: what a case's code holds of it (`treeKinds`) and a person is shown; none, it runs nothing. */
   readonly fallback?: PartConfig;
+  /**
+   * A list of skills (`slotSkills`): a part in it that a body cannot use (`Part.fits`) is left out
+   * on that body (`Catalog.unusedParts`), not a refusal of the part holding it.
+   */
+  readonly skills?: boolean;
 }
 
 /**
@@ -98,6 +103,9 @@ export type ConfigOf<R> = { [K in keyof R]: R[K] extends { readonly defaults: in
 
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
+
+/** A slot of a list of skills of `role`, each used on a body that can use it (`Slot.skills`). */
+export const slotSkills = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true, skills: true });
 
 /** A slot of one part of `role`, or of none where it is `optional`, which runs `fallback` where it names one. */
 export const slotOne = (key: string, label: string, role: Role, optional = false, fallback?: PartConfig): Slot =>

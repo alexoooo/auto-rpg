@@ -51,12 +51,38 @@ export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, exe
 }
 
 /**
- * **The blows of `actions` a body of `spec` throws**, as it holds what it holds: each on the
- * effectors its executor strikes with there (`ExecutorPart.strikesWith`), and one with none left
- * out. A mind declares these effectors as the equipment its actions support.
+ * **The skills of a kit a body of `spec` can use**: the executors whose part fits it
+ * (`ExecutorPart.fits`: tuned for it, say), and the actions they carry out on the effectors it has,
+ * one with none left out. A kit's skill the body cannot use is not a fault of the mind: the mind
+ * runs with the rest, and says which (`unusableSkills`).
  */
-export function armedActions(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly ActionConfig[] {
-  return actions.flatMap((action) => {
+export function usableSkills(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): { readonly executors: readonly ExecutorEntry[]; readonly actions: readonly ActionConfig[] } {
+  const kept = executors.filter((executor) => parts.of("executor", executor).fits(spec, executor, parts) === null);
+  const has = (effector: string): boolean => spec.effectors?.some((one) => one.segment === effector) ?? false;
+  return { executors: kept, actions: actions.flatMap((action) => {
+    if (!kept.some((executor) => executor.name === action.executor)) return [];
+    const effectors = action.effectors.filter(has);
+    return effectors.length === action.effectors.length ? [action] : effectors.length > 0 ? [{ ...action, effectors }] : [];
+  }) };
+}
+
+/** **Why each of a kit's executors a body of `spec` cannot use is left out** (`usableSkills`), a sentence each, named. */
+export function unusableSkills(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[]): readonly string[] {
+  return executors.flatMap((executor) => {
+    const refused = parts.of("executor", executor).fits(spec, executor, parts);
+    return refused === null ? [] : [`${executor.name}: ${refused}`];
+  });
+}
+
+/**
+ * **The blows of `actions` a body of `spec` throws**, as it holds what it holds: those of its
+ * skills it can use (`usableSkills`), each on the effectors its executor strikes with there
+ * (`ExecutorPart.strikesWith`), and one with none left out. A mind declares these effectors as the
+ * equipment its actions support.
+ */
+export function armedActions(parts: PartLookup, spec: BodySpec, given: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly ActionConfig[] {
+  const { executors, actions: usable } = usableSkills(parts, spec, given, actions);
+  return usable.flatMap((action) => {
     const executor = executors.find((entry) => entry.name === action.executor);
     if (!executor) return [action];
     const part = parts.of("executor", executor), effectors = action.effectors.filter((effector) => part.strikesWith?.(spec, executor, effector) ?? true);
@@ -120,28 +146,32 @@ export function actionFaults(parts: PartLookup, executors: readonly ExecutorEntr
   return faults;
 }
 
-/** Validate named sharing, anatomical choices and settings before constructing any executor. */
-export function actionConfigFaults(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly string[] {
+/**
+ * **What is wrong with a kit, whatever the body**, each a sentence: its executors' names and their
+ * settings (`ExecutorPart.faults`), and its actions (`actionFaults`). What a body cannot use of it
+ * is no fault (`usableSkills`).
+ */
+export function actionConfigFaults(parts: PartLookup, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly string[] {
+  if (!Array.isArray(executors)) return ["executors must be a list"];
   const faults: string[] = [], names = new Set<string>();
   for (const executor of executors) {
-    if (!executor.name || names.has(executor.name)) faults.push(`duplicate or empty executor name ${executor.name}`);
-    names.add(executor.name);
-    const part = parts.of("executor", executor);
+    if (!executor?.name || names.has(executor.name)) faults.push(`duplicate or empty executor name ${executor?.name}`);
+    names.add(executor?.name);
+    const part = partOr(parts, "executor", executor);
+    if (typeof part === "string") { faults.push(`${executor?.name}: ${part}`); continue; }
     faults.push(...part.faults(executor, parts).map(fault => `${executor.name}: ${fault}`));
-    const refused = part.fits(spec, executor, parts);
-    if (refused !== null) faults.push(`${executor.name}: ${refused}`);
   }
   faults.push(...actionFaults(parts, executors, actions));
-  for (const action of Array.isArray(actions) ? actions : []) for (const effector of Array.isArray(action?.effectors) ? action.effectors : [])
-    if (!spec.effectors?.some(e => e.segment === effector)) faults.push(`${action.name}: no effector ${effector}`);
   return faults;
 }
 
-/** Build each named motion state once and resolve every action through its own aim, `aims`' (the body's one, `configuredAims`). */
+/** Build each named motion state the body can use (`usableSkills`) once and resolve every action through its own aim, `aims`' (the body's one, `configuredAims`). */
 export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => [],
   aims: ReadonlyMap<string, Aim> = configuredAims(parts, body.built.spec, executors, actions)): readonly ExecutorBinding[] {
-  const faults = actionConfigFaults(parts, body.built.spec, executors, actions);
+  const faults = actionConfigFaults(parts, executors, actions);
   if (faults.length) throw new Error(faults.join("; "));
+  const usable = usableSkills(parts, body.built.spec, executors, actions);
   const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger()) ?? null };
-  return executors.map(config => ({ name: config.name, kind: config.kind, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
+  return usable.executors.map(config => ({ name: config.name, kind: config.kind,
+    executor: parts.of("executor", config).make(making, config, usable.actions.filter(action => action.executor === config.name)) }));
 }

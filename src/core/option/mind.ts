@@ -1,5 +1,5 @@
 import type { Body } from "../body.ts";
-import { actionConfigFaults, aimsState, armedActions, configuredActionEstimates, configuredAims } from "../tactics/action-config.ts";
+import { aimsState, armedActions, configuredActionEstimates, configuredAims, usableSkills } from "../tactics/action-config.ts";
 import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
@@ -14,8 +14,7 @@ import { GAME_MOTOR, kitOf } from "../mind/kit.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
-import { slotList, slotOne, type PartConfig, type Slot } from "../parts/parts.ts";
-import type { BodySpec } from "../spec/body.ts";
+import { anyBody, slotList, slotOne, slotSkills, type PartConfig, type Slot } from "../parts/parts.ts";
 import type { TacticsMaking } from "../tactics/tactics-part.ts";
 import { driveBy } from "../mind/decider.ts";
 import { commandedMind } from "../mind/sub-mind.ts";
@@ -60,7 +59,7 @@ const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ kind: "option", chooser: 
 const SLOTS: readonly Slot[] = Object.freeze([
   slotOne("chooser", "Chooser", "chooser"), slotList("options", "Options", "option"), slotOne("predictions", "Predictions", "predictions", true, MEASURED_PREDICTIONS.defaults),
   slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
-  slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotOne("support", "Low support", "support", true), slotList("executors", "Executors", "executor"),
+  slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotOne("support", "Low support", "support", true), slotSkills("executors", "Executors", "executor"),
   slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
 ]);
 
@@ -80,7 +79,8 @@ function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly
  * throws as armed (`armedActions`).
  */
 function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindWiring) {
-  const parts = host.parts, config = { ...given, actions: armedActions(parts, host.spec, given.executors, given.actions) };
+  const parts = host.parts, config = { ...given, executors: usableSkills(parts, host.spec, given.executors, given.actions).executors,
+    actions: armedActions(parts, host.spec, given.executors, given.actions) };
   const { body } = host.take((own) => commandedMind(own, kitBody(config, parts), host.clock));
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
@@ -103,7 +103,7 @@ export const OPTION_MIND = controller<OptionMindConfig>({
   // The options it starts with where its config names none.
   uses: (config) => config.options ? REPOSITION : [...REPOSITION, ...OPTIONS],
   reads: () => ["strike-profiles", "edge-profiles", "gait-profiles"],
-  fits: (spec: BodySpec, config: OptionMindConfig, parts: PartLookup) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
+  fits: anyBody,
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: optionMindFaults,
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

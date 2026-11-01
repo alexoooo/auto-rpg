@@ -1,6 +1,6 @@
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
-import { isKind, kindsFor, partOf, type EntryRule } from "../entrants/game.ts";
+import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../entrants/game.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { BehavioursConfig, FighterConfig } from "../core/tactics/config.ts";
@@ -44,9 +44,9 @@ const named = (part: Part): string => part.stage === "experimental" ? `${part.la
  * draws the tree again.
  */
 export function mindEditor(config: MindConfig, { spec: body, provides = [], entry = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
-  const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p");
-  element.className = "mind-editor"; fault.className = "settings-fault";
-  element.append(tree, fault);
+  const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p"), unused = document.createElement("p");
+  element.className = "mind-editor"; fault.className = "settings-fault"; unused.className = "settings-note";
+  element.append(tree, unused, fault);
   let current = config, spec = body;
   const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, { provides, entry });
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
@@ -135,6 +135,10 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
   const draw = (config: MindConfig) => {
     current = config;
     tree.replaceChildren(drawPart(config, change));
+    // The skills it holds that this body cannot use: left out on it, not faults (`unusedParts`).
+    const left = unusedParts(spec, config);
+    unused.hidden = left.length === 0;
+    unused.textContent = left.length ? `Not used on this body: ${left.join("; ")}` : "";
     const faults = faultsOf(config);
     fault.hidden = faults.length === 0;
     fault.textContent = faults.length ? `${faults.join("; ")}${onFault ? `: ${onFault}` : ""}` : "";

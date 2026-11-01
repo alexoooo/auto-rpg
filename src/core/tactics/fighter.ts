@@ -8,7 +8,7 @@ import type { Clock } from "../clock.ts";
 import { rulesOf, type BodyHost } from "../mind/host.ts";
 import type { SkillKit } from "../skills/config.ts";
 import type { FighterConfig } from "./config.ts";
-import { actionConfigFaults, actionFaults, aimsState, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
+import { actionConfigFaults, aimsState, armedActions, configuredActionEstimates, configuredAims, configuredExecutors, usableSkills } from "./action-config.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { navigatorOf } from "../navigation/navigator.ts";
@@ -31,8 +31,7 @@ export function fighterFaults(config: FighterConfig, parts: PartLookup): readonl
 /** What is wrong with how a kit's actions name its executors and their own settings, each a sentence (`actionFaults`). */
 export function kitFaults(config: SkillKit, parts: PartLookup): readonly string[] {
   if (!Array.isArray(config.actions)) return ["actions must be a list"];
-  const executors = new Set(config.executors.map(e => e.name));
-  return [...executors.size !== config.executors.length || executors.has("") ? ["executors need distinct nonempty names"] : [], ...actionFaults(parts, config.executors, config.actions)];
+  return actionConfigFaults(parts, config.executors, config.actions);
 }
 
 /** A fighter's command layers (`commandLayers`): all action instances share its effectors' touch (`LayerOptions.feedback`) and body-local ledger; its motor is the one `parts` finds. */
@@ -53,8 +52,9 @@ export function kitSubs(config: Pick<FighterConfig, "subs" | "motor" | "guard">,
  * (`TacticsPart.prepareSkills`). Returns the fighter as driven (`Driven`).
  */
 export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: AroundDecider = (decider) => decider): Driven {
-  const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
-  const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
+  const config = { ...given, executors: usableSkills(parts, body.built.spec, given.executors, given.actions).executors,
+    actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
+  const faults = actionConfigFaults(parts, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const aims = configuredAims(parts, body.built.spec, config.executors, config.actions);
   const making: TacticsMaking = { spec: body.built.spec, rules: rulesOf(wiring), actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions, aims),

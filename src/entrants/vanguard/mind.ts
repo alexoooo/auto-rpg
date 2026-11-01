@@ -1,4 +1,4 @@
-import { actionConfigFaults, armedActions } from "../../core/tactics/action-config.ts";
+import { armedActions } from "../../core/tactics/action-config.ts";
 import { STAND_UP } from "../../core/recovery/ground/stand-up.ts";
 import { MOVE } from "../../core/skills/locomotion/move-part.ts";
 import { FIGHTING, type FighterConfig } from "../../core/tactics/config.ts";
@@ -6,7 +6,7 @@ import { controller, type MindPreset } from "../../core/mind/controller.ts";
 import { createFighter, driveFighter, kitBody, kitSubs, fighterFaults } from "../../core/tactics/fighter.ts";
 import { GAME_MOTOR } from "../../core/mind/kit.ts";
 import { GAME_NAVIGATION } from "../../core/navigation/navigator.ts";
-import { fitsAll, fitsWhen, slotList, slotOne } from "../../core/parts/parts.ts";
+import { fitsWhen, slotList, slotOne, slotSkills } from "../../core/parts/parts.ts";
 import type { PartConfig } from "../../core/parts/parts.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { VANGUARD_PUNCH, type VanguardPunchConfig } from "./punch-part.ts";
@@ -71,13 +71,12 @@ export const VANGUARD_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze
 export const VANGUARD_MIND = controller<VanguardConfig>({
   role: "mind", label: "Vanguard", stage: "experimental", defaults: WARRIOR, fields: [],
   slots: [slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION), slotOne("tactics", "Tactics", "tactics"),
-    slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
+    slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotSkills("executors", "Executors", "executor"),
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
     slotOne("motor", "Motor control", "motor", true, GAME_MOTOR)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true },
-  fits: fitsAll<VanguardConfig>((spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
-    fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
+  fits: fitsWhen<VanguardConfig>((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow"),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: (config, parts) => fighterFaults(fighter(config), parts),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

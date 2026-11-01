@@ -124,7 +124,7 @@ const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => {
   return readLoadouts(search) ?? { left: modelLoadout(models.left), right: modelLoadout(models.right) };
 };
 
-/** Per-side controller choices in a shareable arena recipe: each one its side's body and loadout are offered (`controlsFor`). */
+/** Per-side controller choices in a shareable arena recipe: the preset the link names, offered or not; where it names none, the side's default among those offered (`controlsFor`). */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
   const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
   const models = readMatchup(search), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
@@ -132,7 +132,8 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
     let choices: readonly Control[];
     try { choices = controlsFor(models[side], loadouts[side], attributes[side]); }
     catch { choices = controlsFor(models[side], loadouts[side]); }
-    return s !== undefined && choices.includes(s) ? s : choices.find(c => MINDS[c]!.config === defaultMind(models[side])) ?? choices[0]!;
+    // A preset the link names is its side's, offered or not: one the body cannot play is refused where it is built, never replaced.
+    return s !== undefined && Object.hasOwn(MINDS, s) ? s : choices.find(c => MINDS[c]!.config === defaultMind(models[side])) ?? choices[0]!;
   };
   return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }

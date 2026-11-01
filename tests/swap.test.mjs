@@ -25,7 +25,7 @@ import assert from "node:assert/strict";
 const { buildBout } = await import("../src/evaluation/bout.ts");
 const { BOUT_ENGINE } = await import("../research/bout.mjs");
 const { SIDES } = await import("../src/arena/duel.ts");
-const { FIGHT_ENTRY, GAME, kindsFor, treeFaults, treeRefusal, treeScope } = await import("../src/entrants/game.ts");
+const { FIGHT_ENTRY, GAME, kindsFor, treeFaults, treeRefusal, treeScope, unusedParts } = await import("../src/entrants/game.ts");
 const { createMind } = await import("../src/core/mind/minds.ts");
 const { STAND_ORDERS } = await import("../src/core/intent/orders.ts");
 const { entrantSubjects } = await import("../src/evaluation/tournament/entrants.ts");
@@ -274,10 +274,11 @@ for (const { part, mind, place } of STUBS) {
   });
 }
 
-test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, and every legs for what they stand on", async () => {
+test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, every legs for what they stand on, and leaves out a skill it cannot use", async () => {
   const reptile = modelSpec("reptile"), soles = "needs a left and a right foot, each with a box sole";
-  assert.equal(treeRefusal(reptile, BLADE_FIGHTER), "blade-cut: needs hand.left or hand.right to strike with", "a blow names the limb it strikes with");
-  assert.equal(treeRefusal(reptile, { ...BLADE_FIGHTER, executors: [], actions: [] }), `locomotion: ${soles}`, "with no blow, the legs name what they stand on");
+  assert.equal(treeRefusal(reptile, BLADE_FIGHTER), `locomotion: ${soles}`, "a blow the body cannot strike with refuses nothing; the legs name what they stand on");
+  assert.deepEqual(unusedParts(reptile, BLADE_FIGHTER), ["blade-cut: needs hand.left or hand.right to strike with", "blade-thrust: needs hand.left or hand.right to strike with"],
+    "each blow left out names the limb it strikes with");
   const legs = kindsFor("locomotion", reptile);
   assert.ok(legs.length > 0, "the fixture offers legs to refuse");
   for (const { kind, reason } of legs) assert.equal(reason, soles, kind);

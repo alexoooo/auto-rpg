@@ -26,7 +26,7 @@ import { engagementLines } from "../src/ui/action-readout.ts";
 import { VANGUARD_EXCHANGE } from "../src/entrants/vanguard/exchange.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { cos, hypot, sin } from "../src/core/math/real.ts";
-import { armedActions, actionConfigFaults } from "../src/core/tactics/action-config.ts";
+import { armedActions, actionConfigFaults, usableSkills } from "../src/core/tactics/action-config.ts";
 import { LOADOUTS, withLoadout } from "../src/core/items/held.ts";
 import { holdsNothing } from "../src/core/skills/strikes/held-strike.ts";
 
@@ -37,7 +37,8 @@ test("Vanguard routes held weapons and empty hands through their supported actio
     assert.deepEqual(armedActions(partLookup, bare, config.executors, config.actions), punches, "equipment choices do not enter an empty-handed kit");
     for (const loadout of LOADOUTS) {
       const spec = withLoadout(bare, loadout), actions = armedActions(partLookup, spec, config.executors, config.actions);
-      assert.deepEqual(actionConfigFaults(partLookup, spec, config.executors, actions), []);
+      assert.deepEqual(actionConfigFaults(partLookup, config.executors, actions), []);
+      assert.deepEqual(usableSkills(partLookup, spec, config.executors, actions).actions, actions, "each armed action is one the body can use");
       for (const action of actions) {
         const executor = config.executors.find(executor => executor.name === action.executor);
         for (const hand of action.effectors) assert.equal(holdsNothing(spec, hand), executor.kind === "vanguard:punch",

@@ -37,7 +37,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/index.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
-import { controlCharacter, controlsFor, readControls, readMinds } from "../src/arena/matchup.ts";
+import { controlCharacter, controlsFor, defaultControl, readControls, readMinds } from "../src/arena/matchup.ts";
 import { SERVO_SECONDS, commandsBody } from "../src/core/body.ts";
 import { commandedBody } from "../src/core/mind/host.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
@@ -363,6 +363,8 @@ const rightHand = (right) => ({ left: "empty", right });
 const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
 const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
+/** The Rogue's mind against the Warrior's `control` holding `held`: the same where the Rogue is offered it, else its own (`defaultControl`). */
+const rogueControl = (control, held) => controlsFor("workshop-rogue", rightHand(held)).includes(control) ? control : defaultControl("workshop-rogue", rightHand(held));
 /** What a fighter's right hand holds in the cases below, the left empty. */
 const HELDS = Object.freeze(["sword", "club", "empty"]);
 /** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
@@ -397,7 +399,7 @@ const CASES = [
   ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
-    helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
+    helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
   controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("sword")),
   controlled("reptile", "reptile", "crawl,crawl", both("empty")),
   controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand("sword") }),

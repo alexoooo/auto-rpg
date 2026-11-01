@@ -13,7 +13,7 @@ export const GAME: Catalog = catalogOf(() => {
 });
 
 export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, partOf, scriptedBy, takesScript, partLookup, treeLookup, treeFaults,
-  treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
+  treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, unusedParts, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../core/parts/catalog.ts";
 

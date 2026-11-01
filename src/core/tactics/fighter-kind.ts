@@ -1,12 +1,10 @@
-import { actionConfigFaults, armedActions } from "./action-config.ts";
+import { armedActions } from "./action-config.ts";
 import { BLADE_FIGHTER, type FighterConfig } from "./config.ts";
 import { controller } from "../mind/controller.ts";
 import { createFighter, driveFighter, kitBody, kitSubs, fighterFaults } from "./fighter.ts";
 import { GAME_MOTOR } from "../mind/kit.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
-import { slotList, slotOne, type Slot } from "../parts/parts.ts";
-import type { BodySpec } from "../spec/body.ts";
-import type { PartLookup } from "../parts/lookup.ts";
+import { anyBody, slotList, slotOne, slotSkills, type Slot } from "../parts/parts.ts";
 
 /**
  * A fighter's slots: its navigation, its tactics, a skill of each role, its executors, low support
@@ -16,7 +14,7 @@ import type { PartLookup } from "../parts/lookup.ts";
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
   slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION),
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
-  slotList("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
+  slotSkills("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
   slotList("subs", "When down", "sub-mind"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
 ]);
 
@@ -24,7 +22,7 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 export const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: BLADE_FIGHTER,
   keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
-  fits: (spec: BodySpec, config: FighterConfig, parts: PartLookup) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
+  fits: anyBody,
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
