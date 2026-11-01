@@ -278,7 +278,10 @@ moved cases, is read against the version before on its drill (`--previous`) and 
 13. **A ceiling on heavy work**: the step-cost test counts the heavy searches a mind makes in a
     step of its bout (opening searches, route searches, shapes built) and fails at a ceiling well
     above what a step does once its work is held: it catches a search put back in every step,
-    not a count that moves.
+    not a count that moves. Built (`SEARCHES`, `tests/harness/heavy-work.mjs`): opening searches
+    in a duel of Option Minds at 1 m and route searches in a Crypt run's first second, 0.5 a
+    body-step against about 0.1 held; the held aim made to search every call reads 1.07. No
+    shape is built in either fixture, so `worldShapes` is counted by `research/call-count.mjs` alone.
 
 ## Done when
 

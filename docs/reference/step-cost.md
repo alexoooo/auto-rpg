@@ -3,7 +3,7 @@
 What one world step (`World.step`, `src/core/world.ts`) takes in time and memory as bodies are
 added, in a bout and in a crypt run: where the time goes, what a step allocates, what the collector
 takes, and which steps are long and why. `tests/core-step-cost.test.mjs` holds the allocation
-ceilings.
+ceilings, and one on the opening and route searches a body makes a step (`SEARCHES`).
 
 Unless a section says otherwise, figures are **Node 24.19, core world, Rapier, 120 Hz, one thread of
 the development host** (a 16-core desktop), nothing else running. A step is 8.33 ms of game time, so

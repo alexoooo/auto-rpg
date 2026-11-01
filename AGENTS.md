@@ -193,8 +193,8 @@ it never imports them.
 
 ## Tests
 
-The gate (`npm test`, every `tests/*.test.mjs`) holds eight contracts: the step's time and
-allocation (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
+The gate (`npm test`, every `tests/*.test.mjs`) holds eight contracts: the step's time,
+allocation and heavy searches (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
 (`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`),
 what a Commander may (`tests/command-contract.test.mjs`), a part of each converted role swapped in
 from outside `src/` by configuration alone (`tests/swap.test.mjs`), each legs, balance and motor

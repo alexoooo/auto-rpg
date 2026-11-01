@@ -5,12 +5,17 @@
  * reading in a process of its own (`stepAllocation`): two skeletons standing, the Warrior lying
  * under its ground reader, and each game mind fighting itself (`GAME_MINDS`). Node, the core world,
  * Rapier, 120 Hz.
+ *
+ * **What a step searches is held under a ceiling** as well: the opening and route searches a body
+ * makes a step, counted (`SEARCHES`), which a search put back into every step multiplies.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { centreOfToRef } from "../src/core/read-motion.ts";
 import { availableParallelism } from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { standBodies, stepAllocation, stepAllocationAsync } from "./harness/garbage.mjs";
 import { partOf, MINDS } from "../src/entrants/game.ts";
 import { controlsFor } from "../src/arena/matchup.ts";
@@ -94,4 +99,25 @@ test("the_meter_sees_an_array_made_in_a_step", () => {
   // The two bodies share the array's 32 KiB a step: 16 a body, read to within about 2 by the
   // profiler's sampling, so half of it is the least the meter may see.
   assert.ok(more - plain >= 8, `${(more - plain).toFixed(1)} KiB a body a step more`);
+});
+
+/**
+ * The most heavy searches a body-step may make, by count (`research/call-count-hook.mjs`): well
+ * above what a step makes once its searches are held (about one body-step in eight), and under
+ * the one a body-step or more of a search put back into every step.
+ */
+const SEARCHES = { "opening searches": .5, "route searches": .5 };
+
+test("a_step_makes_no_more_heavy_searches_than_the_ceiling", () => {
+  // The duel throws at once; the Crypt's hero plans its routes as it sets out.
+  const child = spawnSync(process.execPath, [fileURLToPath(new URL("./harness/heavy-work.mjs", import.meta.url)), "1", "duel", "crypt"], { encoding: "utf8" });
+  assert.equal(child.status, 0, child.stderr);
+  const runs = child.stdout.trim().split("\n").map((line) => JSON.parse(line));
+  const seen = (name) => runs.filter((run) => (run.calls[name] ?? 0) > 0);
+  for (const name of Object.keys(SEARCHES)) assert.ok(seen(name).length > 0, `no fixture made a single ${name}: none can show one put back into every step`);
+  const over = runs.flatMap((run) => Object.entries(SEARCHES).flatMap(([name, most]) => {
+    const each = (run.calls[name] ?? 0) / run.bodySteps;
+    return each > most ? [`${run.fixture}: ${each.toFixed(2)} ${name} a body-step, over ${most} (${run.calls[name]} in ${run.bodySteps})`] : [];
+  }));
+  assert.deepEqual(over, []);
 });

@@ -13,6 +13,8 @@ const COUNTED = [
   // The selector is made once an action; its searches are the calls of what it returns.
   { file: "/src/core/perception/openings.ts", name: "openingSelector", wrap: "searches", as: "opening searches" },
   { file: "/src/core/engine/rapier.ts", method: "contactsOf(segment, wanted) {", as: "contactsOf" },
+  // A method whose signature carries types is found by its shape, typed or stripped.
+  { file: "/src/core/navigation/route-search.ts", pattern: /\broute\(goal\b[^)]*\)[^{]*\{/, as: "route searches" },
 ];
 
 /** The minified binding keeps its module's exports in one variable as it finishes loading. */
@@ -35,6 +37,11 @@ export async function load(url, context, next) {
   if (!counted.length) return out;
   let text = textOf(out.source).split("\r\n").join("\n");
   for (const one of counted) {
+    if (one.pattern) {
+      if (!one.pattern.test(text)) throw new Error(`${one.file} has nothing shaped ${one.pattern}`);
+      text = text.replace(one.pattern, (found) => `${found} ${counting(one.as)}`);
+      continue;
+    }
     if (one.method) {
       if (!text.includes(one.method)) throw new Error(`${one.file} has no ${one.method}`);
       text = text.replace(one.method, `${one.method} ${counting(one.as)}`);
