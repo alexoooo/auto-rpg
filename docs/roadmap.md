@@ -66,8 +66,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
    [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain read
    first, then the table, stand-up, the run and the strikes on every body.
 2. **Beside it:** [A garbage-free step](plans/2026-10-30-garbage-free-step.md);
-   [the core without Babylon](plans/2026-11-01-core-without-babylon.md), landed before Minds in
-   parallel's step 3, whose body mirror it lets be plain data. The owner watches
+   [the core without Babylon](plans/2026-11-01-core-without-babylon.md) once Minds in parallel has
+   landed, in one stretch, since its check is that no bout moves. The owner watches
    the Strike drill's rung 1 (Drills step 2).
 3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
    preset beating every Arena entrant left more than 90 % of the time, strict wins per opponent on

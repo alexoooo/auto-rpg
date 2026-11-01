@@ -17,8 +17,9 @@ core (`src/core/`) imports `@babylonjs/core` for three things, none of them draw
 
 Once the core is free of them:
 
-- the world worker and the mind workers ([Minds in parallel](2026-11-01-parallel-minds.md)) load no
-  renderer, and a mind's mirror (its step 3) is plain data, with no scene to build in a worker;
+- the world worker and the mind workers ([Minds in parallel](2026-11-01-parallel-minds.md)) load
+  nothing of Babylon; a mind's mirror needs no scene either way, since a mind reads its body's
+  poses through `ReadNode` (`src/core/read-body.ts`), plain fields;
 - a Babylon upgrade cannot move a bout: the core's arithmetic is its own, read once;
 - the renderer is the pages' choice alone, a question of `src/render/`, `src/arena/`,
   `src/dungeon/`, `src/lab/` and the other pages, never of the core or of recorded evidence.
@@ -55,6 +56,7 @@ At `89518e3c`:
 Each step is a refactor that claims no change of play: its check is `npm run check`, `npm test`,
 `npm run build` and the fingerprint (`scripts/fingerprint.mjs --compare`) against a record written
 once at the commit before step 1 and kept in `.tmp/core-without-babylon/` until the plan lands.
+The steps run in one stretch, with no change of play landing between them, or the record is void.
 
 1. **The core's own vector maths.** `src/core/math/vector.ts`: `Vector3` and `Quaternion` with plain
    number fields and the members the core and the entrants call (the `EXACT_BABYLON` list and the
