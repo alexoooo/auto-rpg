@@ -4,9 +4,9 @@ A body's command applied a step after it is sent (`COMMAND_DELAY`, `src/core/wor
 [the architecture](../architecture.md#the-command-delay)) costs the toed Warrior's balance at
 120 Hz. A mind a step behind reads its body as its commands in flight will leave it, while the
 body touches as it did when they were made, and its body corrects what the late command could not
-see. With both, at one step, every gate probe holds but the halt (three of six moments walk on) and
-the idle stagger (0.074 m of 0.06), and the stand-up stands 51 of 64 in 15.3 s, short of none's (56,
-12.6 s). So the game's delay stays none.
+see. With both, at one step, every gate probe holds but the halt (four of six moments over the
+limit at 0.6 s, the worst 0.62 m/s), and the stand-up stands 52 of 64 in 17.5 s, short of none's
+(56, 12.6 s). So the game's delay stays none.
 
 ## What is used
 
@@ -20,8 +20,10 @@ the idle stagger (0.074 m of 0.06), and the stand-up stands 51 of 64 in 15.3 s, 
   `embody`); the root moves as the joints and its own motion carry it. Only on its legs: while
   anything but its feet, paws or propped shins touches (`BodySpec.ends`), it reads the body as it
   was and its command expects nothing. A command made while the body touched otherwise than it
-  touches now (a sole's strike or lift-off since, `touchingOf`) carries it no further. With no delay
-  it does not run.
+  touches now (a sole's strike or lift-off since, `touchingOf`) carries it no further. A channel
+  carried past its range (`DofSpec.min`, `max`) ends the step at its stop, at rest. A swinging leg
+  whose foot still touches expects nothing (`StanceControl.unexpect`): the solve moves it as free
+  while the ground holds it. With no delay it does not run.
 - **The plan's reflex**: a torque a late command gives is a velocity motor toward the speed the
   command expects, held within `PLAN_REFLEX` (0.03) of the channel's stronger side around that
   torque (`driveMuscles`). The forecast moves each channel toward that speed only as far as the
@@ -77,16 +79,21 @@ Warrior in the guard:
 | idle placement untwisting a turned footing | the fixture does not turn the soles | — | met | — |
 | two Lab shoves of 90 N s, stood again (seed 4) | — | — | stood, 7.5 s | 30 s |
 
-As used, with the touch rule (at 00a042f5 and after): every probe above met but the halt (0.7 m/s
-at its moment) and the idle legs' stagger (0.074 m left, limit 0.06); the kneel met. The reflex's
+With the touch rule alone (00a042f5): every probe above met but the halt (0.7 m/s at its moment)
+and the idle legs' stagger (0.074 m left, limit 0.06); the kneel met. As used (3bfa0efe): every
+probe met but the halt (0.257 m/s at its moment); the stagger settles to 0.007 m. Unwatched, the
+forecast drove the swinging foot into the ground at lift-off: the stance's plan, going on by what
+the ground gave, read a 3 kN shortfall in one step, the idle settling read that as a push and
+dropped its step, and the foot came down where it was. The reflex's
 share again, with the rule: 0.015 fails the footing and the halt (1.32 m/s at worst of six); 0.05
 the centre beyond the soles and the halt; 0.08 the footing, the height, the centre and the halt.
 
 **The halt** read from six moments of the walk (the halt asked at 1.0 to 1.5 s, every 0.1 s): at
 none, the stance's speed first falls under 0.15 m/s 0.21 to 0.54 s after it is asked, and is 0.04
 to 0.25 m/s at 0.6 s; at one step without the touch rule, 0.57 to 1.1 s, and 0.02 to 0.63 m/s at
-0.6 s; as used, 0.06 to 0.98 m/s at 0.6 s (0.33, 0.11, 0.7, 0.78, 0.98, 0.06), three of the six
-walking on. The
+0.6 s; with the touch rule alone, 0.06 to 0.98 m/s at 0.6 s (0.33, 0.11, 0.7, 0.78, 0.98, 0.06),
+three of the six walking on; as used, 0.08 to 0.62 (0.32, 0.08, 0.26, 0.09, 0.16, 0.62), and
+0.06 to 0.97 at 1.2 s, four still over the limit. The
 probe's one moment reads either side of its limit as small changes move the gait's phase (0.17 to
 2.4 m/s over the variants below), so it is read over the six. At both, the stance's speed after the halt is
 asked does not depend on the moment: the step under way lands first, then the stance brakes in
@@ -97,13 +104,19 @@ and costs the braking at the landing, where a foot's strike is read a step late.
 
 **The stand-up target** ([rising](rising.md#the-owners-target), `npm run evaluate -- rising-target`):
 
-| Group | Stood: none | the delay alone | without the touch rule | as used | Within 12 s: none | the delay alone | without the touch rule | as used |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Warrior, club | 16/16 | 13/16 | 14/16 | 14/16 | 10 | 6 | 3 | 7 |
-| Warrior, empty | 16/16 | 16/16 | 15/16 | 15/16 | 14 | 6 | 6 | 13 |
-| Rogue, club | 11/16 | 11/16 | 10/16 | 11/16 | 2 | 0 | 1 | 2 |
-| Rogue, empty | 13/16 | 10/16 | 10/16 | 11/16 | 4 | 0 | 0 | 0 |
-| all, time to stand (a fall not stood at the cap) | 12.6 s | 18.6 s | 17.3 s | 15.3 s | | | | |
+| Group | Stood: none | the delay alone | without the touch rule | the touch rule alone | as used | Within 12 s: none | the delay alone | without the touch rule | the touch rule alone | as used |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Warrior, club | 16/16 | 13/16 | 14/16 | 14/16 | 15/16 | 10 | 6 | 3 | 7 | 4 |
+| Warrior, empty | 16/16 | 16/16 | 15/16 | 15/16 | 16/16 | 14 | 6 | 6 | 13 | 9 |
+| Rogue, club | 11/16 | 11/16 | 10/16 | 11/16 | 8/16 | 2 | 0 | 1 | 2 | 0 |
+| Rogue, empty | 13/16 | 10/16 | 10/16 | 11/16 | 13/16 | 4 | 0 | 0 | 0 | 2 |
+| all, time to stand (a fall not stood at the cap) | 12.6 s | 18.6 s | 17.3 s | 15.3 s | 17.5 s | | | | | |
+
+A second draw of falls (`--protocol fresh`) reads how far a figure moves between draws: none 49 of
+64, 12.0 s; the touch rule alone 57, 16.6 s; with the stops 51 of 63, 14.2 s; as used 51, 15.0 s
+(at the standard falls the stops alone read 57, 15.9 s). The falls stood move by six between
+draws, more than any rule here moves them; the time to stand at one step stays 2 to 5 s over none's
+at both.
 
 Where the falls not stood at one step go wrong (without the touch rule; 15, 12 of them the Rogue's): their time is
 spent in front (145 s), between positions (79), standing (70), on all fours (64) and on
@@ -113,7 +126,7 @@ almost none of it standing. On four of the Rogue's falls traced through the rise
 attempts at one step, most failing at the settle, against 2 of 7 at none; from all fours 1 of 7
 against 1 of 5; the staged roll was interrupted at the settle at both.
 
-The delay alone was read at `580880fb`; as used at 00a042f5, none at the same commit (56 of 64,
+The delay alone was read at `580880fb`; the touch rule alone at 00a042f5, as used at 3bfa0efe, none at the same commits (56 of 64,
 12.6 s, unchanged); 64 falls in 38 s on 8 workers. At no delay the forecast and the reflex do not run: the
 gate passes, and the fingerprint (`scripts/fingerprint.mjs`) against the commit before moves no
 pose (the bouts' saved state carries the commands in flight, so it is reshaped).
@@ -233,6 +246,23 @@ out, and the falls stood:
 | the reflex's share 0.2 | | | 14 / 2 / 13 | 22 |
 | the forecast and the reflex on the ground too | | | 19 / 4 / 8 | 19 |
 
+On the touch rule with the joints' stops (at 3a90a608 with each change; the Rogue's falls as
+above):
+
+| Variant | The halt at 0.6 s | at 1.2 s | Besides |
+| --- | --- | --- | --- |
+| the joints' stops | 0.32, 0.12, 0.56, 0.41, 0.36, 0.06 | 0.04 to 0.70 | the Rogue stood 25; the stagger 0.075 m |
+| the stops and the swinging leg (as used) | 0.32, 0.08, 0.26, 0.09, 0.16, 0.62 | 0.06 to 0.97 | the stagger 0.007 m |
+| the swinging leg without the stops | 0.33, 0.11, 0.15, 0.08, 0.19, 0.38 | 0.14 to 0.76 | the kneel fails (0.366 m) |
+| the swinging leg out of the forecast only, its reflex kept | 0.34, 0.11, 0.71, 0.74, 0.59, 0.05 | 0.07 to 0.88 | the stagger 0.043 m; 52 of 63 stood, 15.5 s |
+| the reflex kept where only the body's own segments are near | 0.30, 0.30, 0.15, 0.19, 0.23, 0.88 | 0.38 to 3.88, one fell | the kneel and the pose fail; the Rogue stood 19 |
+| the forecast stopped only by a contact that pushes | 0.78, 0.42, 0.90, 0.93, 0.55, 0.03 | 0.30 to 6.2, one fell | the kneel fails; the Rogue's crouch chatters 10 rad/s rms |
+| the same, any of the world's contacts still stopping it | the same | the same | the Rogue's probes all met |
+| a contact between its own segments stopping only the joint above the farther one | 0.20, 0.32, 0.58, 2.21, 0.71, 0.03 | 0.13 to 0.78 | the kneel fails (0.556 m) |
+| the reflex toward the change of speed planned, from the body as the command is applied | 0.11, 0.24, 0.27, 0.43, 0.85, 0.36 | 0.18 to 1.15 | the pose fails |
+| the same only off its legs, the reflex kept there | 0.49, 0.52, 0.98, 0.62, 0.32, 0.28 | 0.15 to 1.15 | the kneel and the pose fail; on the Rogue the height, the centre and the pose |
+| the forecast's channels left as they were where they move unlike the command expected, its own contacts not stopping it | | | the kneel, the pose and the halt fail |
+
 The steadying column, and the rows from the plan's root acceleration down, were read with the
 far-foot rule (the eighth row) in as well. The nearer foot stepping out only from a loaded far
 foot ends the walking on (each halt stops by
@@ -261,5 +291,16 @@ as the walk's. Most of it is in the lumbar, thoracic, hip and neck flexion, and 
 (second difference 18 to 29 rad/s^2 rms, against 2 to 8 at none, there mostly the ankles). The
 Warrior and the Rogue stood on the core stand, lowered by up to 0.45 m, do not chatter (pelvis
 0.02 rad/s). No variant above brings the steadying near none's, the forecast off and the reflex
-off included. Next to try:
-the steadying's start, where hands and knees leave the ground and the forecast begins.
+off included.
+
+Through the timed-out steadyings (the Warrior's at 3bfa0efe: 8 of 45 sit-backs from the front),
+the forecast is off on nearly every step, and the reflex with it: the upper arms lie within the
+solver's contact range of the middle trunk, a contact that pushes nothing (no impulse) but counts
+as touching (`onLegs`), and the thighs likewise each other's. The Rogue's arms lie so whenever it
+stands: in a crouch on staggered feet (0.3 m apart, 0.3 m down) the forecast never runs, and its
+pelvis's spin changes 1.69 rad/s rms a step against 0.00 at none. Counting only the contacts that
+push runs the forecast there, and the Rogue's probes all pass at one step, but the Warrior's kneel
+and halt blow up and the crouch chatters worse (10 rad/s rms). The near contact keeps the forecast
+out of places where a contact it does not model is about to act; the rule that stops it holds the
+body up for the wrong reason. Next to try: a forecast that knows the body's contacts, its own and
+the ground's, so that it can run wherever the body stands.
