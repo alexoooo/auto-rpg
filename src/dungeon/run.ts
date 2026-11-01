@@ -2,6 +2,9 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
+import { buildBody } from "../core/build/build-body.ts";
+import { builtAngles, createMind } from "../core/mind/minds.ts";
+import type { BodySpec } from "../core/spec/body.ts";
 import { armedWith } from "../core/items/held.ts";
 import { modelInfo, resolveCharacter, type BodyModel, type ResolvedCharacter } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
@@ -145,6 +148,12 @@ export const WAKE_METRES = SIGHT_METRES + 2;
  * lain `settle` seconds.
  */
 export const LEVELS: LevelRule = Object.freeze({ wake: WAKE_METRES, rest: SIGHT_METRES + 4, company: 4, clear: 5, settle: 10 });
+/**
+ * How much farther than the levels' lines that let a held enemy go (`LevelRule.wake`, `company`)
+ * an enemy is built, held where it waits until they let it go: a second or more before it is
+ * wanted, at the party's walk, so the run builds at most one body a step.
+ */
+const AHEAD_METRES = 2;
 /** How near its home an enemy with nothing to do counts as waiting there, m (`docs/reference/play.md#levels`). */
 const HOME_METRES = 0.5;
 /** Who sees whom is read every `perceive`, s, and at once after a party member's plan is reset (`docs/reference/play.md#run-timing`). */
@@ -247,9 +256,13 @@ export class DungeonRun {
   private readonly team: Commander;
   private readonly foes: Commander;
   private readonly given = new Map<string, Orders>();
+  /** The levels' rule with its lines that let a held body go `AHEAD_METRES` farther: where an enemy is built (`wake`). */
+  private readonly ahead: LevelRule;
 
   constructor(scene: Scene, options: DungeonRunOptions) {
     this.options = options;
+    const rule = options.levels ?? LEVELS;
+    this.ahead = { ...rule, wake: rule.wake + AHEAD_METRES, company: rule.company + AHEAD_METRES };
     this.map = runMap(options);
     const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
     this.world = createWorld(scene, options.engine);
@@ -289,7 +302,8 @@ export class DungeonRun {
       this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
     });
     for (const member of this.party) this.build(member);
-    this.wake();
+    this.warm(scene, options.engine);
+    this.wake(Infinity);
     this.visible = this.sight(this.party.map(member => member.home));
   }
 
@@ -305,12 +319,11 @@ export class DungeonRun {
    * while its body is at `full` (`levels`).
    */
   private build(actor: DungeonActor): void {
-    const info = modelInfo(actor.model);
     actor.fighter = enlist(this.world, {
-      id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
+      id: actor.id, side: actor.side, spec: this.specOf(actor), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       solids: () => this.level.sensedSolids,
-      mind: this.options.mind?.(actor) ?? cryptMind(actor.model), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
+      mind: this.mindOf(actor), catalog: GAME, name: `crypt ${actor.side}`, seed: seedOf(this.options.seed, actor.id),
       phase: phaseOf(this.actors.indexOf(actor)),
       contactIdentity: other => {
         if (!other) return { kind: "world" };
@@ -350,10 +363,52 @@ export class DungeonRun {
       distance(actor.feet(), actor.home) < HOME_METRES;
   }
 
-  /** Build each enemy that a party member, or a body going somewhere, has come near enough to stir (`stirs`). */
-  private wake(): void {
-    const { asks } = this.asks(), rule = this.options.levels ?? LEVELS;
-    for (const enemy of this.enemies) if (!enemy.fighter && stirs(enemy.home, enemy.side, asks, rule)) this.build(enemy);
+  /** `actor`'s body: its character's, holding what its model holds. */
+  private specOf(actor: DungeonActor): BodySpec {
+    return armedWith(actor.character.spec, "right", modelInfo(actor.model).held);
+  }
+
+  /** `actor`'s mind: the one the run was given for it, else its model's in the Crypt. */
+  private mindOf(actor: DungeonActor): MindConfig {
+    return this.options.mind?.(actor) ?? cryptMind(actor.model);
+  }
+
+  /**
+   * A body and mind of each enemy the run may build, made in a world of their own and let go: what a
+   * mind derives from its spec and config alone is derived as the run loads, so the run's first foe
+   * of a model is built as fast as its next.
+   */
+  private warm(scene: Scene, engine: PhysicsEngine): void {
+    const made = new Map<BodySpec, Set<MindConfig>>(), world = createWorld(scene, engine);
+    try {
+      for (const enemy of this.enemies) {
+        const spec = this.specOf(enemy), mind = this.mindOf(enemy);
+        let minds = made.get(spec);
+        if (!minds) made.set(spec, minds = new Set());
+        if (minds.has(mind)) continue;
+        minds.add(mind);
+        const built = buildBody(spec, world, { position: [0, 0, 0], joints: builtAngles(GAME, spec, mind) });
+        createMind(GAME, built, world, mind, { name: "warm", orders: () => STAND_ORDERS, rules: this.rules });
+        built.dispose();
+      }
+    } finally { world.dispose(); }
+  }
+
+  /**
+   * Build an enemy that a party member, or a body going somewhere, has come within `AHEAD_METRES`
+   * of stirring (`stirs`), `most` of them, and hold it where it waits: the levels let it go as they
+   * let go any held body, when it is stirred (`levels`).
+   */
+  private wake(most = 1): void {
+    const { asks } = this.asks();
+    let built = 0;
+    for (const enemy of this.enemies) {
+      if (built >= most) return;
+      if (enemy.fighter || !stirs(enemy.home, enemy.side, asks, this.ahead)) continue;
+      this.build(enemy);
+      enemy.fighter!.body.setLevel("held");
+      built++;
+    }
   }
 
   /**

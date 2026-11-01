@@ -693,7 +693,8 @@ Tried and not kept:
 ### Lag behind real time
 
 **The reference duels keep real time; the Crypt falls 15 to 38 ms behind in the step that builds a
-foe; the crowd fight never keeps it, and its mark-compact collections take 35 to 103 ms.** A
+foe ([bodies built ahead](#bodies-built-ahead)); the crowd fight never keeps it: its mean step is
+over the 8.33 ms 120 Hz allows.** A
 world's lag after step k is `max(0, lag + t_k - dt)` (`lagOf`, `research/lag.mjs`), read on each
 playing's own steps, collections included, from 2 s on; the figure is the least of the playings'
 worst. A lag under a step (8.33 ms) is never seen: the page draws a step behind the newest frame.
@@ -753,6 +754,28 @@ build of each model left out; pinned:
 at a time to a warm world, their first steps took 314 ms in all against 297 for their second,
 half a millisecond a body; in the Crypt the step after a foe's build is 0.6 to 2 ms over the
 steps that follow it. The 10 ms read before was the make's work done lazily.
+
+### Bodies built ahead
+
+**No Crypt foe is built inside a step that puts the run behind: seed 10 now keeps within a step of
+real time; seed 25 falls 23 ms behind in five steps of a fight with no build.** The run builds an
+enemy `AHEAD_METRES` (2 m) beyond the lines that let a held body go (`LevelRule.wake`, `company`),
+at most one a step, and holds it where it waits until the levels let it go
+(`DungeonRun.wake`, `src/dungeon/run.ts`); while it loads it makes a body and mind of each
+distinct enemy spec and config in a world of its own and lets them go (`DungeonRun.warm`), so the
+first foe of a model is built as fast as the next. No fingerprint case moves.
+
+`research/crypt-step.mjs --seconds 60 --runs 3`, the hero exploring alone, Node 24.15.0, `rapier`,
+pinned:
+
+| Seed | At `a83a8003`: dearest past 2 s, ms | Worst lag, ms | What built it | Now: dearest, ms | Worst lag, ms | What built it |
+| --- | --- | --- | --- | --- | --- | --- |
+| 10 | 25.56 | 38.08 | one step, building a body | 13.72 | 6.46 | one step, no build |
+| 25 | 21.80 | 14.78 | one step, building a body | 10.78 | 23.37 | five steps of a fight, no build, no collection |
+
+A foe built ahead is in the world sooner, so a run is another run from there: over 120 s at seeds
+1 to 4 the runs built 10, 7, 11 and 7 bodies and now build 11, 10, 12 and 7, the extra ones held
+where they wait, and every run is still under way at 120 s.
 
 ## The crypt's plan in the step
 

@@ -45,11 +45,16 @@ the distance given, read through an index of the cells where nothing need be rea
 ([step-cost.md](step-cost.md#sight-read-through-an-index)).
 
 - `SIGHT_METRES` (`src/core/command/independent.ts`): an enemy sees a party member within 14 m.
-- `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of where
-  it waits, 2 m beyond its sight, so that it is standing when it can first see; or once a body
-  going somewhere comes within `LEVELS.company` of it, so that nothing stands where it is built
+- `WAKE_METRES`: an enemy is let go once a standing party member comes within 16 m of where it
+  waits, 2 m beyond its sight, so that it is standing when it can first see; or once a body going
+  somewhere comes within `LEVELS.company` of it, so that nothing stands where it rises
   ([Levels](#levels)). The 16 m is the rule the crypt had on an engine that is gone
   (`src/dungeon/run.ts@e029c1e7`), not measured on the core.
+- `AHEAD_METRES`, 2 m: an enemy's body is built that much farther out than the lines that let it
+  go, at most one a step, and held where it waits until they do: a build is a step's dearest work
+  ([step cost](step-cost.md#making-a-mind)). As the run loads, a body and mind of each enemy it
+  may build is made in a world of its own and let go, so its first foe of a model is built as fast
+  as its next. Set, not measured: a second at the party's walk.
 - `PARTY_SIGHT` (`src/core/command/party.ts`): a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
 

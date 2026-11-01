@@ -1616,7 +1616,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 - **Haste** (`AttributeSpec.haste`): a per cent increase in leg muscle speed; no peak torque change.
 - **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves. A body with nothing to do and
   nobody near is `held`; any other is `full` in the fight and `limp` out of it. The fight gives the
-  distances (`LevelRule`); `stirs` wakes a body not yet built. There is no cap on bodies at `full`.
+  distances (`LevelRule`); `stirs` says a body not yet built is wanted, which the Crypt asks with
+  its lines widened (`AHEAD_METRES`) to build it ahead, held. There is no cap on bodies at `full`.
 
 ## The screens
 
