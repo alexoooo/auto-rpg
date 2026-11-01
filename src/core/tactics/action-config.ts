@@ -60,8 +60,21 @@ export function armedActions(parts: PartLookup, spec: BodySpec, executors: reado
     const executor = executors.find((entry) => entry.name === action.executor);
     if (!executor) return [action];
     const part = parts.of("executor", executor), effectors = action.effectors.filter((effector) => part.strikesWith?.(spec, executor, effector) ?? true);
-    return effectors.length === action.effectors.length ? [action] : effectors.length > 0 ? [{ ...action, effectors }] : [];
+    return effectors.length === action.effectors.length ? [action] : effectors.length > 0 ? [narrowed(action, effectors)] : [];
   });
+}
+
+/** Each action narrowed to some of its effectors (`narrowed`), by them: configs are data, so a narrowing is made once and is the same config at every make. */
+const NARROWED = new WeakMap<ActionConfig, Map<string, ActionConfig>>();
+
+/** `action` striking with `effectors` alone. */
+function narrowed(action: ActionConfig, effectors: readonly string[]): ActionConfig {
+  let by = NARROWED.get(action);
+  if (!by) NARROWED.set(action, by = new Map());
+  const key = effectors.join(" ");
+  let made = by.get(key);
+  if (!made) by.set(key, made = Object.freeze({ ...action, effectors }));
+  return made;
 }
 
 /** The part `config` names in `role`, or why there is none, a sentence. */

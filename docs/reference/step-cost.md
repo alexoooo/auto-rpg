@@ -22,6 +22,7 @@ node research/rest-probe.mjs --bodies 4
 node research/blow-cost.mjs
 node research/step-time.mjs --crowd --cap 30
 node research/call-count.mjs --crowd --cap 30
+node research/mind-make.mjs
 ```
 
 ## Allocation ceilings
@@ -711,6 +712,31 @@ Node 24.15.0, 120 Hz, pinned to the performance cores, at `a83a8003`: the bouts 
 
 The crowd fight's playings collected garbage with a scavenge every 20 or so steps (1 to 3 ms) and
 two mark-compacts a minute.
+
+### Making a mind
+
+**A warm Warrior's Option Mind is made in about 5.5 ms, a Skeleton's in about 3.3: a quarter and a
+third of what they took.** What a make derives from data alone is derived once and shared by every
+body of the spec: each recovery network's check (`networkFaults`), each rise recipe's faults
+(`stageFaults`) and tables (`riseTables`, `src/core/recovery/rise/staged.ts`), the recipes step up
+and its route derive (`stepUpRecipe`, `derivedRecipe`), each sole's fit (`fitOf`,
+`src/core/control/support.ts`), each strike's digest (`skillDigest`) and an action narrowed to the
+hands that carry it (`armedActions`). A body reads its uprightness through one reader
+(`uprightness`), which keeps nothing. What a solve works in is made at its first call
+(`makeBearing`, the whole-body solve in `motorControl`): a body makes about twenty solves for the
+techniques of its rise and runs few of them. No fingerprint case moves.
+
+`node research/mind-make.mjs`, 60 makes on a stand, the first three left out; Node 24.15.0, Rapier,
+pinned to the performance cores; two runs each.
+
+| Body, mind | Before (`02d2af80`), median, ms | Least | After, median, ms | Least |
+| --- | --- | --- | --- | --- |
+| Warrior holding a club, `option` | 18.6, 20.8 | 15.8 | 5.3, 5.7 | 4.0 |
+| Skeleton, `option-skeleton` | 9.9, 10.1 | 7.8 | 3.3, 3.3 | 2.6 |
+
+The first make of a model reads its data and is compiled: about 140 ms for the Warrior, 20 for the
+Skeleton, as before. What is left of a warm make is the body's own: its rise's limbs and their
+work, its motors, its first look at its contacts, its skills' executors.
 
 ## The crypt's plan in the step
 

@@ -10,7 +10,7 @@ import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import { RISE, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
+import { RISE, derivedRecipe, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
@@ -154,8 +154,19 @@ export function stepUpTuning(model: string): StepUpTuning {
   return STEP_UP[model as HumanoidModel];
 }
 
-/** RISE, its stages played as `tuning` says. */
+/** Each tuning's recipe of each base (`stepUpRecipe`): tunings and recipes are data, never changed once made. */
+const tuned = new WeakMap<StepUpTuning, WeakMap<Recipe, Recipe>>();
+
+/** `base`, its stages played as `tuning` says: made once for each tuning and base. */
 export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe {
+  let byBase = tuned.get(tuning);
+  if (!byBase) tuned.set(tuning, byBase = new WeakMap());
+  let recipe = byBase.get(base);
+  if (!recipe) byBase.set(base, recipe = tunedRecipe(tuning, base));
+  return recipe;
+}
+
+function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
   const timed = (prefix: string) => <S extends Stage>(stage: S): S => {
     const timing = tuning.stages[`${prefix}${stage.name}`];
     if (!timing) return stage;
@@ -237,13 +248,13 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
   const tuning = given ?? stepUpTuning(own.spec.model);
   const whole = stepUpRecipe(tuning, base);
   /** The rise from its stage `stage` on. */
-  const from = (stage: string): Recipe => {
+  const from = (stage: string): Recipe => derivedRecipe(whole, `from ${stage}`, () => {
     const at = whole.rise.findIndex(s => s.name === stage);
     if (at < 0) throw new Error(`the step-up's rise has no ${JSON.stringify(stage)} stage to join at`);
     return { ...whole, rise: whole.rise.slice(at) };
-  };
+  });
   const across = otherSide(tuning.over ?? "right");
-  const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, stepUpRecipe({ ...tuning, over: across }, base)),
+  const rises = { whole: stagedRise(own, view, whole), other: stagedRise(own, view, derivedRecipe(whole, `over ${across}`, () => stepUpRecipe({ ...tuning, over: across }, base))),
     fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the step-up");
   const steady = stanceSteady(own, view, motor, tuning.climb);

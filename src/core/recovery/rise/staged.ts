@@ -6,7 +6,9 @@ import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
 import { lieOf, type Lie } from "../../control/ground-reading.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
-import { DOWN, footStatesOf, readSupport, withinSupport } from "../../control/support.ts";
+import { DOWN, footStatesOf, readSupport, withinSupport, type FootState } from "../../control/support.ts";
+import type { MuscleDriver } from "../../muscle/driver.ts";
+import type { BodySpec } from "../../spec/body.ts";
 import { turnOfToRef } from "../../read-motion.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
@@ -51,6 +53,62 @@ const LEFT = 0.01;
 const RAISED = 0.1;
 /** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
 const GROUND_UP = 0.7;
+
+/** What a rise reads of its recipe for a body of a spec: tables of data, read and never written (`riseTables`). */
+interface RiseTables {
+  /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
+  readonly goalsOf: ReadonlyMap<Stage, Float64Array>;
+  /**
+   * For a bearing stage, by the recipe's limb: whether it bears, and its share; and whether the
+   * stage leaves it. `keeps`: it leaves none.
+   */
+  readonly bearsOf: ReadonlyMap<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>;
+  /** Each foot's ball: the middle of its sole's front edge with its toes bent (`FootState.fits`), in the foot's own frame. */
+  readonly balls: readonly Vector3[];
+  /** For a pose stage ended by its channels' angles, each one's index and angle as the muscles read it. */
+  readonly pastOf: ReadonlyMap<PoseStage, readonly { readonly index: number; readonly angle: number }[]>;
+  /** For a pose stage that presses, by foot, each channel it presses and how hard, rad a metre. */
+  readonly pressOf: ReadonlyMap<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>;
+}
+
+/** Each recipe's tables for each spec (`riseTables`): recipes and specs are data, so every body of a spec shares them. */
+const TABLES = new WeakMap<Recipe, WeakMap<BodySpec, RiseTables>>();
+
+/** `recipe`'s tables for a body of `spec`, whose muscles' `channels` and `feet` they are read by: made once for each recipe and spec. */
+function riseTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["channels"], feet: readonly FootState[]): RiseTables {
+  let bySpec = TABLES.get(recipe);
+  if (!bySpec) TABLES.set(recipe, bySpec = new WeakMap());
+  let tables = bySpec.get(spec);
+  if (!tables) bySpec.set(spec, tables = readTables(recipe, spec, channels, feet));
+  return tables;
+}
+
+function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["channels"], feet: readonly FootState[]): RiseTables {
+  const ends = spec.ends ?? [];
+  const goalsOf = new Map<Stage, Float64Array>();
+  const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>();
+  const balls = feet.map((foot) => { const { sole, ahead } = foot.fits.bent; return sole[ahead[0]!]!.add(sole[ahead[1]!]!).scaleInPlace(0.5); });
+  /** A channel's index by name. */
+  const channelOf = (name: string): number => channels.findIndex((channel) => channel.name === name);
+  const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
+  const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
+  for (const stage of stagesOf(recipe)) {
+    if (stage.kind === "pose" && stage.until?.past) {
+      pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - channels[index]!.dof.spec.bind.value }; }));
+    }
+    if (stage.kind === "pose" && stage.press) {
+      const gains = stage.press.gains;
+      pressOf.set(stage, feet.map((foot) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
+    }
+    const posture = stage.posture;
+    goalsOf.set(stage, Float64Array.from(channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
+    if (stage.kind !== "bear") continue;
+    const shares = ends.map((limb) => stage.on.find((on) => on.limb === limb.name)), leaves = ends.map((limb) => stage.leave.includes(limb.name));
+    bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves,
+      toes: ends.map((limb) => stage.toes?.includes(limb.name) ?? false), keeps: stage.leave.length === 0 });
+  }
+  return Object.freeze({ goalsOf, bearsOf, balls: Object.freeze(balls), pastOf, pressOf });
+}
 
 /**
  * **Rising by stages.** It wants the body from the step it is down until it stands or is taken
@@ -115,36 +173,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const fallen = (): boolean => view.down && !onFeet();
   /** Every segment but the trunk's: the trunk's clearance is the ground's gap under the rest of the body's complement. */
   const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
-  /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
-  const goalsOf = new Map<Stage, Float64Array>();
-  /**
-   * For a bearing stage, by the recipe's limb: whether it bears, and its share; and whether the
-   * stage leaves it. `keeps`: it leaves none.
-   */
-  const bearsOf = new Map<BearStage, { readonly on: readonly boolean[]; readonly share: readonly number[]; readonly leaves: readonly boolean[]; readonly toes: readonly boolean[]; readonly keeps: boolean }>();
-  /** Each foot's ball: the middle of its sole's front edge with its toes bent (`FootState.fits`), in the foot's own frame. */
-  const balls = feet.map((foot) => { const { sole, ahead } = foot.fits.bent; return sole[ahead[0]!]!.add(sole[ahead[1]!]!).scaleInPlace(0.5); });
-  /** A channel's index by name. */
-  const channelOf = (name: string): number => muscles.channels.findIndex((channel) => channel.name === name);
-  /** For a pose stage ended by its channels' angles, each one's index and angle as the muscles read it. */
-  const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
-  /** For a pose stage that presses, by foot, each channel it presses and how hard, rad a metre. */
-  const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
-  for (const stage of stagesOf(recipe)) {
-    if (stage.kind === "pose" && stage.until?.past) {
-      pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - muscles.channels[index]!.dof.spec.bind.value }; }));
-    }
-    if (stage.kind === "pose" && stage.press) {
-      const gains = stage.press.gains;
-      pressOf.set(stage, feet.map((foot) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
-    }
-    const posture = stage.posture;
-    goalsOf.set(stage, Float64Array.from(muscles.channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
-    if (stage.kind !== "bear") continue;
-    const shares = ends.map((limb) => stage.on.find((on) => on.limb === limb.name)), leaves = ends.map((limb) => stage.leave.includes(limb.name));
-    bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves,
-      toes: ends.map((limb) => stage.toes?.includes(limb.name) ?? false), keeps: stage.leave.length === 0 });
-  }
+  const { goalsOf, bearsOf, balls, pastOf, pressOf } = riseTables(recipe, own.spec, muscles.channels, feet);
 
   const state = {
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */

@@ -193,25 +193,32 @@ interface Bearing {
  * The solve of `limbs`, with `assist` giving what their patches miss, leaving what it finds in
  * `out`'s records. With `effort`, the ground's wrench is shared among the bearing limbs as the
  * muscles that carry it can most easily give it (`weighEffort`), besides as their shares ask.
+ * What the solve works in is made at its first call: a body makes many solves it may never call.
  */
 export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
   out: Pick<Bearing, "root" | "helped" | "held" | "shortfall">, { effort = false, damping = LEG_DAMPING }: { readonly effort?: boolean; readonly damping?: number } = {}): Bearing {
-  const carriers = new Set(limbs.flatMap((limb) => [...limb.memory.channels, ...limb.stem])).size;
+  let scratch: BearingScratch | null = null;
   return {
     assist, damping, limbs, root: out.root, helped: out.helped, held: out.held, shortfall: out.shortfall,
-    scratch: {
-      shares: limbs.map(() => ({ force: new Vector3(), moment: new Vector3() })),
-      missed: { force: new Vector3(), moment: new Vector3() },
-      wrench: groundWrenchWork(limbs.length, 0), bearing: [], patches: [], parts: [],
-      stems: limbs.map((limb) => limb.stem.map(() => 0)),
-      solves: limbs.map((limb) => limbSolve(limb.task.accel.length, limb.stem.length)),
-      P: new Float64Array(36), w0: new Float64Array(6), W: new Float64Array(6), given: new Float64Array(6),
-      P3: new Float64Array(9), y3: new Float64Array(3), x3: new Float64Array(3), linear: linearWork(6),
-      inLimb: new Uint8Array(0),
-      effort: effort ? { count: 0, C: new Float64Array(carriers * 6 * limbs.length), t0: new Float64Array(carriers) } : null,
-      rowed: new Uint8Array(0),
-      lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(),
-    },
+    get scratch() { return scratch ??= bearingScratch(limbs, effort); },
+  };
+}
+
+/** What the solve of `limbs` works in. */
+function bearingScratch(limbs: readonly Limb[], effort: boolean): BearingScratch {
+  const carriers = new Set(limbs.flatMap((limb) => [...limb.memory.channels, ...limb.stem])).size;
+  return {
+    shares: limbs.map(() => ({ force: new Vector3(), moment: new Vector3() })),
+    missed: { force: new Vector3(), moment: new Vector3() },
+    wrench: groundWrenchWork(limbs.length, 0), bearing: [], patches: [], parts: [],
+    stems: limbs.map((limb) => limb.stem.map(() => 0)),
+    solves: limbs.map((limb) => limbSolve(limb.task.accel.length, limb.stem.length)),
+    P: new Float64Array(36), w0: new Float64Array(6), W: new Float64Array(6), given: new Float64Array(6),
+    P3: new Float64Array(9), y3: new Float64Array(3), x3: new Float64Array(3), linear: linearWork(6),
+    inLimb: new Uint8Array(0),
+    effort: effort ? { count: 0, C: new Float64Array(carriers * 6 * limbs.length), t0: new Float64Array(carriers) } : null,
+    rowed: new Uint8Array(0),
+    lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(),
   };
 }
 
