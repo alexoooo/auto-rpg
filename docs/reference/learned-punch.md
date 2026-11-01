@@ -12,6 +12,12 @@ weighed (`assets/core/straight-punch.json`, 55.0 M decisions;
   Warrior: the walk rung 47 of 64 against 31, the still rung 30 of 32 against 26; held out at
   480 Hz, still 37 of 45 against 30 and from a walk 21 of 35 against 1
   ([the one punch](#the-one-punch)). None fell.
+- **The toed Rogue's** lands 46 of 100 held-out trials at 120 Hz and 51 at 480 Hz, none fallen,
+  at its scaled bar (`barOf`, `src/evaluation/strike/read.ts`): the Warrior's settings, steered by
+  a network trained by PPO for 2 M decisions on the Warrior's environment
+  (`research/environments/punch.json`) with the Rogue in his place and the gaps scaled by 0.92, from
+  the Warrior's network with its outputs scaled by a quarter. Unsteered, its hits meet 0.3 to
+  0.9 kg against the bar's 1.54, landing 0 of 24; the Warrior's network whole lands 0 of 30.
 - **On the Strike drill's still rung** the high mark is refused, since it aims at the middle only.
 - **On the fight rung** the network before it landed 3 of 56 middle-mark moments; of the 23 blows
   that met the foe past its arms, 3 met the bar, and 9 moments never came into its window.
