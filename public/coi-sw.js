@@ -4,9 +4,10 @@
  *   Cross-Origin-Opener-Policy: same-origin
  *   Cross-Origin-Embedder-Policy: require-corp
  *   Cross-Origin-Resource-Policy: same-origin
- * so the page gets `crossOriginIsolated` and SharedArrayBuffer, which MuJoCo's threaded build
- * (Emscripten pthreads) needs. Written for the physics bake-off (research/physics-bakeoff/REPORT.md);
- * `physics-bench.html?mt=1` installs it. The first visit loads without it and reloads once.
+ * so the page gets `crossOriginIsolated` and SharedArrayBuffer: a fight's minds then run on workers
+ * of their own (`src/isolate.ts` installs it over the game's pages), and MuJoCo's threaded build
+ * (Emscripten pthreads) runs (`physics-bench.html?mt=1`, research/physics-bakeoff/REPORT.md). The
+ * first visit loads without it and reloads once.
  */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));

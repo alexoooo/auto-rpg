@@ -160,7 +160,7 @@ need("run-fidelity").addEventListener("click", () => void runAll({ fidelity: tru
 async function isolate(): Promise<boolean> {
   if (globalThis.crossOriginIsolated || !MT) return true;
   if (!("serviceWorker" in navigator)) return false;
-  // Scoped to this page, so the game in the same origin is never served through it.
+  // Scoped to this page; the game's pages install the same worker over the site (`src/isolate.ts`).
   await navigator.serviceWorker.register(new URL("coi-sw.js", document.baseURI), { scope: new URL("physics-bench.html", document.baseURI).pathname });
   let tried = false;
   try { tried = sessionStorage.getItem("coi-reloaded") === "1"; sessionStorage.setItem("coi-reloaded", "1"); } catch { /* storage blocked */ }

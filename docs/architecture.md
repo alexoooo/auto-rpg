@@ -555,14 +555,29 @@ answer before its driver applies it, so a bout apart is the bout on bodies, step
 same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
-In Node, `mindWorkers(threads)` (`src/node/minds.ts`) is the place: worker threads
-(`src/node/mind-worker.ts`) that load the minds' data, the seats dealt to them in turn. The
-channels' numbers are shared memory (`SHARED_NUMBERS`); the asks go by message on a port, an ask
-to observe batched with the others made after physics, every other at once, and two shared
-counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins about a step,
-then sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
-(`BoutOptions.minds`, `DungeonRunOptions.minds`); offline work, the tests and the pages keep their
-minds on their bodies.
+The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
+thread a `ThreadLink` that posts a batch, waits for it done and yields the replies. A thread's side
+is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
+thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
+over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
+an ask to observe is batched with the others made after physics, every other sent at once, and a
+side waiting spins about a step, then sleeps (`src/apart/wire.ts`). A report's kit and gait cross
+only when they change.
+
+- **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
+  message on a port, two shared counters a thread pace the two sides, and the replies are taken
+  from the port synchronously.
+- **The browser**: `browserMindWorkers(threads)` (`src/worker/minds.ts`, `mind.worker.ts`), started
+  by the world's worker: a page's thread cannot take a message while it waits, so a mind's worker
+  answers in a ring in shared memory (`replyBox`, `box.ts`) as exact text (`encodeExact`,
+  `codec.ts`: every number to the bit), the numbers it makes anew in an arena both share.
+  `pageMinds` gives the team stage and the Crypt this place, on up to four threads, where the page
+  is cross-origin isolated, else none: their minds on their bodies, the same fight. The dev
+  server and the preview send the isolating headers (`vite.config.ts`); on a host that sends none
+  the game's pages install `coi-sw.js` (`public/`, `isolatePage`, `src/isolate.ts`) and reload once.
+
+The bouts and the Crypt take a place (`BoutOptions.minds`, `DungeonRunOptions.minds`); the duel's
+page, offline work and the tests keep their minds on their bodies.
 
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the

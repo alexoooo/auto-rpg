@@ -6,6 +6,7 @@ import { SIDES, type Verdict } from "../arena/duel.ts";
 import type { TeamRecipe } from "../arena/team-bout.ts";
 import type { Side } from "../core/spec/body.ts";
 import { buildTeamBout } from "../evaluation/bout.ts";
+import { pageMinds } from "./minds.ts";
 import type { DuelNews } from "./duel-stage.ts";
 import type { CryptNews } from "./crypt-stage.ts";
 import type { TapeEntry } from "./protocol.ts";
@@ -50,11 +51,13 @@ export interface TeamCard { readonly side: Side }
 
 /**
  * **A team bout's stage**: `recipe`'s bout built by `buildTeamBout` on `engine`, its minds' data
- * loaded first, played until `aftermath` s past its verdict.
+ * loaded first, played until `aftermath` s past its verdict; its minds apart where the page is
+ * isolated (`pageMinds`).
  */
 export async function teamStage(recipe: TeamRecipe, aftermath: number, engine?: EngineName): Promise<Stage<TeamCard>> {
   await loadData(SIDES.flatMap((side) => treeData(recipe[side].mind ?? defaultMind(recipe[side].model))));
-  const { world, bout, dispose } = await buildTeamBout(recipe, engine === undefined ? {} : { engine });
+  const minds = pageMinds(), built = await buildTeamBout(recipe, { ...engine === undefined ? {} : { engine }, ...minds ? { minds } : {} });
+  const { world, bout } = built, dispose = () => { built.dispose(); minds?.dispose(); };
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = bout.members.map((member) => {

@@ -18,12 +18,19 @@ const identity = (): Plugin => ({ name: "recording-build-identity", enforce: "pr
   },
 });
 
+/**
+ * Cross-origin isolation, so a fight's minds may share memory with their workers
+ * (`pageMinds`, `src/worker/minds.ts`); a host that sets no headers gets them from `coi-sw.js`
+ * (`src/isolate.ts`).
+ */
+const ISOLATED = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp" };
+
 export default defineConfig({
   plugins: [identity()],
   // strictPort: when 5180 is taken, usually by a forgotten dev server, fail rather than move to
   // 5181 and leave the old server's stale build on the address you are reading.
   server: {
-    port: 5180, strictPort: true,
+    port: 5180, strictPort: true, headers: ISOLATED,
     // Research runs, toolchains and disposable work (`.tmp`, worktrees among it) are not browser
     // source. Watching them costs needless invalidations; on Windows an archive being extracted can
     // fail the watcher with EBUSY, and crawling `.tools` (toolchains, tens of thousands of files)
@@ -33,6 +40,7 @@ export default defineConfig({
     // has to discover and wait on each level of their imports.
     warmup: { clientFiles: ["./src/app.ts", "./src/arena/main.ts", "./src/dungeon/main.ts", "./src/lab/main.ts"] },
   },
+  preview: { headers: ISOLATED },
   // MuJoCo ships its .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
   // MuJoCo's threaded build starts its pthreads as module workers of its own ES module (top-level
