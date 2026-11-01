@@ -1,6 +1,6 @@
 # Offline native-rollout posture control
 
-`research/native-posture-control.mjs` chooses torque actions on the shared `tasks/posture-hold.ts`
+`research/native-posture-control.mjs@4038482a` chooses torque actions on the shared `tasks/posture-hold.ts`
 fixture by short rollouts of the engine itself, with privileged whole-world snapshots. It is an
 offline diagnostic, not a game controller or a recovery route: it asks whether a bounded controller
 can hold a posture the direct joint feedback does not hold on the game's solver. Its search settings

@@ -17,7 +17,6 @@ import { parseArgs } from "node:util";
 import { KICK_PATH, validKickTuning } from "../src/core/skills/strikes/kick.ts";
 import { ATTACK_PATH, validAttackTuning } from "../src/core/skills/strikes/attack-path.ts";
 import { validCombatExecution } from "../src/core/skills/strikes/combat.ts";
-import { BLADE_STRIKE, validBladeSettings } from "../src/core/skills/strikes/blade.ts";
 import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straight-punch.ts";
 
 /** Whether `settings` holds exactly `keys`. */
@@ -29,8 +28,6 @@ export const SKILLS = Object.freeze({
   stomp: (s) => whole(s, Object.keys(KICK_PATH)) && validKickTuning(s),
   "path-strike": (s) => s !== null && typeof s === "object" && Object.keys(s).every((key) => key === "paths" || key === "execution")
     && whole(s.paths, Object.keys(ATTACK_PATH)) && validAttackTuning(s.paths) && (s.execution === undefined || validCombatExecution(s.execution)),
-  "blade-cut": (s) => whole(s, Object.keys(BLADE_STRIKE)) && validBladeSettings(s),
-  "blade-thrust": (s) => whole(s, Object.keys(BLADE_STRIKE)) && validBladeSettings(s),
   ...Object.fromEntries(["club-blow", "sword-cut", "sword-thrust"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null])),
 });
 

@@ -1,4 +1,4 @@
-import { armedActions } from "../core/tactics/action-config.ts";
+import { armedActions } from "../core/skills/action-config.ts";
 import { regionSegments } from "../core/intent/action-aim.ts";
 import { partLookup } from "../entrants/game.ts";
 import type { SkillKit } from "../core/skills/config.ts";

@@ -77,7 +77,7 @@ every 20, with every fingerprint case unchanged.
 ## Bodies in a step
 
 `research/step-garbage.mjs`: skeletons with the club, 3 m apart, each under the command layers
-ordered to stand, as `research/body-cost.mjs` stands them ([play.md](play.md#bodies-in-the-step)).
+ordered to stand, as `research/body-cost.mjs@4038482a` stands them ([play.md](play.md#bodies-in-the-step)).
 A row is one count in its own process: 1200 steps timed after 3 s with every collection inside
 (`PerformanceObserver`), then 240 steps under the sampling heap profiler (`allocatedIn`,
 `tests/harness/garbage.mjs`). Nobody fell; no row collected the whole heap.
@@ -920,7 +920,7 @@ and throws them is not read, so the game puts no body to sleep.
 
 ## A blow part's step
 
-`research/blow-cost.mjs`: one body on the punch stand (`punchStand`), its right hand throwing at the
+`research/blow-cost.mjs@4038482a`: one body on the punch stand (`punchStand`), its right hand throwing at the
 pad 0.1 m right, 1.55 m up and 0.55 m ahead, 8 s from 2 s; steps with a blow under way and without,
 each cell the least mean of three playings after one to compile. A step without a blow, about
 1.05 ms, is the stand's instruments and the body together; a blow adds the difference.

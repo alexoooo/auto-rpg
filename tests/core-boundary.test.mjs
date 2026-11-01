@@ -265,7 +265,7 @@ function engineArithmetic(text, file) {
 test("the core, and what builds a case's world, compute with IEEE's operations and the core's own functions", () => {
   const builders = worldBuilders(), reached = worldReach(), files = [...new Set([...SIMULATED.flatMap(filesUnder).filter((name) => name.endsWith(".ts")), ...builders])];
   // The bout's and the Crypt's worlds and a battery's cases are reached, each exemption names a module a case reaches, and a cut one that exists.
-  assert.ok(files.includes("src/core/math/real.ts") && ["src/arena/duel.ts", "src/arena/room.ts", "src/evaluation/blade/cases.ts", "src/dungeon/run.ts",
+  assert.ok(files.includes("src/core/math/real.ts") && ["src/arena/duel.ts", "src/arena/room.ts", "src/evaluation/strike/cases.ts", "src/dungeon/run.ts",
     "src/dungeon/party-placement.ts", "src/dungeon/level.ts", "src/dungeon/world.ts", "src/lab/ground-mode.ts", "src/lab/ground-starts.ts",
     "src/lab/stance-mode.ts", "src/lab/ground-environment.ts", "src/lab/track.ts", ...FALL_BUILDERS, ...LAB_SCENARIOS].every((name) => builders.includes(name))
     && [...CRYPT_LOOK].every((name) => reached.includes(name)) && [...FALL_BUILDERS, ...builders].every((name) => fs.existsSync(path.join(ROOT, name))),
@@ -416,13 +416,13 @@ test("in the game's source only the mind seam drives muscles", () => {
 });
 
 /** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
-const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation/", "src/core/perception/", "src/core/tactics/", "src/core/recovery/", "src/core/skills/",
+const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation/", "src/core/perception/", "src/core/recovery/", "src/core/skills/",
   "src/core/control/", "src/core/reptile/", "src/core/option/", "src/entrants/"];
 
 /** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
 const MIND_ADAPTERS = new Set([
   "src/core/mind/mind.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
-  "src/core/mind/object-senses.ts", "src/core/mind/motion.ts", "src/core/mind/minds.ts",
+  "src/core/mind/object-senses.ts", "src/core/mind/minds.ts",
   "src/core/mind/body-actions.ts", "src/core/mind/sheets.ts", "src/core/control/assist.ts",
 ]);
 
@@ -494,13 +494,11 @@ const LAYERS = [
   ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],
   ["muscle/", "rules/", "touches.ts", "control/assist.ts"],
   ["parts/", "data/", "learning/"],
-  ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts", "human/equipment.ts"],
+  ["control/", "mind/", "body.ts", "physical-body.ts", "observation.ts", "equipment.ts"],
   ["skills/", "intent/", "navigation/", "perception/", "mind/decider.ts", "mind/engagement.ts", "mind/choice.ts", "mind/report.ts"],
-  ["recovery/", "mind/kit.ts"],
-  ["tactics/"],
-  ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts",
-    "tactics/fighter-kind.ts", "tactics/fighter.ts", "parts/entrant.ts"],
-  ["toolkit.ts", "models.ts", "combatant.ts", "tasks/"],
+  ["recovery/", "mind/kit.ts", "skills/kit.ts"],
+  ["option/", "reptile/", "command/", "mind/config.ts", "mind/controller.ts", "mind/minds.ts", "parts/entrant.ts"],
+  ["toolkit.ts", "models.ts", "combatant.ts"],
 ];
 
 /** Where the layers meet by design: the registries that list every kind of mind and part, and import each. */
@@ -508,12 +506,10 @@ const LAYER_REGISTRIES = new Set(["parts/lookup.ts", "parts/catalog.ts", "mind/k
 
 /**
  * **The packages**: a folder of the layers that, from outside it, only the minds built on it and
- * the registries import, each with those minds. Tactics are one implementation of the `Decider`
- * seam: the fighter kind is inside the package; Option Mind builds its body layer with the
- * package's kit and carries out orders by its ordered intent; the support-entry task boots its body
- * under a fighter.
+ * the registries import, each with those minds. Option Mind is one implementation of the `Decider`
+ * seam: nothing else in the core reaches into it, so another mind is built beside it, not on it.
  */
-const CORE_PACKAGES = Object.freeze({ "tactics/": Object.freeze(["option/", "tasks/support-entry.ts"]) });
+const CORE_PACKAGES = Object.freeze({ "option/": Object.freeze([]) });
 
 /** The package `target` is in that `file`, outside it and not built on it, may not import; null where none. */
 function packageBarring(file, target) {
@@ -562,14 +558,14 @@ test("the core's imports run down its layers and into a package only from what i
   const { up, unlayered } = layerCrossings(files);
   assert.deepEqual(unlayered, [], "every core module has a layer");
   assert.deepEqual(up, [...UP_STACK].sort(), "the imports up the layers are exactly those listed");
-  // The control: a skill reaching tactics, a Commander reaching into the tactics package, and a module in no layer, are found; a registry, and a mind built on the package, are not held to it.
+  // The control: a skill reaching Option Mind, a Commander reaching into the Option package, and a module in no layer, are found; a registry, and a mind built on the package, are not held to it.
   assert.deepEqual(layerCrossings([
-    ["skills/sly.ts", `import { tacticsOf } from "../tactics/tactics-part.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
+    ["skills/sly.ts", `import { optionTactics } from "../option/tactics.ts";\nimport type { MindConfig } from "../mind/config.ts";\nimport { dot } from "../spec/vec.ts";\n`],
     ["nowhere/sly.ts", ""],
     ["mind/kinds.ts", `import { OPTION_MIND } from "../option/mind.ts";\n`],
-    ["command/sly.ts", `import { orderedIntent } from "../tactics/ordered.ts";\n`],
-    ["option/sly.ts", `import { orderedIntent } from "../tactics/ordered.ts";\n`],
-  ]), { up: ["command/sly.ts -> tactics/ordered.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> tactics/tactics-part.ts"], unlayered: ["nowhere/sly.ts"] });
+    ["command/sly.ts", `import { optionTactics } from "../option/tactics.ts";\n`],
+    ["option/sly.ts", `import { optionTactics } from "./tactics.ts";\n`],
+  ]), { up: ["command/sly.ts -> option/tactics.ts", "skills/sly.ts -> mind/config.ts", "skills/sly.ts -> option/tactics.ts"], unlayered: ["nowhere/sly.ts"] });
 });
 
 /** The game's list of entrants and its catalog: the only modules that import every entrant. */
@@ -606,14 +602,14 @@ test("an entrant reaches only the core, its own folder and its own data: never a
   assert.deepEqual(entrantCrossings(files), []);
   // The control: an entrant reaching another entrant, a screen, an evaluation and another's data is found; the game's list is not held to it.
   assert.deepEqual(entrantCrossings([
-    ["src/entrants/sly/index.ts", `import { CLASSIC } from "../classic/presets.ts";\nimport { Duel } from "../../arena/duel.ts";\nimport { MINDS } from "../game.ts";\n`],
-    ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/classic/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
+    ["src/entrants/sly/index.ts", `import { OPTION_PRESETS } from "../option/mind.ts";\nimport { Duel } from "../../arena/duel.ts";\nimport { MINDS } from "../game.ts";\n`],
+    ["src/entrants/sly/data.ts", `import guard from "../../../assets/entrants/option/guard.json" with { type: "json" };\nimport { opponentOf } from "../../evaluation/drill-opponents.ts";\n`],
     ["src/entrants/index.ts", `import { SLY } from "./sly/index.ts";\n`],
   ]), [
-    "src/entrants/sly/index.ts imports src/entrants/classic/presets.ts",
+    "src/entrants/sly/index.ts imports src/entrants/option/mind.ts",
     "src/entrants/sly/index.ts imports src/arena/duel.ts",
     "src/entrants/sly/index.ts imports src/entrants/game.ts",
-    "src/entrants/sly/data.ts imports assets/entrants/classic/guard.json",
+    "src/entrants/sly/data.ts imports assets/entrants/option/guard.json",
     "src/entrants/sly/data.ts imports src/evaluation/drill-opponents.ts",
   ]);
 });

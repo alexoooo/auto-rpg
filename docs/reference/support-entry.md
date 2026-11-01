@@ -2,7 +2,7 @@
 
 The research task that fells a body and has an independent policy acquire and hold hand-and-shin
 support: `tasks/support-entry.ts` (its `SETTINGS`) and the acquisition settings `SUPPORT_ENTRY`
-(`src/core/recovery/rise/support-recovery.ts`), both read from [Fixture and
+(`src/core/recovery/rise/support-recovery.ts@4038482a`), both read from [Fixture and
 acceptance](#fixture-and-acceptance). Arena recovery uses the reference riser with a measured
 standing handover instead ([recovery cycle](recovery-cycle.md)).
 

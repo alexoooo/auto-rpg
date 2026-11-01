@@ -1,7 +1,7 @@
 # Shared-item strikes
 
 The grip preparation and guard geometry of a strike with one club in both hands (`SHARED` in
-`src/core/tasks/point-strike.ts`), and its development screens. Warrior and Rogue pass every cell;
+`src/core/tasks/point-strike.ts@4038482a`), and its development screens. Warrior and Rogue pass every cell;
 the skeleton fails most returns.
 
 `createPointStrikeProbe` takes `shared: {}` for one club in both hands, or

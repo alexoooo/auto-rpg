@@ -1,7 +1,7 @@
 # Trained-adult attack force
 
 What a trained adult's punch and kick deliver (`TRAINED_ATTACKS`), and how the game's punches
-and front kicks are measured against them (`research/attack-force.mjs`: `slidingPeak`,
+and front kicks are measured against them (`research/attack-force.mjs@4038482a`: `slidingPeak`,
 `strikeEffort`, `forceAdmission`). No paired-limb family qualifies for parity, and no body
 strength, assist or damage multiplier is changed by these measurements.
 

@@ -8,11 +8,6 @@
  * with `--write`, that is the body's row (`writeRecord`, `research/skill-records.mjs`), saying how it
  * was made.
  *
- * - The blade's cut and thrust: the blade task (`bladeCases`, `src/evaluation/blade/cases.ts`), a
- *   striker holding sword and buckler at a standing Warrior, its one blow at the high and the
- *   middle mark from three gaps; a trial scores the wound its cuts dealt (`bladeSummary`: each
- *   committed swing's hardest blow of its mechanism on the trunk or head), HP, and -0.5 where the
- *   striker was felled.
  * - The front kick: the Strike drill's `kicking` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
  *   each foot at the middle of a Warrior, a Skeleton and a Reptile lying limp from two gaps, thrown
  *   by Option Mind's low kick (the Skeleton preset's, `src/entrants/option-skeleton/index.ts`); a
@@ -43,8 +38,6 @@ import { execSync } from "node:child_process";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
-import { BLADE as BLADE_PROTOCOL, bladeCases } from "../src/evaluation/blade/cases.ts";
-import { bladeSummary } from "../src/evaluation/blade/index.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
 import { barScore } from "../src/evaluation/strike/score.ts";
 import { OPTION_MIND } from "../src/core/option/mind.ts";
@@ -54,19 +47,6 @@ import { cmaSearch, workerPool } from "./cma.mjs";
 import { recordsOf, writeRecord } from "./skill-records.mjs";
 
 const WARRIOR = "workshop-fighter+toes";
-
-/** A blade striker's trials on `model`: each mark at each gap. */
-function bladeTrials(style) {
-  return (model, gaps) => gaps.flatMap((gap) => bladeCases({ ...BLADE_PROTOCOL, models: [model], styles: [style], gap }).conditions.map((condition) => ({ condition, gap })));
-}
-
-/** One blade trial of whole `settings`: its wound, HP, or -0.5 where the striker was felled. */
-async function bladeTrial(style, settings, { condition, gap }) {
-  const cases = bladeCases({ ...BLADE_PROTOCOL, models: [condition.model], styles: [style], gap });
-  const reading = await play(cases, settings, condition);
-  const summary = bladeSummary(reading);
-  return { score: summary.felled ? -0.5 : summary.damage, felled: summary.felled, wound: summary.damage, swings: summary.swings, cut: summary.aligned };
-}
 
 /** A mind throwing the front kick with `settings` at the trunk's middle: Option Mind's Skeleton preset's, on any body. */
 const kicker = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "support-fold" },
@@ -106,12 +86,6 @@ const kickTrials = (model, gaps) => STRIKE_CASES.kicking.conditions.filter((c) =
  * settings that are lengths (`lengths`, m), scaled to a body that starts from the Warrior's.
  */
 const SEARCHES = {
-  "blade-cut": { dims: [["chamberSeconds", .2, .7], ["swingSeconds", .2, .7], ["returnSeconds", .3, .8], ["contactSpeed", .3, 3], ["windup", .05, .35], ["through", 0, .15]],
-    trials: bladeTrials("cut"), search: [1.2, 1.4, 1.6], confirm: [1.3, 1.5, 1.7], trial: (s, t) => bladeTrial("cut", s, t),
-    task: "the blade task's cut (sword and buckler, at a standing Warrior's high and middle marks)" },
-  "blade-thrust": { dims: [["chamberSeconds", .2, .7], ["swingSeconds", .2, .7], ["returnSeconds", .3, .8], ["contactSpeed", .3, 3], ["windup", .05, .35], ["through", 0, .15]],
-    trials: bladeTrials("thrust"), search: [1.2, 1.4, 1.6], confirm: [1.3, 1.5, 1.7], trial: (s, t) => bladeTrial("thrust", s, t),
-    task: "the blade task's thrust (sword and buckler, at a standing Warrior's high and middle marks)" },
   "front-kick": { dims: [["contactSpeed", 1.5, 9], ["swingSeconds", .2, .5], ["lift", .2, .6], ["windup", 0, .2], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
     trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's kicking rung (each foot at the middle mark of a Warrior, a Skeleton and a Reptile lying limp)" },

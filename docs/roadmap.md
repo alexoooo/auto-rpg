@@ -141,8 +141,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   would import the screens; until then the boundary test holds the builders by what they reach.
 - Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
   ships data: one network does today, and the punch's retraining replaces it.
-- One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
-  the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md)).
+- One notion of a task: an evaluation plays a task, the Lab shows it, and the Ratings screen
+  opens it ([Drills](plans/2026-10-24-drills.md)).
 - The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
   is shown as not opened, so its reel cannot be watched.
 - Participant contracts, each extended with its first client: every accepted grip request and
@@ -315,15 +315,6 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
-- Vanguard's punch throws the 15 kg Skeleton off balance on a left-hand miss: its stance moves
-  0.4 m, and thrown first from a fresh stance it falls
-  ([record](reference/vanguard.md#standing-miss-return)).
-- Vanguard's Rogue and Skeleton never strike a still foe: they stop 0.79 m from it
-  (`tests/mind-contract.test.mjs`, the ordered strike, which skips them).
-- **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
-  qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
-  an opponent outside Option Mind that the baseline evaluation fights
-  ([the baseline](reference/baseline.md)); its tactics are not ported.
 - Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.

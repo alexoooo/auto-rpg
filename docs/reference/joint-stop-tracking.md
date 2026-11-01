@@ -1,7 +1,7 @@
 # Optional joint-stop prediction
 
 What the experimental whole-body tracker's joint-stop prediction does, its numeric inputs
-(`SETTINGS`, `src/core/tasks/stop-settings.ts`), and what it gives on the common runner. It is a
+(`SETTINGS`, `src/core/tasks/stop-settings.ts@4038482a`), and what it gives on the common runner. It is a
 controller model, off by default: it installs no constraint, changes no range and applies no
 assist; commands still go through the bounded muscles. The bar, point-strike and defense probes
 take `jointStops: true`, the common runner `--joint-stops`, and the task viewer has a selector.

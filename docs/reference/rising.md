@@ -126,7 +126,7 @@ the club shoved right, 3 to 82 weights from 1 to 4 s, past 1e30 at 6 s and 1e100
 ## Lying
 
 The blade fighter (`BLADE_FIGHTER`, the Lab's minds): from the step a body is down it is
-`lie`'s (`lying`, `src/core/recovery/lie.ts`), which asks its muscles and stance for nothing. At an
+`lie`'s (`lying`, `src/core/recovery/lie.ts@4038482a`), which asks its muscles and stance for nothing. At an
 activation of 0 the muscle driver sets each motor to give no torque, which is what releasing the
 muscles does (`Body.dispose`): read with the muscles released in place of `lie`, the seconds each
 body last moved are the same to the digit. A crypt body out of the fight is limp in the same way
@@ -1287,7 +1287,7 @@ assist), from the toes' hands-and-knees starts at rest (`placement("push-off-bea
 
 The Rogue on toes has no stance envelope (`stance-envelope.ts`) and is not read.
 
-The rise is the toes' stand-up harness's (`research/stand-controller/c/sitback.mjs`, 30 of 32, a
+The rise is the toes' stand-up harness's (`research/stand-controller/c/sitback.mjs@4038482a`, 30 of 32, a
 median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each part removed where
 32 starts stood as many without it (the harness, Warrior, empty):
 

@@ -4,7 +4,6 @@ import type { Skills } from "../skills/framework/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
-import type { Script } from "./decider.ts";
 import type { MindReport } from "./report.ts";
 import type { Catalog } from "../parts/catalog.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
@@ -13,13 +12,11 @@ import type { Senses } from "./senses.ts";
 import type { PhysicalBody } from "../physical-body.ts";
 import type { SheetLog } from "./sheets.ts";
 
-/** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), its orders and a screen's script. */
+/** **What a fight gives the mind it makes**, beside the body and the config: what it grants the body (`HostGrants`), and its orders. */
 export interface MindWiring extends HostGrants {
   readonly name: string;
   /** Its orders this step, or null when it is left to itself. `senses` are its own, this step's. */
   orders(senses: Senses): Orders | null;
-  /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
-  readonly script?: Script;
 }
 
 /** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */
@@ -54,11 +51,11 @@ export function builtAngles(catalog: Catalog, spec: BodySpec, config: MindConfig
  * `built` under the mind `config` names, wired to its fight, made by its controller in `catalog`
  * (`Catalog.controllers`) through a host of the body (`bodyHost`) that finds only the parts its tree names
  * (`treeLookup`); a config with a fault anywhere in its
- * tree (`treeFaults`, with the script if the wiring gives one) is refused. Given a `log`, its order
+ * tree (`treeFaults`) is refused. Given a `log`, its order
  * sheets are written in it (`SheetLog`).
  */
 export function createMind(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
-  const fault = catalog.treeFaults(config, wiring.script ? ["script"] : [])[0];
+  const fault = catalog.treeFaults(config)[0];
   if (fault) throw new Error(fault);
   const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), log);
   const mind = catalog.controllerOf(config).create(host, config, wiring);

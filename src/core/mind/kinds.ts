@@ -1,5 +1,4 @@
 import type { Controller } from "./controller.ts";
-import { FIGHTER_MIND } from "../tactics/fighter-kind.ts";
 import { OPTION_MIND } from "../option/mind.ts";
 import { QUADRUPED_MIND } from "../reptile/kind.ts";
 
@@ -8,4 +7,4 @@ import { QUADRUPED_MIND } from "../reptile/kind.ts";
  * manifest (`Entrant.minds`). This module holds its imports and this list and nothing else: a
  * case's code reads it as where each kind's own code begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const MIND_KINDS: readonly Controller[] = [FIGHTER_MIND, QUADRUPED_MIND, OPTION_MIND];
+export const MIND_KINDS: readonly Controller[] = [QUADRUPED_MIND, OPTION_MIND];

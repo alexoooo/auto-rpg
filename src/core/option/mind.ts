@@ -1,13 +1,12 @@
 import type { Body } from "../body.ts";
-import { aimsState, armedActions, configuredActionEstimates, configuredAims, usableSkills } from "../tactics/action-config.ts";
+import { aimsState, armedActions, configuredActionEstimates, configuredAims, usableSkills } from "../skills/action-config.ts";
 import { STAND_UP } from "../recovery/ground/stand-up.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { controller } from "../mind/controller.ts";
 import { everyOf } from "../mind/decider.ts";
-import { kitBody, kitSkills, kitFaults } from "../tactics/fighter.ts";
+import { kitBody, kitSkills, kitFaults } from "../skills/kit.ts";
 import { groundExecutor } from "../recovery/ground/held.ts";
-import { STAND_UP_PART } from "../recovery/ground/stand-up-part.ts";
-import { REPOSITION, techniquesOf } from "../recovery/ground/stand-up.ts";
+import { REPOSITION, standUpFaults, techniquesOf } from "../recovery/ground/stand-up.ts";
 import type { TechniqueConfig } from "../recovery/ground/technique.ts";
 import type { BodyHost } from "../mind/host.ts";
 import { GAME_MOTOR, kitOf } from "../mind/kit.ts";
@@ -15,14 +14,13 @@ import type { PartLookup } from "../parts/lookup.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import { GAME_NAVIGATION } from "../navigation/navigator.ts";
 import { anyBody, slotList, slotOne, slotSkills, type PartConfig, type Slot } from "../parts/parts.ts";
-import type { TacticsMaking } from "../tactics/tactics-part.ts";
 import { driveBy } from "../mind/decider.ts";
 import { commandedMind } from "../mind/sub-mind.ts";
 import type { Skills } from "../skills/framework/skills.ts";
 import { deepFreeze } from "../state.ts";
 import { OPTIONS } from "./kinds.ts";
 import { MEASURED_PREDICTIONS } from "./predictions-part.ts";
-import { optionTactics } from "./tactics.ts";
+import { optionTactics, type TacticsMaking } from "./tactics.ts";
 
 /**
  * **Option Mind's config**: its chooser, its options (each a part of role `option`, in rank order;
@@ -63,12 +61,12 @@ const SLOTS: readonly Slot[] = Object.freeze([
   slotList("ground", "Getting up", "technique"), slotOne("motor", "Motor control", "motor", true, GAME_MOTOR),
 ]);
 
-/** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`STAND_UP_PART.faults`). */
+/** What is wrong with `config`, each a sentence: its kit's faults, or no route up from the ground (`standUpFaults`). */
 function optionMindFaults(config: OptionMindConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config, parts)];
   if (config.rate !== undefined && !(Number.isFinite(config.rate) && config.rate > 0)) faults.push("rate: a positive number of times a second");
   if (!Array.isArray(config.ground) || config.ground.length === 0) faults.push("ground: a way up when down");
-  else faults.push(...STAND_UP_PART.faults({ kind: "stand-up", techniques: config.ground }, parts).map((fault) => `ground: ${fault}`));
+  else faults.push(...standUpFaults(config.ground, parts).map((fault) => `ground: ${fault}`));
   return faults;
 }
 

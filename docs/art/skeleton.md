@@ -136,7 +136,7 @@ the Warrior and a skeleton, 8 bouts), the skeleton fell 4 times on muscles and 3
 fall after contact.
 
 Vanguard's punch throws the Skeleton off balance on a left-hand miss
-([standing miss return](../reference/vanguard.md#standing-miss-return)), on motors: thrown after
+(`docs/reference/vanguard.md@4038482a`, its standing miss return), on motors: thrown after
 the right, its stance centre moves 0.40 m before both feet plant, and its hand settles 0.114 m from
 its guard at the 1.2 s deadline (0.03 m/s, planted); thrown first, it falls at 3.14 s. On muscles
 its feet slide 0.3 m on the same miss and its hand passes within 0.05 m of the guard it left.

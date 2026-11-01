@@ -260,7 +260,7 @@ Read on the still rung (the Warrior's rear hand, `research/punch-drill.mjs --ver
 
 ### The body's ceiling
 
-`research/punch-ceiling.mjs` lays flat-out pushes on 18 channels of the guard (the trunk's four,
+`research/punch-ceiling.mjs@4038482a` lays flat-out pushes on 18 channels of the guard (the trunk's four,
 each hip's three, each knee and ankle, the striking shoulder's three and its elbow), each with a
 level, a start and a length, searched by diagonal CMA-ES. A blow counts if the strike point reaches
 the pad's face within 0.5 s and the body is up 0.3 s later; straight means its last 10 cm within
@@ -486,7 +486,7 @@ numbers (`hullEntry`, `src/core/perception/hull-entry.ts`; the facing plane in `
   38 of 55 at 4.84 m/s. Every driven swing ended on the stroke's bearing-support rule, a foot's
   corners off flat 0.08 to 0.13 s after launch; with that rule bypassed, at most 10 of 35 land at
   4.2 to 5.3 m/s.
-- **The greedy solve** (`research/greedy-punch.mjs`: the whole-body solve driving the fist along
+- **The greedy solve** (`research/greedy-punch.mjs@4038482a`: the whole-body solve driving the fist along
   the line each step, no path, no set time): 3.2 to 4.6 m/s mean, 5.87 at best; the fist reaches
   5.4 m/s 0.08 s into the drive, then slows as the elbow straightens, and the trunk never turns
   early. The solve costs 2.2 to 2.8 ms a body a step

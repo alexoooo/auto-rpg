@@ -1,6 +1,6 @@
 # Point interception and head defense
 
-The declared inputs of the head-defense task (`SETTINGS` in `src/core/tasks/defense.ts`) and the
+The declared inputs of the head-defense task (`SETTINGS` in `src/core/tasks/defense.ts@4038482a`) and the
 development screen of its interception policy. Predictive interception passes 32/36 starts (33/36
 remeasured), the pose baseline 0/36; the capability gate is not met.
 
@@ -18,7 +18,7 @@ Near a joint limit the posture preference gains weight, never changing anatomy o
 
 ## Physical fixture and declared inputs
 
-`SETTINGS` in `src/core/tasks/defense.ts` holds these declared experiment inputs.
+`SETTINGS` in `src/core/tasks/defense.ts@4038482a` holds these declared experiment inputs.
 
 `createDefenseProbe` stands an anatomical body on ordinary ground, with either hand or both
 equipped. Empty hands track their sourced knuckle points, clubs their sourced swell point. The

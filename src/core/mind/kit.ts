@@ -1,5 +1,4 @@
-import type { Body, BodyView } from "../body.ts";
-import type { Clock } from "../clock.ts";
+import type { Body } from "../body.ts";
 import type { MotorMaker } from "../control/motor-part.ts";
 import type { Pose } from "../spec/pose.ts";
 import type { ReadBody } from "../read-body.ts";
@@ -8,9 +7,8 @@ import type { BodySpec } from "../spec/body.ts";
 import type { Locomotion } from "../skills/locomotion/locomotion.ts";
 import type { Legs } from "../skills/framework/locomotion-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import type { OwnBody } from "./mind.ts";
 import type { PartConfig } from "../parts/parts.ts";
-import type { SubMind, SubMindMaker } from "./sub-mind.ts";
+
 import { lowering } from "../recovery/rise/lowering.ts";
 
 /** The game's guard: what a rig that plays a technique or a sub-mind without a mind of its own holds (`kitOf`). */
@@ -64,13 +62,3 @@ export function kitOf(parts: PartLookup, spec: BodySpec, mind: KitParts): MindKi
   const guard = parts.of("guard", mind.guard);
   return { motor: motorOf(parts, mind.motor), posture: guard.posture(spec, mind.guard), guard: (built) => guard.make(built, mind.guard), parts };
 }
-
-/** The sub-mind `config` names, as `parts` finds it, made with `kit`. */
-function subMind(parts: PartLookup, own: OwnBody, view: BodyView, config: PartConfig, kit: MindKit, clock: Clock): SubMind {
-  return parts.of("sub-mind", config).make(own, view, config, kit, clock);
-}
-
-/** `configs`' sub-minds as a mind hands its body to them (`commandedMind`), each made with the kit of the mind whose parts are `mind`. */
-export const subMindsOf = (parts: PartLookup, configs: readonly PartConfig[], mind: KitParts): readonly SubMindMaker[] =>
-  configs.map((config) => (own: OwnBody, view: BodyView, clock: Clock) =>
-    subMind(parts, own, view, config, kitOf(parts, own.spec, mind), clock));

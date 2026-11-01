@@ -1,7 +1,7 @@
 # CCD against a moving thin defense
 
 Whether moving-body continuous collision detection catches a fast bar against a thin moving
-defense. `src/core/tasks/collision.ts` builds the fixture for tests and the common runner; the
+defense. `src/core/tasks/collision.ts@4038482a` builds the fixture for tests and the common runner; the
 engine contract's CCD option (`src/core/engine/engine.ts`) cites the engine's default behaviour
 recorded here. The numbers are engineering stress inputs, not weapons, controllers or scores.
 

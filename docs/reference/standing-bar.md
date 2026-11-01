@@ -1,7 +1,7 @@
 # Standing shared-bar tracking
 
 The shared-bar fixture on ordinary ground with a free pelvis (`--support standing`), and its
-sticking-support settings `STANDING` (`src/core/tasks/bar.ts`). The capture, bar path, posture and
+sticking-support settings `STANDING` (`src/core/tasks/bar.ts@4038482a`). The capture, bar path, posture and
 item settings are the pinned fixture's ([motion tracking](motion-tracking.md)); the captured-pose
 return and its two-profile comparison are [shared-bar return posture](bar-posture.md). Harness for
 all figures: Node core world, Rapier, 120 Hz, directional bounds, gravity, zero root and weapon

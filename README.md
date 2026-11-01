@@ -41,7 +41,7 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Duellist (the default, with a short sword), Puncher, Vanguard, Option Mind; the Reptile's Crawl and bite and its Option Reptile. Classic, Counter-puncher and Behaviours are off the menu; a link may still name them |
+| Controller | the mind: Option Mind (the default; its Skeleton preset on the Skeleton), the Option Reptile on the Reptile, and the Riser on the Rogue and the Skeleton |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
@@ -68,7 +68,7 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | Parameter | Example |
 | --- | --- |
 | `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`) |
-| `control` | `&control=puncher,duellist` |
+| `control` | `&control=option,option` |
 | `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
 | `you` | `&you=left` |
 | `level`, `gap`, `cap` | `&level=obstacle-court&gap=3&cap=30` |
@@ -143,8 +143,6 @@ and changed context, and keeps obsolete implementations in Git history. The
 **Tools** (`?play=tools`) opens a separate directory of development viewers. Each page returns
 to it through **← Tools**.
 
-- **Control foundation** (`/control-foundation.html`): a pinned reach task, comparing controllers.
-- **Physical control tasks** (`/control-tasks.html`): support transfer, a shared bar, point strikes.
 - **Character workshop** (`/character-lab.html`): the human models with every loadout.
 - **Physics bench** (`/physics-bench.html`): MuJoCo and Rapier on the bake-off's cases
   ([report](research/physics-bakeoff/REPORT.md)).

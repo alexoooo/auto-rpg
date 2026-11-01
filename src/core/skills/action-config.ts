@@ -2,11 +2,11 @@ import type { Body, BodyView } from "../body.ts";
 import type { Pose } from "../spec/pose.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Clock } from "../clock.ts";
-import type { Ended, TargetRef } from "../skills/framework/action.ts";
-import type { ExecutorBinding } from "../skills/framework/action-instances.ts";
-import type { Aim, AimPart } from "../skills/framework/aim-part.ts";
-import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
-import { ACTION_KEYS, type ActionEstimates, type ExecutorPart } from "../skills/framework/executor-part.ts";
+import type { Ended, TargetRef } from "./framework/action.ts";
+import type { ExecutorBinding } from "./framework/action-instances.ts";
+import type { Aim, AimPart } from "./framework/aim-part.ts";
+import type { ActionConfig, ExecutorEntry } from "./config.ts";
+import { ACTION_KEYS, type ActionEstimates, type ExecutorPart } from "./framework/executor-part.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 
 /** How many blows `action` throws: its executor's count (`ExecutorPart.blows`), else one. */

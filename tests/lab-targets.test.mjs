@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { armedActions } from "../src/core/tactics/action-config.ts";
+import { armedActions } from "../src/core/skills/action-config.ts";
 import { partLookup, MINDS } from "../src/entrants/game.ts";
 import { withLoadout } from "../src/core/items/held.ts";
 import { regionSegments } from "../src/core/intent/action-aim.ts";

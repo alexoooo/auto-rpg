@@ -1,7 +1,7 @@
 /**
  * The physique grid: which physiques (`Physique`, `src/core/human/physique.ts`) a run measures
  * each body at. The ranges are the owner's (`docs/reference/competencies.md#physiques`); a run
- * overrides any axis without an edit here (`control-foundation.mjs --size ...`).
+ * overrides any axis without an edit here.
  */
 import { PHYSIQUE_ATTRIBUTES } from "../src/core/human/physique.ts";
 

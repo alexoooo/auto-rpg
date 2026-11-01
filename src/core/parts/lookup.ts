@@ -4,10 +4,7 @@ import type { Controller } from "../mind/controller.ts";
 import type { ExecutorPart } from "../skills/framework/executor-part.ts";
 import type { LocomotionPart } from "../skills/framework/locomotion-part.ts";
 import type { NavigatorPart } from "../navigation/navigator.ts";
-import type { BehaviourPart } from "../tactics/behaviour-part.ts";
-import type { TacticsPart } from "../tactics/tactics-part.ts";
 import type { PartConfig, Role } from "./parts.ts";
-import type { SubMindPart } from "../recovery/sub-mind-part.ts";
 import type { TechniquePart } from "../recovery/ground/technique.ts";
 import type { GuardPart } from "../skills/guard/guard-part.ts";
 import type { SupportPart } from "../skills/locomotion/support-part.ts";
@@ -23,10 +20,7 @@ import type { AimPart } from "../skills/framework/aim-part.ts";
  */
 export interface RoleParts {
   readonly mind: Controller;
-  readonly "sub-mind": SubMindPart;
   readonly technique: TechniquePart;
-  readonly tactics: TacticsPart;
-  readonly behaviour: BehaviourPart;
   readonly "move-rule": MoveRulePart;
   readonly navigation: NavigatorPart;
   readonly locomotion: LocomotionPart;

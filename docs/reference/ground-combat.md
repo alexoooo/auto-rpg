@@ -1,7 +1,7 @@
 # Grounded combat
 
 The cells of fighting a foe who is down or rising: the approaches (`GROUND_APPROACH`, shared,
-`src/core/perception/downed/approach.ts`; `GROUND_NEAR`, `downed/near.ts`; `GROUND_COMBAT`,
+`src/core/perception/downed/approach.ts@4038482a`; `GROUND_NEAR`, `downed/near.ts`; `GROUND_COMBAT`,
 `downed/wide.ts`; `ROUTE_MARGIN`, `downed/route.ts`), their admission (`GROUND_ADMISSION`,
 `downed/position.ts`), the low-foe gate (`LOW_HEAD`, `sensed-bounds.ts`) and the Scrapper that
 uses them. All are development search cells or engineering deadlines on the ordinary Warrior,

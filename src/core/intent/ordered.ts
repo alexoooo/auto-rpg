@@ -1,6 +1,6 @@
 import { atan2, hypot } from "../math/real.ts";
-import type { Intent } from "../intent/intent.ts";
-import type { Orders } from "../intent/orders.ts";
+import type { Intent } from "./intent.ts";
+import type { Orders } from "./orders.ts";
 import type { Sight } from "../mind/decider.ts";
 
 /** A facing under 8 cm names no direction: its aim point is over the body itself. */

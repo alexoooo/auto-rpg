@@ -2,11 +2,9 @@ import { editorRow as row, editorPicker as picker, editorButton as button, partF
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../entrants/game.ts";
 import { actionEditor } from "./mind-actions.ts";
-import { selectionEditor } from "./mind-behaviours.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { BehavioursConfig } from "../core/tactics/config.ts";
 import type { ActionConfig, SkillKit } from "../core/skills/config.ts";
-import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/parts/parts.ts";
+import { slotsOf, type Part, type PartConfig, type Slot } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
 
@@ -24,8 +22,6 @@ interface MindEditor {
 interface EditorOptions {
   /** The body the mind is for: a part that does not fit it is offered disabled, with the reason. */
   readonly spec: BodySpec;
-  /** What the screen gives a mind (`Provision`): parts requiring an absent provision are omitted. Nothing unless given. */
-  readonly provides?: readonly Provision[];
   /** What the screen's scenario asks of a mind beyond fitting the body (`EntryRule`): a mind that does not meet it has that fault. Nothing unless given. */
   readonly entry?: readonly EntryRule[];
   /** Called after each change a person makes. */
@@ -45,18 +41,18 @@ const named = (part: Part): string => part.stage === "experimental" ? `${part.la
  * and disabling those that do not fit the body; a list slot's parts added, moved up and removed. Every change
  * draws the tree again.
  */
-export function mindEditor(config: MindConfig, { spec: body, provides = [], entry = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
+export function mindEditor(config: MindConfig, { spec: body, entry = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
   const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p"), unused = document.createElement("p");
   element.className = "mind-editor"; fault.className = "settings-fault"; unused.className = "settings-note";
   element.append(tree, unused, fault);
   let current = config, spec = body;
-  const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, { provides, entry });
+  const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, { entry });
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
 
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: slot.fallback ? partOf(slot.fallback).label : "None" }] : []),
-    ...kindsFor(slot.role, spec, provides, current).filter(({ part }) => !part.needs || provides.includes(part.needs))
+    ...kindsFor(slot.role, spec, current)
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
@@ -77,11 +73,10 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
-    if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
     // A part whose slots hold executors pairs its actions with them (`ActionConfig`): the action editor is the executor role's.
     if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as SkillKit & PartConfig, write, readOnly));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
-      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current),
+      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, current),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
       : drawSlot(config, slot, write));
     return block;

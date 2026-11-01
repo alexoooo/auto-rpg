@@ -17,7 +17,6 @@ searches' readings.
 | Club blow | toed Warrior | searched on the Strike drill's still rung, steered by PPO ([held blows](held-blows.md#the-club-steered)) |
 | Sword cut, sword thrust | toed Warrior | the straight punch's schedule, set by hand ([held blows](held-blows.md)) |
 | Blade cut, blade thrust | toed Rogue, toed Skeleton | searched on the blade task ([below](#the-blades)) |
-| Vanguard's punch | toed Warrior, Rogue, Skeleton | each calibration's strokes for its own body ([Vanguard](vanguard.md#body-motor-profiles)) |
 
 No other body has a row: the path strike, the stomp, the straight punch and the held blows are the
 Warrior's alone, and the front kick no Rogue's.

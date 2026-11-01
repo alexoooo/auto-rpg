@@ -1,7 +1,6 @@
 import { editorRow as row, editorPicker, editorButton, editorInput, partFieldInput } from "./editor-inputs.ts";
 import type { ActionConfig, SkillKit } from "../core/skills/config.ts";
 import type { PartConfig } from "../core/parts/parts.ts";
-import { renamedInTactics } from "./mind-behaviours.ts";
 import { scopeOf } from "../core/parts/entrant.ts";
 import { allParts, isKind, partLookup, treeScope } from "../entrants/game.ts";
 import type { Region } from "../core/skills/framework/action.ts";
@@ -16,7 +15,7 @@ export function actionEditor<C extends SkillKit & PartConfig>(config: C, write: 
     const block = document.createElement("div"); block.className = "mind-item";
     const replace = (next: ActionConfig) => {
       const actions = config.actions.map((other, i) => i === index ? next : other);
-      write(next.name === action.name ? { ...config, actions } : renamedInTactics({ ...config, actions }, action.name, next.name));
+      write({ ...config, actions });
     };
     block.append(input("Name", action.name, value => replace({ ...action, name: value }), readOnly),
       select("Executor", config.executors.map(e => e.name), action.executor, value => replace({ ...action, executor: value }), readOnly));

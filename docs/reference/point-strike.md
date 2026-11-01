@@ -1,6 +1,6 @@
 # Standing point-space strikes
 
-The declared inputs of the static point-strike task (`SETTINGS` in `src/core/tasks/point-strike.ts`)
+The declared inputs of the static point-strike task (`SETTINGS` in `src/core/tasks/point-strike.ts@4038482a`)
 and the development screen of its reference policy, `pointStrike`. The policy emits motion
 objectives that share one bounded muscle solve with posture and root; it neither owns physics nor
 scores hits, and a direct actuator policy can use the same bodies and equipment without it.

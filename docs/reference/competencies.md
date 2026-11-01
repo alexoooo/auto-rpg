@@ -1,7 +1,7 @@
 # Competencies
 
 What the skills can do, judged by what a person's motion is judged by: the "before" table every
-change to a skill or a body is read against. The suite is `research/competencies.mjs`, run by
+change to a skill or a body is read against. The suite is `research/competencies.mjs@4038482a`, run by
 `research/control-foundation.mjs --suite competency` ([research](../../research/README.md)); one
 job is one trial in a fresh world, and a summary's `competencies` holds each competency's figures
 by body, loadout and rate.
@@ -14,11 +14,11 @@ and the punch and kick stands fault any assist they meter.
 | Competency | Fixture | A trial | Gated | Reported |
 |---|---|---|---|---|
 | stand | `shove` (`research/core-stance-trials.mjs`), in the guard | a level shove at the middle trunk's centre of mass, 0.2 to 0.8 N s per kg of the body's own mass, from 8 directions; upright through 10 s after it | the largest level held from every direction, as at every level below it (`fastestHeld`) | recovery steps |
-| guard | the defense probe (`src/core/tasks/defense.ts`) | hinged clubs at the head and upper trunk, covered by the left, right or both hands; the predictive guard and the pose as its control | share of predictive trials that cover every blow, protect the head and upper trunk, and stay up | protected impulse |
+| guard | the defense probe (`src/core/tasks/defense.ts@4038482a`) | hinged clubs at the head and upper trunk, covered by the left, right or both hands; the predictive guard and the pose as its control | share of predictive trials that cover every blow, protect the head and upper trunk, and stay up | protected impulse |
 | punch | `punchStand` (`research/punch-calibration.mjs`), the path strike's planted cross, or a blow part (`--blow`, [Research blows](#research-blows)) | 8 s of crosses with each hand at a compliant pad: at the cell's place (0.1 m to the hand's side, 1.55 m up, 0.55 m ahead), at full reach (`fullReach`), and 1 m aside as a miss; the seed moves the target up to 2 cm | share of blows landed; hand speed over the last 10 cm; first contact after the order; upright and returned | impulse, effective mass, peak force, the chamber-to-contact time |
 | walk | `walk`, `turn` (`research/core-stance-trials.mjs`), in the guard | 8 s at 0.3 to 1.4 m/s at 4 headings, then a stop; a half turn at 2 rad/s walking at 0.3 m/s, each way | the speed travelled (below); both turns upright | the fastest asked speed held upright at every heading, as at every slower one; falls |
 | rise | `felled` (`research/core-rise-trials.mjs`) under the staged rise | shoved down at 1.5 N s/kg from 4 directions; watched 40 s | share of falls risen and up at the end; median time from the fall to standing 2 s | the slowest rise |
-| kick | `frontKickStand` (`research/front-kicks.mjs`), the front kick | 24 s of kicks with each foot at a pad 0.45 m up and ahead, and 1 m aside as a miss | share of blows landed; foot speed at contact; upright and returned | impulse, first contact after the order |
+| kick | `frontKickStand` (`research/front-kicks.mjs@4038482a`), the front kick | 24 s of kicks with each foot at a pad 0.45 m up and ahead, and 1 m aside as a miss | share of blows landed; foot speed at contact; upright and returned | impulse, first contact after the order |
 | run | none | an `unsupported` row in every cell | | |
 
 A blow is each swing begun at least 0.5 s before the window ends; it lands when an eligible impact
@@ -84,14 +84,14 @@ x1.25, and speed x0.85 to x1.15, the last an engineering range with no source. T
 
 ## Thresholds
 
-The owner's; none is lowered after a held-out run. `THRESHOLDS` in `research/competencies.mjs`
+The owner's; none is lowered after a held-out run. `THRESHOLDS` in `research/competencies.mjs@4038482a`
 holds them, and each figure in a summary says whether it `meets` them.
 
 A competency passes only where it meets its threshold at 120 Hz and at 480 Hz (`RATES`,
 `competencyPasses`). The game runs at 120 Hz; 480 Hz reads the same skill at a quarter of the
 step, nearer the continuous physics the body stands for, so a skill that works only through
 120 Hz's integration error fails it, as it would when a body's size, weight or strength changes.
-Each rate is a run of its own; `research/competency-passes.mjs` reads the runs together.
+Each rate is a run of its own; `research/competency-passes.mjs@4038482a` reads the runs together.
 
 | Competency | Pass | From |
 |---|---|---|
@@ -241,7 +241,7 @@ Impulse is reported, not gated: 120 Hz reads 1.4 to 2.0 times 480 Hz on the punc
 
 The experimental blow parts (`driven-strike`, `whole-body-strike`), each in place of the path
 strike on the punch competency: `control-foundation.mjs --suite competency --competency punch
---blow <kind>` (`blowConfig`, `research/competencies.mjs`), the whole-body strike's flat-out drive
+--blow <kind>` (`blowConfig`, `research/competencies.mjs@4038482a`), the whole-body strike's flat-out drive
 with `--blow-settings drive=flat-out`. The harness is the [baseline](#punch)'s (content
 `3a82bee4`); everything else is the punch's. The rows are `competencies-driven-strike.json.gz`,
 `competencies-whole-body-timed.json.gz` and `competencies-whole-body-flat-out.json.gz`;

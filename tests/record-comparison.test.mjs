@@ -108,7 +108,7 @@ test("batteries pair individual conditions and changed or unknown context labels
     subject.value = index ? { gain: 2 } : {};
     subject.parts = [{ ...subject.parts[0], id: "tuning:settings" }];
     delete subject.version.code;
-    record.lines[0].world.recipe.minds.left = { kind: "fighter", executors: [{ kind: "blade-cut", ...(index ? { tuning: subject.value } : {}) }] };
+    record.lines[0].world.recipe.minds.left = { kind: "option", executors: [{ kind: "front-kick", ...(index ? { tuning: subject.value } : {}) }] };
   });
   assert.deepEqual(compare(...tuning).context, [], "a data-only tuning has no independent policy code identity");
 });

@@ -2,7 +2,7 @@
 
 The motion objectives (`control/whole-body/tasks.ts`), the tracker that carries them, and the pinned
 equipment fixtures that test them: two independent items, and the shared bar whose settings are
-`SETTINGS` in `src/core/tasks/bar.ts`. The standing variant is [standing bar](standing-bar.md).
+`SETTINGS` in `src/core/tasks/bar.ts@4038482a`. The standing variant is [standing bar](standing-bar.md).
 
 ## Objectives and tracker
 

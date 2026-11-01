@@ -1,6 +1,6 @@
 # Shared-bar return posture
 
-The standing shared-bar fixture (`src/core/tasks/bar.ts`, protocol 4, `returnPosture:
+The standing shared-bar fixture (`src/core/tasks/bar.ts@4038482a`, protocol 4, `returnPosture:
 captured-arm-angles`) remembers the legal joint angles measured when both grips are captured, and
 its return asks the shoulders, elbows and wrists for those angles. The item's position stays the
 primary objective and its orientation is free after release; trunk and legs keep their objectives.
@@ -33,7 +33,7 @@ are in [the limit record](joint-limits.md).
 
 The two after runs share source content
 `c23dc5c075f2503de0573a033a21bb27db0da701058355c5eb3a6ab549a6cb80`; before-coordinate and
-after-reference differ only in `src/core/tasks/bar.ts`. Per-run archive and manifest hashes are in
+after-reference differ only in `src/core/tasks/bar.ts@4038482a`. Per-run archive and manifest hashes are in
 [bar-posture.json](bar-posture.json).
 
 ```powershell

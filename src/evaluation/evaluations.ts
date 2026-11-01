@@ -1,6 +1,4 @@
 import { BASELINE } from "./baseline/index.ts";
-import { BLADE } from "./blade/index.ts";
-import { BUCKLER } from "./buckler/index.ts";
 import { COURT } from "./court/index.ts";
 import { CROWD } from "./crowd/index.ts";
 import { COVER } from "./cover/index.ts";
@@ -25,8 +23,6 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   unseen: UNSEEN as unknown as Evaluation,
   "rising-target": RISING_TARGET as unknown as Evaluation,
   "equipped-rise": EQUIPPED_RISE as unknown as Evaluation,
-  blade: BLADE as unknown as Evaluation,
-  buckler: BUCKLER as unknown as Evaluation,
   court: COURT as unknown as Evaluation,
   crowd: CROWD as unknown as Evaluation,
   "crypt-clear": CRYPT_CLEAR as unknown as Evaluation,

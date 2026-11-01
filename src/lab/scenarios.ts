@@ -110,7 +110,7 @@ const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, Min
  * may hold what it never uses. None gives anything beyond the body and the world.
  */
 export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
-  ? { provides: [], entry: ["attacks"] } : { provides: [], entry: [] };
+  ? { entry: ["attacks"] } : { entry: [] };
 
 /**
  * Named calibrations the body `spec` and the scenario can run, including externally registered

@@ -1,7 +1,7 @@
 # Control foundation: common tasks
 
-The common task runner (`research/control-foundation.mjs`), its protocol and its baseline readings,
-and the shared environment whose reach settings `src/control-foundation/main.ts` uses. The suites
+The common task runner (`research/control-foundation.mjs@4038482a`), its protocol and its baseline readings,
+and the shared environment whose reach settings `src/control-foundation/main.ts@4038482a` uses. The suites
 built on it (bar, strike, support, posture) have their own records, linked below.
 
 ## Protocol 3
@@ -162,4 +162,4 @@ Node's full observation SHA256, negative zero included; no browser errors.
 
 This checks reproducibility and replaceability; it does not rank controllers. The standing bar is
 in [standing shared equipment](standing-bar.md) and [the captured-posture
-comparison](bar-posture.md); the physical tasks' page is [control tasks](control-tasks-browser.md).
+comparison](bar-posture.md).
