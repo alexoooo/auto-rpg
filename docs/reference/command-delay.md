@@ -65,7 +65,12 @@ Warrior in the guard:
 none, the stance's speed first falls under 0.15 m/s 0.21 to 0.54 s after it is asked, and is 0.04
 to 0.25 m/s at 0.6 s; as used at one step, 0.57 to 1.1 s, and 0.02 to 0.63 m/s at 0.6 s. The
 probe's one moment reads either side of its limit as small changes move the gait's phase (0.17 to
-2.4 m/s over the variants below), so it is read over the six.
+2.4 m/s over the variants below), so it is read over the six. At both, the stance's speed after the halt is
+asked does not depend on the moment: the step under way lands first, then the stance brakes in
+double support and the centre of mass swings back over the soles (to 0.36 m/s at none, 0.54 to
+0.81 m/s at one step). At one step with the delay alone it brakes as fast as at none (under
+0.15 m/s 0.2 to 0.7 s after) but then walks away (0.9 m/s by 1.2 s): the forecast holds the stance
+and costs the braking at the landing, where a foot's strike is read a step late.
 
 **The stand-up target** ([rising](rising.md#the-owners-target), `npm run evaluate -- rising-target`):
 
