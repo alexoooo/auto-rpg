@@ -18,8 +18,18 @@
  *   by Option Mind's low kick (the Skeleton preset's, `src/entrants/option-skeleton/index.ts`); a
  *   trial scores the drill's bar (`barScore`: -3 a fall, -1 nothing on the mark, 9 landed) and 5 a
  *   hit point the kick dealt.
+ * - The stomp: the Strike drill's `stomping` rung, each foot at the middle of a Warrior and a
+ *   Skeleton lying limp from its gaps, thrown by Option Mind's stomp (`src/entrants/option/mind.ts`);
+ *   scored as the kick.
  *
- *   node research/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--workers N] [--seed 1] [--resume]
+ * A body with no record of its own starts from the Warrior's, its lengths (`SEARCHES`' `lengths`,
+ * m) scaled by the body's stature over his. `--until` ends the search once its best scores that
+ * much, `--patience` once that many generations have not raised it. `--try` plays the start
+ * alone on the search's trials and saves it as a search's result (no generation), for `--confirm`
+ * to keep where it serves.
+ *
+ *   node research/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--until <score>] [--patience <generations>] [--workers N] [--seed 1] [--resume]
+ *   node research/skill-search.mjs <skill> <model> --out <file.json> --try
  *   node research/skill-search.mjs <skill> <model> --confirm <file.json> [--write [--from "<what the search started from>"]]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), 120 Hz.
@@ -70,13 +80,30 @@ async function kickTrial(settings, { condition }) {
   return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt };
 }
 
+/** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
+const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "support-fold" },
+  executors: [{ name: "stomp", kind: "stomp", tuning: settings }],
+  actions: [{ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } }] });
+
+/** One stomping trial of whole `settings`: the drill's bar and the hit points dealt. */
+async function stompTrial(settings, { condition }) {
+  const reading = await play(STRIKE_CASES.stomping, { mind: stomper(settings), action: "stomp" }, condition);
+  const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
+  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt };
+}
+
+/** The stomping rung's trials on `model`: each foot at each target from each gap. */
+const stompTrials = (model, gaps) => STRIKE_CASES.stomping.conditions.filter((c) => c.model === "workshop-fighter")
+  .flatMap((c) => gaps.map((gap) => ({ condition: { ...c, model, gap } }))).filter((t, i, all) => all.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
+
 /** The kicking rung's trials on `model`: each foot at each target from each gap. */
 const kickTrials = (model, gaps) => STRIKE_CASES.kicking.conditions.filter((c) => c.model === "crypt-skeleton")
   .flatMap((c) => gaps.map((gap) => ({ condition: { ...c, model, gap } }))).filter((t, i, all) => all.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
 
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the
- * start's), the trials it searches on and confirms on (`gaps`, m) and a trial's score.
+ * start's), the trials it searches on and confirms on (`gaps`, m), a trial's score, and its
+ * settings that are lengths (`lengths`, m), scaled to a body that starts from the Warrior's.
  */
 const SEARCHES = {
   "blade-cut": { dims: [["chamberSeconds", .2, .7], ["swingSeconds", .2, .7], ["returnSeconds", .3, .8], ["contactSpeed", .3, 3], ["windup", .05, .35], ["through", 0, .15]],
@@ -86,8 +113,11 @@ const SEARCHES = {
     trials: bladeTrials("thrust"), search: [1.2, 1.4, 1.6], confirm: [1.3, 1.5, 1.7], trial: (s, t) => bladeTrial("thrust", s, t),
     task: "the blade task's thrust (sword and buckler, at a standing Warrior's high and middle marks)" },
   "front-kick": { dims: [["contactSpeed", 1.5, 9], ["swingSeconds", .2, .5], ["lift", .2, .6], ["windup", 0, .2], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
-    trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial,
+    trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's kicking rung (each foot at the middle mark of a Warrior, a Skeleton and a Reptile lying limp)" },
+  stomp: { dims: [["contactSpeed", 3, 9], ["swingSeconds", .15, .4], ["lift", .4, .9], ["over", .6, 1.2], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
+    trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: stompTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
+    task: "the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp)" },
 };
 
 /** Play `subject` (a tuning, or a strike subject) on `condition` of `cases` to its reader's end. */
@@ -106,10 +136,13 @@ async function play(cases, subject, condition) {
   } finally { built.dispose(); }
 }
 
-/** The settings a search starts from on `model`: its body's record, else the Warrior's. */
+/** The settings a search starts from on `model`: its body's record, else the Warrior's with its lengths scaled by the body's stature over his. */
 function startOf(skill, model) {
-  const records = recordsOf(skill), body = bodyKey(modelSpec(model));
-  return structuredClone((records[body] ?? records[WARRIOR]).settings);
+  const records = recordsOf(skill), spec = modelSpec(model), own = records[bodyKey(spec)];
+  if (own) return structuredClone(own.settings);
+  const start = structuredClone(records[WARRIOR].settings), scale = spec.stature.value / modelSpec("workshop-fighter").stature.value;
+  for (const key of SEARCHES[skill].lengths ?? []) if (typeof start[key] === "number") start[key] = Number((start[key] * scale).toFixed(4));
+  return start;
 }
 
 /** `settings` with the searched dimensions set from `u` in the unit cube; alongFar kept past alongNear. */
@@ -135,7 +168,8 @@ if (!isMainThread && workerData?.search) {
   });
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values, positionals: [skill, model] } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, confirm: { type: "string" }, write: { type: "boolean" },
-    from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" } } });
+    from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" },
+    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" } } });
   const search = SEARCHES[skill];
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
@@ -162,7 +196,16 @@ if (!isMainThread && workerData?.search) {
   }
   if (!values.out) throw new Error("--out <file.json>");
   const start = startOf(skill, model), trials = search.trials(model, search.search), lambda = Number(values.lambda ?? 16), generations = Number(values.generations ?? 10);
-  const from = recordsOf(skill)[body] ? `the ${body.replace("+toes", "")}'s record` : "the Warrior's record";
+  const from = recordsOf(skill)[body] ? `the ${body.replace("+toes", "")}'s record` : `the Warrior's record${search.lengths ? ", its lengths scaled by the body's stature" : ""}`;
+  if (values.try) {
+    const r = await scored(pool, start, trials), seconds = Math.round((Date.now() - started) / 1000);
+    writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda: 0, trials: trials.length, dims: search.dims, log: [], seconds, best: { score: r.score, settings: start, falls: r.falls, each: r.each } }));
+    console.log(JSON.stringify({ skill, body, start: { score: r.score, falls: r.falls }, seconds }));
+    await pool.terminate();
+    process.exit(0);
+  }
+  const until = values.until === undefined ? Infinity : Number(values.until), patience = Number(values.patience ?? Infinity);
+  let raised = 0, bestSoFar = -Infinity;
   const unit = search.dims.map(([key, lo, hi]) => Math.min(1, Math.max(0, (start[key] - lo) / (hi - lo))));
   const saved = values.resume && existsSync(values.out) ? JSON.parse(readFileSync(values.out, "utf8")) : null, resume = saved?.checkpoint, before = saved?.seconds ?? 0;
   console.error(`${skill} on ${body}: ${trials.length} trials a candidate, ${lambda} candidates a generation, ${generations} generations, ${workers} workers`);
@@ -173,6 +216,8 @@ if (!isMainThread && workerData?.search) {
       writeFileSync(values.out, JSON.stringify({ skill, body, from, start, lambda, trials: trials.length, dims: search.dims, log: checkpoint.log,
         seconds: before + Math.round((Date.now() - started) / 1000),
         best: { score: best.score, settings: decode(search, start, best.u), falls: best.r.falls, each: best.r.each }, checkpoint }));
+      if (best.score > bestSoFar) { bestSoFar = best.score; raised = entry.g; }
+      if (best.score >= until || entry.g - raised >= patience) return false;
     } });
   console.log(JSON.stringify({ skill, body, best: { score: best.score, settings: decode(search, start, best.u) }, seconds: Math.round((Date.now() - started) / 1000) }));
   await pool.terminate();

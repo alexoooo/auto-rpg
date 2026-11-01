@@ -68,7 +68,7 @@ const sides = (drilled: ReturnType<typeof striker>, foe: MindConfig) => ({ minds
  * in front of its own shoulder alike; the mark and the hand; how long the striker stands in guard
  * before it asks, the most speed it walks at to bring the target into its action's window, m/s, how long after that it may wait to be admitted, the longest a trial plays, and
  * how long it runs on once the action has ended, for a fall it brings about, s. A trial is judged
- * by the bar a person's punch sets (`BAR`, `read.ts`). A change here is a new protocol.
+ * by the bar a person's punch sets, scaled to the striker's body (`barOf`, `read.ts`). A change here is a new protocol.
  */
 const STILL = deepFreeze({
   models: ["workshop-fighter", "workshop-rogue"] as BodyModel[],

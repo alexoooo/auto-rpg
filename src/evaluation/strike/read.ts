@@ -23,6 +23,7 @@ import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";
 import type { HostedBody } from "../../core/body.ts";
 import type { BodySpec } from "../../core/spec/body.ts";
+import { modelSpec } from "../../core/models.ts";
 import type { Reader } from "../evaluation.ts";
 
 export type Mark = "high" | "middle" | "legs";
@@ -43,6 +44,16 @@ export const handOf = (limb: Limb): Hand | null => "hand" in limb ? limb.hand : 
 
 /** The effector's segment `limb` names: `hand.right`, `foot.left`. */
 export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.hand}` : `foot.${limb.foot}`;
+
+/** What a blow is judged by (`BAR`, `barOf`). */
+export type Bar = {
+  /** A fist's speed over its last `run` m, m/s, and the effective mass it meets with, kg, by hand. */
+  readonly speed: { readonly right: number; readonly left: number };
+  readonly mass: { readonly right: number; readonly left: number };
+  readonly run: number; readonly cone: number; readonly within: number; readonly along: number; readonly bend: number; readonly lean: number;
+  /** A held item's blow's energy, J. */
+  readonly held: { readonly energy: number };
+};
 
 /**
  * **The bar a blow meets to land**, the untrained adult man's fist less one SD (Adamec et al. 2021,
@@ -72,13 +83,47 @@ export const effectorOf = (limb: Limb): string => "hand" in limb ? `hand.${limb.
  * reported, not tested: the rod's one-handed speeds have no spread to set a bar by, and the fist's
  * `within` is engineering.
  */
-export const BAR = Object.freeze({
+export const BAR: Bar = Object.freeze({
   speed: Object.freeze({ right: 6.8, left: 5.3 }),
   mass: Object.freeze({ right: 2.12, left: 2.34 }),
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
   held: Object.freeze({ energy: 64.8 }),
 });
-type Bar = typeof BAR;
+
+/** A body's strength: its muscles' peak isometric torques, both ways about every joint's every axis, summed, N m. */
+function strengthOf(spec: BodySpec): number {
+  let sum = 0;
+  for (const joint of spec.joints) for (const dof of joint.dofs) sum += dof.muscle.peakPositive.value + dof.muscle.peakNegative.value;
+  return sum;
+}
+
+/** The body `BAR` is set for: the toed Warrior at the default attributes. */
+const BAR_BODY = modelSpec("workshop-fighter");
+const BARS = new WeakMap<BodySpec, Bar>();
+
+/**
+ * **The bar for a striker of `spec`**: `BAR`, the Warrior's, scaled by the striker's strength and
+ * mass against his. The energy a body puts into a blow is its muscles' work, so it scales with
+ * their strength (`strengthOf`, the ratio `s`); the mass a blow meets with scales with the body's
+ * (`m`); a speed is then the one that carries that energy in that mass, `sqrt(s / m)`. So a held
+ * item's energy is scaled by `s`, a fist's mass by `m` and its speed by `sqrt(s / m)`; the form's
+ * angles and time are not. The Warrior's is `BAR` itself. Checked against the one sex difference
+ * the sources measure at a fixed implement: women swing a 1 kg rod one-handed at 0.72 of men's tip
+ * speed, 0.52 of the energy (Muggenthaler et al. 2018,
+ * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)),
+ * where the Rogue's `s` is 0.52.
+ */
+export function barOf(spec: BodySpec): Bar {
+  const known = BARS.get(spec);
+  if (known) return known;
+  const strength = strengthOf(spec) / strengthOf(BAR_BODY), mass = spec.mass.value / BAR_BODY.mass.value, speed = Math.sqrt(strength / mass);
+  const bar: Bar = strength === 1 && mass === 1 ? BAR : Object.freeze({ ...BAR,
+    speed: Object.freeze({ right: BAR.speed.right * speed, left: BAR.speed.left * speed }),
+    mass: Object.freeze({ right: BAR.mass.right * mass, left: BAR.mass.left * mass }),
+    held: Object.freeze({ energy: BAR.held.energy * strength }) });
+  BARS.set(spec, bar);
+  return bar;
+}
 
 /** A touch of the striker's on the target: when, by which of its segments on which of the target's, and in the rules' units. */
 export type StrikeContact = {
@@ -152,6 +197,8 @@ export type StrikeReading = {
   readonly ending: string | null;
   /** A hand's first touch on the mark that meets the bar, or else its fastest; a foot's fastest; null where none. */
   readonly hit: StrikeHit | null;
+  /** The bar the striker's blow was judged by (`barOf` its body, unless the reader was given one). */
+  readonly bar: Bar;
   /** Every touch of the striker's on the target. */
   readonly contacts: readonly StrikeContact[];
   /** The hit points the striker lost in its contacts with the target over the trial, any part on any part. */
@@ -193,10 +240,11 @@ export interface Ending { readonly seconds: number; readonly settle: number; rea
  * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
  * the right side's `mark`, ending as `ending` says, a hand's judged by `bar`, its side led by the
  * drill Commander (`Duel.commanded`, `drillTask`). The striker's actions while its drill is
- * fighting (`DrillPhase`) are the fight's, not the drill's.
+ * fighting (`DrillPhase`) are the fight's, not the drill's. With no `bar`, a hand's blow is judged
+ * by its body's (`barOf`).
  */
 export function readStrike({ world, duel }: { readonly world: World; readonly duel: Duel }, limbAsked: { readonly mark: Mark } & Limb,
-  ending: Ending, bar: Bar = BAR): Reader<StrikeReading> {
+  ending: Ending, given?: Bar): Reader<StrikeReading> {
   const left = duel.duelists.left, skills = left.minded.skills;
   if (!skills) throw new Error("the striker runs no skills");
   const { mark } = limbAsked, hand = handOf(limbAsked), effector = effectorOf(limbAsked);
@@ -205,8 +253,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const arms = new Set((["left", "right"] as const).flatMap((side) => [0, 1, 2].map((steps) => limbAbove(target, `hand.${side}`, steps))).filter((name) => name !== undefined));
   const limb = left.built.segments.get(effector);
   if (!limb) throw new Error(`the striker has no ${effector}`);
-  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3();
-  /** Whether the asked hand holds an item, its blow judged by the held item's bar (`BAR.held`) and its strike point the item's. */
+  const spec = left.built.spec, points = rigidPoints(spec, limb.spec), point = new Vector3(), bar = given ?? barOf(spec);
+  /** Whether the asked hand holds an item, its blow judged by the held item's bar (`Bar.held`) and its strike point the item's. */
   const armed = hand !== null && !holdsNothing(spec, effector);
   /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
   let meets: Mechanism = "blunt";
@@ -390,7 +438,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;
-      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, contacts: touches.map(({ contact }) => contact), taken,
+      return { outcome, phase, foePhase: foe?.phase ?? null, foeAt: foe?.at ?? null, reason, handed, ready: ready ?? times.began, asked, ...times, ending: ledger?.ending.kind ?? null, hit, bar, contacts: touches.map(({ contact }) => contact), taken,
         ...(letAt === null ? {} : { letGo: { at: letAt, again, opening } }), nearest, exit, down, seconds: world.time };
     },
   };

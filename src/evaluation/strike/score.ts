@@ -1,7 +1,7 @@
 /**
  * **The bar's score of a Strike drill trial**, as the punch's searches and its trainer score it.
  */
-import { BAR, type Hand, type StrikeReading } from "./read.ts";
+import type { Hand, StrikeReading } from "./read.ts";
 
 /**
  * A trial's score, `hand` the hand it struck with, null a limb the bar sets no test for: a landed
@@ -11,11 +11,13 @@ import { BAR, type Hand, type StrikeReading } from "./read.ts";
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin, the mass counted `heavier` times within those 8 (8 for another limb's on the mark),
  * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A held item's blow,
- * which the bar tests by its energy and its face (`BAR.held`, `StrikeHit.faced`), scores alike:
+ * which the bar tests by its energy and its face (`Bar.held`, `StrikeHit.faced`), scores alike:
  * landed, 9 and up to 1 more as its energy goes from the bar to twice it; else up to 8, half by its
- * share of the bar's energy and half for meeting with its face.
+ * share of the bar's energy and half for meeting with its face. The bar is the reading's, its striker's
+ * (`StrikeReading.bar`).
  */
 export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1): number {
+  const BAR = reading.bar;
   if (reading.down) return -3;
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;

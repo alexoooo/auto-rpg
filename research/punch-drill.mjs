@@ -7,7 +7,7 @@
  * the buckler, as the game's loadouts hold them, the striking wrist's channels pushed beside the
  * arm's. A candidate is played as the drill plays a trial (`STRIKE_CASES.still`, its world
  * and its reader, `readStrike`) on one cell: a body, a hand, a mark, an offset across and a gap,
- * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by the bar (`BAR`, `read.ts`): a
+ * the gap searched with the schedule unless given, at each of `--rates` (its worst counts). It is scored by its striker's bar (`barOf`, `read.ts`): a
  * landed blow scores above every other, by its speed and mass past the bar; any other trial by how
  * near its hit came to each of the bar's tests (with `--near`, one with nothing on the mark by how
  * near the fist came to the punch's target, `NEAR`); a fall lowest. The punch is admitted at any range
@@ -26,10 +26,10 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
-import { MINDS } from "../src/entrants/game.ts";
+import { MINDS, partLookup } from "../src/entrants/game.ts";
+import { usableSkills } from "../src/core/tactics/action-config.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
-import { BAR } from "../src/evaluation/strike/read.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { HELD_BLOWS } from "../src/core/skills/strikes/held-blow.ts";
@@ -159,7 +159,9 @@ export async function drillTrial(subject, condition, hz) {
   const cases = STRIKE_CASES.still, world = cases.world([subject], condition, undefined, [{}]);
   const built = await buildBout(world.recipe, { hz });
   try {
-    const at = Math.max(0, subject.mind.executors.findIndex((one) => one.name === subject.mind.actions?.find((action) => action.name === subject.action)?.executor));
+    // The executor's place among those the striker's body uses (`usableSkills`), as its skills' state lists them.
+    const used = usableSkills(partLookup, built.duel.duelists.left.built.spec, subject.mind.executors, subject.mind.actions ?? []).executors;
+    const at = Math.max(0, used.findIndex((one) => one.name === subject.mind.actions?.find((action) => action.name === subject.action)?.executor));
     const reader = cases.read(built, condition), motion = built.duel.duelists.left.minded.skills.state.actions.executors[at].motion, body = built.duel.duelists.left.body;
     let nearest = Infinity;
     built.duel.play(world.tape);

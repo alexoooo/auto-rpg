@@ -1527,7 +1527,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
   landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
-  straight, the chest upright; `BAR`, `strike/read.ts`; a foot, which the bar sets no test for, on
+  straight, the chest upright; `BAR`, `strike/read.ts`, the Warrior's, scaled to another striker
+  by its strength and mass, `barOf`; a foot, which the bar sets no test for, on
   the mark at all, its fastest touch read), weak (on the mark, short of it), guarded
   (on the target's arms alone), on the target elsewhere, missed, abandoned, out of its window,
   refused or waiting, fell, or a fight that never came to its moment); `gait` (a mind going at a
