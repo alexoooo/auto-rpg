@@ -65,7 +65,32 @@ pose's probe at 120 Hz:
 - **The same, each velocity changed as much as over the last step**: the body falls; the change
   over one step is noise.
 
+**A stretch reflex in the muscle driver**, the joint's servo closed by the body on the joint as
+it is when the command is applied: each servoed freedom's command carrying its natural rate, the
+angle and rate it was solved at and the acceleration solved, and the driver adding the servo's
+damped pull on the joint's motion since to the commanded torque. With no delay it adds nothing (the
+gate's probes read as before). At one step, on the gate's probes and the idle settle (each legs on
+the Warrior in the guard, Rapier, 120 Hz, at 39935459; 18 cases):
+
+| The reflex's torque | What failed |
+| --- | --- |
+| none (the delay alone) | the root pose (0.064 rad), the halt (0.159 m/s), the stagger (0.384 m), the untwist's fixture |
+| the pull times the inertia beyond the joint, on its own freedom | those, and the walk (0.237 m/s of 0.5), the footing (0.667 m), the height (0.177 m), the centre (0.186 m), the kneel and the swing (0.162 m) |
+| the same, the joint's errors turned into the freedom's speed (`turning`) | the root pose (0.486 rad), the walk (0.145 m/s), the footing, the height, the centre and the swing |
+| the pull turned, times the mass matrix, as the servo forms its torques | the root pose met; the walk (0.174 m/s), the centre (0.227 m), the height, the swing and the elbow's posture |
+| the same, about the motion solved rather than the angle solved at | 12 of the 18 cases; the root pose (0.385 rad), the halt (0.663 m/s) |
+| the same, in the servo's solve only, not the whole-body solve's | 9 of the 18 cases; the root pose (0.427 rad), the halt (1.01 m/s), the stagger (0.478 m) |
+
+Each was worse than the delay alone, so none was kept. A reflex closed at the joint pulls on the
+motion of a body whose light pelvis carries the root: what it adds at the spine and hips the
+whole-body solve, a step late, does not know of.
+
+**What the swing is.** Read every step on the root pose's probe at one step, the lumbar spine flexes
+at a steady 0.84 rad/s on past where, with no delay, it slows to its posture: no faster ringing,
+and the hips then straighten the knees to their stops and the root rises 0.1 m. The assist is not
+in it (the probes run with none; given at once, the readings are the same) and neither are the
+bearing legs (a reflex left off them changes nothing).
+
 What is left to try: the motion the motor's solve planned for the command in flight (its joints'
-and its root's accelerations), carried through each segment's velocity and pose, on the mind's own
-copy of its body, which the minds' split builds
-([minds in parallel](../plans/2026-11-01-parallel-minds.md), step 3).
+and its root's accelerations), carried through each segment's velocity and pose on the mind's own
+copy of its body (`mirrorBody`, `src/core/mind/mirror.ts`).
