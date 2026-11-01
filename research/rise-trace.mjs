@@ -67,6 +67,12 @@ async function traceFall(job) {
           apart: +Math.hypot(soles.left.x - soles.right.x, soles.left.z - soles.right.z).toFixed(3) });
       }
       idleTarget = target;
+      // An action gone from the live list ended on the step it went: how, as its run's state says.
+      for (const seen of order) if (seen.end === null && !seen.gone && !live.some((action) => action.id === seen.id)) {
+        seen.gone = true;
+        const run = mind?.skills?.actions?.executors?.find((one) => one?.runs)?.runs?.[seen.name];
+        seen.end = run?.ended ?? null;
+      }
       for (const action of live) {
         let seen = actions.get(action.id);
         if (!seen) {

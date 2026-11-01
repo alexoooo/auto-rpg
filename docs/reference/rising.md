@@ -1301,45 +1301,59 @@ median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each p
 
 ## Option Mind's rise on the target
 
-Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 229 of 256
-development falls, 97 of them within 10 s, a median of 11.53 s counting each fall not stood at
-30 s. The falls are the target's turned by 2.8125, 4.21875, 5.625, 8.4375, 14.0625, 16.875,
-18.28125 and 19.6875 degrees, which are neither the target's nor the fresh falls. They are read
-with `research/rise-trace.mjs` (Node, core world, Rapier, 120 Hz), which logs each ground action
-a fall takes: where it began, its stages, and how it ended.
+Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 254 of 256
+development falls, 184 of them within 10 s, a median of 8.77 s counting each fall not stood at
+30 s: empty-handed 128 of 128, a median of 8.52 s; with the club 126, 9.75 s. The falls are the
+target's turned by 2.8125, 4.21875, 5.625, 8.4375, 14.0625, 16.875, 18.28125 and 19.6875 degrees,
+which are neither the target's nor the fresh falls. They are read with `research/rise-trace.mjs`
+(Node, core world, Rapier, 120 Hz), which logs each ground action a fall takes: where it began, its
+stages, and how it ended.
 
-Two readings of the body move it:
+What moves it, each read on the same falls against the one before:
 
 - **A low body lies** (`LYING`, `src/core/control/ground-reading.ts`). A body under 0.3 of its
   height that is in none of the postures reads as its lie (front, back or a side), even when its
   trunk bears nothing. Face down on its arms or the club, on its side on an upper arm, or on hands
-  and thighs, it used to read as between positions. From there only `flatten` was offered, and
-  it was cut by the brace 540 times and done 11 times in 812. With this reading, flatten is begun
-  138 times, against 857.
+  and thighs, it read as between positions, where only `flatten` was offered: cut by the brace
+  540 times and done 11 times in 812. With this reading, flatten is begun 138 times, against 857.
 - **On its feet means the trunk up** (`TRUNK_UP`, `ground.ts`). The steady is offered only to a
   body whose trunk leans less than 60°. A body on its back with its feet planted read as on its
   feet, was offered the steady, and failed it.
+- **A reposition only off the routes** (`groundOptions`). The plain roll (`roll`, a reposition,
+  `REPOSITION`) admits a moving body, so it was taken where the staged roll waited for the body
+  to be still. The front sit-back after it was done 0 times of 74; after the staged roll, about
+  four times in five. A reposition is now offered only from a posture no technique of the list
+  begins from, as the game's Stand up repositions only where no route stands the body.
+- **The climb is the technique's** (`routePart`, `staged-edges.ts`). A staged edge yielded in
+  its climb, where Option Mind took the body for its `steady` option and then its orders. Each
+  hand-over began a new rise from where the body was: the legs' resumed height rises over 1.3 s
+  (`RISING_SECONDS`), at 0.17 m/s from 0.8 of standing height, so the whole body moves and
+  verification waits. The edge now holds the body until it stands ready or fails.
+- **Idle settling steps one foot** (`idleGoal`,
+  [idle settling](human-and-strikes.md#idle-settling)). It read the footing about the soles'
+  midpoint, so both feet were off by the same distance and both stepped.
 
-| Warrior, 128 falls each | Before: stood | within 10 s | median, s | After: stood | within 10 s | median, s |
-|---|---|---|---|---|---|---|
-| club | 100 | 16 | 15.98 | 122 | 55 | 10.55 |
-| empty | 94 | 24 | 16.16 | 107 | 42 | 12.41 |
+| Warrior, 256 falls | stood | within 10 s | median, s | paired: better, worse |
+|---|---|---|---|---|
+| before | 194 | 40 | 16.00 | |
+| a low body lies, on its feet means the trunk up | 229 | 97 | 11.53 | 109, 37 |
+| a reposition only off the routes | 240 | 119 | 10.25 | 50, 12 |
+| idle settling steps one foot | 239 | 121 | 10.15 | 41, 8 |
+| the climb is the technique's | 254 | 184 | 8.77 | 122, 14 |
 
 The Rogue cannot be read with Option Mind as it is: its strikes have no record for the toed
 Rogue, and the mind refuses that body. Read with a copy of the mind that has no strikes, on the
-same 256 falls, the Rogue stands 53 of 256 against 39, and 21 within 10 s against 13.
+same 256 falls, it stands 39 before, 53 after the first two changes, and 160 after all five
+(empty-handed 102, a median of 14.5 s; with the club 58).
 
-**Where a stood fall's time goes** (the Warrior's target and fresh falls before these changes,
-medians): 0.92 s before the first edge, 5.4 s in the rise, and 4.76 s from the rise's last stage
-to verified standing. That end is spent on three things:
+**Where a stood fall's time goes** (the Warrior, medians over the falls stood): 0.53 s before
+the first edge, 4.33 s in the edges that take it up, and 1.80 s from the climb's start to verified
+standing. With the club most falls lie on the back or a side: the staged roll takes 2.6 s, and
+the front sit-back after it 3.8 s to its climb.
 
-- the motors' jolt as each controller hands over: the technique's steady, then the `steady`
-  option, then the orders;
-- the arms drifting to the guard, about 1.5 s;
-- idle settling (`idleGoal`): 31 of 45 stood falls step their feet before verification, mostly
-  from 0.5 to 1 m apart against the 0.396 m footing.
-
-With idle settling switched off, as a probe only, the end takes 2.64 s.
+- **Shortening `RISING_SECONDS` to 0.65 s** before the climb was the technique's: 242 stood, 99
+  within 10 s, a median of 11.28 s, against 240, 119 and 10.25. The end took a median 3.94 s,
+  against 2.28.
 
 ## The Rise drill
 

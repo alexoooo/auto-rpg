@@ -99,7 +99,9 @@ const stagedEntry = (kind: StagedKind, model: string, g: GroundReading, side: Si
  * been read in that cut's posture, slow enough to hand over, for `REACHED_SECONDS`, from that stage
  * on until the next cut's begins; read at none, it plays the route to its end, step up's climb and
  * steadying (`stanceSteady`). A rise that falls back to lying slack, or onto its back, fails; one
- * longer than step up's whole attempt (`LIMIT`) times out.
+ * longer than step up's whole attempt (`LIMIT`) times out. It yields only while it lies slack
+ * (`TechniqueRun.yields`): its climb is its own until the body stands ready or falls
+ * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
  */
 function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind): TechniqueRun {
   const part: Part = PARTS[kind];
@@ -131,7 +133,7 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
   const reads = (g: GroundReading, to: Position) => { const next = partFrom(to); return g.position === to && (next ? slowFor(next, model, g) : handsOver(g)); };
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : rises[state.entry].state.phase; },
-    get yields() { return state.ended !== null || state.phase === "steady" || rises[state.entry].state.phase === "settle"; },
+    get yields() { return state.ended !== null || rises[state.entry].state.phase === "settle"; },
     admits: (g, side) => stagedEntry(kind, model, g, side),
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : reads(g, to),
     begin() {

@@ -75,13 +75,21 @@ test("idle placement untwists a physically turned footing", async () => {
     const q = made.view.root.rotation.multiply(made.view.effectors[`foot.${side}`].rotation);
     return Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y));
   };
+  // The pelvis's facing, as the settling reads it: its left-to-right axis (1, 0, 0) turned is (cos h, 0, -sin h).
+  const facing = () => {
+    const q = made.view.root.rotation;
+    return Math.atan2(-2 * (q.x * q.z - q.w * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
+  };
+  const off = side => Math.abs(Math.atan2(Math.sin(yaw(side) - facing()), Math.cos(yaw(side) - facing())));
   try {
     const s = made.view.stance, footing = { "foot.left": [s.soles.left.x, s.soles.left.z + .1], "foot.right": [s.soles.right.x, s.soles.right.z + .1] };
     made.run(3, () => ({ legs: { footing, heading: .4 } }));
-    assert.ok(Math.max(Math.abs(yaw("left")), Math.abs(yaw("right"))) > .25 && !made.view.down, "fixture must establish turned soles while upright");
+    // The pelvis turned back over the planted feet: the soles are twisted from it.
+    made.run(1, () => ({ legs: { footing, heading: 0 } }));
+    assert.ok(Math.max(off("left"), off("right")) > .25 && !made.view.down, `fixture must establish soles twisted from the pelvis while upright: ${off("left")}, ${off("right")} rad`);
     made.run(5, () => ({}));
     assert.ok(!made.view.down);
-    assert.ok(Math.abs(yaw("left")) < .2 && Math.abs(yaw("right")) < .2, `sole yaws ${yaw("left")}, ${yaw("right")} rad, limits .2`);
+    assert.ok(off("left") <= .2 && off("right") <= .2, `soles turned ${off("left")}, ${off("right")} rad from the pelvis's facing ${facing()}, limits .2`);
     made.run(1, () => ({}));
     assert.equal(s.phase, "stand");
   } finally { made.dispose(); }
