@@ -40,7 +40,8 @@ const linkOf = (drill, subject, version) => `?play=ratings&evaluation=${drill}&s
 
 /**
  * Each reading's evidence, by `drill protocol subject`: the subject now and its version, and the
- * newest record holding it (by id, or by the same config) with its rows and the version it read.
+ * newest record holding it (by id, or by the same config), one at its version now before any
+ * other, with its rows and the version it read.
  */
 function evidenceOf(readings) {
   const evidence = new Map(), coders = new Map(), records = new Map(), table = fileTable();
@@ -61,7 +62,8 @@ function evidenceOf(readings) {
     for (const record of records.get(reading.drill)) {
       if (record.header.protocol !== reading.protocol) continue;
       const held = record.header.subjects.find((one) => one.id === reading.subject) ?? (wanted && record.header.subjects.find((one) => recordingKey(one.value) === wanted));
-      if (held) found = { record, held };
+      // A record at the subject's version now wins over a later one at another: names sort a day's records by commit, not by time.
+      if (held && !(found && found.held.version.version === now && held.version.version !== now)) found = { record, held };
     }
     const rows = found ? found.record.lines.filter((line) => line.subjects[0] === found.held.id) : [];
     evidence.set(key, { reading, now, fault, rows,
