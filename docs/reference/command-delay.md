@@ -77,6 +77,14 @@ probe's one moment reads either side of its limit as small changes move the gait
 | Rogue, empty | 13/16 | 10/16 | 10/16 | 4 | 0 | 0 |
 | all, time to stand (a fall not stood at the cap) | 12.6 s | 18.6 s | 17.3 s | | | |
 
+Where the falls not stood at one step go wrong (as used; 15, 12 of them the Rogue's): their time is
+spent in front (145 s), between positions (79), standing (70), on all fours (64) and on
+the back (53); many reach standing two to ten times and fall from it. At none the 8 not stood spend
+almost none of it standing. On four of the Rogue's falls traced through the rise (empty at 45 and
+90 degrees, club at 225 and 315; three stood at none), the sit-back from the front finished 1 of 10
+attempts at one step, most failing at the settle, against 2 of 7 at none; from all fours 1 of 7
+against 1 of 5; the staged roll was interrupted at the settle at both.
+
 The delay alone was read at `580880fb`. At no delay the forecast and the reflex do not run: the
 gate passes, and the fingerprint (`scripts/fingerprint.mjs`) against the commit before moves no
 pose (the bouts' saved state carries the commands in flight, so it is reshaped).
@@ -151,6 +159,11 @@ the stand-up target):
 - **Expecting from every solve, the servo's included**, on its legs: 37 of 62 stood, 21.8 s.
 - **Expecting from the ground-weighed solve, with no rule on the legs**: 31 of 64 stood, 28.7 s.
 - **On its feet alone** (the propped shins not counted, expecting from every solve): the kneel fails (0.273 m, limit 0.2).
+- **The reflex kept on the ground**, the command expecting what the ground-weighed solve planned
+  while the forecast still reads the body as it was: 50 of 63 stood, 16.5 s (0.68 to 0.88 of
+  falls), within the spread of as used; it does not earn the moving part.
+- **The same, expecting from the servo's solve too**: 14 of 63 stood, 30 s.
 
-What is left to try: the halt's braking a step late, and contacts in the forecast (a foot's strike
-or lift-off is read a step late; a pressed foot is forecast as if free).
+What is left to try: the halt's braking a step late; contacts in the forecast (a foot's strike or
+lift-off is read a step late; a pressed foot is forecast as if free), which the ground techniques'
+settle, the standing balance just after a rise, would read.

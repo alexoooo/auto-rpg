@@ -447,9 +447,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const n = layout.channels, channels = muscleChannels(read);
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
-  // The speeds each command in flight was solved to reach and its accelerations, a slot a step of the delay; whether its body was on its legs as its mind last stepped, and that step.
-  const flight = { expect: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)), solved: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)),
-    sent: 0, legs: true, dt: 0 };
+  // The speeds each command in flight was solved to reach and the speeds it was solved from, a slot a step of the delay; whether its body was on its legs as its mind last stepped.
+  const flight = { expect: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)), from: Array.from({ length: statics.delay }, () => new Float64Array(n)),
+    sent: 0, legs: true };
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) }, flight };
   const expect = new Float64Array(n).fill(NaN), step = new Float64Array(6 + n).fill(NaN), legs = legSegments(statics.spec);
@@ -618,14 +618,13 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       if (reading) dynamics!.update(jointAngles, motion_);
     },
     ahead(dt) {
-      flight.dt = dt;
       flight.legs = onLegs(read, legs);
       const d = flight.expect.length;
       if (!flight.legs) return;
       for (let k = 0; k < d; k++) {
-        const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, solved = flight.solved[slot]!, mass = dynamics!.mass;
+        const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, from = flight.from[slot]!, mass = dynamics!.mass;
         for (let i = 0; i < n; i++) {
-          const a = solved[i]!;
+          const a = (wanted[i]! - from[i]!) / dt;
           if (Number.isNaN(a)) { step[6 + i] = NaN; continue; }
           const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
           const toward = (wanted[i]! - speeds[i]!) / dt;
@@ -670,8 +669,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       const flight = state.flight, d = flight.expect.length;
       if (d > 0) {
         if (!flight.legs) expect.fill(NaN);
-        const slot = flight.sent % d, solved = flight.solved[slot]!;
-        for (let i = 0; i < n; i++) solved[i] = (expect[i]! - speeds[i]!) / flight.dt;
+        const slot = flight.sent % d;
+        flight.from[slot]!.set(speeds);
         flight.expect[slot]!.set(expect);
         flight.sent += 1;
       }
