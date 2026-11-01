@@ -63,6 +63,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
 | [Ten fighters in real time](plans/2026-10-31-real-time.md) | Ten or more fighters at 60 fps, at least 30, the world never more than a step behind real time (its lag) in the crowd fight, the reference bouts and the Crypt (built: a lying body's colliders read once a weighing; a hand's pose tried only against colliders near it; the crowd fight, `?play=crowd`, and a call counter; readings once a step and the menu once a pass; the strike option's offer for each foe; held decisions, the place beside a lying foe and the aim; the batched crossing into Rapier; the crowd fight's, the Arena's and the Crypt's worlds in workers; spread phases; Option Mind at 60 Hz; motor control at 60 Hz, tried and not kept; a ceiling on heavy searches; lag measured; a mind's constants made once; a body's first step; the Crypt's bodies built ahead, one a step; what every walker reads of the others read once; other foes priced as held; a body's height read once a pose). Left: the rest by the profile; the owner playing the crowd fight and the Crypt |
+| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser |
 
 1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
    ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
@@ -83,7 +84,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
    owner, 2026-10-30); the Rogue with the club standing on toes, and step-up removed.
    The [Commander](plans/2026-10-29-commander.md) in order: the Option Commander (step 4) plays
    the Crypt with Option Mind as its hero.
-   [Ten fighters in real time](plans/2026-10-31-real-time.md) in order, its lag measured first.
+   [Ten fighters in real time](plans/2026-10-31-real-time.md) in order, its lag measured first,
+   then [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain
+   read first.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
