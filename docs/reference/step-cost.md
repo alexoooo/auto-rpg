@@ -549,6 +549,33 @@ on the same machine while another job ran on it:
 No opening search is asked twice at one stamp in the crowd fight's first 30 s; the memo answers
 the menu's and a Commander's asks, which the crowd fight does not make.
 
+### What every walker reads of the others
+
+**Reading each body's reach once a step for every walker, and each spec's clearance and each
+solid's turn once, cuts the crowd fight's navigation from 12.5 % of the step to 7.6 %, and crowd
+steering (`crowdWalk`) from 7.3 % to 2.6 %.** A walker's steering asked each other standing body
+of its side its reach (`reachOf`, `src/core/navigation/crowd.ts`), and that its spec's clearance
+(`bodyClearance`, `src/core/navigation/sensed-bounds.ts`), every step; a sweep against a box took
+its turn's cosine and sine (`sweepBounds`, `src/core/navigation/clear-step.ts`) at every call. A
+body's reach is kept against its observation time (`BodySense.time`), which the senses move as they
+show it again; a clearance by spec and a box's turn by solid are found once. No fingerprint case
+moves.
+
+The crowd fight, seed 0, its first 20 s, Node, core world, `rapier-coordinate`, 120 Hz, pinned,
+under V8's CPU profiler, before (`9ef20550`) and after. The machine ran 1.5 times slower in one
+playing than in the other, so each share is read against Rapier's step, which does the same work
+in both:
+
+| Inclusive, of Rapier's step | Before | After |
+| --- | --- | --- |
+| navigation (`step`, `src/core/navigation/navigation.ts`) | 0.560 | 0.322 |
+| crowd steering (`crowdWalk`) | 0.330 | 0.110 |
+| a standing solid's exit (`clearanceExit`) | 0.133 | 0.117 |
+
+Tried and not kept: the ground's height read turning only each point's height
+(`src/core/control/ground.ts`), the same arithmetic as `applyRotationQuaternionToRef`'s y; its
+share stayed 0.15 of Rapier's step.
+
 ### The held aim
 
 **Holding each opening as a point on its segment cuts the crowd fight's opening searches from 14.8

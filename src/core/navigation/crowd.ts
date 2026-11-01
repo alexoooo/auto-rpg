@@ -45,8 +45,24 @@ interface CrowdWalk {
   readonly held: boolean;
 }
 
-/** How far a body's parts reach about its centre of mass across the ground, m: its trunk's clearance, or farther where a part is. */
+/** Each sensed body's reach (`reachOf`) as it was last read, and the observation time it was read at: one reading for every walker. */
+const REACHES = new WeakMap<Senses["others"][number], { time: number; reach: number }>();
+
+/**
+ * How far a body's parts reach about its centre of mass across the ground, m: its trunk's
+ * clearance, or farther where a part is. Read once for every walker while the body keeps its
+ * observation time (`BodySense.time`); a body with none is read at every ask.
+ */
 function reachOf(other: Senses["others"][number]): number {
+  if (other.time === undefined) return reachAnew(other);
+  const kept = REACHES.get(other);
+  if (kept && kept.time === other.time) return kept.reach;
+  const reach = reachAnew(other);
+  if (kept) { kept.time = other.time; kept.reach = reach; } else REACHES.set(other, { time: other.time, reach });
+  return reach;
+}
+
+function reachAnew(other: Senses["others"][number]): number {
   let most = bodyClearance(other.spec);
   for (const segment of other.segments.values()) most = Math.max(most, hypot(segment.centre.x - other.centre.x, segment.centre.z - other.centre.z));
   return most;

@@ -28,8 +28,17 @@ function pointsOf(shape: ShapeSpec, segment: SegmentSpec): { points: readonly Ve
   }
 }
 
+/** Each spec's clearance (`bodyClearance`), found once. */
+const CLEARANCES = new WeakMap<BodySpec, number>();
+
 /** Conservative horizontal body extent includes hull and box anatomy rather than capsule-only radii. */
 export function bodyClearance(spec: BodySpec): number {
+  let radius = CLEARANCES.get(spec);
+  if (radius === undefined) CLEARANCES.set(spec, radius = clearanceOf(spec));
+  return radius;
+}
+
+function clearanceOf(spec: BodySpec): number {
   let radius = 0;
   for (const segment of spec.segments.filter(s => /Trunk$/.test(s.name))) {
     const shape = pointsOf(segment.shape, segment);
