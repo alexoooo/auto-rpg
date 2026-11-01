@@ -59,12 +59,15 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
 | [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser |
+| [The core without Babylon](plans/2026-11-01-core-without-babylon.md) | The simulation free of the graphics layer: the core's own vector maths, copied exactly; every page drawing a mirror posed from the simulation; poses without scene nodes and worlds without a scene; the boundary test refusing Babylon in the core and the entrants. No bout moves |
 
 1. **Now: [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md)** in order
    (the owner, 2026-11-01): one family of minds, then
    [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain read
    first, then the table, stand-up, the run and the strikes on every body.
-2. **Beside it:** [A garbage-free step](plans/2026-10-30-garbage-free-step.md). The owner watches
+2. **Beside it:** [A garbage-free step](plans/2026-10-30-garbage-free-step.md);
+   [the core without Babylon](plans/2026-11-01-core-without-babylon.md), landed before Minds in
+   parallel's step 3, whose body mirror it lets be plain data. The owner watches
    the Strike drill's rung 1 (Drills step 2).
 3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
    preset beating every Arena entrant left more than 90 % of the time, strict wins per opponent on
@@ -131,9 +134,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 ### Framework
 
-- Headless runs build a Babylon scene (`buildBout`, `buildCrypt`): physics owning the transforms
-  and no scene in Node comes with a client that needs it, keeping exact arithmetic and the engine
-  contract. The trainer's time is the world's step's, 85 % of it, Rapier's wasm 23 %
+- Headless runs build a Babylon scene (`buildBout`, `buildCrypt`); none will once the core is
+  without Babylon ([its plan](plans/2026-11-01-core-without-babylon.md), step 3). The trainer's time is the world's step's, 85 % of it, Rapier's wasm 23 %
   ([the trainer's speed](reference/learned-punch.md#the-trainers-speed)); the scene's share in it
   is not read apart.
 - The world builders apart from what draws them, then in `src/worlds/`: the bout's (`src/arena/duel.ts`,
