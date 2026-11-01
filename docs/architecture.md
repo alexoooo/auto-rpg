@@ -606,9 +606,9 @@ fight reads. A fight passes the config through and reads nothing in it.
   the body is down or back from another mind, its orders change (`sameOrders`) or an action of its
   skills has ended; between, the skills make each step's command from the intent it last decided,
   an action asked again by its id going on. Every step unless given: Option Mind's `rate`
-  (`OptionMindConfig.rate`, `everyOf`) sets it, and a profile names the rate its mind decided at
-  where that is not the world's (`Measured.rate`), stale read at another
-  ([the mind at 30 Hz](reference/step-cost.md#the-mind-at-30-hz)).
+  (`OptionMindConfig.rate`, `everyOf`) sets it, its preset's 60 Hz, and a profile names the rate
+  its mind decided at where that is not the world's (`Measured.rate`), stale read at another
+  ([the mind's rate](reference/step-cost.md#the-minds-rate)).
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
   report) and the body's side make each mind's (`seedOf`, `src/core/math/random.ts`), the crypt's
@@ -626,7 +626,8 @@ fight reads. A fight passes the config through and reads nothing in it.
   its executor's kind, its limbs and regions), the actions under way and ended, and its menu
   (`MenuEntry`, `src/core/skills/framework/menu.ts`: each action, limb, foe and region, and whether it
   could start from where the body stands), read when asked and changing nothing, which the mind
-  contract holds. A mind that runs the game's skills and gives
+  contract holds: `skillsReport` reads it with the mind's whole state (`Driven.state`, what its
+  aims hold among it) saved and loaded back, so what the reading asks moves no hold. A mind that runs the game's skills and gives
   them (`MindMade.skills`) publishes theirs with its planner's (`skillsReport`,
   `src/core/mind/report.ts`; `driveBy` returns the skills, the memory and the report together,
   `Driven`); the skills report none of the layer above. One that runs its own, as the

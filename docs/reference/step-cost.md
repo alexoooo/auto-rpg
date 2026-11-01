@@ -482,8 +482,8 @@ part in 10^12: what any change does to these bouts alone.
 
 Every row is within the placebo's spread: 30 bouts tell a score apart by about 0.2, not less.
 Fewer blows land a minute with a slower side, and the 30 Hz bouts run longer; drills, the stand-up
-and the look in play were not read. In the drills, skills held so lose their strikes ([the mind at
-30 Hz](#the-mind-at-30-hz)).
+and the look in play were not read. In the drills, skills held so lose their strikes ([the mind's
+rate](#the-minds-rate)).
 
 ### The crowd fight
 
@@ -598,6 +598,23 @@ against Rapier's step:
 
 To its verdict, before and after: the right side by the drain at 117.04 s, 4596 blows.
 
+### A body's height read once a pose
+
+**A body's height over its lowest point is read once a pose for every caller, halving its share of
+the crowd fight's step from 3.9 % to 2.1 %.** The fight's down rule (`physicalReading`,
+`src/core/observation.ts`) and the mind's look (`commandLayers`) each read it a step, the one
+through the body and the other through its mind's read view; the two now share one reading
+(`uprightness`, `src/core/control/ground.ts`, by the first segment's position vector, which a
+body and its view share), which answers again while each segment's node stands where it stood and
+turned as it was, with the same points (a hand's pose). Of 12020 reads in the crowd fight's first
+5 s, 6020 are answered so. No fingerprint case moved.
+
+The crowd fight, seed 0, its first 20 s, under V8's CPU profiler, at `5b61e0cc` and after:
+
+| Inclusive, of the step, % | Before | After |
+| --- | --- | --- |
+| the reading (`read`) | 3.94 | 2.08 |
+
 ### The held aim
 
 **Holding each opening as a point on its segment cuts the crowd fight's opening searches from 14.8
@@ -679,36 +696,36 @@ the machine:
 Three fingerprint lines moved, the duels of Option Mind against itself (sword, club, empty): the
 right side's phase is no longer 0.
 
-### The mind at 30 Hz
+### The mind's rate
 
-**Option Mind deciding at 30 Hz, its skills commanding every step, takes about a twentieth off
-the crowd fight's step and plays the standard match level with itself at 120 Hz; its punch and
-gait drill as at 120 Hz, its club blow and stomp worse. Its presets decide every step.** The
-rate is a field of its config (`OptionMindConfig.rate`); a decider decides at its pace (`Pace`,
-`driveBy`, `src/core/mind/decider.ts`) and at once on new orders, an action ended, the body down
-or back; its strike and gait profiles are measured at both rates (`Measured.rate`), so a mind set
-to 30 Hz reads its own.
+**Option Mind decides at 60 Hz, its skills commanding every step: the crowd fight's step about a
+twentieth less, its drills, baseline and match as at 120 Hz.** The rate is a field of its config
+(`OptionMindConfig.rate`); a decider decides at its pace (`Pace`, `driveBy`,
+`src/core/mind/decider.ts`) and at once on new orders, an action ended, the body down or back; its
+strike and gait profiles are measured at the rate its mind decides at (`Measured.rate`), so a
+mind at another reads its own or none.
 
-Where the time goes, the crowd fight, seed 0, its first 20 s, Node, core world,
-`rapier-coordinate`, 120 Hz, pinned, under V8's CPU profiler, at `447c1ff8`; inclusive shares of
-the step. The decider decides on 6007 of 24000 body-steps, its pace's quarter and the first:
+The crowd fight, seed 0, its first 30 s, Node, core world, `rapier-coordinate`, 120 Hz, pinned,
+three playings (`research/step-time.mjs --crowd --cap 30`), at `17ec0570`, Option Mind's own
+decisions every step and at 60 Hz:
 
-| Share of the step, % | Every step | 30 Hz |
+| A step, ms | Every step | 60 Hz |
 | --- | --- | --- |
-| the decider and the skills (`driveBy`'s drive) | 34.1 | 29.9 |
-| Option Mind's tactics (`decide`, `src/core/option/tactics.ts`) | 16.1 | 11.1 |
-| the skills (`command`, `src/core/skills/framework/arbiter.ts`) | 17.7 | 18.3 |
-| navigation in them (`navigated`) | 12.2 | 12.9 |
-| motor control (`control`, `src/core/control/motor.ts`) | 14.1 | 14.2 |
-| Rapier's step | 23.4 | 24.5 |
+| each playing's mean | 9.09 to 9.16 | 8.60 to 8.65 (a third playing 9.46, the machine busy) |
+| the least of each step's, mean | 8.37 | 7.91 |
+| the worst lag, the least of the playings', ms | 2717 | 1018 |
 
-A decision costs more a call at 30 Hz: what the tactics hold (a decision until its deadline, an
-aim until it drifts, [the held aim](#the-held-aim)) is made again as often at either rate, and the
-calls between cost little. Wall time read alternately while the machine was busy did not settle
-past the profiler's share.
+Its drills and battery at `d8853e19` and `17ec0570` (Node, core world, `rapier-coordinate`,
+120 Hz): every Strike drill rung its profiles read (the punch's five, the club blow's six, the
+stomp) the same outcomes at either rate but the club blow on a still target, 12 landed against 11,
+and the stomp, 4 landed and 1 elsewhere against 4 and 3; the club blow on a still target over four
+reaction times, 41 landed against 44, 2 falls each. The baseline battery against the same mind at
+120 Hz: walking, shoves, the punch (80 landed of 192 each) and the stand-up the same, its fights
+0.583 against 0.556; the Gait drill's stop 18 ready and 2 fell at both. The standard match
+(`npm run match`, protocol `908550df`), the 60 Hz mind against it at 120 Hz, 30 bouts: 0.483
+(14 won, 1 drawn, 15 lost).
 
-Drills, the 30 Hz mind at `447c1ff8` against the profiles' records at 120 Hz (the Strike drill's
-rungs and the baseline's punch; Node, core world, `rapier-coordinate`, 120 Hz):
+The 30 Hz mind at `447c1ff8`, against the profiles' records at 120 Hz:
 
 | Drill | 120 Hz | 30 Hz |
 | --- | --- | --- |
@@ -720,10 +737,15 @@ rungs and the baseline's punch; Node, core world, `rapier-coordinate`, 120 Hz):
 | stomp: landed, fell, of 12 | 4, 0 | 1, 2 |
 | the Gait drill's stop: ready, fell, of 20 | 18, 2 | 18, 2 |
 
-The standard match (`npm run match`, protocol `908550df`), the 30 Hz mind against Option Mind,
-30 bouts: 0.567 (0.400 to 0.733), margin -0.019 (-0.109 to 0.064).
-
 Tried and not kept:
+
+- **30 Hz**: Option Mind deciding every fourth step, at `447c1ff8`. A twentieth off the crowd
+  fight's step; its punch and stop as at 120 Hz, its club blow and stomp worse (the table). With
+  it deciding every step while an action of its skills is under way, the club blow held (12 of 16
+  landed on a still target), but the stomp did not: its striker hunts in and out of the stomp's
+  window, each walk held four steps, and is refused where 120 Hz settles there and stomps. Over
+  four reaction times (0.125 to 0.175 s, 48 trials a rate), the stomp landed 13 and fell 1 at
+  120 Hz, 17 and 0 at 60 Hz, 6 and 2 at 30 Hz, refused 22, 22 and 32.
 
 - **The command held, not the intent**: the command layers calling the driver every fourth step
   and holding its command. The crowd fight's step fell from 9.5 ms to 8.15 (the mean of the
