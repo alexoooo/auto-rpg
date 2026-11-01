@@ -118,8 +118,17 @@ interface Part {
   readonly lows: readonly { readonly from: Vector3; readonly radius: number }[];
 }
 
+/** Each body's uprightness: it reads the body as it is when asked and keeps nothing, so a body has one. */
+const uprights = new WeakMap<ReadBody, Uprightness>();
+
 /** `built`'s uprightness. What a hand holds weighs, and is not a point the body lies on. */
 export function uprightness(built: ReadBody): Uprightness {
+  let found = uprights.get(built);
+  if (!found) uprights.set(built, found = readUprightness(built));
+  return found;
+}
+
+function readUprightness(built: ReadBody): Uprightness {
   let mass = 0, moment = 0, lowest = Infinity;
   const parts: Part[] = [];
   for (const segment of built.segments.values()) {

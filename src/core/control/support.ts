@@ -13,7 +13,7 @@ import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import { segmentOf, type BodySpec, type MuscleSpec, type Side } from "../spec/body.ts";
+import { segmentOf, type BodySpec, type JointSpec, type MuscleSpec, type SegmentSpec, type Side } from "../spec/body.ts";
 import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
 import { dot } from "../spec/vec.ts";
 
@@ -193,9 +193,9 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
   const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
-    const chain = chainTo(built, segment), flat = soleFit(segment, chain, weight, inset, true);
+    const chain = chainTo(built, segment), flat = fitOf(segment, chain, weight, inset, true);
     const toes = segment.spec.toes?.length.value, within = toes === undefined ? Infinity : asin(Math.min(DOWN / toes, 1));
-    const fits = { flat, bent: toes === undefined ? flat : soleFit(segment, chain, weight, inset, false), within };
+    const fits = { flat, bent: toes === undefined ? flat : fitOf(segment, chain, weight, inset, false), within };
     const held = flat.hold.map(() => new Vector3());
     const regions = (o: number): HeldRegions => ({ all: { corners: held.slice(o, o + 4) }, toe: { corners: [held[o]!, held[o + 1]!, held[o + 4]!, held[o + 5]!] }, heel: { corners: [held[o + 2]!, held[o + 3]!, held[o + 4]!, held[o + 5]!] } });
     return { ...flat, fits, toesFlat: true, turns: turnsOf(chain[0]!), side, segment, chain,
@@ -211,6 +211,25 @@ export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[
     foot.memory.ground = Math.min(...foot.corners.map((q) => q.y));
   }
   return feet;
+}
+
+/**
+ * Each sole's fit (`soleFit`), by its foot's spec, its ankle's, and the weight, inset and toes it
+ * is read at: specs are data, never changed, and a fit is read, never written, so bodies of a spec
+ * share it.
+ */
+const FITS = new WeakMap<SegmentSpec, WeakMap<JointSpec, Map<string, SoleFit>>>();
+
+/** `soleFit`, read once for each foot's spec, ankle's spec, weight, inset and toes. */
+function fitOf(segment: ReadSegment, chain: readonly ReadJoint[], weight: number, inset: number, toesFlat: boolean): SoleFit {
+  let byAnkle = FITS.get(segment.spec);
+  if (!byAnkle) FITS.set(segment.spec, byAnkle = new WeakMap());
+  let byRead = byAnkle.get(chain[2]!.spec);
+  if (!byRead) byAnkle.set(chain[2]!.spec, byRead = new Map());
+  const key = `${weight} ${inset} ${toesFlat}`;
+  let fit = byRead.get(key);
+  if (!fit) byRead.set(key, fit = Object.freeze(soleFit(segment, chain, weight, inset, toesFlat)));
+  return fit;
 }
 
 /**

@@ -636,8 +636,31 @@ function limbFaults(spec: BodySpec): string[] {
 /** How far a bearing stage's shares may sum from 1: rounding, a numeric setting. */
 const SHARES_SUM = 1e-9;
 
-/** What is wrong with `recipe` for `spec`, in words; none if it can be played. */
-export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
+/** Each recipe's faults for each spec read (`stageFaults`): recipes and specs are data, never changed once made. */
+const checked = new WeakMap<Recipe, WeakMap<BodySpec, readonly string[]>>();
+
+/** What is wrong with `recipe` for `spec`, in words; none if it can be played. Each pair is read once. */
+export function stageFaults(recipe: Recipe, spec: BodySpec): readonly string[] {
+  let bySpec = checked.get(recipe);
+  if (!bySpec) checked.set(recipe, bySpec = new WeakMap());
+  let faults = bySpec.get(spec);
+  if (!faults) bySpec.set(spec, faults = Object.freeze(recipeFaults(recipe, spec)));
+  return faults;
+}
+
+/** Recipes derived from another (or from its tuning), by how: each made once, as the data it is derives from data. */
+const derived = new WeakMap<object, Map<string, Recipe>>();
+
+/** The recipe `make` derives from `from`, `how` naming the derivation: made at the first ask, the same recipe at every later one. */
+export function derivedRecipe(from: object, how: string, make: () => Recipe): Recipe {
+  let made = derived.get(from);
+  if (!made) derived.set(from, made = new Map());
+  let recipe = made.get(how);
+  if (!recipe) made.set(how, recipe = make());
+  return recipe;
+}
+
+function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
   const faults = limbFaults(spec);
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);

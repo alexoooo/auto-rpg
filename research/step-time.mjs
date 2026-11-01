@@ -16,7 +16,10 @@
  *
  * `--link` plays the bout an Arena link names (`recipeOf`); `--crowd` the crowd fight
  * (`crowdFight`, `src/arena/team-bout.ts`), ten bodies. It also prints the dearest step past
- * the first `--skip` s (2), what the bout's start and the compiler's first passes leave out.
+ * the first `--skip` s (2), what the bout's start and the compiler's first passes leave out, and
+ * each playing's worst lag behind real time from then (`lagOf`, `research/lag.mjs`), its steps as
+ * a page would have had them, collections and all: the step it peaks at, the run of steps that
+ * built it and the collections inside that run; the figure is the least of the playings' worst.
  *
  * With `--profile` it plays the bout once more under V8's CPU profiler and prints the share of
  * each file and of each function with everything it calls.
@@ -32,6 +35,7 @@ import { buildBout, buildTeamBout } from "../src/evaluation/bout.ts";
 import { recipeOf } from "../src/arena/matchup.ts";
 import { crowdFight } from "../src/arena/team-bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
+import { lagOf } from "./lag.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
@@ -96,6 +100,14 @@ for (const c of mine) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c.ms]);
 for (const [kind, v] of byKind) console.log(`the collector, ${KINDS[kind] ?? `kind ${kind}`}: ${v.length} in ${steps} steps, one every ${(steps / v.length).toFixed(0)}; mean ${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2)}, longest ${Math.max(...v).toFixed(2)}`);
 const slow = read.flatMap((rows) => rows.filter((r) => r.all > over));
 console.log(`steps over ${over} ms: ${slow.length} of ${steps}; with a collection inside: ${slow.filter((r) => mine.some((c) => c.at >= r.t && c.at <= r.t + r.all)).length}`);
+/** `list`'s collections by kind: how many, and the longest, ms. */
+const collected = (list) => [...Map.groupBy(list, (c) => KINDS[c.kind] ?? `kind ${c.kind}`)].map(([kind, of]) => `${of.length} ${kind}, the longest ${Math.max(...of.map((c) => c.ms)).toFixed(1)}`).join("; ") || "none";
+const lags = read.map((rows) => {
+  const lag = lagOf(rows.map((r) => r.all), 1000 / 120, past), from = rows[lag.began], to = rows[lag.at];
+  return { ...lag, collections: mine.filter((c) => c.at >= from.t && c.at <= to.t + to.all) };
+});
+lags.forEach((lag, k) => console.log(`playing ${k + 2}, the worst lag past ${skip} s: ${lag.lag.toFixed(2)} ms at step ${lag.at}, built over steps ${lag.began} to ${lag.at} (${lag.over} over 8.33; collections ${collected(lag.collections)})`));
+console.log(`the worst lag, the least of the playings': ${Math.min(...lags.map((lag) => lag.lag)).toFixed(2)} ms, a step being 8.33`);
 console.log(`the hands' solves in a playing: ${read[0].reach.map(({ side, solves, passes, capped }) => `${side} ${solves} solves, ${passes} passes, ${capped} at the cap`).join("; ")}`);
 observer.disconnect();
 

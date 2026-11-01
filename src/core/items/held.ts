@@ -58,9 +58,21 @@ export function heldBy(spec: BodySpec, hand: Side): Held | null {
 /** Whether the `hand` of `spec` can hold `held`: anything can hold nothing, and only a hand that closes on a haft (`canHold`) a club. */
 const canHoldIn = (spec: BodySpec, hand: Side, held: Held): boolean => held === "empty" || canHold(spec, hand);
 
+/** Each spec armed (`armedWith`), by hand and what it holds: specs are data, so every body armed alike has one spec, and what is derived from a spec is derived once. */
+const ARMED = new WeakMap<BodySpec, Map<string, BodySpec>>();
+
 /** `spec` with `held` in its `hand`; a body whose hand cannot hold it is refused (`canHoldIn`). */
 export function armedWith(spec: BodySpec, hand: Side, held: Held): BodySpec {
   if (!canHoldIn(spec, hand, held)) throw new Error(`${spec.model}'s ${hand} hand cannot hold ${held}`);
+  let by = ARMED.get(spec);
+  if (!by) ARMED.set(spec, by = new Map());
+  const key = `${hand} ${held}`;
+  let made = by.get(key);
+  if (!made) by.set(key, made = armedAnew(spec, hand, held));
+  return made;
+}
+
+function armedAnew(spec: BodySpec, hand: Side, held: Held): BodySpec {
   const item = heldItem(held), kept = (spec.held ?? []).filter(({ segment }) => segment !== `hand.${hand}`);
   const bare = kept.length === (spec.held ?? []).length ? spec : { ...spec, held: kept };
   return item ? armed(bare, hand, item) : bare;

@@ -16,7 +16,7 @@
  * parts that read them declare (`Part.reads`), and reads one through `readProfile`, never a skill's
  * code.
  */
-import { dataOf } from "../../data/store.ts";
+import { dataOf, type DataKey } from "../../data/store.ts";
 import { bodyKey, type BodySpec } from "../../spec/body.ts";
 import type { ActionConfig, ExecutorEntry } from "../config.ts";
 import type { PartLookup } from "../../parts/lookup.ts";
@@ -285,8 +285,29 @@ export const specDigest = (spec: BodySpec): string => digestOf(spec);
  * `bodyKey`, `SkillRecord`), as the mind holds them, so another body's row moves no digest.
  */
 export function skillDigest(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): string {
-  const executor = executors.find((entry) => entry.name === action.executor) ?? null, body = bodyKey(spec);
-  const data = executor ? (parts.of("executor", executor).reads?.(executor) ?? []).map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null)) : [];
+  const executor = executors.find((entry) => entry.name === action.executor) ?? NO_EXECUTOR;
+  let byExecutor = SKILL_DIGESTS.get(action);
+  if (!byExecutor) SKILL_DIGESTS.set(action, byExecutor = new WeakMap());
+  let bySpec = byExecutor.get(executor);
+  if (!bySpec) byExecutor.set(executor, bySpec = new WeakMap());
+  let byPart = bySpec.get(spec);
+  if (!byPart) bySpec.set(spec, byPart = new WeakMap());
+  const part = executor === NO_EXECUTOR ? null : executorPart(parts, executor);
+  let digest = byPart.get(part ?? NO_PART);
+  if (digest === undefined) byPart.set(part ?? NO_PART, digest = readSkillDigest(part, spec, executor === NO_EXECUTOR ? null : executor, action));
+  return digest;
+}
+
+/** Each strike's digest (`skillDigest`), by its action, its executor, its body's spec and its executor's part: each is frozen data, read once. */
+const SKILL_DIGESTS = new WeakMap<ActionConfig, WeakMap<ExecutorEntry, WeakMap<BodySpec, WeakMap<object, string>>>>();
+/** `executor`'s part. */
+const executorPart = (parts: PartLookup, executor: ExecutorEntry) => parts.of("executor", executor) as { readonly reads?: (config: ExecutorEntry) => readonly DataKey[] };
+/** The keys of an action whose executor is none of those given. */
+const NO_EXECUTOR = Object.freeze({}) as ExecutorEntry, NO_PART = Object.freeze({});
+
+function readSkillDigest(part: ReturnType<typeof executorPart> | null, spec: BodySpec, executor: ExecutorEntry | null, action: ActionConfig): string {
+  const body = bodyKey(spec);
+  const data = executor && part ? (part.reads?.(executor) ?? []).map((key) => digestOf((dataOf(key) as Readonly<Record<string, unknown>>)[body] ?? null)) : [];
   const { name: _action, executor: _executor, ...does } = action;
   return digestOf({ action: does, executor: executor && (({ name: _, ...rest }) => rest)(executor), data });
 }

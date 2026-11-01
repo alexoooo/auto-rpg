@@ -176,7 +176,8 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   const tracker = effectorTracker(built, root);
   const points = pointLimbs(built);
   const freedoms = [...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0);
-  const whole = makeWholeBody(freedoms, 2, points.length);
+  // The solve's work, made at its first solve: a body makes motors it may never run.
+  let whole: ReturnType<typeof makeWholeBody> | null = null;
   let driven: WholeBodyAsk | null = null;
   const unmet: MotorUnmet = { pushes: new Uint8Array(freedoms), points: 0 };
   // Each firm freedom's speed at the step's end as the servo asks it (`EffectorGoal.firm`); NaN where none is firm.
@@ -221,7 +222,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
         for (const one of points) aimPoint(one, state.points, driver, work);
         asked = driven;
       }
-      solveBody(whole, driver, work, asked, assist);
+      solveBody(whole ??= makeWholeBody(freedoms, 2, points.length), driver, work, asked, assist);
       stance.launch(driver);
     }
     else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);

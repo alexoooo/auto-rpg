@@ -6,8 +6,18 @@ export interface Network {
   readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
 }
 
-/** What is wrong with `network`, each a sentence, and how many inputs it reads where nothing is. */
+/** Each network read, what `networkFaults` found in it: a network is data, never changed once read. */
+const checked = new WeakMap<Network, { readonly faults: readonly string[]; readonly inputs: number }>();
+
+/** What is wrong with `network`, each a sentence, and how many inputs it reads where nothing is; each network is read once. */
 export function networkFaults(network: Network): { readonly faults: readonly string[]; readonly inputs: number } {
+  if (typeof network !== "object" || network === null) return readFaults(network);
+  let found = checked.get(network);
+  if (!found) checked.set(network, found = Object.freeze(readFaults(network)));
+  return found;
+}
+
+function readFaults(network: Network): { readonly faults: readonly string[]; readonly inputs: number } {
   const layers: unknown = network?.layers;
   if (!Number.isSafeInteger(network?.actions) || network.actions < 1 || !Array.isArray(layers) || layers.length === 0) return { faults: ["a network names its actions and has a layer"], inputs: 0 };
   let width = network.layers[0]!.weights?.[0]?.length ?? 0;

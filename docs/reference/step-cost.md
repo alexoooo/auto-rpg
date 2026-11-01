@@ -22,6 +22,7 @@ node research/rest-probe.mjs --bodies 4
 node research/blow-cost.mjs
 node research/step-time.mjs --crowd --cap 30
 node research/call-count.mjs --crowd --cap 30
+node research/mind-make.mjs
 ```
 
 ## Allocation ceilings
@@ -688,6 +689,70 @@ Tried and not kept:
   punching rung landed none of six (three never in the entry window, one weak at 10 J against
   six at 91 J a hit) and the club blow on a still target 4 of 14 (11 of 15), for at most motor
   control's share, 14 % of the crowd fight's step.
+
+### Lag behind real time
+
+**The reference duels keep real time; the Crypt falls 15 to 38 ms behind in the step that builds a
+foe; the crowd fight never keeps it, and its mark-compact collections take 35 to 103 ms.** A
+world's lag after step k is `max(0, lag + t_k - dt)` (`lagOf`, `research/lag.mjs`), read on each
+playing's own steps, collections included, from 2 s on; the figure is the least of the playings'
+worst. A lag under a step (8.33 ms) is never seen: the page draws a step behind the newest frame.
+
+Node 24.15.0, 120 Hz, pinned to the performance cores, at `a83a8003`: the bouts by
+`research/step-time.mjs` on `rapier-coordinate`, three playings read after a warm-up; the Crypt by
+`research/crypt-step.mjs --seconds 60 --runs 3` on `rapier`, the hero exploring alone.
+
+| Run | Mean step, ms | Dearest past 2 s, ms | Worst lag, ms | What built it |
+| --- | --- | --- | --- | --- |
+| sword against club, to its verdict | 1.49 | 7.36 | 0.61 | one step (a playing's worst 1.15) |
+| bare hands, to its verdict | 1.65 | 7.96 | 4.60 | a mark-compact of 10.1 ms (another playing's: 18.3, a mark-compact of 11.8) |
+| crowd fight, its first 60 s | 10.08 | 20.06 | 19 300 | every step from 2 s on, 6690 of 6960 over 8.33; mark-compacts of 35 to 103 ms |
+| Crypt, seed 10, 60 s | 2.89 | 25.56 | 38.08 | one step, building a body |
+| Crypt, seed 25, 60 s | 4.16 | 21.80 | 14.78 | one step, building a body |
+
+The crowd fight's playings collected garbage with a scavenge every 20 or so steps (1 to 3 ms) and
+two mark-compacts a minute.
+
+### Making a mind
+
+**A warm Warrior's Option Mind is made in about 5.5 ms, a Skeleton's in about 3.3: a quarter and a
+third of what they took.** What a make derives from data alone is derived once and shared by every
+body of the spec: each recovery network's check (`networkFaults`), each rise recipe's faults
+(`stageFaults`) and tables (`riseTables`, `src/core/recovery/rise/staged.ts`), the recipes step up
+and its route derive (`stepUpRecipe`, `derivedRecipe`), each sole's fit (`fitOf`,
+`src/core/control/support.ts`), each strike's digest (`skillDigest`) and an action narrowed to the
+hands that carry it (`armedActions`). A body reads its uprightness through one reader
+(`uprightness`), which keeps nothing. What a solve works in is made at its first call
+(`makeBearing`, the whole-body solve in `motorControl`): a body makes about twenty solves for the
+techniques of its rise and runs few of them. No fingerprint case moves.
+
+`node research/mind-make.mjs`, 60 makes on a stand, the first three left out; Node 24.15.0, Rapier,
+pinned to the performance cores; two runs each.
+
+| Body, mind | Before (`02d2af80`), median, ms | Least | After, median, ms | Least |
+| --- | --- | --- | --- | --- |
+| Warrior holding a club, `option` | 18.6, 20.8 | 15.8 | 5.3, 5.7 | 4.0 |
+| Skeleton, `option-skeleton` | 9.9, 10.1 | 7.8 | 3.3, 3.3 | 2.6 |
+
+The first make of a model reads its data and is compiled: about 140 ms for the Warrior, 20 for the
+Skeleton, as before. What is left of a warm make is the body's own: its rise's limbs and their
+work, its motors, its first look at its contacts, its skills' executors.
+
+In the Crypt each actor resolves its own character, so a spec is shared only if what arms it is
+(`armedWith`, made once for each spec, hand and item), and every body is granted the level's
+solids (`solidSenses`, one frozen copy a list). A foe's whole build (`DungeonRun.build`: body,
+pool, senses and mind), each run's enemies built in turn outside a step, seeds 1 to 8, the first
+build of each model left out; pinned:
+
+| Foe | At `02d2af80`, median, ms | Least | Now, median, ms | Least |
+| --- | --- | --- | --- | --- |
+| Skeleton (26 builds) | 18.8 | 14.2 | 6.3 | 5.1 |
+| Reptile (91 builds) | 3.1 | 2.3 | 1.9 | 1.3 |
+
+**A body's first step costs about what its next does**: on the stand, thirty Skeletons added one
+at a time to a warm world, their first steps took 314 ms in all against 297 for their second,
+half a millisecond a body; in the Crypt the step after a foe's build is 0.6 to 2 ms over the
+steps that follow it. The 10 ms read before was the make's work done lazily.
 
 ## The crypt's plan in the step
 

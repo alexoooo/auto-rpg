@@ -5,7 +5,7 @@ import type { Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import { SIT_BACK, type Recipe } from "../rise/stages.ts";
+import { SIT_BACK, derivedRecipe, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { LIMIT, LOW, stanceSteady, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
@@ -115,11 +115,12 @@ function routePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind)
   /** The cuts this part may end at, by the index of the stage each is read after: step up's, on its own recipe. */
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
   const across = otherSide(tuning.over ?? "right");
-  const from = (index: number): Recipe => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) });
+  const from = (index: number): Recipe => derivedRecipe(whole, `unrolled from ${index}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) }));
   // `other`: the roll over the other side; for a part with an `unsat` stage, its rise from there.
   const begins = { whole: first, other: part.unsat === undefined ? first : at(part.unsat) };
   const rises: Record<"whole" | "other", StepUpRise> = part.first === null
-    ? { whole: stagedRise(own, view, { ...whole, rise: [] }), other: stagedRise(own, view, { ...stepUpRecipe({ ...tuning, over: across }), rise: [] }) }
+    ? { whole: stagedRise(own, view, derivedRecipe(whole, "roll", () => ({ ...whole, rise: [] }))),
+      other: stagedRise(own, view, derivedRecipe(tuning, `roll over ${across}`, () => ({ ...stepUpRecipe({ ...tuning, over: across }), rise: [] }))) }
     : { whole: stagedRise(own, view, from(first)), other: stagedRise(own, view, from(begins.other)) };
   const motor = part.first === null ? null : carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = motor && stanceSteady(own, view, motor, tuning.climb);
