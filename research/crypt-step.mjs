@@ -16,7 +16,9 @@
  * `--mind` names the preset (`MINDS`) every body plays, the party's and the enemies'; each its
  * model's own unless given. `--runs` plays each seed that many times: a run is the same to the
  * bit each time, so the least of each step's times over the playings is its work, and the row's
- * last figure is the dearest such step past the first 2 s.
+ * last figures are the dearest such step past the first 2 s and the worst lag behind real time
+ * from then (`lagOf`, `research/lag.mjs`), the least of each playing's own, with the bodies built
+ * and the collections in the run of steps that built that playing's worst.
  *
  * Wall time on the machine it runs on, one row at a time: read it on a quiet one, with the
  * process held to cores of one kind (`docs/reference/play.md`, Hearing in the step, says how). On
@@ -30,6 +32,11 @@ import { hearRun } from "../src/dungeon/hearing.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { MINDS } from "../src/entrants/game.ts";
+import { PerformanceObserver } from "node:perf_hooks";
+import { lagOf } from "./lag.mjs";
+
+const collections = [];
+new PerformanceObserver((list) => { for (const e of list.getEntries()) collections.push({ at: e.startTime, ms: e.duration }); }).observe({ entryTypes: ["gc"] });
 
 const { values } = parseArgs({ options: { seeds: { type: "string", default: "1,2,3,4" }, seconds: { type: "string", default: "120" }, companions: { type: "string", default: "0" }, listen: { type: "boolean", default: false }, mind: { type: "string" }, runs: { type: "string", default: "1" } } });
 const mind = values.mind === undefined ? undefined : MINDS[values.mind]?.config;
@@ -51,11 +58,17 @@ async function played(seed) {
   const sides = [await begun(seed, false), ...(values.listen ? [await begun(seed, true)] : [])];
   const [{ run }] = sides, hz = run.world.hz;
   let most = 0, steps = 0;
-  const times = [];
+  const times = [], starts = [], builds = [];
   for (let s = 0; s < seconds && run.status === "playing"; s++) {
     const second = sides.map(() => 0);
     for (let i = 0; i < hz; i++) {
-      sides.forEach((side, k) => { const t = performance.now(); side.run.step(); const took = performance.now() - t; second[k] += took; if (k === 0) times.push(took); });
+      sides.forEach((side, k) => {
+        const before = k === 0 ? side.run.actors.filter((a) => a.fighter).length : 0, t = performance.now();
+        side.run.step();
+        const took = performance.now() - t;
+        second[k] += took;
+        if (k === 0) { times.push(took); starts.push(t); builds.push(side.run.actors.filter((a) => a.fighter).length - before); }
+      });
     }
     sides.forEach((side, k) => { side.total += second[k]; side.worst = Math.max(side.worst, second[k] / hz); });
     steps += hz;
@@ -66,6 +79,8 @@ async function played(seed) {
     held: built.filter((a) => a.held && a.alive).length, out: built.filter((a) => !a.alive).length, lying: built.filter((a) => a.held && !a.alive).length, mean: unheard.total / steps, worst: unheard.worst,
     heard: heard ? { mean: heard.total / steps, worst: heard.worst } : null, times,
   };
+  const lag = lagOf(times, 1000 / hz, 2 * hz), from = starts[lag.began], to = starts[lag.at] + times[lag.at];
+  row.lag = { ...lag, built: builds.slice(lag.began, lag.at + 1).reduce((a, b) => a + b, 0), collected: collections.filter((c) => c.at >= from && c.at <= to).map((c) => c.ms) };
   if (heard && (heard.run.status !== run.status || heard.run.blows.length !== run.blows.length)) throw new Error(`seed ${seed}: heard, the run is another run`);
   for (const side of sides) side.dispose();
   return row;
@@ -73,8 +88,8 @@ async function played(seed) {
 
 console.log(`Node, a crypt run with no visuals, ${CORE_ENGINE}, 120 Hz; the hero exploring, ${companions.length} with it; to the run's end or ${seconds} s\n`);
 const listened = values.listen ? " Heard: a step, ms | In its slowest second, ms | Hearing, % of the unheard step |" : "";
-console.log(`| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | Of them held | A step, ms | In its slowest second, ms | Of real time, % |${listened} The dearest step past 2 s, ms |`);
-console.log(`|---|---|---|---|---|---|---|---|---|---|---|---|${values.listen ? "---|---|---|" : ""}---|`);
+console.log(`| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Held | Out of the fight | Of them held | A step, ms | In its slowest second, ms | Of real time, % |${listened} The dearest step past 2 s, ms | The worst lag, ms | At step, built over | Bodies built, collections in it |`);
+console.log(`|---|---|---|---|---|---|---|---|---|---|---|---|${values.listen ? "---|---|---|" : ""}---|---|---|---|`);
 for (const seed of values.seeds.split(",").map(Number)) {
   const playings = [];
   for (let k = 0; k < Number(values.runs); k++) playings.push(await played(seed));
@@ -82,5 +97,6 @@ for (const seed of values.seeds.split(",").map(Number)) {
   let dearest = 0;
   for (let i = 2 * 120; i < n; i++) dearest = Math.max(dearest, Math.min(...playings.map((one) => one.times[i])));
   const heard = r.heard ? ` ${r.heard.mean.toFixed(2)} | ${r.heard.worst.toFixed(2)} | ${((r.heard.mean / r.mean - 1) * 100).toFixed(1)} |` : "";
-  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.lying} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |${heard} ${dearest.toFixed(2)} |`);
+  const lag = playings.reduce((a, b) => b.lag.lag < a.lag.lag ? b : a).lag;
+  console.log(`| ${r.seed} | ${r.status} | ${r.seconds} | ${r.enemies} | ${r.built} | ${r.most} | ${r.held} | ${r.out} | ${r.lying} | ${r.mean.toFixed(2)} | ${r.worst.toFixed(2)} | ${(r.worst * 120 / 10).toFixed(0)} |${heard} ${dearest.toFixed(2)} | ${lag.lag.toFixed(2)} | ${lag.at}, ${lag.at - lag.began + 1} steps | ${lag.built}; ${lag.collected.map((ms) => ms.toFixed(1)).join(", ") || "none"} |`);
 }
