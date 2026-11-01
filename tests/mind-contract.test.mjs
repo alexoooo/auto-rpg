@@ -33,6 +33,8 @@ import { poseAngles } from "../src/core/control/kinematics.ts";
 import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
+import { readView } from "../src/core/build/read-view.ts";
+import { uprightness } from "../src/core/control/ground.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { HUMANOID_MODELS } from "../src/core/human/spec.ts";
 
@@ -209,6 +211,23 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
     assert.ok(body.physical.height < body.view.standing - 0.5, `the fixture is not lying: its centre of mass is ${body.physical.height.toFixed(2)} m over its lowest point`);
     assert.deepEqual({ itsMind: body.view.down, theFight: body.down }, { itsMind: false, theFight: true });
   } finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }
+});
+
+test("a body's uprightness read through its mind's view of it is the body's, whichever's segments it is asked with", async () => {
+  // The Warrior standing in its guard: every reading the same through the body and its view, and
+  // the clearance it holds over its soles asked with either's feet.
+  const stand = await coreStand(modelSpec("workshop-fighter"), { posture: GUARD });
+  try {
+    const built = stand.built, view = readView(built), feet = [...built.segments.keys()].filter((name) => /^(foot|toes)\./.test(name));
+    const read = (body) => {
+      const upright = uprightness(body);
+      return { height: upright.height(), lowest: upright.lowest(), down: upright.down(), fallen: upright.fallen(),
+        overSoles: upright.clearance(new Set(feet.map((name) => body.segments.get(name)))) };
+    };
+    const asBuilt = read(built);
+    assert.ok(asBuilt.overSoles > 0.02, `the fixture does not stand on its feet: the rest is ${asBuilt.overSoles} m over its soles`);
+    assert.deepEqual(read(view), asBuilt);
+  } finally { stand.dispose(); }
 });
 
 test("a replay refuses a step with no order sheet, so a record that is short is found", async () => {

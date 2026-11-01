@@ -67,9 +67,9 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const driven = driveBy(body, tactics, (made) => {
     const kit = kitSkills(made, clock, parts, config, () => skills?.report.ledger ?? [], NO_MORE, aims);
     return part.prepareSkills?.(making, slot, kit, tactics) ?? kit;
-  });
+  }, undefined, aimsState(aims));
   skills = driven.skills;
-  return { ...driven, state: { ...driven.state, aims: aimsState(aims) } };
+  return driven;
 }
 
 /** Executors a mind makes itself beside those its config names, and their actions (`kitSkills`). */
