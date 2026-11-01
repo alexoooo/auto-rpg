@@ -115,8 +115,9 @@ three holds two enemies placed away from the doors. The camera follows the leade
 - **Paving and weathering.** `CRYPT_PAVING` packs one-, two- and four-cell paving modules by seed;
   the chapel favours large slabs. `CryptWeathering` (`src/dungeon/crypt-weathering.ts`) stains the
   stone in world space with one soil tint per room kind, cleaner along each room's two centre axes.
-- **Surfaces and fittings.** The kit has separate chipped slate, weathered wall stone, warmer trim
-  and woven cloth maps (`scripts/dungeon/crypt_surfaces.py`), with aligned timber grain, iron
+- **Surfaces and fittings.** The kit's stone has fractured mesh faces and chipped outlines
+  (`scripts/dungeon/crypt_stone.py`), with different dry-wall and worn-floor roughness and trim tint.
+  Detailed slate, split timber and woven cloth maps (`scripts/dungeon/crypt_surfaces.py`) accompany aligned timber grain, iron
   straps and rivets, folded banners and shallow basket sconces. Water darkens the paving and
   lowers its roughness on the same opaque surface; no reflection planes cover the joints.
 - **Assembly.** `assembleCryptKit` (`src/environment/crypt-kit.ts`) clones the kit's pieces for each
@@ -143,14 +144,17 @@ blender --background --python scripts/dungeon/build-kit.py
 `scripts/dungeon/build-kit.py` uses the same helpers (`crypt_geometry.py`) and writes
 `assets/crypt-kit/kit.blend`, `assets/crypt-kit/manifest.json` and
 `assets/art/environment/crypt-kit/kit.glb`: metre-space pieces with their origins baked in. The tomb is
-taken from `chamber.blend`'s sarcophagus. `crypt_surfaces.py` writes the kit's twelve maps:
-512 px for floor, 384 px for wall, 256 px for trim and 128 px for cloth. Albedo, OpenGL normal and packed
-occlusion/roughness/metalness maps sit beside `kit.glb`, with hashes
-in the manifest. Periodic fields at seed 161803 supply fractures, strata, pores and cloth weave.
-The stone includes mineral detail from a mirrored interior crop of Poly Haven's CC0
-`large_floor_tiles_02` scan, with matching normal and roughness channels; provenance and input
-hashes are in `src/render/textures.json`. The crop excludes the scan's paving joints so only the
-mesh supplies those. No chamber file is rewritten.
+taken from `chamber.blend`'s sarcophagus. `crypt_stone.py` builds the macro relief in the stone's
+faces, removes wall faces buried in their supports, and chips the paving while keeping it within
+a centimetre of the collision floor. Wall stone is authored to millimetre precision.
+
+`crypt_surfaces.py` writes nine maps beside `kit.glb`: stone albedo at 1024 px, normal at 384 px
+and packed occlusion/roughness/metalness at 256 px; timber at 512/256/128 px; cloth at 128 px.
+The stone and timber source PNGs are generated material inputs, produced with the built-in
+imagegen tool. [Material prompts](../../assets/crypt-kit/stone-source.json) record their provenance.
+Fine normal relief is inferred from the source images' luminance; it is not a measured height
+scan. Macro stone relief is geometry. Cloth weave is authored at seed 161803. The output hashes
+are in the kit manifest. No chamber file is rewritten.
 
 ### Triangles
 

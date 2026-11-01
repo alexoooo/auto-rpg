@@ -24,9 +24,9 @@ const CRYPT_ODDS = Object.freeze({
   /** Outside every room, a cell's paving is first tried as a large slab below this draw. */
   largeSlab: .30,
   /** Not a large slab, it is tried as a broken slab below this draw, and as a long one above it. */
-  brokenSlab: .63,
+  brokenSlab: .12,
   /** A slab that does not fit gives way to one cell: a fractured slab, or else plain paving. */
-  fractured: .4,
+  fractured: .12,
   /** Scatter on a floor cell of a damp room. */
   dampScatter: .18,
   /** A niche in a stretch of wall outside every room. */
@@ -66,6 +66,10 @@ const CRYPT_TORCH = Object.freeze({
   alongX: .1,
   /** The flame stands this far out from its rock cell's centre, and this high, m. */
   flameOut: .65,
+  /** A niche's flame stands before its memorial tablet; its basket clears the tablet's face. */
+  nicheFlameOut: .15,
+  /** The lower flame remains visible beneath the niche arch in the elevated camera. */
+  nicheHeight: 1.55,
   height: 2.05,
   /** The damp under a torch lies this far beyond its light, m. */
   dampOut: 1.4,
@@ -108,7 +112,7 @@ function pavement(d: Dressing): void {
       const type = d.archetypes.find(a => a.room === room?.id);
       const roll = art(), turn = art() < .5 ? 0 : Math.PI / 2;
       const largeSlab = type ? CRYPT_ROOM_LOOK[type.kind].largeSlab : CRYPT_ODDS.largeSlab;
-      let piece = roll < largeSlab ? "slabs-large" : roll < CRYPT_ODDS.brokenSlab ? "slabs-broken" : "slabs-long";
+      let piece = roll < largeSlab ? "slabs-large" : (roll-largeSlab)/(1-largeSlab) < CRYPT_ODDS.brokenSlab ? "slabs-broken" : "slabs-long";
       let [width, depth] = CRYPT_PAVING[piece];
       if (turn) [width, depth] = [depth, width];
       // A slab fits on unpaved floor that does not run out of the room it starts in.
@@ -147,15 +151,20 @@ function cornerSide(map: DungeonMap, faces: WallFaces, face: WallFace): number {
   return 0;
 }
 
-/** A niche in each run of three straight wall cells facing one way that the draw allows. Returns the niches, and
- * the cells they took. */
+/** Niches occupy three straight wall cells. The guard hall keeps an alcove on the entrance half of its left wall.
+ * Returns the niches and the cells they took. */
 function niches(d: Dressing, faces: WallFaces): { niches: CryptPlacement[]; taken: Set<string> } {
   const taken = new Set<string>(), placed: CryptPlacement[] = [];
-  for (const { x, z, nx, nz } of faces.values()) {
+  const guard=d.map.rooms.find(r=>d.archetypes.some(a=>a.room===r.id&&a.kind==="guard"));
+  const recessZ=guard ? Math.max(guard.min.z+2,guard.centre.z-4) : 0;
+  const guardAlcove=(p:WallFace)=>!!guard&&p.x===guard.min.x-1&&p.z===recessZ;
+  const ordered=[...faces.values()].sort((a,b)=>Number(guardAlcove(b))-Number(guardAlcove(a)));
+  for (const face of ordered) {
+    const {x,z,nx,nz}=face;
     const alongX = nz, alongZ = -nx;
     const span = [-1, 0, 1].map(i => faces.get(faceKey(x + alongX * i, z + alongZ * i)));
     const straight = !span.some(p => !p || p.nx !== nx || p.nz !== nz || cornerSide(d.map, faces, p) !== 0 || taken.has(faceKey(p.x, p.z)));
-    if (!straight || d.art() > (lookAt(d, x, z)?.niches ?? CRYPT_ODDS.corridorNiche)) continue;
+    if (!straight || (!guardAlcove(face) && d.art() > (lookAt(d, x, z)?.niches ?? CRYPT_ODDS.corridorNiche))) continue;
     put(d, "niche", x, z, Math.atan2(nx, nz));
     placed.push(d.placements.at(-1)!);
     for (const p of span) taken.add(faceKey(p!.x, p!.z));
@@ -221,17 +230,23 @@ function torches(d: Dressing, faces: WallFaces): TorchPlacement[] {
   for (const room of d.map.rooms) {
     const { min, max, centre } = room;
     const type = d.archetypes.find(a => a.room === room.id), look = type ? CRYPT_ROOM_LOOK[type.kind] : undefined;
-    const candidates = [...faces.values()].filter(c => (c.x === min.x - 1 && c.z >= min.z && c.z <= max.z) || (c.z === max.z + 1 && c.x >= min.x && c.x <= max.x));
-    const fromMiddle = (c: WallFace) => c.x === min.x - 1 ? Math.abs(c.z - centre.z) : Math.abs(c.x - centre.x) + CRYPT_TORCH.alongX;
+    const candidates = [...faces.values()].filter(c => (c.x === min.x - 1 && c.nx===1 && c.z >= min.z && c.z <= max.z) || (c.z === max.z + 1 && c.nz===-1 && c.x >= min.x && c.x <= max.x));
+    const inNiche = (c: WallFace) => d.placements.some(p=>p.piece==="niche"&&p.x===c.x&&p.z===c.z);
+    const fromMiddle = (c: WallFace) => (c.x === min.x - 1 ? Math.abs(c.z - centre.z) : Math.abs(c.x - centre.x) + CRYPT_TORCH.alongX)
+      - (inNiche(c) ? max.z-min.z : 0);
     const apart = Math.min(max.x - min.x + 1, max.z - min.z + 1) * CRYPT_TORCH.spacing;
     const chosen: TorchPlacement[] = [];
     for (const c of candidates.sort((a, b) => fromMiddle(a) - fromMiddle(b))) {
+      if(d.placements.some(p=>p.piece==="banner"&&Math.abs(p.x-c.x)<.8&&Math.abs(p.z-c.z)<.8))continue;
       if (chosen.some(t => Math.hypot(c.x - t.cell.x, c.z - t.cell.z) < apart)) continue;
+      const recessed=inNiche(c);
+      const flameOut=recessed ? CRYPT_TORCH.nicheFlameOut : CRYPT_TORCH.flameOut;
+      const height=recessed ? CRYPT_TORCH.nicheHeight : CRYPT_TORCH.height;
       chosen.push({
         ...(look ? { color: look.color, intensity: look.intensity, shadowIntensity: look.shadow } : {}),
         room: room.id, cell: { x: c.x, z: c.z }, facing: { x: c.nx, z: c.nz },
-        flame: { x: c.x + c.nx * CRYPT_TORCH.flameOut, y: CRYPT_TORCH.height, z: c.z + c.nz * CRYPT_TORCH.flameOut },
-        light: { x: c.x + c.nx, y: CRYPT_TORCH.height, z: c.z + c.nz },
+        flame: { x: c.x + c.nx * flameOut, y: height, z: c.z + c.nz * flameOut },
+        light: { x: c.x + c.nx, y: height, z: c.z + c.nz },
       });
       if (chosen.length === CRYPT_TORCH.count) break;
     }

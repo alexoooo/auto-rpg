@@ -91,7 +91,7 @@ const DOOR_LEAF = Object.freeze({
 });
 /** An iron sconce under each torch's flame, set into the wall face: no piece stands more than `proud` off it
  * (`docs/art/crypt.md#the-rule-every-piece-keeps`). Its sizes are set by eye (`docs/reference/look.md#crypt-stone`). */
-export const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.94 });
+export const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.20, 0.44, 0.02] as const), plateY: 1.82, cupY: 1.84 });
 
 /** Pieces built about the origin, merged into one mesh and placed: a fitting's parts share one draw. */
 function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: number): Mesh {
@@ -213,24 +213,26 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
         plate.position.set(0, S.plateY, d / 2);
         const arm = MeshBuilder.CreateBox("arm", { width: 0.03, height: 0.03, depth: S.proud - d }, scene);
         arm.position.set(0, S.cupY - 0.06, d + (S.proud - d) / 2);
-        const cup = MeshBuilder.CreateCylinder("cup", { diameterTop: .34, diameterBottom: .18, height: .055, tessellation: 12 }, scene);
-        cup.scaling.z=.18; cup.position.set(0, S.cupY-.13, .04);
+        const cup = MeshBuilder.CreateCylinder("cup", { diameterTop: .50, diameterBottom: .24, height: .055, tessellation: 12 }, scene);
+        cup.scaling.z=.29; cup.position.set(0, S.cupY-.22, 0);
         const cage: Mesh[]=[];
-        for (const y of [S.cupY-.11,S.cupY+.11]) {
-          const ring=MeshBuilder.CreateTorus("basket.rim",{diameter:.34,thickness:.018,tessellation:12},scene);
-          ring.scaling.z=.18;ring.position.set(0,y,.04);cage.push(ring);
+        for (const y of [S.cupY-.20,S.cupY+.20]) {
+          const ring=MeshBuilder.CreateTorus("basket.rim",{diameter:.50,thickness:.020,tessellation:12},scene);
+          ring.scaling.z=.29;ring.position.set(0,y,0);cage.push(ring);
         }
         for (let j=-2;j<=2;j++) {
-          const bar=MeshBuilder.CreateBox("basket.bar",{width:.014,height:.24,depth:.014},scene);
-          bar.position.set(j*.074,S.cupY,.04+.025*Math.sqrt(1-j*j/5));cage.push(bar);
+          const bar=MeshBuilder.CreateBox("basket.bar",{width:.014,height:.42,depth:.014},scene);
+          bar.position.set(j*.11,S.cupY,.072*Math.sqrt(1-j*j/5));cage.push(bar);
         }
         for (const y of [S.plateY-.16,S.plateY+.16]) {
           const rivet=MeshBuilder.CreateSphere("sconce.rivet",{diameter:.032,segments:6},scene);
           rivet.position.set(0,y,.022);cage.push(rivet);
         }
         // Built facing +z from a face at z = 0, and turned to face the floor the torch lights.
-        const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup,...cage], torch.cell.x + torch.facing.x * 0.5,
-          torch.cell.z + torch.facing.z * 0.5, atan2(torch.facing.x, torch.facing.z));
+        // A recessed flame mounts the basket on its niche's back instead of across the opening.
+        const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup,...cage], torch.flame.x - torch.facing.x * .15,
+          torch.flame.z - torch.facing.z * .15, atan2(torch.facing.x, torch.facing.z));
+        mesh.unfreezeWorldMatrix();mesh.position.y=torch.flame.y-DRESSING.torchHeight;mesh.freezeWorldMatrix();
         mesh.material = iron; mesh.isVisible = false; surfaces.push(mesh);
         fittings.push({ mesh, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) });
         return mesh;

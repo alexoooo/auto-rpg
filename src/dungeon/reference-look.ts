@@ -58,12 +58,17 @@ class CryptDamp extends MaterialPluginBase {
     const centres=this.centres??REFERENCE_DAMP;
     return shaderType === "fragment" ? {
       CUSTOM_FRAGMENT_DEFINITIONS: `
+        float cryptWetHash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+        float cryptWetNoise(vec2 p) {
+          vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+          return mix(mix(cryptWetHash(i),cryptWetHash(i+vec2(1,0)),f.x),
+            mix(cryptWetHash(i+vec2(0,1)),cryptWetHash(i+vec2(1,1)),f.x),f.y);
+        }
         float cryptDamp(vec2 p) {
-          float edge = sin(p.x*8.1+sin(p.y*5.0)) * sin(p.y*9.3+p.x*2.0)*0.14;
-          edge += sin(p.x*21.0+p.y*13.0)*sin(p.y*17.0-p.x*7.0)*0.055;
+          float edge = (cryptWetNoise(p*.85)-.5)*.75+(cryptWetNoise(p*4.0)-.5)*.22;
           float wetDistance = 10000.0;
-          ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(2.3,1.65)));`).join("\n")}
-          return 1.0-smoothstep(0.42,1.05,wetDistance+edge);
+          ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(3.8,2.7)));`).join("\n")}
+          return 1.0-smoothstep(0.30,1.05,wetDistance+edge);
         }`,
       CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.64, cryptDamp(vPositionW.xz));",
       CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.16, cryptDamp(vPositionW.xz));",
@@ -135,7 +140,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
   if(root){root.rotationQuaternion=Quaternion.Identity();root.scaling.setAll(1);}
-  const families = plan ? ["floor", "wall", "trim", "cloth"] : ["stone"];
+  const families = plan ? ["floor", "cloth", "wood"] : ["stone"];
   const sets = await Promise.all(families.map(family => Promise.all(["albedo", "normal", "orm"].map(channel => new Promise<Texture>((resolve, reject) => {
     const asset = plan ? `crypt-kit/${family}-${channel}.png` : `dungeon-reference/stone-${channel}.png`;
     const texture = new Texture(art.texture(asset), scene, false, false,
@@ -145,30 +150,29 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const maps = sets.flat();
   if (scene.isDisposed) throw new DOMException("The screen was closed", "AbortError");
   const textured = (name: string, colour: string, family = "wall") => {
-    const channels = sets[plan ? families.indexOf(family) : 0]!;
+    const channels = sets[plan ? families.indexOf(families.includes(family) ? family : "floor") : 0]!;
     const material = flatStone(scene, name, colour);
     material.useRoughnessFromMetallicTextureAlpha = false;
     material.useRoughnessFromMetallicTextureGreen = true;
     material.useMetallnessFromMetallicTextureBlue = true;
     material.useAmbientOcclusionFromMetallicTextureRed = true;
     material.albedoTexture = channels[0]; material.bumpTexture = channels[1]; material.metallicTexture = channels[2];
-    // Relief remains legible at the room camera; cloth keeps a shallow weave.
-    if (plan) material.bumpTexture!.level = family === "floor" ? 2.4 : family === "cloth" ? 1 : 1.8;
+    // Worn flake interiors reflect differently from the dry wall stone.
+    if (plan) material.roughness = family === "floor" ? .72 : 1;
     material.invertNormalMapX = true; material.invertNormalMapY = false;
     return material;
   };
-  const trim=textured("crypt.trim", "#ece4d1", "trim");
-  const wall=textured("crypt.wall", "#c7ced0");
-  const floor=textured("crypt.floor", "#bdc7ce", "floor");
+  const trim=textured("crypt.trim", "#d6c5a5", "trim");
+  const wall=textured("crypt.wall", "#dbd7ca");
+  const floor=textured("crypt.floor", "#e6e8ed", "floor");
   new CryptDamp(floor,plan?.damp);
   if(plan)new CryptWeathering(floor,plan);
   const rootMat=textured("reference.root","#756247"); rootMat.roughness=1;
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
-  const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
+  const iron=flatStone(scene,"reference.iron","#736b5b",.33);iron.metallic=.85;
   const tomb=textured("crypt.tomb", "#ddd5c3", "trim");
   const woodSource=TEXTURED_SURFACES.wood;
-  const wood=surface(scene, {...woodSource, textures: {...woodSource.textures,
-    normal: {...woodSource.textures.normal!, tangentBasis: plan ? "gltf-rh-imported" : "babylon-lh"}}},browserTextures(art));
+  const wood=plan ? textured("crypt.wood","#ded1be","wood") : surface(scene,woodSource,browserTextures(art));
   // Built doors and imported timbers have different tangent bases.
   const doorWood=plan ? surface(scene,woodSource,browserTextures(art)) : wood;
   const cloth=plan ? textured("crypt.cloth","#8b3023","cloth") : flatStone(scene,"crypt.cloth","#752c25",.95);
@@ -180,6 +184,10 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     doorWood.maxSimultaneousLights=6;level.fog?.attach(doorWood,"wall");
   }
   for(const door of level.doorVisuals) { door.wood.material=doorWood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
+  for(let i=0;i<torches.length;i++) {
+    const basket=scene.getMeshByName(`torch.sconce.${i}`);
+    if(basket){basket.material=iron;basket.receiveShadows=true;}
+  }
   for(const [name,material] of Object.entries(materials)) {
     material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway);
@@ -199,7 +207,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     if (frontTorch(torch, azimuth, plan)) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
   });
   const lights=torches.map((torch,i)=>{
-    const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,2.45,torch.light.z),
+    const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,torch.light.y+.4,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
     light.diffuse=Color3.FromHexString(torch.color??"#ffb665");light.intensity=torch.shadowIntensity??85;light.range=12;
     light.shadowMinZ=.1;light.shadowMaxZ=18;

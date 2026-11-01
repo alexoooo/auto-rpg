@@ -37,6 +37,8 @@ const DUNGEON_LOOK = Object.freeze({
   lantern: Object.freeze({ color: "#ffcf8f", intensity: 9, height: 2.6, behind: 0.8 }),
   /** A torch, and how far its flicker swings the intensity either way. */
   torch: Object.freeze({ color: "#ff8a3d", intensity: 6, flicker: 0.6 }),
+  /** The flame quad's centre stands above its anchor so the iron basket shows beneath the fire. */
+  flameLift: .20,
   /** Contact shadow at the foot of walls and bodies, sized for a camera that stands 30 m off. */
   ssao: Object.freeze({ ratio: 0.5, radius: 0.35, totalStrength: 1.1, samples: 8 }),
   clearColor: Object.freeze([0.008, 0.010, 0.016] as const),
@@ -70,8 +72,8 @@ export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
 });
 /** The modular crypt's torches provide the warm key; cool fill retains the hero's outline. */
 export const CRYPT_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
-  ambientIntensity: .22, ambientColor: "#839dc7", environmentIntensity: .42,
-  lanternIntensity: 4.5, lanternColor: "#d7c3a4", grade: "crypt",
+  ambientIntensity: .55, ambientColor: "#819dc9", environmentIntensity: .85,
+  lanternIntensity: 3.5, lanternColor: "#c8d9f5", grade: "crypt",
 });
 
 export interface DungeonLighting {
@@ -113,7 +115,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   const torchColor = Color3.FromHexString(DUNGEON_LOOK.torch.color);
   const flames = torches.map((torch, i) => {
     const flame = MeshBuilder.CreatePlane(`torch.flame.${i}`, { width: 0.42, height: 0.66 }, scene);
-    flame.position.set(torch.flame.x, torch.flame.y, torch.flame.z);
+    flame.position.set(torch.flame.x, torch.flame.y+DUNGEON_LOOK.flameLift, torch.flame.z);
     if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
     flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false; flame.isVisible = false;
     return { flame, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) };

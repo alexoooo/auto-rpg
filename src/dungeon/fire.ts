@@ -13,7 +13,7 @@ import type { Point } from "./map.ts";
  * and sconce behind it rather than floating in front of a hole. Derived from that shader's text rather than copied,
  * and refused at load if the text has moved, so `flame` stays the one source of the flame.
  *
- * The fade scales the colour as well as the alpha. The flame's core is HDR, about (5, 2, 0.28), and blending adds
+ * The fade scales the colour as well as the alpha. The flame's core is HDR, and blending adds
  * colour times alpha: a flame faded by its alpha alone still tone-maps to a bright core and only loses its bloom, so
  * it reads as dimmer rather than see-through. Scaling both fades it as the wall beside it fades.
  */
@@ -21,7 +21,7 @@ const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(
 const flame = Effect.ShadersStore.flameFragmentShader;
 if (!flame.includes(HEAD) || !flame.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
 Effect.ShadersStore.dungeonFireFragmentShader = flame.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
-  .slice(0, -TAIL.length) + "gl_FragColor=vec4(mix(c*tint,vec3(7.0,4.0,0.9),core*core)*fade,a*.82*fade);}";
+  .slice(0, -TAIL.length) + "vec3 fire=mix(vec3(1.8,.42,.035)*tint,vec3(3.5,2.8,1.6),smoothstep(.08,.65,field));gl_FragColor=vec4(fire*fade,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the flame's vertex, the fading fragment. */
 const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });

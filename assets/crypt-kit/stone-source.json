@@ -1,0 +1,11 @@
+{
+  "tool": "built-in image_gen",
+  "use": "Stone base colour input to scripts/dungeon/crypt_surfaces.py",
+  "source": "assets/art/environment/crypt-kit/stone-source.png",
+  "prompt": "Create a seamless square tileable PBR base-color texture of ancient dark charcoal slate/limestone, a continuous stone surface with NO brick courses, NO paving joints, NO mortar. This is a game material for a realistically detailed torchlit medieval dungeon like Diablo cathedral concept art, NOT a scene illustration. Straight-on orthographic close-up flat unlit diffuse albedo scan, uniform neutral lighting, no cast shadows, no specular highlights. Rich natural angular flaking, fine branching mineral fractures, layered chipped slate facets, granular mineral speckles, soot ingrained in tiny crevices, scattered warm grey and cool charcoal patches, subtle ochre deposits. Strong detail at several scales, including angular flake patches around 3-8 cm across in a 1 metre square tile, finely chipped edges of flakes, intricate pores. Real geological photographic material detail, NOT smooth clouds, NOT marble veins, NOT smooth concrete, NOT tessellated polygons, NOT repetitive manufactured pattern. Dark-medium neutral greys, moderate local contrast, no illumination baked into the image. Texture must fill the entire image edge to edge and tile cleanly in both directions. No objects, no background, no text, no border. Output only the texture.",
+  "wood": {
+    "source": "assets/art/environment/crypt-kit/wood-source.png",
+    "prompt": "A seamless square PBR base-colour texture of a single continuous surface of heavily weathered medieval dark oak timber, photographic scan quality. Straight-on orthographic flat unlit diffuse albedo, no shadows or specular lighting. Deep long irregular grain runs vertically, split fibres, worn pale grain ridges, black crevices, small natural knots, subtle rust and soot stains, brown charcoal and grey-brown oak colours. Rich tangible intricate grain detail at multiple scales, old dungeon bench and weapon rack timber. No separate boards, no plank seams, no nails, no metal, no objects, no background, no text, no border. Not smooth varnished wood. Tile cleanly edge-to-edge."
+  },
+  "normal": "Inferred fine relief from high-pass luminance; macro relief is mesh geometry"
+}

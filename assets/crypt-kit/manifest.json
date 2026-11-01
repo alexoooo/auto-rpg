@@ -2,10 +2,10 @@
   "generator": "scripts/dungeon/build-kit.py",
   "pieces": {
     "column__trim": {
-      "triangles": 440
+      "triangles": 736
     },
     "altar__trim": {
-      "triangles": 220
+      "triangles": 380
     },
     "altar__tomb": {
       "triangles": 176
@@ -32,70 +32,70 @@
       "triangles": 672
     },
     "cluster__wall": {
-      "triangles": 132
+      "triangles": 228
     },
     "cluster__root": {
       "triangles": 432
     },
     "corner-left__wall": {
-      "triangles": 892
+      "triangles": 999
     },
     "corner-left__trim": {
       "triangles": 616
     },
     "corner-right__wall": {
-      "triangles": 892
+      "triangles": 1001
     },
     "corner-right__trim": {
-      "triangles": 616
+      "triangles": 618
     },
     "wall__wall": {
-      "triangles": 892
+      "triangles": 1012
     },
     "wall__trim": {
-      "triangles": 264
+      "triangles": 314
     },
     "niche__wall": {
-      "triangles": 1244
+      "triangles": 1667
     },
     "niche__trim": {
-      "triangles": 1696
+      "triangles": 2288
     },
     "niche__iron": {
       "triangles": 44
     },
     "portal__trim": {
-      "triangles": 132
+      "triangles": 484
     },
     "roots__root": {
       "triangles": 1152
     },
     "scatter__wall": {
-      "triangles": 264
+      "triangles": 432
     },
     "scatter__earth": {
       "triangles": 30
     },
     "paving0__floor": {
-      "triangles": 176
+      "triangles": 280
     },
     "paving0__earth": {
-      "triangles": 18
+      "triangles": 12
     },
     "paving1__floor": {
-      "triangles": 132
+      "triangles": 280
     },
     "paving1__earth": {
       "triangles": 12
     },
     "paving2__floor": {
-      "triangles": 132
+      "triangles": 292
     },
     "paving2__earth": {
-      "triangles": 18
+      "triangles": 12
     },
     "paving3__floor": {
-      "triangles": 176
+      "triangles": 258
     },
     "paving3__earth": {
       "triangles": 12
@@ -104,46 +104,46 @@
       "triangles": 480
     },
     "wall-pier__wall": {
-      "triangles": 892
+      "triangles": 1000
     },
     "wall-pier__trim": {
-      "triangles": 704
+      "triangles": 826
     },
     "wall-panel__wall": {
-      "triangles": 936
+      "triangles": 1080
     },
     "wall-panel__trim": {
-      "triangles": 440
+      "triangles": 518
     },
     "wall-repair__wall": {
-      "triangles": 1112
+      "triangles": 1246
     },
     "wall-repair__trim": {
-      "triangles": 264
+      "triangles": 284
     },
     "wall-repair__iron": {
       "triangles": 88
     },
     "slabs-long__floor": {
-      "triangles": 44
+      "triangles": 514
     },
     "slabs-long__earth": {
-      "triangles": 18
+      "triangles": 12
     },
     "slabs-large__floor": {
-      "triangles": 220
+      "triangles": 1006
     },
     "slabs-large__earth": {
-      "triangles": 18
+      "triangles": 12
     },
     "slabs-broken__floor": {
-      "triangles": 208
+      "triangles": 818
     },
     "slabs-broken__earth": {
       "triangles": 12
     },
     "slabs-fractured__floor": {
-      "triangles": 118
+      "triangles": 344
     },
     "slabs-fractured__earth": {
       "triangles": 12
@@ -154,52 +154,40 @@
   },
   "textures": [
     {
-      "file": "cloth-albedo.png",
-      "sha256": "f7b6a2364a366a90aefb1e614d658625f9abcf85cec97393bad1745ad0a4203f"
-    },
-    {
-      "file": "cloth-normal.png",
-      "sha256": "1e715d4ed6e21eaf21ee96e179f048fe6d3f7b484229438615630bcbe6ea0015"
-    },
-    {
-      "file": "cloth-orm.png",
-      "sha256": "052896e7db1e58e674e6063731e5b56d038472d2bebfcc8ed61be2567c4dcfad"
-    },
-    {
       "file": "floor-albedo.png",
-      "sha256": "fd0d4347882e7a59ecaf4e091e8f135d6e312e455ba50050ec6dff091a737f3e"
+      "sha256": "bffff0caaac5dd2e3a7ed801d3ab10a11705254c1d7bfa8e7599552cf0083137"
     },
     {
       "file": "floor-normal.png",
-      "sha256": "7c80f482b2396727dc1d6a4a7d12b3b635a85b360b698373fa6c0118301ecd40"
+      "sha256": "6d7e71a4df64d7b89371553954fc2cf2a565941163588e0485c57f4810618cd1"
     },
     {
       "file": "floor-orm.png",
-      "sha256": "81047e07b198a534536b7be22e53750b0bf97e6c203ecac918fde9d5d87e8d7b"
+      "sha256": "2aba44ea1ce8ddee0a1ad67ff4267d4535faacd510551fe1bab66547e0125ab1"
     },
     {
-      "file": "trim-albedo.png",
-      "sha256": "fc1a6cb514e4fc84412abe3074179bfe8dd55354c7ecd44f7991e0407df22914"
+      "file": "cloth-albedo.png",
+      "sha256": "cb77dbb0c6d41b1fd63339a65e6d1a5facdf5b98703eef4e035b2b3dbc808be9"
     },
     {
-      "file": "trim-normal.png",
-      "sha256": "a62549a7c8e08377e2a4bdf95a9878948a1b321cad08c53b4c8f5f1e48ce6fd7"
+      "file": "cloth-normal.png",
+      "sha256": "423514fc7151bdd30e938932fad5917a13bc81ef90cbdd0fb60ad0b4ef14a2d0"
     },
     {
-      "file": "trim-orm.png",
-      "sha256": "2b143c72ee64783e6be9203217040643bccba654fd06d59e7590d42d28a93781"
+      "file": "cloth-orm.png",
+      "sha256": "59214f4b1b700333e16960f77685f5a5df34e2fb067a615b5377e5595a9d4073"
     },
     {
-      "file": "wall-albedo.png",
-      "sha256": "a42a6d4665af08cd659cc1bbf5c92a03b94301de3f143bde736de1b6594bfd88"
+      "file": "wood-albedo.png",
+      "sha256": "d0c619f9d8754d02c292febe064b8a7291695f9e571a8f5bde446d4caf21f23c"
     },
     {
-      "file": "wall-normal.png",
-      "sha256": "a350c72eee3447f26b8070e11f4ee259531fa8c4a89c42ce83d25bfd4fb0a84d"
+      "file": "wood-normal.png",
+      "sha256": "5ef313ce7689ea683482cdbdbf9e72dc98051f63b1c69c3417acbcb4a422a731"
     },
     {
-      "file": "wall-orm.png",
-      "sha256": "989b240d59a80bcbf1639253868f326982f47637a895e09eac880ab979163185"
+      "file": "wood-orm.png",
+      "sha256": "f5ace4c7254096741620f21bb38b67b3a450a9b910fcfa6aad852e59061f7b12"
     }
   ]
 }

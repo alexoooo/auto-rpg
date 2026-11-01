@@ -262,6 +262,9 @@ how large anything is drawn.
 ([the crypt's art](../art/crypt.md#the-rootbound-crypt)): 42 degrees up, at a bearing of 135
 degrees, zoom 6.5.
 
+Random Crypt opens at zoom 5.2, with the camera target 2.8 m to screen-left of the hero
+(`framing`, `src/dungeon/main.ts`), keeping the hall and its torchlit wall in view.
+
 ## Crypt light
 
 `DUNGEON_LOOK` (`src/dungeon/lighting.ts`), what `lightDungeon` gives a generated level:
@@ -280,9 +283,9 @@ degrees, zoom 6.5.
 `REFERENCE_LIGHT`, the reference chamber's own: a fill of 0.30 in `#9aaecf`, the reflected image at
 0.58, and a lantern of strength 5 in `#dce5f5`.
 
-`CRYPT_LIGHT`, the Random Crypt's: a fill of 0.22 in `#839dc7`, reflected image at 0.42,
-and a lantern of strength 4.5 in `#d7c3a4`. The guard hall's torches are amber (`#ff943f`),
-with point strength 10 and shadow spot strength 200 (`CRYPT_ROOM_LOOK`). These are visual
+`CRYPT_LIGHT`, the Random Crypt's: a fill of 0.55 in `#819dc9`, reflected image at 0.85,
+and a lantern of strength 3.5 in `#c8d9f5`. The guard hall's torches are amber (`#ff8f32`),
+with point strength 60 and shadow spot strength 260 (`CRYPT_ROOM_LOOK`). These are visual
 settings chosen toward the owner's wet stone and torchlit guard hall reference.
 
 `REFERENCE_TORCHES` (`src/dungeon/reference.ts`), the chamber's two torches: one on the wall cell
@@ -338,7 +341,7 @@ cut, and a torch whose rock cell lies beyond one is hidden with its wall.
 
 `REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and (13.5, 8.2),
 m. The Random Crypt's is wet under the guard hall's torches and those of its damp chambers
-(`CRYPT_TORCH`), with irregular patches of half-extents 2.3 by 1.65 m, a wet roughness of 0.16
+(`CRYPT_TORCH`), with irregular patches of half-extents 3.8 by 2.7 m, a wet roughness of 0.16
 and albedo multiplier 0.64 (`CryptDamp`).
 
 A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced (`shadowMapSize`;
@@ -386,8 +389,10 @@ bands at 0.55 m and 1.85 m up, 0.12 m high, 0.28 m deep and 2.9 m wide; and a ri
 0.55 m to one side of the middle and 1.2 m up, 0.18 m across and 0.03 m thick.
 
 `SCONCE`: nothing of it stands more than 0.08 m off the wall; its plate is 0.20 m by 0.44 m by
-0.02 m, centred 1.82 m up. Its shallow iron basket is centred 1.94 m up, with two oval rims,
-five bars and two plate rivets.
+0.02 m, centred 1.82 m up. Its iron basket is centred 1.84 m up, 0.50 m wide and 0.42 m high,
+with two oval rims, five bars and two plate rivets. The flame quad's centre stands 0.20 m above
+its anchor (`DUNGEON_LOOK.flameLift`), exposing the cage beneath the fire. A recessed fitting
+moves down by the difference between its flame anchor and `DRESSING.torchHeight`.
 
 ## Crypt dressing
 
@@ -503,8 +508,8 @@ of its own, one draw against each of these odds where a chamber's kind gives non
 | Field | Value |
 |---|---|
 | `largeSlab` | outside every chamber, a cell's paving is first tried as a large slab below a draw of 0.3 |
-| `brokenSlab` | not a large slab, it is tried as a broken slab below 0.63 and a long one above |
-| `fractured` | a slab that does not fit gives way to one cell: a fractured slab at 0.4, else one of the plain pavings |
+| `brokenSlab` | of paving not tried as a large slab, 0.12 is tried as broken, the rest long |
+| `fractured` | a slab that does not fit gives way to one cell: a fractured slab at 0.12, else one of the plain pavings |
 | `dampScatter` | scatter on a floor cell of a damp chamber, 0.18 |
 | `corridorNiche` | a niche in a run of three straight wall cells outside every chamber, 0.12 |
 | `panel` | a wall cell with no pier takes a panel at 0.55, else a repair |
@@ -526,10 +531,11 @@ of its own, one draw against each of these odds where a chamber's kind gives non
 
 | Field | Value |
 |---|---|
-| `count` | 2 torches a chamber, on its -x and +z walls, nearest its middle |
+| `count` | 2 torches a chamber, on its -x and +z walls, preferring niches, clear of banners |
 | `spacing` | the two stand no nearer than 0.65 of the chamber's shorter side |
 | `alongX` | of two wall cells as far from the middle, the one on the wall along z is taken first: the other counts as 0.1 cell farther |
 | `flameOut`, `height` | the flame stands 0.65 m out from its rock cell's centre, 2.05 m up; the light a whole cell out at the same height |
+| `nicheFlameOut`, `nicheHeight` | a recessed flame stands 0.15 m before its rock cell's centre, 1.55 m up, visible beneath the arch; its basket mounts 0.15 m behind it, clearing the tablet |
 | `dampOut` | the damp under a torch of a damp chamber lies 1.4 m beyond its light |
 
 ## Workshop

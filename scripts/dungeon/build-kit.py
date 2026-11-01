@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from crypt_geometry import *
+import crypt_geometry as kit
+from crypt_stone import block, slab, arch_stone
 
 OUT=ROOT/'assets/art/environment/crypt-kit'; SOURCE=ROOT/'assets/crypt-kit'
 OUT.mkdir(parents=True,exist_ok=True); SOURCE.mkdir(parents=True,exist_ok=True)
@@ -17,12 +19,8 @@ plain_box=box
 def box(name,p,sz,mat='wall',bevel=.025,turn=0,shade=None):
     if mat in ['wall','trim'] and bevel:
         bevel*=stone_rng.uniform(.7,1.65)
+        return block(name,p,sz,mat,bevel,turn,shade,kit,stone_rng)
     o=plain_box(name,p,sz,mat,bevel,turn,shade)
-    if mat in ['wall','trim'] and bevel:
-        for v in o.data.vertices:
-            for axis in range(3):
-                # Erode corners rather than pushing stone beyond its footprint.
-                v.co[axis]*=stone_rng.uniform(.976,1)
     if mat=='wood':
         # Grain follows the long axis of each individual timber, including uprights.
         long=max(range(3),key=lambda axis:sz[axis])
@@ -36,6 +34,18 @@ def box(name,p,sz,mat='wall',bevel=.025,turn=0,shade=None):
                 coords=(v.x,v.z,v.y)
                 o.data.uv_layers.active.data[li].uv=(coords[across]*.9,coords[along]*.28)
     return o
+
+# The shared arch helper uses the kit's fractured stones for its piers and mouldings.
+kit.box=box
+plain_mesh=kit.mesh_object
+def kit_mesh(name,verts,faces,mat,shade=None):
+    if name in ['arch.voussoir','header']:
+        return arch_stone(name,verts,faces,mat,shade,kit,stone_rng)
+    return plain_mesh(name,verts,faces,mat,shade)
+kit.mesh_object=kit_mesh
+
+def flagstone(x0,x1,z0,z1):
+    slab([(x0+.008,z0+.008),(x1-.008,z0+.008),(x1-.008,z1-.008),(x0+.008,z1-.008)],kit,stone_rng)
 def module(name,build):
     before=set(bpy.context.scene.objects); build()
     modules[name]=[o for o in bpy.context.scene.objects if o not in before]
@@ -44,7 +54,7 @@ def wall():
     box('core',(0,1.37,-.2),(1,2.74,.55),'wall',0,shade=.62)
     for k in range(8):
         for x,w in ([(-.25,.48),(.25,.48)] if k%2==0 else [(-.375,.23),(0,.48),(.375,.23)]):
-            box('course',(x,.175+k*.34,.25),(w,.32,.3),'wall',.025)
+            box('course',(x,.175+k*.34,.23+stone_rng.uniform(-.018,.018)),(w,.32,.3),'wall',.04)
     coping(1)
 def coping(width):
     box('footing',(0,.065,0),(width,.13,.98),'trim',.018)
@@ -52,7 +62,7 @@ def coping(width):
     for i in range(round(width*2)):
         x=-width/2+.25+i*.5
         box('cap',(x,2.73,0),(.49,.09,.98),'trim',.022)
-        box('crown',(x,2.807,0),(.48,.095,.97),'trim',.035)
+        box('crown',(x,2.79+stone_rng.uniform(-.012,.012),0),(.48,.12,.97),'trim',.035)
 def niche():
     box('back',(0,1.37,-.34),(3,2.74,.3),'wall',0,shade=.62)
     for k in range(8):
@@ -69,7 +79,7 @@ def portal():
         x0=-1.5+i*3/11+.006;x1=-1.5+(i+1)*3/11-.006
         def rise(x):return 2.51+.17*(1-(x/1.5)**2)
         v=[(x,y,z) for z in [-.45,.45] for x,y in [(x0,rise(x0)),(x1,rise(x1)),(x1,2.86),(x0,2.86)]]
-        mesh_object('header',v,[(0,3,2,1),(4,5,6,7),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7)],'trim')
+        kit_mesh('header',v,[(0,3,2,1),(4,5,6,7),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7)],'trim')
 def roots():
     for j in range(3):
         x=(j-1)*.15
@@ -185,20 +195,24 @@ def paving_span(width,depth,broken=False):
             if len(poly)<3:continue
             px=sum(v[0] for v in poly)/len(poly);pz=sum(v[1] for v in poly)/len(poly)
             poly=[(px+(x-px)*.976,pz+(z-pz)*.976) for x,z in poly]
-            top=rng.uniform(-.009,.008);n=len(poly)
-            verts=[(x,-.028,z) for x,z in poly]+[(x,top-.009,z) for x,z in poly]+[(px+(x-px)*.975,top,pz+(z-pz)*.975) for x,z in poly]
-            faces=[tuple(reversed(range(n))),tuple(range(2*n,3*n))]
-            for ring in [0,n]:faces += [(ring+i,ring+(i+1)%n,ring+(i+1)%n+n,ring+i+n) for i in range(n)]
-            mesh_object('broken.slab',verts,faces,'floor',rng.uniform(.56,.95))
+            slab(poly,kit,stone_rng,rng.uniform(.65,1))
 
     else:
-        rows=[-depth/2,depth/2] if depth==1 else [-depth/2,-.27,.36,depth/2]
+        rows=[-depth/2]
+        while rows[-1]<depth/2-.01:
+            end=min(depth/2,rows[-1]+stone_rng.uniform(.42,.65))
+            if depth/2-end<.20:end=depth/2
+            rows.append(end)
         for z0,z1 in zip(rows,rows[1:]):
-            cuts=[-width/2,width/2] if rng.random()<.5 else [-width/2,rng.uniform(-.3,.3),width/2]
+            cuts=[-width/2]
+            while cuts[-1]<width/2-.01:
+                end=min(width/2,cuts[-1]+stone_rng.uniform(.48,.88))
+                if width/2-end<.20:end=width/2
+                cuts.append(end)
             for x0,x1 in zip(cuts,cuts[1:]):
                 before=set(bpy.context.scene.objects);flagstone(x0,x1,z0,z1)
                 # Subtle offsets affect only appearance, never the shared flat floor.
-                lift=rng.uniform(-.008,.004)
+                lift=rng.uniform(-.001,.001)
                 for o in set(bpy.context.scene.objects)-before:o.location.z+=lift
 
 def floor_roots():
