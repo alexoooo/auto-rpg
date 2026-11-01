@@ -18,9 +18,12 @@ await loadData(DATA_KEYS);
 // What each seat's thread last sent of its kit and its gait, which cross only when they change.
 const sent = new Map<number, { kit: ReportNow["kit"]; gait: ReportNow["gait"]; outbound: Float64Array }>();
 
+/** How a minds' thread waits for the world, ms: spinning longer than a step, so it is awake for the next step's asks, then sleeping for as long as the world pauses. */
+const WAITING = Object.freeze({ spin: 12, timeout: Infinity });
+
 /** The next batch, once posted: a message the world posts before it counts it. */
 function next(seq: number): Batch {
-  waitPast(control, POSTED, seq - 1, Infinity);
+  waitPast(control, POSTED, seq - 1, WAITING);
   for (;;) {
     const got = receiveMessageOnPort(port);
     if (got) return got.message as Batch;

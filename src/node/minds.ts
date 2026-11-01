@@ -4,8 +4,12 @@ import type { MirrorChannel } from "../core/mind/mirror.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
 import { DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Carried, type Reply } from "./wire.ts";
 
-/** How long the world waits on a minds' thread before it calls it stopped, ms: far beyond any step's thinking. */
-const PATIENCE = 120_000;
+/**
+ * How the world waits on a minds' thread, ms: spinning `spin` first, about a step, since it has
+ * nothing else to do and a mind's answer comes within it, and calling the thread stopped after
+ * `timeout`, far beyond any step's thinking.
+ */
+const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
 
 /** One minds' thread as the world holds it: the thread, its port and counters, the asks not yet sent and whose they are, the batches posted. */
 interface Thread {
@@ -64,7 +68,7 @@ export function mindWorkers(threads: number): MindPlace {
   const join = (held: Held) => {
     const { thread } = held;
     if (held.queued) flush(thread);
-    waitPast(thread.control, DONE, held.sent - 1, PATIENCE);
+    waitPast(thread.control, DONE, held.sent - 1, WAITING);
     for (let got = receiveMessageOnPort(thread.port); got; got = receiveMessageOnPort(thread.port)) {
       const reply = got.message as Reply;
       if (reply.error) throw new Error(`a mind apart failed: ${reply.error}`);

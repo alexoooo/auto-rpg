@@ -47,17 +47,13 @@ export interface Reply { readonly seq: number; readonly said: readonly Said[]; r
 /** The clock of an ask, where it has one. */
 export const atOf = (ask: SeatAsk): At | null => ask.kind === "dispose" ? null : ask.at;
 
-/** How long a thread waiting on the other spins before it sleeps, ms. */
-const SPIN_MS = 0.2;
-
 /**
- * Wait until `control[index]` is past `was`: spinning `SPIN_MS` first, since the other side mostly
- * answers within it, then sleeping until notified; a thread that does not answer in `timeout` ms is
- * a defect.
+ * Wait until `control[index]` is past `was`: spinning up to `spin` ms first, then sleeping until
+ * notified; a thread that does not answer in `timeout` ms is a defect.
  */
-export function waitPast(control: Int32Array, index: number, was: number, timeout: number): void {
+export function waitPast(control: Int32Array, index: number, was: number, { spin, timeout }: { readonly spin: number; readonly timeout: number }): void {
   if (Atomics.load(control, index) > was) return;
-  const until = performance.now() + SPIN_MS;
+  const until = performance.now() + spin;
   while (performance.now() < until) if (Atomics.load(control, index) > was) return;
   const deadline = performance.now() + timeout;
   for (let now = Atomics.load(control, index); now <= was; now = Atomics.load(control, index)) {

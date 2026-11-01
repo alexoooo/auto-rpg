@@ -559,8 +559,8 @@ In Node, `mindWorkers(threads)` (`src/node/minds.ts`) is the place: worker threa
 (`src/node/mind-worker.ts`) that load the minds' data, the seats dealt to them in turn. The
 channels' numbers are shared memory (`SHARED_NUMBERS`); the asks go by message on a port, an ask
 to observe batched with the others made after physics, every other at once, and two shared
-counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins briefly, then
-sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
+counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins about a step,
+then sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
 (`BoutOptions.minds`, `DungeonRunOptions.minds`); offline work, the tests and the pages keep their
 minds on their bodies.
 
