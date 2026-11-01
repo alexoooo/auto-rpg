@@ -205,9 +205,61 @@ the stand-up target):
   (0.285 m), the halt 0.88 m/s.
 - **No reflex, with the touch rule**: the face, the footing and the halt fail.
 
-What is left: the halt. After its last step lands, the stance brakes in double support as at none;
-at one step the trailing sole rises off the ground meanwhile (beyond the stance's `DOWN`), the
-capture point is then outside the one sole held, and a recovery step is taken, then another. A
-forecast that knows a pressed sole's constraint (the body's dynamics with its contacts, under the
-torques sent) is the next candidate, beside the ground techniques' settle that the stand-up's lost
-falls point to.
+**The halt and the steadying**, at one step, the touch rule in (Node, the core world, Rapier,
+120 Hz, at 220b67c8). The halt over the six moments, m/s at 0.6 s and at 1.2 s; the Rogue's 32
+target falls through `research/rise-trace.mjs`, the steadying after a rise done, failed or timed
+out, and the falls stood:
+
+| Variant | The halt at 0.6 s | at 1.2 s | Steadyings done / failed / timed out | Rogue stood |
+| --- | --- | --- | --- | --- |
+| none, for reference | 0.07, 0.09, 0.05, 0.08, 0.17, 0.24 | 0.02 to 0.14 | 25 / 8 / 0 | 23 |
+| as used | 0.33, 0.11, 0.70, 0.78, 0.98, 0.06 | 0.14 to 1.09 | 13 / 0 / 15 | 21 |
+| a halted walk's step kept where the body needs it to stop | 0.20, 0.10, 0.41, 0.35, 0.19, 0.54 | 0.02 to 0.12 | | |
+| the walk's alternation ended when the halt drops its step | 0.36, 0.16, 1.00, 0.70, 0.43, 0.03 | 0.01 to 0.44 | | |
+| the alternation kept when the halt drops its step | 0.14, 0.14, 0.31, 0.30, 0.32, 0.74 | 0.10 to 0.64 | | |
+| a rolled foot kept rolled while the plan's capture point is past its end | 0.21, 0.05, 0.42, 0.31, 0.19, 0.06 | 0.04 to 0.30 | | |
+| no stepping out of the nearer foot | 0.08, 0.06, 0.36, 0.26, 0.18, 0.21 | 0.01 to 0.06 | | |
+| the nearer steps out only from a far foot the ground pushed (`StanceReading.touching`) | 0.33, 0.11, 0.36, 0.26, 0.18, 0.06 | 0.03 to 0.30 | | |
+| the forecast's body moved whole so its pressed points keep their motion | 0.14, 0.27, 0.23, 0.17, 0.10, 1.01 | 0.08 to 1.22 | | |
+| the same, and turned whole so their segments keep their spin | 0.05, 0.14, 1.10, 1.06, 0.98, 0.76 | 0.10 to 3.33 | | |
+| the forecast's centre kept going as it was (momentum) | 0.51, 0.46, 0.42, 0.60, 0.86, 0.04 | 0.04 to 0.94 | | |
+| the forecast's root carried by the plan's root acceleration (`ask.root`) | 0.23, 0.10, 0.27, 1.32, 0.12, 0.10 | one fell | | |
+| each late torque the mean of its command and the last | 0.10, 0.05, 1.07, 0.88, 0.72, 0.04 | 0.02 to 0.17 | 8 / 0 / 18 | 21 |
+| no forecast | 0.07, 0.09, 0.04, 0.50, 0.57, 0.45 | one fell | 11 / 3 / 14 | 21 |
+| no reflex | 0.23, 0.05, 0.23, 0.50, 0.35, 0.14 | 0.03 to 0.85 | 17 / 2 / 12 | 22 |
+| the root's spin weighed 1e-5 under the wrench (`WEIGHT.spin`) | | | 7 / 3 / 18 | 20 |
+| the same at 1e-4 | | | 7 / 3 / 21 | 23 |
+| the reflex's share 0.1 | | | 14 / 1 / 12 | 24 |
+| the reflex's share 0.2 | | | 14 / 2 / 13 | 22 |
+| the forecast and the reflex on the ground too | | | 19 / 4 / 8 | 19 |
+
+The steadying column, and the rows from the plan's root acceleration down, were read with the
+far-foot rule (the eighth row) in as well. The nearer foot stepping out only from a loaded far
+foot ends the walking on (each halt stops by
+1.2 s) but not the late stop at 0.6 s. It moves the stand-up at none by one fall each way: 55 of
+64 for 56 at the standard falls, 48 for 49 at the fresh. So it is not kept. Of the rest, no row
+holds the six halts at 0.6 s nearer none's, and none is near none's steadying.
+
+**Why the halt walks on.** In all six starts the halt meets the walk planning its next step in
+double support. The halt drops that step; in the same pass the stance plans it again, because the
+capture point is outside, and with the other foot. Its pre-swing rolls the loaded front foot
+onto its toes, and the halt drops that step too (at none as well). Rolled, the front foot bears on
+its front edge (`bearingOf`). At none its heel rises as the body brakes over it, and it stays
+rolled until the body has stopped. At one step its ankle holds near 0.23 rad and the heel stays
+down. The foot unrolls 0.09 s later, its held region falls back to what the ankle holds flat, and
+the capture point is 0.056 m outside it. A recovery step follows: the nearer, loaded foot steps
+out from the unloaded far one (`recoveryStep`), and the body speeds up over the swing, from
+0.38 to 0.73 m/s. Without the forecast, three of the six halts stop as at none.
+
+**Why the stand-up falls after rising.** The Rogue's losses at one step are in the steadying after
+a rise (`stanceSteady`): 15 of its 28 time out at 3 s, against none of 33 at none. The falls stood
+rise to standing more often before their last time (83 times against 17 at none, all 64 falls,
+the far-foot rule in), and the falls not stood spend 81 s standing against 17. Through a timed-out steadying the pelvis
+spins 4 rad/s on average, against 1.9 in a steadying done at none. It comes in bursts of a few
+tenths of a second that grow out of a small alternation step by step: the same period-two swing
+as the walk's. Most of it is in the lumbar, thoracic, hip and neck flexion, and the wrists
+(second difference 18 to 29 rad/s^2 rms, against 2 to 8 at none, there mostly the ankles). The
+Warrior and the Rogue stood on the core stand, lowered by up to 0.45 m, do not chatter (pelvis
+0.02 rad/s). No variant above brings the steadying near none's, the forecast off and the reflex
+off included. Next to try:
+the steadying's start, where hands and knees leave the ground and the forecast begins.
