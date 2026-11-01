@@ -1683,8 +1683,11 @@ may route through a door first (`door-approach.ts`). Sight is the map's (`canSee
 `SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
 `src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).
 
-**The Lab.** Stance, Stand-up, Attack, Locomotion and Reach scenarios at 120 or 480 Hz. Reach
-(`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
+**The Lab.** Stance, Stand-up, Attack, Locomotion and Reach scenarios at 120 or 480 Hz. Opening
+warms the scene under the shell's loading overlay. Configuration changes restart the simulation
+in the existing scene, reusing its loaded character art and lighting without the overlay or
+another scene warm-up; physics waits for any new mind data or skin while the view keeps rendering.
+Reach (`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
 Walker (`LAB_WALKER`) unless the address names another, and the place its objective names is marked.
 Every other scenario plays a mind that takes its script, or one that carries out orders (`treeObeys`),
 the Option Mind among them: the scenario's own orders, or its script made orders each step, a

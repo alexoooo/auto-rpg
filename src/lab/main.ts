@@ -178,7 +178,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     heardTo: number;
   }
   let current: Loaded | null = null;
-  let skinReady: Promise<void> = Promise.resolve(), loading = false, firstFrame = true;
+  let skinReady: Promise<void> = Promise.resolve(), loading = false, firstFrame = true, loadRevision = 0;
   const loadError = document.createElement("p"); loadError.className = "alert"; loadError.hidden = true; loadError.setAttribute("role", "alert");
   need("sections").append(loadError);
   let shown: LabAddress = address;
@@ -311,25 +311,25 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
 
   async function prepare(to: LabAddress): Promise<void> {
-    if (disposed || loading) return;
+    if (disposed) return;
+    const revision = ++loadRevision;
     loading = true; loadError.hidden = true;
     try {
-      await context.loading("Preparing the scenario", async stage => {
-        await loadData(dataAt(to));
-        context.signal.throwIfAborted();
-        loadWorld(to);
-        await skinReady;
-        context.signal.throwIfAborted();
-        await stage("Preparing lighting");
-        await warmScene(scene, context.signal);
-        firstFrame = true;
-      });
-    } finally { loading = false; }
+      await loadData(dataAt(to));
+      context.signal.throwIfAborted();
+      if (revision !== loadRevision) return;
+      loadWorld(to);
+      await skinReady;
+      context.signal.throwIfAborted();
+    } finally {
+      if (revision === loadRevision) { loading = false; firstFrame = true; }
+    }
   }
 
   function load(to: LabAddress): void {
+    const revision = loadRevision + 1;
     void prepare(to).catch(error => {
-      if (disposed) return;
+      if (disposed || revision !== loadRevision) return;
       loadError.hidden = false; loadError.textContent = `Could not load scenario: ${String(error)}`;
     });
   }
@@ -378,8 +378,12 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   physicsEngine = await loadEngine();
   context.signal.throwIfAborted();
   await prepare(shown);
+  // The shell covers the opening scene. Later edits reuse its art and lighting and only restart the run.
+  await warmScene(scene, context.signal);
   engine.runRenderLoop(() => {
     if (context.busy) { firstFrame = true; return; }
+    // Keep the view responsive while new mind data or a different skin loads, without stepping the run.
+    if (loading) { firstFrame = true; scene.render(); return; }
     const seconds = firstFrame ? 0 : engine.getDeltaTime(); firstFrame = false;
     current?.run.drive(held);
     current?.run.player.tick(seconds * transport.speed(), performance.now() + SEEK_BUDGET_MS);
