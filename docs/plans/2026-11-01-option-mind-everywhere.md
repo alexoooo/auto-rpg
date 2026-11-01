@@ -121,6 +121,10 @@ cell's drill link at the version read, or the reference section that says why it
 plays only the cells a change touches and reuses the rows it keeps. A skill has a cell where its
 loadout leaves it the limb it uses.
 
+A loadout is a record of slots, not a list of the five: today the two hands (`Loadout`,
+`src/core/items/held.ts`), so that worn slots (helmet, boots, legs, body, arms, hands) join the
+table's loadout axis later without reshaping it.
+
 Then its first pass under the delay: each trained network fine-tuned from its own weights, each
 searched schedule read again. Check: the table before step 2 and after; every cell as good as
 before step 2, or its fine-tune named.
@@ -174,6 +178,11 @@ points in proportion to the depth over the part's thickness, all of them for a p
   its tip to its base), so any pointed item or body states it.
 - `thickness` is the struck part's least width, derived from its collider in the spec.
 - A point never takes a part off, and its wound does not walk to the attached parts.
+- **The rule reads the layers between the point and the part**, the skin the only one today,
+  each stating the energy it takes to breach for each mechanism: the breach is their sum, and a
+  point that does not breach a layer meets from there as blunt. Worn armour is then more layers,
+  with no change to the rule's shape (`energyShares` already takes every layer between two
+  bodies).
 
 The bite keeps its press (`pointLoad`); blunt, the edge and the axe keep their prices. Check: the
 gate; the fingerprint, the moved cases named; a table of the cut and the thrust as measured,
