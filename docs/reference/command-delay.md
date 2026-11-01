@@ -258,7 +258,9 @@ above):
 | the reflex kept where only the body's own segments are near | 0.30, 0.30, 0.15, 0.19, 0.23, 0.88 | 0.38 to 3.88, one fell | the kneel and the pose fail; the Rogue stood 19 |
 | the forecast stopped only by a contact that pushes | 0.78, 0.42, 0.90, 0.93, 0.55, 0.03 | 0.30 to 6.2, one fell | the kneel fails; the Rogue's crouch chatters 10 rad/s rms |
 | the same, any of the world's contacts still stopping it | the same | the same | the Rogue's probes all met |
-| a contact between its own segments stopping only the joint above the farther one | 0.20, 0.32, 0.58, 2.21, 0.71, 0.03 | 0.13 to 0.78 | the kneel fails (0.556 m) |
+| a contact between its own segments stopping only the joint above the farther one | 0.20, 0.32, 0.58, 2.21, 0.71, 0.03 | 0.13 to 0.78 | the kneel fails (0.556 m); 39 of 64 stood, 22.7 s |
+| the reflex kept at the pelvis's joints (lumbar, hips) where the forecast is off | 0.25, 0.50, 0.46, 0.35, 0.23, 1.46 | 0.03 to 0.18 | the pose fails (0.658 rad); the Rogue's crouch quiet (0.01 rad/s rms); 50 of 64 stood, 15.0 s |
+| the same at the hips alone | 0.61, 0.75, 0.44, 0.29, 0.36, 0.05 | 0.14 to 1.42 | the pose fails (0.613 rad) |
 | the reflex toward the change of speed planned, from the body as the command is applied | 0.11, 0.24, 0.27, 0.43, 0.85, 0.36 | 0.18 to 1.15 | the pose fails |
 | the same only off its legs, the reflex kept there | 0.49, 0.52, 0.98, 0.62, 0.32, 0.28 | 0.15 to 1.15 | the kneel and the pose fail; on the Rogue the height, the centre and the pose |
 | the forecast's channels left as they were where they move unlike the command expected, its own contacts not stopping it | | | the kneel, the pose and the halt fail |
