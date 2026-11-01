@@ -98,6 +98,13 @@ fingerprint case.
    way. The body's dynamics are updated in the mirror, which is the only reader. Check: a bout
    with every mind on its mirror is the same bout, step for step, as with every mind on its body
    (a test, whole records, in the Mind contract); no fingerprint case moves.
+   The mirror carries the body in and the command out (`mirrorBody`, `src/core/mind/mirror.ts`).
+   What is read of a mind from outside, and what it reads but its body, still reach it directly,
+   and go by the channel in step 4: its report and its menu (asked for by a page or a Commander,
+   computed in the mind's thread), its orders (`MindWiring.orders`), its clock (`BodyHost.clock`),
+   its contact labels (`OwnBody.contactIdentity`, a function of the fight's), its idling
+   (`Mind.idle`, called as its level leaves `full`), its saved state, and the command layers' view
+   a page reads (`Mind.body`).
 4. **Minds in workers, on Node.** The world starts its mind workers (`worker_threads`, one
    `SharedArrayBuffer` each way, `Atomics` to wait: spinning briefly, then sleeping); each worker
    loads the minds' data and makes its bodies' minds, the Crypt's as it builds them ahead

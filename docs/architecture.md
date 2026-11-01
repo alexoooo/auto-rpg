@@ -525,6 +525,21 @@ the muscles read the joints.
 - That is all a mind does to the world. Camera state never reaches it; nothing else under `src/`
   drives muscles. Its memory is its `state` (`Mind.state`), saved with its body ([State](#state)).
 
+**The mirror.** In a world made `mirrored` (`World.mirrored`), each mind is made with its body's
+mirror (`mirrorBody`, `src/core/mind/mirror.ts`) in place of the body: the same `OwnBody`, made from
+the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refreshed from one body's
+numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) wherever the mind could
+read: before the mind steps, and as each completed physics interval is observed. They hold the
+clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
+read them; the muscles' command, ceilings, delivered torque and bounds; the assist's; the senses';
+and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
+then does not, `driveMuscles`'s `dynamics`). What the mind asks goes back as numbers
+(`MirrorChannel.outbound`: the command, the assist's ask, the hands' requests), and what it meets
+for the first time (a contact's other body, a sensed body or object, the senses' side) is told it
+once, in order (`MirrorChannel.told`). A bout on mirrors is the bout on bodies, step for step
+(`tests/mind-contract.test.mjs`). What is read of a mind from outside (its report and menu, its
+orders, its clock, its contact labels, its idling, its saved state) still reaches it directly.
+
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
 latest (`ends`: a bout's cap or its drain's end, `EndRule.drainedBy`; absent where no clock ends

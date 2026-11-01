@@ -86,8 +86,8 @@ export interface BodyHost {
  * drive as a `HostedBody` does.
  */
 export function hostBody<M extends Mind>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
-  const { own, mind, state, dispose } = embody(built, world, make, given);
-  const body = physicalBody(built, own, world, () => mind.has ?? mind.name, state, dispose), driver = mind.body;
+  const { held, mind, state, dispose } = embody(built, world, make, given);
+  const body = physicalBody(built, held, world, () => mind.has ?? mind.name, state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
 }
 

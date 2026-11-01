@@ -423,7 +423,7 @@ const MIND_FOLDERS = ["src/core/mind/", "src/core/intent/", "src/core/navigation
 const MIND_ADAPTERS = new Set([
   "src/core/mind/mind.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
   "src/core/mind/object-senses.ts", "src/core/mind/minds.ts",
-  "src/core/mind/body-actions.ts", "src/core/mind/sheets.ts", "src/core/control/assist.ts",
+  "src/core/mind/body-actions.ts", "src/core/mind/sheets.ts", "src/core/mind/mirror.ts", "src/core/control/assist.ts",
 ]);
 
 /** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */

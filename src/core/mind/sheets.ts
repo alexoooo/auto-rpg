@@ -66,5 +66,5 @@ export function replayedBody(built: BuiltBody, world: World, log: SheetLog, gran
     if (sheet.hands.length > 0) own.requestHandPoses(sheet.hands);
     state.steps++;
   } }), { senses, assist: grants.assist });
-  return physicalBody(built, embodied.own, world, () => "replay", embodied.state, embodied.dispose);
+  return physicalBody(built, embodied.held, world, () => "replay", embodied.state, embodied.dispose);
 }

@@ -43,6 +43,12 @@ export interface World {
   readonly actuation: "symmetric" | "directional";
   /** The steps a body's command waits before it is applied (`COMMAND_DELAY`): a whole number, 0 or more. */
   readonly delay: number;
+  /**
+   * Whether each body's mind reads its body from a mirror (`mirrorBody`, `src/core/mind/mirror.ts`),
+   * refreshed from the numbers the world writes, rather than from the body itself. A bout is the same
+   * either way, step for step.
+   */
+  readonly mirrored: boolean;
   /** Steps taken since the world was made. */
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
@@ -87,10 +93,12 @@ interface WorldOptions {
   readonly actuation?: World["actuation"];
   /** The command's delay, steps; the game's (`COMMAND_DELAY`) unless a study asks for another. */
   readonly delay?: number;
+  /** Each body's mind on its mirror (`World.mirrored`); on its body unless given. */
+  readonly mirrored?: true;
 }
 
 /** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value }: WorldOptions = {}): World {
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, mirrored = undefined }: WorldOptions = {}): World {
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   if (!(Number.isInteger(delay) && delay >= 0)) throw new Error(`a command's delay is a whole number of steps, not ${String(delay)}`);
   const physics = engine.createPhysics({ hz, gravity });
@@ -110,7 +118,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, delay, state,
+    scene, physics, hz, dt, delay, state, mirrored: mirrored === true,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },

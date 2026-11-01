@@ -7,7 +7,7 @@ import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import type { Hook, World } from "../world.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
-import type { BuiltDof, JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
+import type { BuiltDof, JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { delayLine } from "../command-delay.ts";
 
 /**
@@ -162,6 +162,27 @@ export interface MuscleDriver {
   dispose(): void;
 }
 
+/** **Each freedom of `read`'s joints as a muscle channel** (`MuscleChannel`), in its joints' order and each joint's freedoms': the driver's and its mirror's alike. */
+export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] {
+  return [...read.joints.values()].flatMap((joint) => joint.dofs.map((dof, index) => {
+    const muscle = dof.spec.muscle;
+    return {
+      name: channelName(joint, index), joint, index, dof,
+      positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
+      negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
+    };
+  }));
+}
+
+/** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`). */
+export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number): number {
+  const side = sense > 0 ? channel.positive : channel.negative;
+  return side.peak * forceVelocityFactor(sense * speed, side.curve);
+}
+
+/** What a driver is made with beside its body and world: whether it reads the body's dynamics for its mind (`MuscleDriver.dynamics`), as it does unless told its mind reads them elsewhere. */
+interface DrivingOptions { readonly dynamics?: false }
+
 /** Called every world step, before the driver sends the command and applies the one sent the world's delay ago; `dt` is the step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
@@ -169,23 +190,17 @@ export type MuscleController = (driver: MuscleDriver, dt: number) => void;
  * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the
  * body is at `full`. `idle` is called as it leaves `full`, before its motors are zeroed.
  */
-export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void): MuscleDriver {
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void, { dynamics: reading = undefined }: DrivingOptions = {}): MuscleDriver {
   // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
   const read = readView(built);
   const trackers: JointTracker[] = [];
-  const channels: MuscleChannel[] = [];
+  const channels = muscleChannels(read);
   const motors: EngineJoint[] = [];
   const trackerOf: JointTracker[] = [];
-  for (const [name, joint] of built.joints) {
+  for (const joint of built.joints.values()) {
     const tracker = jointTracker(joint);
     trackers.push(tracker);
-    joint.dofs.forEach((dof, index) => {
-      const muscle = dof.spec.muscle;
-      channels.push({
-        name: channelName(joint, index), joint: read.joints.get(name)!, index, dof,
-        positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
-        negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
-      });
+    joint.dofs.forEach((_, index) => {
       motors.push(joint.joint);
       trackerOf.push(tracker);
       joint.joint.setMotor(index, 0, 0);
@@ -250,10 +265,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
       state.level = next;
     },
-    strength(i, sense) {
-      const c = channels[i]!, side = sense > 0 ? c.positive : c.negative;
-      return side.peak * forceVelocityFactor(sense * driver.speed(i), side.curve);
-    },
+    strength: (i, sense) => strengthAt(channels[i]!, sense, driver.speed(i)),
     channel(name) {
       const i = byName.get(name);
       if (i === undefined) throw new Error(`${built.spec.model} has no muscle channel "${name}"`);
@@ -271,7 +283,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     if (state.level !== "full") return;
     for (const { body, w } of spins) body.angularVelocityToRef(w);
     for (const tracker of trackers) tracker.update(angularVelocity);
-    dynamics.update(angles, motion);
+    if (reading !== false) dynamics.update(angles, motion);
     control?.(driver, dt);
     const slot = line.written();
     state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity);
