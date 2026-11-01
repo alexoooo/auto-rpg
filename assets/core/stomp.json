@@ -41,5 +41,48 @@
       "facing": 0.4,
       "admitSpeed": 0.5
     }
+  },
+  "workshop-rogue+toes": {
+    "made": "Searched on the workshop-rogue at a611afd4 (research/skill-search.mjs): CMA over contactSpeed, swingSeconds, lift, over, alongNear, alongFar, chamberSeconds from the Warrior's record, its lengths scaled by the body's stature, 11 generations of 16, on the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp) from 0.8, 1.2 m, 8 trials a candidate, 2743 s; on fresh trials from 0.9, 1, 1.1 m the search's best scored 6.137 (0 falls) and its start 0.742 (1 falls): the best is kept.",
+    "settings": {
+      "setupLimit": 8,
+      "lower": 0.05,
+      "lean": 0,
+      "transferLimit": 6,
+      "transferSeconds": 0.2,
+      "transferSlow": 0.12,
+      "lift": 0.5978,
+      "windup": 0,
+      "chamberSeconds": 0.7349,
+      "swingSeconds": 0.1917,
+      "returnSeconds": 0.6,
+      "contactSpeed": 6.4875,
+      "soleTurn": 0,
+      "prepareLimit": 4,
+      "returnLimit": 2,
+      "near": 0.04,
+      "returnNear": 0.092,
+      "hover": 0.08,
+      "slow": 0.3,
+      "hold": 0.05,
+      "followSeconds": 0.04,
+      "impactSeconds": 0.04,
+      "impactTravel": 0.04,
+      "normalAlignment": 0.5,
+      "response": 0.1,
+      "placeSeconds": 1,
+      "placeLimit": 6,
+      "placement": 0.02,
+      "placementSpeed": 0.1,
+      "rotationError": 0.001,
+      "recenterLimit": 4,
+      "over": 0.9906,
+      "top": 0.4,
+      "alongNear": 0.469,
+      "alongFar": 0.7537,
+      "across": 0.184,
+      "facing": 0.4,
+      "admitSpeed": 0.5
+    }
   }
 }
