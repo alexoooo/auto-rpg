@@ -28,7 +28,7 @@ import { clockSenses } from "../src/core/mind/senses.ts";
 import { carrying } from "../src/core/control/motor.ts";
 import { kitOf } from "../src/core/mind/kit.ts";
 import { partLookup } from "../src/entrants/game.ts";
-import { PUNCHER } from "../src/entrants/classic/presets.ts";
+import { OPTION_MIND } from "../src/core/option/mind.ts";
 import { STAND_CHECK } from "../src/lab/ground-mode.ts";
 import { crouchSteady, traceRow } from "./climb.mjs";
 import { standUp } from "../src/core/recovery/ground/stand-up.ts";
@@ -48,7 +48,7 @@ export async function foldRise({ model = "workshop-fighter", held = "empty", dep
   const start = STAND + FOLDING + HOLD;
   let control = null;
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
-    const kit = kitOf(partLookup, own.spec, PUNCHER), steadying = core ? gameSteady(own, view, clock, kit) : crouchSteady(own, view, variant);
+    const kit = kitOf(partLookup, own.spec, OPTION_MIND.defaults), steadying = core ? gameSteady(own, view, clock, kit) : crouchSteady(own, view, variant);
     const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the fold");
     const clamp = (name, v) => { const d = own.muscles.channels.find(c => c.name === name).dof.spec; return Math.max(d.min.value, Math.min(d.max.value, v)); };
     control = steadying.control;

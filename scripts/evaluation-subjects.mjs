@@ -29,7 +29,7 @@ function ablated(previous, ablations) {
   const slots = [];
   for (const ablation of ablations) {
     const at = ablation.indexOf("=");
-    if (at <= 0) throw new Error(`--ablate is <path>=<JSON>, the path a slot or setting of the mind's parts (subs.0, tactics.list.attack, actions.thrust): ${ablation}`);
+    if (at <= 0) throw new Error(`--ablate is <path>=<JSON>, the path a slot or setting of the mind's parts (options.0, guard, actions.thrust): ${ablation}`);
     const slot = ablation.slice(0, at);
     value = replacedAt(value, slot, JSON.parse(ablation.slice(at + 1)));
     slots.push(slot);

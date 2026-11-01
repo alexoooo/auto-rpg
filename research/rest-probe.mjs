@@ -1,7 +1,7 @@
 /**
  * How long a felled body takes to lie still, and what Rapier does with a limp body put to sleep.
  *
- * **Falls.** Each crypt model with the club, under the crypt's mind (`BLADE_FIGHTER`, with the assist
+ * **Falls.** Each crypt model with the club, under the crypt's mind (`defaultMind`, with the assist
  * its balance gives under the dungeon's rulebook) and orders to stand, alone on a ground: stood
  * 2 s, then shoved at its root's centre of mass by its whole weight for a quarter second toward
  * each of four bearings and let go limp (`Body.setLevel`) as it is found down, as the crypt lets
@@ -35,7 +35,6 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { centreOfToRef } from "../src/core/read-motion.ts";
-import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
@@ -43,7 +42,7 @@ import { driveBy } from "../src/core/mind/decider.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { rootSegment } from "../src/core/read-body.ts";
-import { GAME } from "../src/entrants/game.ts";
+import { GAME, defaultMind } from "../src/entrants/game.ts";
 
 const { values } = parseArgs({ options: { bodies: { type: "string", default: "8" } } });
 // Babylon greets every engine it makes on the console.
@@ -67,7 +66,7 @@ async function fall(model, shove) {
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
-  const { body } = createMind(GAME, built, world, BLADE_FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, actions: [] }) });
+  const { body } = createMind(GAME, built, world, defaultMind(model), { name: "probe", assist, orders: () => ({ move: null, face: null }) });
   const segments = [...built.segments.values()], root = rootSegment(built), at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];
   const push = shove && new Vector3(shove[1], 0, shove[2]).scaleInPlace(weight * world.dt);

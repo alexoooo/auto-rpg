@@ -18,7 +18,7 @@ import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefus
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
-import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
+import { OPTION_MIND } from "../src/core/option/mind.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -50,14 +50,14 @@ for (const [kind, controller] of Object.entries(CONTROLLERS)) if (!MINDS.some(([
 test("the game's catalog has no fault, and refuses an entrant's unscoped kind, a preset id twice and a preset of two entrants' kinds", () => {
   assert.deepEqual(GAME.faults, []);
   // The control: each planted defect is named, and the entry at fault left out.
-  const guard = BLADE_FIGHTER.guard, sly = { ...guard, kind: "sly:guard" }, duellist = PRESETS.duellist;
+  const guard = OPTION_MIND.defaults.guard, sly = { ...guard, kind: "sly:guard" }, option = PRESETS.option;
   const planted = catalogOf(() => ({ ...toolkitLists(), entrants: [
-    { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { duellist } },
-    { name: "copy", presets: { duellist, mixed: { label: "Mixed", config: { ...duellist.config, guard: sly } } } },
+    { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { option } },
+    { name: "copy", presets: { option, mixed: { label: "Mixed", config: { ...option.config, guard: sly } } } },
   ] }));
   assert.deepEqual(planted.faults, [
     `sly's guard part "low-guard" is not scoped sly:`,
-    `copy's preset "duellist" is sly's`,
+    `copy's preset "option" is sly's`,
     `copy's preset "mixed" names sly's kinds`,
   ]);
 });
@@ -241,7 +241,7 @@ test("a replay refuses a step with no order sheet, so a record that is short is 
 
 
 test("both-hand loadouts fork and replay their physical commands", async () => {
-  const config = PRESETS.duellist.config;
+  const config = PRESETS.option.config;
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3,
     loadouts: { left: { left: "sword", right: "sword" }, right: { left: "buckler", right: "sword" } },
     minds: { left: config, right: config } };

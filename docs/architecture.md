@@ -1569,8 +1569,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   over when first down by the fight's rule, and its stand verified as the Lab verifies one
   (`standCheck`, `STAND_CHECK`, `src/lab/ground-mode.ts`). A fall not made did not reach its case:
   the figures give the falls made and read the stand over them. A condition the bed cannot play is
-  refused with why. The research rising bed (`rising.ts`) plays a fighter on the Lab's Stand-up
-  mode itself (`buildStandFall`), its sub-minds replaceable. `rising-target` plays the owner's 64
+  refused with why. The research rising bed (`rising.ts`) plays Option Mind on the Lab's Stand-up
+  mode itself (`buildStandFall`), its stand-up techniques replaceable. `rising-target` plays the owner's 64
   falls and reports the target's gates; `equipped-rise` the same shoves with sword and buckler and
   with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
@@ -1701,17 +1701,16 @@ in the existing scene, reusing its loaded character art and lighting without the
 another scene warm-up; physics waits for any new mind data or skin while the view keeps rendering.
 Reach (`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
 Walker (`LAB_WALKER`) unless the address names another, and the place its objective names is marked.
-Every other scenario plays a mind that takes its script, or one that carries out orders (`treeObeys`),
-the Option Mind among them: the scenario's own orders, or its script made orders each step, a
-direct walk, a facing and a gait held to before the mind's own judgement (`Orders.firm`).
-An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and, a mind that takes
-its script, its strikes. Attack
+Every other scenario plays a mind that carries out orders (`treeObeys`), Option Mind (`LAB_MIND`)
+unless the address names another: the scenario's own orders, or its script made orders each step, a
+direct walk, a facing, a gait and a height held to before the mind's own judgement (`Orders.firm`).
+An actor (`actor.ts`) gives the body its balance and mind (`labMind`, `&mind=`). Attack
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`). Its explicit target
 part travels in `targetPart` in the address; the default is the part the most of its mind's actions
 aim at, the head first (`attackTargetPart`). `dummy-spec.ts`
 constructs that part's ball and preserves its middle and leg membership. The setup's anatomical
-compatibility feedback (`attack-target.ts`) reads armed actions, their declared regions and barred
-effectors using the same region and permission rules as execution. It changes no mind settings
+compatibility feedback (`attack-target.ts`) reads the mind's armed actions and their declared regions
+using the same region rules as execution. It changes no mind settings
 and predicts no physical outcome. Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
 `ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);

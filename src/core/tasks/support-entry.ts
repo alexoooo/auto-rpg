@@ -6,7 +6,7 @@ import { supportEntryReading } from "../control/whole-body/support-entry.ts";
 import { centreOfToRef } from "../read-motion.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
-import { BLADE_FIGHTER } from "../tactics/config.ts";
+import { OPTION_MIND } from "../option/mind.ts";
 import { policyMind } from "../mind/direct.ts";
 import { hostBody } from "../mind/host.ts";
 import { clockOf } from "../clock.ts";
@@ -34,12 +34,12 @@ export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, con
   if (![0, 1, 2, 3].includes(config.direction) || !Number.isSafeInteger(config.hz) || config.hz < 120 || config.hz % 120 !== 0) throw new Error("invalid support entry configuration");
   const configuration = deepFreeze({ ...config, task: "support-entry", protocol: 1, settings: SETTINGS,
     pose, recipe: RISE, engineRevision: engine.revision, held: "empty", pin: null,
-    assists: { root: 0, weapon: false }, controller: "support-entry", bootstrapController: BLADE_FIGHTER,
+    assists: { root: 0, weapon: false }, controller: "support-entry", bootstrapController: OPTION_MIND.defaults,
     sensing: "detached body observations", modelAccess: "actuator descriptions and initial reference frame" });
   const world = createWorld(scene, engine, { hz: config.hz, gravity: true, actuation: config.actuation });
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
   const spec = modelSpec(config.model), built = buildBody(spec, world, { position: [0, 0, 0] });
-  const boot = createMind(TOOLKIT_CATALOG, built, world, BLADE_FIGHTER, { name: "fall-start", orders: () => STAND_ORDERS }).body;
+  const boot = createMind(TOOLKIT_CATALOG, built, world, OPTION_MIND.defaults, { name: "fall-start", orders: () => STAND_ORDERS }).body;
   world.step(SETTINGS.standSeconds * config.hz);
   const direction = [[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0]][config.direction]!;
   const mass = [...built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0), trunk = built.segments.get("middleTrunk")!;

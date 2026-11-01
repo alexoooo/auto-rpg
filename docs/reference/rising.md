@@ -46,8 +46,8 @@ npm run evaluate -- rising-target [riser ...]
   stance holds 6 of its 16 club shoves and 1 empty-handed, and a fall not made is no stand-up; Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
-  one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
-  `stand-up` with every technique, a technique's name, or a mind's JSON. `research/rising-bed.mjs
+  one body. A riser is Option Mind's own rise unless named:
+  `stand-up` with every technique, `staged`, a technique's name, or a mind's JSON. `research/rising-bed.mjs
   --target` plays the same falls (`src/evaluation/rising.ts`).
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved halfway between
   the target's directions, 11.25 degrees past each (`FRESH_OFFSET`), read against the same gates,

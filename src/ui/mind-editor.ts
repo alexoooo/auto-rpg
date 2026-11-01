@@ -1,9 +1,11 @@
 import { editorRow as row, editorPicker as picker, editorButton as button, partFieldInput as fieldInput } from "./editor-inputs.ts";
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf, unusedParts, type EntryRule } from "../entrants/game.ts";
-import { actionEditor, selectionEditor } from "./mind-actions.ts";
+import { actionEditor } from "./mind-actions.ts";
+import { selectionEditor } from "./mind-behaviours.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { BehavioursConfig, FighterConfig } from "../core/tactics/config.ts";
+import type { BehavioursConfig } from "../core/tactics/config.ts";
+import type { ActionConfig, SkillKit } from "../core/skills/config.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
@@ -77,7 +79,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
     }
     if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
     // A part whose slots hold executors pairs its actions with them (`ActionConfig`): the action editor is the executor role's.
-    if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as FighterConfig, write as (config: FighterConfig) => void, readOnly));
+    if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as SkillKit & PartConfig, write, readOnly));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
       ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
@@ -105,9 +107,9 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
       item.className = "mind-item"; line.className = "mind-item-line";
       const replace = (next: PartConfig) => {
         if (slot.role === "executor") {
-          const before = child as PartConfig & { name: string }, after = next as PartConfig & { name: string }, fighter = config as FighterConfig;
-          write({ ...fighter, executors: list.map((other, j) => j === i ? next : other),
-            actions: fighter.actions.map(action => action.executor === before.name ? { ...action, executor: after.name } : action) } as unknown as FighterConfig);
+          const before = child as PartConfig & { name: string }, after = next as PartConfig & { name: string }, kit = config as SkillKit & PartConfig;
+          write({ ...kit, executors: list.map((other, j) => j === i ? next : other),
+            actions: kit.actions.map((action): ActionConfig => action.executor === before.name ? { ...action, executor: after.name } : action) } as PartConfig);
         } else set(list.map((other, j) => j === i ? next : other));
       };
       line.append(picker(choices(slot), child.kind, (kind) => replace(slot.role === "executor" ? { ...defaultsOf(kind), name: (child as PartConfig & { name: string }).name } as PartConfig : defaultsOf(kind)), readOnly),

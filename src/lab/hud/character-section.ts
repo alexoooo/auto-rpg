@@ -53,7 +53,7 @@ export function characterSection(page: LabPage): readonly Control[] {
       }),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       fold("Edit the mind", [following(() => page.spec, (spec) => {
-        const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
+        const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: page.shown.scenario === "reach" ? "the Walker is used" : "Option Mind is used",
           onChange: (mind) => page.load(labWithMind(page.shown, mind)) });
         return { element: editor.element, refresh() {} };
       })]),
