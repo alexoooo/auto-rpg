@@ -683,6 +683,11 @@ Tried and not kept:
   blow 1 of 3, the stomp 27 J a hit against 42.
 - **New orders at the pace**: the drill's let-go reached the mind after the punch committed; the
   let-go rung let none go.
+- **Motor control at 60 Hz**: motor control (`motorControl`, `src/core/control/motor.ts`) every
+  second step, its muscles' commands held between, the mind every step, at `a8feae33`. The
+  punching rung landed none of six (three never in the entry window, one weak at 10 J against
+  six at 91 J a hit) and the club blow on a still target 4 of 14 (11 of 15), for at most motor
+  control's share, 14 % of the crowd fight's step.
 
 ## The crypt's plan in the step
 

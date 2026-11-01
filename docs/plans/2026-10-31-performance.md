@@ -273,7 +273,8 @@ moved cases, is read against the version before on its drill (`--previous`) and 
     the stomp, for about a twentieth of the crowd fight's step. 40 and 60 Hz save less still.
 12. **Motor control at 60 Hz, tried**, as the design says. Check: the baseline battery and the
     match against 120 Hz control; the owner watches. Kept, or recorded in step cost as tried and
-    why not.
+    why not. Tried, not kept ([the mind at 30 Hz](../reference/step-cost.md#the-mind-at-30-hz)):
+    the punch lands none of six, the club 4 of 14, for at most motor control's 14 % of the step.
 13. **A ceiling on heavy work**: the step-cost test counts the heavy searches a mind makes in a
     step of its bout (opening searches, route searches, shapes built) and fails at a ceiling well
     above what a step does once its work is held: it catches a search put back in every step,
