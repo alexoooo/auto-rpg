@@ -594,6 +594,14 @@ fight reads. A fight passes the config through and reads nothing in it.
   team bout by place, the Crypt by the body's place in its roster. A selection with no event
   decides on its phase of each period (`nextDecision`, `src/core/mind/choice.ts`), at least half a
   period on, so bodies built together do not decide on one step.
+- **A decider decides at its pace; its skills command every step** (`Pace`, `driveBy`,
+  `src/core/mind/decider.ts`): every `every`th step on the body's phase, and at once on a step
+  the body is down or back from another mind, its orders change (`sameOrders`) or an action of its
+  skills has ended; between, the skills make each step's command from the intent it last decided,
+  an action asked again by its id going on. Every step unless given: Option Mind's `rate`
+  (`OptionMindConfig.rate`, `everyOf`) sets it, and a profile names the rate its mind decided at
+  where that is not the world's (`Measured.rate`), stale read at another
+  ([the mind at 30 Hz](reference/step-cost.md#the-mind-at-30-hz)).
 - **Chance comes from the host's seed** (`BodyHost.seed`): a bout's seed (`DuelRecipe.seed`, 0
   unless given, `&seed=` on the page; written into each evaluation case's recipe and named by the
   report) and the body's side make each mind's (`seedOf`, `src/core/math/random.ts`), the crypt's

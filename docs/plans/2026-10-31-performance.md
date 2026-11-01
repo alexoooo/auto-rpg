@@ -265,14 +265,23 @@ moved cases, is read against the version before on its drill (`--previous`) and 
     the body's phase, as the design says; the profiles measured again at it. Check: the baseline
     battery (`npm run evaluate -- baseline`: walk, punch, stand-up, fights), the punch and club
     drills, the match against 120 Hz, the crowd fight's step; the owner watches. Where one loses,
-    40 Hz, then 60, the same way.
+    40 Hz, then 60, the same way. Built, not the presets' default
+    ([the mind at 30 Hz](../reference/step-cost.md#the-mind-at-30-hz)): the decider at its pace
+    (`Pace`, `driveBy`), the skills every step, `OptionMindConfig.rate`, the profiles at both
+    rates. The command held between calls lost the strikes; the intent held keeps the punch and
+    the gait, plays the match level (0.567), and loses the club blow (7 of 16 against 11 of 15) and
+    the stomp, for about a twentieth of the crowd fight's step. 40 and 60 Hz save less still.
 12. **Motor control at 60 Hz, tried**, as the design says. Check: the baseline battery and the
     match against 120 Hz control; the owner watches. Kept, or recorded in step cost as tried and
-    why not.
+    why not. Tried, not kept ([the mind at 30 Hz](../reference/step-cost.md#the-mind-at-30-hz)):
+    the punch lands none of six, the club 4 of 14, for at most motor control's 14 % of the step.
 13. **A ceiling on heavy work**: the step-cost test counts the heavy searches a mind makes in a
     step of its bout (opening searches, route searches, shapes built) and fails at a ceiling well
     above what a step does once its work is held: it catches a search put back in every step,
-    not a count that moves.
+    not a count that moves. Built (`SEARCHES`, `tests/harness/heavy-work.mjs`): opening searches
+    in a duel of Option Minds at 1 m and route searches in a Crypt run's first second, 0.5 a
+    body-step against about 0.1 held; the held aim made to search every call reads 1.07. No
+    shape is built in either fixture, so `worldShapes` is counted by `research/call-count.mjs` alone.
 
 ## Done when
 

@@ -3,7 +3,7 @@
 What one world step (`World.step`, `src/core/world.ts`) takes in time and memory as bodies are
 added, in a bout and in a crypt run: where the time goes, what a step allocates, what the collector
 takes, and which steps are long and why. `tests/core-step-cost.test.mjs` holds the allocation
-ceilings.
+ceilings, and one on the opening and route searches a body makes a step (`SEARCHES`).
 
 Unless a section says otherwise, figures are **Node 24.19, core world, Rapier, 120 Hz, one thread of
 the development host** (a 16-core desktop), nothing else running. A step is 8.33 ms of game time, so
@@ -481,7 +481,8 @@ part in 10^12: what any change does to these bouts alone.
 
 Every row is within the placebo's spread: 30 bouts tell a score apart by about 0.2, not less.
 Fewer blows land a minute with a slower side, and the 30 Hz bouts run longer; drills, the stand-up
-and the look in play were not read.
+and the look in play were not read. In the drills, skills held so lose their strikes ([the mind at
+30 Hz](#the-mind-at-30-hz)).
 
 ### The crowd fight
 
@@ -627,6 +628,66 @@ the machine:
 
 Three fingerprint lines moved, the duels of Option Mind against itself (sword, club, empty): the
 right side's phase is no longer 0.
+
+### The mind at 30 Hz
+
+**Option Mind deciding at 30 Hz, its skills commanding every step, takes about a twentieth off
+the crowd fight's step and plays the standard match level with itself at 120 Hz; its punch and
+gait drill as at 120 Hz, its club blow and stomp worse. Its presets decide every step.** The
+rate is a field of its config (`OptionMindConfig.rate`); a decider decides at its pace (`Pace`,
+`driveBy`, `src/core/mind/decider.ts`) and at once on new orders, an action ended, the body down
+or back; its strike and gait profiles are measured at both rates (`Measured.rate`), so a mind set
+to 30 Hz reads its own.
+
+Where the time goes, the crowd fight, seed 0, its first 20 s, Node, core world,
+`rapier-coordinate`, 120 Hz, pinned, under V8's CPU profiler, at `447c1ff8`; inclusive shares of
+the step. The decider decides on 6007 of 24000 body-steps, its pace's quarter and the first:
+
+| Share of the step, % | Every step | 30 Hz |
+| --- | --- | --- |
+| the decider and the skills (`driveBy`'s drive) | 34.1 | 29.9 |
+| Option Mind's tactics (`decide`, `src/core/option/tactics.ts`) | 16.1 | 11.1 |
+| the skills (`command`, `src/core/skills/framework/arbiter.ts`) | 17.7 | 18.3 |
+| navigation in them (`navigated`) | 12.2 | 12.9 |
+| motor control (`control`, `src/core/control/motor.ts`) | 14.1 | 14.2 |
+| Rapier's step | 23.4 | 24.5 |
+
+A decision costs more a call at 30 Hz: what the tactics hold (a decision until its deadline, an
+aim until it drifts, [the held aim](#the-held-aim)) is made again as often at either rate, and the
+calls between cost little. Wall time read alternately while the machine was busy did not settle
+past the profiler's share.
+
+Drills, the 30 Hz mind at `447c1ff8` against the profiles' records at 120 Hz (the Strike drill's
+rungs and the baseline's punch; Node, core world, `rapier-coordinate`, 120 Hz):
+
+| Drill | 120 Hz | 30 Hz |
+| --- | --- | --- |
+| baseline punch: landed of trials thrown, J a hit | 81 of 96, 65.5 | 80 of 94, 64.9 |
+| straight punch, punching rung: landed, J a hit | 6 of 6, 91.5 | 6 of 6, 85.7 |
+| straight punch, let-go rung: let go, landed | 6, 18 | 6, 18 |
+| club blow, still target: landed of trials thrown, J a hit | 11 of 15, 79.9 | 7 of 16, 59.2 |
+| club blow, punching rung: landed of 3 | 3 | 1 |
+| stomp: landed, fell, of 12 | 4, 0 | 1, 2 |
+| the Gait drill's stop: ready, fell, of 20 | 18, 2 | 18, 2 |
+
+The standard match (`npm run match`, protocol `908550df`), the 30 Hz mind against Option Mind,
+30 bouts: 0.567 (0.400 to 0.733), margin -0.019 (-0.109 to 0.064).
+
+Tried and not kept:
+
+- **The command held, not the intent**: the command layers calling the driver every fourth step
+  and holding its command. The crowd fight's step fell from 9.5 ms to 8.15 (the mean of the
+  least over three playings, two alternated pairs), but a strike's own feedback ran open: the
+  punching rung landed none of six (1 J a hit), and with the driver called every step while a
+  command pushed a muscle or drove a point, the baseline's punch landed 61 against 81, the club
+  blow 1 of 3, the stomp 27 J a hit against 42.
+- **New orders at the pace**: the drill's let-go reached the mind after the punch committed; the
+  let-go rung let none go.
+- **Motor control at 60 Hz**: motor control (`motorControl`, `src/core/control/motor.ts`) every
+  second step, its muscles' commands held between, the mind every step, at `a8feae33`. The
+  punching rung landed none of six (three never in the entry window, one weak at 10 J against
+  six at 91 J a hit) and the club blow on a still target 4 of 14 (11 of 15), for at most motor
+  control's share, 14 % of the crowd fight's step.
 
 ## The crypt's plan in the step
 

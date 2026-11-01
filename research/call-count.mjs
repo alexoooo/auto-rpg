@@ -1,6 +1,6 @@
 /**
  * How many times a step the step's heavy work runs: the functions `research/call-count-hook.mjs`
- * counts (`worldShapes`, `menuOf`, the opening searches, the engine's `contactsOf`) and the calls
+ * counts (`worldShapes`, `menuOf`, the opening searches, the router's searches, the engine's `contactsOf`) and the calls
  * into Rapier's WebAssembly, over one bout to its verdict or `--cap` s. Counts are the same on every
  * machine: a change that holds work shows here before and after.
  *
