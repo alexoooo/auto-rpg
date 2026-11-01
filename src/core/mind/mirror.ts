@@ -455,6 +455,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) }, flight };
   const expect = new Float64Array(n).fill(NaN), step = new Float64Array(6 + n).fill(NaN), legs = legSegments(statics.spec);
+  /** Each channel's range, rad (`DofSpec.min`, `max`). */
+  const lows = Float64Array.from(channels, (c) => c.dof.spec.min.value), highs = Float64Array.from(channels, (c) => c.dof.spec.max.value);
   const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
@@ -634,6 +636,14 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
           const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
           const toward = (wanted[i]! - speeds[i]!) / dt;
           step[6 + i] = toward < a - reach ? a - reach : toward > a + reach ? a + reach : toward;
+        }
+        // A joint's stop holds it: a channel carried past its range ends the step at its stop, at rest.
+        for (let i = 0; i < n; i++) {
+          const accel = Number.isNaN(step[6 + i]!) ? 0 : step[6 + i]!, next = angles[i]! + dt * (speeds[i]! + dt * accel);
+          const stop = next > highs[i]! ? highs[i]! : next < lows[i]! ? lows[i]! : NaN;
+          if (Number.isNaN(stop)) continue;
+          const reach = (stop - angles[i]!) / dt;
+          step[6 + i] = ((reach * (next - stop) > 0 ? reach : 0) - speeds[i]!) / dt;
         }
         mirror.forecast(step, dt);
       }
