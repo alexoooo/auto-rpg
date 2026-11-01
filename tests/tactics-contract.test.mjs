@@ -80,17 +80,3 @@ test("behaviour decision context resets each step and does not derive authority 
   mode = "evade"; tactics.decide(sight, .1); sight.view.senses.out = true; tactics.decide(sight, .1);
   assert.deepEqual(tactics.decision, { focus: null, evading: false, approach: null });
 });
-
-test("the Lab's supplied script replaces configured tactics and passes through its instrument", async () => {
-  const stand = await coreStand(modelSpec("workshop-fighter")), state = { calls: 0 }, seen = [];
-  const script = { name: "fixture", state, decide(sight) { state.calls++; return standIntent(sight.report.heading); } };
-  const actor = labActor(stand.built, stand.world, { mind: COUNTER_PUNCHER });
-  try {
-    const mind = actor.drive(script, { watch: sight => seen.push(sight.report) });
-    for (let i = 0; i < 3; i++) stand.step();
-    assert.equal(state.calls, 3);
-    assert.equal(seen.length, state.calls);
-    assert.ok(seen.every(report => report === mind.skills.report));
-    assert.equal(mind.state.decider, state, "the supplied script's memory belongs to the driven mind");
-  } finally { actor.dispose(); stand.dispose(); }
-});

@@ -17,9 +17,9 @@
  * - A pace of `max` asks the fastest the body's walk holds (`LocomotionOptions.top` none), which a
  *   body measured has not got: it needs `--played`.
  * - `--winds` is a list of rate:strength (gusts a second : N at a gust's peak).
- * - `--legs` is the mind's locomotion part (`FighterConfig.locomotion`); the rest of the mind is
- *   the Lab's Script preset (`LAB_PRESETS`).
- * - Each body is built as one being measured (`BodyOptions.measuring`): no envelope caps its walk.
+ * - `--legs` is the mind's locomotion part (`OptionMindConfig.locomotion`); the rest of the mind is
+ *   the Lab's (`LAB_MIND`), carrying out the course as orders.
+ * - Each body is built as one being measured (`Experiment.measuring`): no envelope caps its walk.
  *   With `--played` it is built as the Lab plays it, its walk taken no faster than its envelope
  *   holds each way (`paceToward`).
  * - `--stance` is an experiment's stance tuning (`StanceTuning`). Its `gait` merges into `STANCE_GAIT`.
@@ -131,7 +131,7 @@ function rockerFoot(foot, radius, facets) {
 }
 
 async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, seconds, side, radius, distance, area, legs, stance, physique, probe, stop = null, played = false }) {
-  const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }, { armedWith }] = await Promise.all([
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { TRACKS, trackOf }, { commandsOf }, { LAB_MIND }, { STANCE_GAIT }, { coreStand }, { armedWith }] = await Promise.all([
     import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/commands.ts"), import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
     import("../src/core/items/held.ts"),
@@ -146,9 +146,9 @@ async function runOnce({ model, hold = "empty", track: id, pace, wind, seed, sec
   const spec = probe ? probed(held, probe) : held;
   const stand = await coreStand(spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
   if (probe?.rocker) for (const side of ["left", "right"]) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
-  const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
+  const mind = { ...LAB_MIND, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
-  const actor = labActor(stand.built, stand.world, { mind, stance: tuning, measuring: !played, ...(probe?.assist ? { assist: probe.assist } : {}) });
+  const actor = labActor(stand.built, stand.world, { mind, experiment: { ...(tuning ? { stance: tuning } : {}), measuring: !played }, ...(probe?.assist ? { assist: probe.assist } : {}) });
   // Asked to stop, the track's tactics are asked for no walk.
   let stopped = false;
   const drive = actor.drive.bind(actor);

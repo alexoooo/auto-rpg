@@ -50,7 +50,7 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
-import { labAddress, MODELS } from "../src/lab/scenarios.ts";
+import { labAddress, LAB_MIND, MODELS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { TRACK_IDS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
@@ -200,7 +200,7 @@ const balanceOf = (spec) => loadoutBalance(balance, spec);
  */
 async function labRun(kind, model, variant, { start, lead = 0, begin = () => {}, seconds, until = () => false, read }) {
   const spec = loadoutSpec(labAddress(`?model=${model}`)), stand = await coreStand(spec, { groundSize: GROUND });
-  const actor = labActor(stand.built, stand.world, { assist: balanceCeiling(balanceOf(spec), PERCENT) });
+  const actor = labActor(stand.built, stand.world, { mind: LAB_MIND, assist: balanceCeiling(balanceOf(spec), PERCENT) });
   const { body } = actor, { world } = stand, own = { name: model, built: stand.built, body };
   const session = start(actor, stand);
   const heard = listen(world, [own]), breath = breathe(world, { built: stand.built, body });

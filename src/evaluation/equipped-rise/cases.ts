@@ -41,7 +41,7 @@ function equippedFalls(play: Json, conditions: readonly EquippedCondition[]): Ca
 
 export const EQUIPPED_RISE_CASES: Readonly<Record<string, Cases<EquippedCondition, FallReading, BuiltFall>>> = Object.freeze({
   standard: equippedFalls({ suite: "equipped falls", cap: FALL_CAP, after: FALL_AFTER },
-    risingJobs({ loadouts: LOADOUTS, models: ["workshop-fighter", "workshop-rogue"], sub: "support-recovery" })
+    risingJobs({ loadouts: LOADOUTS, models: ["workshop-fighter", "workshop-rogue"] })
       .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }): EquippedCondition =>
         ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: false, equipped: true }))),
 });

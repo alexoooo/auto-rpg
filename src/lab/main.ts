@@ -31,9 +31,9 @@ import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
-import { allowing, loadoutSpec } from "./loadout.ts";
+import { loadoutSpec } from "./loadout.ts";
 import { resolveCharacter } from "../core/models.ts";
-import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
+import { createMindLog, watchHas, watchSkills, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
 import { reachScenario } from "./reach-scenario.ts";
@@ -169,9 +169,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
     readonly helped: number | null;
     readonly hasted: number | null;
-    /** What its mind has decided, and the watch that notes in it who has the body. */
+    /** What its mind has done, and the watches that note in it who has the body and what its skills are doing. */
     readonly log: MindLog;
     readonly has: Hook;
+    readonly doing: Hook;
     /** What it sounded of, what logs it, and the time shown that was last heard. */
     readonly sounds: SoundLog;
     readonly logging: { dispose(): void };
@@ -242,6 +243,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   function unload(): void {
     if (current) {
       current.has.dispose();
+      current.doing.dispose();
       current.logging.dispose();
       current.run.dispose();
       current.skin?.dispose();
@@ -290,11 +292,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const balance = built.spec.attributes.balance.value;
     const log = createMindLog();
     const mind = mindAt(to, spec);
-    const actor = labActor(built, world, {
-      mind,
-      subs: scenario.subs?.(to),
-      assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
-    });
+    const actor = labActor(built, world, { mind, assist: balanceCeiling(balance, PERCENT) });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
@@ -304,6 +302,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const loaded: Loaded = {
       built, view, held: heldView, skin: skinSlot(built, showView), appearance: null, run, rest, helped: actor.body.assist.on ? balance : null,
       hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: watchHas(world, actor.body, log),
+      doing: watchSkills(world, actor.body, actor.mind.skills, log),
       sounds, logging, heardTo: -Infinity,
     };
     current = loaded;

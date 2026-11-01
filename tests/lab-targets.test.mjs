@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { armedActions } from "../src/core/tactics/action-config.ts";
 import { partLookup, MINDS } from "../src/entrants/game.ts";
 import { withLoadout } from "../src/core/items/held.ts";
@@ -36,37 +35,34 @@ test("Lab dummy choices construct their real part, preserve anatomical regions, 
   }
 });
 
-test("Attack compatibility uses declared regions and permitted armed effectors without rewriting the kit", () => {
-  const spec = modelSpec("workshop-fighter"), config = MINDS["vanguard-warrior"].config, before = JSON.stringify(config);
+test("Attack compatibility uses declared regions and armed actions without rewriting the kit", () => {
+  const spec = modelSpec("workshop-fighter"), config = MINDS.option.config, before = JSON.stringify(config);
   const middle = spec.marks.middle[0], leg = spec.marks.legs[0];
   const usable = armedActions(partLookup, spec, config.executors, config.actions);
-  assert.ok(usable.length > 0, "the fixture has permitted bare-hand actions");
-  assert.equal(attackTargetWarnings(spec, config, spec.marks.high, []).length, usable.length);
-  assert.deepEqual(attackTargetWarnings(spec, config, middle, []), []);
+  assert.ok(usable.length > 0, "the fixture has bare-hand actions");
+  assert.equal(attackTargetWarnings(spec, config, spec.marks.high).length, usable.length);
+  assert.deepEqual(attackTargetWarnings(spec, config, middle), []);
   const aimed = regions => ({ ...config, actions: [{ ...usable[0], regions }] });
-  assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "mark", mark: "legs" }]), leg, []), []);
-  assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: middle }]), middle, []), []);
-  assert.equal(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: "missing" }]), middle, []).length, 1);
-  assert.match(attackTargetWarnings(spec, config, middle, ["empty"])[0], /No actions are available/);
-  const held = withLoadout(spec, { left: "sword", right: "empty" });
-  assert.deepEqual(attackTargetWarnings(held, BLADE_FIGHTER, middle, ["empty"]), [], "the permitted sword can still strike");
-  const rightOnly = { ...BLADE_FIGHTER, actions: [{ ...BLADE_FIGHTER.actions[0], effectors: ["hand.right"] }] };
-  assert.match(attackTargetWarnings(held, rightOnly, middle, ["empty"])[0], /No actions are available/);
+  assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "mark", mark: "legs" }]), leg), []);
+  assert.deepEqual(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: middle }]), middle), []);
+  assert.equal(attackTargetWarnings(spec, aimed([{ kind: "segment", segment: "missing" }]), middle).length, 1);
+  assert.match(attackTargetWarnings(spec, { ...config, executors: [], actions: [] }, middle)[0], /No actions are available/);
+  const held = withLoadout(spec, { left: "empty", right: "club" });
+  assert.ok(armedActions(partLookup, held, config.executors, config.actions).some(action => action.name === "club-blow"), "the club's blow is armed where the hand holds the club");
+  assert.deepEqual(attackTargetWarnings(held, config, middle), []);
   assert.equal(JSON.stringify(config), before);
 });
 
-test("the Attack field builds the selected torso and Vanguard senses an eligible target with its unchanged kit", async () => {
-  const spec = modelSpec("workshop-fighter"), config = MINDS["vanguard-warrior"].config, part = spec.marks.middle[0];
+test("the Attack field builds the selected torso and orders its mind at it", async () => {
+  const spec = modelSpec("workshop-fighter"), config = MINDS.option.config, part = spec.marks.middle[0];
   const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: config }), targets = [];
   const attack = startAttack(actor, { seed: 1, count: 1, targetPart: part, hears(built) { targets.push(built.spec); return { dispose() {} }; } });
   try {
     assert.equal(targets.length, 1, "the fixture spawned a physical target before running");
     assert.deepEqual(targets[0].marks.middle, [part]);
-    attack.select(attack.state.targets[0].id);
+    const id = attack.state.targets[0].id;
+    attack.select(id);
     stand.step();
-    const candidates = attack.report.engagement.candidates;
-    assert.ok(candidates.length > 0, "the selected target reached the real planner's candidate selection");
-    assert.ok(candidates.some(candidate => candidate.eligible));
-    assert.ok(candidates.every(candidate => candidate.readiness.reason !== "no such region"));
+    assert.equal(attack.state.selected, id, "the selected target is the one the mind is ordered at");
   } finally { attack.dispose(); stand.dispose(); }
 });

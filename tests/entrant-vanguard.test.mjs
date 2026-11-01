@@ -202,26 +202,6 @@ test("nested Vanguard planners prepare the inner skills once and preserve them t
   assert.equal(prepared.report, skills.report);
 });
 
-test("the Lab drives Vanguard's chosen kit, with its planner or a supplied script", async () => {
-  const config = MINDS["vanguard-rogue"].config, spec = modelSpec("workshop-rogue");
-  assert.deepEqual(labMind(config, spec, "attack"), { plays: config, faults: [] });
-  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: config });
-  try {
-    const planned = actor.drive(), skills = planned.skills;
-    stand.step();
-    assert.ok(engagementLines(planned.report.engagement).some(line => line.startsWith("Evasion policy:")));
-    const state = { calls: 0 }, observed = [], script = { name: "fixture", state, decide() { state.calls++; return { ...standIntent(0), move: [.1, 0] }; } };
-    const scripted = actor.drive(script, { watch: sight => observed.push(sight.report) });
-    stand.step();
-    assert.equal(state.calls, 1);
-    assert.deepEqual(observed, [scripted.skills.report]);
-    assert.equal(scripted.state.decider, state);
-    assert.ok(skills.gait.envelope.turns.length > 0, "the fixture exposes measured turn limits");
-    assert.ok(scripted.skills.state.legs.legs.walkTime > 0, "the selected walk actually runs its startup turn interval");
-    assert.deepEqual(scripted.skills.gait.envelope, skills.gait.envelope, "the same calibrated legs drive both paths");
-  } finally { actor.dispose(); stand.dispose(); }
-});
-
 test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
   const state = { calls: 0 }, intent = { move: null, face: 0, guard: {}, actions: [] };
   const base = { name: "fixture", state, decision: { focus: "foe" }, engagement: { phase: "attack", focus: "foe" }, decide() { state.calls++; return intent; } };

@@ -1,5 +1,5 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body } from "../body.ts";
+import type { Body, LayerOptions } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import { rootSegment, type ReadBody } from "../read-body.ts";
@@ -77,6 +77,8 @@ export interface OwnBody {
   readonly senses: () => Senses;
   /** How it labels the other side of a contact (`ContactIdentity`), where its fight grants one. */
   readonly contactIdentity?: ContactIdentity;
+  /** An experiment's settings of its command layers (`Experiment`), in place of its mind's, where one is given. */
+  readonly experiment?: Experiment;
   /**
    * Call `listener` after each completed physics interval with the step and the time, after those
    * added before it, whether or not its mind steps; returns what stops it.
@@ -95,7 +97,14 @@ interface Embodied<M extends Mind = Mind> {
   dispose(): void;
 }
 
-/** What a body is given beside its mind: its senses, its assist's ceiling, how it labels a contact, and where its order sheets are written. */
+/**
+ * **An experiment's settings of a body's command layers** (`LayerOptions`): the stance's tuning in
+ * place of its constants, and the envelope being measured. A body measured or tuned so is a study's,
+ * never a fight's.
+ */
+export type Experiment = Pick<LayerOptions, "stance" | "measuring">;
+
+/** What a body is given beside its mind: its senses, its assist's ceiling, how it labels a contact, where its order sheets are written, and an experiment's settings. */
 export interface Embodying {
   /** What it senses (`SensesHub.add`); the clock alone unless given. */
   readonly senses?: () => Senses;
@@ -105,6 +114,8 @@ export interface Embodying {
   readonly contactIdentity?: ContactIdentity;
   /** Where its order sheets are written (`SheetLog`); nowhere unless given. */
   readonly log?: SheetLog;
+  /** An experiment's settings of its command layers (`Experiment`); none unless given. */
+  readonly experiment?: Experiment;
 }
 
 /**
@@ -117,7 +128,7 @@ export interface Embodying {
  * first observer.
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
-  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log }: Embodying = {}): Embodied<M> {
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
   // The hand poses asked since the last sheet, which the next sheet carries.
   const hands: HandPoseRequest[] = [];
@@ -134,7 +145,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
       built.handPoses.request(requests);
       if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
     },
-    senses: sense, ...(contactIdentity ? { contactIdentity } : {}),
+    senses: sense, ...(contactIdentity ? { contactIdentity } : {}), ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
       observed ??= world.afterPhysics(() => { for (const one of listeners) one(world.steps, world.time); });
       listeners.add(listener);

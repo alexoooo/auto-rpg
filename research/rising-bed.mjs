@@ -23,7 +23,7 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    sub: "support-recovery", techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, loadouts: null, workers: Math.max(1, availableParallelism() - 2), out: null };
+    techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, loadouts: null, workers: Math.max(1, availableParallelism() - 2), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
@@ -45,7 +45,6 @@ export function risingOptions(args) {
         if (!options.seeds.length || options.seeds.some(seed => !Number.isSafeInteger(seed) || seed < 0) || new Set(options.seeds).size !== options.seeds.length) throw new Error(`invalid seeds: ${value}`);
         break;
       }
-      case "--sub": if (!["support-recovery", "stand-up"].includes(value)) throw new Error(`unsupported sub-mind: ${value}`); options.sub = value; break;
       case "--technique": case "--after":
         if (!Object.hasOwn(TECHNIQUES, value)) throw new Error(`unknown technique: ${value}`);
         options[key.slice(2)] = value; break;
@@ -64,10 +63,7 @@ export function risingOptions(args) {
     throw new Error("--loadouts plays the target's shoves on other loadouts: it fixes directions, calm air and Balance 0, and is not the target");
   if (options.loadouts && !specified.has("--models")) options.models = ["workshop-fighter", "workshop-rogue"];
   if (options.after && !options.technique) throw new Error("--after requires --technique");
-  if (options.techniques) {
-    if (options.technique || specified.has("--sub") && options.sub !== "stand-up") throw new Error("--techniques configures the stand-up sub-mind");
-    options.sub = "stand-up";
-  }
+  if (options.techniques && options.technique) throw new Error("--techniques names the riser's techniques; --technique plays one alone");
   if (options.technique && (options.target || options.balance !== 0 || options.gusts)) throw new Error("standalone techniques use calm Balance 0 eight-second trials, separately from --target");
   const fits = (model) => { const technique = TECHNIQUES[options.technique]; return technique.fits(modelSpec(model), technique.defaults, partLookup) === null; };
   if (options.technique && !specified.has("--models")) options.models = options.models.filter(fits);
@@ -77,7 +73,7 @@ export function risingOptions(args) {
 
 async function run(options) {
   const jobs = risingJobs(options), rows = [], workers = [], queue = [...jobs];
-  const provenance = { options, mind: risingMind(options.sub, options.techniques ?? undefined), implementation: await risingImplementation(["research/rising-bed.mjs", "research/rising-worker.mjs", "src/evaluation/rising.ts"]) };
+  const provenance = { options, mind: risingMind(options.techniques), implementation: await risingImplementation(["research/rising-bed.mjs", "research/rising-worker.mjs", "src/evaluation/rising.ts"]) };
   if (options.out) {
     await writeFile(`${options.out}.meta.json`, JSON.stringify(provenance));
     await writeFile(`${options.out}.jsonl`, "");

@@ -17,7 +17,7 @@ export type TargetCondition = {
 };
 
 /** The target's falls with its shoves turned by `offset` degrees. */
-const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: true, offset, sub: "support-recovery" }).map(({ model, held, seed, start, degrees, balance, grit, gusts }): TargetCondition =>
+const targetFalls = (offset: number): TargetCondition[] => risingJobs({ target: true, offset }).map(({ model, held, seed, start, degrees, balance, grit, gusts }): TargetCondition =>
   ({ model: model!, held: held!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: true }));
 
 export const RISING_TARGET_CASES: Readonly<Record<string, Cases<TargetCondition, FallReading, BuiltFall>>> = Object.freeze({

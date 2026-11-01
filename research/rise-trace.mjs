@@ -141,7 +141,7 @@ if (isMainThread) {
   const { MINDS } = await import("../src/entrants/game.ts");
   const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
   const only = values.only ? new Set(values.only.split(",")) : null;
-  const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset, sub: "support-recovery" })
+  const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset })
     .filter((job) => job.model === values.model && (!only || only.has(`${job.held}/${job.degrees}`)))
     .map(({ model, held, seed, start, degrees, balance, grit, gusts }) => ({
       key: { model, held, degrees }, fall: { model, held, seed, start, degrees, balance, grit, gusts, target: true, mind } })));

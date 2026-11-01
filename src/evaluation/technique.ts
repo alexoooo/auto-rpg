@@ -16,7 +16,7 @@ import { loadEngine } from "../core/engine/engines.ts";
 import { withLoadout, type Held } from "../core/items/held.ts";
 import { humanoidSpec } from "../core/human/spec.ts";
 import { partLookup } from "../entrants/game.ts";
-import { PUNCHER } from "../entrants/classic/presets.ts";
+import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { poseDrive, type TechniqueName, type TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
@@ -124,7 +124,7 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
     links: [] as LinkReading[], entry: null as LinkReading["entry"], last: "between" };
   let runs: TechniqueRun[] = [];
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, clock) => {
-    const kit = kitOf(partLookup, own.spec, PUNCHER), drive = poseDrive(own.muscles);
+    const kit = kitOf(partLookup, own.spec, OPTION_MIND.defaults as OptionMindConfig), drive = poseDrive(own.muscles);
     runs = one.chain.map((name) => TECHNIQUES[name].make(own, view, clock, kit));
     const command = { activation: new Float64Array(own.muscles.channels.length), velocity: new Float64Array(own.muscles.channels.length) };
     const remember = () => { command.activation.set(own.muscles.activation); command.velocity.set(own.muscles.velocity); };

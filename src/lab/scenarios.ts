@@ -6,16 +6,12 @@ import { HUMANOID_MODELS, modelSpec, type HumanoidModel } from "../core/models.t
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
-import { HELD, type Held, type Loadout } from "../core/items/held.ts";
-import { takesScript, treeObeys, MINDS } from "../entrants/game.ts";
+import { HELD, type Loadout } from "../core/items/held.ts";
+import { treeObeys, MINDS } from "../entrants/game.ts";
 import { offered, presetFitsModel, type MindPreset } from "../core/mind/controller.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { BLADE_FIGHTER, type FighterConfig } from "../core/tactics/config.ts";
-import type { Provision } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
-import { deepFreeze } from "../core/state.ts";
 import { mindFaults, mindText, readMind, type Staging } from "../ui/mind-link.ts";
-import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import type { TechniqueName } from "../core/recovery/ground/technique.ts";
 import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
@@ -87,51 +83,34 @@ export type LabLoadout = {
 export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
-/**
- * **The minds the Lab names**, by the id its address carries, beside the registry's (`MINDS`).
- * Scenarios but Attack and Reach default to Script, which carries out their tactics. Guard stands
- * still. Each tree is editable (`mindEditor`).
- */
-export const LAB_PRESETS: Readonly<Record<"script" | "guard", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
-  script: { label: "Script", config: { ...BLADE_FIGHTER, tactics: { kind: "script" } } },
-  guard: { label: "Guard", config: { ...BLADE_FIGHTER, tactics: { kind: "stand" } } },
-});
-
-/** Named minds come from their registry; the Lab adds its scenario defaults. */
-const LAB_MINDS: Readonly<Record<string, MindPreset>> = Object.freeze({ ...MINDS, ...LAB_PRESETS });
 
 /** The scenarios that ask their body nothing, its mind deciding for itself by its objective (Reach). */
 const BY_ITSELF: readonly ScenarioId[] = ["reach"];
 
-/** **Option Mind** (`option`), what Attack plays unless the address names another mind; it carries out the scenario's orders. */
-export const LAB_ATTACKER = MINDS.option!.config;
+/** **Option Mind** (`option`), what every scenario but Reach plays unless the address names another mind; it carries out the scenario's orders, or its script made orders (`Actor.drive`). */
+export const LAB_MIND = MINDS.option!.config;
 
 /** **The Walker** (`walker`), what Reach plays unless the address names another mind that decides for itself; on no other menu. */
 export const LAB_WALKER = MINDS.walker!.config;
 
 /**
- * Whether the Lab can drive `config` in `scenario`: by itself, where it takes no script and the
- * scenario asks nothing of it (`BY_ITSELF`); elsewhere by its script, where it takes one
- * (`takesScript`), or by orders, where it carries them out (`treeObeys`): the scenario's own, or
- * its script's made orders (`Actor.drive`).
+ * Whether the Lab can drive `config` in `scenario`: by itself, where the scenario asks nothing of
+ * it (`BY_ITSELF`); elsewhere by orders, where it carries them out (`treeObeys`): the scenario's
+ * own, or its script's made orders (`Actor.drive`).
  */
-const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean => scenario !== null && BY_ITSELF.includes(scenario) ? !takesScript(config)
-  : takesScript(config) || treeObeys(config);
+const labDrives = (config: MindConfig, scenario: ScenarioId | null): boolean => scenario !== null && BY_ITSELF.includes(scenario) || treeObeys(config);
 
 /** Named configurations offered for a model; a custom JSON tree is still checked by its parts. */
 const labMindsForModel = (model: BodySpec["model"]): Readonly<Record<string, MindPreset>> =>
-  Object.fromEntries(Object.entries(LAB_MINDS).filter(([, preset]) => presetFitsModel(preset, model)));
-
-/** What the Lab gives a mind beyond the body and the world: its scenario's script. */
-const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
+  Object.fromEntries(Object.entries(MINDS).filter(([, preset]) => presetFitsModel(preset, model)));
 
 /**
  * What a Lab scenario gives a mind and asks of it (`Staging`): Attack drives a mind against
- * targets, so it must strike, and gives no script; any other scenario gives its script and asks
- * nothing beyond fitting the body, so a mind may hold what it never uses.
+ * targets, so it must strike; any other scenario asks nothing beyond fitting the body, so a mind
+ * may hold what it never uses. None gives anything beyond the body and the world.
  */
 export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
-  ? { provides: [], entry: ["attacks"] } : { provides: LAB_PROVIDES, entry: [] };
+  ? { provides: [], entry: ["attacks"] } : { provides: [], entry: [] };
 
 /**
  * Named calibrations the body `spec` and the scenario can run, including externally registered
@@ -141,25 +120,23 @@ export const labStaging = (scenario: ScenarioId | null): Staging => scenario ===
  * judged on the body the loadout makes with it, as choosing it loads it.
  */
 export const labPresets = (spec: BodySpec, scenario: ScenarioId | null, loadout?: LabLoadout) => Object.entries(labMindsForModel(spec.model))
-  .filter(([, preset]) => labDrives(preset.config, scenario) && (takesScript(preset.config) || offered(preset) || preset.config === LAB_WALKER && scenario !== null && BY_ITSELF.includes(scenario)) && mindFaults(preset.config,
+  .filter(([, preset]) => labDrives(preset.config, scenario) && (offered(preset) || preset.config === LAB_WALKER && scenario !== null && BY_ITSELF.includes(scenario)) && mindFaults(preset.config,
     loadout && preset.character ? loadoutSpec({ ...loadout, attributes: { ...loadout.attributes, ...preset.character } }) : spec, labStaging(scenario)).length === 0)
   .map(([id, preset]) => ({ id, ...preset }));
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
- * (`mindFaults`): a faulty mind plays the scenario's default, Option Mind in Attack, the Walker in
- * Reach and Script elsewhere.
+ * (`mindFaults`): a faulty mind plays the scenario's default, the Walker in Reach and Option Mind
+ * elsewhere.
  */
 export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: MindConfig; readonly faults: readonly string[] } {
   const driven = labDrives(config, scenario);
-  const faults = driven ? mindFaults(config, spec, labStaging(scenario))
-    : [scenario !== null && BY_ITSELF.includes(scenario) ? "here the Lab gives no script: a mind that decides for itself"
-      : "the Lab drives a mind that takes its script, as a fighter does, or one that carries out orders"];
-  return { plays: driven && faults.length === 0 ? config : scenario === "attack" ? LAB_ATTACKER : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_PRESETS.script.config, faults };
+  const faults = driven ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a mind that carries out orders"];
+  return { plays: driven && faults.length === 0 ? config : scenario !== null && BY_ITSELF.includes(scenario) ? LAB_WALKER : LAB_MIND, faults };
 }
 
-/** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
-export const GROUND_RISES = ["stand-up", "staged", "support-recovery", "mind"] as const;
+/** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first, its mind's own techniques. */
+export const GROUND_RISES = ["mind", "stand-up", "staged"] as const;
 export type GroundRise = (typeof GROUND_RISES)[number];
 
 /** The Attack field's target count and random seed unless the address supplies them. */
@@ -169,9 +146,9 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
     /** A named fall environment; obstacle outcomes remain outside the open-floor target. */
     readonly level: GroundLevel;
-    /** A technique run alone in place of the mind's sub-minds; "mind" runs the mind's. */
+    /** A technique its mind gets up by alone, in place of those it names; "mind", as `rise` says. */
     readonly drive: "mind" | TechniqueName;
-    /** What the mind gets up by: the game's Stand up by one of its techniques, support recovery, or the mind's own sub-minds. */
+    /** What the mind gets up by: its own techniques, the game's Stand up's, or the staged route's. */
     readonly rise: GroundRise;
     readonly waypoint: "none" | "brace" | "plant" | "transfer" | "rise";
     /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
@@ -190,8 +167,6 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly balance: number | null;
   /** The body's mind, as the address carries it: faults and all (`labMind`). */
   readonly mind: MindConfig;
-  /** What its mind may not strike with: each thing held whose strike is barred. */
-  readonly barred: readonly Held[];
   readonly hz: LabRate;
   /** Targets maintained in the Attack field, 0 to `LAB_TARGETS.most`. */
   readonly targets: number;
@@ -200,7 +175,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "hz", "view", "camera", "projection", "targets", "targetPart", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -233,19 +208,18 @@ export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
   const attributes = readAttributes(query, "body", legacyAttributes(query));
   const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
-  const worn = WORN[model], barred = (query.get("barred") ?? "").split(",");
+  const worn = WORN[model];
   const bounded = (key: string, lo: number, hi: number, fallback: number): number => {
     const text = query.get(key), value = text === null || text.trim() === "" ? NaN : Number(text);
     return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
   };
-  const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "attack" ? LAB_ATTACKER
-    : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : query.get("scenario") === "reach" ? LAB_WALKER : LAB_PRESETS.script.config);
+  const mind = readMind(query.get("mind"), labMindsForModel(model)) ?? (query.get("scenario") === "reach" ? LAB_WALKER : LAB_MIND);
   return {
     ground: {
       level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
-      rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "stand-up",
+      rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "mind",
       start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: GROUND_POSTURES.find(v => v === query.get("groundPosture")) ?? "back",
       degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
@@ -264,7 +238,6 @@ export function labAddress(search: string): LabAddress {
     balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
     haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
     mind,
-    barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
     camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
@@ -288,7 +261,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);
   if (address.ground.waypoint !== "none") query.set("groundWaypoint", address.ground.waypoint);
-  if (address.ground.rise !== "stand-up") query.set("groundRise", address.ground.rise);
+  if (address.ground.rise !== "mind") query.set("groundRise", address.ground.rise);
   if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
   if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
   if (address.ground.degrees !== null) query.set("groundDegrees", String(address.ground.degrees));
@@ -305,7 +278,6 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("armour", address.armour ? "1" : "0");
   writeAttributes(query, "body", loadoutAttributes(address));
   query.set("mind", mindText(address.mind, labMindsForModel(address.model)));
-  if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
   query.set("view", address.view);
   query.set("camera", address.camera);

@@ -110,7 +110,7 @@ export interface CommandedMind extends Mind {
  * on the body after.
  */
 export function commandedMind(own: OwnBody, options: LayerOptions, clock: Clock, subs: readonly SubMindMaker[] = []): CommandedMind {
-  const layers = commandLayers(own, options, clock);
+  const layers = commandLayers(own, own.experiment ? { ...options, ...own.experiment } : options, clock);
   const made = subs.map((make) => make(own, layers.view, clock));
   layers.firstLook();
   return Object.assign(hosting(layers, made), { body: layers.body });

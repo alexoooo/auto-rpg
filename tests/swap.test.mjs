@@ -72,19 +72,18 @@ test("the fixture entrant is registered from outside src/", () => {
   }
 });
 
-test("the Lab plays the fixture fighter, prepares its planner once, and replaces it completely with a supplied script", async () => {
-  assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
-  // A mind that takes no script and carries out orders plays a scripted scenario by its script made orders.
+test("the Lab plays the fixture Option Mind by a supplied script made orders, decided once a step, its instrument reading first", async () => {
+  // A mind that carries out orders plays a scripted scenario by its script made orders.
   assert.deepEqual(labMind(SWAP_OPTION_DEFAULTS, spec, "stance"), { plays: SWAP_OPTION_DEFAULTS, faults: [] });
-  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_DEFAULTS });
+  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_OPTION_DEFAULTS });
   try {
-    const planned = actor.drive(); stand.step();
-    assert.equal(planned.skills.state.preparation.built, 1);
-    assert.equal(planned.skills.state.preparation.steps, 1);
-    const state = { steps: 0 }, script = { name: "fixture", state, decide() { state.steps++; return standIntent(); } };
-    const scripted = actor.drive(script); stand.step();
-    assert.equal(state.steps, 1);
-    assert.equal(scripted.skills.state.preparation, undefined, "replacing the planner also replaces its preparation");
+    const state = { steps: 0 }, seen = [], script = { name: "fixture", state, decide() { state.steps++; return standIntent(); } };
+    const scripted = actor.drive(script, { watch: (sight) => seen.push(sight.report) });
+    stand.step(); stand.step();
+    assert.equal(state.steps, 2, "the script decides once a step, however often the mind asks its orders");
+    assert.equal(seen.length, 2, "its instrument reads each step the script decides");
+    assert.ok(seen.every((report) => report === scripted.skills.report), "the instrument reads what the mind's skills report");
+    assert.equal(scripted, actor.mind, "the mind driven is the actor's own");
   } finally { actor.dispose(); stand.dispose(); }
 });
 
