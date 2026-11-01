@@ -449,7 +449,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
   // The speeds each command in flight was solved to reach and the speeds it was solved from, a slot a step of the delay; whether its body was on its legs as its mind last stepped.
   const flight = { expect: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)), from: Array.from({ length: statics.delay }, () => new Float64Array(n)),
-    sent: 0, legs: true };
+    sent: 0, legs: true, touched: new Float64Array(statics.delay), touching: 0 };
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) }, flight };
   const expect = new Float64Array(n).fill(NaN), step = new Float64Array(6 + n).fill(NaN), legs = legSegments(statics.spec);
@@ -619,10 +619,12 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     },
     ahead(dt) {
       flight.legs = onLegs(read, legs);
+      flight.touching = touchingOf(read, records);
       const d = flight.expect.length;
       if (!flight.legs) return;
       for (let k = 0; k < d; k++) {
         const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, from = flight.from[slot]!, mass = dynamics!.mass;
+        if (flight.touched[slot] !== flight.touching) continue;
         for (let i = 0; i < n; i++) {
           const a = (wanted[i]! - from[i]!) / dt;
           if (Number.isNaN(a)) { step[6 + i] = NaN; continue; }
@@ -671,6 +673,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         if (!flight.legs) expect.fill(NaN);
         const slot = flight.sent % d;
         flight.from[slot]!.set(speeds);
+        flight.touched[slot] = flight.touching;
         flight.expect[slot]!.set(expect);
         flight.sent += 1;
       }
@@ -713,6 +716,15 @@ function legSegments(spec: BodySpec): ReadonlySet<string> {
 }
 
 /** Whether `read` touches anything with none but the segments its legs bear it on (`legs`), as last read. */
+/** Which of `records`' segments the solver pushed on, as last read: a bit a segment. */
+function touchingOf(read: ReadBody, records: readonly { readonly segment: ReadSegment }[]): number {
+  let bits = 0;
+  for (let i = 0; i < records.length; i++) {
+    for (const contact of read.physics.contactsOf(records[i]!.segment.body)) if (contact.impulse > 0) { bits |= 1 << i; break; }
+  }
+  return bits;
+}
+
 function onLegs(read: ReadBody, legs: ReadonlySet<string>): boolean {
   for (const segment of read.segments.values()) if (!legs.has(segment.spec.name) && read.physics.contactsOf(segment.body).length > 0) return false;
   return true;
