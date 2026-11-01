@@ -83,7 +83,9 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
   fallen, each body's forward pace no less than today's.
 - **The run**, on the Warrior and the Rogue in every loadout, calm air and the lab's gusts, seeds 1
   to 4: 3 m/s forward held 10 s, turns at 1 rad/s at 2 m/s, a stop from 3 m/s within 1.5 s, none
-  fallen. Decided here, which the owner may reverse.
+  fallen; read as the slowest second of the hold at 3 m/s, of the turn at 1.8 m/s with the way
+  travelled at most 0.35 rad behind the way asked, and a stop asked at 2.7 m/s or more and under
+  0.15 m/s within 1.5 s. Decided here, which the owner may reverse.
 
 ## Steps
 
@@ -118,8 +120,10 @@ assets change, and a toolkit change's message names the fingerprint cases it mov
 
 ### 2. Minds in parallel
 
-[Minds in parallel, a step late](2026-11-01-parallel-minds.md), whole. Balance and the rise are
-held under the delay there; the trained skills are fine-tuned in step 3.
+[Minds in parallel, a step late](2026-11-01-parallel-minds.md), whole. The minds run apart at
+any delay; the game's is none until balance and the rise hold a step late
+([command delay](../reference/command-delay.md)), and the trained skills are fine-tuned in step 3
+when it changes.
 
 ### 3. The table
 
@@ -132,9 +136,16 @@ A loadout is a record of slots, not a list of the five: today the two hands (`Lo
 `src/core/items/held.ts`), so that worn slots (helmet, boots, legs, body, arms, hands) join the
 table's loadout axis later without reshaping it.
 
-Then its first pass under the delay: each trained network fine-tuned from its own weights, each
-searched schedule read again. Check: the table before step 2 and after; every cell as good as
-before step 2, or its fine-tune named.
+Built: `npm run evaluate -- table` (`src/evaluation/table/`, `scripts/table.mjs`); a protocol
+plays every cell: the Strike drill's rungs on the bodies they left out (`-bodies`), the
+Locomotion drill's `every` and `run`, `equipped-rise` `every`, and the Cover drill's `club` and
+`sword`. It reads at the game's rate; the 480 Hz reading is a step's own.
+
+Its first pass under the delay waits with the delay: the game runs at none until motor control
+holds the probes and the stand-up target a step late
+([command delay](../reference/command-delay.md)). When the delay goes to one step, each trained
+network is fine-tuned from its own weights and each searched schedule read again. Check: the
+table before the delay and after; every cell as good as before, or its fine-tune named.
 
 ### 4. Stand-up
 

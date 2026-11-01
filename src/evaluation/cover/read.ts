@@ -33,9 +33,15 @@ export type CoverReading = {
   /** How long it covered with a hand (`SkillReport.covering`), s. */
   readonly covering: number;
   readonly first: CoverTouch | null;
+  /** How many of the opponent's blows touched it (`BLOW_GAP`), and how many of those its left hand's item met first. */
+  readonly blows: number;
+  readonly shielded: number;
   readonly down: boolean;
   readonly seconds: number;
 };
+
+/** How long after a touch a touch is the same blow's, s. */
+export const BLOW_GAP = .3;
 
 /** The arm of `hand` in `spec`: the hand, its forearm and its upper arm. */
 function armOf(spec: BodySpec, hand: string): readonly string[] {
@@ -50,6 +56,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
   if (!skills) throw new Error("the subject runs no skills");
   const spec = left.built.spec, head = new Set(regionSegments(spec, { kind: "mark", mark: "high" }));
   const guard = new Set(["left", "right"].flatMap((side) => armOf(spec, `hand.${side}`)));
+  const shield = spec.held?.find((held) => held.segment === "hand.left")?.item.name ?? null;
   let down = false, covering = 0, last = world.time;
   return {
     afterStep() {
@@ -70,7 +77,13 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
       const counts = { head: count("head"), guard: count("guard"), body: count("body") };
       const outcome: CoverOutcome = down ? "fell" : counts.head ? "hit" : counts.body ? "struck" : counts.guard ? "covered" : "untouched";
       const taken = touches.reduce((sum, touch) => sum + touch.damage, 0), headTaken = touches.reduce((sum, touch) => sum + (touch.met === "head" ? touch.damage : 0), 0);
-      return { outcome, touches: counts, taken, headTaken, covering, first: touches[0] ?? null, down, seconds: world.time };
+      let blows = 0, shielded = 0;
+      touches.forEach((touch, k) => {
+        if (k > 0 && touch.time - touches[k - 1]!.time <= BLOW_GAP) return;
+        blows++;
+        if (shield !== null && touch.on === shield) shielded++;
+      });
+      return { outcome, touches: counts, taken, headTaken, covering, first: touches[0] ?? null, blows, shielded, down, seconds: world.time };
     },
   };
 }

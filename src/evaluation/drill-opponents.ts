@@ -18,16 +18,22 @@ export const MOVES: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION
 /** A body that goes where it is ordered and covers a blow at its head with a hand (`COVER_OPTION`), else holds its hands at guard. */
 const GUARDS: MindConfig = deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, COVER_OPTION.defaults, ...STANDING_OPTIONS] });
 
-/** Option Mind's straight punch (`straight-punch`), as its entrant configures it: the body's record (`PunchRecord`) at the trunk's middle, the band it is trained in. */
-const PUNCH = OPTION.actions.find((action) => action.name === "straight-punch")!;
-
 /**
- * A body that goes where it is ordered and, ordered at its foe, walks into its punch's window and
- * throws Option Mind's straight punch (`PUNCH`) with either hand, its hands otherwise at guard.
+ * A body that goes where it is ordered and, ordered at its foe, walks into the window of one of
+ * Option Mind's actions `names` as its entrant configures them (each body's record) and throws it,
+ * its hands otherwise at guard.
  */
-const PUNCHES: MindConfig = deepFreeze({ ...STANDS,
-  options: [ORDERS_OPTION.defaults, STRIKE_OPTION.defaults, WINDOWS_WALK.defaults, ...STANDING_OPTIONS],
-  executors: OPTION.executors.filter((executor) => executor.name === PUNCH.executor), actions: [PUNCH] });
+function striking(names: readonly string[]): MindConfig {
+  const actions = OPTION.actions.filter((action) => names.includes(action.name));
+  return deepFreeze({ ...STANDS, options: [ORDERS_OPTION.defaults, STRIKE_OPTION.defaults, WINDOWS_WALK.defaults, ...STANDING_OPTIONS],
+    executors: OPTION.executors.filter((executor) => actions.some((action) => action.executor === executor.name)), actions });
+}
+
+/** Option Mind's straight punch with either hand, at the trunk's middle. */
+const PUNCHES = striking(["straight-punch"]);
+
+/** On a rhythm: a strike ordered for 2 s, then a stand for 1 s. */
+const RHYTHM = [{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }] as const;
 
 /** **A drill's opponent**: what it is called, its mind, and the Commander that leads it on its rhythm (`BeatsConfig`), where it keeps one. */
 export interface DrillOpponent {
@@ -45,7 +51,9 @@ export const DRILL_OPPONENTS: Readonly<Record<string, DrillOpponent>> = deepFree
   "drill-step": { label: "Drill: step in and out", mind: MOVES,
     commander: beats([{ seconds: 1.2, move: { kind: "range", near: .8, far: 1 } }, { seconds: 1.2, move: { kind: "range", near: 1.6, far: 1.8 } }]) },
   "drill-guard": { label: "Drill: guard", mind: GUARDS },
-  "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats([{ seconds: 2, move: { kind: "strike" } }, { seconds: 1, move: { kind: "stand" } }]) },
+  "drill-punch": { label: "Drill: punch on a rhythm", mind: PUNCHES, commander: beats(RHYTHM) },
+  "drill-club": { label: "Drill: club on a rhythm", mind: striking(["club-blow"]), commander: beats(RHYTHM) },
+  "drill-sword": { label: "Drill: sword on a rhythm", mind: striking(["sword-cut", "sword-thrust"]), commander: beats(RHYTHM) },
   "drill-press": { label: "Drill: press forward", mind: MOVES, commander: beats([{ seconds: 1, move: { kind: "range", near: .5, far: .7 } }]) },
 });
 

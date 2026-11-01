@@ -555,14 +555,29 @@ answer before its driver applies it, so a bout apart is the bout on bodies, step
 same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
-In Node, `mindWorkers(threads)` (`src/node/minds.ts`) is the place: worker threads
-(`src/node/mind-worker.ts`) that load the minds' data, the seats dealt to them in turn. The
-channels' numbers are shared memory (`SHARED_NUMBERS`); the asks go by message on a port, an ask
-to observe batched with the others made after physics, every other at once, and two shared
-counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins about a step,
-then sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
-(`BoutOptions.minds`, `DungeonRunOptions.minds`); offline work, the tests and the pages keep their
-minds on their bodies.
+The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
+thread a `ThreadLink` that posts a batch, waits for it done and yields the replies. A thread's side
+is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
+thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
+over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
+an ask to observe is batched with the others made after physics, every other sent at once, and a
+side waiting spins about a step, then sleeps (`src/apart/wire.ts`). A report's kit and gait cross
+only when they change.
+
+- **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
+  message on a port, two shared counters a thread pace the two sides, and the replies are taken
+  from the port synchronously.
+- **The browser**: `browserMindWorkers(threads)` (`src/worker/minds.ts`, `mind.worker.ts`), started
+  by the world's worker: a page's thread cannot take a message while it waits, so a mind's worker
+  answers in a ring in shared memory (`replyBox`, `box.ts`) as exact text (`encodeExact`,
+  `codec.ts`: every number to the bit), the numbers it makes anew in an arena both share.
+  `pageMinds` gives the team stage and the Crypt this place, on up to four threads, where the page
+  is cross-origin isolated, else none: their minds on their bodies, the same fight. The dev
+  server and the preview send the isolating headers (`vite.config.ts`); on a host that sends none
+  the game's pages install `coi-sw.js` (`public/`, `isolatePage`, `src/isolate.ts`) and reload once.
+
+The bouts and the Crypt take a place (`BoutOptions.minds`, `DungeonRunOptions.minds`); the duel's
+page, offline work and the tests keep their minds on their bodies.
 
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
@@ -1200,7 +1215,7 @@ together when forked; its tape records delivered orders and replays without a Co
 | `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in, and one held short of its slot by a companion standing near it stands where it is (`CROWDED`); doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
 | `drill` | `drill.ts` | a drill's subject, the team's first member (`DrillCommanderConfig`): one action with one limb at one region of the nearest foe, each named or the first of its member's menu that fits the rest (`MenuEntry`), ordered once its member stands settled in the action's window, walked there by the menu's spot (`MenuEntry.spot`, round a body lying) no faster than `pace`, or gone at from afar at a gait; with `letGo`, a stand ordered that long into the action; with `moment`, its member fights by itself until it begins that action and the drill's is ordered in its place. Its orders are firm (`Orders.firm`); it says its phase as its member's task (`drillTask`). It leads no side of a Crypt run |
 | `stand` | `stand.ts` | each member standing where it is, facing the nearest foe fighting, firmly and naming none, so its hands are held from blows and how it guards is its mind's: the Cover drill's subject. It leads no side of a Crypt run |
-| `beats` | `beats.ts` | a drill's opponent (`BeatsConfig`): each beat's move given every member as orders for its seconds, round again from the team's first step (stand, hold a range of the foe, strike it, or the member's own judgement); with no beats, none. The drill opponents are Option Mind configs led by it where they keep a rhythm (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`). It leads no side of a Crypt run |
+| `beats` | `beats.ts` | a drill's opponent (`BeatsConfig`): each beat's move given every member as orders for its seconds, round again from the team's first step (stand, hold a range of the foe, strike it, or the member's own judgement); with no beats, none. The drill opponents are Option Mind configs led by it where they keep a rhythm (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-club`, `drill-sword`, `drill-press`). It leads no side of a Crypt run |
 | `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
@@ -1449,7 +1464,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
   conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
   fall, a Crypt run, a lone body, `lone.ts`, given orders and shoves at set times by its script
-  (`LoneCue`), or techniques in turn, `technique.ts`; each kind built, stepped and traced by one loop,
+  (`LoneCue`), holding a loadout, in calm air or the lab's gusts (`LAB_GUSTS`, `src/lab/wind.ts`) on its seed, or techniques in turn, `technique.ts`; each kind built, stepped and traced by one loop,
   `playCase`, from its `WorldKind`) and its reader, and the engine where the protocol fixes one (`Cases.engine`); A worker plays it as its description's `protocols` (`EVALUATIONS`), the one list. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
@@ -1473,6 +1488,13 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `fight`, the standard match's bouts against other minds' presets (`OPPONENTS`) on each
   side. A reading carries its competence (`part`) and each figure reads its own. A mind given whole
   takes a character and bodies as a preset names them (`{ mind, character, models }`).
+- **The table** (`table/`, `npm run evaluate -- table`, `scripts/table.mjs`): Option Mind on every
+  body by loadout by skill (`tableCells`), a cell only where the loadout leaves the skill its limb.
+  A loadout is a record of slots (`Loadout`), so a slot added to it widens the loadout axis
+  without reshaping a cell. Each cell names its drill readings (an evaluation, protocol and
+  subject, judged on the cell's body and loadout by `verdictOf`) and its bar in words. It reads the newest record holding each subject, by id or by the same
+  config, and says whether that is the subject's version now; `--play` plays each reading that has
+  no record at its version now, which plays only the cases no kept row has.
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
   commit, pool, each subject and part with its version and parent) and a line per case. A version is
@@ -1510,7 +1532,11 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   bodies: a party reversed, a lone body and a following pair turned back, paths crossing, a gap that
   passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
   apart), `locomotion` (a mind's body told to walk four ways at two paces, to run, to turn and to
-  stop, and shoved standing and after a walk: held, on pace, stopped, top speed, shoves held) and
+  stop, and shoved standing and after a walk: held, on pace, stopped, top speed, shoves held;
+  protocol `every` the same on every body in every rated loadout, its walks again in the gusts;
+  `run` the run held, turning both ways and stopped, on the Warrior and the Rogue in every rated
+  loadout, calm and gusts, seeds 1 to 4: the slowest second's speed, the lag behind a turning way
+  and the time to halt) and
   `crypt-clear` (a party Commander leading the hero alone, under Option Mind: through generated
   Crypt levels against each enemy Commander, in trials that move the start a little
   (`trialLayout`): the score (`scoreOf`), the life at the end less a price on the time taken and on
@@ -1533,7 +1559,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
   round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a
-  Warrior, a Skeleton or a Reptile lying limp; each trial's reading records the target's posture and the range
+  Warrior, a Skeleton or a Reptile lying limp; rungs `still-bodies`, `walk-bodies`, `fight-bodies`,
+  `stomping-bodies` and `kicking-bodies`, those rungs thrown from the bodies their own leave out
+  (the Warrior, the Rogue and the Skeleton strike); each trial's reading records the target's posture and the range
   centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
   landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind
   it, straight, soon, and a punch's form: more along the arm than across it, the elbow near
@@ -1548,7 +1576,10 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `gait/read.ts`; the gaits' profiles regenerate from its records, `research/gait-profiles.mjs`,
   `assets/core/gait-profiles.json`); and `cover` (a mind standing
   and covering under the stand Commander's orders, against a drill opponent striking on its
-  script: rung `punched`, punches, `drill-punch`; a Warrior empty-handed, by offset and range:
+  script: rung `punched`, punches, `drill-punch`; a Warrior empty-handed, by offset and range;
+  rungs `club` and `sword`, the club's blows (`drill-club`) and the sword's cuts and thrusts
+  (`drill-sword`) at every body holding the buckler with the club or the sword, each blow (touches
+  within `BLOW_GAP`) read for whether the buckler met it first (`shielded`):
   each touch read by where it met the subject, its head, its guard or the rest of it, the hit points it took and
   whether the subject fell; covered, the guard alone met, `cover/read.ts`); and `stand` (a mind and one of its
   strike actions, as `strike`'s, `option/straight-punch` drilled, shoved once by size, way and height of its trunk:
@@ -1579,7 +1610,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   refused with why. The research rising bed (`rising.ts`) plays Option Mind on the Lab's Stand-up
   mode itself (`buildStandFall`), its stand-up techniques replaceable. `rising-target` plays the owner's 64
   falls and reports the target's gates; `equipped-rise` the same shoves with sword and buckler and
-  with the club. A subject is a riser: a mind's recovery on
+  with the club, and (`every`) on every body in every rated loadout. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
 - **Techniques in turn** (`technique.ts`): one body on the arena's solids, placed in a posture or
   shoved from standing, its stand-up techniques played one after another with no Stand up to route

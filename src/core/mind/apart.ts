@@ -7,6 +7,9 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
+import { deriveSensed } from "../perception/openings.ts";
+import { specDigest } from "../skills/framework/profile.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { MindReport } from "./report.ts";
 
 /**
@@ -65,6 +68,17 @@ export interface SeatSays {
   readonly observes: boolean;
   readonly report: ReportNow | null;
   readonly menu?: readonly MenuEntry[] | null;
+}
+
+/**
+ * **Derive what a mind derives of a body's spec alone**, where a spec arrives in a thread: its
+ * shapes as sensing reads them (`deriveSensed`) and its digest, which names the profiles measured on
+ * it (`specDigest`). Each is cached by the spec's own objects, so no step of a mind that first
+ * senses a body of it pays for it.
+ */
+export function deriveSpec(spec: BodySpec): void {
+  deriveSensed(spec);
+  specDigest(spec);
 }
 
 /** **Where minds run, the world's side** (`World.minds`). */

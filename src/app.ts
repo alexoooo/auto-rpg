@@ -5,6 +5,7 @@ import "./ui/mind.css";
 import "./ui/attributes.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
 import { need } from "./dom.ts";
+import { isolatePage } from "./isolate.ts";
 import { paintLoading, screenLifetime, screenTask, type NavigationOptions, type ScreenContext } from "./ui/screen.ts";
 
 const outlet = need("app-root"), overlay = need("app-loading"), label = need("loading-label");
@@ -181,4 +182,5 @@ window.addEventListener("popstate", () => navigate(location.href, { replace: tru
 window.addEventListener("pagehide", () => state.current?.lifetime.dispose());
 window.addEventListener("pageshow", event => { if (event.persisted) navigate(location.href, { replace: true, setup: true }); });
 import.meta.hot?.dispose(() => state.current?.lifetime.dispose());
+void isolatePage().catch((error: unknown) => console.warn("the page runs its minds in the world's thread:", error));
 navigate(location.href, { replace: true });

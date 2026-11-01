@@ -33,6 +33,7 @@ export const COVER: Evaluation<CoverCondition, CoverReading> = {
     { name: "taken", unit: "hit points lost, the mean", kind: "mean", better: "lower", of: (r) => r.taken },
     { name: "guard", unit: "touches the guard met, the mean", kind: "mean", better: "higher", of: (r) => r.touches.guard },
     { name: "fell", unit: "share of trials", kind: "rate", better: "lower", of: (r) => r.down },
+    { name: "shielded", unit: "share of the blows that touched it its left hand's item met first, the mean", kind: "mean", better: "higher", of: (r) => r.blows > 0 ? r.shielded / r.blows : null },
   ],
   /** Each subject's trials as a table, in the conditions' order. */
   summary({ subjects, cases }) {
