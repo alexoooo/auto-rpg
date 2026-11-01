@@ -602,3 +602,19 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       score: search.score, ...(search.vertical !== 0 ? { direction: [0, search.vertical, 0] as Vec3 } : {}) };
   };
 }
+
+/**
+ * **Derive what sensing `spec` derives from the spec alone** (each segment's hull or centre line
+ * and its entry shapes, the guarding limbs, the parts aimed at), so a thread that is sent a spec
+ * derives it as it arrives, not in the step a mind first senses a body of it. Each is cached by
+ * the spec's own objects, as reading it derives it.
+ */
+export function deriveSensed(spec: BodySpec): void {
+  for (const segment of spec.segments) {
+    polyhedron(segment);
+    capsule(segment);
+    for (const shape of entryShapes(segment)) { polyhedron(shape); capsule(shape); }
+  }
+  guardsOf(spec);
+  targetsOf(spec);
+}

@@ -1,5 +1,5 @@
 import { receiveMessageOnPort, workerData, type MessagePort } from "node:worker_threads";
-import { seatHost, type ReportNow, type SeatAsk } from "../core/mind/apart.ts";
+import { deriveSpec, seatHost, type ReportNow, type SeatAsk } from "../core/mind/apart.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { MirrorChannel } from "../core/mind/mirror.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
@@ -10,7 +10,8 @@ import { DONE, POSTED, SHARED_NUMBERS, waitPast, type AskCrossing, type Batch, t
  * **A minds' thread** (`mindWorkers`, `src/node/minds.ts`): a host of seats (`seatHost`) that waits
  * for each batch of asks the world posts, carries them out in order on the channels' shared numbers,
  * and answers with what each seat it was asked of says, until it is told to stop. Every mind's data
- * is loaded before the first batch is read (`loadData`).
+ * is loaded before the first batch is read (`loadData`); a spec sent is derived as it arrives
+ * (`deriveSpec`).
  */
 const { port, control: counters } = workerData as { readonly port: MessagePort; readonly control: Int32Array };
 const control = counters, host = seatHost(MIND_CATALOGS);
@@ -47,8 +48,8 @@ for (let seq = 1; ; seq++) {
   // What each seat says crosses by copy: a value that cannot be copied fails the batch, said as its error.
   try {
     const touched = new Set<number>();
-    for (const { seat, ask: crossing, specs: shipped, told: tells, inbound, outbound } of batch.asks) {
-      for (const [number, spec] of shipped ?? []) specs.set(number, spec);
+    for (const [number, spec] of batch.specs ?? []) { specs.set(number, spec); deriveSpec(spec); }
+    for (const { seat, ask: crossing, told: tells, inbound, outbound } of batch.asks) {
       const ask = asked(crossing);
       let channel = channels.get(seat);
       if (!channel) {

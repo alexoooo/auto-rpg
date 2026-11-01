@@ -19,9 +19,9 @@ export const DONE = 1;
 export const SHARED_NUMBERS = (length: number): Float64Array => new Float64Array(new SharedArrayBuffer(8 * length));
 
 /**
- * A body's spec as it crosses: its number in the thread's table of specs. A spec is millions of
- * characters with its provenance, dear to copy, and a fight's bodies share a few: each crosses to a
- * thread once (`Carried.specs`), and is named by its number after.
+ * A body's spec as it crosses: its number in the threads' table of specs. A spec is millions of
+ * characters with its provenance, dear to copy, and a fight's bodies share a few: each crosses to
+ * every thread once, the first time an ask names it (`Batch.specs`), and is named by its number after.
  */
 export type SpecNumber = number;
 
@@ -36,14 +36,13 @@ export type AskCrossing = Exclude<SeatAsk, { readonly kind: "make" }>
 export interface Carried {
   readonly seat: number;
   readonly ask: AskCrossing;
-  readonly specs?: readonly (readonly [SpecNumber, BodySpec])[];
   readonly told?: readonly ToldCrossing[];
   readonly inbound?: Float64Array;
   readonly outbound?: Float64Array;
 }
 
-/** **A batch** of asks to one minds' thread, its count; or the word to stop. */
-export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly stop?: true }
+/** **A batch** of asks to one minds' thread, its count, and the specs it is sent, by their numbers, before its asks; or the word to stop. */
+export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly stop?: true }
 
 /** What a seat's mind says as it crosses: its report but its kit and its gait, which cross only when they change, and its outbound numbers where made anew. */
 export interface Said {

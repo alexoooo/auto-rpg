@@ -12,7 +12,7 @@ import { DONE, POSTED, SHARED_NUMBERS, waitPast, type AskCrossing, type Batch, t
  */
 const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
 
-/** One minds' thread as the world holds it: the thread, its port and counters, the asks not yet sent and whose they are, the batches posted, and the specs it has been sent, by their numbers. */
+/** One minds' thread as the world holds it: the thread, its port and counters, the asks not yet sent and whose they are, and the batches posted. */
 interface Thread {
   readonly worker: Worker;
   readonly port: MessagePort;
@@ -20,7 +20,6 @@ interface Thread {
   readonly queue: Carried[];
   readonly asking: Held[];
   posted: number;
-  readonly specs: Map<BodySpec, SpecNumber>;
 }
 
 /** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, and what its mind last said. */
@@ -43,7 +42,9 @@ interface Held {
  * the threads share. An ask to observe waits to go with the others the world makes after physics,
  * in one batch a thread, as the world dispatches them; every other ask goes at once, so a thread
  * thinks for one body while the world writes the next. The world waits on a seat only for the batch
- * that carries its last ask.
+ * that carries its last ask. A spec goes to every thread the first time any ask names it, in a
+ * batch of its own ahead of that ask, so a thread has every spec a fight has named before a mind
+ * of it senses a body of it, and derives what it needs of it as it arrives.
  */
 export function mindWorkers(threads: number): MindPlace {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
@@ -51,9 +52,9 @@ export function mindWorkers(threads: number): MindPlace {
     const { port1, port2 } = new MessageChannel(), control = new Int32Array(new SharedArrayBuffer(8));
     const worker = new Worker(new URL("./mind-worker.ts", import.meta.url), { workerData: { port: port2, control }, transferList: [port2] });
     worker.unref();
-    return { worker, port: port1, control, queue: [], asking: [], posted: 0, specs: new Map() };
+    return { worker, port: port1, control, queue: [], asking: [], posted: 0 };
   });
-  const seats = new Map<number, Held>();
+  const seats = new Map<number, Held>(), specs = new Map<BodySpec, SpecNumber>();
   let next = 0, warming = -1, disposed = false;
   const send = (thread: Thread, batch: Omit<Batch, "seq">) => {
     thread.posted += 1;
@@ -85,19 +86,22 @@ export function mindWorkers(threads: number): MindPlace {
       }
     }
   };
-  // Asks queued for `thread`, each spec they name by its number, with the specs the thread has not had.
+  // `spec`'s number, sent to every thread first where no ask has named it before.
+  const numbered = (spec: BodySpec): SpecNumber => {
+    let number = specs.get(spec);
+    if (number === undefined) {
+      specs.set(spec, number = specs.size);
+      for (const thread of pool) send(thread, { asks: [], specs: [[number, spec]] });
+    }
+    return number;
+  };
+  // Asks queued for `thread`, each spec they name by its number.
   const queue = (thread: Thread, asks: readonly { readonly seat: number; readonly ask: SeatAsk; readonly told?: readonly MirrorChannel["told"][number][]; readonly inbound?: Float64Array; readonly outbound?: Float64Array }[]) => {
-    const specs: [SpecNumber, BodySpec][] = [];
-    const numbered = (spec: BodySpec): SpecNumber => {
-      let number = thread.specs.get(spec);
-      if (number === undefined) { thread.specs.set(spec, number = thread.specs.size); specs.push([number, spec]); }
-      return number;
-    };
     const statics = (of: MirrorStatics) => ({ ...of, spec: numbered(of.spec) });
     for (const { seat, ask, told, inbound, outbound } of asks) {
       const crossing: AskCrossing = ask.kind === "make" ? { ...ask, recipe: { ...ask.recipe, statics: statics(ask.recipe.statics) } } : ask;
       const tells = told?.map((entry): ToldCrossing => entry.kind === "other" ? { ...entry, spec: numbered(entry.spec) } : entry);
-      thread.queue.push({ seat, ask: crossing, ...(specs.length > 0 ? { specs: specs.splice(0) } : {}), ...(tells ? { told: tells } : {}),
+      thread.queue.push({ seat, ask: crossing, ...(tells ? { told: tells } : {}),
         ...(inbound ? { inbound } : {}), ...(outbound ? { outbound } : {}) });
     }
   };
