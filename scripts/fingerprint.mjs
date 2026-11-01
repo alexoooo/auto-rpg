@@ -398,7 +398,7 @@ const CASES = [
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
     helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
-  controlled("crypt-skeleton", "workshop-rogue", "option-skeleton,option", both("sword")),
+  controlled("crypt-skeleton", "workshop-rogue", "option,option", both("sword")),
   controlled("reptile", "reptile", "option-reptile,option-reptile", both("empty")),
   controlled("reptile", "workshop-fighter", "option-reptile,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),

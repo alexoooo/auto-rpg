@@ -670,7 +670,7 @@ out orders, a scenario's script made orders (`scriptOrders`, `src/lab/actor.ts`)
 | Kind | Maker | What it composes |
 |---|---|---|
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting; no preset: the host a swapped quadruped part runs in (`tests/swap.test.mjs`) |
-| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
+| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it (the Skeleton's the low front kick alone); `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
 | option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
 
@@ -718,7 +718,7 @@ Over the tree:
 Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation or a test
 may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
 chooses by participant, side and model (`DungeonRunOptions.mind`); either, where none is named,
-plays Option Mind's preset for the model (`defaultMind`: `option`, `option-skeleton`,
+plays Option Mind's preset for the model (`defaultMind`: `option` on every humanoid,
 `option-reptile`); the Lab's actor by
 `ActorOptions.mind`.
 
@@ -1058,7 +1058,7 @@ own folder and its own data, and nothing else (`tests/core-boundary.test.mjs`), 
 its own (`node scripts/entrant-check.mjs`).
 
 1. **Most entrants are presets**: configs of the toolkit's kinds of mind (`option`, `quadruped`)
-   holding the toolkit's parts and its own (`option`, `option-skeleton`, `walker`).
+   holding the toolkit's parts and its own (`option`, `walker`).
 2. **A part of its own**, of any role (any slot's, an action's aim, an option, a chooser's
    objective, the quadruped's motor, gaits, bite and planner), is a module in its folder and a
    line of its manifest's `parts`, its kind `<name>:<kind>` (the swap fixture's stubs,

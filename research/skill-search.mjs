@@ -10,7 +10,7 @@
  *
  * - The front kick: the Strike drill's `kicking` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
  *   each foot at the middle of a Warrior, a Skeleton and a Reptile lying limp from two gaps, thrown
- *   by Option Mind's low kick (the Skeleton preset's, `src/entrants/option-skeleton/index.ts`); a
+ *   by Option Mind's low kick (`src/entrants/option/mind.ts`); a
  *   trial scores the drill's bar (`barScore`: -3 a fall, -1 nothing on the mark, 9 landed) and 5 a
  *   hit point the kick dealt.
  * - The stomp: the Strike drill's `stomping` rung, each foot at the middle of a Warrior and a

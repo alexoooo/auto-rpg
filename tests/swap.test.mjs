@@ -139,7 +139,7 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
 });
 
 test("CLI resolution preserves whole-config expansion, batteries and two-subject matches", () => {
-  const id = "option-skeleton", raw = JSON.stringify(MINDS[id].config), evaluation = EVALUATIONS.tournament;
+  const id = "swap-skeleton", raw = JSON.stringify(MINDS[id].config), evaluation = EVALUATIONS.tournament;
   assert.deepEqual(resolveSubjects(evaluation, [id]).subjects, evaluation.subjects([id]));
   const custom = resolveSubjects(evaluation, [raw]);
   assert.deepEqual(custom.subjects, evaluation.subjects(custom.choice));
@@ -192,7 +192,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
   const evaluation = EVALUATIONS.crowd;
   const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
     { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
-  for (const id of ["option-skeleton"]) {
+  for (const id of ["swap-skeleton"]) {
     assert.throws(() => cases(evaluation.subjects([id])), /fits no condition.*named calibration allows/);
     assert.throws(() => cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
       /fits no condition.*named calibration allows/);
@@ -217,8 +217,8 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const original = cases(evaluation.subjects(["swap-stub", "option"]));
   const changed = cases(resolveSubjects(evaluation, ["option"], "swap-stub", ["rate=30"]).subjects);
   assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
-  assert.throws(() => cases(evaluation.subjects(["option-skeleton", "option"])), /fits no condition.*named calibration allows crypt-skeleton/);
-  assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "option-skeleton", ["rate=30"]).subjects), /fits no condition/);
+  assert.throws(() => cases(evaluation.subjects(["swap-skeleton", "option"])), /fits no condition.*named calibration allows crypt-skeleton/);
+  assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
 });
 
 test("nested slot faults reach links with their path, and another entrant's part however deep makes the tree two entrants'", () => {

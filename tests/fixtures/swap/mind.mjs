@@ -95,7 +95,7 @@ const UNARMED = Object.freeze({ ...OPTION_DEFAULTS, kind: "swap:option",
 /** A toolkit mind `mind` as the swap entrant's experimental kind, starting as `defaults`. */
 const swapMind = (mind, label, defaults) => Object.freeze({ ...mind, label, stage: "experimental", defaults });
 
-/** **The swap entrant**: its two kinds of mind, every stub, and a preset of each fixture beside a calibrated bare-hand source, which exposes loadout widening independently of production kits. */
+/** **The swap entrant**: its two kinds of mind, every stub, and a preset of each fixture beside a calibrated bare-hand source, which exposes loadout widening independently of production kits, and one scoped to the Skeleton, a named calibration narrower than the bodies its config fits. */
 export const SWAP = Object.freeze({
   name: "swap",
   minds: Object.freeze([swapMind(OPTION_MIND, "Swap Option Mind", SWAP_OPTION_DEFAULTS), swapMind(QUADRUPED_MIND, "Swap quadruped", SWAP_QUADRUPED_DEFAULTS)]),
@@ -103,6 +103,7 @@ export const SWAP = Object.freeze({
   presets: Object.freeze({
     "swap-stub": Object.freeze({ label: "Swap stubs", config: SWAP_DEFAULTS, models: Object.freeze(["workshop-fighter"]) }),
     "swap-unarmed": Object.freeze({ label: "Swap bare-hand scope", config: UNARMED, models: Object.freeze(["workshop-fighter"]) }),
+    "swap-skeleton": Object.freeze({ label: "Swap Skeleton scope", config: Object.freeze({ ...OPTION_DEFAULTS, kind: "swap:option" }), models: Object.freeze(["crypt-skeleton"]) }),
     "swap-option": Object.freeze({ label: "Swap Option Mind", config: SWAP_OPTION_DEFAULTS }),
     "swap-quadruped": Object.freeze({ label: "Swap quadruped", config: SWAP_QUADRUPED_DEFAULTS }),
   }),
