@@ -600,20 +600,24 @@ To its verdict, before and after: the right side by the drain at 117.04 s, 4596 
 
 ### A body's height read once a pose
 
-**A body's height over its lowest point is read once a pose for every caller, halving its share of
-the crowd fight's step from 3.9 % to 2.1 %.** The fight's down rule (`physicalReading`,
+**A body's height over its lowest point is read once a pose for every caller, and its clearance
+over the segments it bears on from that reading: from 5.5 % of the crowd fight's step to 2.7 %.**
+The fight's down rule (`physicalReading`,
 `src/core/observation.ts`) and the mind's look (`commandLayers`) each read it a step, the one
 through the body and the other through its mind's read view; the two now share one reading
 (`uprightness`, `src/core/control/ground.ts`, by the first segment's position vector, which a
 body and its view share), which answers again while each segment's node stands where it stood and
 turned as it was, with the same points (a hand's pose). Of 12020 reads in the crowd fight's first
-5 s, 6020 are answered so. No fingerprint case moved.
+5 s, 6020 are answered so. The clearance a fall is read by (`fallen`, `clearance`) takes each
+part's lowest point from that reading, a segment it leaves out found by its spec, which a body's
+and its view's segments share. No fingerprint case moved.
 
 The crowd fight, seed 0, its first 20 s, under V8's CPU profiler, at `5b61e0cc` and after:
 
 | Inclusive, of the step, % | Before | After |
 | --- | --- | --- |
-| the reading (`read`) | 3.94 | 2.08 |
+| the reading (`read`) | 3.94 | 2.41 |
+| the clearance (`clearance`) | 1.60 | 0.26 |
 
 ### The held aim
 

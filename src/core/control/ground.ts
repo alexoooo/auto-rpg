@@ -163,6 +163,8 @@ function readUprightness(built: ReadBody): Uprightness {
    * and the points it read (`Part.lows`, by its hand's pose). A read in that pose answers them again.
    */
   const pose = new Float64Array(parts.length * POSE), lows: (readonly Part["lows"][number][] | null)[] = parts.map(() => null);
+  /** Each part's lowest point, world, as `levels` were read. */
+  const partLow = new Float64Array(parts.length);
   const samePose = (): boolean => {
     for (let k = 0, i = 0; k < parts.length; k++, i += POSE) {
       const part = parts[k]!, p = part.segment.node.position, q = part.segment.node.rotationQuaternion!;
@@ -180,7 +182,10 @@ function readUprightness(built: ReadBody): Uprightness {
       lows[k] = points;
       turnOfToRef(part.segment, turn);
       high += part.mass * (part.centre.applyRotationQuaternionToRef(turn, at).y + p.y);
-      for (const point of points) low = Math.min(low, point.from.applyRotationQuaternionToRef(turn, at).y + p.y - point.radius);
+      let own = Infinity;
+      for (const point of points) own = Math.min(own, point.from.applyRotationQuaternionToRef(turn, at).y + p.y - point.radius);
+      partLow[k] = own;
+      low = Math.min(low, own);
     }
     levels.centre = high / mass;
     levels.low = low;
@@ -190,17 +195,15 @@ function readUprightness(built: ReadBody): Uprightness {
     const { centre, low } = read();
     return centre - low;
   };
+  // A segment of `except` is the part of its spec: a body's and its read view's segments are two objects of one spec.
+  const excepted = (part: Part, except: ReadonlySet<ReadSegment>): boolean => {
+    for (const segment of except) if (segment.spec === part.segment.spec) return true;
+    return false;
+  };
   const clearance: Uprightness["clearance"] = (except) => {
-    let low = Infinity, rest = Infinity;
-    for (const part of parts) {
-      const node = part.segment.node, others = !except.has(part.segment);
-      turnOfToRef(part.segment, turn);
-      for (const point of part.lows) {
-        const y = point.from.applyRotationQuaternionToRef(turn, at).y + node.position.y - point.radius;
-        low = Math.min(low, y);
-        if (others) rest = Math.min(rest, y);
-      }
-    }
+    const { low } = read();
+    let rest = Infinity;
+    for (let k = 0; k < parts.length; k++) if (!excepted(parts[k]!, except)) rest = Math.min(rest, partLow[k]!);
     return rest - low;
   };
   return {
