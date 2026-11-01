@@ -4,8 +4,9 @@ The toed Warrior's club blow, sword cut and sword thrust (`src/core/skills/strik
 read against the held blow's bar: 64.8 J of the rules' energy, met with the item's face (the club
 blunt, the cut its edge, the thrust its point), at the mark asked, the striker up
 ([Club and sword](../plans/2026-10-31-club-and-sword.md#the-bar), `BAR.held`,
-`src/evaluation/strike/read.ts`). The club, steered, lands 86 and 88 of 100 held-out trials at
-120 and 480 Hz, short of the plan's 90; the cut and the thrust do not reach the bar.
+`src/evaluation/strike/read.ts`). The club, steered, lands 272 and 277 of 300 held-out trials
+at 120 and 480 Hz (91 and 92 %), but 3 fell at 480 Hz, and the bar has none fall: it is not yet
+at the bar. The cut and the thrust do not reach it.
 
 ## What is used
 
@@ -65,40 +66,52 @@ places; a steer has to take it elsewhere.
 PPO (`research/run-train.py`) on `research/environments/club-blow.json`: the searched schedule
 steered by a network, Option Mind's club blow alone, the Warrior holding the club and the buckler,
 the still rung's target 0.94 to 1.14 m away and 0.15 m across the body to 0.3 m to the club's
-side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 7.1 M decisions in
-6.4 h.
+side, at 120 and 480 Hz. Node, the bout world, Rapier; 8 to 24 workers of 4, 8.5 M decisions in
+about 10 h, then 1.05 M more from its 8.5 M network with a narrower spread (`--log-std -1.6`) and a
+slower rate (`--lr 1e-4`) in 2.2 h, 8 workers of 4.
 
 | Network | Held out (seed 6001, 100 a rate): 120 Hz | 480 Hz |
 | --- | --- | --- |
 | none, the schedule alone (seed 5001, 40, gaps 0.79 to 1.29 m) | 2 of 40, 2 fell | 1 of 40, 2 fell |
 | 5.2 M decisions | 73, 2 fell | 91 |
 | 6.2 M | 85, 1 fell | 85 |
-| 7.1 M, the record's | **86**, none fell | **88**, 1 fell |
+| 7.1 M | 86, none fell | 88, 1 fell |
+| 8.5 M | 88, none fell | 90 |
+| 8.5 M, again (seed 7001, 200 a rate) | 174 of 200, 6 fell | 188 of 200 |
+| 8.5 M and 1.05 M narrower, the record's | **89**, none fell | **90**, 1 fell |
+| the same (seed 7001, 200 a rate) | **183 of 200**, none fell | **187 of 200**, 2 fell |
+| the same, 1.5 M narrower | 87, 2 fell | 96 |
 
 Landed blows meet at a median 15 to 16 m/s; the misses are weak blows spread over the places, the
 nearest and farthest most. The window is the one it was trained in: a narrower one (`band` and
 `aside` 0.15 m, or `reach` 0.73) admits the same places but moves the body before the blow, and
-lands 72 and 62 (77 and 68). Trained on past 7.1 M decisions (to 8.3 M), it stays between 84
-and 93 at either rate.
+lands 72 and 62 (77 and 68). From 7 M decisions on it stays between 84 and 96 at either rate, a
+fall in about a hundred trials at one rate or the other; the misses gather at the far side, 1.12 m
+and beyond.
 
 ### The club up the ladder
 
 The Strike drill (`npm run evaluate -- strike option/club-blow@buckler,club`), the steered club at
-4a2354fe; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
+5a8f6a6c; Node, the bout world, Rapier, 120 Hz. Counted over the trials it threw (the Rogue, the
 left hand and the high mark are refused):
 
 | Rung | Landed of thrown | Fell | Where it misses |
 | --- | ---: | ---: | --- |
-| still (0) | 11 of 15 | 1 | 0.6 and 0.7 m, nearer than it was trained, and 0.9 m square on |
-| moving (1) | 7 of 17 | 0 | a pad moving away, or at 0.6 m/s |
+| still (0) | 11 of 15 | 0 | 0.7 m, nearer than it was trained, and 1.2 and 1.3 m to the side, weak |
+| moving (1) | 4 of 17 | 0 | weak or elsewhere at every pace and heading |
 | stepping (2) | 0 of 1 | 0 | out of its window at 0.8 and 1.2 m |
 | guarding (3) | 3 of 3 | 0 | |
 | punching (4) | 3 of 3 | 0 | |
-| walk (5) | 10 of 29 | 0 | thrown still walking (2 of 16; settled, 8 of 13) |
-| fight | 0 of 4 | 0 | elsewhere or guarded |
+| walk (5) | 9 of 29 | 0 | thrown still walking (1 of 16; settled, 8 of 13) |
+| fight | 0 of 4 | 1 | fell, guarded, missed |
+
+Trained on (`research/environments/club-ladder.json`: the still rung from 0.6 m and the walk in,
+PPO from the steered club's network), it gained nothing in 0.5 M decisions: nearer than 0.85 m
+the club passes the target (`missed`), and every blow after the walk in misses it (16 of 16, 2
+fell), as at the start.
 
 Its profile (`assets/core/strike-profiles.json`) is read from the still, stepping, guarding,
-punching and letting-go records (`assets/evaluations/strike/2026-10-31-4a2354fe-*.jsonl`), so
+punching and letting-go records (`assets/evaluations/strike/2026-10-31-5a8f6a6c-*.jsonl`), so
 Option Mind prices the club by them.
 
 ### The cut
@@ -121,11 +134,22 @@ trunk point first at 3.5 m/s closing, 25.4 J at 120 Hz and 27.6 J at 480. Withou
 closing. The grip lays the blade square to the hand's length, so the arm holds it along the line
 only with the wrist near its stops.
 
+Steered, it gains nothing: PPO from scratch on `research/environments/sword-thrust.json` (the best
+schedule, the target 1.16 to 1.36 m away, 120 Hz alone at first and 480 Hz mixed in over 1.5 M
+decisions) met every held-out trial weak after 1 M decisions, a median 16 J at 120 Hz and 17 J at
+480, 32 J at most (30 a rate, seed 6001), no higher than at 0.5 M; at 1.5 M, 17 and 18 J, 36 J at
+most, its training score flat from 0.4 M to 2 M.
+
 ### The blades it would replace
 
 `BLADE_STRIKE`'s thrust (the Duellist's, `duellist/thrust@buckler,sword`), on the same still rung
 at 9906c33a: 0 of 128 landed, 8 met the mark, median 0.18 J. Neither held sword blow lands either,
 so the Duellist keeps it.
+
+The sword's held blows as Option Mind holds them now (their hand-set records), on the Strike
+drill's still rung at 76f1c94f (`assets/evaluations/strike/2026-10-31-76f1c94f-*.jsonl`): the cut
+threw 7 and landed none (one weak, the rest guarded or elsewhere); the thrust threw 10 and landed
+none.
 
 ## Tried and not kept
 
