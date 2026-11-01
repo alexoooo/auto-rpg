@@ -87,6 +87,13 @@ function fixedAt(level: BodyLevel): boolean {
 
 /** One freedom's muscles: which joint and freedom, and the curve each way. */
 /** The channel of `joint`'s freedom `index`: the joint's name and the freedom's positive motion, e.g. "elbow.right flexion". */
+/**
+ * **The plan's reflex**: how far, as a share of a channel's stronger side, the body moves a torque a
+ * late command gives to bring the joint to the speed the command expects
+ * ([the command delay](../../../docs/reference/command-delay.md#what-is-used)).
+ */
+export const PLAN_REFLEX = 0.03;
+
 export const channelName = (joint: JointKinematics, index: number): string => `${joint.spec.name} ${joint.dofs[index]!.spec.positive}`;
 
 interface MuscleChannel {
@@ -146,6 +153,14 @@ export interface MuscleDriver {
   readonly bounds: { readonly negative: Float64Array; readonly positive: Float64Array };
   /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
   readonly pulled: Float64Array;
+  /**
+   * **The speed each channel's command was solved to reach**, an efference copy: rad/s by the end
+   * of the step it is applied in; NaN where the command expects none. In a world with a delay, a
+   * torque the command gives is a velocity motor toward that speed, held within `PLAN_REFLEX` of
+   * the channel's strength around the torque, so the body corrects at once what the late command
+   * could not see; and a mind carries its sense of the body forward by it (`Mirror.forecast`).
+   */
+  readonly expect: Float64Array;
   /** Its memory (`src/core/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
   readonly state: object;
   /** Its level (`BodyLevel`), `full` as made. */
@@ -233,16 +248,17 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   let hook: Hook | null = null, reads: Hook | null = null;
   let after: Hook | null = null;
   // The commands sent and not yet applied, a slot a step of the world's delay and one more; none where none was sent that long ago.
-  const line = delayLine(world.delay), none = new Float64Array(n);
+  const line = delayLine(world.delay), none = new Float64Array(n), unexpected = new Float64Array(n).fill(NaN), late = world.delay > 0;
   const state = {
     level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
+    expect: new Float64Array(n).fill(NaN),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) },
     /** Each side's tendon's stretch after the last step, rad; 0 where it has none. */
     stretch: { negative: new Float64Array(n), positive: new Float64Array(n) },
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
     line: line.state,
-    sent: { activation: Array.from({ length: line.size }, () => new Float64Array(n)), velocity: Array.from({ length: line.size }, () => new Float64Array(n)) },
+    sent: { activation: Array.from({ length: line.size }, () => new Float64Array(n)), velocity: Array.from({ length: line.size }, () => new Float64Array(n)), expect: Array.from({ length: line.size }, () => new Float64Array(n).fill(NaN)) },
   };
   const driver: MuscleDriver = {
     channels, state,
@@ -250,6 +266,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     velocity: state.velocity,
     ceiling: state.ceiling,
     pulled: state.pulled,
+    expect: state.expect,
     bounds: state.bounds,
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
     rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
@@ -266,6 +283,8 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         state.stretch.negative.fill(0); state.stretch.positive.fill(0);
         line.reset();
         for (const sent of [...state.sent.activation, ...state.sent.velocity]) sent.fill(0);
+        for (const sent of state.sent.expect) sent.fill(NaN);
+        state.expect.fill(NaN);
         channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
       }
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
@@ -298,10 +317,11 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     if (!prepared) sense();
     control?.(driver, dt);
     const slot = line.written();
-    state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity);
+    state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity); state.sent.expect[slot]!.set(state.expect); state.expect.fill(NaN);
     const due = line.applied();
     line.advance();
     const asked = due < 0 ? none : state.sent.activation[due]!, wanted = due < 0 ? none : state.sent.velocity[due]!;
+    const expected = due < 0 ? unexpected : state.sent.expect[due]!;
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
       const speed = driver.speed(i), target = wanted[i]!;
@@ -330,6 +350,15 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       driver.ceiling[i] = toward > 0 ? positive : negative;
       // The motor's axis may run against the freedom's positive sense.
       const along = c.dof.sign > 0;
+      // A torque the command expects a speed of is held around it toward that speed (`expect`).
+      const expects = expected[i]!;
+      if (late && !Number.isFinite(target) && Number.isFinite(expects) && Number.isFinite(activation)) {
+        const up = driver.strength(i, 1), down = driver.strength(i, -1), margin = PLAN_REFLEX * (up > down ? up : down);
+        const torque = target > 0 ? activation * up : -activation * down;
+        const low = Math.max(torque - margin, -down), high = Math.min(torque + margin, up);
+        motors[i]!.setMotorBounds(c.index, c.dof.sign * expects, along ? -low : high, along ? high : -low);
+        continue;
+      }
       const commanded = c.dof.sign * (beyond ? toward * reach : target);
       if (directional) motors[i]!.setMotorBounds(c.index, commanded, along ? negative : positive, along ? positive : negative);
       else motors[i]!.setMotor(c.index, commanded, reference);

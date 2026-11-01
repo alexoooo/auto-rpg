@@ -179,6 +179,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
+          seated.mirror.ahead(seated.recipe.dt);
           seated.mind.step(seated.mirror.senses, seated.recipe.dt);
           seated.mirror.answer();
           return;

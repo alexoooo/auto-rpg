@@ -145,7 +145,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   }, () => { mind!.idle?.(); way.reset(); }, world.mirrored ? { dynamics: false, prepared: true } : {});
   way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
   if (world.mirrored) {
-    const statics = mirrorStatics(built, contactIdentity !== undefined);
+    const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
     const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, contactIdentity ? { labels: contactIdentity } : {});
     // Its fight senses for it from its first step: made, it reads its body alone.
     writer.write({ sensing: false });
@@ -156,6 +156,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
       if (muscles.level !== "full") return;
       writer.write();
       mirror.refresh({ dynamics: true });
+      mirror.ahead(dt);
       mind!.step(mirror.senses, dt);
       mirror.answer();
     });
@@ -253,7 +254,7 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
     way.settle(driver);
   }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true });
   way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
-  const statics = mirrorStatics(built, contactIdentity !== undefined);
+  const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
   writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
   writer.write({ sensing: false });
   return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
