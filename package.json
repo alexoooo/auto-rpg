@@ -21,14 +21,14 @@
     "clean": "node scripts/clean.mjs"
   },
   "dependencies": {
-    "@babylonjs/core": "9.18.1",
-    "@babylonjs/loaders": "9.18.1",
+    "@babylonjs/core": "9.33.1",
+    "@babylonjs/loaders": "9.33.1",
     "@dimforge/rapier3d-compat": "0.21.0",
     "@dimforge/rapier3d-simd-compat": "file:vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.10.tgz",
     "@mujoco/mujoco": "3.14.0"
   },
   "devDependencies": {
-    "@babylonjs/ktx2decoder": "9.18.1",
+    "@babylonjs/ktx2decoder": "9.33.1",
     "@gltf-transform/core": "4.5.0",
     "@gltf-transform/extensions": "4.5.0",
     "@gltf-transform/functions": "4.5.0",
