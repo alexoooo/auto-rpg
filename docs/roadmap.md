@@ -259,9 +259,12 @@ screened small (one body, one loadout, one group of falls) before its full targe
   port; grips are fixed at build), answered on the shared strike's cells
   ([shared-item strikes](reference/shared-strike.md)) against the Lab's controller; the legs
   goal's claim gains a grip term only with a reader.
-- **Assists.** Grit, a torque assist, is defined (limits, accounting, interaction with the muscles)
-  before it is used; its objective is a median below 4 s under its declared configuration, apart
-  from the unassisted target. A controller trained with an assist is read without it before an
+- **Assists.** Grit, a rising assist, has no mechanism yet: no effective one is found, and a
+  joint-torque surge is not one (step-up's route at twice the strength stands as often and no
+  faster, [step-up on the owner's target](reference/rising.md#step-up-on-the-owners-target)). It
+  is defined (limits, accounting, interaction with the muscles) before it is used; its objective
+  is a median below 6 s under its declared configuration, apart from the unassisted target. A
+  controller trained with an assist is read without it before an
   unassisted claim; lowering the assist over training is one way there. Movement and
   attack-and-defence assists are not built.
 - **Posture and support.** No installed pose is held within 2 cm for 10 s by joint feedback
