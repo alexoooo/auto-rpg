@@ -68,6 +68,13 @@ const FLAT = 0.9;
 const STANDING = 0.85, KNEEL_UP = 0.83;
 /** A sitting trunk raises its upper centre this far over its pelvis, metres. */
 const SITTING = 0.15;
+/**
+ * Under this share of reference height a body on none of the postures above lies, though its trunk
+ * bears nothing: face down on its arms or what it holds, on its side on its upper arm, on its
+ * hands and thighs. Lying it is at 0.13 to 0.26; on hands and knees at 0.36 and over
+ * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ */
+const LYING = 0.3;
 /** Six consecutive readings settle a label; physical facts never wait for it. */
 const SETTLE_STEPS = 6;
 /** Quiet hand-back needs nearly all weight on the feet, small linear speed, and little spin. */
@@ -147,7 +154,7 @@ export function groundReading(built: ReadBody, dt: number) {
       if (hands.every(side => side.some(bearsHolding)) && only(allowed.fours)) return "fours";
     }
     if (bears(trunk[0]!) && work.upper.y - work.lower.y >= SITTING && only(allowed.sitting)) return "sitting";
-    if (trunk.some(bears)) {
+    if (trunk.some(bears) || reading.height < LYING) {
       if (reading.lie === "left" || reading.lie === "right") reading.side = reading.lie;
       return reading.lie;
     }

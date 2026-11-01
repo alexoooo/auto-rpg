@@ -233,11 +233,14 @@ screened small (one body, one loadout, one group of falls) before its full targe
   edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
   Rogue with the club (9 and 10 of 16 against 11 and 12). The fast edge from hands and knees on
   toes, `sit-back` ([the sit-back](reference/rising.md#the-sit-back)), stands the Warrior 32 of 32
-  from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise on the toed
-  Warrior stands 24 of 32 baseline falls, 1 within 6 s, a median of 14.0 s
-  ([Recovery](plans/2026-10-23-recovery.md#where-it-starts): the chain's time and the hand-over
-  to the steady stand between it and the target). The owner watched it in the Lab's Stand-up
-  (Option Mind, toes) on 2026-10-29: it looks good, and good enough for now. The Rise drill's reel waits on a page that plays a technique case
+  from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise
+  (`--mind` Option Mind's preset) stands the toed Warrior from 31 of the target's 32 falls, 5
+  within 6 s, a median of 9.14 s (with the club 10.78 s, empty-handed 8.71 s), and from 32 of the
+  32 fresh falls, 8.69 s ([Option Mind's rise](reference/rising.md#option-minds-rise-on-the-target)).
+  The Rogue is not read with Option Mind: it has no straight punch tuned for the toed Rogue. The
+  owner watched the rise in the Lab's Stand-up (Option Mind, toes) on 2026-10-29: it looks good,
+  and good enough for now; its end changed on 2026-10-31 (the climb kept by the technique, one
+  settling step), and waits on the owner's look. The Rise drill's reel waits on a page that plays a technique case
   ([Framework](#framework)).
 - **Strikes.** A straight punch that lands at a person's level in fights. The Warrior's learned
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of

@@ -357,7 +357,9 @@ data (`Carriage`, `CARRIAGES`, the square stance the body is built in its one en
 walk's configuration may give another). Ordinary legs receive reference sole offsets at construction
 (`standingFooting`); idle for 0.2 s, upright and slow on both feet, they step into that footing
 when spacing error exceeds a quarter sole length or a sole is turned over 0.2 rad. Targets stay fixed through placement, with a smaller
-finish tolerance; spacing is read about the soles' midpoint so quiet sway causes no steps. A catch
+finish tolerance; spacing is read from the planted sole nearer the centre of mass, turned within
+0.2 rad, so quiet sway causes no steps and the other foot alone steps (about the soles' midpoint,
+both, where neither is turned within it). A catch
 or unexpected velocity discards idle placement before the legs ask for another step. Settling takes
 the pelvis's current facing; a requested step releases the preceding catch's recovery heading.
 Explicit stance requests and actions owning the
@@ -755,14 +757,14 @@ facing the focus (`hold`, the legs), the hands at their guard (`guard`, over the
 where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
 A ground option (`groundOptions`, `ground.ts`) is carried out through the skills as an action of
 the ground executor (`groundExecutor`, `ground/held.ts`): each technique of a list, the
-repositions, flatten, and brace, land and steady (brace and the steady with its climb in
+repositions (offered only from a posture none of the list is begun from), flatten, and brace, land and steady (brace and the steady with its climb in
 `ground/steady.ts`, shared with Stand up), each run on the body held whole, holding every
 resource, asking no stance and pushing every muscle as its run drives it. No supervisor offers
 them: a technique is on offer where its own entry admits the body as it lies
 (`TechniqueRun.admits`) once its position is read, on a body tumbling only once braced its second
 (`BY_HAND.braced`); brace while the body tumbles off its feet short of that, the steady on its
 feet, land while its position is unread. A technique begun runs to its end, yielding where its run
-says it may; the others yield. Each is priced where it leaves the body (`downTerms` with its
+says it may (a staged edge only while it lies slack, never in its climb); the others yield. Each is priced where it leaves the body (`downTerms` with its
 `Place.posture`) and by its seconds down, each at what a second down where the body lies costs
 (the prediction `downRate`), as a posture's price counts them: an edge as the route on through it
 to standing (`routeOf`), its expected seconds and, in its share done, the rise's on from the

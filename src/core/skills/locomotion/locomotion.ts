@@ -438,18 +438,26 @@ export function locomotion(feet: StanceFeet, envelope: StanceEnvelope | null, { 
     if (state.rising || !still(view) || !s.touching.left || !s.touching.right || s.own) { idle.seconds = 0; return null; }
     idle.seconds = Math.min(0.2, idle.seconds + dt);
     if (idle.seconds + dt / 2 < 0.2) return null;
-    // Read the feet's arrangement about their midpoint: sway alone never changes the desired spacing.
-    const c = s.support, h = facing(view), rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
+    // The footing is read about a planted sole, which sway never moves: the foot nearer the centre
+    // of mass, turned within the tolerance, stays, and the other steps to the reference spacing
+    // from it. Where neither is turned within it, about the soles' midpoint, and both step.
+    const h = facing(view), rx = cos(h), rz = -sin(h), fx = sin(h), fz = cos(h);
+    const sole = (side: Side): readonly [number, number] => [s.soles[side].x, s.soles[side].z];
+    const nearer = (side: Side): number => hypot(s.soles[side].x - s.centre.x, s.soles[side].z - s.centre.z);
+    const level = (["left", "right"] as const).filter(side => turned(view, side, h) <= 0.2);
+    const stays: Side | null = level.length === 2 ? (nearer("left") <= nearer("right") ? "left" : "right") : level[0] ?? null;
+    const [ax, az] = stays ? idleFooting.offsets[stays] : [0, 0];
+    const c = stays ? s.soles[stays] : s.support;
     const at = (side: Side): readonly [number, number] => {
-      const [x, z] = idleFooting.offsets[side];
+      const x = idleFooting.offsets[side][0] - ax, z = idleFooting.offsets[side][1] - az;
       return [c.x + rx * x + fx * z, c.z + rz * x + fz * z];
     };
     const target = { left: at("left"), right: at("right") };
-    if ((["left", "right"] as const).every(side => apart([s.soles[side].x, s.soles[side].z], target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
+    if ((["left", "right"] as const).every(side => apart(sole(side), target[side]) <= idleFooting.length / 4 && turned(view, side, h) <= 0.2)) return null;
     // A catch can turn the pelvis: settle under its current facing rather than twisting back over planted feet.
     state.heading = h;
     idle.target = target;
-    state.placing = null;
+    state.placing = { footing: target, stepped: { left: stays === "left", right: stays === "right" }, step: null, lifted: false };
     return place(view, target, undefined, Math.min(PLACING.near, idleFooting.length / 8), 0.05);
   }
 

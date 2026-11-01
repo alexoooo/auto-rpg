@@ -27,7 +27,13 @@ Ordinary standing legs correct an awkward footing with the existing weight shift
 (`locomotion`, `standingFooting`). Recovery controllers keep their supports planted.
 
 The reference sole offsets come from the body's reference geometry, centred at their midpoint;
-idle targets rotate those offsets into the pelvis's current facing about the current soles' midpoint.
+idle targets rotate those offsets into the pelvis's current facing about the planted sole that
+stays: the one nearer the centre of mass of those turned within 0.2 rad of that facing. The other
+foot alone steps, so one step squares the footing. With neither sole turned within 0.2 rad, the
+targets are about the soles' midpoint and both feet step. Read about the midpoint, both feet are off
+by the same distance, and every adjustment took two steps. Anchored, the time from the end of
+Option Mind's rise to verified standing is a mean 3.18 s against 3.41 over 256 falls
+([Option Mind's rise](rising.md#option-minds-rise-on-the-target)).
 An adjustment adopts that facing as the legs' heading. Body sway alone changes no target.
 The targets remain fixed through an adjustment. The shorter reference sole's heel-to-toe length
 includes flat toes. No muscle strength or assist changes.

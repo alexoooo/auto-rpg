@@ -24,6 +24,14 @@ const BY_HAND = deepFreeze({ edge: { seconds: 5, done: .7 }, steady: { seconds: 
 /** A body standing ready this long (`standReady`) has risen, s: its rise is over. */
 const READY_HOLD = .1;
 
+/**
+ * How upright a body on its feet holds its trunk (`GroundReading.upright`, the cosine of its lean):
+ * a squat or a climb holds it above, a body lying on its back with its feet planted below, however
+ * its supports read on a step its trunk does not bear
+ * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ */
+const TRUNK_UP = .5;
+
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 
@@ -37,8 +45,13 @@ interface Way {
 /** One way up's attempts in this rise from one posture: how many were begun, and how many reached where it goes. */
 interface Tried { readonly name: string; readonly from: Position; tries: number; done: number }
 
-/** A technique on the ground: its part (none for `flatten`), its run, and its profile on this body (`edgeExpected`), or none. */
-interface Technique { readonly name: string; readonly part: TechniquePart | null; readonly run: TechniqueRun; readonly profile: Way | null }
+/**
+ * A technique on the ground: its part (none for `flatten`), the edges it is offered on (`Edge`), its
+ * run, and its profile on this body (`edgeExpected`), or none.
+ */
+interface Technique { readonly name: string; readonly part: TechniquePart | null; readonly edges: readonly Edge[]; readonly run: TechniqueRun; readonly profile: Way | null }
+
+type Edge = TechniquePart["edges"][number];
 
 /**
  * **The ground's options and what they read**: the options (`Option`), the rise's price from each
@@ -90,7 +103,10 @@ function restOf(way: Way, from: Position, priced: (posture: Position) => boolean
  * runs from the step the body goes down until it stands ready (`READY_HOLD`) with nothing under
  * way and the steady not climbing.
  *
- * Each technique is on offer where its own entry admits the body as it lies
+ * A reposition (a technique of `registry` not among `techniques`) is on offer only from a posture
+ * none of `techniques` is begun from, as the game's Stand up repositions only where no route stands
+ * the body (`REPOSITION`): the body it leaves is not one the way on was made from. Each technique
+ * is on offer where its own entry admits the body as it lies
  * (`TechniqueRun.admits`, on the side the body lies on first, from its position as read, or raw
  * where its entry reads motion, `TechniquePart.moving`), once its position is read
  * (`GroundReading.settled`); one whose entry reads no motion, not on a body tumbling for less than
@@ -118,19 +134,22 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const order: readonly string[] = techniques.map((technique) => technique.kind), runs = executor.runs, dt = 1 / hz;
   const named = [...order, ...Object.keys(registry).filter((name) => !order.includes(name))].filter((name) => runs[name] !== undefined);
   const unpriced: string[] = [];
+  /** The postures a technique of `techniques` is begun from: a reposition is not offered there. */
+  const routedFrom = new Set(named.filter((name) => order.includes(name)).flatMap((name) => registry[name]!.edges.map((edge) => edge.from)));
   const all: Technique[] = named.map((name) => {
     const { expected, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz, edges);
     if (!expected && order.includes(name)) unpriced.push(`${name}: ${why}`);
-    return { name, part: registry[name]!, run: runs[name]!, profile: expected };
+    const part = registry[name]!;
+    return { name, part, edges: order.includes(name) ? part.edges : part.edges.filter((edge) => !routedFrom.has(edge.from)), run: runs[name]!, profile: expected };
   });
-  all.push({ name: "flatten", part: null, run: runs.flatten!, profile: null });
+  all.push({ name: "flatten", part: null, edges: [], run: runs.flatten!, profile: null });
   const routed = all.filter((one) => one.part !== null);
   const state = { active: false, ready: 0, steady: 0, tumbled: 0, current: null as { name: string; from: Position; id: number | null } | null, tried: [] as Tried[] };
   const triedOf = (name: string, from: Position): Tried | undefined => state.tried.find((one) => one.name === name && one.from === from);
   const wayOf = (one: Technique, from: Position): Way => recorded(one.profile ?? { ...BY_HAND.edge, ends: [] }, triedOf(one.name, from), from);
   const steadyWay = (from: Position): Way => recorded({ ...BY_HAND.steady, ends: [] }, triedOf("steady", from), from);
   /** The ways a rise is priced over: each technique's edges, and the steady's, from a crouch to standing. */
-  const routes = [...routed.map((one) => ({ edges: one.part!.edges, way: (from: Position) => wayOf(one, from) })),
+  const routes = [...routed.map((one) => ({ edges: one.edges, way: (from: Position) => wayOf(one, from) })),
     { edges: [{ from: "crouch" as Position, to: "standing" as Position }], way: steadyWay }];
 
   /**
@@ -179,8 +198,8 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const why = unpriced.length ? `; unmeasured ${unpriced.join("; ")}` : "";
   const pricedBy = back ? `measured from the back${why}` : `by hand, no route measured to standing${why}`;
 
-  /** On its feet: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between. */
-  const onFeet = (g: GroundReading): boolean => g.onFeet || g.position === "standing" || g.position === "crouch";
+  /** On its feet: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between, its trunk up (`TRUNK_UP`). */
+  const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position === "standing" || g.position === "crouch") && g.upright >= TRUNK_UP;
   /** Whether a way up may be begun on the body: not tumbling, or braced its while (`BY_HAND.braced`, `state.tumbled`) since the rise began or its last attempt ended. */
   const calm = (g: GroundReading): boolean => !tumbling(g) || state.tumbled >= BY_HAND.braced;
   /**
@@ -217,9 +236,9 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   };
   /** Where `one` is begun from as the body is read: where its entry reads motion, raw where it has an edge from there, else as last settled. */
   const fromOf = (one: Technique, g: GroundReading): Position =>
-    one.part?.moving && one.part.edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
+    one.part?.moving && one.edges.some((edge) => edge.from === g.raw) ? g.raw : g.position;
   /** Where `one` goes from `from`: its edge from there (flatten, the lie); null where it has none. */
-  const toOf = (one: Technique, from: Position, g: GroundReading): Position | null => one.part ? one.part.edges.find((edge) => edge.from === from)?.to ?? null : g.lie;
+  const toOf = (one: Technique, from: Position, g: GroundReading): Position | null => one.part ? one.edges.find((edge) => edge.from === from)?.to ?? null : g.lie;
 
   /**
    * An option that asks the ground action `name` on the side `side` gives, doing what `begin` and
