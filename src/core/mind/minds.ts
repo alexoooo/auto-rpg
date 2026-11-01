@@ -135,6 +135,22 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
 }
 
 /**
+ * Derive in the place `world` runs its minds in (`MindPlace.warm`) what a mind of `config` on
+ * `built` derives from its spec and config alone, made as `createMind` would make it there and
+ * stepped once on `built` as it stands, waiting for
+ * nothing: a fight that builds bodies as it goes warms each kind before it plays. `world` is one
+ * of the warming's own.
+ */
+export function warmApart(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): void {
+  if (!world.minds || !isMindPlace(world.minds)) throw new Error("a mind is warmed where the world runs its minds apart");
+  const place = world.minds, at: At = { steps: world.steps, time: world.time };
+  const { muscles, writer, statics } = mirrorDriven(built, world, place.allocate, { answered: () => {}, idle: () => {} },
+    { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity });
+  place.warm(catalog, { config, name: wiring.name, seed: wiring.seed ?? 0, phase: wiring.phase ?? 0, rules: rulesOf(wiring), statics, dt: world.dt }, writer.channel, at);
+  muscles.dispose();
+}
+
+/**
  * A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, its parts
  * looked up in `catalog` (`Catalog.partLookup`), with the body it took: how a test or a study makes
  * one mind of its own.

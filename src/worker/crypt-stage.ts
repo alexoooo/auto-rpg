@@ -1,3 +1,4 @@
+import { pageMinds } from "./minds.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
@@ -129,7 +130,8 @@ export const cryptSpec = (character: { readonly spec: BodySpec }, model: BodyMod
 
 /**
  * `start`'s run built as its page plays it, with no look, on a scene of its own with no canvas,
- * its minds' data loaded first and the person's lead applied; `cues` is given what a blow takes
+ * its minds' data loaded first, its minds apart where the page is isolated (`pageMinds`), and the
+ * person's lead applied; `cues` is given what a blow takes
  * off where the party sees.
  */
 export async function buildCryptRun(start: CryptStart, cues: SoundCue[] = []) {
@@ -138,14 +140,14 @@ export async function buildCryptRun(start: CryptStart, cues: SoundCue[] = []) {
     attributes: (participant: Participant) => start.attributes[participant.id] ?? {} };
   const mind = (participant: Participant) => start.minds[participant.id] ?? null;
   await loadData(runParticipants(fielded.layout, fielded).flatMap((participant) => treeData(mind(participant) ?? defaultMind(participant.model))));
-  const prepared = prepareDungeonCharacters(fielded.layout, fielded), engine = new NullEngine(), scene = new Scene(engine);
+  const prepared = prepareDungeonCharacters(fielded.layout, fielded), engine = new NullEngine(), scene = new Scene(engine), minds = pageMinds();
   const seen = (point: Vec3) => run.visible.has(cellKey(run.map, { x: point[0], z: point[2] }));
   const run: DungeonRun = new DungeonRun(scene, { ...fielded, prepared, engine: await loadEngine(start.engine), visuals: false, mind,
-    ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {},
+    ...start.party ? { party: start.party } : {}, ...start.enemies ? { enemies: start.enemies } : {}, ...minds ? { minds } : {},
     onBlow: (blow) => { if (seen(blow.point)) cues.push(...debrisCues(blow)); } });
   const apply = cryptInput(run);
   apply({ kind: "lead", lead: start.lead });
-  return { run, prepared, apply, dispose() { run.dispose(); scene.dispose(); engine.dispose(); } };
+  return { run, prepared, apply, dispose() { run.dispose(); minds?.dispose(); scene.dispose(); engine.dispose(); } };
 }
 
 /**

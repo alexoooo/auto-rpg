@@ -16,6 +16,7 @@ npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
 npm run evaluate -- baseline <mind>  # one mind's walk, punch, stand-up and fights on the Warrior, a record each
+npm run evaluate -- table [--play]   # every body, loadout and skill against its bar, from the records; --play reads what is not current
 npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence, no execution
 npm run evaluate -- tournament --mind new.json --previous <mind> --against default --until settled  # the panel report
 npm run evaluate -- court --previous option --ablate 'actions.stomp=null'  # a skill slot's worth at a battery; with --against, in fights

@@ -7,6 +7,9 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
+import { deriveSensed } from "../perception/openings.ts";
+import { specDigest } from "../skills/framework/profile.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { MindReport } from "./report.ts";
 
 /**
@@ -67,6 +70,17 @@ export interface SeatSays {
   readonly menu?: readonly MenuEntry[] | null;
 }
 
+/**
+ * **Derive what a mind derives of a body's spec alone**, where a spec arrives in a thread: its
+ * shapes as sensing reads them (`deriveSensed`) and its digest, which names the profiles measured on
+ * it (`specDigest`). Each is cached by the spec's own objects, so no step of a mind that first
+ * senses a body of it pays for it.
+ */
+export function deriveSpec(spec: BodySpec): void {
+  deriveSensed(spec);
+  specDigest(spec);
+}
+
 /** **Where minds run, the world's side** (`World.minds`). */
 export interface MindPlace {
   /** Numbers a channel keeps here and where the minds run alike: memory the two share, or this thread's own. */
@@ -76,6 +90,12 @@ export interface MindPlace {
    * statics and first numbers the world has written; it is asked to make the mind at `at`.
    */
   seat(catalog: Catalog, recipe: Omit<MindRecipe, "catalog">, channel: MirrorChannel, at: At): Seat;
+  /**
+   * Make a mind of `recipe` on `channel`, step it once on the numbers there, and let it go,
+   * everywhere a seat may run, without waiting: what a mind derives from its spec and config alone,
+   * as it is made and as it first thinks, is derived there before a fight needs it.
+   */
+  warm(catalog: Catalog, recipe: Omit<MindRecipe, "catalog">, channel: MirrorChannel, at: At): void;
   /** Send what has been asked and not yet sent: the world calls it after its post-physics observers (`MindsApart`, `src/core/world.ts`). */
   dispatch(): void;
   /** Stop the minds' threads, where it has any. */
@@ -173,6 +193,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
+          seated.mirror.ahead(seated.recipe.dt);
           seated.mind.step(seated.mirror.senses, seated.recipe.dt);
           seated.mirror.answer();
           return;

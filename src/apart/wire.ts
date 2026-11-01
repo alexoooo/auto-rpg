@@ -1,11 +1,13 @@
 import type { At, ReportNow, SeatAsk } from "../core/mind/apart.ts";
-import type { MirrorChannel } from "../core/mind/mirror.ts";
+import type { MirrorChannel, MirrorStatics } from "../core/mind/mirror.ts";
+import type { BodySpec } from "../core/spec/body.ts";
 import type { MenuEntry } from "../core/skills/framework/menu.ts";
 
 /**
- * **What crosses between the world's thread and a minds' thread**, in Node: each side's numbers in
- * memory both share (`SHARED_NUMBERS`), and in order, by message, a batch of asks one way and what
- * each seat's mind says the other. Two counters both threads share pace them (`POSTED`, `DONE`):
+ * **What crosses between the world's thread and a minds' thread**: each side's numbers in memory
+ * both share (`SHARED_NUMBERS`), and in order a batch of asks one way and what each seat's mind
+ * says the other (by message in Node, `src/node/minds.ts`; in a reply box in the browser,
+ * `src/worker/minds.ts`). Two counters both threads share pace them (`POSTED`, `DONE`):
  * the world counts each batch it posts, the minds' thread each it has answered.
  */
 
@@ -17,17 +19,31 @@ export const DONE = 1;
 /** Numbers both threads share. */
 export const SHARED_NUMBERS = (length: number): Float64Array => new Float64Array(new SharedArrayBuffer(8 * length));
 
-/** What of its channel goes with an ask: the told entries since the last ask, and its numbers where they were made anew. */
+/**
+ * A body's spec as it crosses: its number in the threads' table of specs. A spec is millions of
+ * characters with its provenance, dear to copy, and a fight's bodies share a few: each crosses to
+ * every thread once, the first time an ask names it (`Batch.specs`), and is named by its number after.
+ */
+export type SpecNumber = number;
+
+/** What the world tells a mirror, as it crosses: a spec by its number. */
+export type ToldCrossing = MirrorChannel["told"][number] extends infer T ? T extends { readonly spec: BodySpec } ? Omit<T, "spec"> & { readonly spec: SpecNumber } : T : never;
+
+/** An ask as it crosses: a recipe's spec by its number. */
+export type AskCrossing = Exclude<SeatAsk, { readonly kind: "make" }>
+  | { readonly kind: "make"; readonly recipe: Omit<Extract<SeatAsk, { readonly kind: "make" }>["recipe"], "statics"> & { readonly statics: Omit<MirrorStatics, "spec"> & { readonly spec: SpecNumber } }; readonly at: At };
+
+/** What of its channel goes with an ask: the specs the thread has not had, the told entries since the last ask, and its numbers where they were made anew. */
 export interface Carried {
   readonly seat: number;
-  readonly ask: SeatAsk;
-  readonly told?: readonly MirrorChannel["told"][number][];
+  readonly ask: AskCrossing;
+  readonly told?: readonly ToldCrossing[];
   readonly inbound?: Float64Array;
   readonly outbound?: Float64Array;
 }
 
-/** **A batch** of asks to one minds' thread, its count; or the word to stop. */
-export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly stop?: true }
+/** **A batch** of asks to one minds' thread, its count, and the specs it is sent, by their numbers, before its asks; or the word to stop. */
+export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly stop?: true }
 
 /** What a seat's mind says as it crosses: its report but its kit and its gait, which cross only when they change, and its outbound numbers where made anew. */
 export interface Said {
@@ -43,9 +59,6 @@ export interface Said {
 
 /** **A minds' thread's answer** to a batch: each seat it asked of, as its mind says it now; or the error that stopped it. */
 export interface Reply { readonly seq: number; readonly said: readonly Said[]; readonly error?: string }
-
-/** The clock of an ask, where it has one. */
-export const atOf = (ask: SeatAsk): At | null => ask.kind === "dispose" ? null : ask.at;
 
 /**
  * Wait until `control[index]` is past `was`: spinning up to `spin` ms first, then sleeping until

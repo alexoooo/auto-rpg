@@ -18,8 +18,8 @@ import { sideAttributes, type Cases, type Json, type Subject } from "../evaluati
 import { readCover, type CoverReading } from "./read.ts";
 import { opponentOf, opposed } from "../drill-opponents.ts";
 
-/** What the subject holds in its right hand: nothing, or a club. */
-type CoverHeld = "empty" | "club";
+/** What the subject holds in its right hand: nothing, a club or a sword. */
+type CoverHeld = "empty" | "club" | "sword";
 
 /** What the subject holds in its left hand, where it holds anything: a buckler. */
 type CoverShield = "buckler";
@@ -41,6 +41,14 @@ const PUNCHED = deepFreeze({
   across: [0, .2], gaps: [1.2, 1.6, 2], seconds: 8,
 });
 type Rung = typeof PUNCHED;
+
+/** Against a weapon: every body holding the buckler with the club or the sword, struck by a drill opponent's club on its rhythm. */
+const CLUBBED = deepFreeze({ ...PUNCHED, opponent: "drill-club", foe: { left: "empty", right: "club" } as Loadout,
+  models: ["workshop-fighter", "workshop-rogue", "crypt-skeleton"] as BodyModel[],
+  loadouts: [{ left: "buckler", right: "club" }, { left: "buckler", right: "sword" }] as Loadout[] });
+
+/** The same, struck by a drill opponent's sword, cut and thrust. */
+const SWORD = deepFreeze({ ...CLUBBED, opponent: "drill-sword", foe: { left: "empty", right: "sword" } as Loadout });
 
 /** What the subject holds, as a loadout. */
 const loadoutOf = ({ held, left }: Pick<CoverCondition, "held" | "left">): Loadout => ({ left: left ?? "empty", right: held });
@@ -82,4 +90,4 @@ function coverCases(protocol: Rung): Cases<CoverCondition, CoverReading> {
 }
 
 /** Every protocol the Cover drill may be played on, by name: its rungs. */
-export const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED) });
+export const COVER_CASES: Readonly<Record<string, Cases<CoverCondition, CoverReading>>> = Object.freeze({ punched: coverCases(PUNCHED), club: coverCases(CLUBBED), sword: coverCases(SWORD) });

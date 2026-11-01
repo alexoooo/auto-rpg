@@ -3,7 +3,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { buildBody } from "../core/build/build-body.ts";
-import { builtAngles, createMind } from "../core/mind/minds.ts";
+import { builtAngles, createMind, warmApart } from "../core/mind/minds.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { armedWith } from "../core/items/held.ts";
 import { modelInfo, resolveCharacter, type BodyModel, type ResolvedCharacter } from "../core/models.ts";
@@ -379,10 +379,12 @@ export class DungeonRun {
   /**
    * A body and mind of each enemy the run may build, made in a world of their own and let go: what a
    * mind derives from its spec and config alone is derived as the run loads, so the run's first foe
-   * of a model is built as fast as its next.
+   * of a model is built as fast as its next. Where its minds run apart, they are warmed there too
+   * (`warmApart`).
    */
   private warm(scene: Scene, engine: PhysicsEngine): void {
-    const made = new Map<BodySpec, Set<MindConfig>>(), world = createWorld(scene, engine);
+    const apart = this.options.minds;
+    const made = new Map<BodySpec, Set<MindConfig>>(), world = createWorld(scene, engine, apart ? { minds: apart } : {});
     try {
       for (const enemy of this.enemies) {
         const spec = this.specOf(enemy), mind = this.mindOf(enemy);
@@ -391,7 +393,9 @@ export class DungeonRun {
         if (minds.has(mind)) continue;
         minds.add(mind);
         const built = buildBody(spec, world, { position: [0, 0, 0], joints: builtAngles(GAME, spec, mind) });
-        createMind(GAME, built, world, mind, { name: "warm", orders: () => STAND_ORDERS, rules: this.rules });
+        const wiring = { name: "warm", orders: () => STAND_ORDERS, rules: this.rules };
+        if (apart) warmApart(GAME, built, world, mind, wiring);
+        else createMind(GAME, built, world, mind, wiring);
         built.dispose();
       }
     } finally { world.dispose(); }

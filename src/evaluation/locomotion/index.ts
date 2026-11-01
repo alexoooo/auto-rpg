@@ -57,8 +57,11 @@ export const trialText = (condition: LocomotionCondition): string => {
     case "walk": return `walk ${condition.way}° at ${condition.pace} m/s`;
     case "run": return "run";
     case "turn": return `turn ${condition.way}°`;
-    case "shove": return `shove ${condition.impulse} N s from ${condition.way}°`;
-    case "shoved-walk": return `shove ${condition.impulse} N s from ${condition.way}° after a walk`;
+    case "shove": return `shove ${Number(condition.impulse.toFixed(1))} N s from ${condition.way}°`;
+    case "shoved-walk": return `shove ${Number(condition.impulse.toFixed(1))} N s from ${condition.way}° after a walk`;
+    case "run-held": return "run held";
+    case "run-turn": return `run turning ${condition.way > 0 ? "right" : "left"}`;
+    case "run-stop": return "run stopped";
     default: { const never: never = condition; throw new Error(`no locomotion trial ${JSON.stringify(never)}`); }
   }
 };

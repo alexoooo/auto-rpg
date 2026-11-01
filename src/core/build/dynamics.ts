@@ -82,6 +82,15 @@ export interface BodyDynamics {
    * its motion that goes as the square of the speeds. Zero unless `update` was given `motion`.
    */
   driftToRef(segment: ReadSegment, point: Vector3, linear: Vector3, angular: Vector3): void;
+  /** `segment`'s centre of mass, world, as last read. */
+  centre(segment: ReadSegment): readonly [number, number, number];
+  /**
+   * What `segment` accelerates at under `motion`, the root's accelerations (its angular
+   * acceleration and its centre's, world; NaN, none) and then each freedom's speed's change (NaN,
+   * none), in the rows' order: its angular acceleration into `angular` and its centre of mass's
+   * into `linear`, the motion under way's included (`driftToRef`). Zero motion leaves the drift.
+   */
+  accelerationToRef(segment: ReadSegment, motion: ArrayLike<number>, linear: Vector3, angular: Vector3): void;
 }
 
 /**
@@ -114,10 +123,14 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const carried = (root: ReadSegment): number[] =>
     [index.get(root)!, ...joints.filter((joint) => joint.parent === root).flatMap((joint) => carried(joint.child))];
   const beyond = joints.map((joint) => carried(joint.child));
+  // Each segment's freedoms: those whose joints carry it.
+  const carriers = segments.map((_, i) => joints.flatMap((joint, j) => beyond[j]!.includes(i) ? joint.dofs.map((__, k) => ({ joint: j, k })) : []));
   // Which joint's carried segments two joints both move: the deeper one's, or none (-1).
   const shared = joints.map((a, i) => joints.map((b, j) =>
     i === j ? i : beyond[i]!.includes(index.get(b.child)!) ? j : beyond[j]!.includes(index.get(a.child)!) ? i : -1));
   const freedoms = joints.flatMap((joint, j) => joint.dofs.map((_, k) => ({ joint: j, k })));
+  // Each joint's first freedom's index.
+  const first = joints.map((_, j) => freedoms.findIndex((f) => f.joint === j));
   const n = freedoms.length;
   const mass = freedoms.map(() => new Float64Array(n));
   const weight = new Float64Array(n);
@@ -217,6 +230,28 @@ export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
       const turn = addTo(crossTo(al, r, work.b), crossTo(w, crossTo(w, r, work.c), work.d), work.e);
       linear.set(a[0] + turn[0], a[1] + turn[1], a[2] + turn[2]);
       angular.set(al[0], al[1], al[2]);
+    },
+    centre: (segment) => centres[index.get(segment)!]!,
+    accelerationToRef(segment, motion, linear, angular) {
+      const i = index.get(segment)!, c = centres[i]!, a = accel[i]!, al = alpha[i]!, p0 = root.centre;
+      let w0 = al[0], w1 = al[1], w2 = al[2], v0 = a[0], v1 = a[1], v2 = a[2];
+      const r0 = motion[0]!, r1 = motion[1]!, r2 = motion[2]!;
+      if (!Number.isNaN(r0) && !Number.isNaN(r1) && !Number.isNaN(r2)) {
+        const d0 = c[0] - p0[0], d1 = c[1] - p0[1], d2 = c[2] - p0[2];
+        w0 += r0; w1 += r1; w2 += r2;
+        v0 += r1 * d2 - r2 * d1; v1 += r2 * d0 - r0 * d2; v2 += r0 * d1 - r1 * d0;
+      }
+      const l0 = motion[3]!, l1 = motion[4]!, l2 = motion[5]!;
+      if (!Number.isNaN(l0) && !Number.isNaN(l1) && !Number.isNaN(l2)) { v0 += l0; v1 += l1; v2 += l2; }
+      for (const { joint: j, k } of carriers[i]!) {
+        const f = first[j]! + k, u = motion[6 + f]!;
+        if (Number.isNaN(u) || u === 0) continue;
+        const m = axes[j]![k]!, P = pivots[j]!, d0 = c[0] - P[0], d1 = c[1] - P[1], d2 = c[2] - P[2];
+        w0 += m[0] * u; w1 += m[1] * u; w2 += m[2] * u;
+        v0 += (m[1] * d2 - m[2] * d1) * u; v1 += (m[2] * d0 - m[0] * d2) * u; v2 += (m[0] * d1 - m[1] * d0) * u;
+      }
+      linear.set(v0, v1, v2);
+      angular.set(w0, w1, w2);
     },
     update(angles, motion) {
       for (let i = 0; i < segments.length; i++) {

@@ -1,14 +1,18 @@
 import type { Reader } from "../evaluation.ts";
 import type { BuiltLone } from "../lone.ts";
-import { cos, sin } from "../../core/math/real.ts";
-import { AFTER, scriptOf, START, WALK, type LocomotionCondition } from "./cases.ts";
+import { atan2, cos, sin } from "../../core/math/real.ts";
+import { AFTER, HOLD, RUN_UP, scriptOf, START, TURN_RATE, TURNING, WALK, type LocomotionCondition } from "./cases.ts";
 
 /**
  * What a Locomotion trial came to: its kind (`LocomotionCondition`), whether the body fell and when, s; over a walk's last
  * `HELD` s, its speed along the way asked and across it as shares of the pace (`along`,
  * `across`); a run's or a turn's fastest speed over any second, m/s (`top`); whether it stopped
  * (`stopped`: standing, and over the trial's last second its root moved under `STILL` m); and how
- * far its root ended from where it stood when its last cue came, m (`moved`). Null where the trial
+ * far its root ended from where it stood when its last cue came, m (`moved`). The run's bar: its
+ * slowest second, m/s, forward over the held run and along its path over a turning one (`held`);
+ * how far the way it went lagged the way asked at most, rad, over a turning run past its first
+ * second (`trail`); its speed over the second before the stop, m/s (`speed`), and how long from
+ * the stop it took to go slower than `HALTED` over `HALT_SPAN`, s (`halt`). Null where the trial
  * does not read it.
  */
 export type LocomotionReading = {
@@ -18,6 +22,10 @@ export type LocomotionReading = {
   readonly along: number | null;
   readonly across: number | null;
   readonly top: number | null;
+  readonly held: number | null;
+  readonly trail: number | null;
+  readonly speed: number | null;
+  readonly halt: number | null;
   readonly stopped: boolean;
   readonly moved: number;
   readonly seconds: number;
@@ -25,6 +33,9 @@ export type LocomotionReading = {
 
 /** The span of a walk read for its pace, s, ending as the stop is asked; and how far a stopped body's root moves over the last second at most, m. */
 export const HELD = 2, STILL = .05;
+
+/** Under what speed a run has stopped, m/s, read over how long, s; and how far apart the turning run's way is read, s. */
+export const HALTED = .15, HALT_SPAN = .25, TRAIL_SPAN = .5;
 
 /** The reader of `condition`'s trial: the root segment's ground point every step, read when the trial has run `AFTER` s past its last cue. */
 export function readLocomotion({ world, body }: BuiltLone, condition: LocomotionCondition): Reader<LocomotionReading> {
@@ -55,7 +66,30 @@ export function readLocomotion({ world, body }: BuiltLone, condition: Locomotion
         top = 0;
         for (let step = (START + 1) * hz; step <= last * hz; step++) top = Math.max(top, gap(step / hz - 1, step / hz));
       }
-      return { kind: condition.kind, fell: fellAt !== null, fellAt, along, across, top, stopped: standing && gap(ended - 1, ended) < STILL, moved: gap(last, ended), seconds: ended };
+      let held: number | null = null, trail: number | null = null, speed: number | null = null, halt: number | null = null;
+      // The slowest second between `from` and `to`, s: forward (+z), or along the path.
+      const slowest = (from: number, to: number, forward: boolean) => {
+        let least = Infinity;
+        for (let step = Math.round((from + 1) * hz); step <= Math.round(to * hz); step++) least = Math.min(least, forward ? z(step / hz) - z(step / hz - 1) : gap(step / hz - 1, step / hz));
+        return least;
+      };
+      if (condition.kind === "run-held") held = slowest(START + RUN_UP, START + RUN_UP + HOLD, true);
+      if (condition.kind === "run-turn") {
+        const from = START + RUN_UP;
+        held = slowest(from, from + TURNING, false);
+        trail = 0;
+        for (let step = Math.round((from + 1) * hz); step <= Math.round((from + TURNING - TRAIL_SPAN / 2) * hz); step++) {
+          const time = step / hz, asked = condition.way * TURN_RATE * (time - from), dx = x(time + TRAIL_SPAN / 2) - x(time - TRAIL_SPAN / 2), dz = z(time + TRAIL_SPAN / 2) - z(time - TRAIL_SPAN / 2);
+          const ax = sin(asked), az = cos(asked);
+          trail = Math.max(trail, Math.abs(atan2(dx * az - dz * ax, dx * ax + dz * az)));
+        }
+      }
+      if (condition.kind === "run-stop") {
+        speed = gap(last - 1, last);
+        for (let step = Math.round(last * hz); step <= Math.round((ended - HALT_SPAN) * hz); step++)
+          if (gap(step / hz, step / hz + HALT_SPAN) / HALT_SPAN < HALTED) { halt = step / hz - last; break; }
+      }
+      return { kind: condition.kind, fell: fellAt !== null, fellAt, along, across, top, held, trail, speed, halt, stopped: standing && gap(ended - 1, ended) < STILL, moved: gap(last, ended), seconds: ended };
     },
   };
 }

@@ -7,6 +7,7 @@
  *     [--case-minutes 30] [--write] [--json <file>]
  *   npm run match -- <mind> <mind> [...]: the same for `match`
  *   npm run evaluate -- tournament --notes: the newest tournament pool's ratings into assets/minds/notes.json
+ *   npm run evaluate -- table [...]: the table of every body, loadout and skill (`scripts/table.mjs`)
  *   npm run evaluate -- --import <provenance.json>: an old tournament run as records (`evaluation-import.mjs`), then its notes
  *
  * A subject is a name the evaluation's catalogue resolves (a mind's id or kind), a JSON file, or
@@ -368,4 +369,8 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
+// `table` reads the table of every body, loadout and skill (`scripts/table.mjs`).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv[2] === "table") (await import("./table.mjs")).main();
+  else await main();
+}

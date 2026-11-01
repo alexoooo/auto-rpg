@@ -79,8 +79,10 @@ fingerprint case.
    body a step ahead from the command it has sent (its sense of its own pose is a step older),
    inside the mind. The rule is in every world; at one step motor control does not yet hold a
    planted root pose or the stand-up target, and predicting the body at constant velocity does not
-   restore them ([the command delay](../reference/command-delay.md)), so the game's delay stays
-   none until it predicts from its solve's planned accelerations on its mirror (step 3). A trained
+   restore them; predicting from its solve's planned accelerations on its mirror (step 3), with
+   the body correcting toward the speeds planned, holds the root pose, the walk and the stagger
+   but not the halt ([the command delay](../reference/command-delay.md)), so the game's delay
+   stays none. A trained
    skill that loses is fine-tuned in the table's first pass
    ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3), not here.
 3. **A mind's body read from a snapshot, on one thread.** Each body's mirror is made from its spec

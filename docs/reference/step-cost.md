@@ -24,6 +24,9 @@ node research/step-time.mjs --crowd --cap 30
 node research/call-count.mjs --crowd --cap 30
 node research/mind-make.mjs
 node research/mind-split.mjs --threads 1,3,4,5 --cap 60
+node research/step-time.mjs --crowd --runs 4 --minds 4
+node research/crypt-step.mjs --seeds 10,25 --seconds 60 --runs 3 --minds 4
+node research/minds-apart.mjs
 ```
 
 ## Allocation ceilings
@@ -856,6 +859,67 @@ temporary hook over 1800 steps, mirrored:
 - **Each write reads every segment's contacts and manifolds**, since a mind may read any segment's.
   They change only with the solver's step, a load, a level, or a body added or removed, but the
   engine does not say when its readings went stale, so a body's are read at each write.
+
+### Minds on worker threads
+
+**With every mind on four worker threads at no delay (`mindWorkers`, the world waiting each step
+for each mind's answer), the crowd fight's steps take 7.2 to 7.4 ms against 9.0 (the least of each
+over the playings; a playing's mean 7.4 to 8.7), and it falls 0.3 to 0.6 s behind at best against
+12 to 13 s: short of real time, which needs the world to step while the
+minds think (a delay of a step). The duels keep real time, dearer by about 0.5 ms a step; the
+Crypt falls 9 to 12 ms behind at worst, about a step, where it fell 45 to 50 ms behind while a
+thread derived a body's spec in a step.** `research/step-time.mjs`
+(`--minds 4` or none) to each bout's verdict on `rapier-coordinate`, four playings read on the last
+three; `research/crypt-step.mjs --seconds 60 --runs 3` on `rapier`, the hero exploring alone. Node
+24.19, 120 Hz, at `5ce02ceb` (the Crypt on four threads at `cbf9ced6`, where a spec crosses once a
+thread and a warmed mind steps once, and at `f426fffb`, each spec derived as it arrives); pinned
+is one logical processor a core (`start /affinity 55555555`), the mind threads inside it:
+
+| Run | Threads | Mean step, ms | Dearest past 2 s, ms | Worst lag, ms | Built over |
+| --- | --- | --- | --- | --- | --- |
+| sword against club | one | 1.78 to 1.87 | 8.34 | 0.33 | |
+| | one, pinned | 1.80 to 1.87 | 8.55 | 0.22 | |
+| | four | 2.27 to 2.29 | 12.34 | 4.03 | |
+| | four, pinned | 2.35 to 2.41 | 12.76 | 4.42 | |
+| bare hands | one | 1.50 to 1.57 | 7.73 | 0.00 | |
+| | one, pinned | 1.53 to 1.58 | 7.61 | 0.00 | |
+| | four | 2.17 to 3.05 | 8.75 | 0.67 | |
+| | four, pinned | 2.15 to 2.26 | 9.82 | 1.48 | |
+| crowd fight | one | 9.22 to 9.35 | 18.56 | 12344 | 8035 of 13825 steps over 8.33 |
+| | one, pinned | 9.28 to 9.50 | 18.48 | 13314 | 8250 of 13825 |
+| | four | 7.87 to 8.71 | 23.07 | 612 | 2862 of 13825; the playings' worst 612 to 6097 |
+| | four, pinned | 7.44 to 8.34 | 22.11 | 308 | 2274 of 13825; 308 to 6893 |
+| Crypt, seed 10 | one | 2.66 | 14.29 | 6.37 | two steps |
+| | one, pinned | 2.59 | 13.23 | 4.96 | one step |
+| | four | 2.46 | 57.68 | 49.35 | one step, a foe's first in a fight |
+| | four, pinned | 2.33 | 58.68 | 50.35 | one step |
+| | four, specs derived as they arrive | 2.39 | 19.71 | 11.38 | one step, a body built |
+| Crypt, seed 25 | one | 4.63 | 10.85 | 50.95 | 142 steps of a fight |
+| | one, pinned | 4.46 | 14.86 | 10.74 | four steps |
+| | four | 3.97 | 53.53 | 45.20 | one step |
+| | four, pinned | 3.66 | 53.38 | 45.04 | one step |
+| | four, specs derived as they arrive | 3.84 | 17.63 | 9.30 | one step, a mind's first on a foe |
+
+- **At no delay the step is the world's part, the mirrors' writing and the dearest thread's minds
+  in turn**: the world writes each body twice a step and waits at its muscles for the answers, so
+  the minds overlap each other but never the solver. The crowd fight's step is about 7.3 ms, 1.7
+  ms under one thread's, near the 8.33 a step allows, and it falls behind wherever its fight is
+  dense.
+- **A step of delay lets the solver and the minds overlap**, the 5.3 ms the split projected
+  ([above](#the-minds-split-off-the-world)); it needs the driver's and the assist's rings written
+  as each answer comes, apart from what they apply.
+- **A spec goes to every thread once and is derived as it arrives** (`deriveSpec`,
+  `src/core/mind/apart.ts`: the openings' hulls and the spec's digest), named by its number after.
+  Derived in a mind's step instead, the first a thread's mind sensed a body cost about 40 ms (the
+  hulls, `convexHull`, `src/core/spec/hull.ts`, and the digest the profile tables key on), and
+  copying a Warrior's spec, 2.7 million characters with its provenance, 7 to 20 ms at every mind
+  made. What is left of the Crypt's worst is a step's worth: a body built in a step, a mind's
+  first route search (about 8.5 ms) or its first reading of a foe's threat.
+- **The browser's minds are the same** (`browserMindWorkers`, `src/worker/minds.ts`): a preview at
+  `f426fffb` played the crowd fight on four mind threads to Node's verdict at steps of 6 to 7.4 ms,
+  another session loading the machine; unmeasured beyond that look.
+- **A duel gains nothing**: two minds across two threads save less than the writing and the
+  waiting cost.
 
 ### Making a mind
 
