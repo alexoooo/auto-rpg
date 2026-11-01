@@ -37,9 +37,10 @@ const HELD_BLOW_ACTIONS: readonly ActionConfig[] = deepFreeze(HELD_BLOWS.map(({ 
 /**
  * As it starts: the toolkit's Option Mind (`OPTION_MIND`) with every skill (the straight punch, the
  * held blows, the stomp and the low kick) and the support fold. A body uses those it can
- * (`usableSkills`): those tuned for it, as it holds what it holds.
+ * (`usableSkills`): those tuned for it, as it holds what it holds. It decides at 60 Hz, every other
+ * control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
  */
-const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), support: { kind: "support-fold" },
+const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), support: { kind: "support-fold" }, rate: 60,
   executors: [PUNCH, ...HELD_BLOWS, STOMP, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, ...HELD_BLOW_ACTIONS, STOMP_ACTION, LOW_KICK_ACTION] });
 
 /** Its one config, on any body it fits. */
