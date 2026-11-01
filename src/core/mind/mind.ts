@@ -6,7 +6,7 @@ import { rootSegment, type ReadBody } from "../read-body.ts";
 import { readView } from "../build/read-view.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
-import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
+import { driveMuscles, PLAN_REFLEX, type MuscleDriver } from "../muscle/driver.ts";
 import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorWriter } from "./mirror.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
@@ -145,11 +145,24 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
     if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
   };
+  // The motion each command in flight was solved for (`MuscleDriver.planned`) and the speeds it expects, a slot a step of the world's delay: a mind carries its mirror forward by them.
+  const flight = { plans: [] as Float64Array[], expect: [] as Float64Array[], motion: new Float64Array(0), sent: 0 };
   const muscles = driveMuscles(built, world, (driver, dt) => {
     if (mirrored) {
       mirrored.writer.write();
       mirrored.mirror.refresh({ dynamics: true });
-      mind!.step(mirrored.mirror.senses, dt);
+      // What it decides now moves the body once the commands in flight have: it reads the body as they leave it, oldest first.
+      const mirror = mirrored.mirror, planned = mirror.muscles.planned, d = flight.plans.length;
+      for (let k = 0; k < d; k++) forecast(mirror, flight.plans[(flight.sent + k) % d]!, flight.expect[(flight.sent + k) % d]!, flight.motion, dt);
+      mind!.step(mirror.senses, dt);
+      if (d > 0) {
+        // A command sent ahead expects each channel's speed: the one it was solved for (`MuscleDriver.expect`).
+        for (let i = 0; i < driver.expect.length; i++) driver.expect[i] = mirror.muscles.speed(i) + dt * planned[6 + i]!;
+        flight.plans[flight.sent % d]!.set(planned);
+        flight.expect[flight.sent % d]!.set(driver.expect);
+        flight.sent += 1;
+      }
+      planned.fill(NaN);
       mirrored.mirror.answer();
       mirrored.writer.carry(request);
     } else mind!.step(sense(), dt);
@@ -165,6 +178,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     mind!.idle?.();
     help!.reset();
     line.reset();
+    for (const plan of [...flight.plans, ...flight.expect]) plan.fill(NaN);
     posed.asked.length = 0;
     for (const slot of posed.sent) slot.length = 0;
   }, world.mirrored ? { dynamics: false } : {});
@@ -174,6 +188,12 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     // Its fight senses for it from its first step: made, it reads its body alone.
     writer.write({ sensing: false });
     mirrored = { writer, mirror: mirrorBody(statics, writer.channel) };
+    const n = mirrored.mirror.muscles.channels.length;
+    for (let k = 0; k < world.delay; k++) {
+      flight.plans.push(new Float64Array(6 + n).fill(NaN));
+      flight.expect.push(new Float64Array(n).fill(NaN));
+    }
+    flight.motion = new Float64Array(6 + n);
   }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
@@ -196,7 +216,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   catch (error) { observed?.dispose(); muscles.dispose(); throw error; }
   mind = made;
   return { own, held: { muscles, assist: help.assist, senses: sense }, mind: made,
-    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, mind: made.state ?? null },
+    state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, flight, toes: built.toes, mind: made.state ?? null },
     dispose: () => { made.dispose?.(); observed?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 
@@ -207,4 +227,23 @@ function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { read
   sheets.push({ step, activation: driver.activation.slice(), velocity: driver.velocity.slice(),
     force: [asked.force.x, asked.force.y, asked.force.z], moment: [asked.moment.x, asked.moment.y, asked.moment.z],
     hands: hands.splice(0) });
+}
+
+/**
+ * Carries a mirror a step forward through a command in flight: the root as the command was solved
+ * to move it, and each channel the command expects a speed of toward that speed, as far as the
+ * plan's reflex (`PLAN_REFLEX`) can take it from the motion solved: the margin over the inertia
+ * beyond the joint.
+ */
+function forecast(mirror: Mirror, plan: Float64Array, expect: Float64Array, motion: Float64Array, dt: number): void {
+  const muscles = mirror.muscles, mass = muscles.dynamics.mass;
+  motion.set(plan);
+  for (let i = 0; i < expect.length; i++) {
+    const solved = plan[6 + i]!;
+    if (Number.isNaN(solved) || Number.isNaN(expect[i]!)) continue;
+    const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
+    const wanted = (expect[i]! - muscles.speed(i)) / dt;
+    motion[6 + i] = wanted < solved - reach ? solved - reach : wanted > solved + reach ? solved + reach : wanted;
+  }
+  mirror.forecast(motion, dt);
 }

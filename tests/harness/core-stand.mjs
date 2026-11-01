@@ -33,10 +33,10 @@ export const freshEngine = (name = CORE_ENGINE) => loadEngine(name);
  * is the ground's side, m (the lab's is 40). `hz` runs physics and control at another rate than the
  * game's, as a finer reference; a figure read at one names it.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], rotation, joints, posture, pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation, engine: engineName = CORE_ENGINE } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], rotation, joints, posture, pinned, groundSize = 20, hz = PHYSICS_HZ.value, actuation, delay, mirrored, engine: engineName = CORE_ENGINE } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const world = createWorld(scene, await freshEngine(engineName), { hz, gravity, actuation });
+  const world = createWorld(scene, await freshEngine(engineName), { hz, gravity, actuation, delay, mirrored });
   const floor = ground ? world.physics.addFixedBox([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position, rotation, joints: posture ? poseAngles(spec, posture) : joints });
   if (pinned !== undefined) {

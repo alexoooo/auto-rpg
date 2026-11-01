@@ -388,11 +388,12 @@ test("a body's command is applied the world's delay after it is sent, none befor
     own.requestHandPoses([{ hand: "right", pose: poses[k % 2] }]);
     sent.push(k);
   } }), { assist: { force: 10, moment: 10 } });
-  const muscles = embodied.own.muscles, channel = muscles.channels.findIndex((c) => c.positive.tendon === null && c.negative.tendon === null);
+  // The body's own muscles and assist, not the mind's view of them, which a world with a delay keeps on a mirror a step behind.
+  const muscles = embodied.held.muscles, channel = muscles.channels.findIndex((c) => c.positive.tendon === null && c.negative.tendon === null);
   assert.ok(channel >= 0, "the fixture needs a channel without a tendon");
   // What the body was given on the step just taken: the activation its ceiling reads, the assist's push and the hand's pose asked.
   const given = () => ({ activation: Math.round(1e9 * muscles.bounds.positive[channel] / muscles.strength(channel, 1)) / 1e9,
-    push: embodied.own.assist.given.force.x, pose: built.handPoses.state.right.requested });
+    push: embodied.held.assist.given.force.x, pose: built.handPoses.state.right.requested });
   const expected = (k, since) => k - since < SHOWN_DELAY ? { activation: 0, push: 0, pose: null }
     : { activation: Math.round(1e9 * level(k - SHOWN_DELAY)) / 1e9, push: push(k - SHOWN_DELAY)[0], pose: poses[(k - SHOWN_DELAY) % 2] };
   // A hand keeps the pose it was last asked: where none is due, the reading names none if the hand holds the one it held as the steps began.

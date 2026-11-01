@@ -1253,6 +1253,16 @@ the delay its world had, and loads only into one with the same. The game's delay
 motor control holds balance and the rise a step late
 ([the command delay](reference/command-delay.md)).
 
+A world with a delay puts its minds on mirrors ([the mirror](#minds)), and each mind reads its
+body as the commands in flight will leave it. Motor control records what each command was solved
+for (`MuscleDriver.planned`: the root's accelerations and each freedom's), and `embody` keeps it
+and the speed each channel is expected at (`MuscleDriver.expect`) a slot a step of the delay, then
+carries the mirror forward through them before the mind steps (`Mirror.forecast`, each segment's
+motion and pose from `BodyDynamics.accelerationToRef`). The body meets the plan halfway: a torque
+a late command gives is a velocity motor toward the speed it expects, held within `PLAN_REFLEX` of
+the channel's strength around that torque (`driveMuscles`), and the forecast moves each channel as
+far toward that speed as the reflex can. With no delay none of this runs.
+
 A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
 the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
 `scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on

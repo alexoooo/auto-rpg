@@ -12,6 +12,8 @@ import type { BuiltBody } from "../build/build-body.ts";
 import { bodyDynamics } from "../build/dynamics.ts";
 import { checkHandPoses, handPoseModel, type HandPoseRequest } from "../build/hand-poses.ts";
 import { jointKinematics } from "../build/joint-kinematics.ts";
+import { jointTracker } from "../build/joint-state.ts";
+import { cos, sin } from "../math/real.ts";
 import { segmentShapes } from "../build/segment-shapes.ts";
 
 /**
@@ -288,6 +290,14 @@ export interface Mirror {
   refresh(options: { readonly dynamics: boolean }): void;
   /** Write what its mind asked into the channel's outbound numbers, and forget the hands' requests sent. */
   answer(): void;
+  /**
+   * **Carry the body forward a step of `dt`** under `motion`, a command's efference copy
+   * (`MuscleDriver.planned`): each segment's spin and its centre's velocity change by what the
+   * motion accelerates it at (`BodyDynamics.accelerationToRef`), its pose moves by them as the
+   * solver moves a body, its joints are read again from the poses and spins, and its dynamics
+   * read there. Its contacts, hands and senses stay as last read. Read after `refresh` with dynamics.
+   */
+  forecast(motion: ArrayLike<number>, dt: number): void;
 }
 
 const EMPTY: readonly never[] = Object.freeze([]);
@@ -330,6 +340,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     return [name, Object.freeze({ spec: jointSpec, dofs, axes, parent: segments.get(jointSpec.parent)!, child: segments.get(jointSpec.child)! })];
   }));
   const index = new Map<ReadSegmentBody, number>(records.map((record, i) => [record.segment.body, i]));
+  // Its joints as its muscles read them, for a forecast: each from the poses and spins its segments are given.
+  const trackers = statics.joints.map((name) => jointTracker(joints.get(name)!));
+  const ahead = { linear: new Vector3(), angular: new Vector3(), turn: new Quaternion(), offset: new Vector3(), spin: (segment: ReadSegment) => spins.get(segment)! };
   /** Where each segment's contacts and manifolds start in the inbound numbers, as last read. */
   const contactsAt = new Int32Array(records.length), manifoldsAt = new Int32Array(records.length);
   const names = new Map<number, string>();
@@ -387,12 +400,12 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
-    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) } };
-  const motion = { spin: (segment: ReadSegment) => spins.get(segment)! };
+    planned: new Float64Array(6 + n).fill(NaN), bounds: { negative: new Float64Array(n), positive: new Float64Array(n) } };
+  const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const muscles: MuscleDriver = {
-    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, bounds: state.bounds,
+    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, planned: state.planned, expect: new Float64Array(n).fill(NaN), bounds: state.bounds,
     get dynamics() { return dynamics!; },
     get level() { return state.level; },
     angle: (i) => angles[i]!, rate: (i) => rates[i]!, speed: (i) => speeds[i]!, turning: (i, k) => turning[3 * i + k]!,
@@ -539,7 +552,33 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         }
         objects = deepFreeze(made);
       }
-      if (reading) dynamics!.update(jointAngles, motion);
+      if (reading) dynamics!.update(jointAngles, motion_);
+    },
+    forecast(motion, dt) {
+      const d = dynamics!, { linear, angular, turn, offset } = ahead;
+      for (const record of records) {
+        const segment = record.segment, c = d.centre(segment), node = record.node, q = node.rotationQuaternion!;
+        d.accelerationToRef(segment, motion, linear, angular);
+        record.angular.addInPlaceFromFloats(dt * angular.x, dt * angular.y, dt * angular.z);
+        record.linear.addInPlaceFromFloats(dt * linear.x, dt * linear.y, dt * linear.z);
+        // Its turn over the step, about its new spin (`rotationStep`), carries the node about the centre.
+        rotationStep(record.angular, dt, turn);
+        offset.set(node.position.x - c[0], node.position.y - c[1], node.position.z - c[2]).applyRotationQuaternionToRef(turn, offset);
+        node.position.set(c[0] + dt * record.linear.x + offset.x, c[1] + dt * record.linear.y + offset.y, c[2] + dt * record.linear.z + offset.z);
+        turn.multiplyToRef(q, q);
+        q.normalize();
+      }
+      let c = 0;
+      trackers.forEach((tracker, j) => {
+        tracker.update(ahead.spin);
+        const dofs = tracker.angles.length, mine = jointAngles[j]!;
+        for (let i = 0; i < dofs; i++) {
+          angles[c + i] = tracker.angles[i]!; mine[i] = tracker.angles[i]!; speeds[c + i] = tracker.speeds[i]!; rates[c + i] = tracker.rates[i]!;
+          for (let m = 0; m < dofs; m++) turning[3 * (c + i) + m] = tracker.turning[i]![m]!;
+        }
+        c += dofs;
+      });
+      d.update(jointAngles, motion_);
     },
     answer() {
       let calls = 0, size = 0;
@@ -566,3 +605,14 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
 
 /** What an object the senses show keeps from its first showing. */
 interface ObjectStatics { readonly id: string; readonly owner: string | null; readonly points: Readonly<Record<string, Vec3>> }
+
+/**
+ * The turn a body spinning at `spin` (rad/s, world) makes over `dt`, into `out`: about the spin's
+ * axis by its speed times the step, as the solver turns a body.
+ */
+function rotationStep(spin: Vector3, dt: number, out: Quaternion): Quaternion {
+  const speed = Math.sqrt(spin.x * spin.x + spin.y * spin.y + spin.z * spin.z), half = speed * dt / 2;
+  if (speed === 0) return out.set(0, 0, 0, 1);
+  const k = sin(half) / speed;
+  return out.set(spin.x * k, spin.y * k, spin.z * k, cos(half));
+}

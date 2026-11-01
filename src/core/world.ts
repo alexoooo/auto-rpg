@@ -118,7 +118,8 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, delay, state, mirrored: mirrored === true,
+    // A mind a step or more behind its body reads it through its mirror, which it carries forward through its commands in flight.
+    scene, physics, hz, dt, delay, state, mirrored: mirrored === true || delay > 0,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },

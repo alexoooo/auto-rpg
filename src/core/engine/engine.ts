@@ -128,7 +128,10 @@ export interface EngineJoint {
    * (rad/s), with at most `ceiling` (N m) either way.
    */
   setMotor(k: number, speed: number, ceiling: number): void;
-  /** The same velocity motor, bounded separately in the child's negative and positive senses (nonnegative N m). */
+  /**
+   * The same velocity motor, its torque on the child held from `-negative` to `positive` (N m): each
+   * a ceiling in its sense when both are nonnegative, a window apart from zero when one is negative.
+   */
   setMotorBounds(k: number, speed: number, negative: number, positive: number): void;
   /**
    * Freedom k's motor as a spring, solved within the step: a torque of `stiffness` (N m/rad) times
