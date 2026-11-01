@@ -576,6 +576,28 @@ Tried and not kept: the ground's height read turning only each point's height
 (`src/core/control/ground.ts`), the same arithmetic as `applyRotationQuaternionToRef`'s y; its
 share stayed 0.15 of Rapier's step.
 
+### Other foes priced as held
+
+**Holding the chooser's price of each foe but its focus cuts its appraisal from 8.2 % of the crowd
+fight's step to 5.6 %, and the crowd fight plays to the same verdict with the same blows.** Deciding
+afresh with nothing committed, the valued chooser priced every option at every other foe's
+situation, five times a second a body; it now keeps each other foe's best worth until that foe
+moves 0.3 m about the body, goes down or gets up, its cue or the running set changes, or 0.6 s
+pass (`Holding`, `src/core/mind/choice.ts`; `HELD_FOE`, `src/core/option/chooser.ts`). The
+situation it runs at is priced afresh. A duel has no other foe: no fingerprint case's pose moved,
+four duels' state took the hold's record.
+
+The crowd fight, seed 0, its first 20 s, under V8's CPU profiler, before (`4971c343`) and after;
+against Rapier's step:
+
+| Inclusive, of Rapier's step | Before | After |
+| --- | --- | --- |
+| the appraisal (`appraiseAt`) | 0.312 | 0.207 |
+| Option Mind's tactics (`decide`) | 0.641 | 0.545 |
+| the whole step | 3.82 | 3.68 |
+
+To its verdict, before and after: the right side by the drain at 117.04 s, 4596 blows.
+
 ### The held aim
 
 **Holding each opening as a point on its segment cuts the crowd fight's opening searches from 14.8

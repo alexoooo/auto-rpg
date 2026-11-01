@@ -896,7 +896,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   deciding afresh on a cue's change, when the running option reaches its exit, or on its body's
   phase of each `rethink` s. It selects a set (`Selection.decide`): a running option that does not yield keeps
   its claims; with none, the target, the foe whose situation's best option is worth most, the one
-  it ran at where none is worth more (`Chosen.at`); then the best on offer, then the best of the rest whose claims are still free, until
+  it ran at where none is worth more (`Chosen.at`), each foe but the focus at the best it was last
+  priced at until that foe moves about the body, goes down or gets up, or 0.6 s pass (`Holding`,
+  `HELD_FOE`); then the best on offer, then the best of the rest whose claims are still free, until
   none is left, a rest option before its equals (`Option.rest`), so that an option takes a resource
   from rest only worth more; the rest options are last by rank, so `rest` is the option's own mark.
   A rest option is chosen with whichever of its claims are still free, any other with all of its

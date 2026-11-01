@@ -1,4 +1,5 @@
 import { randomStream } from "../math/random.ts";
+import { hold, stillHeld, unheld, type Drift, type Held } from "./held.ts";
 import type { Readiness, Resource } from "../skills/framework/action.ts";
 
 /**
@@ -77,6 +78,18 @@ export function nextDecision(deciding: Deciding, now: number): number {
  */
 export interface Chance { readonly margin: number; readonly seed: number }
 
+/**
+ * **How a selection holds its price of another situation** (`Selection.decide`'s `others`): the
+ * best worth it found there, kept by the name `key` gives the situation and made again once that
+ * situation's cue or the set running changes, an input of `drift` moves past its tolerance or
+ * `rethink` s pass (`stillHeld`). The situation it runs at is priced afresh.
+ */
+export interface Holding<S> {
+  readonly rethink: number;
+  key(other: S): string;
+  drift(other: S): readonly Drift[];
+}
+
 /** No chance: the best is taken, nothing drawn. */
 const NO_CHANCE: Chance = Object.freeze({ margin: 0, seed: 0 });
 
@@ -102,8 +115,8 @@ export interface Selection<S, T, C extends Choice<S>> {
   /**
    * The set running and where (`Chosen`), after deciding at `now` if it has not yet at its time.
    * Deciding afresh with nothing committed, it prices its choices at each of `others` too (the
-   * situation at each other target), and runs the set at the one whose best is worth most; else at
-   * `now`.
+   * situation at each other target, each held as its `Holding` says where it gives one), and runs
+   * the set at the one whose best is worth most, priced afresh; else at `now`.
    */
   decide(now: S, others?: () => readonly S[]): Chosen<S, C>;
   /** The set running, as the last decision left it. */
@@ -134,18 +147,20 @@ export const onOffer = <S>(choice: Choice<S>, now: S): boolean => choice.entry(n
  * `now` where none is worth more; then, of the choices on offer there (`onOffer`), each running one
  * raised by what letting it go costs (`Priced.letGo`), it takes the best (drawn by `chance` where
  * it gives a margin), then the best of the rest whose claims are still free, the first of equals,
- * until none is left. A rest choice takes a resource nothing else is worth more on: it is chosen
+ * until none is left. Another situation's best is held as `holding` says where it is given. A
+ * rest choice takes a resource nothing else is worth more on: it is chosen
  * with whichever of its claims are still free, the others all of theirs or not at all. Its memory
  * is which choices run (their places in `choices`, the first chosen first), when it decided, when
  * it next rethinks, the event it decided on, whether the first chosen was at its exit, the offers
- * it chose from, its stream's word where it draws, and `memory`'s entries, kept beside them.
+ * it chose from, its stream's word where it draws, each other situation's best held, and
+ * `memory`'s entries, kept beside them.
  */
 export function selectSet<S extends { readonly time: number }, T, C extends Choice<S> = Choice<S>>(choices: readonly C[], appraise: Appraise<S, T, C>,
-  deciding: Deciding, cue: (now: S) => string, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}): Selection<S, T, C> {
+  deciding: Deciding, cue: (now: S) => string, chance: Chance = NO_CHANCE, memory: Readonly<Record<string, object>> = {}, holding: Holding<S> | null = null): Selection<S, T, C> {
   if (!(chance.margin >= 0) || !Number.isFinite(chance.margin)) throw new Error(`a selection's margin is finite and not negative, not ${chance.margin}`);
   const stream = chance.margin > 0 ? randomStream(chance.seed) : null;
   const state = { running: [] as number[], decided: -Infinity, next: -Infinity, event: "", exiting: false, offers: [] as Priced<T>[], ...(stream ? { random: stream.state } : {}),
-    ...memory };
+    ...(holding ? { others: {} as Record<string, { held: Held; best: number }> } : {}), ...memory };
   const values: number[] = [], order: number[] = [], chosen: number[] = [], held: (readonly Resource[])[] = [], set: C[] = [];
   const current = (): readonly C[] => { set.length = 0; for (const i of state.running) set.push(choices[i]!); return set; };
   /** Whether what the choices chosen hold overlaps `claims`. */
@@ -192,6 +207,19 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
     order.sort((a, b) => values[b]! - values[a]! || Number(choices[b]!.rest ?? false) - Number(choices[a]!.rest ?? false) || a - b);
     return order.length ? values[order[0]!]! : -Infinity;
   };
+  /** The best worth at `other`, another situation, at `time`: as held where `holding` holds it, else priced (`appraiseAt`) and held. */
+  const otherBest = (other: S, time: number): number => {
+    if (!holding) return appraiseAt(other);
+    const key = holding.key(other), event = `${cue(other)} ${state.running.join(",")}`, drift = holding.drift(other);
+    const others = state.others!;
+    let kept = others[key];
+    if (kept && stillHeld(kept.held, time, holding.rethink, event, drift, () => true)) return kept.best;
+    const best = appraiseAt(other);
+    if (!kept) others[key] = kept = { held: unheld(), best };
+    kept.best = best;
+    hold(kept.held, time, event, drift);
+    return best;
+  };
   const result = { set: set as readonly C[], at: null as S | null, fresh: false };
   /** What it decided, the set running at `at`, `fresh` where it decided afresh: one record, made once. */
   const decided = (at: S, fresh: boolean): Chosen<S, C> => { current(); result.at = at; result.fresh = fresh; return result as Chosen<S, C>; };
@@ -220,7 +248,7 @@ export function selectSet<S extends { readonly time: number }, T, C extends Choi
       if (others && chosen.length === 0) {
         const alternatives = others();
         for (const other of alternatives) {
-          const best = appraiseAt(other);
+          const best = otherBest(other, now.time);
           if (best > top) { top = best; at = other; }
         }
         if (alternatives.length) appraiseAt(at);

@@ -4,7 +4,7 @@ import type { PartLookup } from "../parts/lookup.ts";
 import type { ChooserPart } from "./parts.ts";
 import { anyBody, slotOne, type PartConfig } from "../parts/parts.ts";
 import type { OfferTerms } from "../mind/engagement.ts";
-import { onOffer, selectSet, type Appraise, type Chance, type Deciding, type Selection } from "../mind/choice.ts";
+import { onOffer, selectSet, type Appraise, type Chance, type Deciding, type Holding, type Selection } from "../mind/choice.ts";
 import { placed, type Option, type Situation } from "./option.ts";
 import { eventOf } from "./percepts.ts";
 import { FEW_TERMS_PART, type Objective } from "./objective.ts";
@@ -15,6 +15,22 @@ import { OBEDIENCE, STEADY, type Obedience, type ObedienceLevel } from "./value.
 const DECIDING: Deciding = Object.freeze({ rethink: .2 });
 
 /**
+ * How long the valued chooser holds its price of a foe other than its focus (`Holding`): until
+ * that foe has moved `moved` m about the body, gone down or got up, or `rethink` s have passed.
+ */
+const HELD_FOE = Object.freeze({ moved: .3, rethink: .6 });
+
+/** The valued chooser's hold of each other foe's situation (`HELD_FOE`), by the foe. */
+const FOE_HOLDING: Holding<Situation> = Object.freeze({
+  rethink: HELD_FOE.rethink,
+  key: (other: Situation) => other.focus?.id ?? "",
+  drift: (other: Situation) => {
+    const foe = other.focus, centre = other.sight.view.stance.centre;
+    return foe ? [{ at: [foe.centre.x - centre.x, foe.centre.z - centre.z], within: HELD_FOE.moved }, { at: [foe.down ? 1 : 0], within: .5 }] : [];
+  },
+});
+
+/**
  * **A chooser**: of a body's options, the set it runs, whose claims (`Option.claims`) do not
  * overlap: the toolkit's set selection (`selectSet`) over options, priced in a body's terms
  * (`OfferTerms`), each decision's event its percepts' cues (`eventOf`).
@@ -23,11 +39,13 @@ export type Chooser = Selection<Situation, OfferTerms, Option>;
 
 /**
  * **The one policy** (`selectSet`) over `options`, priced by `appraise`, its event the percepts'
- * cues (`eventOf`), drawn by `chance` where it gives a margin; its memory the selection's, and the
- * memory of the `objective` it prices by, where that keeps one (`Objective.state`).
+ * cues (`eventOf`), drawn by `chance` where it gives a margin, each other foe's price held as
+ * `holding` says where it is given; its memory the selection's, and the memory of the `objective`
+ * it prices by, where that keeps one (`Objective.state`).
  */
-const chooser = (options: readonly Option[], appraise: Appraise<Situation, OfferTerms, Option>, deciding: Deciding, chance?: Chance, objective: Objective | null = null): Chooser =>
-  selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, eventOf, chance, objective?.state ? { objective: objective.state } : {});
+const chooser = (options: readonly Option[], appraise: Appraise<Situation, OfferTerms, Option>, deciding: Deciding, chance?: Chance, objective: Objective | null = null,
+  holding: Holding<Situation> | null = null): Chooser =>
+  selectSet<Situation, OfferTerms, Option>(options, appraise, deciding, eventOf, chance, objective?.state ? { objective: objective.state } : {}, holding);
 
 /** **A kind of Option Mind's chooser** (`ChooserPart`): over its options (`Option`), the chooser it makes a `Chooser`. */
 export type OptionChooserPart<C extends PartConfig = PartConfig> = ChooserPart<C, Option, Chooser>;
@@ -121,7 +139,7 @@ export const VALUED_CHOOSER: OptionChooserPart<ValuedConfig> = deepFreeze({
       const value = past && terms.exit.at ? own + past(now, terms.exit) : own;
       if (!Number.isFinite(value)) throw new Error(`${option.name} is worth ${value}`);
       return { name: option.name, worth: value, terms, moves, letGo };
-    }, { ...DECIDING, phase }, { margin: config.margin ?? 0, seed }, objective);
+    }, { ...DECIDING, phase }, { margin: config.margin ?? 0, seed }, objective, FOE_HOLDING);
   },
 });
 
