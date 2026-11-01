@@ -265,7 +265,12 @@ moved cases, is read against the version before on its drill (`--previous`) and 
     the body's phase, as the design says; the profiles measured again at it. Check: the baseline
     battery (`npm run evaluate -- baseline`: walk, punch, stand-up, fights), the punch and club
     drills, the match against 120 Hz, the crowd fight's step; the owner watches. Where one loses,
-    40 Hz, then 60, the same way.
+    40 Hz, then 60, the same way. Built, not the presets' default
+    ([the mind at 30 Hz](../reference/step-cost.md#the-mind-at-30-hz)): the decider at its pace
+    (`Pace`, `driveBy`), the skills every step, `OptionMindConfig.rate`, the profiles at both
+    rates. The command held between calls lost the strikes; the intent held keeps the punch and
+    the gait, plays the match level (0.567), and loses the club blow (7 of 16 against 11 of 15) and
+    the stomp, for about a twentieth of the crowd fight's step. 40 and 60 Hz save less still.
 12. **Motor control at 60 Hz, tried**, as the design says. Check: the baseline battery and the
     match against 120 Hz control; the owner watches. Kept, or recorded in step cost as tried and
     why not.
