@@ -229,6 +229,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
     else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
     // The speed solved for where the whole-body solve weighed the ground: each freedom's now and its acceleration over the step (`ServoWork.accel`).
     if (ask) for (let i = 0; i < freedoms; i++) driver.expect[i] = driver.speed(i) + dt * work.accel[i]!;
+    if (ask) stance.unexpect?.(driver);
     // A firm freedom is a velocity motor toward the speed asked, at its muscles' full strength.
     if (anyFirm) for (let i = 0; i < freedoms; i++) {
       if (Number.isNaN(firm[i]!)) continue;
