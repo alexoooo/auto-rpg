@@ -10,6 +10,7 @@ import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
+import { delayLine } from "../command-delay.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /**
@@ -121,8 +122,10 @@ export interface Embodying {
 /**
  * Give `built` a mind: `make` is called once with the body, and the mind steps before every solver
  * step of `world`, after the muscles have read the joints, on its senses (`Embodying.senses`, the
- * clock alone unless given). What the mind asked of its assist is given after its step, within its
- * ceiling (none unless given), so the solver's step takes it with the muscles' torques. Given a
+ * clock alone unless given). **What a mind sends on a step is applied `world.delay` steps later**
+ * (`World.delay`): its muscles' command (`driveMuscles`), its assist's ask, given within its
+ * ceiling (none unless given) with the muscles' torques, and the hand poses it asked since its last
+ * step. Its first steps at `full`, from its start or back from another level, apply none. Given a
  * `log`, each step's order sheet is written in it as the mind leaves it (`SheetLog`). What observes
  * the completed physics (`OwnBody.afterPhysics`) is run by one hook of `world`'s, added with the
  * first observer.
@@ -132,17 +135,31 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
   // The hand poses asked since the last sheet, which the next sheet carries.
   const hands: HandPoseRequest[] = [];
+  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step of the world's delay and one more.
+  const line = delayLine(world.delay), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
   const muscles = driveMuscles(built, world, (driver, dt) => {
     mind!.step(sense(), dt);
     if (log) record(log, world.steps, driver, help!.asked, hands);
     help!.apply();
-  }, () => mind!.idle?.());
-  help = createAssist(built, rootSegment(built), ceiling);
+    const slot = posed.sent[line.written()]!;
+    slot.length = 0;
+    for (const one of posed.asked.splice(0)) slot.push(one);
+    const due = line.applied();
+    line.advance();
+    if (due >= 0 && posed.sent[due]!.length > 0) built.handPoses.request(posed.sent[due]!.splice(0));
+  }, () => {
+    mind!.idle?.();
+    help!.reset();
+    line.reset();
+    posed.asked.length = 0;
+    for (const slot of posed.sent) slot.length = 0;
+  });
+  help = createAssist(built, rootSegment(built), ceiling, world.delay);
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
   const own: OwnBody = { spec: built.spec, built: readView(built), muscles, assist: help.assist,
     requestHandPoses: (requests) => {
-      built.handPoses.request(requests);
+      for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
       if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
     },
     senses: sense, ...(contactIdentity ? { contactIdentity } : {}), ...(experiment ? { experiment } : {}),
@@ -155,7 +172,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   try { made = make(own); }
   catch (error) { observed?.dispose(); muscles.dispose(); throw error; }
   mind = made;
-  return { own, mind: made, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, toes: built.toes, mind: made.state ?? null },
+  return { own, mind: made, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, mind: made.state ?? null },
     dispose: () => { made.dispose?.(); observed?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 

@@ -63,7 +63,7 @@ export interface Combatant extends Fighter {
 }
 
 /** The complete recording grant can be checked before a body or a world hook is installed. */
-export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation"> & {
+export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation" | "delay"> & {
   readonly physics: Pick<World["physics"], "engine" | "revision" | "gravity">;
 }, enlisting: Pick<Enlistment, "id" | "side" | "spec" | "at" | "heading" | "rules" | "balance" | "percent" | "recording">): RecordingIdentity {
   const { id, side, spec, rules } = enlisting, heading = enlisting.heading ?? 0;
@@ -72,7 +72,7 @@ export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation"
   return recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
     context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
     body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
-    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation,
+    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation, delay: world.delay,
   });
 }
 

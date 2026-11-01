@@ -488,7 +488,7 @@ test("a mind and its toolkit reach no engine, world, builder, global or chance b
  * module imports its own layer or one below, and a package (`CORE_PACKAGES`) only where it is built on it.
  */
 const LAYERS = [
-  ["math/", "state.ts", "sources.ts"],
+  ["math/", "state.ts", "sources.ts", "command-delay.ts"],
   ["spec/", "human/", "items/", "reptile/spec.ts", "reptile/physique.ts", "character-attributes.ts"],
   ["engine/", "world.ts", "recording.ts"],
   ["build/", "read-body.ts", "read-motion.ts", "clock.ts"],

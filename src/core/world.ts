@@ -7,6 +7,16 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
   "physics and control at 120 Hz from the release of 2026-09-25");
 
 /**
+ * **The command's delay**, steps: a mind's command, made on a step, is applied that many steps
+ * later, so the world can step while its minds think (`embody`). The same in every world, on one
+ * thread or many, so a bout is the same whatever runs its minds. The game's is none until motor
+ * control holds balance and the rise a step late
+ * (`docs/reference/command-delay.md`).
+ */
+export const COMMAND_DELAY: Quantity<number> = sourced(0, "1", "owner-command-delay",
+  "none until motor control holds balance and the rise a step late");
+
+/**
  * **The world**: one fixed step that owns physics, control and the clock. The page, the Node stand
  * and the research runners all advance it through `step` (or `advance`, which turns elapsed time
  * into whole steps), and nothing else moves its bodies or its clock.
@@ -31,6 +41,8 @@ export interface World {
   readonly dt: number;
   /** The actuator law shared by every body: symmetric reference bounds or each side's own muscle bounds. */
   readonly actuation: "symmetric" | "directional";
+  /** The steps a body's command waits before it is applied (`COMMAND_DELAY`): a whole number, 0 or more. */
+  readonly delay: number;
   /** Steps taken since the world was made. */
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
@@ -73,11 +85,14 @@ interface WorldOptions {
   /** Standard gravity, or none, for reading a body alone. */
   readonly gravity?: boolean;
   readonly actuation?: World["actuation"];
+  /** The command's delay, steps; the game's (`COMMAND_DELAY`) unless a study asks for another. */
+  readonly delay?: number;
 }
 
 /** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric" }: WorldOptions = {}): World {
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value }: WorldOptions = {}): World {
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
+  if (!(Number.isInteger(delay) && delay >= 0)) throw new Error(`a command's delay is a whole number of steps, not ${String(delay)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
   const sensing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [];
@@ -95,7 +110,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, state,
+    scene, physics, hz, dt, delay, state,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },

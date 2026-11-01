@@ -1224,6 +1224,20 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
+### The command delay
+
+What a mind sends on a step is applied `World.delay` steps later (`COMMAND_DELAY`, a whole
+number of the world's, the same for every body): its muscles' command (`driveMuscles`), its
+assist's ask (`createAssist`) and the hand poses it asked (`embody`). Each keeps a ring of
+`delay` + 1 slots (`delayLine`, `src/core/command-delay.ts`): a step writes the mind's command in
+one and applies the one sent `delay` steps before. A body's first `delay` steps at `full`, from its
+start or back from another level, apply none. The mind's command arrays stay its own: it reads
+back what it last sent, and the ceilings and torques it reads are those of the command applied.
+The rings are state, so a bout saves, forks and replays with commands in flight. A recording names
+the delay its world had, and loads only into one with the same. The game's delay is none until
+motor control holds balance and the rise a step late
+([the command delay](reference/command-delay.md)).
+
 A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
 the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
 `scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on

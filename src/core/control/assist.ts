@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import { centreOfToRef } from "../read-motion.ts";
 import { norm } from "../math/real.ts";
+import { delayLine } from "../command-delay.ts";
 
 /**
  * The most an assist gives a body: a force, in the body's own weights, and a moment, in its
@@ -39,9 +40,13 @@ export interface Assist {
   readonly withdrawn: boolean;
 }
 
-/** `built`'s assist under `ceiling`, on `root`; `apply` gives the step's ask, and is the seam's to call (`embody`). */
-export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): {
-  assist: Assist; apply(): void; state: object;
+/**
+ * `built`'s assist under `ceiling`, on `root`; `apply` sends the step's ask and gives the one
+ * sent `delay` steps ago (`World.delay`), and is the seam's to call (`embody`); `reset` drops
+ * what was sent and not given, as the body leaves its mind.
+ */
+export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling, delay: number): {
+  assist: Assist; apply(): void; reset(): void; state: object;
   /** What this step's ask is so far, before `apply` gives it and clears it. */
   readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
 } {
@@ -49,7 +54,9 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
   const most = { force: ceiling.force * weight, moment: ceiling.moment * weight };
   const asked = { force: new Vector3(), moment: new Vector3() }, given = { force: new Vector3(), moment: new Vector3() };
   const meter = { steps: 0, force: 0, moment: 0 };
-  const state = { asked, given, meter, withdrawn: false };
+  const line = delayLine(delay);
+  const sent = Array.from({ length: line.size }, () => ({ force: new Vector3(), moment: new Vector3() }));
+  const state = { asked, given, meter, withdrawn: false, line: line.state, sent };
   const at = new Vector3();
   const on = (): boolean => !state.withdrawn && (most.force > 0 || most.moment > 0);
   const clip = (v: Vector3, limit: number, out: Vector3): void => {
@@ -72,11 +79,20 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
     assist, state, asked,
     apply() {
       if (!on()) { given.force.setAll(0); given.moment.setAll(0); return; }
-      assist.clipToRef(asked.force, asked.moment, given.force, given.moment);
+      const slot = sent[line.written()]!;
+      slot.force.copyFrom(asked.force); slot.moment.copyFrom(asked.moment);
       asked.force.setAll(0); asked.moment.setAll(0);
+      const due = line.applied();
+      line.advance();
+      if (due < 0) { given.force.setAll(0); given.moment.setAll(0); return; }
+      assist.clipToRef(sent[due]!.force, sent[due]!.moment, given.force, given.moment);
       meter.steps += 1; meter.force += given.force.length(); meter.moment += given.moment.length();
       if (given.force.lengthSquared() > 0) root.body.applyForce(given.force, centreOfToRef(root, at));
       if (given.moment.lengthSquared() > 0) root.body.applyTorque(given.moment);
+    },
+    reset() {
+      line.reset();
+      for (const one of sent) { one.force.setAll(0); one.moment.setAll(0); }
     },
   };
 }
