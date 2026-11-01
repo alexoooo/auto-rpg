@@ -73,10 +73,24 @@ function awayFromFallen(view: BodyView, exempt: string | null): readonly [number
  */
 export const SWEEP = 12;
 
+/** Each turned box's turn as its cosine and sine, found once (`turnOf`): a sensed solid is frozen. */
+const TURNS = new WeakMap<SolidSense, readonly [number, number]>();
+/** An unturned box's cosine and sine, `cos(0)` and `sin(0)`. */
+const UNTURNED = Object.freeze([1, 0] as const);
+
+/** The cosine and sine of `solid`'s turn about up. */
+function turnOf(solid: SolidSense & { readonly kind: "box" }): readonly [number, number] {
+  const turn = solid.turn ?? 0;
+  if (Object.is(turn, 0)) return UNTURNED;
+  let found = TURNS.get(solid);
+  if (!found) TURNS.set(solid, found = Object.freeze([cos(turn), sin(turn)] as const));
+  return found;
+}
+
 function sweepBounds(out: Float64Array, solid: SolidSense, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number): Float64Array {
   switch (solid.kind) {
     case "box": {
-      const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0), cx = solid.centre[0], cy = solid.centre[1], cz = solid.centre[2];
+      const turn = turnOf(solid), c = turn[0], s = turn[1], cx = solid.centre[0], cy = solid.centre[1], cz = solid.centre[2];
       let x = fx - cx, z = fz - cz;
       out[0] = c * x - s * z; out[1] = fy - cy; out[2] = s * x + c * z;
       x = tx - cx; z = tz - cz;
@@ -121,7 +135,7 @@ export function clearanceExit(from: Vec3, radius: number, solids: readonly Solid
     }
     const x = axis === 0 ? side : 0, z = axis === 2 ? side : 0;
     if (solid.kind === "hull") return [x, z];
-    const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0);
+    const [c, s] = turnOf(solid);
     return [c * x + s * z, -s * x + c * z];
   }
   return null;
