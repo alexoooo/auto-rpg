@@ -1299,6 +1299,48 @@ median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each p
 | the rise paced by the feet's load, not the balls' height | 14 | – |
 | the rise's hip press | 1 | – |
 
+## Option Mind's rise on the target
+
+Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 229 of 256
+development falls, 97 of them within 10 s, a median of 11.53 s counting each fall not stood at
+30 s. The falls are the target's turned by 2.8125, 4.21875, 5.625, 8.4375, 14.0625, 16.875,
+18.28125 and 19.6875 degrees, which are neither the target's nor the fresh falls. They are read
+with `research/rise-trace.mjs` (Node, core world, Rapier, 120 Hz), which logs each ground action
+a fall takes: where it began, its stages, and how it ended.
+
+Two readings of the body move it:
+
+- **A low body lies** (`LYING`, `src/core/control/ground-reading.ts`). A body under 0.3 of its
+  height that is in none of the postures reads as its lie (front, back or a side), even when its
+  trunk bears nothing. Face down on its arms or the club, on its side on an upper arm, or on hands
+  and thighs, it used to read as between positions. From there only `flatten` was offered, and
+  it was cut by the brace 540 times and done 11 times in 812. With this reading, flatten is begun
+  138 times, against 857.
+- **On its feet means the trunk up** (`TRUNK_UP`, `ground.ts`). The steady is offered only to a
+  body whose trunk leans less than 60°. A body on its back with its feet planted read as on its
+  feet, was offered the steady, and failed it.
+
+| Warrior, 128 falls each | Before: stood | within 10 s | median, s | After: stood | within 10 s | median, s |
+|---|---|---|---|---|---|---|
+| club | 100 | 16 | 15.98 | 122 | 55 | 10.55 |
+| empty | 94 | 24 | 16.16 | 107 | 42 | 12.41 |
+
+The Rogue cannot be read with Option Mind as it is: its strikes have no record for the toed
+Rogue, and the mind refuses that body. Read with a copy of the mind that has no strikes, on the
+same 256 falls, the Rogue stands 53 of 256 against 39, and 21 within 10 s against 13.
+
+**Where a stood fall's time goes** (the Warrior's target and fresh falls before these changes,
+medians): 0.92 s before the first edge, 5.4 s in the rise, and 4.76 s from the rise's last stage
+to verified standing. That end is spent on three things:
+
+- the motors' jolt as each controller hands over: the technique's steady, then the `steady`
+  option, then the orders;
+- the arms drifting to the guard, about 1.5 s;
+- idle settling (`idleGoal`): 31 of 45 stood falls step their feet before verification, mostly
+  from 0.5 to 1 m apart against the 0.396 m footing.
+
+With idle settling switched off, as a probe only, the end takes 2.64 s.
+
 ## The Rise drill
 
 Each edge of the staged route played alone on a body, begun once its entry admits the body, and

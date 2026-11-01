@@ -24,6 +24,14 @@ const BY_HAND = deepFreeze({ edge: { seconds: 5, done: .7 }, steady: { seconds: 
 /** A body standing ready this long (`standReady`) has risen, s: its rise is over. */
 const READY_HOLD = .1;
 
+/**
+ * How upright a body on its feet holds its trunk (`GroundReading.upright`, the cosine of its lean):
+ * a squat or a climb holds it above, a body lying on its back with its feet planted below, however
+ * its supports read on a step its trunk does not bear
+ * (`docs/reference/rising.md#option-minds-rise-on-the-target`).
+ */
+const TRUNK_UP = .5;
+
 /** A ground action's target: none; the body acts on itself. */
 const HERE: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
 
@@ -179,8 +187,8 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   const why = unpriced.length ? `; unmeasured ${unpriced.join("; ")}` : "";
   const pricedBy = back ? `measured from the back${why}` : `by hand, no route measured to standing${why}`;
 
-  /** On its feet: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between. */
-  const onFeet = (g: GroundReading): boolean => g.onFeet || g.position === "standing" || g.position === "crouch";
+  /** On its feet: read standing or crouched, or its feet bearing it (`GroundReading.onFeet`) while its position is read between, its trunk up (`TRUNK_UP`). */
+  const onFeet = (g: GroundReading): boolean => (g.onFeet || g.position === "standing" || g.position === "crouch") && g.upright >= TRUNK_UP;
   /** Whether a way up may be begun on the body: not tumbling, or braced its while (`BY_HAND.braced`, `state.tumbled`) since the rise began or its last attempt ended. */
   const calm = (g: GroundReading): boolean => !tumbling(g) || state.tumbled >= BY_HAND.braced;
   /**

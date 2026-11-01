@@ -21,7 +21,7 @@ import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
 import type { HostedBody } from "../core/body.ts";
 import { groundRefusal } from "../core/control/ground-reading.ts";
-import { enlist } from "../core/combatant.ts";
+import { enlist, type Combatant } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
@@ -133,6 +133,8 @@ export interface BuiltFall {
   readonly body: BuiltBody;
   /** The Lab's actor on the stand bed; null on the fall bed. */
   readonly actor: Actor | null;
+  /** The riser on the fall bed, its mind's state and its body's view as a trace reads them (`research/rise-trace.mjs`); null on the stand bed. */
+  readonly combatant: Combatant | null;
   readonly ended: boolean;
   afterStep(): void;
   reading(): FallReading;
@@ -165,7 +167,7 @@ export async function buildStandFall(fall: FallCase, engine: EngineName, given: 
   const run = startGround(actor, address, { cap }), check = run.check.state;
   let stood = false, ended = false, read: FallReading | null = null;
   return {
-    world, body, actor,
+    world, body, actor, combatant: null,
     get ended() { return ended; },
     afterStep() {
       if (verifying) {
@@ -233,7 +235,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
   const state = { shoves: 0, shovedAt: null as number | null, ended: false };
   return {
-    world, body: fighter.built, actor: null,
+    world, body: fighter.built, actor: null, combatant: fighter,
     get ended() { return state.ended; },
     afterStep() {
       meter?.sample();
