@@ -271,7 +271,16 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
 }
 
 /** Every protocol the Strike drill may be played on, by name: its rungs. */
+/** Every body a strike may be thrown by: the toed Warrior, the Rogue and the Skeleton. */
+const STRIKERS: readonly BodyModel[] = Object.freeze(["workshop-fighter", "workshop-rogue", "crypt-skeleton"]);
+
+/** `rung` thrown by the strikers its own trials leave out (`STRIKERS`), its trials otherwise the same: its `-bodies` protocol. */
+const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung: P): P =>
+  deepFreeze({ ...rung, models: STRIKERS.filter((model) => !rung.models.includes(model)) as BodyModel[] });
+
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
-  kicking: stillCases(KICKING) });
+  kicking: stillCases(KICKING),
+  "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
+  "stomping-bodies": stillCases(onOtherBodies(STOMPING)), "kicking-bodies": stillCases(onOtherBodies(KICKING)) });

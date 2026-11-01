@@ -32,6 +32,12 @@ export interface WindSettings {
   readonly strength: number;
 }
 
+/** **The lab's gusts**: what its Stand-up mode, the falls and the drills blow when they name gusts. */
+export const LAB_GUSTS: WindSettings = Object.freeze({ rate: .7, strength: 45 });
+
+/** Still air. */
+export const CALM: WindSettings = Object.freeze({ rate: 0, strength: 0 });
+
 /** A gust under way: when it began, s of the world's clock, and the way it blows, rad about up (0 toward +z, growing to the right). */
 interface Gust {
   readonly from: number;

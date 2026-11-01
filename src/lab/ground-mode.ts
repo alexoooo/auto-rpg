@@ -17,7 +17,7 @@ import type { LabAddress } from "./scenarios.ts";
 import { groundMeter } from "./ground-meter.ts";
 import { shoveBody } from "./stance-mode.ts";
 import { dummySpec, hangDummy } from "./targets.ts";
-import { startWind } from "./wind.ts";
+import { CALM, LAB_GUSTS, startWind } from "./wind.ts";
 import { groundEnvironment } from "./ground-environment.ts";
 import { addArenaSolids } from "../arena/room.ts";
 import { solidSenses } from "../core/mind/object-senses.ts";
@@ -150,7 +150,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
-  const wind = startWind(body.built, world, address.ground.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, address.seed);
+  const wind = startWind(body.built, world, address.ground.gusts ? LAB_GUSTS : CALM, address.seed);
   const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
   const round = address.ground.start === "round";
   const state = { status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,

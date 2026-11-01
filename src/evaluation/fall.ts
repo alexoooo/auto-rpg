@@ -31,7 +31,7 @@ import { groundPlacement } from "../lab/ground-starts.ts";
 import { groundShove, SHOVED, SHOVED_UNFELLED, standCheck, startGround, targetImpulse } from "../lab/ground-mode.ts";
 import { groundMeter } from "../lab/ground-meter.ts";
 import { shoveBody } from "../lab/stance-mode.ts";
-import { startWind } from "../lab/wind.ts";
+import { CALM, LAB_GUSTS, startWind } from "../lab/wind.ts";
 import type { GroundLevel } from "../lab/ground-environment.ts";
 import { loadoutSpec } from "../lab/loadout.ts";
 import { labAddress, type LabAddress } from "../lab/scenarios.ts";
@@ -227,7 +227,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   const drawn = groundShove({ seed: fall.seed, ground: { ...defaults.ground, degrees: fall.degrees ?? null, impulse: fall.impulse ?? null } });
   const degrees = drawn.degrees, impulse = (fall.target || fall.equipped) && fall.impulse == null ? targetImpulse(fighter.built) : drawn.impulse;
   const shoving = shoveBody(body, world, () => 0);
-  const wind = startWind(fighter.built, world, fall.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, fall.seed);
+  const wind = startWind(fighter.built, world, fall.gusts ? LAB_GUSTS : CALM, fall.seed);
   const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
   const state = { shoves: 0, shovedAt: null as number | null, ended: false };
   return {

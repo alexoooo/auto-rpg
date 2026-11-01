@@ -1,10 +1,11 @@
 /**
  * **Equipped falls**: the owner's target's sixteen shoves of the Warrior and the Rogue on sword and
  * buckler, on buckler and club, and on the club, calm air, Balance 0 and Grit 0, a 30 s cap, the
- * stand verified. Not the target, which fixes its loadouts. The riser is a stand-up's mind or a
+ * stand verified (`standard`); and the same on every body in every rated loadout (`every`,
+ * `REPRESENTATIVE`), the Skeleton's among them. Not the target, which fixes its loadouts. The riser is a stand-up's mind or a
  * whole mind, on its own character (`Subject.character`); a body it cannot rise as is refused.
  */
-import type { Loadout } from "../../core/items/held.ts";
+import { REPRESENTATIVE, type Loadout } from "../../core/items/held.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type HumanoidModel } from "../../core/models.ts";
@@ -39,9 +40,13 @@ function equippedFalls(play: Json, conditions: readonly EquippedCondition[]): Ca
     } };
 }
 
+/** The target's sixteen shoves of each of `models` holding each of `loadouts`. */
+const fallsOf = (models: readonly HumanoidModel[], loadouts: readonly Loadout[]): EquippedCondition[] => risingJobs({ loadouts, models })
+  .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }): EquippedCondition =>
+    ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: false, equipped: true }));
+
 export const EQUIPPED_RISE_CASES: Readonly<Record<string, Cases<EquippedCondition, FallReading, BuiltFall>>> = Object.freeze({
-  standard: equippedFalls({ suite: "equipped falls", cap: FALL_CAP, after: FALL_AFTER },
-    risingJobs({ loadouts: LOADOUTS, models: ["workshop-fighter", "workshop-rogue"] })
-      .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }): EquippedCondition =>
-        ({ model: model!, loadout: loadout!, seed, start: start as "shoved", degrees: degrees!, balance: balance!, grit: grit!, gusts: gusts!, target: false, equipped: true }))),
+  standard: equippedFalls({ suite: "equipped falls", cap: FALL_CAP, after: FALL_AFTER }, fallsOf(["workshop-fighter", "workshop-rogue"], LOADOUTS)),
+  every: equippedFalls({ suite: "every body in every rated loadout", cap: FALL_CAP, after: FALL_AFTER },
+    fallsOf(["workshop-fighter", "workshop-rogue", "crypt-skeleton"], REPRESENTATIVE)),
 });

@@ -71,13 +71,12 @@ function evidenceOf(readings) {
   return evidence;
 }
 
-/** One cell's state over its readings: missing (a reading no protocol plays), unread, short or met; and its lines. */
+/** One cell's state over its readings: unread, short or met; and its lines. */
 function cellOf(cell, evidence) {
   let state = "met";
   const lines = cell.readings.map((reading) => {
-    if (!("judge" in reading)) { state = "missing"; return `  ${reading.drill}: no protocol plays it: ${reading.missing}`; }
     const found = evidence.get(`${reading.drill} ${reading.protocol} ${reading.subject}`), verdict = verdictOf(reading.judge, rowsOn(cell, reading, found.rows));
-    if (state !== "missing" && verdict.state === "unread") state = "unread";
+    if (verdict.state === "unread") state = "unread";
     else if (state === "met" && verdict.state === "short") state = "short";
     const at = found.read ? `${found.read.commit} ${found.read.date}${found.read.current ? ", current" : ", not the version now"}: ${linkOf(reading.drill, found.read.id, found.read.version)}` : "no record";
     return `  ${reading.drill}/${reading.protocol} ${reading.subject}: ${verdict.state}, ${verdict.figures} (${at})${found.fault ? `; ${found.fault}` : ""}`;
@@ -85,7 +84,7 @@ function cellOf(cell, evidence) {
   return { state, lines };
 }
 
-const MARK = { met: "met", short: "short", unread: "not read", missing: "no drill" };
+const MARK = { met: "met", short: "short", unread: "not read" };
 
 /** Print the table for the command line's options, playing first with `--play`. */
 export function main() {
@@ -93,7 +92,7 @@ export function main() {
     body: { type: "string" }, skill: { type: "string" }, loadout: { type: "string" }, play: { type: "boolean" }, json: { type: "string" } } });
   const cells = tableCells().filter((cell) => (!values.body || cell.body === values.body) && (!values.skill || cell.skill === values.skill)
     && (!values.loadout || loadoutKey(cell.loadout) === values.loadout));
-  const readings = cells.flatMap((cell) => cell.readings.filter((reading) => "judge" in reading));
+  const readings = cells.flatMap((cell) => cell.readings);
   let evidence = evidenceOf(readings);
   if (values.play) {
     for (const { reading, read, fault } of evidence.values()) {

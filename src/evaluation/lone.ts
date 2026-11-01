@@ -22,6 +22,7 @@ import { rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { GAME } from "../entrants/game.ts";
+import { LAB_GUSTS, startWind } from "../lab/wind.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none
@@ -34,7 +35,12 @@ export interface LoneCue {
   readonly shove?: { readonly impulse: number; readonly degrees: number };
 }
 
-/** One lone body, as plain data: its body, its character's attributes, what it holds, its mind in full, its balance, per cent of its weight, in place of its character's, and its script. */
+/**
+ * One lone body, as plain data: its body, its character's attributes, what it holds, its mind in
+ * full, its balance, per cent of its weight, in place of its character's, its script, whether the
+ * lab's gusts blow (`LAB_GUSTS`), and the seed of its mind's chance and the gusts (its mind's own
+ * where it names none, the gusts' 1).
+ */
 export interface LoneCase {
   readonly model: BodyModel;
   readonly character?: AttributeOverrides;
@@ -42,6 +48,8 @@ export interface LoneCase {
   readonly mind: MindConfig;
   readonly balance?: number;
   readonly script?: readonly LoneCue[];
+  readonly gusts?: true;
+  readonly seed?: number;
 }
 
 /** A lone body's world, for its reader. */
@@ -63,7 +71,9 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
     const cues = [...(lone.script ?? [])].map((cue) => ({ ...cue, step: Math.round(cue.at * world.hz) })).sort((a, b) => a.step - b.step);
     let orders: Orders | null = null, next = 0, steps = 0;
     const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
-      mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}) });
+      mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
+      ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
+    const wind = lone.gusts ? startWind(body.built, world, LAB_GUSTS, lone.seed ?? 1) : null;
     const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
     // First in every step: the cues that fall on it, before the mind reads its orders.
     world.sense(() => {
@@ -79,7 +89,7 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
       }
       steps++;
     });
-    return { world, body, dispose() { body.body.dispose(); body.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); } };
+    return { world, body, dispose() { wind?.dispose(); body.body.dispose(); body.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); } };
   } catch (error) { world.dispose(); scene.dispose(); babylon.dispose(); throw error; }
 }
 
