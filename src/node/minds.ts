@@ -136,9 +136,10 @@ export function mindWorkers(threads: number): MindPlace {
       if (disposed) throw new Error("the minds' threads were stopped");
       const made = { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) };
       for (const thread of pool) {
-        // A seat of its own, below every fight's, made and let go in one batch that nothing waits on.
+        // A seat of its own, below every fight's, made, stepped once and let go in one batch that nothing waits on.
         const seat = warming--;
-        queue(thread, [{ seat, ask: { kind: "make", recipe: made, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound }, { seat, ask: { kind: "dispose" } }]);
+        queue(thread, [{ seat, ask: { kind: "make", recipe: made, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound },
+          { seat, ask: { kind: "step", at } }, { seat, ask: { kind: "dispose" } }]);
         flush(thread);
       }
     },

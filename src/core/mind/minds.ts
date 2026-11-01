@@ -136,7 +136,8 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
 
 /**
  * Derive in the place `world` runs its minds in (`MindPlace.warm`) what a mind of `config` on
- * `built` derives from its spec and config alone, as `createMind` would make it there, waiting for
+ * `built` derives from its spec and config alone, made as `createMind` would make it there and
+ * stepped once on `built` as it stands, waiting for
  * nothing: a fight that builds bodies as it goes warms each kind before it plays. `world` is one
  * of the warming's own.
  */
