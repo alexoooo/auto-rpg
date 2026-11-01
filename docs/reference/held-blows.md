@@ -3,7 +3,7 @@
 The toed Warrior's club blow, sword cut and sword thrust (`src/core/skills/strikes/held-blow.ts`)
 read against the held blow's bar: 64.8 J of the rules' energy, met with the item's face (the club
 blunt, the cut its edge, the thrust its point), at the mark asked, the striker up
-([Club and sword](../plans/2026-10-31-club-and-sword.md#the-bar), `BAR.held`,
+([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars), `BAR.held`,
 `src/evaluation/strike/read.ts`). The club, steered, lands 272 and 277 of 300 held-out trials
 at 120 and 480 Hz (91 and 92 %), but 3 fell at 480 Hz, and the bar has none fall: it is not yet
 at the bar. The cut and the thrust do not reach it.

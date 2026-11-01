@@ -25,6 +25,14 @@ The owner's choices (2026-11-01):
 - **A body's command takes effect one step after the step it is made on**, so the world steps
   while the minds think. Results stay deterministic: the delay is a rule of every world, on one
   thread or many, never a matter of timing.
+- **Architecture before retuning** (2026-11-01): the mind stays whole on its side of the boundary,
+  and the skills the delay moves are tuned again
+  ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3).
+
+The delay is a number of the rules, one step here, and the handoff is built for any number of
+steps (a ring of that many buffers and one more), so a mind that later needs longer to think is a
+larger number, not another shape. A mind's slower layers already run at their own rate inside it
+(`OptionMindConfig.rate`).
 
 ## The shape
 
@@ -39,8 +47,8 @@ The owner's choices (2026-11-01):
   body's mirror: an `OwnBody` read from shared memory.
 - **Each step k**: the world applies the commands made on step k−1 and steps, while each mind
   reads the world as step k−1 left it and makes step k's command. The world waits for a command it
-  needs; it never goes on with an older one. Two copies of each buffer, so neither side writes
-  what the other reads.
+  needs; it never goes on with an older one. A copy of each buffer for each step of delay and
+  one more, so neither side writes what the other reads.
 - **Which bodies share a worker, and how many workers there are, never change a bout**: a mind
   shares nothing that changes with another (`src/core/state.ts`).
 - **Offline stays on one thread**: evaluations, forks, the Lab and the tests run the same rule
@@ -67,10 +75,10 @@ fingerprint case.
    `research/gait-profiles.mjs`). Check: every rung of the punch, club and stomp drills, the
    Gait drill, the baseline battery and the stand-up on the owner's target
    ([rising](../reference/rising.md#the-owners-target)) read against the version before, and the match
-   against it. Where a body's balance or a rung suffers, motor control is tuned for the late
-   command (its sense of its own pose is a step older). If balance cannot be held, motor control
-   stays in the world's thread with each mind's intent a step late instead, and the plan is
-   rewritten to that.
+   against it. Balance and the rise are held: where they suffer, motor control predicts its
+   own body a step ahead from the command it has sent (its sense of its own pose is a step
+   older), inside the mind. A trained skill that loses is fine-tuned in the table's first pass
+   ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3), not here.
 3. **A mind's body read from a snapshot, on one thread.** Each body's mirror is made from its spec
    and refreshed from one `Float64Array` the world writes after each step:
    - its segments' poses and motion, contacts, hand poses and toes (`ReadBody`, `src/core/read-body.ts`);

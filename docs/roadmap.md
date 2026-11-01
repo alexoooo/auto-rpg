@@ -53,40 +53,27 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); the legs bearing on hands and knees, a technique holding only the limbs it moves (14); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
-| [Option Skeleton](plans/2026-10-30-option-skeleton.md) | The empty-handed Skeleton preset beating every Arena entrant more than 90% of the time: its rise on toes, its strikes measured, a mixed panel, then the whole field and reserved conditions; a preset of the toolkit's Option Mind. The 11/16 development panel belongs to `c5ce647b` ([record](reference/option-skeleton-combat.md)) |
-| [Punch](plans/2026-10-28-punch.md) | The first skill trained on Option Mind: the punch at a person's level walking or not, at fight range, at moving targets, on the Rogue at its scaled bar and at the head; the one-two; in fights |
-| [Buckler and club](plans/2026-10-29-buckler-and-club.md) | The Warrior's held skills on Option Mind up the Ratings ladder (built: the drills holding the loadout, a club's bar at the untrained blow less one SD, the buckler warding the weapon, the rise holding both standing 15 of 16 falls, Option Mind even with the Duellist and ahead of Vanguard holding both). Left: the club blow ([Club and sword](plans/2026-10-31-club-and-sword.md)); the Cover drill's buckler rows against a weapon and rung 2 (protocols to write); a lead over the Duellist; the owner's acceptance of each rung |
-| [Club and sword](plans/2026-10-31-club-and-sword.md) | The toed Warrior's club blow, sword cut and sword thrust at a person's level, as the punch: one bar for a held blow, 64.8 J met with the item's face, edge or point; a whole-body held blow searched to the bar, then steered and up the ladder (built: the held blow; the club searched to the bar at its own places, then steered to 91 and 92 % held out with 1 % fallen at 480 Hz, and priced by its profile). Left: the club's falls and the ladder; the cut, whose edge the bar asks 18 m/s of; the thrust; each up the ladder |
+| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body |
+| [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's; built: Strike's rung 1 at a pad on a rail, the trial's overlays and the previous version beside it, the Stand drill). Left: Footwork's rungs; Cover's rung 2, which waits on a counter skill |
-| [Recovery](plans/2026-10-23-recovery.md) | The game's bodies standing up on toes, the rise a chain of fast skills judged on its time to standing end to end: the fast edge from hands and knees on Option Mind's rise (built, the sit-back; good enough for now, the owner), then that rise and toes as the game's Stand up, the Rogue with the club among them, on the owner's 64-fall target |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
-| [Ten fighters in real time](plans/2026-10-31-real-time.md) | Ten or more fighters at 60 fps, at least 30, the world never more than a step behind real time (its lag) in the crowd fight, the reference bouts and the Crypt (built: a lying body's colliders read once a weighing; a hand's pose tried only against colliders near it; the crowd fight, `?play=crowd`, and a call counter; readings once a step and the menu once a pass; the strike option's offer for each foe; held decisions, the place beside a lying foe and the aim; the batched crossing into Rapier; the crowd fight's, the Arena's and the Crypt's worlds in workers; spread phases; Option Mind at 60 Hz; motor control at 60 Hz, tried and not kept; a ceiling on heavy searches; lag measured; a mind's constants made once; a body's first step; the Crypt's bodies built ahead, one a step; what every walker reads of the others read once; other foes priced as held; a body's height read once a pose). Left: the rest by the profile; the owner playing the crowd fight and the Crypt |
 | [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser |
 
-1. **Now: Option Mind's design**, before any training run: its steps 13 to 16 in order
-   ([Option Mind](plans/2026-10-27-option-mind.md#steps)), footwork, the guard and the intent,
-   the legs bearing on hands and knees, a place aside from the foe's arc, a foe's reach by its
-   limbs. Each step is checked on the drills it touches; the fights are read once, when the last
-   lands.
-2. **Then training**, on the completed design, each paired by the baseline evaluation: the
-   [Punch](plans/2026-10-28-punch.md) in order (walking or not, at its bar everywhere, the
-   one-two, fights); then a learned gait,
-   the Stand drill's rungs watched before it, and the other skills
-   ([Body and motor control](#body-and-motor-control)); the buckler cover
-   ([Buckler and club](plans/2026-10-29-buckler-and-club.md), steps 4 to 6).
-3. **Beside them:** [Club and sword](plans/2026-10-31-club-and-sword.md), the whole plan, its training
-   included (the owner, 2026-10-31). The Skeleton's campaign. The owner watches the Strike drill's rung 1 (Drills
-   step 2), which Punch step 2b reads; Footwork's rungs 0 to 4 (Drills step 4) after Option Mind
-   step 13.
-   The rest of Recovery step 3: every humanoid is on toes and rises by Option Mind's rise (the
-   owner, 2026-10-30); the Rogue with the club standing on toes, and step-up removed.
-   The [Commander](plans/2026-10-29-commander.md) in order: the Option Commander (step 4) plays
-   the Crypt with Option Mind as its hero.
-   [Ten fighters in real time](plans/2026-10-31-real-time.md) in order, its lag measured first,
-   then [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain
-   read first.
+1. **Now: [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md)** in order
+   (the owner, 2026-11-01): one family of minds, then
+   [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) in order, its gain read
+   first, then the table, stand-up, the run and the strikes on every body.
+2. **Beside it:** [A garbage-free step](plans/2026-10-30-garbage-free-step.md). The owner watches
+   the Strike drill's rung 1 (Drills step 2).
+3. **After it:** fights, Option Mind with its skills in matches the owner watches; the Skeleton's
+   preset beating every Arena entrant left more than 90 % of the time, strict wins per opponent on
+   held-out conditions ([record](reference/option-skeleton-combat.md)); Option Mind's design steps
+   13, 15 and 16 ([Option Mind](plans/2026-10-27-option-mind.md#steps)) and Footwork's rungs after
+   step 13 (Drills step 4); the Strike drill's rungs 1 to 5, the punch at the head and the one-two;
+   Cover's rung 2; what one thread still offers the crowd fight, by its profile
+   ([step cost](reference/step-cost.md)); the [Commander](plans/2026-10-29-commander.md) in order,
+   the Option Commander (step 4) playing the Crypt with Option Mind as its hero.
 4. **When each one's condition holds:** the Ratings items under [Framework](#framework).
 
 ## Waiting on the owner
@@ -99,7 +86,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([play](reference/play.md)); how the dead disappear in time.
 - The stand-up target's falls: a shove the body holds is given again the same way, up to three
   ([rising](reference/rising.md#the-owners-target)); the skeleton read beside the target, not
-  held to it ([Recovery](plans/2026-10-23-recovery.md)).
+  held to it ([the bars](plans/2026-11-01-option-mind-everywhere.md#the-bars)).
 - An optional skeleton costume, after seeing the bones in play.
 
 **To watch:**
@@ -228,7 +215,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   its stops at 0.2 m/s²; the Rogue falls turning into the run
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)).
-- **Recovery** ([Recovery](plans/2026-10-23-recovery.md)). The owner's 64-fall target
+- **Recovery** ([stand-up](plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
   at least 15 of 16 verified recoveries within 6 s in every group, 61 of 64 overall, every
   cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. Step-up,
@@ -253,7 +240,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   punch lands 83 % of 640 held-out trials still or walking in, at 120 and 480 Hz alike, short of
   the 90 % asked, and an earlier network 3 of 56 fight moments; the Rogue's lands about two
   thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
-  [Punch](plans/2026-10-28-punch.md)). Read on the Strike drill's rungs
+  [the strikes on every body](plans/2026-11-01-option-mind-everywhere.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
   Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
   and thrusts, a club blow, kicks and low support (a legs-and-trunk commitment that lends the
@@ -312,10 +299,10 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - The fist's threshold against a head: at 36.8 J (`Rulebook.fist`) and a 62 % share the exchange
   stops paying at 59 J, and a boxer's blow costs the hand
   ([what a blow is worth](reference/learned-punch.md#what-a-blow-is-worth)); read again before a
-  punch is trained on the head ([Punch](plans/2026-10-28-punch.md), step 2d).
+  punch is trained on the head.
 - The head behind the guard: the guard covers the face, and the open lane over it is the top of
   the head, which a straight punch cannot meet square; a punch at the head goes around or over the
-  guard, or waits for it to open (Punch, step 2d).
+  guard, or waits for it to open.
 - Decided (the owner, 2026-10-01; `docs/plans/2026-10-01-rising-05-rules.md@7f3ebcdb`): a fall
   takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
   verdict ([play](reference/play.md#the-bout)); a body that is down may be struck, to

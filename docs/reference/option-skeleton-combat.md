@@ -2,8 +2,8 @@
 
 These records cover development screens, not the greater-than-90% target against every Arena
 opponent. The 11/16 panel belongs to `c5ce647b`, which includes a blade-specific lead valuation.
-It cannot qualify a revision without that rule. The [campaign](../plans/2026-10-30-option-skeleton.md)
-defines the target; the [roadmap](../roadmap.md) holds its status.
+It cannot qualify a revision without that rule. The [roadmap](../roadmap.md#order) holds the target
+and its status.
 
 ## Conditions
 

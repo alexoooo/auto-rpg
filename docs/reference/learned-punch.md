@@ -31,7 +31,7 @@ weighed (`assets/core/straight-punch.json`, 55.0 M decisions;
 
 Harness throughout: Node, the core's world on Rapier. Right is the guard's rear hand, left its
 lead. Speeds are over the fist's last 0.1 m. The bar is `BAR` (`src/evaluation/strike/read.ts`);
-the [Punch](../plans/2026-10-28-punch.md#the-bar) plan states it.
+[the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars) state it.
 
 ## What is used
 
