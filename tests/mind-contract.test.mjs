@@ -18,7 +18,7 @@ import { FIGHT_ENTRY, GAME, treeObeys, CONTROLLERS, MINDS as PRESETS, modelRefus
 import { DRILL_OPPONENTS } from "../src/evaluation/drill-opponents.ts";
 import { catalogOf } from "../src/core/parts/catalog.ts";
 import { toolkitLists } from "../src/core/toolkit.ts";
-import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
+import { OPTION_MIND } from "../src/core/option/mind.ts";
 import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
@@ -34,30 +34,33 @@ import { GUARD } from "../src/core/skills/guard/guard.ts";
 import { createWorld } from "../src/core/world.ts";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 import { readView } from "../src/core/build/read-view.ts";
+import { embody } from "../src/core/mind/mind.ts";
+import { loadState, saveState } from "../src/core/state.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { HUMANOID_MODELS } from "../src/core/human/spec.ts";
+import { mindWorkers } from "../src/node/minds.ts";
 
 /** The bout's steps, the step it is forked at, and the gap its sides start at, m: near enough for a blow. */
 const STEPS = 180, FORK = 90, GAP = 0.9;
 /** The most a segment's centre may move, m/s, and a body's centre of mass: as the smoke test holds a bout to. */
 const FLUNG = Object.freeze({ segment: 40, body: 12 });
 
-/** Every registered Mind: each preset and drill opponent by id, then each controller's defaults by its kind where no preset is them. */
-const MINDS = [...Object.entries(PRESETS), ...Object.entries(DRILL_OPPONENTS)];
+/** Every registered Mind: each preset and drill opponent's mind by id, then each controller's defaults by its kind where no preset is them. */
+const MINDS = [...Object.entries(PRESETS), ...Object.entries(DRILL_OPPONENTS).map(([id, { label, mind }]) => [id, { label, config: mind }])];
 for (const [kind, controller] of Object.entries(CONTROLLERS)) if (!MINDS.some(([, preset]) => preset.config === controller.defaults)) MINDS.push([kind, { config: controller.defaults }]);
 
 test("the game's catalog has no fault, and refuses an entrant's unscoped kind, a preset id twice and a preset of two entrants' kinds", () => {
   assert.deepEqual(GAME.faults, []);
   // The control: each planted defect is named, and the entry at fault left out.
-  const guard = BLADE_FIGHTER.guard, sly = { ...guard, kind: "sly:guard" }, duellist = PRESETS.duellist;
+  const guard = OPTION_MIND.defaults.guard, sly = { ...guard, kind: "sly:guard" }, option = PRESETS.option;
   const planted = catalogOf(() => ({ ...toolkitLists(), entrants: [
-    { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { duellist } },
-    { name: "copy", presets: { duellist, mixed: { label: "Mixed", config: { ...duellist.config, guard: sly } } } },
+    { name: "sly", parts: [{ ...GAME.partOf(guard), defaults: sly }, { ...GAME.partOf(guard), defaults: { ...guard, kind: "low-guard" } }], presets: { option } },
+    { name: "copy", presets: { option, mixed: { label: "Mixed", config: { ...option.config, guard: sly } } } },
   ] }));
   assert.deepEqual(planted.faults, [
     `sly's guard part "low-guard" is not scoped sly:`,
-    `copy's preset "duellist" is sly's`,
+    `copy's preset "option" is sly's`,
     `copy's preset "mixed" names sly's kinds`,
   ]);
 });
@@ -91,9 +94,13 @@ function stepTo(world, duel, until, traces, peak, after = () => {}) {
   }
 }
 
-/** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked; with `read`, each side's whole report read after every step. */
-async function played(recipe, hooks, fork, { read = false } = {}) {
-  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
+/**
+ * The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from
+ * there when asked; with `read`, each side's whole report read after every step; with `mirrored`,
+ * each mind on its mirror (`World.mirrored`); with `minds`, each mind apart in that place (`World.minds`).
+ */
+async function played(recipe, hooks, fork, { read = false, mirrored = false, minds = undefined } = {}) {
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
@@ -157,6 +164,51 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
   const replay = await played(recipe, { replay: first.sheets }, false);
   assert.equal(replay.end.digest, first.end.digest);
   assert.equal(replay.end.physics, first.end.physics);
+});
+
+/**
+ * The bouts a mind's mirror is held to: Option Mind each side with a quarter of its weight to ask, near enough for blows,
+ * fists and assist asks (the assisted replay's bout); the Warrior with sword and buckler against the Rogue with the club;
+ * and the reptile against itself, whose bite reads its contacts. The first is the assisted one.
+ */
+function mirrorRecipes() {
+  const { config, character } = PRESETS.option, reptile = PRESETS["option-reptile"].config;
+  const assisted = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
+  return [assisted,
+    { ...assisted, right: "workshop-rogue", loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "empty", right: "club" } } },
+    { left: "reptile", right: "reptile", gap: GAP, minds: { left: reptile, right: reptile }, entry: [] },
+  ];
+}
+
+test("a bout with every mind on its mirror is the bout with every mind on its body, step for step: poses, physics, order sheets, a fork", async () => {
+  const [assisted] = mirrorRecipes();
+  for (const recipe of mirrorRecipes()) {
+    const body = await played(recipe, { record: true }, true), mirror = await played(recipe, { record: true }, true, { mirrored: true });
+    const sheets = (run) => JSON.stringify(SIDES.map((side) => run.sheets[side].sheets));
+    if (recipe === assisted) assert.ok(body.blows > 0 && SIDES.every((side) => body.sheets[side].sheets.some((sheet) => sheet.hands.length > 0)
+      && body.sheets[side].sheets.some((sheet) => sheet.force.some((v) => v !== 0))), "the fixture reaches blows, hand poses and assist asks");
+    assert.equal(mirror.end.digest, body.end.digest, `${recipe.left}: the poses, step by step`);
+    assert.equal(mirror.end.physics, body.end.physics, `${recipe.left}: the physical state to the bit`);
+    assert.equal(sheets(mirror), sheets(body), `${recipe.left}: every order sheet`);
+    assert.equal(mirror.resumed, body.resumed, `${recipe.left}: forked at ${FORK} and resumed`);
+    assert.equal(mirror.blows, body.blows);
+  }
+});
+
+test("a bout with every mind apart, on two minds' threads, is the bout with every mind on its body, its reports read", async () => {
+  // Apart, a mind's memory is where it runs: the bout is neither saved nor forked, and its reports and menus cross as data.
+  for (const recipe of mirrorRecipes()) {
+    const body = await played(recipe, { record: true }, false, { read: true });
+    const minds = mindWorkers(2);
+    try {
+      const apart = await played(recipe, { record: true }, false, { read: true, minds });
+      const sheets = (run) => JSON.stringify(SIDES.map((side) => run.sheets[side].sheets));
+      assert.equal(apart.end.digest, body.end.digest, `${recipe.left}: the poses, step by step`);
+      assert.equal(apart.end.physics, body.end.physics, `${recipe.left}: the physical state to the bit`);
+      assert.equal(sheets(apart), sheets(body), `${recipe.left}: every order sheet`);
+      assert.deepEqual([apart.blows, apart.reading], [body.blows, body.reading], `${recipe.left}: the blows, and the menus and kits read`);
+    } finally { minds.dispose(); }
+  }
 });
 
 test("a mind that draws by chance plays apart on two bout seeds, and a seed's bout forks and resumes to the bit", async () => {
@@ -241,7 +293,7 @@ test("a replay refuses a step with no order sheet, so a record that is short is 
 
 
 test("both-hand loadouts fork and replay their physical commands", async () => {
-  const config = PRESETS.duellist.config;
+  const config = PRESETS.option.config;
   const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3,
     loadouts: { left: { left: "sword", right: "sword" }, right: { left: "buckler", right: "sword" } },
     minds: { left: config, right: config } };
@@ -338,4 +390,54 @@ test("Option Mind's preset fits and is built on every humanoid with every loadou
   assert.deepEqual(refused, []);
   const named = [...left].flatMap(([at, unused]) => unused.filter((line) => !executors.has(line.slice(0, line.indexOf(":")))).map((line) => `${at}: ${line}`));
   assert.deepEqual(named, [], "only the preset's skills are left out");
+});
+
+/** The command's delay a world is made with to show it: more than one step, so its ring is read through. */
+const SHOWN_DELAY = 2;
+
+test("a body's command is applied the world's delay after it is sent, none before, none again after its level leaves full, and across a save and load", async () => {
+  const spec = modelSpec("workshop-fighter"), engine = new NullEngine(), scene = new Scene(engine);
+  const world = createWorld(scene, await freshEngine(), { actuation: "directional", delay: SHOWN_DELAY });
+  const built = buildBody(spec, world, { position: [0, 1, 0], joints: poseAngles(spec, GUARD) });
+  // Held in place, every muscle's strength is the one at rest, so a ceiling reads the activation that set it; its weight sets its assist's ceiling.
+  for (const segment of built.segments.values()) segment.body.setFixed(true);
+  const right = built.handPoses.model.find((hand) => hand.hand === "right"), poses = right.poses.slice(0, 2);
+  assert.equal(poses.length, 2, "the fixture needs a hand with two poses");
+  const sent = [], level = (k) => 0.05 + 0.1 * (k % 7), push = (k) => [k + 1, 0, 0];
+  const embodied = embody(built, world, (own) => ({ name: "delay probe", state: {}, step() {
+    const k = sent.length;
+    own.muscles.activation.fill(level(k)); own.muscles.velocity.fill(0);
+    own.assist.ask(new Vector3(...push(k)), Vector3.Zero());
+    own.requestHandPoses([{ hand: "right", pose: poses[k % 2] }]);
+    sent.push(k);
+  } }), { assist: { force: 10, moment: 10 } });
+  const muscles = embodied.own.muscles, channel = muscles.channels.findIndex((c) => c.positive.tendon === null && c.negative.tendon === null);
+  assert.ok(channel >= 0, "the fixture needs a channel without a tendon");
+  // What the body was given on the step just taken: the activation its ceiling reads, the assist's push and the hand's pose asked.
+  const given = () => ({ activation: Math.round(1e9 * muscles.bounds.positive[channel] / muscles.strength(channel, 1)) / 1e9,
+    push: embodied.own.assist.given.force.x, pose: built.handPoses.state.right.requested });
+  const expected = (k, since) => k - since < SHOWN_DELAY ? { activation: 0, push: 0, pose: null }
+    : { activation: Math.round(1e9 * level(k - SHOWN_DELAY)) / 1e9, push: push(k - SHOWN_DELAY)[0], pose: poses[(k - SHOWN_DELAY) % 2] };
+  // A hand keeps the pose it was last asked: where none is due, the reading names none if the hand holds the one it held as the steps began.
+  const played = (from, steps, since) => {
+    const held = built.handPoses.state.right.requested;
+    return Array.from({ length: steps }, (_, i) => {
+      world.step();
+      const reading = given(), want = expected(from + i, since);
+      return { ...reading, pose: want.pose === null && reading.pose === held ? null : reading.pose };
+    });
+  };
+  const wanted = (from, steps, since) => Array.from({ length: steps }, (_, i) => expected(from + i, since));
+  assert.deepEqual(played(0, 8, 0), wanted(0, 8, 0));
+  // Off its level and back, the body is its mind's again from its next command: none sent before is given.
+  muscles.setLevel("limp"); world.step(3); muscles.setLevel("full");
+  for (const segment of built.segments.values()) segment.body.setFixed(true);
+  assert.deepEqual(played(8, 6, 8), wanted(8, 6, 8));
+  // Saved between a command sent and its step, the load gives the same commands again.
+  const root = { world: world.state, body: embodied.state, sent }, saved = saveState(root);
+  const after = played(14, 5, 8);
+  loadState(root, saved);
+  assert.deepEqual(played(14, 5, 8), after);
+  assert.deepEqual(after, wanted(14, 5, 8));
+  embodied.dispose(); world.dispose(); scene.dispose(); engine.dispose();
 });

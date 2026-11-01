@@ -1,11 +1,11 @@
 # The whole-body spike
 
 Whether one bounded torque solve over the coupled dynamics, with the ground's contacts and the
-joints' stops (`wholeBodyTracking`, `src/core/control/whole-body/whole-body.ts`, through `createMotionBody`),
+joints' stops (`wholeBodyTracking`, `src/core/control/whole-body/whole-body.ts@4038482a`, through `createMotionBody`),
 can stand a body on free feet under the stand competency's shoves and throw an explosive punch at
 the punch competency's pad, sequenced pelvis, trunk, arm, unassisted, at 120 and 480 Hz, within a
 step budget for two fighters in real time. Its settings are `WHOLE_BODY` and `FLAT_OUT`
-(`src/core/skills/strikes/whole-body-strike.ts`).
+(`src/core/skills/strikes/whole-body-strike.ts@4038482a`).
 
 **No.** It stands to 0.2 N s/kg in every cell, against a threshold of 0.5 and the game's stance's 0.6.
 Standing in place, no controller can do much better: the capture point allows 0.30 to 0.34 N s/kg
@@ -14,9 +14,9 @@ time the game's controller takes, but not the 6.8 m/s the threshold asks. It cos
 body a step on a quiet machine, five or six times the 0.36 to 0.46 ms a body costs under the game's controller: two
 fighters fit in the 8.33 ms step at 120 Hz, and not in the 2.08 ms step at 480.
 
-`research/whole-body-spike.mjs` runs it. Harness: Node, the core's world on Rapier (`rapier`),
+`research/whole-body-spike.mjs@4038482a` runs it. Harness: Node, the core's world on Rapier (`rapier`),
 symmetric actuation, each body built in its guard (`poseAngles`), nothing holding the root. A cell's figures are read by the competencies' rules
-(`research/competencies.mjs`, [competencies](competencies.md)): the stand's level by
+(`research/competencies.mjs@4038482a`, [competencies](competencies.md)): the stand's level by
 `fastestHeld`, the punch's speed over the last 10 cm (`approachSpeed`); `spikeFigures` reads them
 from the rows, `whole-body-spike.json.gz` (408 trials: `--held empty`, then `--held club`).
 
@@ -120,8 +120,8 @@ upright, 95 % landed, every landed blow 6.8 m/s or faster, first contact within 
 
 ## Flat out
 
-The flat-out drive (`FLAT_OUT`, `src/core/skills/strikes/whole-body-strike.ts`, and
-`research/greedy-punch.mjs` over it) asks the same solve for the fist with no path and no set
+The flat-out drive (`FLAT_OUT`, `src/core/skills/strikes/whole-body-strike.ts@4038482a`, and
+`research/greedy-punch.mjs@4038482a` over it) asks the same solve for the fist with no path and no set
 time. Every step it asks the fist's strike point for `push` m/s² along the line from where the
 drive began to `through` past the target, beyond anything a muscle gives, and holds it to the line
 across with 0.05 s of feedback, at weight 3. With `runup`, the fist is first drawn back along the

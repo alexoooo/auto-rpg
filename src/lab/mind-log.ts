@@ -1,17 +1,12 @@
 import type { HostedBody } from "../core/body.ts";
-import type { Intent } from "../core/intent/intent.ts";
-import type { Sight, Decider } from "../core/mind/decider.ts";
+import type { Skills } from "../core/skills/framework/skills.ts";
 import type { Hook, World } from "../core/world.ts";
-import { deciding } from "./actor.ts";
-import type { Side } from "../core/spec/body.ts";
 
 /**
  * **What a lab body's mind decides, as it changes.** A log holds notes in the order they were
- * made, each at the time its mind saw (`BodyView.time`); `logged` tactics write one whenever what
- * they decide, or how their skills are going, is no longer what it was. What they see of their skills
- * is the last step's (`Sight.report`): a strike's phase is noted the step after the skills enter it.
- * A decider does not decide while a sub-mind has the body, so who has it is noted by a watch of the body
- * (`watchHas`). Free of the DOM.
+ * made, each at the time its mind saw (`BodyView.time`): a watch of its skills (`watchSkills`)
+ * writes one whenever what they are doing is no longer what it was, and a watch of the body
+ * (`watchHas`) whenever who has it changes. Free of the DOM.
  */
 
 /**
@@ -46,29 +41,23 @@ export function createMindLog(capacity = CAPACITY): MindLog {
   };
 }
 
-const HANDS: readonly Side[] = ["left", "right"];
-
-/** What is said of a step, by kind; null says nothing. The words are the intent's and the report's own. */
-function said({ report }: Sight, intent: Intent): Readonly<Record<string, string | null>> {
+/** What is said of the skills' report, by kind; null says nothing. The words are the report's own. */
+function said({ report }: Pick<Skills, "report">): Readonly<Record<string, string | null>> {
   return {
-    move: intent.move ? `move ${intent.move[0].toFixed(2)} ${intent.move[1].toFixed(2)}` : "stand",
-    ...Object.fromEntries(HANDS.map((hand) => [hand, `${hand} ${intent.actions.some(action => action.effector === `hand.${hand}`) ? "attack" : "guard"}`])),
     actions: report.actions.length ? report.actions.map(action => `#${action.id} ${action.action} ${action.phase}/${action.stage}`).join("; ") : null,
     ended: report.ledger.length ? `${report.ledger.at(-1)!.action} #${report.ledger.at(-1)!.id} ${report.ledger.at(-1)!.ending.kind}` : null,
   };
 }
 
-/** `tactics`, noting in `log` each thing said of a step that is not what was last said of its kind. */
-export function logged<T extends Decider>(tactics: T, log: MindLog): T {
+/** Note in `log`, after each of `world`'s steps, each thing said of `skills`' report that is not what was last said of its kind, at the time `body`'s mind saw. */
+export function watchSkills(world: World, body: HostedBody, skills: Pick<Skills, "report">, log: MindLog): Hook {
   const last: Record<string, string | null> = {};
-  return deciding(tactics, (sight, dt) => {
-    const intent = tactics.decide(sight, dt);
-    for (const [kind, text] of Object.entries(said(sight, intent))) {
+  return world.afterStep(() => {
+    for (const [kind, text] of Object.entries(said(skills))) {
       if (last[kind] === text) continue;
       last[kind] = text;
-      if (text !== null) log.note(sight.view.time, text);
+      if (text !== null) log.note(body.view.time, text);
     }
-    return intent;
   });
 }
 

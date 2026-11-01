@@ -6,7 +6,7 @@ import { allParts, MINDS, treeLookup } from "../src/entrants/game.ts";
 import { presetFitsModel } from "../src/core/mind/controller.ts";
 import { BODY_MODELS, modelHolds, resolveCharacter } from "../src/core/models.ts";
 import { LOADOUTS, loadoutFaults, withLoadout } from "../src/core/items/held.ts";
-import { armedActions } from "../src/core/tactics/action-config.ts";
+import { armedActions } from "../src/core/skills/action-config.ts";
 import { gaitDigest, skillDigest, specDigest, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
 import { gaitsOf } from "../src/core/option/places.ts";

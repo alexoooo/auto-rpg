@@ -27,7 +27,7 @@ export interface PhysicalBody {
 }
 
 /** Adapt an embodied mind, observed on its own senses, without constructing any stance, skill or motion controller. */
-export function physicalBody(built: BuiltBody, own: OwnBody, world: World, has: () => string, state: object, dispose: () => void,
+export function physicalBody(built: BuiltBody, own: Pick<OwnBody, "muscles" | "assist" | "senses">, world: World, has: () => string, state: object, dispose: () => void,
   equipment?: EquipmentPort): PhysicalBody {
   const read = physicalReading(built), physical = read();
   const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });

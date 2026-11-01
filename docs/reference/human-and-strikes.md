@@ -4,7 +4,7 @@ What the tuned constants of the skills and the tactics rest on: `PLACING`
 (`src/core/skills/locomotion/locomotion.ts`), the stance's turning envelope, `GUARD`
 (`src/core/skills/guard/guard.ts`), `ATTACK_METRES` and `EDGE` (`src/core/mind/recipe-tactics.ts@cee7aae2`;
 the edge's band and patience are now the edge behaviour's settings, `EDGE`,
-`src/core/tactics/behaviours/edge.ts`, and the clinch the break-clinch behaviour's `metres`), and
+`src/core/tactics/behaviours/edge.ts@4038482a`, and the clinch the break-clinch behaviour's `metres`), and
 `IK_POSTURE_PULL` and `IK_TURN` (`src/core/control/kinematics.ts`). Each constant's comment cites
 its section. A value said to be set was chosen, not swept. Figures are
 Node, Rapier, no assist, unless a table says otherwise.

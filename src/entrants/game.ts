@@ -12,26 +12,18 @@ export const GAME: Catalog = catalogOf(() => {
   return { ...toolkit, entrants: ENTRANTS };
 });
 
-export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, partOf, scriptedBy, takesScript, partLookup, treeLookup, treeFaults,
+export const { controllers: CONTROLLERS, minds: MINDS, controllerOf, allParts, isKind, partOf, partLookup, treeLookup, treeFaults,
   treeScope, treeKinds, treeObeys, phaseLabels, treeData, treeRefusal, unusedParts, stageRefusal, withoutTuning, kindsFor, replacedAt } = GAME;
 
 export { FIGHT_ENTRY, partIn, type EntryRule, type Offered } from "../core/parts/catalog.ts";
 
-/** **The mind each model plays unless a fight says otherwise**, by preset id (`MINDS`). */
+/** **The mind each model plays unless its fight or run says otherwise**, by preset id (`MINDS`): its Option Mind, the owner's choice. */
 const DEFAULT_MINDS: Readonly<Record<BodyModel, string>> = Object.freeze({
-  "workshop-fighter": "duellist", "workshop-rogue": "duellist", "crypt-skeleton": "duellist", reptile: "crawl",
+  "workshop-fighter": "option", "workshop-rogue": "option", "crypt-skeleton": "option", reptile: "option-reptile",
 });
 
-/** The mind a body of `model` plays unless its fight says otherwise (`DEFAULT_MINDS`). */
+/** The mind a body of `model` plays unless its fight or run says otherwise (`DEFAULT_MINDS`). */
 export const defaultMind = (model: BodyModel): MindConfig => MINDS[DEFAULT_MINDS[model]]!.config;
-
-/** **The mind each model plays in the Crypt** unless its run says otherwise, by preset id (`MINDS`): Option Mind's for its model, the owner's choice. */
-const CRYPT_MINDS: Readonly<Partial<Record<BodyModel, string>>> = Object.freeze({
-  "workshop-fighter": "option", "crypt-skeleton": "option-skeleton", reptile: "option-reptile",
-});
-
-/** The mind a body of `model` plays in the Crypt unless its run says otherwise (`CRYPT_MINDS`); its model's own (`defaultMind`) where no Option Mind fits it. */
-export const cryptMind = (model: BodyModel): MindConfig => MINDS[CRYPT_MINDS[model] ?? DEFAULT_MINDS[model]]!.config;
 
 /**
  * **Why `mind` cannot play `model`'s body carrying `loadout`** in a scenario of entry rules

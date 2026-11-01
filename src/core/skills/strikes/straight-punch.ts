@@ -8,7 +8,6 @@ import { atan2, cos, hypot, sin } from "../../math/real.ts";
 import { channelName } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
-import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetResolver } from "../framework/action.ts";
 import { withinActionWindow } from "../../intent/action-window.ts";
 import { closesToStrike } from "./held-strike.ts";
@@ -17,6 +16,9 @@ import { learnerOf } from "../../learning/learner.ts";
 import { legOf } from "../locomotion/gait-scale.ts";
 import { fistOn, otherSide } from "../../spec/body.ts";
 import { heldFrame } from "../../build/rigid.ts";
+
+/** The turn about up that brings `hand`'s shoulder forward: a turn of a positive angle about up carries a body's right (+x) back (-z). */
+const turnSense = (hand: Side): 1 | -1 => hand === "right" ? -1 : 1;
 
 /**
  * **A straight punch's settings.** It is admitted with the body moving no faster than `pace`

@@ -49,7 +49,7 @@ test("a team's retained approach releases and resumes even when its Commander em
   } finally { team.dispose(); }
 });
 
-for (const id of ["puncher", "vanguard-warrior"]) test(`${id}: Commander combat handoff and explicit routes replay without a Commander`, async () => {
+for (const id of ["option"]) test(`${id}: Commander combat handoff and explicit routes replay without a Commander`, async () => {
   const config = MINDS[id].config, recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: .9, minds: { left: config, right: config } };
   const bout = await buildBout(recipe, { engine: BOUT_ENGINE }), { world, duel } = bout;
   const team = teamOfOne(duel, "left", { kind: "party", picks: false });

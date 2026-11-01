@@ -15,7 +15,6 @@ import { centreOfToRef } from "../src/core/read-motion.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { BLADE_FIGHTER } from "../src/core/tactics/config.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { lieOf } from "../src/core/control/ground-reading.ts";
@@ -24,7 +23,7 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
-import { GAME } from "../src/entrants/game.ts";
+import { GAME, defaultMind } from "../src/entrants/game.ts";
 
 export const RISE_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 /** How long a fall is watched, s, and how long a body must stay up to have risen, s. */
@@ -157,10 +156,11 @@ export async function toppled(shove, subs) {
 }
 
 /**
- * `felled`, under `mind` (a `MindConfig`; the game's, `BLADE_FIGHTER`, unless given) ordered to stand in
+ * `felled`, under `mind` (a `MindConfig`; the game's for its model, `defaultMind`, unless given) ordered to stand in
  * guard, and watched `watch` s.
  */
-export async function shoved({ mind = BLADE_FIGHTER, watch = WATCH_SECONDS, ...shove }) {
+export async function shoved({ mind: given, watch = WATCH_SECONDS, ...shove }) {
+  const mind = given ?? defaultMind(shove.model);
   const { world, built, body, dispose } = await felled(shove,
     (made, into) => createMind(GAME, made, into, mind, { name: "battery", orders: () => STAND_ORDERS }).body, mind);
   try {

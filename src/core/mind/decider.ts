@@ -30,9 +30,9 @@ export interface Decider<S = Sight, I = Intent, D = unknown> {
 }
 
 /**
- * **A script**: a decider a screen gives a mind in place of its own (`MindWiring.script`: the Lab's
- * modes), which publishes no decision (`Decider.decision`): what the skills read of a decision is
- * its mind's own decider's to publish.
+ * **A script**: a decider a screen runs over a body's sight (the Lab's modes), whose intent is
+ * given as orders that the body's own mind carries out. It publishes no decision (`Decider.decision`):
+ * what the skills read of a decision is the mind's own decider's to publish.
  */
 export type Script = Decider<Sight, Intent, never>;
 

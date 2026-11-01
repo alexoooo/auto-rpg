@@ -1,17 +1,18 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
-import type { HandConfiguration, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
+import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import { jointKinematics } from "./joint-kinematics.ts";
 import type { World } from "../world.ts";
-import { frameOf, handShapeAt, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
+import { frameOf, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot } from "../spec/vec.ts";
-import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
+import { hasProducts, principalOf, type Rigid } from "./rigid.ts";
+import { segmentShapes } from "./segment-shapes.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createHandPoses, type HandPoses } from "./hand-poses.ts";
 import { colliderOf, local } from "./collider.ts";
-import { createToes, flatToes, toesOf, type ToesState } from "./toes.ts";
+import { createToes, flatToes, type ToesState } from "./toes.ts";
 
 /**
  * **`buildBody`: bodies and joints from a spec and an initial placement.**
@@ -78,27 +79,6 @@ const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 /** `direction`, body frame, in `frame`'s coordinates. */
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
-
-/**
- * **A segment's shapes, from its spec alone**: its frame, its rigid body, the pose its hand starts
- * in (a hand that holds something grips it), a posable hand's configurations, a foot's toes at each
- * bend, and its rigid body as a hand's pose and its toes' bend stand (`rigidAt`). The built body
- * and a page's drawn body read the one rule.
- */
-export function segmentShapes(body: BodySpec, spec: SegmentSpec) {
-  const frame = frameOf(spec);
-  const rigid = rigidOf(body, spec);
-  const initial: HandPose = body.held?.some(held => held.segment === spec.name) ? "grip" : "open";
-  const posed = (name: HandPose): HandConfiguration => {
-    const shape = handShapeAt(body, spec, name);
-    return { shape, rigid: { ...rigid, shapes: [shape, ...rigid.shapes.slice(1)] }, collider: colliderOf(frame, shape) };
-  };
-  const poses = spec.handPoses && { open: posed("open"), fist: posed("fist"), grip: posed("grip") };
-  const bent = spec.toes ? toesOf(spec, frame, rigid) : undefined;
-  const rigidAt = (pose: HandPose | undefined, toes: ToesState | undefined): Rigid =>
-    poses && pose ? poses[pose].rigid : bent && toes ? bent(toes.bend).rigid : rigid;
-  return { frame, rigid, initial, poses, bent, rigidAt };
-}
 
 function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
   const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);

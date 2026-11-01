@@ -1,7 +1,7 @@
 # Moving point-space strikes
 
 The moving-target variant of the [static strike](point-strike.md): its declared inputs (`SWING` in
-`src/core/tasks/point-strike.ts`), the object senses' saved layout (`FRAME_LENGTH`,
+`src/core/tasks/point-strike.ts@4038482a`), the object senses' saved layout (`FRAME_LENGTH`,
 `src/core/mind/object-senses.ts`) and the development screen. Verdict: tracked hits pass 35/36,
 fixed aim 33/36; the moving-strike capability gate is not met.
 

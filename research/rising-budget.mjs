@@ -81,7 +81,7 @@ async function squatStance({ model, held, seed }) {
 if (isMainThread) {
   const { values } = parseArgs({ options: { workers: { type: "string" }, out: { type: "string" } } });
   const { risingJobs } = await import("../src/evaluation/rising.ts");
-  const jobs = [...risingJobs({ target: true, sub: "stand-up", techniques: ["step-up"] }).map(job => ({ kind: "fall", job })),
+  const jobs = [...risingJobs({ target: true, techniques: ["step-up"] }).map(job => ({ kind: "fall", job })),
     ...["workshop-fighter", "workshop-rogue"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {

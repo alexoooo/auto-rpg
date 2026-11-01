@@ -9,7 +9,6 @@
 import { LEVELS } from "../../arena/levels.ts";
 import type { OrdersEntry } from "../../arena/duel.ts";
 import { loadoutKey } from "../../core/items/held.ts";
-import { BEHAVIOURS } from "../../entrants/classic/presets.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
@@ -18,12 +17,9 @@ import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { FIGHT_ENTRY, CONTROLLERS } from "../../entrants/game.ts";
-import { STANDS } from "../drill-opponents.ts";
+import { MOVES, STANDS } from "../drill-opponents.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { otherSide } from "../../core/spec/body.ts";
-
-/** The moving target: Behaviours' body of parts, doing only as it is ordered. */
-const WALKS: MindConfig = deepFreeze({ ...BEHAVIOURS, tactics: { ...BEHAVIOURS.tactics, list: [{ kind: "follow-orders" }] }, executors: [], actions: [] });
 
 /**
  * The protocol: the strikers' bodies, the gaps, m, the sides they start on and the targets; how
@@ -75,7 +71,7 @@ function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading>
         // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
         recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ...sideAttributes({ [side]: character }),
           loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
-          minds: { [side]: mind as unknown as MindConfig, [foe]: target === "moving" ? WALKS : STANDS } as Record<Side, MindConfig> } };
+          minds: { [side]: mind as unknown as MindConfig, [foe]: target === "moving" ? MOVES : STANDS } as Record<Side, MindConfig> } };
     },
     read({ world, duel, colliders }, { side }) {
       const furniture = new Set(LEVELS["obstacle-court"].furniture.map(({ solid }) => colliders.get(solid.name)));

@@ -3,7 +3,6 @@ import { entries, following, menu, when, type Control, type Named } from "../../
 import type { LabPage } from "./sections.ts";
 import { dummyPart, dummyParts } from "../dummy-spec.ts";
 import { attackTargetWarnings, strikeKit } from "../attack-target.ts";
-import { takesScript } from "../../entrants/game.ts";
 
 const RATES: Named<LabAddress["hz"]> = {
   120: { name: "120 Hz", title: "The game's rate" },
@@ -18,12 +17,11 @@ export function scenarioSection(page: LabPage): readonly Control[] {
   let previous: readonly unknown[] = [];
   const compatibility: Control = { element: feedback, refresh() {
     if (page.shown.scenario !== "attack") return;
-    const next = [page.spec, page.shown.mind, page.shown.barred, page.shown.targetPart];
+    const next = [page.spec, page.shown.mind, page.shown.targetPart];
     if (next.every((value, index) => value === previous[index])) return;
     previous = next;
-    // A mind of its own is not barred from a strike (`labActor`).
     const mind = labMind(page.shown.mind, page.spec, "attack").plays, kit = strikeKit(mind);
-    const warnings = kit ? attackTargetWarnings(page.spec, kit, page.shown.targetPart, takesScript(mind) ? page.shown.barred : []) : [];
+    const warnings = kit ? attackTargetWarnings(page.spec, kit, page.shown.targetPart) : [];
     feedback.textContent = warnings.join(" "); feedback.hidden = warnings.length === 0;
   } };
   return [

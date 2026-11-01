@@ -8,7 +8,7 @@ import { rulebook, type Rulebook } from "../rules/rulebook.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { PartLookup } from "../parts/lookup.ts";
-import { embody, type Embodying, type Mind, type OwnBody } from "./mind.ts";
+import { embody, type Embodying, type Experiment, type Mind, type OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
 import { commandedMind, type SubMindMaker } from "./sub-mind.ts";
 import type { SheetLog } from "./sheets.ts";
@@ -31,6 +31,8 @@ export interface HostGrants {
   readonly phase?: number;
   /** The rules its fight is played by (`BodyHost.rules`); the arena's unless given. */
   readonly rules?: Rulebook;
+  /** A study's settings of its command layers (`OwnBody.experiment`); none in a fight. */
+  readonly experiment?: Experiment;
 }
 
 /** The golden ratio's fraction, (sqrt 5 - 1) / 2: successive multiples of it fall evenly over [0, 1). */
@@ -84,8 +86,8 @@ export interface BodyHost {
  * drive as a `HostedBody` does.
  */
 export function hostBody<M extends Mind>(built: BuiltBody, world: World, given: Embodying, make: (own: OwnBody) => M): { readonly mind: M; readonly body: PhysicalBody } {
-  const { own, mind, state, dispose } = embody(built, world, make, given);
-  const body = physicalBody(built, own, world, () => mind.has ?? mind.name, state, dispose), driver = mind.body;
+  const { held, mind, state, dispose } = embody(built, world, make, given);
+  const body = physicalBody(built, held, world, () => mind.has ?? mind.name, state, dispose), driver = mind.body;
   return { mind, body: driver ? Object.assign(body, { view: driver.view, envelope: driver.envelope, drive: driver.drive, afterPhysics: driver.afterPhysics, driver }) : body };
 }
 
@@ -106,7 +108,7 @@ export function commandedBody(built: BuiltBody, world: World, options: BodyOptio
  */
 export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, log?: SheetLog): { readonly host: BodyHost; made(): PhysicalBody } {
   let body: PhysicalBody | null = null;
-  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log };
+  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log, ...(grants.experiment ? { experiment: grants.experiment } : {}) };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),
     take<M extends Mind>(make: (own: OwnBody) => M): M {

@@ -1,4 +1,4 @@
-import { blowsOf } from "../tactics/action-config.ts";
+import { blowsOf } from "../skills/action-config.ts";
 import type { ActionConfig, ExecutorEntry, LocomotionConfig } from "../skills/config.ts";
 import { chooserOf } from "./chooser.ts";
 import { OPTIONS, optionsOf, type OptionKindPart } from "./kinds.ts";
@@ -16,7 +16,25 @@ import type { Prospect } from "../mind/report.ts";
 import type { Sight, Decider } from "../mind/decider.ts";
 import type { MotorUnmet } from "../control/motor.ts";
 import { LEGS_FIELDS, type LegsUnmet } from "../skills/framework/skill.ts";
-import type { TacticsMaking } from "../tactics/tactics-part.ts";
+import type { BodySpec } from "../spec/body.ts";
+import type { Aim } from "../skills/framework/aim-part.ts";
+import type { PartLookup } from "../parts/lookup.ts";
+import type { Orders } from "../intent/orders.ts";
+import type { ActionEstimates } from "../skills/framework/executor-part.ts";
+import type { Rulebook } from "../rules/rulebook.ts";
+
+/** What Option Mind's tactics are made for: the body, the fight's rules, the actions it may start and their estimates, a person's orders and the parts the tree names. */
+export interface TacticsMaking {
+  readonly spec: BodySpec;
+  /** The rules the fight is played by (`BodyHost.rules`), which price a blow. */
+  readonly rules: Rulebook;
+  readonly actions: readonly ActionConfig[];
+  readonly estimates: ActionEstimates;
+  /** Each aiming action's aim, by the action's name (`configuredAims`): where its blow would land, as its executor aims it. */
+  readonly aims: ReadonlyMap<string, Aim>;
+  readonly orders: (sight: Sight) => Orders | null;
+  readonly parts: PartLookup;
+}
 
 /** What Option Mind decides with: its chooser, its options (each a part of role `option`, in rank order; `OPTIONS` unless given), and the actions and executors its strikes are carried out by. */
 export interface Deciding {

@@ -21,13 +21,12 @@ role's `*-part.ts`), reads the vocabulary a decider writes (`Intent`, `src/core/
 action window, conditions and targets) and runs navigation between them. Whatever decides a
 body's intent plugs in as a `Decider` (`src/core/mind/decider.ts`), which sees the `Sight` and
 reports an `Engagement` (`src/core/mind/engagement.ts`); the seam and the report sit with the
-skills, and tactics are one implementation of it above them. The
+skills, and Option Mind is one implementation of it above them. The
 boundary test (`tests/core-boundary.test.mjs`) holds the order by folder, or by file where a
 folder spans two layers (`LAYERS`): a module imports its own layer or one below, the registries
-(`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. Tactics are a
-package, a layer of their own that from outside it only the minds built on it import
-(`CORE_PACKAGES`: Option Mind, the drill opponent, whose body is a fighter by default, and the
-support-entry task, which boots one). An import up the layers or into the package would be
+(`parts/lookup.ts`, `parts/catalog.ts`, `mind/kinds.ts`, `toolkit.ts`) exempt. Option Mind is a
+package that nothing else in the core imports but the registries (`CORE_PACKAGES`), so another
+mind is built beside it, not on it. An import up the layers or into the package would be
 listed (`UP_STACK`), each with the change that removes it; the list is empty and only shrinks.
 
 | Layer | Where | Job |
@@ -42,8 +41,7 @@ listed (`UP_STACK`), each with the change that removes it; the list is empty and
 | Intent | `src/core/intent/` | what a decider asks of the skills: the intent, orders, movement and travel, an action's aim and window, the conditions and targets, and one action asked and kept (`actionProducer`) |
 | Navigation | `src/core/navigation/` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
 | Perception | `src/core/perception/` | what a body reads of another: its openings, the threat of its blows, and where to stand by a body down (`downed/`) |
-| Tactics | `src/core/tactics/` | what the body should do, from what it senses: tactics (deciders, `TacticalDecider`), planners, behaviours, the fighter and its default config (`BLADE_FIGHTER`); their configs (`tactics/config.ts`); a package |
-| Recovery | `src/core/recovery/`, `src/core/mind/kit.ts` | getting up and lying: the ground executor and its techniques (`ground/`), the staged rise (`rise/`), the sub-minds; the kit a mind hands them and its legs, lowered by the rise (`MindKit`, `legsOf`) |
+| Recovery | `src/core/recovery/`, `src/core/mind/kit.ts`, `src/core/skills/kit.ts` | getting up: the ground executor and its techniques (`ground/`), the staged rise (`rise/`); the kit a mind hands them and its legs, lowered by the rise (`MindKit`, `legsOf`); a kit's skills and command layers (`kitSkills`, `kitBody`) |
 | Minds | `src/core/parts/`, `src/core/toolkit.ts`, `src/core/mind/config.ts`, `kinds.ts`, `minds.ts`, `src/core/option/`, `src/core/reptile/`; `src/entrants/` | a body's mind made from its config by the controller of its kind, found in a catalog; each AI an entrant's presets and parts |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
@@ -64,8 +62,8 @@ A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, 
 - anything held. An item states a surface or is rigid.
 
 **Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry and
-what each model's right hand holds; the mind each plays by default is the game's (`defaultMind`,
-`src/entrants/game.ts`), and in the Crypt Option Mind's preset for its model (`cryptMind`).
+what each model's right hand holds; the mind each plays by default, in the Arena and in the Crypt, is
+Option Mind's preset for its model (`defaultMind`, `src/entrants/game.ts`).
 
 | Model | Built from |
 |---|---|
@@ -104,9 +102,8 @@ the equipped spec. Item numbers are in [Arena items](reference/arena-items.md).
 
 **What a body can do is read from its spec.** Fit is whether the body, as armed, can carry out
 what every part of a mind commands (`treeRefusal`). A mind's skills are a choice, not a demand: a
-skills slot (`slotSkills`, `Slot.skills`, `src/core/parts/parts.ts`; the executors of Option Mind,
-the fighter and Vanguard) builds on a body only the skills that body can use (`usableSkills`,
-`src/core/tactics/action-config.ts`) with the actions they drive, and the rest are named
+skills slot (`slotSkills`, `Slot.skills`, `src/core/parts/parts.ts`; the executors of Option Mind) builds on a body only the skills that body can use (`usableSkills`,
+`src/core/skills/action-config.ts`) with the actions they drive, and the rest are named
 (`unusedParts`, shown in the mind panel), never refusing the mind. What a scenario asks beyond fit is its entry
 rules (`EntryRule`, `entryRefusal`, `src/core/parts/catalog.ts`): `attacks`, some part strikes with
 something the body has (`Part.strikes`; executors declare the effectors they strike with,
@@ -263,12 +260,12 @@ a stance goal) into muscle commands.
   acceleration or spin (`PointTask`, `BodyCommand.points`); `holdUp` (`src/core/skills/framework/hold.ts`)
   is such a spin.
 - **The motor is a part** of role `motor` (`MOTORS`, `src/core/control/motors.ts`, a role list),
-  named by a fighter's `motor` slot; the game's is the whole-body solve (`motorControl`, registered
+  named by a mind's `motor` slot; the game's is the whole-body solve (`motorControl`, registered
   as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`; `GAME_MOTOR`, `mind/kit.ts`). A kind is a
   registered implementation (`MotorPart`, `motor-part.ts`) whose maker gives, for its config, what
   makes a motor control (`MotorMaker`, made as `motorControl` is). A mind resolves it through its
   host's lookup (`motorOf`) and hands it to its command layers (`LayerOptions.motor`, the whole-body solve where
-  none is given) and to its sub-minds; one that needs goals a `BodyCommand` does not name brings
+  none is given) and to the ground techniques it rises by; one that needs goals a `BodyCommand` does not name brings
   their vocabulary with it. A motor control asks of every motor a posture, pushes and a reset; the
   goals beyond them it says it carries (`MotorControl.carries`, `MotorGoal`: effectors' places,
   driven points, a stance), and what drives it asks for those it needs where it is made
@@ -393,7 +390,7 @@ fail its probe.
 |---|---|---|
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`LegsGoal.footing`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to a run cycle that drives the legs itself (`runCycle`, `cycle-run.ts`, `WALK_RUN_CYCLE`, CMU clips in `assets/core/run-cycle.json`; `LegsDrive`) when asked past its walk and allowed (`Locomotion.runs`) |
-| Move | `move.ts` | chooses among its gaits (`MoveConfig.gaits`, each a name, a label and any other walk's config as its legs; the stock `STOCK_GAITS`, `gaits.ts`, where it names none) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Option Mind names one and has no rules); Classic's is `MOVE` |
+| Move | `move.ts` | chooses among its gaits (`MoveConfig.gaits`, each a name, a label and any other walk's config as its legs; the stock `STOCK_GAITS`, `gaits.ts`, where it names none) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination, the gait a legs goal names first (Option Mind names one and has no rules); the toolkit's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/skills/framework/locomotion-part.ts`):
 its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
@@ -421,8 +418,7 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   `closesToStrike`, `strikesWithBlunt`).
 - **Every skill tuned per body** (`SkillRecord`, `skills/framework/records.ts`): an executor's
   settings are its body's record, read as mind data by `bodyKey` (`dataOf`, `assets/core/<skill>.json`;
-  an entrant's own skill from its own data, Vanguard's punch from
-  `assets/entrants/vanguard/punch.json`), each row saying how it was made and written by the run
+  an entrant's own skill from its own data), each row saying how it was made and written by the run
   that tuned it (`research/skill-records.mjs`, through the search on its body's task,
   `research/skill-search.mjs`, [skill records](reference/skill-records.md); the straight punch's,
   `research/punch-export.mjs`).
@@ -480,9 +476,6 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   punch's with the wrist), read at its face's striking point. A held face's arm is solved from its
   guard each step, and its chamber may lie behind the shoulder (a negative `chamber`, the blow
   drawn back). A held face is neither `fire`d nor `driven` (`faceFault`): each reads the fist.
-- **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
-  directed edge or point region on the same cycle, each its own records. `shortSword`
-  (`src/core/items/sword.ts`) is the first such item.
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
@@ -502,10 +495,10 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 Each executor kind is a registered implementation (`ExecutorPart`, `skills/framework/executor-part.ts`): its
 module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults, fit, the effectors
 it strikes with and its maker, and is a line in `EXECUTORS` (`skills/framework/executors.ts`, a role list), from
-which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
+which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a mind's named
 executors once each, each by the part the host's lookup finds for its kind, a mind's own included,
 handed what it is made with (`ExecutorMaking`: the body, the clock, the guard's posture and each
-action's aim). Action selection belongs to tactics, not to an executor.
+action's aim). Action selection belongs to the decider, not to an executor.
 
 An action (`ActionConfig`) is a name, its executor and the effectors it may strike with; where its
 executor aims (`ExecutorPart.aims`), also the regions it strikes and its aim, and neither where not.
@@ -531,6 +524,45 @@ the muscles read the joints.
   geometric capture.
 - That is all a mind does to the world. Camera state never reaches it; nothing else under `src/`
   drives muscles. Its memory is its `state` (`Mind.state`), saved with its body ([State](#state)).
+
+**The mirror.** In a world made `mirrored` (`World.mirrored`), each mind is made with its body's
+mirror (`mirrorBody`, `src/core/mind/mirror.ts`) in place of the body: the same `OwnBody`, made from
+the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refreshed from one body's
+numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) wherever the mind could
+read: before the mind steps, and as each completed physics interval is observed. They hold the
+clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
+read them; the muscles' command, ceilings, delivered torque and bounds; the assist's; the senses';
+and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
+then does not, `driveMuscles`'s `dynamics`). What the mind asks goes back as numbers
+(`MirrorChannel.outbound`: the command, the assist's ask, the hands' requests), and what it meets
+for the first time (a contact's other body, a sensed body or object, the senses' side) is told it
+once, in order (`MirrorChannel.told`), with each touched body's contact label where the fight
+labels contacts. A bout on mirrors is the bout on bodies, step for step
+(`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
+written there, and the driver carries out its answer.
+
+**Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
+`src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
+(`embodyApart`, `src/core/mind/mind.ts`) and keeps the body's side (the muscles, the assist, the
+command's rings, the order sheet). Everything else crosses as data, in order: the world asks the
+seat to make the mind from a recipe (its config, the catalog's name, its grants, its body's
+statics), to step on the numbers just written with its orders where they changed, to observe the
+completed physics, to go idle, for its menu, and to go (`SeatAsk`); the seat says who has the body,
+whether it observes, its report and its menu (`SeatSays`). The mind's side is a host of seats
+(`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
+orders those last sent, its observers run when asked. At any delay the world waits for a mind's
+answer before its driver applies it, so a bout apart is the bout on bodies, step for step, and the
+same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+neither saved nor forked (`MIND_APART`).
+
+In Node, `mindWorkers(threads)` (`src/node/minds.ts`) is the place: worker threads
+(`src/node/mind-worker.ts`) that load the minds' data, the seats dealt to them in turn. The
+channels' numbers are shared memory (`SHARED_NUMBERS`); the asks go by message on a port, an ask
+to observe batched with the others made after physics, every other at once, and two shared
+counters a thread pace the two sides (`src/node/wire.ts`): a side waiting spins about a step,
+then sleeps. A report's kit and gait cross only when they change. The bouts and the Crypt take a place
+(`BoutOptions.minds`, `DungeonRunOptions.minds`); offline work, the tests and the pages keep their
+minds on their bodies.
 
 **Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, its life (a
 fraction of its full life, `Pool.bar`, at once), when the fight's clock gives its verdict at the
@@ -563,14 +595,14 @@ a wanted body through a phase that cannot yield. `hosting(host, subs)` makes one
 A sub-mind reads whether its body is down from its host's view (`BodyView.down`), never by a bar
 of its own. Who has the body is one number in state, named by the mind (`Mind.has`, `"nobody"`
 while idle). A hand-over changes only state, so a load mid-hand-over calls none of these.
-Sub-minds are no part of a body: a mind that hands its body over builds `hosting` itself, a
-fighter over its command layers (`commandedMind`, `sub-mind.ts`: the layers, then each sub-mind
-made over their view, `SubMindMaker`, then their first look), the quadruped (`quadrupedMind`) over
-its layers (`quadrupedLayers`); a test or a study hands its own to a body it builds (`commandedBody`). Released, the
+Sub-minds are no part of a body: a mind that hands its body over builds `hosting` itself, over
+its command layers (`commandedMind`, `sub-mind.ts`: the layers, then each sub-mind made over their
+view, `SubMindMaker`, then their first look), or the quadruped's frame over its layers
+(`quadrupedLayers`), the righting its sub-mind; a test or a study hands its own to a body it builds (`commandedBody`). Released, the
 command layers read the ground whatever the stance (`BodyView.ground`).
 
 **A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
-`config.ts`), sub-minds nested in it (`SubMindConfig`). `createMind(built, world, config, wiring)`
+`config.ts`). `createMind(built, world, config, wiring)`
 (`minds.ts`) makes the mind and returns a `Minded`: the body and the mind's memory, which is all a
 fight reads. A fight passes the config through and reads nothing in it.
 
@@ -580,8 +612,8 @@ fight reads. A fight passes the config through and reads nothing in it.
   it hands every assembly that builds a part, the rules the fight is played by (`rules`, the
   arena's unless the fight gives its own),
   and one way to take the body, once (`BodyHost.take`): the mind it makes of its own body
-  (`OwnBody`), with whatever it builds on it: the command layers (`commandLayers`), which a fighter
-  hands over to its sub-minds (`commandedMind`); a host and sub-minds of its own (`hosting`); or a
+  (`OwnBody`), with whatever it builds on it: the command layers (`commandLayers`), which Option Mind
+  takes as its own (`commandedMind`); a host and sub-minds of its own (`hosting`); or a
   policy (`policyMind`, detached observations and actions). The host builds the fight's body
   (`PhysicalBody`) the same way for every mind (`hostBody`): who has it is the mind's (`Mind.has`),
   read by asking `commandsBody`, and where the mind drives through the command layers
@@ -633,23 +665,21 @@ fight reads. A fight passes the config through and reads nothing in it.
   `Driven`); the skills report none of the layer above. One that runs its own, as the
   quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
   or state; a scene that
-  drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
-  controller how (`Controller.scripted`, `takesScript`: the body it builds and the drive under the
-  script, by the mind's own config), whatever its kind; the Lab's Stand-up,
-  which asks its body only what orders say, also hosts a mind that takes no script but carries
-  them out, made as a fight makes it (`labDrives`, `labActor`). A part names the
+  drives a body by a script of its own (the Lab's modes, a fall on the stand bed) gives the
+  script's intent as orders to a mind that carries them out, made as a fight makes it
+  (`labDrives`, `labActor`, `src/lab/actor.ts`). A part names the
   phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`), and whether
   it carries out a person's orders (`Part.obeys`, `treeObeys`): an Arena side a person takes
   under a mind whose tree holds none says that it fights on its own.
 - A fight enlists every body one way (`enlist`, `src/core/combatant.ts`): built with what it holds,
   its pool, the fight's senses and fixed geometry, and the mind its config makes.
-- The mind's folders (`mind`, `intent`, `navigation`, `perception`, `tactics`, `recovery`,
+- The mind's folders (`mind`, `intent`, `navigation`, `perception`, `recovery`,
   `skills`, `control`, `reptile`, `option` in `src/core/`, and `src/entrants/`) import no engine,
   world, builder or read-view maker, beside the adapters `tests/core-boundary.test.mjs` names.
 - Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
 **Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
-(`fighter-kind.ts`, `src/core/reptile/kind.ts`, `src/core/option/mind.ts`, an entrant's `mind.ts`):
+(`src/core/option/mind.ts`, an entrant's `mind.ts`):
 the toolkit's are listed in `MIND_KINDS` (`src/core/mind/kinds.ts`), an entrant's in its manifest
 (`Entrant.minds`), and each manifest is one line of `ENTRANTS` (`src/entrants/index.ts`). Each list
 holds its imports and the list and nothing else, so a case's code can begin each kind's own code there.
@@ -666,43 +696,36 @@ toolkit controller alone is no pick.
 
 **An entrant** (`Entrant`, `src/core/parts/entrant.ts`) is one AI: its name (its folder's), its own
 kinds of mind (`minds`), its own parts of any role (`parts`) and its presets. Every kind it registers
-is scoped by its name (`vanguard:plan`, `scopeOf`); the toolkit's kinds are not. A tree names the
+is scoped by its name (`riser:recovery`, `scopeOf`); the toolkit's kinds are not. A tree names the
 toolkit's kinds and one entrant's at most (`treeScope`), so an entrant builds on the toolkit and
 never on another entrant; a part two entrants want belongs in the toolkit. The catalog refuses, as a
 value in `Catalog.faults` with the entry left out, an unscoped or misscoped kind, a kind twice, a
 preset id twice, a preset whose tree is not formed and a preset naming another entrant's kinds. A preset may name the body models it is calibrated for (`MindPreset.models`,
 `presetFitsModel`) and the character it plays them on (`MindPreset.character`, above). Arena, Lab and named evaluation entries use that availability as well as
 physical fit; a preset that names none, Option Mind's among them, is a configuration for any
-body it fits, and a custom configuration fits by its parts. The Lab discovers script-compatible
-presets from this registry, with its Script and Guard scenario defaults added.
+body it fits, and a custom configuration fits by its parts. The Lab drives any mind that carries
+out orders, a scenario's script made orders (`scriptOrders`, `src/lab/actor.ts`).
 
 | Kind | Maker | What it composes |
 |---|---|---|
-| fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`); its presets the `classic` entrant's (`src/entrants/classic/`) |
-| quadruped | `src/core/reptile/` | crawl, trot, bite, righting; its preset `crawl` the `crawl` entrant's (`src/entrants/crawl/`) |
-| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `option-skeleton` in `src/entrants/option-skeleton/` and `walker` in `src/entrants/walker/` | a chooser over its options (below), on its situation and percepts, over the toolkit's body layer, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it; `option-skeleton` the low front kick and the support fold, on the Skeleton; `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach |
-| option-reptile:mind | `src/entrants/option-reptile/` | the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser of role `chooser` (`option-reptile:valued`) over an objective (`option-reptile:fight`) and its options, each an option kind of its own (`option-reptile:crawl`, `bite`, `orders`, `righting`, `hold`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; its preset `option-reptile`, on the Reptile |
+| option | `src/core/option/` (the toolkit's); its presets `option` in `src/entrants/option/`, `walker` in `src/entrants/walker/` and `option-reptile` in `src/entrants/option-reptile/` | a chooser over its options (below), on its situation and percepts, over a body layer: its own, the toolkit's humanoid kit, or a frame's (`FramePart`, `frame`: the quadruped's, `QUADRUPED_FRAME`, `src/core/reptile/frame.ts`). Over its kit, the support fold its low support (`kitSkills`); its rise the ground options over the ground executor of its techniques (`ground`), no sub-mind; what the legs and the motor did not carry out shown as its `Unmet` detail; the smallest working config by default (`OPTION_DEFAULTS`: no blow, no low support); `option` every skill (the learned punch, the club blow, the sword's cut and thrust, the stomp and the low front kick), on any humanoid, each body using those tuned for it (the Skeleton's the low front kick alone); `walker` no blow and no foe, its objective reaching a place (`reach-place`), on no menu but the Lab's Reach. Over the quadruped's frame, the quadruped's layers (`quadrupedLayers`) under the toolkit's set selection (`selectSet`): a chooser made for the frame (`quadruped-valued`) over an objective (`quadruped-fight`) and its options (`quadruped-crawl`, `-bite`, `-orders`, `-righting`, `-hold`, `QUADRUPED_OPTIONS`) priced in the toolkit's terms (`OfferTerms`); the bite is the stalk's, the righting has the body while it is down; it decides every control step on its priors; `option-reptile` is it, on the Reptile |
 | bare:mind | `src/entrants/bare/` | a network from the body to its muscles and nothing of the toolkit's control (`host.policy`): every `every` control steps it reads its layout (`bareLayout`: each channel's angle and rate, its root's up, velocity and spin and its centre's height, the nearest other body, its orders' direction and pace, each in its heading's frame) and pulls each channel, -1 to 1, from the next step; with no network (its one preset, `bare`, on no menu) its pulls are its learner's outputs (`Learner`), which a trainer writes |
-| drill-opponent | `src/core/mind/drill-opponent.ts` | a drill's opponent: its body's mind (`body`, a mind whose tactics follow orders) given its script's orders (`beats`: stand, hold a range of the foe, strike it, or its own tactics, each for some seconds, round again); its scripts are the evaluation's, on no menu (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`) |
-| vanguard:mind | `src/entrants/vanguard/` | the shared fighter and Lab driver, with its own layered planner, contact-score attack selection, committed predicting punch that checks its aim before the arm drive, configurable conservative stance walk and extra obstacle room for Warrior navigation; shared blade cuts and thrusts; explicit `vanguard-warrior`, `vanguard-rogue` and `vanguard-skeleton` calibrations, each offered for its own body |
 
 **A mind is a tree of parts** (`Part`, `src/core/parts/parts.ts`). A part has a role (`Role`: one
 the part lookup knows, `RoleParts`, `lookup.ts`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
-slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
-screen must give). A catalog's `allParts` is every part by kind: the parts below a mind, each
+slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits` and `faults`. A catalog's `allParts` is every part by kind: the parts below a mind, each
 mind, and each entrant's parts (`Entrant.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS` in `src/core/navigation/`; `EXECUTORS`, `GUARDS`, `SUPPORTS`, `LOCOMOTIONS`,
-`AIMS` and `MOVE_RULES` in `src/core/skills/`; `PLANNERS` and `BEHAVIOURS` in `src/core/tactics/`;
-`SUB_MINDS` and `TECHNIQUES` (`ground/`) in `src/core/recovery/`; `MOTORS` and `BALANCES` in
+`AIMS` and `MOVE_RULES` in `src/core/skills/`; `TECHNIQUES` (`ground/`) in `src/core/recovery/`; `MOTORS` and `BALANCES` in
 `src/core/control/`; `CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES` and `PREDICTIONS` in `src/core/option/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry.
 
 **The roles are an open list.** `RoleParts` names the toolkit's roles and the interface each is
-looked up as (`mind`, `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`,
+looked up as (`mind`, `technique`, `move-rule`, `navigation`,
 `motor`, `balance`, `aim`, and a skill's: `locomotion`, `guard`, `executor`, `support`). A package with
 roles of its own adds them where it declares their interfaces, by augmenting `RoleParts`: the option
 framework's `chooser`, `option`, `objective`, `percept`, `prediction` and `predictions`
@@ -712,14 +735,14 @@ A role is a string at run time; the list is the compiler's, so a new role edits 
 
 Over the tree:
 
-- `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
+- `treeFaults` names each fault by path (`ground.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind. A tree naming two entrants' kinds is a fault, an aim its actions name (`ActionConfig.aim`) as a slot's part.
   `Part.faults` runs only when every descendant slot holds parts of its role and owner;
   malformed nested slots return their faults without invoking ancestor hooks that traverse them.
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
-  sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors
-  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path,
+  techniques that stand need soles (`fitsSoles`), an executor one of its effectors
+  (`strikesWithOneOf`), a guard a hand that covers. `treeRefusal` gives the first refusal in a tree by path,
   past a skill a skills slot leaves out;
   `kindsFor` lists every part of a role a tree's slot may hold, the toolkit's and the
   tree's own entrant's, with the reason it cannot go somewhere.
@@ -728,16 +751,12 @@ Over the tree:
   every part states its keys (`Part.keys`, `KeysOf`), checked at compile time; a part from plain
   JavaScript that states none is a fault in every tree that holds it, never a crash.
 
-**Presets.** `BLADE_FIGHTER` (`src/core/tactics/config.ts`) is shared action tactics over a blade's cut and thrust, striking with
-nothing empty-handed or holding a blunt item; the `classic` entrant's `CLASSIC`
-(`src/entrants/classic/presets.ts`) adds `MOVE` and the game's Stand up
-(`STAND_UP`, the toed rise). Puncher (the straight punch as its body's record has it),
-Counter-puncher and Behaviours vary the actions and spacing. The Duellist (`DUELLIST`), the blade
-thrust and a ward, holding a short sword, is every humanoid's default (`defaultMind`). A preset
-marked `offered: false` (Classic, Counter-puncher, Behaviours) is kept off the Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation
-or a test may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
-chooses by participant, side and model (`DungeonRunOptions.mind`), else Option Mind's preset for
-the model (`cryptMind`: `option`, `option-skeleton`, `option-reptile`); the Lab's actor by
+**Presets.** A preset marked `offered: false` (the Walker, the bare entrant's) is kept off the
+Arena's and the Crypt's menus (`offered`, `controller.ts`), while a link, an evaluation or a test
+may still name it. An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
+chooses by participant, side and model (`DungeonRunOptions.mind`); either, where none is named,
+plays Option Mind's preset for the model (`defaultMind`: `option` on every humanoid,
+`option-reptile`); the Lab's actor by
 `ActorOptions.mind`.
 
 **Option Mind's options** (`src/core/option/`). An `Option` (`option.ts`) is a
@@ -946,15 +965,17 @@ mind's to build on its own body: its paws (`pawsOf`) under its support motor, it
 and its effector tracker, read through its view (`QuadrupedView`) each step and handed an intent
 (`QuadrupedIntent`, with the foe's part it bites at) by whatever decides; they choose the gait,
 reacquire their footing after another had the body, and make its righting (`recover`) over the
-same motor. The quadruped kind (`quadrupedMind`) decides by its tactics and hands the body to the
-righting while it is down (`hosting`). It is
+same motor. Option Mind over the quadruped's frame decides by its options and hands the body to the
+righting while it is down (`hosting`): the quadruped's frame (`QUADRUPED_FRAME`,
+`src/core/reptile/frame.ts`) is the body layer Option Mind decides over on a quadruped. It is
 built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
 where it names none, the stock one (`QUADRUPED_PARTS`): a `support-motor` over the paws
 (`SUPPORT_MOTORS`: `supportedMotor` on the bearing solve, no assist), a `gait` to travel and
 one to crawl (`GAITS`: the trot and the crawl), a `bite` (`BITES`) and `quadruped-tactics`
 (`QUADRUPED_PLANNERS`) that give approach, facing and bite. Each fits a body by what it uses
-(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)). The Option Reptile (`src/entrants/option-reptile/`) builds on the same layers: its chooser runs
-its options over them, and its righting option hands the body to the righting.
+(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)). The frame's chooser runs
+its options over the layers, its stalk carries out the bite and a person's orders, and its righting
+option hands the body to the righting.
 
 **Policies** (`policyMind`, `mind/direct.ts`) receive a frozen actuator description and
 detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`
@@ -962,24 +983,21 @@ detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and ret
 within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
 and copies the whole action before applying any of it. A policy receives no engine handle.
 
-**Recovery sub-minds.** Each reads its host's down state and the world's clock, and may observe the
-completed physics through its own body (`SubMindMaker`, `OwnBody.afterPhysics`).
-Each kind is a registered implementation (`SubMindPart`, `recovery/sub-mind-part.ts`): its own module
-beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
-data it reads and its maker, and is a line in `SUB_MINDS` (`sub-minds.ts`, a role list), from which
-`SubMindConfig` follows. Its maker is handed the mind's kit (`MindKit`, `mind/kit.ts`: its motor,
-its guard and the guard's posture, and the lookup), which it and its techniques drive the body
-with, so a motor or guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
-
-| Sub-mind | File | What it does |
-|---|---|---|
-| `lie` | `lie.ts` (`lying`) | asks nothing |
-| `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed by least expected time where its edges have fresh profiles (`edgeExpected`, `profile.ts`; `choose` in `ground/graph.ts`) and in rank order where not, rolling to reposition (`techniquesOf`); a technique whose entry reads motion and the raw position (`TechniquePart.moving`) is begun on a body still moving, and only a body none admits is braced; the game's (`STAND_UP`) is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up` (`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`), are flat-footed and kept for comparison |
+**Standing up** (`src/core/recovery/ground/`). Option Mind rises by its ground options, each
+carried out by its ground executor (`groundOptions`, `src/core/option/ground.ts`), over its list of
+techniques (`ground`; `TechniquePart`, `ground/technique.ts`, each in its own module and a line in
+`TECHNIQUES`, a role list), with physical admission and completion, priced by expected time where
+its edges have fresh profiles (`edgeExpected`, `profile.ts`) and rolling to reposition
+(`techniquesOf`, `stand-up.ts`). A technique whose entry reads motion and the raw position
+(`TechniquePart.moving`) is begun on a body still moving. A technique is handed the mind's kit
+(`MindKit`, `mind/kit.ts`: its motor, its guard and the guard's posture, and the lookup), so a
+motor or guard swapped into the mind is the one it rises with (`kitOf`). The game's (`STAND_UP`)
+is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up`
+(`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`,
+`STAGED_ROUTE`), are flat-footed and kept for the Rise drill's comparison.
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `front-kick.json`, `stomp.json`, `path-strike.json`,
-`blade-cut.json`, `blade-thrust.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `front-kick.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
@@ -999,48 +1017,24 @@ what the body has done, `Until`, and paced by the balls of the feet, `Pace`) and
 what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
 [rising](reference/rising.md#where-the-rise-stops).
 
-**Tactics** (`src/core/tactics/`) are deciders (`Decider`, `src/core/mind/decider.ts`): they read
-`Sight` (the view, senses, reports, readiness, what an action holds, envelope) and
-return walking, facing, lowering, cover and discrete action requests; they never write a joint,
-posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
-(`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
-guard, or behaviours. Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
-one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
-behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
-`behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `tactics/behaviours/`) fills what an
-earlier one left unset and keeps its own memory, held in the tactics' state. The helpers they share
-(`walking`, `SPACE`, `footRadius`) are `behaviour-part.ts`'s. A planner names what it needs of the
-mind's actions (`TacticsPart.actionFaults`) and dependencies on its skills
-(`TacticsPart.kitFaults`), read by the fighter's faults. A planner holding another delegates both
-checks, preserving the child's path. Its optional `TacticsPart.prepareSkills` adapts the shared
-kit once during fighter construction; nested parts compose preparation from the innermost out.
-Preparation reads the composed planner's operational context live through the seam
-(`Decider.decision`). Adaptive policies retain separate decision memories over that one prepared
-kit. A supplied scenario script takes the fighter's tactics slot as the script tactics
-(`SCRIPT_TACTICS`), whose own part makes it and prepares the kit, so it replaces the configured
-planner and its preparation.
-
-Planner layers read operational facts through the seam's decision (`Decider.decision`, a
-`TacticalDecision` for tactics, `TacticalDecider`): selected focus, evasive
-footwork and the action-entry window being approached. A screen's script publishes none
-(`Script`). A part declares
-the fields it supplies (`TacticsPart.decisionCapabilities`); composite parts forward them and
-reject enabled layers whose inputs are unavailable. Behaviour tactics publish those facts
-from their selection and footwork, independently of display phases, with changing values in
-their saved state. A layer forwards changing decision contexts live, including policy switches.
-
-A layer appends inspection details with `engagementWithDetails`: the inner report stays live,
-and labels and values are formatted only when read. Reports never carry decision authority;
-removing one or changing its labels does not change what a planner decides.
+**Deciders** (`Decider`, `src/core/mind/decider.ts`) read `Sight` (the view, senses, reports,
+readiness, what an action holds, envelope) and return walking, facing, lowering, cover and
+discrete action requests; they never write a joint, posture or push. A humanoid's is Option
+Mind's chooser over its options (`src/core/option/`); a screen's script is one too (`Script`),
+whose intent the Lab gives the body's own mind as orders. A decider may publish what it decided
+for its skills to read live (`Decider.decision`). It appends inspection details to its report with
+`engagementWithDetails`: the inner report stays live, and labels and values are formatted only
+when read. Reports never carry decision authority; removing one or changing its labels does not
+change what a decider decides.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
 region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera
 point. A person gives orders; the body's own mind carries them out (`orderedIntent`, `ordered.ts`).
 **Movement requests** (`src/core/intent/movement.ts`) are Direct directions, Place waypoints or Range
-bands about a sensed body; null asks a controlled stop. Tactics and orders give a movement request,
+bands about a sensed body; null asks a controlled stop. Deciders and orders give a movement request,
 a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a velocity.
-Navigation is a part between tactics and locomotion (a fighter's and the quadruped's `navigation`
-slot), a `Navigator` (`navigator.ts`) that the skills (`SkillParts.navigation`) and the
+Navigation is a part between the decider and locomotion (a mind's `navigation` slot, the
+quadruped's included), a `Navigator` (`navigator.ts`) that the skills (`SkillParts.navigation`) and the
 quadruped's tactics are handed; a skill set given none refuses a movement request. Both of the
 game's are a walker (`routeWalker`, `navigation.ts`) that differs in how it finds a route to a
 place (`PlaceSearch`): Visibility routes (`visibility-navigation.ts`) by the shortest route round
@@ -1102,20 +1096,20 @@ An AI is an entrant: a folder `src/entrants/<name>/` whose `index.ts` exports it
 own folder and its own data, and nothing else (`tests/core-boundary.test.mjs`), so a change to it is
 its own (`node scripts/entrant-check.mjs`).
 
-1. **Most entrants are presets**: configs of the toolkit's kinds of mind (`fighter`, `option`,
-   `quadruped`) holding the toolkit's parts and its own (`classic`, `crawl`, `option`).
-2. **A part of its own**, of any role (any slot's, an action's aim, the quadruped's motor, gaits,
-   bite and planner), is a module in its folder and a line of its manifest's `parts`, its kind
-   `<name>:<kind>` (Vanguard's punch, `vanguard:punch`, layered planner, `vanguard:plan`, contact
-   selector, `vanguard:exchange`, walk, `vanguard:walk`, and navigator, `vanguard:navigation`).
+1. **Most entrants are presets**: configs of the toolkit's kind of mind (`option`) holding the
+   toolkit's parts and their own (`option`, `walker`, `option-reptile`, `riser`).
+2. **A part of its own**, of any role (any slot's, an action's aim, an option, a chooser's
+   objective, a frame, the quadruped's motor, gaits, bite and stalk), is a module in its folder and a
+   line of its manifest's `parts`, its kind `<name>:<kind>` (the swap fixture's stubs,
+   `swap:stub-option`, `swap:stub-objective`, `tests/fixtures/swap/`).
    Its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with
    the host's lookup (`BodyHost.parts`). Only its own entrant's trees offer it.
-3. **A kind of mind of its own** (`minds`, `vanguard:mind`, `bare:mind`) is a config type (`{ kind,
+3. **A kind of mind of its own** (`minds`, `bare:mind`) is a config type (`{ kind,
    ... }`), its defaults, its faults and its maker, written as one controller
    (`controller<C>({ ... })`). The maker takes its body once through the host (`host.take`), as a
    mind made of its `OwnBody`: a policy (`policyMind`) reads `BodyObservation` and returns
-   `BodyAction`; the game's command layers (`commandedMind`), whose view the game's parts,
-   sub-minds included, read, each fitting a body by what it uses of it (`Part.fits`); a host and
+   `BodyAction`; the game's command layers (`commandedMind`), whose view the game's parts read,
+   each fitting a body by what it uses of it (`Part.fits`); a host and
    sub-minds of its own (`hosting`), as the quadruped's are. It returns its memory (`state`), which a fight saves and loads with the body, and its
    skills if it runs the game's. It may use any of the toolkit and imports no engine, world or
    builder.
@@ -1123,17 +1117,23 @@ its own (`node scripts/entrant-check.mjs`).
    the core, in a change of its own read on the fingerprint across every entrant.
 
 The Option framework (`src/core/option/`) is the toolkit's example of a kind of mind with roles of
-its own: its choosers, kinds of option, objectives and predictions each a role list
-(`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`), and percepts and predictions of an
+its own: its choosers, kinds of option, objectives, predictions and frames each a role list
+(`CHOOSERS`, `OPTION_KINDS`, `OBJECTIVES`, `PREDICTIONS`, `QUADRUPED_FRAMES`), and percepts and predictions of an
 entrant's own read by config (`PerceptPart`, `PredictionPart`). A kind of option makes its options
 from what the mind gives it (`OptionsGiven`: the body, its legs, executors, actions and profile
 tables, the walk, the strikes and the rise) and builds what else it needs, as footwork builds its
 gaits and the cover its hands' covers. Footwork of an entrant's own is a kind of option that walks to
 places it finds by any rule each step (`placeBy`, `src/core/option/places.ts`: geometry, a search
 over candidates), one option a gait priced as every walk is (`walksTo`, `footwork`,
-`src/core/option/kinds.ts`), with no edit of the framework. `tests/swap.test.mjs` registers a fixture
-entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: a fighter, an Option Mind and a
-quadruped of its own) and holds a stub of each role to it: chosen by config, run, forked, replayed
+`src/core/option/kinds.ts`), with no edit of the framework. **A new family of bodies is a frame** (`FramePart`,
+`src/core/option/parts.ts`), not a new kind of mind: it takes its body from its host, reads its
+situation, makes the options the mind names from what it gives them and its chooser over them, and
+carries out what they ask; its choosers and options say the frame they are made for (`ForFrame`), and
+Option Mind refuses one made for another body layer. Over a frame, Option Mind's config is its
+chooser, its options and the frame (`FramedOptionMindConfig`); over its own kit, the kit's parts as
+above (`OptionMindConfig`). `tests/swap.test.mjs` registers a fixture
+entrant from outside `src/` (`tests/fixtures/swap/`, `swap`: an Option Mind of its own, over its
+kit and over the quadruped's frame) and holds a stub of each role to it: chosen by config, run, forked, replayed
 and linked.
 
 Once registered it is offered by its presets in `MINDS`, and
@@ -1200,6 +1200,7 @@ together when forked; its tape records delivered orders and replays without a Co
 | `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in, and one held short of its slot by a companion standing near it stands where it is (`CROWDED`); doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
 | `drill` | `drill.ts` | a drill's subject, the team's first member (`DrillCommanderConfig`): one action with one limb at one region of the nearest foe, each named or the first of its member's menu that fits the rest (`MenuEntry`), ordered once its member stands settled in the action's window, walked there by the menu's spot (`MenuEntry.spot`, round a body lying) no faster than `pace`, or gone at from afar at a gait; with `letGo`, a stand ordered that long into the action; with `moment`, its member fights by itself until it begins that action and the drill's is ordered in its place. Its orders are firm (`Orders.firm`); it says its phase as its member's task (`drillTask`). It leads no side of a Crypt run |
 | `stand` | `stand.ts` | each member standing where it is, facing the nearest foe fighting, firmly and naming none, so its hands are held from blows and how it guards is its mind's: the Cover drill's subject. It leads no side of a Crypt run |
+| `beats` | `beats.ts` | a drill's opponent (`BeatsConfig`): each beat's move given every member as orders for its seconds, round again from the team's first step (stand, hold a range of the foe, strike it, or the member's own judgement); with no beats, none. The drill opponents are Option Mind configs led by it where they keep a rhythm (`DRILL_OPPONENTS`, `opponentOf`, `src/evaluation/drill-opponents.ts`: `drill-stand`, `drill-step`, `drill-guard`, `drill-punch`, `drill-press`). It leads no side of a Crypt run |
 | `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
@@ -1214,41 +1215,18 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 - `src/core/equipment.ts` builds one item with named rigid grip frames. Capture checks pose error
   against explicit tolerances and joins the current pose; release preserves motion. The engine's
   grip slots save and load with physics snapshots ([grips](reference/equipment-grips.md)).
-- `human/equipment.ts` places initial equipment in the hand's anatomical frame; later grips need
-  physical reach.
 - A policy controls it through the granted port (`mind/equipment-port.ts`): immutable item and grip
   descriptions, detached observations, grip requests inside `BodyAction`. An unknown or ungranted
   grip refuses the whole action.
 - Models: `build/coupled-dynamics.ts` (tree dynamics with item coordinates and constraint rows),
   `build/contact-step.ts` (a diagnostic per-point impulse predictor), `build/planar-support.ts`
   (support features of a shape).
-- `control/whole-body/tasks.ts` describes joint, point, orientation and centre objectives; `mind/motion.ts`
-  validates a policy's request and, with `wholeBodyTracking`, tracks them by bounded acceleration
-  solves with optional sticking contacts, stop prediction and lift-off.
-- Reference policies and fixtures: support transition (`control/whole-body/support-transition.ts`,
-  `tasks/support.ts`), shared bar, point strike, shared strike and interception, each with its
-  record under `docs/reference/`. `createObjectSenses` gives policies plain delayed measurements of
-  objects.
-- `/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same builders as the Node
-  runner, drawing items with `drawEquipment`.
+- `control/whole-body/tasks.ts` describes joint, point, orientation and centre objectives, which
+  interception (`control/whole-body/intercept.ts`) reads. `createObjectSenses` gives policies plain
+  delayed measurements of objects.
 
 ## Research environments
 
-`createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the core
-world for learning and search.
-
-- Its config is copied, frozen finite JSON. `reset(seed)` builds an episode from an explicit
-  Mulberry32 word; `observe()` returns measurements and task metrics; `act(action)` accepts a
-  validated action at a policy boundary; `step()` advances to the next one. Physics stays 120 Hz.
-  Rewards belong to consumers.
-- Termination, time-limit truncation and invalid simulation are separate results; an ended episode
-  refuses actions but still observes, saves, resets and disposes.
-- A snapshot holds the task, controller, clock, RNG, held action and physics bytes. Load builds a
-  candidate, checks its complete identity (anatomy, settings, rate, actuation, gravity, solver,
-  build fingerprint from `Options.buildIdentity`), and only then replaces the live episode.
-- `createReachTask` (`tasks/reach.ts`) is the pinned-reach task shared by
-  `research/control-foundation.mjs` and `/control-foundation.html`
-  ([record](reference/control-foundation.md#shared-environment-and-browser-parity)).
 - **A learnable part** keeps a learner in its state (`Learner`, `src/core/learning/learner.ts`): with
   a network it decides by it; with none, each time it decides it publishes its inputs and counts
   the decision, and acts on the outputs its learner holds, which a trainer writes. It runs while it
@@ -1277,13 +1255,30 @@ world for learning and search.
 (`PHYSICS_HZ`). A step runs, in order:
 
 1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
-2. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
-   the mind steps, the assist gives, the motors are set), and a page's own (the Crypt's
-   `DungeonRun.plan`, added first, which asks its Commanders; the Lab's shove);
-3. one solver step, which writes every node; the clock advances;
-4. the post-physics observations (`afterPhysics`: effector feedback, contacts);
-5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
+2. the preparing hooks in the order added (`World.prepare`): what a step's commands are made from,
+   the Crypt's planning (`DungeonRun.plan`, which asks its Commanders), each body's hands' and toes'
+   shapes, and a mind on a mirror or apart thinking on what its world wrote;
+3. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
+   the mind steps, the assist gives, the motors are set), and a page's own (the Lab's shove);
+4. one solver step, which writes every node; the clock advances;
+5. the post-physics observations (`afterPhysics`: effector feedback, contacts), then what they
+   asked of minds apart sent together (`MindsApart.dispatch`);
+6. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
+
+### The command delay
+
+What a mind sends on a step is applied `World.delay` steps later (`COMMAND_DELAY`, a whole
+number of the world's, the same for every body): its muscles' command (`driveMuscles`), its
+assist's ask (`createAssist`) and the hand poses it asked (`embody`). Each keeps a ring of
+`delay` + 1 slots (`delayLine`, `src/core/command-delay.ts`): a step writes the mind's command in
+one and applies the one sent `delay` steps before. A body's first `delay` steps at `full`, from its
+start or back from another level, apply none. The mind's command arrays stay its own: it reads
+back what it last sent, and the ceilings and torques it reads are those of the command applied.
+The rings are state, so a bout saves, forks and replays with commands in flight. A recording names
+the delay its world had, and loads only into one with the same. The game's delay is none until
+motor control holds balance and the rise a step late
+([the command delay](reference/command-delay.md)).
 
 A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
 the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
@@ -1510,8 +1505,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the route left at the hero's pace, the price such that a walk of the level's route with no foes
   costs half the life; a case stops at the exit, at the hero's death, or once the life less the
   time's price is spent; beside it the life at the end, the share cleared and the time). A **drill** is a battery whose trials each pass or fail (`Evaluation.outcome`),
-  its rungs its protocols: `strike` (a mind and one of its strike actions, `puncher/strike` and
-  `vanguard-warrior/strike` drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
+  its rungs its protocols: `strike` (a mind and one of its strike actions, `option/straight-punch`
+  drilled, led by the drill Commander: rung `still`, thrown once at a still Warrior standing in guard, by body, mark,
   hand, offset and range; rung `moving`, the same at a pad on a rail (the Warrior's body under the
   bare mind, carried in a line toward the striker, away or across its front at 0.3 and 0.6 m/s, the
   trial's range where it is as the drill may first ask), asked the first step the drill is ready; rungs `stepping`, `guarding` and `punching`, the same on the Warrior at
@@ -1522,7 +1517,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   no return (`DrillCommanderConfig.letGo`, the condition's `letGo`), read for when the hand was back
   at its guard (`BACK`) and what the striker lost meanwhile (`StrikeReading.letGo`); rung `walk`, the still target walked to from 1.6 to 3 m, asked settled or still
   walking, read from the first step the drill is ready; rung `fight`, thrown in place of the subject's own `moment`th action in
-  its bout against a game mind on the Warrior's body, which fights on; rung `stomping`, thrown with
+  its bout against Option Mind on the Warrior's body, which fights on; rung `stomping`, thrown with
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
   round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a
@@ -1569,8 +1564,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   over when first down by the fight's rule, and its stand verified as the Lab verifies one
   (`standCheck`, `STAND_CHECK`, `src/lab/ground-mode.ts`). A fall not made did not reach its case:
   the figures give the falls made and read the stand over them. A condition the bed cannot play is
-  refused with why. The research rising bed (`rising.ts`) plays a fighter on the Lab's Stand-up
-  mode itself (`buildStandFall`), its sub-minds replaceable. `rising-target` plays the owner's 64
+  refused with why. The research rising bed (`rising.ts`) plays Option Mind on the Lab's Stand-up
+  mode itself (`buildStandFall`), its stand-up techniques replaceable. `rising-target` plays the owner's 64
   falls and reports the target's gates; `equipped-rise` the same shoves with sword and buckler and
   with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
@@ -1607,12 +1602,20 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   series, the softer takes more. An item with no stated surface is rigid and takes none; two rigid
   items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare hand or
   foot on flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
-- **Damage** (`rulebook.ts`): impact energy times the mechanism's worth, 100 J of blunt blow per HP.
-  A surface's `directed` edge or point, met square, is priced as a cut or thrust; otherwise blunt.
-  Anatomical points wound by sustained load (`pointLoad`, `pointsInto`).
+- **Damage** (`rulebook.ts`): a blunt blow, an edge or an axe's is its side's share of the energy
+  times the mechanism's worth, 100 J of blunt blow per HP. A surface's `directed` edge, met square,
+  is priced as a cut; otherwise blunt.
+- **A point wounds by its depth** (`pointWound`): a held point met square on a body's own surface
+  breaches the layers over every part (`Rulebook.layers`, the skin today) and goes in against the
+  tissue's `resistance` as deep as the energy left drives it, no deeper than its own `depth`; it
+  takes the part's hit points in proportion to that depth over the part's thickness (its collider's
+  least width, `partThickness`, `pool.ts`). One that breaches no layer meets as blunt, as does a
+  point meeting an item. Anatomical points wound by sustained load instead (`pointLoad`,
+  `pointsInto`). Worn armour would be more layers.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section.
-  Excess spreads to neighbours; an emptied part may come off (never the trunk). A body is out when
-  its pool is empty or a vital part is emptied or off (`BodySpec.wounds`).
+  Excess spreads to neighbours; an emptied part may come off (never the trunk). A point's wound is
+  contained: it stays in its part and never takes it off. A body is out when its pool is empty or
+  a vital part is emptied or off (`BodySpec.wounds`).
 - **Balance** (`AttributeSpec.balance`): a per cent of the body's weight, the most force its assist
   gives, with the moment `Rulebook.balance` gives each per cent (`balanceCeiling`). A fight sets each
   ceiling from the character and withdraws it when the body is out. The stance steps for a push only
@@ -1647,7 +1650,6 @@ arena, crowd fight, crypt, lab, ratings and tools at `?play=arena`, `?play=crowd
 | Tools | `?play=tools`, `src/app.ts` | a directory of the development viewers, each with a return link |
 | Character workshop | `/character-lab.html`, `src/character-lab/` | workshop models with preview motion; no core ([characters](art/characters.md)) |
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
-| Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
 
 **The Arena.** A person may take a side (`&you=left`), which they lead as a team of one
 ([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
@@ -1693,17 +1695,16 @@ in the existing scene, reusing its loaded character art and lighting without the
 another scene warm-up; physics waits for any new mind data or skin while the view keeps rendering.
 Reach (`reach-scenario.ts`) gives no script and no orders: a mind that decides for itself plays it, the
 Walker (`LAB_WALKER`) unless the address names another, and the place its objective names is marked.
-Every other scenario plays a mind that takes its script, or one that carries out orders (`treeObeys`),
-the Option Mind among them: the scenario's own orders, or its script made orders each step, a
-direct walk, a facing and a gait held to before the mind's own judgement (`Orders.firm`).
-An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and, a mind that takes
-its script, its strikes. Attack
+Every other scenario plays a mind that carries out orders (`treeObeys`), Option Mind (`LAB_MIND`)
+unless the address names another: the scenario's own orders, or its script made orders each step, a
+direct walk, a facing, a gait and a height held to before the mind's own judgement (`Orders.firm`).
+An actor (`actor.ts`) gives the body its balance and mind (`labMind`, `&mind=`). Attack
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`). Its explicit target
 part travels in `targetPart` in the address; the default is the part the most of its mind's actions
 aim at, the head first (`attackTargetPart`). `dummy-spec.ts`
 constructs that part's ball and preserves its middle and leg membership. The setup's anatomical
-compatibility feedback (`attack-target.ts`) reads armed actions, their declared regions and barred
-effectors using the same region and permission rules as execution. It changes no mind settings
+compatibility feedback (`attack-target.ts`) reads the mind's armed actions and their declared regions
+using the same region rules as execution. It changes no mind settings
 and predicts no physical outcome. Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
 `ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);
@@ -1772,7 +1773,7 @@ sides met with. These seams keep control separate from the contact and damage ru
 
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `blade-cut` and `blade-thrust` execute them. A spear needs its own item. | The shares, the pool, the targets. |
+| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `sword-cut` and `sword-thrust` execute them. A spear needs its own item. | The shares, the pool, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) give separate colliders and surfaces; teeth use this path. | The pool: one head. |
 | **Armour** | A worn item, rigid with its segment: it adds mass and one more surface in series (`energyShares` over the layers). A glove protects the puncher by the same rule. | The rule's shape. |
 | **A shield** | A held item with a face: the guard places its points (`ItemSpec.cover`) and orients its face; a bash is a blow. | The guard skill, the rule. |

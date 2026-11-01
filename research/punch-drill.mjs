@@ -27,7 +27,7 @@ import { parseArgs } from "node:util";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
 import "../tests/harness/preload-data.mjs";
 import { MINDS, partLookup } from "../src/entrants/game.ts";
-import { usableSkills } from "../src/core/tactics/action-config.ts";
+import { usableSkills } from "../src/core/skills/action-config.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { STRIKE_CASES } from "../src/evaluation/strike/cases.ts";
 import { barScore as scoreOf } from "../src/evaluation/strike/score.ts";

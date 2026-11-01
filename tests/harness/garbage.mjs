@@ -13,7 +13,6 @@ import { standIntent } from "../../src/core/intent/intent.ts";
 import { driveBy } from "../../src/core/mind/decider.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { freshEngine } from "./core-stand.mjs";
-import { lying } from "../../src/core/recovery/lie.ts";
 import { GUARD } from "../../src/core/skills/guard/guard.ts";
 import { poseAngles } from "../../src/core/control/kinematics.ts";
 
@@ -36,7 +35,16 @@ export async function standBodies(count, model = "crypt-skeleton", { only } = {}
   return { world, bodies, dispose() { world.dispose(); scene.dispose(); } };
 }
 
-/** A Warrior on its back under its lying sub-mind, so every step reads all fixed support. */
+/**
+ * **Lying still**: while its body is down (`BodyView.down`, its host's reading this step), it asks
+ * its muscles for nothing and its assist nothing.
+ */
+const lying = (own, view) => ({
+  name: "lie", wants: () => view.down, begin() {}, end() {},
+  step() { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); },
+});
+
+/** A Warrior on its back, lying still (`lying`), so every step reads all fixed support. */
 export async function downBody() {
   const rendering = new NullEngine(), scene = new Scene(rendering), world = createWorld(scene, await freshEngine());
   world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);

@@ -5,8 +5,8 @@
  * subject's mind as given, holding what its subject names (`StrikeSubject.held`), its side led by
  * the drill Commander (`DrillCommanderConfig`): it stands, walks the striker into its action's
  * window, and orders the one action at one mark with one limb, a hand or a foot, once; the mind
- * carries the order out. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent, a mind's configuration
- * (`DRILL_OPPONENT_MIND`'s presets; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
+ * carries the order out. The target is a Warrior with empty hands, or the body the rung names, under the rung's opponent (`DRILL_OPPONENTS`:
+ * a mind, led on a rhythm by a beats Commander where it keeps one; `drill-stand` stands in guard and throws nothing), set the condition's gap ahead and offset across, the two on
  * the stage's own axis as a bout's spawns are (`LEVELS`), so the Arena's camera sees them side on.
  * Nothing ends a trial but its reader: the action's end and a short settle after it, the striker's
  * patience run out before its action was admitted, or the protocol's seconds. A trial is a bout
@@ -28,7 +28,7 @@ import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
 import { sideAttributes, type Cases, type Json, type Subject } from "../evaluation.ts";
 import { effectorOf, handOf, readStrike, type Hand, type Limb, type Mark, type StrikeReading } from "./read.ts";
-import { opponentOf } from "../drill-opponents.ts";
+import { opponentOf, opposed } from "../drill-opponents.ts";
 import type { Rail } from "../../arena/rail.ts";
 
 /**
@@ -59,7 +59,6 @@ export function striker({ mind, action }: StrikeSubject, effector: string, mark:
 }
 
 /** A recipe's `minds` and `commanders` for `drilled` striking (`striker`) on the left and `foe` on the right. */
-const sides = (drilled: ReturnType<typeof striker>, foe: MindConfig) => ({ minds: { left: drilled.mind, right: foe }, commanders: { left: drilled.commander } });
 
 /**
  * Rung 0, a still target: the strikers' bodies; how far ahead the target's centre stands at the
@@ -153,8 +152,8 @@ export type Direction = "toward" | "away" | "across";
 export type Start = "settled" | "walking";
 
 /**
- * A fight's moments: the strikers' bodies; the foes, the game's minds that fight with empty hands,
- * on the Warrior's body; which of the striker's tactics' actions the drill takes the place of, the
+ * A fight's moments: the strikers' bodies; the foe, Option Mind fighting with empty hands on the
+ * Warrior's body; which of the striker's tactics' actions the drill takes the place of, the
  * first asked being 1; the marks and the hands; the most speed the striker walks at to bring the foe
  * into its action's window, m/s; how long after the drill has the body it may wait
  * to be admitted, the longest a trial plays (the bout up to its moment included), and how long it
@@ -162,7 +161,7 @@ export type Start = "settled" | "walking";
  */
 const FIGHT = deepFreeze({
   models: ["workshop-fighter"] as BodyModel[],
-  foes: ["counter", "vanguard-warrior"],
+  foes: ["option"],
   moments: [1, 2, 3, 4],
   marks: ["high", "middle"] as Mark[],
   hands: ["left", "right"] as Hand[],
@@ -240,9 +239,9 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
         ...loadoutsOf(value as unknown as StrikeSubject),
         // Along +x, as the open stage's spawns are: a body facing +x has its right toward -z.
         start: { left: { at: [-gap / 2, 0], heading: Math.PI / 2 }, right: { at: carried ? [...carried.from] : [gap / 2, side], heading: -Math.PI / 2 } },
-        ...sides(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
+        ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
           walking: start === "walking" || carried !== null, ...(letGo === undefined ? {} : { letGo }) }),
-          opponentOf(protocol.opponent ?? STANDING)!.config as MindConfig),
+          opponentOf(protocol.opponent ?? STANDING)!),
         ...(carried ? { rail: carried.rail } : {}) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
@@ -265,7 +264,7 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
           ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
-          ...sides(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), MINDS[foe]!.config as MindConfig) } };
+          ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), opponentOf(foe)!) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };

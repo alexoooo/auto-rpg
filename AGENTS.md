@@ -18,7 +18,7 @@ npm run evaluate -- <id>  # an evaluation's cases, played where no row has them;
 npm run evaluate -- baseline <mind>  # one mind's walk, punch, stand-up and fights on the Warrior, a record each
 npm run compare -- <before.jsonl> <after.jsonl> --subject <id>  # paired saved evidence, no execution
 npm run evaluate -- tournament --mind new.json --previous <mind> --against default --until settled  # the panel report
-npm run evaluate -- court --previous duellist --ablate 'actions.thrust=null'  # a skill slot's worth at a battery; with --against, in fights
+npm run evaluate -- court --previous option --ablate 'actions.stomp=null'  # a skill slot's worth at a battery; with --against, in fights
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 ```
 
@@ -84,8 +84,6 @@ and is absent from `dist`.
 | --- | --- |
 | `/` main menu, `?play=tools`, `?play=arena`, `?play=crowd`, `?play=dungeon`, `?play=lab&scenario=`, `?play=ratings` | `src/app.ts`, `src/arena/`, `src/dungeon/`, `src/lab/scenarios.ts`, `src/ratings/` |
 | `/character-lab.html` | `src/character-lab/` |
-| `/control-foundation.html` | `src/control-foundation/`, `src/core/tasks/` |
-| `/control-tasks.html` | `src/control-foundation/tasks.ts` |
 | `/physics-bench.html` | `src/physics-bench/`, `research/physics-bakeoff/` |
 
 An Arena link's parameters are its recipe (`src/arena/`); an edited mind travels as its whole
@@ -133,7 +131,7 @@ it never imports them.
   geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
   mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), takes its body
   through it once (`BodyHost.take`) and builds what it uses on it, never the
-  world or the built body; the folders `mind`, `intent`, `navigation`, `perception`, `tactics`,
+  world or the built body; the folders `mind`, `intent`, `navigation`, `perception`,
   `recovery`, `skills`, `control`, `reptile`, `option` and `src/entrants/` import no engine,
   world, builder or read-view maker and read no `globalThis`, `Math.random` or clock (chance
   comes from the host's seed, `BodyHost.seed`), beside the adapters the boundary test names.

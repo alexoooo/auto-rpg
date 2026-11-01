@@ -1,6 +1,5 @@
 import { isKind, partOf, stageRefusal, treeFaults, withoutTuning, type EntryRule } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { Provision } from "../core/parts/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 
 /** A mind a link carries, as a panel shows it: its config and what is wrong with it (`mindFaults`). */
@@ -12,18 +11,16 @@ export interface LinkedMind {
 /** Named minds a screen offers, by id: a link names one by its id. */
 type Presets = Readonly<Record<string, { readonly config: MindConfig }>>;
 
-/** What a screen gives a mind (`Provision`) and the entry rules of its scenario (`EntryRule`): none of either where absent. */
+/** The entry rules of its scenario (`EntryRule`): none where absent. */
 export interface Staging {
-  readonly provides?: readonly Provision[];
   readonly entry?: readonly EntryRule[];
 }
 
 /**
- * What is wrong with `config` for a body of `spec` on a screen that `provides` what it does
- * (`treeFaults`), or that it does not fit the body or meet the scenario's `entry` rules (`stageRefusal`).
+ * What is wrong with `config` for a body of `spec` (`treeFaults`), or that it does not fit the body or meet the scenario's `entry` rules (`stageRefusal`).
  */
-export function mindFaults(config: MindConfig, spec: BodySpec, { provides = [], entry = [] }: Staging = {}): readonly string[] {
-  const faults = treeFaults(config, provides);
+export function mindFaults(config: MindConfig, spec: BodySpec, { entry = [] }: Staging = {}): readonly string[] {
+  const faults = treeFaults(config);
   if (faults.length > 0) return faults;
   const refused = stageRefusal(spec, config, entry);
   return refused === null ? faults : [`the mind cannot play this body: ${refused}`];

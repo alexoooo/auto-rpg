@@ -1,3 +1,4 @@
+import { BEATS } from "./beats.ts";
 import { CLEARER } from "./clearer.ts";
 import { DRILL } from "./drill.ts";
 import { INDEPENDENT } from "./independent.ts";
@@ -11,4 +12,4 @@ import { STAND } from "./stand.ts";
  * else: a case's code reads it as where each kind's own code begins (`caseCoder`,
  * `scripts/build-identity.mjs`).
  */
-export const COMMANDERS = { mob: MOB, independent: INDEPENDENT, party: PARTY, clearer: CLEARER, drill: DRILL, stand: STAND };
+export const COMMANDERS = { mob: MOB, independent: INDEPENDENT, party: PARTY, clearer: CLEARER, drill: DRILL, stand: STAND, beats: BEATS };

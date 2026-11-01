@@ -75,11 +75,11 @@ interface Checked {
 }
 
 /**
- * The Lab actor's body as a stand's verification reads it: taken over while a sub-mind has it, or,
- * where its mind gets up by its own skills (`Actor.risesItself`), once it is down; its host's again in command.
+ * The Lab actor's body as a stand's verification reads it: taken over while a sub-mind has it, or
+ * once it is down, its mind getting up by its own skills; its host's again in command.
  */
-const actorChecked = ({ body, world, risesItself }: Actor): Checked =>
-  ({ body, world, takenOver: () => !commandsBody(body) && body.has !== "nobody" || risesItself && body.down, inCommand: () => commandsBody(body) });
+const actorChecked = ({ body, world }: Actor): Checked =>
+  ({ body, world, takenOver: () => !commandsBody(body) && body.has !== "nobody" || body.down, inCommand: () => commandsBody(body) });
 
 /**
  * **A stand's verification** (`STAND_CHECK`) of `checked`, read once a step after the meter: what

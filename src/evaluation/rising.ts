@@ -1,5 +1,5 @@
 /**
- * **The rising bed's falls**: the riser's mind, a fall played as a job (`risingTrial`), a technique
+ * **The rising bed's falls**: the riser's mind (`risingMind`), a fall played as a job (`risingTrial`), a technique
  * played alone (`techniqueTrial`), the bed's jobs (`risingJobs`: everyday starts, the owner's
  * 64-fall target, the obstacle levels and equipped falls) and its report with the target's gates
  * (`risingReport`). `research/rising-bed.mjs` runs them on workers; the fall evaluations
@@ -9,17 +9,15 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import poses from "../../assets/research/posture-holds.json" with { type: "json" };
-import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { humanSpec, humanoidSpec } from "../core/human/spec.ts";
 import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/held.ts";
-import { PUNCHER } from "../entrants/classic/presets.ts";
-import type { FighterConfig } from "../core/tactics/config.ts";
+import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/control/ground-reading.ts";
-import type { StandUpConfig } from "../core/recovery/ground/stand-up.ts";
-import { partLookup } from "../entrants/game.ts";
+import { MINDS, partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { plantPostures, plantUp, PLANT_UP } from "../core/recovery/ground/plant-up.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
@@ -37,31 +35,24 @@ import { buildStandFall, checkFall, fallStart, strengthSpec, type FallCase, type
 import { cos, sin } from "../core/math/real.ts";
 import { medianOf } from "./stats.ts";
 
-/** The riser a fall is hosted by: the bed's host with its recovery. */
-type RisingSub = "support-recovery" | "stand-up";
-
-/** The bed's host (`PUNCHER`) with `sub` as its one sub-mind; a stand-up offers `techniques`. Gameplay presets are untouched. */
-export function risingMind(sub: RisingSub, techniques: readonly TechniqueName[] = Object.keys(TECHNIQUES) as TechniqueName[]): FighterConfig {
-  switch (sub) {
-    case "support-recovery": return { ...PUNCHER, subs: [{ kind: "support-recovery" }] };
-    case "stand-up": { const standUp: StandUpConfig = { kind: "stand-up", techniques: techniques.map((kind) => ({ kind })) }; return { ...PUNCHER, subs: [standUp] }; }
-    default: {
-      const never: never = sub;
-      throw new Error(`unknown rising sub-mind ${String(never)}`);
-    }
-  }
+/** The bed's riser: Option Mind (`option`) getting up by `techniques` in rank order, by its own (the game's Stand up's) where none are given. Gameplay presets are untouched. */
+export function risingMind(techniques?: readonly TechniqueName[] | null): OptionMindConfig {
+  const option = MINDS.option!.config as OptionMindConfig;
+  return techniques ? { ...option, ground: techniques.map((kind) => ({ kind })) } : option;
 }
 
+/** What a technique alone is played with (`kitOf`): Option Mind's guard and motor control. */
+const TECHNIQUE_KIT = OPTION_MIND.defaults as OptionMindConfig;
+
 /**
- * A job of the bed: a fall (`FallCase`, its mind given or named by `sub` and `techniques`), or with
+ * A job of the bed: a fall (`FallCase`, its mind given or Option Mind getting up by `techniques`), or with
  * `technique` that technique alone (`techniqueTrial`), `after` one before it. `id` orders the rows.
  */
 type RisingJob = Omit<FallCase, "mind" | "model" | "start"> & {
   readonly model?: HumanoidModel;
   readonly start?: FallCase["start"];
   readonly id?: number;
-  readonly mind?: FighterConfig;
-  readonly sub?: RisingSub;
+  readonly mind?: MindConfig;
   readonly techniques?: readonly TechniqueName[];
   readonly technique?: TechniqueName;
   readonly after?: TechniqueName | null;
@@ -82,13 +73,10 @@ export type RisingRow = RisingJob & Partial<Omit<FallReading, "status" | "attemp
 
 /**
  * One fall of the bed, built afresh: a technique alone, or the fall through `fall.ts` on Rapier.
- * `subs`, an experiment's sub-minds in place of the config's, lets a search pass its settings in;
  * `stop`, asked each step with the world, the body and its actor, ends the fall early once the
  * search has what it scores.
  */
-export async function risingTrial(job: RisingJob, { subs, stop }: {
-  subs?: readonly SubMindMaker[]; stop?: (world: World, built: BuiltBody, actor: Actor) => boolean;
-} = {}): Promise<RisingRow> {
+export async function risingTrial(job: RisingJob, { stop }: { stop?: (world: World, built: BuiltBody, actor: Actor) => boolean } = {}): Promise<RisingRow> {
   checkFall(job);
   if (job.loadout !== undefined && job.technique) throw new Error("standalone technique trials do not accept per-hand loadouts");
   if (job.technique) {
@@ -105,11 +93,11 @@ export async function risingTrial(job: RisingJob, { subs, stop }: {
       handback: result.reached ? result.seconds : null, verified: result.reached ? result.seconds : null,
       phases, attempts };
   }
-  const fall: FallCase = { ...job, model: job.model!, start: job.start!, mind: job.mind ?? risingMind(job.sub ?? "support-recovery", job.techniques) };
+  const fall: FallCase = { ...job, model: job.model!, start: job.start!, mind: job.mind ?? risingMind(job.techniques) };
   const balance = job.balance ?? 0;
   const start = fallStart(fall);
   if ("refused" in start.placement) return { ...job, balance, status: "rejected start", stood: false, handback: null, verified: null, error: start.placement.refused, trail: [], attempts: [], phases: {}, assist: null };
-  const built = await buildStandFall(fall, "rapier", { start, ...(subs ? { subs } : {}) });
+  const built = await buildStandFall(fall, "rapier", { start });
   try {
     while (!built.ended) {
       built.world.step();
@@ -149,7 +137,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     if (!source) throw new Error(`no ${posture} waypoint`);
     const reference = humanSpec("workshop-fighter");
     const targets: Readonly<Record<string, number>> = job.waypoint === "installed" ? Object.fromEntries(reference.joints.flatMap(joint => joint.dofs.map((dof, k) =>
-      [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec, kitOf(partLookup, spec, PUNCHER).posture)[job.waypoint!];
+      [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec, kitOf(partLookup, spec, TECHNIQUE_KIT).posture)[job.waypoint!];
     return { ...source.placement, joints: Object.fromEntries(spec.joints.map(joint => [joint.name,
       joint.dofs.map(dof => (targets[`${joint.name} ${dof.positive}`] ?? 0) - dof.bind.value)])) } as unknown as NonNullable<Parameters<typeof groundPlacement>[2]>;
   })() : undefined;
@@ -169,7 +157,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
-    const kit = kitOf(partLookup, own.spec, PUNCHER);
+    const kit = kitOf(partLookup, own.spec, TECHNIQUE_KIT);
     run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, kit);
     predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
@@ -244,7 +232,6 @@ interface RisingOptions {
   readonly models?: readonly HumanoidModel[];
   readonly held?: readonly Held[];
   readonly seeds?: readonly number[];
-  readonly sub: RisingSub;
   readonly techniques?: readonly TechniqueName[] | null;
   readonly technique?: TechniqueName | null;
   readonly after?: TechniqueName | null;
@@ -278,12 +265,12 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   const jobs: RisingJob[] = [], techniques = options.techniques ? { techniques: options.techniques } : {};
   if (options.loadouts) {
     for (const model of options.models!) for (const loadout of options.loadouts) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: false, equipped: true, sub: options.sub, ...techniques });
+      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
   } else if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"] as const) for (const held of ["empty", "club"] as const) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, sub: options.sub, ...techniques });
+      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
   } else for (const model of options.models!) for (const held of options.held!) for (const seed of options.seeds!) for (const start of options.starts!) {
-    const common: RisingJob = { model, held, seed, start, balance: options.balance ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, sub: options.sub, ...techniques,
+    const common: RisingJob = { model, held, seed, start, balance: options.balance ?? 0, grit: 0, gusts: options.gusts ?? false, target: false, ...techniques,
       ...(options.technique ? { technique: options.technique, after: options.after ?? null } : {}) };
     if (start === "shoved") for (let direction = 0; direction < 8; direction++) jobs.push({ ...common, degrees: direction * 45 });
     else if (start === "placed") for (const posture of groundPostures(modelSpec(model))) jobs.push({ ...common, posture });
@@ -330,7 +317,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   if (target) {
     // The fresh falls are read against the same gates, their cardinals the directions just past each.
     const offset = rows.length > 0 && rows.every(row => row.degrees! % 22.5 === FRESH_OFFSET) ? FRESH_OFFSET : 0;
-    const expected = risingJobs({ target: true, offset, sub: "support-recovery" }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
+    const expected = risingJobs({ target: true, offset }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const actual = rows.map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const complete = JSON.stringify(actual) === JSON.stringify(expected);
     gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),

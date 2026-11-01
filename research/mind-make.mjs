@@ -1,5 +1,5 @@
 /**
- * What making a body's Crypt mind costs (`createMind`, `cryptMind`), warm: each model's body built
+ * What making a body's Crypt mind costs (`createMind`, `defaultMind`), warm: each model's body built
  * `--makes` times beside the last on a stand, and its mind made on it, timed alone. The first make
  * reads its data and compiles; the median and the least of the rest are the warm make.
  *
@@ -11,7 +11,7 @@ import "../tests/harness/preload-data.mjs";
 import { performance } from "node:perf_hooks";
 import { parseArgs } from "node:util";
 import { coreStand } from "../tests/harness/core-stand.mjs";
-import { GAME, cryptMind } from "../src/entrants/game.ts";
+import { GAME, defaultMind } from "../src/entrants/game.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/intent/orders.ts";
 import { modelHolding } from "../src/core/models.ts";
@@ -23,7 +23,7 @@ const makes = Number(values.makes), WARM = 3;
 const BODIES = [["workshop-fighter", { left: "empty", right: "club" }], ["crypt-skeleton", { left: "empty", right: "empty" }]];
 
 for (const [model, loadout] of BODIES) {
-  const spec = modelHolding(model, loadout), config = cryptMind(model), stand = await coreStand(spec, { engine: "rapier" });
+  const spec = modelHolding(model, loadout), config = defaultMind(model), stand = await coreStand(spec, { engine: "rapier" });
   try {
     const times = [];
     for (let i = 0; i < makes; i++) {

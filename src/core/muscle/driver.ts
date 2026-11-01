@@ -7,7 +7,8 @@ import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import type { Hook, World } from "../world.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
-import type { BuiltDof, JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
+import type { BuiltDof, JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
+import { delayLine } from "../command-delay.ts";
 
 /**
  * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
@@ -110,7 +111,11 @@ interface MuscleSide {
 
 export interface MuscleDriver {
   readonly channels: readonly MuscleChannel[];
-  /** The command, by channel: activation 0-1, and the speed asked for (rad/s, the freedom's sense). */
+  /**
+   * The command, by channel: activation 0-1, and the speed asked for (rad/s, the freedom's sense).
+   * What is written here on a step is applied the world's delay later (`World.delay`): what the
+   * motors are given this step is the command sent that many steps ago.
+   */
   readonly activation: Float64Array;
   readonly velocity: Float64Array;
   /**
@@ -141,13 +146,13 @@ export interface MuscleDriver {
   readonly bounds: { readonly negative: Float64Array; readonly positive: Float64Array };
   /** Mean torque delivered over the last world step, N m, positive in the channel's positive sense. */
   readonly pulled: Float64Array;
-  /** Its memory (`src/core/state.ts`): its level, command, ceilings, delivered torque, and each joint as last read. */
+  /** Its memory (`src/core/state.ts`): its level, command, the commands sent and not yet applied, ceilings, delivered torque, and each joint as last read. */
   readonly state: object;
   /** Its level (`BodyLevel`), `full` as made. */
   readonly level: BodyLevel;
   /**
    * Put the body at `level`. Leaving `full`, whatever has the body is told it is nobody's
-   * (`idle`), and the command and every motor are zeroed. The joints as last read stay as they
+   * (`idle`), and the command, the commands sent and every motor are zeroed. The joints as last read stay as they
    * were read until it is at `full` again, where its first step reads them before its mind steps.
    */
   setLevel(level: BodyLevel): void;
@@ -157,30 +162,51 @@ export interface MuscleDriver {
   dispose(): void;
 }
 
-/** Called every world step, before the driver applies the command; `dt` is the step, s. */
+/** **Each freedom of `read`'s joints as a muscle channel** (`MuscleChannel`), in its joints' order and each joint's freedoms': the driver's and its mirror's alike. */
+export function muscleChannels(read: Pick<ReadBody, "joints">): MuscleChannel[] {
+  return [...read.joints.values()].flatMap((joint) => joint.dofs.map((dof, index) => {
+    const muscle = dof.spec.muscle;
+    return {
+      name: channelName(joint, index), joint, index, dof,
+      positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
+      negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
+    };
+  }));
+}
+
+/** The torque `channel`'s muscles toward `sense` give at full activation at `speed`, N m (`MuscleDriver.strength`). */
+export function strengthAt(channel: MuscleChannel, sense: 1 | -1, speed: number): number {
+  const side = sense > 0 ? channel.positive : channel.negative;
+  return side.peak * forceVelocityFactor(sense * speed, side.curve);
+}
+
+/**
+ * What a driver is made with beside its body and world, how it reads for its mind: without the
+ * body's dynamics (`dynamics: false`, where its mind reads them from a mirror); and as the step is
+ * prepared rather than just before its control (`prepared`, where its mind reads the body before the
+ * step's controls run, `World.prepare`).
+ */
+interface DrivingOptions { readonly dynamics?: false; readonly prepared?: true }
+
+/** Called every world step, before the driver sends the command and applies the one sent the world's delay ago; `dt` is the step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
 /**
  * Drive every freedom of `built` from its spec's muscles, before each step of `world` while the
- * body is at `full`. `idle` is called as it leaves `full`, before its motors are zeroed.
+ * body is at `full`, its joints read just before (`DrivingOptions`). `idle` is called as it leaves
+ * `full`, before its motors are zeroed.
  */
-export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void): MuscleDriver {
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void, { dynamics: reading = undefined, prepared = undefined }: DrivingOptions = {}): MuscleDriver {
   // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
   const read = readView(built);
   const trackers: JointTracker[] = [];
-  const channels: MuscleChannel[] = [];
+  const channels = muscleChannels(read);
   const motors: EngineJoint[] = [];
   const trackerOf: JointTracker[] = [];
-  for (const [name, joint] of built.joints) {
+  for (const joint of built.joints.values()) {
     const tracker = jointTracker(joint);
     trackers.push(tracker);
-    joint.dofs.forEach((dof, index) => {
-      const muscle = dof.spec.muscle;
-      channels.push({
-        name: channelName(joint, index), joint: read.joints.get(name)!, index, dof,
-        positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
-        negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
-      });
+    joint.dofs.forEach((_, index) => {
       motors.push(joint.joint);
       trackerOf.push(tracker);
       joint.joint.setMotor(index, 0, 0);
@@ -204,8 +230,10 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const dynamics = bodyDynamics(read, world.physics.gravity);
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
-  let hook: Hook | null = null;
+  let hook: Hook | null = null, reads: Hook | null = null;
   let after: Hook | null = null;
+  // The commands sent and not yet applied, a slot a step of the world's delay and one more; none where none was sent that long ago.
+  const line = delayLine(world.delay), none = new Float64Array(n);
   const state = {
     level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
@@ -213,6 +241,8 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     /** Each side's tendon's stretch after the last step, rad; 0 where it has none. */
     stretch: { negative: new Float64Array(n), positive: new Float64Array(n) },
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
+    line: line.state,
+    sent: { activation: Array.from({ length: line.size }, () => new Float64Array(n)), velocity: Array.from({ length: line.size }, () => new Float64Array(n)) },
   };
   const driver: MuscleDriver = {
     channels, state,
@@ -234,15 +264,14 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
         state.bounds.negative.fill(0); state.bounds.positive.fill(0);
         state.stretch.negative.fill(0); state.stretch.positive.fill(0);
+        line.reset();
+        for (const sent of [...state.sent.activation, ...state.sent.velocity]) sent.fill(0);
         channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
       }
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
       state.level = next;
     },
-    strength(i, sense) {
-      const c = channels[i]!, side = sense > 0 ? c.positive : c.negative;
-      return side.peak * forceVelocityFactor(sense * driver.speed(i), side.curve);
-    },
+    strength: (i, sense) => strengthAt(channels[i]!, sense, driver.speed(i)),
     channel(name) {
       const i = byName.get(name);
       if (i === undefined) throw new Error(`${built.spec.model} has no muscle channel "${name}"`);
@@ -251,21 +280,32 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     dispose() {
       hook?.dispose();
       hook = null;
+      reads?.dispose();
+      reads = null;
       after?.dispose();
       after = null;
       channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
     },
   };
-  hook = world.beforeStep(() => {
-    if (state.level !== "full") return;
+  const sense = () => {
     for (const { body, w } of spins) body.angularVelocityToRef(w);
     for (const tracker of trackers) tracker.update(angularVelocity);
-    dynamics.update(angles, motion);
+    if (reading !== false) dynamics.update(angles, motion);
+  };
+  if (prepared) reads = world.prepare(() => { if (state.level === "full") sense(); });
+  hook = world.beforeStep(() => {
+    if (state.level !== "full") return;
+    if (!prepared) sense();
     control?.(driver, dt);
+    const slot = line.written();
+    state.sent.activation[slot]!.set(state.activation); state.sent.velocity[slot]!.set(state.velocity);
+    const due = line.applied();
+    line.advance();
+    const asked = due < 0 ? none : state.sent.activation[due]!, wanted = due < 0 ? none : state.sent.velocity[due]!;
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
-      const speed = driver.speed(i), target = driver.velocity[i]!;
-      const activation = Math.max(0, Math.min(1, driver.activation[i]!));
+      const speed = driver.speed(i), target = wanted[i]!;
+      const activation = Math.max(0, Math.min(1, asked[i]!));
       const push = target - speed;
       const toward = push > 0 ? 1 : push < 0 ? -1 : c.positive.peak <= c.negative.peak ? 1 : -1;
       const side = toward > 0 ? c.positive : c.negative;

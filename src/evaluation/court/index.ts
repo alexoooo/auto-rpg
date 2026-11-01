@@ -2,7 +2,7 @@
  * **The court task**: does a mind bring its striker round the obstacle court's column into its
  * swing's window, without touching the furniture or falling? From each spawn, at each gap, against
  * a target that stands or walks across the line. The subject is the approaching mind; the
- * reference is the Duellist.
+ * reference is Option Mind.
  */
 import { CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import { recordingKey } from "../../core/recording.ts";
@@ -19,9 +19,9 @@ export const COURT: Evaluation<CourtCondition, CourtReading> = {
   defaultProtocol: "standard",
   schedule: "all",
   analysis: {},
-  /** The minds named, by id or kind or given whole. None names the Duellist. */
+  /** The minds named, by id or kind or given whole. None names Option Mind. */
   subjects(choice) {
-    return (choice.length > 0 ? choice : ["duellist"]).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
+    return (choice.length > 0 ? choice : ["option"]).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
       : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json, MINDS[one])
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind, or a config`); })());

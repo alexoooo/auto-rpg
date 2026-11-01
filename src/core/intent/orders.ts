@@ -7,8 +7,8 @@ export type Heading = GroundPoint;
 
 /**
  * **What a body is told to do**, by a person, a team's plan or its own tactics: plain data, in
- * the world's frame, naming no joint or camera, and a pace only as a ceiling. Tactics that take orders carry them out
- * (`actionTactics`); the body defends itself meanwhile. An order says as much as it likes: what it
+ * the world's frame, naming no joint or camera, and a pace only as a ceiling. A mind that takes orders carries them out
+ * (`Part.obeys`); the body defends itself meanwhile. An order says as much as it likes: what it
  * leaves out its mind chooses (no `foe`, whom it fights; a `foe` and no `region`, `action` or
  * `limb`, where and how it strikes it), and what it names the mind keeps to (`orderAllows`,
  * `orderedRegions`).
@@ -22,6 +22,8 @@ export interface Orders {
   readonly walk?: true;
   /** Go by this gait (`Intent.gait`), where the legs go by gaits; absent, the mind's choice. */
   readonly gait?: GaitName;
+  /** Hold the centre of mass this far under its standing height, m (`Intent.lower`); absent, the legs' own height. */
+  readonly lower?: number;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
   /** Attack this sensed body (`BodySense.id`) where the mind chooses on it. */
@@ -71,13 +73,14 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, walk, gait, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
+  const { move, pace, walk, gait, lower, face, foe, region, action, limb, firm } = value as Record<string, unknown>;
   const named = (one: unknown) => one === undefined || typeof one === "string" && one.length > 0 && foe !== undefined;
   return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
+    && (lower === undefined || typeof lower === "number" && Number.isFinite(lower) && lower >= 0)
     && (walk === undefined || walk === true) && (firm === undefined || firm === true) && (gait === undefined || (GAIT_NAMES as readonly unknown[]).includes(gait))
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || isRegion(region) && foe !== undefined) && named(action) && named(limb)
-    && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "face", "foe", "region", "action", "limb", "firm"].includes(key));
+    && Object.keys(value).every(key => ["move", "pace", "walk", "gait", "lower", "face", "foe", "region", "action", "limb", "firm"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

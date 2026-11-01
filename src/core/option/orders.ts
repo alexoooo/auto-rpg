@@ -1,5 +1,5 @@
 import { NO_COVER } from "../intent/intent.ts";
-import { orderedIntent } from "../tactics/ordered.ts";
+import { orderedIntent } from "../intent/ordered.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
 import { asking, blocked, READY, type Option } from "./option.ts";
 import { threatened } from "./percepts.ts";

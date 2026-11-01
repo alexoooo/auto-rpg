@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { segmentShapes } from "../core/build/build-body.ts";
+import { segmentShapes } from "../core/build/segment-shapes.ts";
 import type { ToesState } from "../core/build/toes.ts";
 import type { BodySpec, HandPose } from "../core/spec/body.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";

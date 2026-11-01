@@ -1,5 +1,5 @@
 import type { BuiltSegment } from "./build-body.ts";
-import type { BodySpec, HandPose } from "../spec/body.ts";
+import type { BodySpec, HandPose, SegmentSpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { ColliderShape } from "../engine/engine.ts";
 import type { World } from "../world.ts";
@@ -24,6 +24,23 @@ function poseBlocked(world: World, part: BuiltSegment, collider: ColliderShape):
   return world.physics.contactsOf(part.body).some(contact => contact.impulse > 0) || !part.body.canChangeShape(0, collider);
 }
 
+/** **Each posable hand of a body of `segments`**, as a hand pose request names it, the segment it is and its poses (`HandPoses.model`): a hand segment with poses. */
+export function handPoseModel(segments: readonly SegmentSpec[]): HandPoses["model"] {
+  return deepFreeze((["left", "right"] as const).flatMap((hand) => segments.some((segment) => segment.name === `hand.${hand}` && segment.handPoses)
+    ? [{ hand, segment: `hand.${hand}`, poses: ["open", "fist", "grip"] as HandPose[] }] : []));
+}
+
+/** **`requests` as the hands of `model` take them** (`HandPoses.check`): each a known hand once with a known pose; any other is refused, a throw. */
+export function checkHandPoses(model: HandPoses["model"], requests: readonly HandPoseRequest[]): readonly HandPoseRequest[] {
+  if (!Array.isArray(requests)) throw new Error("hand pose requests must be an array");
+  const seen = new Set<string>();
+  return deepFreeze(requests.map(request => {
+    if (!request || !model.some(h => h.hand === request.hand) || seen.has(request.hand)
+      || !["open", "fist", "grip"].includes(request.pose)) throw new Error("invalid or duplicate hand pose request");
+    seen.add(request.hand); return { ...request };
+  }));
+}
+
 /** Rigid-hand articulation uses the body's existing mass properties, never a shape's inferred mass. */
 export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, BuiltSegment>, world: World): HandPoses {
   const state: HandPoses["state"] = {};
@@ -33,16 +50,9 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
     state[hand] = part.handPose;
     return [{ hand, part, poses: part.poses, held: !!spec.held?.some(item => item.segment === part.spec.name) }];
   });
-  const check: HandPoses["check"] = requests => {
-    if (!Array.isArray(requests)) throw new Error("hand pose requests must be an array");
-    const seen = new Set<string>();
-    return deepFreeze(requests.map(request => {
-      if (!request || !hands.some(h => h.hand === request.hand) || seen.has(request.hand)
-        || !["open", "fist", "grip"].includes(request.pose)) throw new Error("invalid or duplicate hand pose request");
-      seen.add(request.hand); return { ...request };
-    }));
-  };
-  const hook = hands.length === 0 ? null : world.beforeStep(() => {
+  const model = handPoseModel([...segments.values()].filter((segment) => segment.handPose && segment.poses).map((segment) => segment.spec));
+  const check: HandPoses["check"] = requests => checkHandPoses(model, requests);
+  const hook = hands.length === 0 ? null : world.prepare(() => {
     for (const hand of hands) {
       const pose = state[hand.hand]!;
       const attached = hand.part.body.gripping();
@@ -53,6 +63,6 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
       hand.part.body.changeShape(0, collider); pose.applied = desired;
     }
   });
-  return { model: deepFreeze(hands.map(h => ({ hand: h.hand, segment: h.part.spec.name, poses: ["open", "fist", "grip"] as HandPose[] }))), state, check,
+  return { model, state, check,
     request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; }, dispose: () => hook?.dispose() };
 }

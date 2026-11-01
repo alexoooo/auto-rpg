@@ -19,7 +19,7 @@ import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
-import { cryptMind } from "../entrants/game.ts";
+import { defaultMind } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -453,7 +453,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       stillShown();
       made = new RunView(scene, link, {
         map: layout, visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
-        characters: prepared.characters, mind: (card) => page.mind(card) ?? cryptMind(card.model), lead, built: dress, heard: (cue) => audio.cue(cue),
+        characters: prepared.characters, mind: (card) => page.mind(card) ?? defaultMind(card.model), lead, built: dress, heard: (cue) => audio.cue(cue),
       });
     } catch (error) { link.dispose(); throw error; }
     const run = page.run = made;

@@ -1,5 +1,5 @@
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body } from "../body.ts";
+import type { Body, LayerOptions } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import { rootSegment, type ReadBody } from "../read-body.ts";
@@ -7,9 +7,11 @@ import { readView } from "../build/read-view.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
+import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorStatics, type MirrorWriter } from "./mirror.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
+import { delayLine } from "../command-delay.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /**
@@ -77,6 +79,8 @@ export interface OwnBody {
   readonly senses: () => Senses;
   /** How it labels the other side of a contact (`ContactIdentity`), where its fight grants one. */
   readonly contactIdentity?: ContactIdentity;
+  /** An experiment's settings of its command layers (`Experiment`), in place of its mind's, where one is given. */
+  readonly experiment?: Experiment;
   /**
    * Call `listener` after each completed physics interval with the step and the time, after those
    * added before it, whether or not its mind steps; returns what stops it.
@@ -87,7 +91,10 @@ export interface OwnBody {
 type MindMaker<M extends Mind = Mind> = (own: OwnBody) => M;
 
 interface Embodied<M extends Mind = Mind> {
+  /** The body its mind was made with: the body itself, or its mirror where the world puts minds on mirrors (`World.mirrored`). */
   readonly own: OwnBody;
+  /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
+  readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
   readonly mind: M;
   /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, and the mind's own, or null. */
   readonly state: object;
@@ -95,7 +102,14 @@ interface Embodied<M extends Mind = Mind> {
   dispose(): void;
 }
 
-/** What a body is given beside its mind: its senses, its assist's ceiling, how it labels a contact, and where its order sheets are written. */
+/**
+ * **An experiment's settings of a body's command layers** (`LayerOptions`): the stance's tuning in
+ * place of its constants, and the envelope being measured. A body measured or tuned so is a study's,
+ * never a fight's.
+ */
+export type Experiment = Pick<LayerOptions, "stance" | "measuring">;
+
+/** What a body is given beside its mind: its senses, its assist's ceiling, how it labels a contact, where its order sheets are written, and an experiment's settings. */
 export interface Embodying {
   /** What it senses (`SensesHub.add`); the clock alone unless given. */
   readonly senses?: () => Senses;
@@ -105,47 +119,144 @@ export interface Embodying {
   readonly contactIdentity?: ContactIdentity;
   /** Where its order sheets are written (`SheetLog`); nowhere unless given. */
   readonly log?: SheetLog;
+  /** An experiment's settings of its command layers (`Experiment`); none unless given. */
+  readonly experiment?: Experiment;
 }
 
 /**
  * Give `built` a mind: `make` is called once with the body, and the mind steps before every solver
  * step of `world`, after the muscles have read the joints, on its senses (`Embodying.senses`, the
- * clock alone unless given). What the mind asked of its assist is given after its step, within its
- * ceiling (none unless given), so the solver's step takes it with the muscles' torques. Given a
+ * clock alone unless given). **What a mind sends on a step is applied `world.delay` steps later**
+ * (`World.delay`): its muscles' command (`driveMuscles`), its assist's ask, given within its
+ * ceiling (none unless given) with the muscles' torques, and the hand poses it asked since its last
+ * step. Its first steps at `full`, from its start or back from another level, apply none. Given a
  * `log`, each step's order sheet is written in it as the mind leaves it (`SheetLog`). What observes
  * the completed physics (`OwnBody.afterPhysics`) is run by one hook of `world`'s, added with the
  * first observer.
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
-  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log }: Embodying = {}): Embodied<M> {
-  let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
-  // The hand poses asked since the last sheet, which the next sheet carries.
-  const hands: HandPoseRequest[] = [];
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
+  let mind: M | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null, thinking: Hook | null = null;
+  const way = commandWay(built, world, log);
   const muscles = driveMuscles(built, world, (driver, dt) => {
-    mind!.step(sense(), dt);
-    if (log) record(log, world.steps, driver, help!.asked, hands);
-    help!.apply();
-  }, () => mind!.idle?.());
-  help = createAssist(built, rootSegment(built), ceiling);
+    if (mirrored) mirrored.writer.carry(way.request);
+    else mind!.step(sense(), dt);
+    way.settle(driver);
+  }, () => { mind!.idle?.(); way.reset(); }, world.mirrored ? { dynamics: false, prepared: true } : {});
+  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
+  if (world.mirrored) {
+    const statics = mirrorStatics(built, contactIdentity !== undefined);
+    const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, contactIdentity ? { labels: contactIdentity } : {});
+    // Its fight senses for it from its first step: made, it reads its body alone.
+    writer.write({ sensing: false });
+    const mirror = mirrorBody(statics, writer.channel);
+    mirrored = { writer, mirror };
+    // It thinks as the step is prepared, on its mirror; its command is carried out on its body as the step's controls run.
+    thinking = world.prepare((dt) => {
+      if (muscles.level !== "full") return;
+      writer.write();
+      mirror.refresh({ dynamics: true });
+      mind!.step(mirror.senses, dt);
+      mirror.answer();
+    });
+  }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null;
-  const own: OwnBody = { spec: built.spec, built: readView(built), muscles, assist: help.assist,
-    requestHandPoses: (requests) => {
-      built.handPoses.request(requests);
-      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
-    },
-    senses: sense, ...(contactIdentity ? { contactIdentity } : {}),
+  const observe = () => {
+    if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); }
+    for (const one of listeners) one(world.steps, world.time);
+  };
+  const mirror = mirrored?.mirror;
+  const own: OwnBody = { spec: built.spec,
+    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: () => mirror.senses,
+      ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}) }
+      : { built: readView(built), muscles, assist: way.help.assist, requestHandPoses: way.request, senses: sense, ...(contactIdentity ? { contactIdentity } : {}) }),
+    ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
-      observed ??= world.afterPhysics(() => { for (const one of listeners) one(world.steps, world.time); });
+      observed ??= world.afterPhysics(observe);
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     } };
   let made: M;
   try { made = make(own); }
-  catch (error) { observed?.dispose(); muscles.dispose(); throw error; }
+  catch (error) { observed?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
   mind = made;
-  return { own, mind: made, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, toes: built.toes, mind: made.state ?? null },
-    dispose: () => { made.dispose?.(); observed?.dispose(); listeners.clear(); muscles.dispose(); } };
+  return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
+    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null },
+    dispose: () => { made.dispose?.(); observed?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
+}
+
+/**
+ * **The way a mind's command goes to its body**, the same whoever made it and wherever: the hand
+ * poses it asks (`request`), checked and kept until their step comes, a slot a step of the world's
+ * delay and one more; and, once the muscles have the command, the sheet written where a `log` is
+ * given, the assist's ask given within its ceiling, and the hand poses due asked of the hands
+ * (`settle`). Its assist is given once made (`assisted`).
+ */
+function commandWay(built: BuiltBody, world: World, log: SheetLog | undefined) {
+  let help: ReturnType<typeof createAssist> | null = null;
+  // The hand poses asked since the last sheet, which the next sheet carries.
+  const hands: HandPoseRequest[] = [];
+  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step of the world's delay and one more.
+  const line = delayLine(world.delay), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
+  return {
+    posed,
+    get help() { return help!; },
+    assisted(made: ReturnType<typeof createAssist>) { help = made; },
+    request(requests: readonly HandPoseRequest[]) {
+      for (const { hand, pose } of built.handPoses.check(requests)) posed.asked.push({ hand, pose });
+      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
+    },
+    settle(driver: MuscleDriver) {
+      if (log) record(log, world.steps, driver, help!.asked, hands);
+      help!.apply();
+      const slot = posed.sent[line.written()]!;
+      slot.length = 0;
+      for (const one of posed.asked.splice(0)) slot.push(one);
+      const due = line.applied();
+      line.advance();
+      if (due >= 0 && posed.sent[due]!.length > 0) built.handPoses.request(posed.sent[due]!.splice(0));
+    },
+    reset() {
+      help!.reset();
+      line.reset();
+      posed.asked.length = 0;
+      for (const slot of posed.sent) slot.length = 0;
+    },
+  };
+}
+
+/** **A body driven from its mirror's answers** (`mirrorDriven`): its muscles and assist, the hand poses in flight, the numbers written for its mind and what they are first told, and its senses. */
+export interface MirrorDriven {
+  readonly muscles: MuscleDriver;
+  readonly help: ReturnType<typeof createAssist>;
+  readonly posed: ReturnType<typeof commandWay>["posed"];
+  readonly writer: MirrorWriter;
+  readonly statics: MirrorStatics;
+  readonly senses: () => Senses;
+}
+
+/**
+ * **`built` driven by a mind that reads it from a mirror elsewhere** (`embodyApart`,
+ * `src/core/mind/minds.ts`): the muscles read the joints as the step is prepared, the mind's numbers
+ * are written in `allocate`'s memory, and as the step's controls run, once the mind has `answered`,
+ * its command is carried out as `embody` carries out a mind's, the same rings, assist and sheets;
+ * `idle` is called as the body leaves `full`. Written once, with the senses as nothing yet read.
+ */
+export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: number) => Float64Array, { answered, idle }: { answered(): void; idle(): void },
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log }: Embodying = {}): MirrorDriven {
+  const way = commandWay(built, world, log);
+  let writer: MirrorWriter | null = null;
+  const muscles = driveMuscles(built, world, (driver) => {
+    answered();
+    writer!.carry(way.request);
+    way.settle(driver);
+  }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true });
+  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
+  const statics = mirrorStatics(built, contactIdentity !== undefined);
+  writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
+  writer.write({ sensing: false });
+  return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

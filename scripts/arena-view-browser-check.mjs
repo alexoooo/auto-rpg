@@ -21,7 +21,7 @@ try {
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204 }));
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(`${message.text()} (${message.location().url})`); });
-  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=duellist,puncher&recovery=15`;
+  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=option,option&recovery=15`;
   /** The person's side's last order on the bout's tape, as its worker keeps it. */
   const lastOrders = () => page.evaluate(async () => (await __arena.world.tape()).filter(entry => entry.side === "right").at(-1)?.orders);
   await page.goto(url);

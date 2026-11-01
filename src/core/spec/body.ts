@@ -377,8 +377,12 @@ export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose
  */
 interface SurfaceSpec {
   readonly stiffness: Quantity<number>;
-  /** A mechanism's direction and admitted normal cosine: body reference frame for anatomy, item frame for equipment. */
-  readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
+  /**
+   * A mechanism's direction and admitted normal cosine: body reference frame for anatomy, item
+   * frame for equipment. A held point states its `depth`, m, how far behind its tip it can go in
+   * (`pointWound`).
+   */
+  readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number>; readonly depth?: Quantity<number> };
   /** Its coefficient of friction, where it grips better than the engine's default (`ContactMaterial.friction`). */
   readonly friction?: Quantity<number>;
 }

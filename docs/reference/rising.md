@@ -46,8 +46,8 @@ npm run evaluate -- rising-target [riser ...]
   stance holds 6 of its 16 club shoves and 1 empty-handed, and a fall not made is no stand-up; Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
-  one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
-  `stand-up` with every technique, a technique's name, or a mind's JSON. `research/rising-bed.mjs
+  one body. A riser is Option Mind's own rise unless named:
+  `stand-up` with every technique, `staged`, a technique's name, or a mind's JSON. `research/rising-bed.mjs
   --target` plays the same falls (`src/evaluation/rising.ts`).
 - **The fresh falls** (`--protocol fresh`): the same bodies and loadouts shoved halfway between
   the target's directions, 11.25 degrees past each (`FRESH_OFFSET`), read against the same gates,
@@ -126,7 +126,7 @@ the club shoved right, 3 to 82 weights from 1 to 4 s, past 1e30 at 6 s and 1e100
 ## Lying
 
 The blade fighter (`BLADE_FIGHTER`, the Lab's minds): from the step a body is down it is
-`lie`'s (`lying`, `src/core/recovery/lie.ts`), which asks its muscles and stance for nothing. At an
+`lie`'s (`lying`, `src/core/recovery/lie.ts@4038482a`), which asks its muscles and stance for nothing. At an
 activation of 0 the muscle driver sets each motor to give no torque, which is what releasing the
 muscles does (`Body.dispose`): read with the muscles released in place of `lie`, the seconds each
 body last moved are the same to the digit. A crypt body out of the fight is limp in the same way
@@ -1287,7 +1287,7 @@ assist), from the toes' hands-and-knees starts at rest (`placement("push-off-bea
 
 The Rogue on toes has no stance envelope (`stance-envelope.ts`) and is not read.
 
-The rise is the toes' stand-up harness's (`research/stand-controller/c/sitback.mjs`, 30 of 32, a
+The rise is the toes' stand-up harness's (`research/stand-controller/c/sitback.mjs@4038482a`, 30 of 32, a
 median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each part removed where
 32 starts stood as many without it (the harness, Warrior, empty):
 

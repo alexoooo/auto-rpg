@@ -19,8 +19,9 @@ export type BiteConfig = ConfigOf<typeof BITES>;
 export type QuadrupedTacticsConfig = ConfigOf<typeof QUADRUPED_PLANNERS>;
 
 /**
- * Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. Each part
- * it is built of is the stock one where it names none (`QUADRUPED_PARTS`, `src/core/reptile/kind.ts`).
+ * **The quadruped's frame config** (`QUADRUPED_FRAME`): four-paw crawling, physical jaw snaps and
+ * self-righting through the body's own muscles. Each part it is built of is the stock one where it
+ * names none (`QUADRUPED_PARTS`).
  */
 export interface QuadrupedConfig {
   readonly kind: "quadruped";
@@ -40,5 +41,5 @@ export interface QuadrupedConfig {
   readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE> };
 }
 
-/** The quadruped with every part the stock one. */
+/** The quadruped's frame with every part the stock one. */
 export const QUADRUPED: QuadrupedConfig = deepFreeze({ kind: "quadruped" });

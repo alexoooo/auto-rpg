@@ -14,7 +14,7 @@ import { combatSkills } from '../src/core/skills/strikes/combat.ts';
 import { skillSet } from '../src/core/skills/framework/arbiter.ts';
 import { locomotion } from '../src/core/skills/locomotion/locomotion.ts';
 import { guardSkill } from '../src/core/skills/guard/guard.ts';
-import { configuredExecutors } from '../src/core/tactics/action-config.ts';
+import { configuredExecutors } from '../src/core/skills/action-config.ts';
 import { partLookup } from "../src/entrants/game.ts";
 import { actionCycles } from './action-cycles.mjs';
 import { guardPosture } from '../src/core/skills/guard/guard.ts';

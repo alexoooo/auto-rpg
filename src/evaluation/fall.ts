@@ -2,20 +2,19 @@
  * **A fall as a case**: one body, any model under any mind, in a world of its own with the arena's
  * solids. Every evaluated fall is played on one bed (`buildFall`): the body enlisted as a fight
  * enlists it, shoved as the owner's target shoves, and its stand verified as the Lab verifies one,
- * whatever its mind. The research rising bed (`rising.ts`) plays a fighter on the Lab's stand bed
+ * whatever its mind. The research rising bed (`rising.ts`) plays a mind on the Lab's stand bed
  * (`buildStandFall`): shoved, dropped or placed on the ground of the Stand-up mode (`startGround`,
- * `src/lab/ground-mode.ts`), its sub-minds replaceable and its actor read. It is not bit-equal
+ * `src/lab/ground-mode.ts`), its actor read. It is not bit-equal
  * between JavaScript engines: the starts and the shove (`src/lab/ground-starts.ts`,
  * `stance-mode.ts`) use arithmetic each engine rounds its own way.
  */
-import type { SubMindMaker } from "../core/mind/sub-mind.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids } from "../arena/room.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";
-import { takesScript, GAME } from "../entrants/game.ts";
+import { GAME } from "../entrants/game.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
@@ -67,8 +66,8 @@ export interface FallCase {
   readonly mind: MindConfig;
 }
 
-/** Whether the Lab's stand bed can play `fall`: a mind that takes the Lab's script (`takesScript`), on a body the command layers read. */
-const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && groundRefusal(modelSpec(fall.model)) === null;
+/** Whether the Lab's stand bed can play `fall`: a body the command layers read. */
+const onStandBed = (fall: Pick<FallCase, "model">): boolean => groundRefusal(modelSpec(fall.model)) === null;
 
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;
@@ -117,7 +116,7 @@ function characterOf(fall: Pick<FallCase, "character">): AttributeOverrides {
 export function fallStart(fall: FallCase): { address: LabAddress; spec: BodySpec; placement: ReturnType<typeof groundPlacement> } {
   checkFall(fall);
   const defaults = labAddress("?scenario=ground"), balance = fall.balance ?? 0;
-  if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a fighter on a body the command layers read");
+  if (!onStandBed(fall)) throw new Error("the Lab's stand bed drives a body the command layers read");
   const address: LabAddress = { ...defaults, model: fall.model as HumanoidModel, ...(fall.character ? { attributes: characterOf(fall) } : {}), right: fall.loadout?.right ?? fall.held ?? "empty", left: fall.loadout?.left ?? "empty", balance, seed: fall.seed,
     ground: { ...defaults.ground, level: fall.level ?? "open", start: fall.start, posture: fall.posture ?? "back", degrees: fall.degrees ?? null,
       impulse: fall.impulse ?? null, gusts: fall.gusts ?? false } };
@@ -144,14 +143,12 @@ export interface BuiltFall {
 /**
  * **The Lab's stand bed**, the research rising bed's: `fall`'s world on `engine`, from its start
  * (`fallStart`'s, unless given): the body built in its placement, its mind hosted as the Lab hosts
- * it (`subs` in place of the config's sub-minds, an experiment's) with its balance's assist, and the
+ * it with its balance's assist, and the
  * Stand-up mode started. It ends once the stand is verified or failed (`target`, `obstacle`,
  * `equipped`), else at hand-back or when the run stops; at `FALL_AFTER` s past the cap in any case.
  */
-export async function buildStandFall(fall: FallCase, engine: EngineName, given: {
-  start?: ReturnType<typeof fallStart>; subs?: readonly SubMindMaker[];
-} = {}): Promise<BuiltFall> {
-  const { start = fallStart(fall), subs } = given;
+export async function buildStandFall(fall: FallCase, engine: EngineName, given: { start?: ReturnType<typeof fallStart> } = {}): Promise<BuiltFall> {
+  const { start = fallStart(fall) } = given;
   const { spec, placement } = start;
   if ("refused" in placement) throw new Error(placement.refused);
   const balance = fall.balance ?? 0, verifying = Boolean(fall.target || fall.obstacle || fall.equipped);
@@ -160,8 +157,7 @@ export async function buildStandFall(fall: FallCase, engine: EngineName, given: 
   addArenaSolids(world.physics);
   const body = buildBody(spec, world, placement);
   const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
-  if (!takesScript(fall.mind)) throw new Error("the stand bed drives a mind that takes its script");
-  const actor = labActor(body, world, { mind: fall.mind, ...(subs ? { subs } : {}),
+  const actor = labActor(body, world, { mind: fall.mind,
     assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
   const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
   const run = startGround(actor, address, { cap }), check = run.check.state;

@@ -10,9 +10,6 @@ import type { PartLookup, RoleParts } from "./lookup.ts";
  */
 export type Role = keyof RoleParts & string;
 
-/** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
-export type Provision = "script";
-
 /** Whether a part is the game's, or research offered beside it: either is shown and may be chosen. */
 type Stage = "game" | "experimental";
 
@@ -61,8 +58,6 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly keys: Readonly<Record<string, true>>;
   /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
   readonly tuning?: readonly string[];
-  /** What a screen must give a mind for this part to run, if anything. */
-  readonly needs?: Provision;
   /**
    * Whether a body of `spec` can carry out what a part of `config` commands: null where it can,
    * otherwise why not, a sentence. The one source of a part's compatibility: construction, the

@@ -85,7 +85,7 @@ interface Toed {
 /** The toes of the feet among `segments`, each bent to lie along the ground before every world step. */
 export function createToes(segments: readonly Toed[], world: World): { readonly state: Readonly<Record<string, ToesState>>; dispose(): void } {
   const feet = segments.filter((segment) => segment.toes && segment.bent);
-  const hook = feet.length === 0 ? null : world.beforeStep(() => {
+  const hook = feet.length === 0 ? null : world.prepare(() => {
     for (const foot of feet) {
       const bend = bendOf(foot.node.rotationQuaternion!);
       if (bend === foot.toes!.bend) continue;

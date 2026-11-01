@@ -23,6 +23,7 @@ node research/blow-cost.mjs
 node research/step-time.mjs --crowd --cap 30
 node research/call-count.mjs --crowd --cap 30
 node research/mind-make.mjs
+node research/mind-split.mjs --threads 1,3,4,5 --cap 60
 ```
 
 ## Allocation ceilings
@@ -77,7 +78,7 @@ every 20, with every fingerprint case unchanged.
 ## Bodies in a step
 
 `research/step-garbage.mjs`: skeletons with the club, 3 m apart, each under the command layers
-ordered to stand, as `research/body-cost.mjs` stands them ([play.md](play.md#bodies-in-the-step)).
+ordered to stand, as `research/body-cost.mjs@4038482a` stands them ([play.md](play.md#bodies-in-the-step)).
 A row is one count in its own process: 1200 steps timed after 3 s with every collection inside
 (`PerformanceObserver`), then 240 steps under the sampling heap profiler (`allocatedIn`,
 `tests/harness/garbage.mjs`). Nobody fell; no row collected the whole heap.
@@ -796,6 +797,66 @@ two mark-compacts a minute. With a mind's reading of a profile made for one prio
 with one crowd world in its process and 11 and 13 ms in `research/step-time.mjs`'s later playings,
 whose heap holds the playings before (`--trace-gc`, pinned): its marking runs beside the steps.
 
+### The minds split off the world
+
+**With the minds on mind threads beside the world's, the crowd fight would step in about 5.3 ms,
+not 9.3 to 11: under the 6 ms the parallel minds' plan asks, unpinned and pinned, and never more
+than a step behind real time. The world's own part sets it from two mind threads on: about 4.9 ms,
+3.1 of it the solver's, against the ten minds' 4.5.** `research/mind-split.mjs` plays the crowd
+fight (seed 0, ten Option Mind Warriors, its first 60 s) in as many worker threads at once as the
+split would load (a world thread and 2, 3 or 4 mind threads), a whole copy in each; a load hook
+(`research/mind-split-hook.mjs`) times each body's mind (`Mind.step`: its decisions, skills and
+motor control) and its observers after physics, which a mind thread would run; the world's part is
+the step less those (senses, muscles, Rapier, contacts, blows, rules). The split's step is
+`max(world's part, the dearest mind thread's minds) + 0.022 ms`, the bodies dealt round the mind
+threads in turn, the handoff the spinning one measured in Chrome
+([its plan](../plans/2026-11-01-parallel-minds.md#why)). Node 24.19, core world,
+`rapier-coordinate`, 120 Hz, at `526dd9a1`, read from 2 s; the least over the copies, their median
+in brackets; pinned is one logical processor a core (`start /affinity 55555555`):
+
+| Threads loaded | Mind threads | One thread's step | The world's part | The minds' part | The split's step | Its 99th per cent | Worst lag, split | Worst lag, one thread |
+| ---: | ---: | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2, unloaded | 9.30 | 4.81 | 4.49 | 4.86 | 7.78 | 3 | 6723 |
+| 3 | 2 | 10.20 (10.30) | 5.22 (5.25) | 4.98 (5.05) | **5.27** (5.30) | 8.41 | 4 (5) | 12983 |
+| 4 | 3 | 10.47 (10.79) | 5.31 (5.47) | 5.16 (5.33) | **5.33** (5.49) | 8.39 | 4 (6) | 14856 |
+| 5 | 4 | 10.76 (10.97) | 5.47 (5.53) | 5.29 (5.46) | **5.50** (5.56) | 8.58 | 4 (7) | 16874 |
+| 3, pinned | 2 | 10.75 (10.94) | 5.46 (5.53) | 5.29 (5.40) | **5.52** (5.58) | 8.52 | 5 (7) | 16827 |
+| 4, pinned | 3 | 11.14 (11.47) | 5.70 (5.86) | 5.44 (5.61) | **5.73** (5.89) | 8.73 | 5 (9) | 19546 |
+| 5, pinned | 4 | 10.53 (11.30) | 5.37 (5.74) | 5.16 (5.56) | **5.40** (5.77) | 8.60 | 7 (9) | 15300 |
+
+Times and lags in ms; a lag under a step (8.33) is never seen. One thread alone, again with the
+solver timed, read the world's part 4.87 ms, the solver 3.10 of it, the minds 4.51.
+
+- **Two mind threads give all there is**: past two, the world's part is the step, and more loaded
+  threads make every part dearer (the world's 4.8 ms alone, 5.2 to 5.7 beside four copies).
+- **The world's part is the next limit**: the solver 3.1 ms of it; the senses, the muscle driver,
+  contacts, blows and the rules the other 1.8. The split's world also writes each body's snapshot,
+  not read here.
+- **Read with every copy whole**: each thread runs every mind and the world, more than a split's
+  thread would hold, so a part here is if anything dearer than in the split.
+
+### Minds on their mirrors
+
+**With every mind on its mirror (`World.mirrored`), the crowd fight's step past the solver is 7.5 to
+7.8 ms against 6.1, about 0.15 ms a body: the world writes each body twice a step, 1.04 ms for the
+ten, and the mirrors read it, 0.95 ms with the dynamics the driver no longer reads.**
+`research/step-time.mjs --crowd --cap 20 --runs 3`, mirrored (`--mirrored`) and not, in turn,
+mirrored first and last; Node 24.19, core world, Rapier, 120 Hz, unpinned, beside another agent's
+runs on the host, so read the rows against each other; the writes and reads timed apart by a
+temporary hook over 1800 steps, mirrored:
+
+| Run | The solver, mean ms | The rest, mean ms | Its 99th per cent | Scavenges |
+| --- | --- | --- | --- | --- |
+| mirrored | 3.05 | 7.52 | 11.6 | one every 21 steps |
+| on bodies | 3.05 | 6.14 | 9.96 | one every 26 |
+| mirrored | 3.12 | 7.82 | 11.9 | one every 21 |
+
+- **The writes are the world's**: split off, they land on the world's thread, whose part sets the
+  split's step ([above](#the-minds-split-off-the-world)), about 0.1 ms a body.
+- **Each write reads every segment's contacts and manifolds**, since a mind may read any segment's.
+  They change only with the solver's step, a load, a level, or a body added or removed, but the
+  engine does not say when its readings went stale, so a body's are read at each write.
+
 ### Making a mind
 
 **A warm Warrior's Option Mind is made in about 5.5 ms, a Skeleton's in about 3.3: a quarter and a
@@ -920,7 +981,7 @@ and throws them is not read, so the game puts no body to sleep.
 
 ## A blow part's step
 
-`research/blow-cost.mjs`: one body on the punch stand (`punchStand`), its right hand throwing at the
+`research/blow-cost.mjs@4038482a`: one body on the punch stand (`punchStand`), its right hand throwing at the
 pad 0.1 m right, 1.55 m up and 0.55 m ahead, 8 s from 2 s; steps with a blow under way and without,
 each cell the least mean of three playings after one to compile. A step without a blow, about
 1.05 ms, is the stand's instruments and the body together; a blow adds the difference.

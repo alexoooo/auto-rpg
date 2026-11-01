@@ -324,7 +324,7 @@ export class Duel {
       minds: { left: recipe.minds?.left ?? defaultMind(recipe.left), right: recipe.minds?.right ?? defaultMind(recipe.right) },
     })) as unknown;
     this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, solids,
-      engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation });
+      engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation, delay: world.delay });
     this.rules = rulebook("arena", recipe.rules);
     const enlistments = SIDES.map(side => {
       const model = recipe[side], config = recipe.minds?.[side] ?? defaultMind(model);

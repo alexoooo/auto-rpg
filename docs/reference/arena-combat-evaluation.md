@@ -88,7 +88,7 @@ under pressure come first.
 held-out candidate, frozen at `75e239d2`: `{kind:'arena-fighter', hand:'alternate',
 targeting:'openings', repertoire:'mixed', openings:{head:0.3, upperTrunk:0, middleTrunk:0}}`, with
 no low-combat transition. The Scrapper (`SCRAPPER`) uses it with mixed strikes standing, as does
-the Brawler (`BRAWLER`, `tests/fixtures/minds.mjs`). The comparison Combat is the linear opening
+the Brawler (`BRAWLER`, `tests/fixtures/minds.mjs@4038482a`). The comparison Combat is the linear opening
 controller; Classic uses staged recovery and Point tracked engagement.
 
 Each opponent meets 100 distinct held-out recipes and their mirrors (200 bouts): gap 1.2-6 m,

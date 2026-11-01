@@ -75,9 +75,13 @@ fingerprint case.
    `research/gait-profiles.mjs`). Check: every rung of the punch, club and stomp drills, the
    Gait drill, the baseline battery and the stand-up on the owner's target
    ([rising](../reference/rising.md#the-owners-target)) read against the version before, and the match
-   against it. Balance and the rise are held: where they suffer, motor control predicts its
-   own body a step ahead from the command it has sent (its sense of its own pose is a step
-   older), inside the mind. A trained skill that loses is fine-tuned in the table's first pass
+   against it. Balance and the rise are held: where they suffer, motor control predicts its own
+   body a step ahead from the command it has sent (its sense of its own pose is a step older),
+   inside the mind. The rule is in every world; at one step motor control does not yet hold a
+   planted root pose or the stand-up target, and predicting the body at constant velocity does not
+   restore them ([the command delay](../reference/command-delay.md)), so the game's delay stays
+   none until it predicts from its solve's planned accelerations on its mirror (step 3). A trained
+   skill that loses is fine-tuned in the table's first pass
    ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3), not here.
 3. **A mind's body read from a snapshot, on one thread.** Each body's mirror is made from its spec
    and refreshed from one `Float64Array` the world writes after each step:
@@ -94,13 +98,24 @@ fingerprint case.
    way. The body's dynamics are updated in the mirror, which is the only reader. Check: a bout
    with every mind on its mirror is the same bout, step for step, as with every mind on its body
    (a test, whole records, in the Mind contract); no fingerprint case moves.
+   The mirror carries the body in and the command out (`mirrorBody`, `src/core/mind/mirror.ts`).
+   What is read of a mind from outside, and what it reads but its body, still reach it directly,
+   and go by the channel in step 4: its report and its menu (asked for by a page or a Commander,
+   computed in the mind's thread), its orders (`MindWiring.orders`), its clock (`BodyHost.clock`),
+   its contact labels (`OwnBody.contactIdentity`, a function of the fight's), its idling
+   (`Mind.idle`, called as its level leaves `full`), its saved state, and the command layers' view
+   a page reads (`Mind.body`).
 4. **Minds in workers, on Node.** The world starts its mind workers (`worker_threads`, one
    `SharedArrayBuffer` each way, `Atomics` to wait: spinning briefly, then sleeping); each worker
    loads the minds' data and makes its bodies' minds, the Crypt's as it builds them ahead
    (`DungeonRun.build`), the world waiting for a mind it needs before the body's first step.
+   The workers work at any delay, the same code: at none the world waits each step for each
+   mind's answer before its muscles take it; at a step or more it steps while the minds think, an
+   answer carried into the rings as it comes, which needs the driver's and the assist's rings
+   written apart from what they apply (`driveMuscles`, `createAssist`).
    Check: the crowd fight, the reference bouts and the Crypt at seeds 10 and 25 the same to the
-   bit with 1 to 4 workers as on one thread; each one's lag, pinned and not, in
-   [step cost](../reference/step-cost.md).
+   bit with 1 to 4 workers as on one thread; each one's lag at the game's delay, pinned and not,
+   in [step cost](../reference/step-cost.md).
 5. **In the browser.** The world's worker (`src/worker/serve.ts`) starts the mind workers. The
    pages are cross-origin isolated: the headers in `vite.config.ts` for the dev server and preview,
    and `public/coi-sw.js` scoped to the game's pages on GitHub Pages, so a first visit reloads
@@ -112,8 +127,8 @@ fingerprint case.
 ## Done when
 
 - The crowd fight to its verdict, the reference bouts and the Crypt at seeds 10 and 25 are never
-  more than a step behind real time with the mind workers, pinned and not (Node, core world,
-  `rapier-coordinate`, 120 Hz, the least of three playings' worst lag).
+  more than a step behind real time with the mind workers at the game's delay, pinned and not
+  (Node, core world, `rapier-coordinate`, 120 Hz, the least of three playings' worst lag).
 - A bout is the same to the bit on one thread and on any number of mind workers, in Node and in
   the browser.
 - The owner plays the crowd fight and the Crypt and sees 60 fps, never below 30, and no slow motion.

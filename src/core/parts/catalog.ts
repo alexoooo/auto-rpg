@@ -1,11 +1,10 @@
 import type { DataKey } from "../data/store.ts";
 import type { MindConfig } from "../mind/config.ts";
-import type { FighterConfig } from "../tactics/config.ts";
-import type { Controller, MindPreset, Scripted } from "../mind/controller.ts";
+import type { Controller, MindPreset } from "../mind/controller.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { scopeOf, type Entrant } from "./entrant.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
-import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
+import { slotsOf, type Part, type PartConfig, type Role } from "./parts.ts";
 
 /**
  * **What a catalog is made of** (`catalogOf`): the toolkit's kinds of mind and each role's list of
@@ -76,10 +75,6 @@ export interface Catalog {
   isKind(kind: unknown): kind is string;
   /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
   partOf<C extends PartConfig>(config: C): Part<C>;
-  /** How a scene drives `config` by a script (`Controller.scripted`); null where its mind takes none, or no mind is of its kind. */
-  scriptedBy(config: MindConfig): Scripted | null;
-  /** Whether a scene may drive `config` by a script of its own (`scriptedBy`): a mind with a fighter's slots. */
-  takesScript(config: MindConfig): config is FighterConfig;
   /**
    * **Every part by kind, looked up by role** (`PartLookup`): each config's part (`partOf`),
    * refused where the kind is of another role.
@@ -91,14 +86,13 @@ export interface Catalog {
    */
   treeLookup(config: PartConfig): PartLookup;
   /**
-   * **What is wrong with the tree `config` roots** on a screen that `provides` what it does, each a
-   * sentence. A part's own faults come first, then each slot's, each prefixed with where it is
-   * (`subs.0: `). A part the screen cannot run (`Part.needs`), a slot that holds what is no part, a
+   * **What is wrong with the tree `config` roots**, each a sentence. A part's own faults come first, then each slot's, each prefixed with where it is
+   * (`ground.0: `). A slot that holds what is no part, a
    * part of another role, or nothing where it must hold one is a fault; a part's own faults
    * (`Part.faults`) are read only once every descendant slot holds parts of its role. A tree that
    * names the kinds of two entrants is a fault (`treeScope`).
    */
-  treeFaults(config: PartConfig, provides?: readonly Provision[], at?: string): readonly string[];
+  treeFaults(config: PartConfig, at?: string): readonly string[];
   /** **The entrant whose tree `config` roots** (`scopeOf` of its kinds), or null for the toolkit's kinds alone; the first, where it names two. */
   treeScope(config: PartConfig): string | null;
   /** **Every kind of part in the tree `config` roots**, the root's included, an empty slot's fallback (`Slot.fallback`) and what a part runs besides its slots (`Part.uses`), each once: what a case's code holds the parts' own code of (`caseCoder`). */
@@ -124,10 +118,10 @@ export interface Catalog {
   withoutTuning<C extends PartConfig>(config: C): C;
   /**
    * **Every part of `role`** a slot in the tree `tree` roots may hold, in the list's order, each with
-   * why it cannot go there for a body of `spec` on a screen that `provides` what it does, or null:
+   * why it cannot go there for a body of `spec`, or null:
    * the toolkit's parts and the tree's own entrant's (`treeScope`). None of those is left out.
    */
-  kindsFor(role: Role, spec: BodySpec, provides?: readonly Provision[], tree?: PartConfig | null): readonly Offered[];
+  kindsFor(role: Role, spec: BodySpec, tree?: PartConfig | null): readonly Offered[];
   /**
    * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
    * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`slotsOf`) or a
@@ -136,13 +130,6 @@ export interface Catalog {
    */
   replacedAt<C extends PartConfig>(config: C, path: string, value: unknown): C;
 }
-
-/** What a screen that gives nothing beyond the body and the world provides. */
-const NOTHING: readonly Provision[] = Object.freeze([]);
-
-/** Why a part that `needs` something cannot run on a screen that `provides` what it does, or null. */
-const unprovided = (needs: Provision | undefined, provides: readonly Provision[]): string | null =>
-  needs === undefined || provides.includes(needs) ? null : `this screen gives no ${needs}`;
 
 /** Every part, by its kind; every controller by its kind; every preset by id, with its entrant's name; what is wrong with the lists. */
 interface Registry {
@@ -199,7 +186,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     if (faults) return faults;
     const { presets, entrantOf } = registered(), found = [...registered().faults];
     for (const [id, preset] of Object.entries(presets)) {
-      const { formed, faults: wrong } = treeValidation(preset.config, NOTHING, "");
+      const { formed, faults: wrong } = treeValidation(preset.config, "");
       if (!formed) { found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)}: ${wrong.join("; ")}`); continue; }
       const other = scopesOf(preset.config).find((scope) => scope !== entrantOf[id]);
       if (other !== undefined) found.push(`${entrantOf[id]}'s preset ${JSON.stringify(id)} names ${other}'s kinds`);
@@ -218,11 +205,6 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     const found = Object.hasOwn(controllers, config.kind) ? controllers[config.kind] : undefined;
     if (!found) throw new Error(`no mind of kind ${JSON.stringify(config.kind)}`);
     return found;
-  }
-  function scriptedBy(config: MindConfig): Scripted | null {
-    const controllers = registered().controllers;
-    const controller = isKind(config.kind) ? controllers[config.kind] : undefined;
-    return controller?.scripted ?? null;
   }
   const partLookup: PartLookup = Object.freeze({
     of<R extends Role>(role: R, config: PartConfig): RoleParts[R] {
@@ -262,7 +244,7 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     [...new Set(treeKinds(config).map(scopeOf).filter((scope): scope is string => scope !== null))];
 
   /** Structural validity travels with a subtree's faults, so ancestor hooks may safely traverse its slots. */
-  function treeValidation(config: PartConfig, provides: readonly Provision[], at: string): { readonly formed: boolean; readonly faults: readonly string[] } {
+  function treeValidation(config: PartConfig, at: string): { readonly formed: boolean; readonly faults: readonly string[] } {
     const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
     const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
     if (!isPart(config)) return { formed: false, faults: [where(kind(config))] };
@@ -277,14 +259,13 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
         if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
         else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
         else {
-          const checked = treeValidation(child, provides, here);
+          const checked = treeValidation(child, here);
           formed = formed && checked.formed;
           slots.push(...checked.faults);
         }
       });
     }
-    const screen = unprovided(partOf(config).needs, provides);
-    return { formed, faults: [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)),
+    return { formed, faults: [...unknownSettings(config).map((fault) => where(fault)),
       ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots] };
   }
 
@@ -421,8 +402,6 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     allParts: () => registered().parts,
     isKind,
     partOf,
-    scriptedBy,
-    takesScript: (config: MindConfig): config is FighterConfig => scriptedBy(config) !== null,
     partLookup,
     treeLookup(config: PartConfig): PartLookup {
       const named = new Set(treeKinds(config));
@@ -433,8 +412,8 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
         },
       });
     },
-    treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = ""): readonly string[] {
-      const { formed, faults: found } = treeValidation(config, provides, at), scopes = formed ? scopesOf(config) : [];
+    treeFaults(config: PartConfig, at = ""): readonly string[] {
+      const { formed, faults: found } = treeValidation(config, at), scopes = formed ? scopesOf(config) : [];
       return scopes.length < 2 ? found : [...found, `${at ? `${at}: ` : ""}it names the kinds of ${scopes.join(" and ")}: a tree is one entrant's`];
     },
     treeScope: (config: PartConfig): string | null => scopesOf(config)[0] ?? null,
@@ -455,10 +434,10 @@ export function catalogOf(lists: () => CatalogLists): Catalog {
     stageRefusal: (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
       treeRefusal(spec, config) ?? entryRefusal(spec, config, rules),
     withoutTuning,
-    kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING, tree: PartConfig | null = null): readonly Offered[] {
+    kindsFor(role: Role, spec: BodySpec, tree: PartConfig | null = null): readonly Offered[] {
       const scope = tree ? scopesOf(tree)[0] ?? null : null;
       return Object.entries(registered().parts).filter(([kind, part]) => part.role === role && (scopeOf(kind) === null || scopeOf(kind) === scope))
-        .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) }));
+        .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) }));
     },
     replacedAt,
   });

@@ -45,11 +45,8 @@ import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/intent/intent.ts";
 import { driveBy } from "../src/core/mind/decider.ts";
 import { partOf, MINDS, GAME } from "../src/entrants/game.ts";
-import { PUNCHER } from "../src/entrants/classic/presets.ts";
-import { QUADRUPED } from "../src/core/reptile/config.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { quadrupedMind } from "../src/core/reptile/mind.ts";
-import { hostedMind } from "../src/core/mind/minds.ts";
+import { createMind } from "../src/core/mind/minds.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
@@ -58,6 +55,7 @@ import { cutawayCondition } from "../src/dungeon/reference-look.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/lab/actor.ts";
+import { LAB_MIND } from "../src/lab/scenarios.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
@@ -150,11 +148,11 @@ async function arena(recipe, { watch } = {}) {
 
 /**
  * `model` left standing for 11 s from as it is built: a humanoid under the command layers in
- * guard, the reptile under its own mind with no orders.
+ * guard, the reptile under its Option Mind (`option-reptile`) with no orders.
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? hostedMind(GAME, stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring, QUADRUPED)).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? createMind(GAME, stand.built, stand.world, MINDS["option-reptile"].config, { name: "stand", orders: () => null }).body : commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const trace = traceOf([stand.built]);
@@ -189,7 +187,7 @@ async function cryptFight(seed) {
 /** `model` round the lab's circle for 10 s. */
 async function labRun(model) {
   const stand = await coreStand(humanSpec(model), { ground: true });
-  const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS.circle.pieces));
+  const run = startLocomotion(labActor(stand.built, stand.world, { mind: LAB_MIND }), trackOf(TRACKS.circle.pieces));
   try {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }
@@ -372,11 +370,11 @@ const warriorMinds = () => [...new Set(HELDS.flatMap((held) => controlsFor("work
   .map((control) => [control, HELDS.filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
- * run plays, the Warrior is not offered and no case above plays (the quadruped's `crawl`): itself on
+ * run plays, the Warrior is not offered and no case above plays (the reptile's `option-reptile`): itself on
  * both sides, on the first body it fits, holding the first of `HELDS` that body holds and the mind
  * takes. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
  */
-const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
+const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "option-reptile" && played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
   const model = BODY_MODELS.find((m) => HELDS.some((held) => controlsFor(m, rightHand(held)).includes(id)));
   if (!model) return [];
   const loadouts = both(HELDS.find((held) => controlsFor(model, rightHand(held)).includes(id)));
@@ -385,12 +383,12 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
 });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: the straight punch's records, the Puncher throwing its at the chest on both sides of a bout of toed Warriors, the body it has a record for.
+ * read by a case that plays it: the straight punch's records, Option Mind throwing it alone at the chest on both sides of a bout of toed Warriors, the body it has a record for.
  */
 const DATA_CASES = [
   { name: "data: straight-punch", run: () => {
-    const mind = { ...PUNCHER,
-      actions: PUNCHER.actions.map((action) => ({ ...action, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1 } } })) };
+    const option = MINDS.option.config, mind = { ...option,
+      executors: option.executors.filter((executor) => executor.kind === "straight-punch"), actions: option.actions.filter((action) => action.name === "straight-punch") };
     return arena({ left: "workshop-fighter", right: "workshop-fighter", loadouts: both("empty"), minds: { left: mind, right: mind } });
   } },
 ];
@@ -400,9 +398,9 @@ const CASES = [
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
   ...warriorMinds().flatMap(([control, helds]) =>
     helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${rogueControl(control, held)}`, both(held)))),
-  controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("sword")),
-  controlled("reptile", "reptile", "crawl,crawl", both("empty")),
-  controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand("sword") }),
+  controlled("crypt-skeleton", "workshop-rogue", "option,option", both("sword")),
+  controlled("reptile", "reptile", "option-reptile,option-reptile", both("empty")),
+  controlled("reptile", "workshop-fighter", "option-reptile,option", { left: rightHand("empty"), right: rightHand("sword") }),
   ...elsewhere(),
   ...DATA_CASES,
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),

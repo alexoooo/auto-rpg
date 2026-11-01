@@ -1,22 +1,21 @@
 /**
  * **A part of any converted role swaps in from outside the shared code** (Node, core world,
- * vendored Rapier, 120 Hz). The fixture entrant (`tests/fixtures/swap/`, `swap`), with a fighter,
- * an Option Mind and a quadruped of its own, is registered by a line of the entrants list, outside
+ * vendored Rapier, 120 Hz). The fixture entrant (`tests/fixtures/swap/`, `swap`), with an Option
+ * Mind of its own, over its kit or the quadruped's frame, is registered by a line of the entrants list, outside
  * `src/`, and holds a stub of each converted role as its own parts (`swap:<kind>`). For each,
  * chosen by its config alone: the catalog offers it in its own entrant's trees and no other's, a
  * tree that names it and another entrant's kinds is refused, the part its maker made is the part a bout
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
  * through a link unchanged. One bout, the two fixtures facing, holds every stub at once; an
- * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
- * takeover and resumes across its handback. A body a mind's parts cannot drive refuses the mind
+ * executor is made with the configured guard's posture, and each technique of the rise with the
+ * configured motor. A body a mind's parts cannot drive refuses the mind
  * for what the first of them lacks, at construction too, and every stock legs for what they stand on.
  * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
- * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
- * planner's own report reaches the readout a person reads. The quadruped fixture holds a stub of
- * each of the quadruped's roles (motor, gait, bite, planner), and the Option Mind fixture one aim, one
- * chooser, one option and one balance.
+ * line of the end rules list, ends a bout whose recipe names it and its start arrangement. The
+ * quadruped fixture, Option Mind over the quadruped's frame, holds a stub of each of the frame's roles (motor, gait, bite, stalk), and
+ * the Option Mind fixture one aim, one chooser, one option and one balance.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -33,7 +32,6 @@ const { MINDS } = await import("../src/entrants/game.ts");
 const { commandedBody } = await import("../src/core/mind/host.ts");
 const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/entrants/game.ts");
-const { BLADE_FIGHTER, FIGHTING } = await import("../src/core/tactics/config.ts");
 const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
@@ -41,7 +39,6 @@ const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTION_DEFAULTS, SWAP_QUADRUPED
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
 const { STRAIGHT_NAVIGATION } = await import("./fixtures/swap/straight-navigation.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
-const { STUB_TAKEOVER, TAKEOVER } = await import("./fixtures/swap/stub-takeover.mjs");
 const { saveState } = await import("../src/core/state.ts");
 const { COMMANDERS } = await import("../src/core/command/commanders.ts");
 const { teamOfOne } = await import("../src/arena/team.ts");
@@ -52,7 +49,6 @@ const { EVALUATIONS } = await import("../src/evaluation/evaluations.ts");
 const { playRow } = await import("../src/evaluation/play.ts");
 const { caseNames } = await import("../src/evaluation/code.ts");
 const { endingText } = await import("../src/arena/end-rule.ts");
-const { engagementLines } = await import("../src/ui/action-readout.ts");
 const { labActor } = await import("../src/lab/actor.ts");
 const { standIntent } = await import("../src/core/intent/intent.ts");
 const { resolveSubjects } = await import("../scripts/evaluation-subjects.mjs");
@@ -72,19 +68,18 @@ test("the fixture entrant is registered from outside src/", () => {
   }
 });
 
-test("the Lab plays the fixture fighter, prepares its planner once, and replaces it completely with a supplied script", async () => {
-  assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
-  // A mind that takes no script and carries out orders plays a scripted scenario by its script made orders.
+test("the Lab plays the fixture Option Mind by a supplied script made orders, decided once a step, its instrument reading first", async () => {
+  // A mind that carries out orders plays a scripted scenario by its script made orders.
   assert.deepEqual(labMind(SWAP_OPTION_DEFAULTS, spec, "stance"), { plays: SWAP_OPTION_DEFAULTS, faults: [] });
-  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_DEFAULTS });
+  const stand = await coreStand(spec), actor = labActor(stand.built, stand.world, { mind: SWAP_OPTION_DEFAULTS });
   try {
-    const planned = actor.drive(); stand.step();
-    assert.equal(planned.skills.state.preparation.built, 1);
-    assert.equal(planned.skills.state.preparation.steps, 1);
-    const state = { steps: 0 }, script = { name: "fixture", state, decide() { state.steps++; return standIntent(); } };
-    const scripted = actor.drive(script); stand.step();
-    assert.equal(state.steps, 1);
-    assert.equal(scripted.skills.state.preparation, undefined, "replacing the planner also replaces its preparation");
+    const state = { steps: 0 }, seen = [], script = { name: "fixture", state, decide() { state.steps++; return standIntent(); } };
+    const scripted = actor.drive(script, { watch: (sight) => seen.push(sight.report) });
+    stand.step(); stand.step();
+    assert.equal(state.steps, 2, "the script decides once a step, however often the mind asks its orders");
+    assert.equal(seen.length, 2, "its instrument reads each step the script decides");
+    assert.ok(seen.every((report) => report === scripted.skills.report), "the instrument reads what the mind's skills report");
+    assert.equal(scripted, actor.mind, "the mind driven is the actor's own");
   } finally { actor.dispose(); stand.dispose(); }
 });
 
@@ -107,11 +102,16 @@ test("an external preset's model calibration governs Arena, Lab and evaluation c
   assert.deepEqual(labAddress(custom).mind, SWAP_DEFAULTS, "a whole custom tree still travels unchanged");
 });
 
+/** Option Mind's sword blows, executors and actions, to widen a bare-hand source's loadouts. */
+const SWORD_EXECUTORS = MINDS.option.config.executors.filter((executor) => executor.kind.startsWith("sword-"));
+const SWORD_ACTIONS = MINDS.option.config.actions.filter((action) => SWORD_EXECUTORS.some((executor) => executor.name === action.executor));
+
 test("CLI ablations inherit calibrated bodies and loadouts before scheduling paired cases", () => {
   const evaluation = EVALUATIONS.tournament, panel = "option/workshop-fighter/empty,empty";
-  for (const [id, changes] of [["swap-stub", ["tactics.choose.patience=0.5"]],
-    ["swap-unarmed", [`executors=${JSON.stringify([...MINDS["swap-unarmed"].config.executors, ...BLADE_FIGHTER.executors])}`,
-      `actions=${JSON.stringify([...MINDS["swap-unarmed"].config.actions, ...BLADE_FIGHTER.actions])}`]]]) {
+  assert.ok(SWORD_EXECUTORS.length > 0 && SWORD_ACTIONS.length > 0, "Option Mind has sword blows to widen with");
+  for (const [id, changes] of [["swap-stub", ["rate=30"]],
+    ["swap-unarmed", [`executors=${JSON.stringify([...MINDS["swap-unarmed"].config.executors, ...SWORD_EXECUTORS])}`,
+      `actions=${JSON.stringify([...MINDS["swap-unarmed"].config.actions, ...SWORD_ACTIONS])}`]]]) {
     const baseline = evaluation.subjects([id]), original = JSON.stringify(MINDS[id].config);
     const { choice, subjects } = resolveSubjects(evaluation, [], id, changes), candidate = choice[0];
     const kits = (subjects) => subjects.map(({ value: { model, loadout } }) => ({ model, loadout }));
@@ -139,27 +139,25 @@ test("CLI ablations inherit calibrated bodies and loadouts before scheduling pai
 });
 
 test("CLI resolution preserves whole-config expansion, batteries and two-subject matches", () => {
-  const id = "vanguard-skeleton", raw = JSON.stringify(MINDS[id].config), evaluation = EVALUATIONS.tournament;
+  const id = "swap-skeleton", raw = JSON.stringify(MINDS[id].config), evaluation = EVALUATIONS.tournament;
   assert.deepEqual(resolveSubjects(evaluation, [id]).subjects, evaluation.subjects([id]));
   const custom = resolveSubjects(evaluation, [raw]);
   assert.deepEqual(custom.subjects, evaluation.subjects(custom.choice));
   assert.ok(custom.subjects.some(one => one.value.model !== "crypt-skeleton"), "an unscoped custom config still expands beyond its named calibration");
-  const punchesOnly = MINDS[id].config.actions.map(action => {
-    const executor = MINDS[id].config.executors.find(executor => executor.name === action.executor);
-    return executor.kind === "vanguard:punch" ? `actions.${action.name}.effectors=["hand.right"]` : `actions.${action.name}=null`;
-  });
-  const narrowed = resolveSubjects(evaluation, [], id, punchesOnly);
-  const baseline = evaluation.subjects([id]);
+  // A bare-hand source strikes with its other hand while one holds an item; struck with the right alone, it cannot hold one there.
+  const unarmed = "swap-unarmed", rightOnly = MINDS[unarmed].config.actions.map(action => `actions.${action.name}.effectors=["hand.right"]`);
+  const narrowed = resolveSubjects(evaluation, [], unarmed, rightOnly);
+  const baseline = evaluation.subjects([unarmed]);
   assert.ok(baseline.some(one => one.value.loadout.right !== "empty"), "the source can strike with its other hand while holding an item");
   assert.deepEqual(narrowed.subjects.map(one => ({ model: one.value.model, loadout: one.value.loadout })),
     baseline.filter(one => one.value.loadout.right === "empty").map(one => ({ model: one.value.model, loadout: one.value.loadout })),
     "an ablation still drops source loadouts the changed config cannot play");
-  for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.crowd, []], [EVALUATIONS.match, ["counter"]]]) {
-    const resolved = resolveSubjects(evaluation, names, id, ["tactics.flank=false"]);
+  for (const [evaluation, names] of [[EVALUATIONS.court, []], [EVALUATIONS.crowd, []], [EVALUATIONS.match, ["option"]]]) {
+    const resolved = resolveSubjects(evaluation, names, id, ["rate=30"]);
     const expected = evaluation.subjects(resolved.choice);
     expected[0] = { ...expected[0], models: MINDS[id].models };
     assert.deepEqual(resolved.subjects, expected);
-    assert.equal(resolved.subjects[0].value.tactics.flank, false);
+    assert.equal(resolved.subjects[0].value.rate, 30);
   }
 });
 
@@ -183,7 +181,7 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
     }, "admission filters cases without changing an eligible recipe or key");
     if (evaluation === EVALUATIONS.court) assert.ok(raw.units.some(unit => modelOf(unit[0]) === "workshop-rogue"),
       "the equipped fixture exposes calibration leakage independently of physical fit");
-    const resolved = resolveSubjects(evaluation, [], "swap-stub", ["tactics.choose.patience=0.5"]);
+    const resolved = resolveSubjects(evaluation, [], "swap-stub", ["rate=30"]);
     assert.deepEqual(resolved.subjects[0].models, named[0].models);
     const independent = cases(evaluation.subjects(resolved.choice));
     assert.deepEqual(cases(resolved.subjects).units, independent.units.filter(unit => modelOf(unit[0]) === "workshop-fighter"),
@@ -194,9 +192,9 @@ test("mind batteries admit only a named calibration's bodies and preserve that s
   const evaluation = EVALUATIONS.crowd;
   const cases = subjects => casesOf(evaluation, evaluation.defaultProtocol, subjects,
     { engine: BOUT_ENGINE, code: () => "crowd-scope", schedule: { kind: "all" } });
-  for (const id of ["vanguard-rogue", "vanguard-skeleton"]) {
+  for (const id of ["swap-skeleton"]) {
     assert.throws(() => cases(evaluation.subjects([id])), /fits no condition.*named calibration allows/);
-    assert.throws(() => cases(resolveSubjects(evaluation, [], id, ["tactics.lowGuard=false"]).subjects),
+    assert.throws(() => cases(resolveSubjects(evaluation, [], id, ["rate=30"]).subjects),
       /fits no condition.*named calibration allows/);
     assert.ok(cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }])).units.length > 0,
       "an independent configuration still runs on physically compatible bodies");
@@ -207,78 +205,73 @@ test("a match admits complete pairs within named calibrations and preserves the 
   const evaluation = EVALUATIONS.match;
   const cases = subjects => casesOf(evaluation, "standard", subjects,
     { engine: BOUT_ENGINE, code: () => "match-scope", schedule: { kind: "all" } });
-  for (const [id, model] of [["vanguard-warrior", "workshop-fighter"], ["vanguard-rogue", "workshop-rogue"], ["swap-stub", "workshop-fighter"]]) {
-    const named = evaluation.subjects([id, "duellist"]), before = JSON.stringify(named);
-    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "duellist"]));
+  for (const [id, model] of [["swap-stub", "workshop-fighter"], ["swap-unarmed", "workshop-fighter"]]) {
+    const named = evaluation.subjects([id, "option"]), before = JSON.stringify(named);
+    const scoped = cases(named), raw = cases(evaluation.subjects([{ id, label: id, value: MINDS[id].config }, "option"]));
     assert.ok(scoped.units.length > 0, "the calibration has complete cases");
     assert.deepEqual(scoped.units, raw.units.filter(unit => unit.every(one => one.world.recipe.left === model && one.world.recipe.right === model)),
       "scope filters complete units without changing their recipes or keys");
     assert.ok(raw.units.some(unit => unit.some(one => one.world.recipe.left !== model)), "the independent configuration exercises wider physical fit");
     assert.equal(JSON.stringify(named), before, "admission preserves its subjects");
   }
-  const original = cases(evaluation.subjects(["vanguard-warrior", "counter"]));
-  const changed = cases(resolveSubjects(evaluation, ["counter"], "vanguard-warrior", ["tactics.routeAround=false"]).subjects);
+  const original = cases(evaluation.subjects(["swap-stub", "option"]));
+  const changed = cases(resolveSubjects(evaluation, ["option"], "swap-stub", ["rate=30"]).subjects);
   assert.deepEqual(changed.units.map(unit => unit.map(one => one.condition)), original.units.map(unit => unit.map(one => one.condition)));
-  assert.throws(() => cases(evaluation.subjects(["vanguard-skeleton", "counter"])), /fits no condition.*named calibration allows crypt-skeleton/);
-  assert.throws(() => cases(resolveSubjects(evaluation, ["counter"], "vanguard-skeleton", ["tactics.flank=false"]).subjects), /fits no condition/);
+  assert.throws(() => cases(evaluation.subjects(["swap-skeleton", "option"])), /fits no condition.*named calibration allows crypt-skeleton/);
+  assert.throws(() => cases(resolveSubjects(evaluation, ["option"], "swap-skeleton", ["rate=30"]).subjects), /fits no condition/);
 });
 
-test("nested planner structure faults reach links without invoking unsafe ancestor validators", () => {
-  const base = MINDS["vanguard-skeleton"].config, plan = base.tactics.plan;
-  const foreign = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-tactics").part;
-  const cases = [
-    [{ kind: "missing-plan" }, "", 'no part of kind "missing-plan"'],
-    [{ kind: "vanguard:plan" }, ".plan", "a tactics part is needed"],
-    [{ kind: "shield-guard" }, "", "a guard part cannot go where a tactics part goes"],
-    [{ ...plan, list: {} }, ".list", "a list of behaviour parts"],
-    [{ ...plan, list: [{ kind: "missing-behaviour" }] }, ".list.0", 'no part of kind "missing-behaviour"'],
-  ];
-  for (const [leaf, suffix, fault] of cases) for (const depth of [1, 2, 3]) {
-    let tactics = leaf;
-    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard:plan", plan: tactics };
-    const config = { ...base, tactics }, faults = [`tactics${".plan".repeat(depth)}${suffix}: ${fault}`];
+test("nested slot faults reach links with their path, another entrant's part however deep makes the tree two entrants', and a part made for another body layer is refused", () => {
+  const base = MINDS.option.config, reptile = MINDS["option-reptile"].config, warrior = modelSpec("workshop-fighter"), crawler = modelSpec("reptile");
+  const option = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-option").part, objective = STUBS.find(stub => stub.part.defaults.kind === "swap:stub-objective").part;
+  for (const [config, faults] of [
+    [{ ...base, chooser: { kind: "missing-chooser" } }, ['chooser: no part of kind "missing-chooser"']],
+    [{ ...base, chooser: { kind: "shield-guard" } }, ["chooser: a guard part cannot go where a chooser part goes"]],
+    [{ ...base, chooser: { ...base.chooser, objective: { kind: "missing-objective" } } }, ['chooser.objective: no part of kind "missing-objective"']],
+    [{ ...base, options: {} }, ["options: a list of option parts"]],
+    [{ ...base, rate: -1 }, ["rate: a positive number of times a second"]],
+  ]) {
     assert.deepEqual(treeFaults(config), faults);
-    assert.deepEqual(parseMind(JSON.stringify(config), modelSpec("crypt-skeleton"), FIGHT_ENTRY), { config, faults },
-      "the screen's link parser returns the faulty configuration and its diagnostic");
+    assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults }, "the screen's link parser returns the faulty configuration and its diagnostic");
   }
-  // Another entrant's part, however deep, makes the tree two entrants': refused at its root, through a link too.
-  for (const depth of [1, 2, 3]) {
-    let tactics = foreign.defaults;
-    for (let i = 0; i < depth; i++) tactics = { kind: "vanguard:plan", plan: tactics };
-    const config = { ...base, tactics }, faults = ["it names the kinds of vanguard and swap: a tree is one entrant's"];
+  // Another entrant's part, in a list or a slot below a slot, makes the tree two entrants': refused at its root, through a link too.
+  const riser = MINDS["riser-rogue"].config, two = (first, second) => `it names the kinds of ${first} and ${second}: a tree is one entrant's`;
+  for (const [config, faults] of [
+    [{ ...riser, options: [...riser.options, option.defaults] }, [two("riser", "swap")]],
+    [{ ...riser, chooser: { kind: "valued", depth: 2, objective: objective.defaults } }, [two("swap", "riser")]],
+  ]) {
     assert.deepEqual(treeFaults(config), faults);
-    assert.deepEqual(parseMind(JSON.stringify(config), modelSpec("crypt-skeleton"), FIGHT_ENTRY), { config, faults });
+    assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults });
   }
-});
-
-test("structurally valid nested planners retain ancestor and child semantic faults in order", () => {
-  const base = MINDS["vanguard-skeleton"].config, plan = FIGHTING;
-  const wrap = plan => ({ kind: "vanguard:plan", revisitEvade: true, plan });
-  const tactics = wrap(wrap({ ...plan, choose: { ...plan.choose, rethink: -1 } }));
-  assert.deepEqual(treeFaults({ ...base, tactics }), [
-    "tactics: revisitEvade needs adaptive evasion",
-    "tactics.plan: revisitEvade needs adaptive evasion",
-    "tactics.plan.plan: selection needs finite nonnegative rethink and positive patience",
-  ]);
-  assert.deepEqual(treeFaults({ ...base, tactics: { kind: "vanguard:plan", plan: { kind: "vanguard:plan", plan } } }), []);
+  // A chooser or an option made for another body layer is refused where it is, through a link too: one of the kit's over the quadruped's frame, and the frame's over the kit.
+  for (const [config, spec, faults] of [
+    [{ ...reptile, options: [...reptile.options, option.defaults] }, crawler, [`options.${reptile.options.length}: swap:stub-option is made for Option Mind's own kit, not the quadruped frame`]],
+    [{ ...base, chooser: reptile.chooser }, warrior, ["chooser: quadruped-valued is made for the quadruped frame, not Option Mind's own kit"]],
+  ]) {
+    assert.deepEqual(treeFaults(config), faults);
+    assert.deepEqual(parseMind(JSON.stringify(config), spec, FIGHT_ENTRY), { config, faults });
+  }
 });
 
 for (const { part, mind, place } of STUBS) {
   const kind = part.defaults.kind, game = GAME_CONFIGS[mind];
   test(`${kind}: offered in a ${part.role} slot of its own entrant's trees only, and placed in a tree of the toolkit's parts makes it its entrant's`, () => {
-    const offered = (tree) => kindsFor(part.role, spec, [], tree).some((one) => one.kind === kind);
+    const offered = (tree) => kindsFor(part.role, spec, tree).some((one) => one.kind === kind);
     assert.ok(offered(MINDS[mind].config), "offered where the tree is the swap entrant's");
     assert.ok(!offered(game), "not offered where the tree names the toolkit's kinds alone");
-    assert.ok(!offered(MINDS["vanguard-warrior"].config), "not offered where the tree is another entrant's");
+    assert.ok(!offered(MINDS["option-reptile"].config), "not offered where the tree is another entrant's");
     assert.equal(treeScope(place(game)), "swap", "placed, it makes the tree the swap entrant's");
   });
 }
 
 test("a body a mind's parts cannot drive refuses the mind for what the first of them lacks, at construction too, every legs for what they stand on, and leaves out a skill it cannot use", async () => {
   const reptile = modelSpec("reptile"), soles = "needs a left and a right foot, each with a box sole";
-  assert.equal(treeRefusal(reptile, BLADE_FIGHTER), `locomotion: ${soles}`, "a blow the body cannot strike with refuses nothing; the legs name what they stand on");
-  assert.deepEqual(unusedParts(reptile, BLADE_FIGHTER), ["blade-cut: needs hand.left or hand.right to strike with", "blade-thrust: needs hand.left or hand.right to strike with"],
-    "each blow left out names the limb it strikes with");
+  const option = MINDS.option.config;
+  assert.equal(treeRefusal(reptile, option), `locomotion: ${soles}`, "a blow the body cannot strike with refuses nothing; the legs name what they stand on");
+  assert.deepEqual(unusedParts(reptile, option), option.executors.map((executor) => {
+    const limbs = option.actions.find((action) => action.executor === executor.name).effectors.map((effector) => effector.split(".")[0]);
+    return `${executor.name}: needs ${limbs[0]}.left or ${limbs[0]}.right to strike with`;
+  }), "each blow left out names the limb it strikes with");
   const legs = kindsFor("locomotion", reptile);
   assert.ok(legs.length > 0, "the fixture offers legs to refuse");
   for (const { kind, reason } of legs) assert.equal(reason, soles, kind);
@@ -321,7 +314,7 @@ test("an evaluation registered from outside src/ plays its lone-body case throug
   assert.equal(row.fault, null, `the case played: ${row.fault?.message}`);
   assert.deepEqual(row.reading, { down: false, seconds: 1 }, "the fixture fighter stands alone a second");
   const names = caseNames(world);
-  assert.deepEqual([names.world, names.kinds], ["lone", ["swap:fighter"]]);
+  assert.deepEqual([names.world, names.kinds], ["lone", ["swap:option"]]);
 });
 
 test("an end rule registered from outside src/ ends a bout whose recipe names it, from the start its recipe arranges", async () => {
@@ -362,36 +355,27 @@ test("each part a bout runs is the one its config names, and the bout forks, res
       const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
       const run = (until, traces) => { while (duel.steps < until) { world.step(); for (const one of traces) one.take(); } };
       run(FORK, [trace]);
-      const saved = fork ? duel.save() : null, atFork = SIDES.map((side) => duel.duelists[side].minded.body.state.mind?.has ?? null);
+      const saved = fork ? duel.save() : null;
       run(STEPS, [trace, tail]);
-      const states = SIDES.map((side) => ({ kind: minds[side].kind, preset: presets[side], mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state),
-        lines: duel.duelists[side].minded.report ? engagementLines(duel.duelists[side].minded.report.engagement) : null }));
+      const states = SIDES.map((side) => ({ kind: minds[side].kind, preset: presets[side], mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state) }));
       let resumed = null;
       if (saved) { duel.load(saved); const again = traceOf(builts); run(STEPS, [again]); resumed = again.digest(); }
-      return { digest: trace.digest(), tail: tail.digest(), resumed, states, atFork, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
+      return { digest: trace.digest(), tail: tail.digest(), resumed, states, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
     } finally { dispose(); }
   };
   const first = await played({ record: true }, true);
-  const taker = SWAP_DEFAULTS.subs.findIndex((sub) => sub.kind === STUB_TAKEOVER.defaults.kind);
-  assert.ok(FORK >= TAKEOVER.FROM && STEPS >= TAKEOVER.UNTIL, "the bout is long enough to fork inside the takeover and hand back after it");
-  assert.equal(first.atFork[SIDES.indexOf("left")], taker, "the fixture forked while the takeover stub had the body");
   for (const state of first.states) for (const { part, read } of STUBS.filter((stub) => stub.mind === state.preset)) {
     const kind = part.defaults.kind, own = read(state.mind, state.body);
     assert.equal(own?.stub, kind, `the ${part.role} the mind runs is its config's stub`);
     assert.ok(own.steps > 0, `the ${kind} stub was asked`);
   }
-  for (const state of first.states.filter((state) => state.kind === SWAP_DEFAULTS.kind)) {
-    assert.equal(state.mind.skills.preparation.built, 1, "the configured planner prepared the shared kit once");
-    assert.ok(state.mind.skills.preparation.steps > 0, "its prepared command path runs in the actual bout");
-    assert.equal(state.mind.skills.preparation.focus, state.mind.decider.inner.decision.focus, "preparation reads the live operational context");
+  for (const state of first.states.filter((state) => state.preset === "swap-stub")) {
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
-    const standUp = state.body.mind.subs[0];
-    assert.equal(standUp.steady.motor.stub, "swap:stub-motor", "the stand-up's steady is made with the configured motor");
-    const motors = Object.entries(standUp.techniques).filter(([, technique]) => technique.motor);
-    assert.ok(motors.length > 0, "the fixture's stand-up has a technique with a motor");
+    const ground = state.mind.skills.actions.executors.at(-1);
+    assert.equal(ground.steady.motor.stub, "swap:stub-motor", "the rise's steady is made with the configured motor");
+    const motors = Object.entries(ground.runs).filter(([, technique]) => technique.motor);
+    assert.ok(motors.length > 0, "the fixture's rise has a technique with a motor");
     for (const [name, technique] of motors) assert.equal(technique.motor.stub, "swap:stub-motor", `its ${name} is made with the configured motor`);
-    assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
-    assert.ok(state.lines.includes(`Decided: ${state.mind.decider.steps} steps`), `the readout shows the planner's own detail of what it reports: ${state.lines.join(" | ")}`);
   }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);
@@ -401,8 +385,8 @@ test("each part a bout runs is the one its config names, and the bout forks, res
 });
 
 test("each part a quadruped's config names is the one its mind runs, and its bout forks and resumes", async () => {
-  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: CONTROLLERS.quadruped.defaults };
-  const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 2, minds }, { engine: BOUT_ENGINE });
+  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: MINDS["option-reptile"].config };
+  const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 1, minds }, { engine: BOUT_ENGINE });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built);

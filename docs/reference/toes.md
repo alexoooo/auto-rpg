@@ -43,7 +43,7 @@ rebuild its toes every step.
 
 ## Measurement
 
-The stand-up harness (`research/stand-controller/c/sitback.mjs`, its settings `BASE` and `NOW` in
+The stand-up harness (`research/stand-controller/c/sitback.mjs@4038482a`, its settings `BASE` and `NOW` in
 `c/.runvar.sh`, the foot `dorsi0.8+toe0.06` of `bodies.mjs`; read at commit 20ea40e6, its first
 row replayed at the sit-back's commit; Node, `rapier` engine, 120 Hz), the workshop fighter
 empty-handed, dorsiflexion stop 0.8 rad, toes 0.06 m long and 0.025 m thick. It starts from the

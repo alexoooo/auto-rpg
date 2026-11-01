@@ -53,7 +53,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 | Plan | What it builds |
 |---|---|
-| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body |
+| [Option Mind on every body](plans/2026-11-01-option-mind-everywhere.md) | The architecture finished, then Option Mind's skills robust on the toed Warrior, Rogue and Skeleton with every loadout (empty, club, sword, club and buckler, sword and buckler), or why one cannot: one family of minds (the old minds deleted, the reptile and bare kept as checks of generality), minds in parallel, a table of every body, loadout and skill against its bar, stand-up fast on the humans and robust on the Skeleton, the run on toes, then each strike on every body (built: step 1, one family of minds, the Skeleton on Option Mind's preset and the Reptile on Option Mind over the quadruped's frame) |
 | [Option Mind](plans/2026-10-27-option-mind.md) | The reference mind on the toed Warrior, deciding by one policy over options, each a skill applied to a target priced by its profile, selected as a set by their resources (built: the baseline evaluation, one trainer for any part, worth in life, measured profiles, the value of a position, exits and letting go, the rise as options with no supervisor, the stomp at a fallen foe, the chooser looking one option past a walk, footwork to places from the skills' windows and the foe's pressure; the design read whole, the fights 0.68 against 0.64). Left: footwork, the guard and the intent in the legs goal and the orders (step 13, in part); a place aside the foe from its striking arc (15); a foe's reach by its limbs and what it holds (16) |
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's; built: Strike's rung 1 at a pad on a rail, the trial's overlays and the previous version beside it, the Stand drill). Left: Footwork's rungs; Cover's rung 2, which waits on a counter skill |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
@@ -120,10 +120,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option-skeleton,duellist`): its low kick, approach and cover; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its low kick, approach and cover; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The Option Reptile against a Warrior and a Reptile
   (`?play=arena&matchup=reptile,workshop-fighter&control=option-reptile,option`,
-  `?play=arena&matchup=reptile,reptile&control=option-reptile,crawl`), and the Walker reaching its
+  `?play=arena&matchup=reptile,reptile&control=option-reptile,option-reptile`), and the Walker reaching its
   place in the Lab (`?play=lab&scenario=reach`).
 - The person's commands: in the Crypt H holds, X stops, Q/E turn, Caps Lock walks, a right click
   faces or follows; in the Arena a click on the floor goes there. The party walking braced within 8.5 m of a companion.
@@ -146,8 +146,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   would import the screens; until then the boundary test holds the builders by what they reach.
 - Mind data packed per kind (`docs/plans/2026-10-21-mind-data.md@6dd9420a`), when a second skill
   ships data: one network does today, and the punch's retraining replaces it.
-- One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
-  the Ratings screen opens it ([Drills](plans/2026-10-24-drills.md)).
+- One notion of a task: an evaluation plays a task, the Lab shows it, and the Ratings screen
+  opens it ([Drills](plans/2026-10-24-drills.md)).
 - The Ratings reel plays bout cases only: a fall's or a technique case's trial (the Rise drill's)
   is shown as not opened, so its reel cannot be watched.
 - Participant contracts, each extended with its first client: every accepted grip request and
@@ -320,15 +320,6 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
-- Vanguard's punch throws the 15 kg Skeleton off balance on a left-hand miss: its stance moves
-  0.4 m, and thrown first from a fresh stance it falls
-  ([record](reference/vanguard.md#standing-miss-return)).
-- Vanguard's Rogue and Skeleton never strike a still foe: they stop 0.79 m from it
-  (`tests/mind-contract.test.mjs`, the ordered strike, which skips them).
-- **Vanguard**, an experimental contender, has no plan: no campaign judged by fight wins
-  qualified it against the field ([record](reference/vanguard.md)). The entrant stays as it is,
-  an opponent outside Option Mind that the baseline evaluation fights
-  ([the baseline](reference/baseline.md)); its tactics are not ported.
 - Not built: a learned mind (the bare entrant, `src/entrants/bare/`, is its route, trained
   after Option Mind's design); sight that is blocked (the senses pass every body
   whatever stands between); a library for a body of another shape behind the same seam.

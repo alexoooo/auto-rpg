@@ -1,27 +1,21 @@
 import { editorRow as row, editorPicker, editorButton, editorInput, partFieldInput } from "./editor-inputs.ts";
-import type { ConditionConfig } from "../core/intent/conditions.ts";
-import type { ActionConfig } from "../core/skills/config.ts";
-import type { BehavioursConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/tactics/config.ts";
-import { CONDITIONS } from "../core/intent/conditions.ts";
+import type { ActionConfig, SkillKit } from "../core/skills/config.ts";
+import type { PartConfig } from "../core/parts/parts.ts";
 import { scopeOf } from "../core/parts/entrant.ts";
 import { allParts, isKind, partLookup, treeScope } from "../entrants/game.ts";
 import type { Region } from "../core/skills/framework/action.ts";
 import type { PartField } from "../core/parts/fields.ts";
 
 /** A named action's editor keeps its executor reference distinct from its own identity. */
-export function actionEditor(config: FighterConfig, write: (config: FighterConfig) => void, readOnly: boolean): HTMLElement {
+export function actionEditor<C extends SkillKit & PartConfig>(config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
   const root = document.createElement("div"); root.className = "mind-slot"; root.dataset.slot = "actions";
   const heading = document.createElement("span"); heading.textContent = "Actions"; root.append(heading);
   const set = (actions: readonly ActionConfig[]) => write({ ...config, actions });
   config.actions.forEach((action, index) => {
     const block = document.createElement("div"); block.className = "mind-item";
     const replace = (next: ActionConfig) => {
-      const actions = config.actions.map((other, i) => i === index ? next : other), tactics = config.tactics;
-      if (next.name !== action.name && tactics.kind === "behaviours" && tactics.choose.kind === "rules") {
-        const rename = (names: readonly string[]) => names.map(name => name === action.name ? next.name : name);
-        write({ ...config, actions, tactics: { ...tactics, choose: { ...tactics.choose,
-          rules: tactics.choose.rules.map(rule => ({ ...rule, actions: rename(rule.actions) })), otherwise: rename(tactics.choose.otherwise) } } });
-      } else set(actions);
+      const actions = config.actions.map((other, i) => i === index ? next : other);
+      write({ ...config, actions });
     };
     block.append(input("Name", action.name, value => replace({ ...action, name: value }), readOnly),
       select("Executor", config.executors.map(e => e.name), action.executor, value => replace({ ...action, executor: value }), readOnly));
@@ -60,44 +54,11 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
   return root;
 }
 
-/** Focus and selection are plain data edited beside the ranked behaviour list. */
-export function selectionEditor(config: BehavioursConfig, write: (config: BehavioursConfig) => void, readOnly: boolean): HTMLElement {
-  const root = document.createElement("div"); root.className = "mind-slot"; root.dataset.slot = "selection";
-  config.target.forEach((focus, i) => {
-    const replace = (next: FocusRuleConfig) => write({ ...config, target: config.target.map((other, j) => j === i ? next : other) });
-    root.append(select("Focus", ["ordered", "current", "nearest"], focus.kind, kind => replace(kind === "nearest" ? { kind, prefer: "standing-first" } : { kind: kind as "ordered" }), readOnly));
-    if (focus.kind === "nearest") root.append(select("Prefer", ["standing", "standing-first"], focus.prefer, prefer => replace({ ...focus, prefer: prefer as "standing" }), readOnly));
-    root.append(button("Move focus up", () => write({ ...config, target: config.target.map((other, j) => j === i - 1 ? focus : j === i ? config.target[i - 1]! : other) }), readOnly || i === 0),
-      button("Remove focus", () => write({ ...config, target: config.target.filter((_, j) => j !== i) }), readOnly));
-  });
-  root.append(button("Add focus", () => write({ ...config, target: [...config.target, { kind: "nearest", prefer: "standing-first" }] }), readOnly));
-  const choose = config.choose, set = (next: SelectorConfig) => write({ ...config, choose: next });
-  root.append(select("Choose action", ["first-ready", "rotate", "scored", "estimate", "rules"], choose.kind, kind => set(kind === "rules" ?
-    { kind, rethink: choose.rethink, patience: choose.patience, rules: [], otherwise: [] } : { kind: kind as "rotate", rethink: choose.rethink, patience: choose.patience }), readOnly));
-  root.append(input("Rethink, s", String(choose.rethink), value => set({ ...choose, rethink: Number(value) }), readOnly, true),
-    input("Patience, s", String(choose.patience), value => set({ ...choose, patience: Number(value) }), readOnly, true));
-  if (choose.kind === "rules") {
-    choose.rules.forEach((rule, i) => {
-      const replace = (next: typeof rule) => set({ ...choose, rules: choose.rules.map((other, j) => j === i ? next : other) });
-      root.append(select("When", Object.keys(CONDITIONS), rule.when.kind, kind => replace({ ...rule, when: kind === "when-distance" ?
-        { kind, of: "foe", than: "under", metres: 1 } : kind === "follow-up" ? { kind, seconds: .5 } : { kind: kind as "always" } }), readOnly));
-      for (const field of CONDITIONS[rule.when.kind].fields as readonly PartField<ConditionConfig>[]) root.append(fieldRow(field, rule.when, when => replace({ ...rule, when }), readOnly));
-      root.append(input("Actions, in order", rule.actions.join(", "), value => replace({ ...rule, actions: names(value) }), readOnly),
-        button("Move rule up", () => set({ ...choose, rules: choose.rules.map((other, j) => j === i - 1 ? rule : j === i ? choose.rules[i - 1]! : other) }), readOnly || i === 0),
-        button("Remove rule", () => set({ ...choose, rules: choose.rules.filter((_, j) => j !== i) }), readOnly));
-    });
-    root.append(button("Add rule", () => set({ ...choose, rules: [...choose.rules, { when: { kind: "always" }, actions: [] }] }), readOnly),
-      input("Otherwise actions", choose.otherwise.join(", "), value => set({ ...choose, otherwise: names(value) }), readOnly));
-  }
-  return root;
-}
-
 /** `field` of `config`, a choice or a box, writing `config` with the value it takes. */
 function fieldRow<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
   return row(field.label, partFieldInput(field, config, write, readOnly));
 }
 
-const names = (value: string) => value.split(",").map(v => v.trim()).filter(Boolean);
 function input(label: string, value: string, changed: (value: string) => void, disabled: boolean, numeric = false): HTMLElement {
   return row(label, editorInput(value, changed, { disabled, numeric }));
 }

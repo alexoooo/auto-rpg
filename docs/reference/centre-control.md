@@ -1,7 +1,7 @@
 # Centre-of-mass motion objectives
 
 The motion interface's optional `centres` objectives, and the point-strike fixture's centre-control
-experiment that uses them (`CENTRE` in `src/core/tasks/point-strike.ts`). The long-watch strike
+experiment that uses them (`CENTRE` in `src/core/tasks/point-strike.ts@4038482a`). The long-watch strike
 gates on the present tracker are remeasured in
 [joint acceleration](joint-acceleration.md#capability-remeasurement) (moving 108/108, static
 72/72); the runs below keep their own frozen source revisions.
