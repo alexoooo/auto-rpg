@@ -470,6 +470,24 @@ export const SOURCES = Object.freeze({
       + "src/scoring.ts@77a0cd77).",
     record: "src/config.ts@77a0cd77",
   },
+  "owner-point-depth": {
+    kind: "decision", date: "2026-11-01",
+    decided: "A point wounds by its depth, not by its whole energy at 33 times blunt: past the layers over a part "
+      + "(the skin today), each breached by its own energy, it goes in as deep as the energy left drives it "
+      + "against the tissue's resistance, no deeper than the point's own length, and takes the struck part's hit "
+      + "points in proportion to the depth over the part's least width, all of them for a point through. A point "
+      + "that does not breach a layer meets as blunt from there. A point never takes a part off and its wound "
+      + "does not walk. The bite keeps its press (owner-point-load).",
+    record: "docs/reference/wounds.md#mechanisms",
+  },
+  "gilchrist-2008": {
+    kind: "literature",
+    cite: "Gilchrist MD, Keenan S, Curtis M, Cassidy M, Byrne G, Destrade M (2008). Measuring knife stab penetration "
+      + "into skin simulant using a novel biaxial tension device. Forensic Sci Int 177(1):52-65. Four household knives "
+      + "into a polyurethane skin simulant under biaxial tension: the force to penetrate was in the order of 20 N "
+      + "(18 to 36 N), the energy approximately 0.25 J (0.17 to 0.56 J), the out of plane displacement about 20 mm.",
+    link: "https://doi.org/10.1016/j.forsciint.2007.10.010",
+  },
   "owner-damage-unit": {
     kind: "decision", date: "2026-10-01",
     decided: "\"should we just make it 100J what's so special about 138?\", and then that all of what was "

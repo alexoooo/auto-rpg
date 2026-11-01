@@ -63,10 +63,17 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
   - The cut: the edge's speed at its striking point, the lay men's one-handed rod (Muggenthaler
     2018, 23.9 m/s at the tip) less one SD, read at the edge's place on the blade
     ([human strike reference](../reference/human-strike-reference.md#3-one-handed-sword-cut)).
-  - The thrust: a person's stab, the mean less one SD of a source read at its source first
-    (Horsfall et al. 1999, [wounds](../reference/wounds.md#mechanisms)).
-- **The front kick and the stomp**: no human figure is held yet. Their step sources one in the
-  human strike reference first, the mean less one SD, before any search.
+  - The thrust: a person's stab, the men's underarm stab's speed at impact less one SD, 4.6 m/s at
+    the point closing (Horsfall et al. 1999, the SD derived from the 95th percentile;
+    [human strike reference](../reference/human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
+    its energy (the source's mean less one SD, 11.8 J, includes the push through the target) and
+    wound reported beside it.
+- **The front kick**: the foot closing at 6.4 m/s, the novices' peak ankle speed less one SD
+  (Landeo and McIntosh 2007;
+  [human strike reference](../reference/human-strike-reference.md#3b-front-kick-and-stomp)).
+  **The stomp**: only a force is held (Schirmer et al. 2016, men's mean peak 8494 to 9016 N, no
+  SD in its abstract); its step reads the full text, or another source, for a speed before any
+  search.
 - **The buckler's cover**: it meets four of five blows that reach the body before the body does
   ([sword and buckler](../reference/sword-and-buckler.md#2-the-buckler-against-a-blade)).
 - **Stand-up**: the owner's target on the Warrior and the Rogue in every loadout

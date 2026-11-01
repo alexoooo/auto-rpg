@@ -1,6 +1,6 @@
-import type { BodySpec } from "../spec/body.ts";
+import type { BodySpec, ShapeSpec } from "../spec/body.ts";
 import { cbrt, square } from "../math/real.ts";
-import { derive, type Quantity } from "../spec/quantity.ts";
+import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { Rulebook } from "./rulebook.ts";
 
 /**
@@ -17,6 +17,8 @@ import type { Rulebook } from "./rulebook.ts";
  *   decides), or went on past empty by the rulebook's `severMargin` of the part's full hit
  *   points, whatever it was. A part the spec names `whole` never comes off. What comes off takes
  *   every part beyond it, and the hit points they hold leave the pool with them.
+ * - **A contained wound** (a point's) stays in the struck part: what the part has not left is
+ *   dropped, and the part stays on.
  * - **The excess walks the attached parts** from the struck part, nearest first and, at each
  *   part, inward before outward: its parent, then its children in the spec's order. Each absorbs
  *   what it has left, and an empty part passes the rest on. Only the struck part can come off.
@@ -42,6 +44,8 @@ interface Blow {
   readonly damage: number;
   /** Whether it clears its weapon's bar, so that it takes off a part it empties. */
   readonly clean: boolean;
+  /** A wound that stays in the struck part (a point's, `pointWound`): it takes no more than the part has, never takes it off, and does not walk. */
+  readonly contained?: true;
 }
 
 /** What one blow did. */
@@ -88,6 +92,62 @@ export function partHitPoints(spec: BodySpec): ReadonlyMap<string, Quantity<numb
     derive("HP", "a part's hit points: the body's, times its mass to the two-thirds over the sum of the same over the body",
       [spec.wounds.hp, segment.mass, ...masses],
       (hp, own, ...all) => hp * square(cbrt(own)) / all.reduce((sum, m) => sum + square(cbrt(m)), 0))]));
+}
+
+/** Power iterations that settle a 3 by 3 covariance's leading axis (`leastWidth`). */
+const ITERATIONS = 64;
+
+/** The unit axis `matrix` (3 by 3, symmetric, row-major) stretches most, by power iteration from its largest column; null where it stretches none. */
+function leadingAxis(matrix: readonly number[]): Vec3 | null {
+  let best = -1, v: number[] = [0, 0, 0];
+  for (let c = 0; c < 3; c++) {
+    const column = [matrix[c]!, matrix[3 + c]!, matrix[6 + c]!], n = column[0]! * column[0]! + column[1]! * column[1]! + column[2]! * column[2]!;
+    if (n > best) { best = n; v = column; }
+  }
+  if (!(best > 0)) return null;
+  for (let i = 0; i < ITERATIONS; i++) {
+    const w = [0, 1, 2].map((r) => matrix[3 * r]! * v[0]! + matrix[3 * r + 1]! * v[1]! + matrix[3 * r + 2]! * v[2]!);
+    const n = Math.sqrt(w[0]! * w[0]! + w[1]! * w[1]! + w[2]! * w[2]!);
+    if (!(n > 0)) break;
+    v = w.map((x) => x / n);
+  }
+  const n = Math.sqrt(v[0]! * v[0]! + v[1]! * v[1]! + v[2]! * v[2]!);
+  return [v[0]! / n, v[1]! / n, v[2]! / n];
+}
+
+/**
+ * **A shape's least width**, m: a capsule's or a sphere's diameter, a box's least side, and a
+ * hull's extent along the axis its points spread along least (the third of their covariance's
+ * principal axes, normal to the first two); a hull of points on a line or one point has none.
+ */
+export function leastWidth(shape: ShapeSpec): number {
+  switch (shape.kind) {
+    case "capsule": case "sphere": return 2 * shape.radius.value;
+    case "box": return Math.min(...shape.size.value);
+    case "hull": {
+      const points = shape.points.map((p) => p.value), mean = [0, 1, 2].map((k) => points.reduce((sum, p) => sum + p[k]!, 0) / points.length);
+      const covariance = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => points.reduce((sum, p) => sum + (p[r]! - mean[r]!) * (p[c]! - mean[c]!), 0)));
+      const first = leadingAxis(covariance);
+      if (!first) return 0;
+      const spread = [0, 1, 2].reduce((sum, k) => sum + first[k]! * [0, 1, 2].reduce((t, j) => t + covariance[3 * k + j]! * first[j]!, 0), 0);
+      const deflated = covariance.map((x, i) => x - spread * first[Math.floor(i / 3)]! * first[i % 3]!);
+      const second = leadingAxis(deflated);
+      if (!second) return 0;
+      const third = [first[1] * second[2] - first[2] * second[1], first[2] * second[0] - first[0] * second[2], first[0] * second[1] - first[1] * second[0]];
+      const n = Math.sqrt(third[0]! * third[0]! + third[1]! * third[1]! + third[2]! * third[2]!);
+      const along = points.map((p) => (p[0] * third[0]! + p[1] * third[1]! + p[2] * third[2]!) / n);
+      return Math.max(...along) - Math.min(...along);
+    }
+    default: { const never: never = shape; throw new Error(`no width for ${JSON.stringify(never)}`); }
+  }
+}
+
+/** **Each segment's thickness**, m: its collider's least width (`leastWidth`), how deep a point goes through it (`pointWound`). */
+export function partThickness(spec: BodySpec): ReadonlyMap<string, Quantity<number>> {
+  return new Map(spec.segments.map((segment) => {
+    const shape = segment.shape, inputs: readonly Quantity[] = shape.kind === "hull" ? shape.points : shape.kind === "box" ? [shape.size] : [shape.radius];
+    return [segment.name, derive("m", "a part's thickness: its collider's least width", inputs, () => leastWidth(shape))];
+  }));
 }
 
 /** A fresh pool for a body built from `spec`, under `rules`. */
@@ -144,7 +204,7 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
     attachedHp,
     bar: () => attachedHp() / full,
     ending: () => state.ending,
-    wound({ part: struck, damage, clean }) {
+    wound({ part: struck, damage, clean, contained }) {
       part(struck);
       if (!state.attached.has(struck) || !(damage > 0)) return { taken: [], severed: [], lost: 0, spent: 0, ending: state.ending };
       const taken: { part: string; hp: number }[] = [];
@@ -161,7 +221,8 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
       let excess = absorb(struck, damage);
       let severed: string[] = [], lost = 0;
       const emptied = state.hp.get(struck)! <= empty;
-      if (emptied && !whole.has(struck) && (clean || damage - had >= rules.severMargin.value * max.get(struck)!)) {
+      if (contained) excess = 0;
+      else if (emptied && !whole.has(struck) && (clean || damage - had >= rules.severMargin.value * max.get(struck)!)) {
         severed = beyond(struck);
         for (const name of severed) {
           lost += state.hp.get(name)!;

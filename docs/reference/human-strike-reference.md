@@ -52,6 +52,41 @@ Peer-reviewed data are thin; most figures are from practitioners.
 | Best peer-reviewed proxy | One-handed 1 kg, 0.65 m rod: 23.9 m/s at the tip (lay men) | -- | Muggenthaler 2018 (row 2) |
 | Kendo (shinai) speed | Not found | Not found | gap |
 
+## 3a. One-handed thrust: a person's stab
+
+Horsfall, Prosser, Watson & Champion 1999, Forensic Sci Int 102:79-89, Table 1, read at its source
+(https://doi.org/10.1016/S0379-0738(99)00055-9): volunteers (students, police, an exhibition's
+visitors) stabbed a 12-layer Aeroflex target on a Plastolena block with an instrumented knife (an
+80 mm diamond-section commando blade, a large hilt with a disc guard), one or two underarm stabs
+each and some overarm; force by a load washer behind the blade, velocity and energy from the
+hilt's accelerometer. The table gives the mean, the 95th percentile and the maximum, no SD.
+
+| Group | Stabs | Energy: mean, 95 %, max (J) | Velocity at impact: mean, 95 %, max (m/s) |
+|---|---:|---|---|
+| All underarm | 157 | 26.4, 54.4, 63.4 | 5.8, 8.2, 10.1 |
+| All overarm | 46 | 46.1, 77.3, 114.9 | 8.5, 11.0, 11.6 |
+| Men, underarm | 142 | 28.1, 54.9, 63.4 | 6.0, 8.3, 10.1 |
+| Women, underarm | 15 | 10.8, 22.4, 30.9 | 4.6, 6.0, 7.4 |
+
+- **The mean less one SD** (**derived**, the SD from the 95th percentile on a normal spread,
+  (P95 - mean) / 1.645): men underarm, energy 28.1 - 16.3 = **11.8 J**, velocity 6.0 - 1.40 =
+  **4.6 m/s**.
+- **What the energy holds**: the knife's, hand's and arm's kinetic energy, and the muscular work
+  pushed through the target as the knife went in (about 200 N over 60.5 mm, 12 J, by the paper's
+  own estimate). The rules' energy is the impact's alone ([wounds](wounds.md#mechanisms)), so the
+  thrust's bar is the point's speed, with its energy and wound reported beside it.
+
+## 3b. Front kick and stomp
+
+| Quantity | Typical (novice) | Trained | Source |
+|---|---|---|---|
+| Front kick, peak ankle linear velocity (fastest of three to a screen at a chosen distance; sagittal video at 500 Hz) | 8.18 ± 1.76 m/s (20 taekwondo novices, men and women, the 40 aged 22 ± 3.2) | 10.39 ± 1.95 m/s (20 experts) | Landeo & McIntosh 2007, XXV ISBS Symposium, Ouro Preto, pp. 298-301, Table 1, read at its source, https://ojs.ub.uni-konstanz.de/cpa/article/view/465 |
+| Stomp, mean peak force on a force plate | men 8494 to 9016 N, women 4694 to 5970 N (55 volunteers; sturdy and soft shoes, with and without an elastic layer like a scalp). Jumping on it is about twice | -- | Schirmer et al. 2016, Int J Legal Med 130(3):827-34, https://doi.org/10.1007/s00414-015-1254-7 (the abstract only; no SD there) |
+
+- **The front kick's mean less one SD** (**derived**): 8.18 - 1.76 = **6.4 m/s**, the ankle's peak,
+  not the foot's at contact; the novices practised taekwondo, and the men and women are pooled.
+- **The stomp** has a force, not a speed, and no SD in what was read: no bar is drawn from it yet.
+
 ## 4. Kinematic chain: peak angular velocities and trunk rotation
 
 | Quantity | Typical | Elite | Source |
