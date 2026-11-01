@@ -91,6 +91,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **To watch:**
 
+- Random Crypt's guard hall against the owner's torchlit wet-stone reference: separate stone
+  surfaces, damp highlights, chipped coping, detailed props and a closer camera
+  (`?play=dungeon&scene=random-crypt&seed=42`, [art](art/crypt.md#random-crypt)).
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`), and one

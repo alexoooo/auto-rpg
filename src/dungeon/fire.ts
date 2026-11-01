@@ -9,7 +9,7 @@ import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Point } from "./map.ts";
 
 /**
- * The flame (`flame` in `src/render/fire.ts`) times a `fade`, so a torch inside the cut-away ghosts with the wall
+ * The flame (`flame` in `src/render/fire.ts`) has a white-hot core and times a `fade`, so a torch inside the cut-away ghosts with the wall
  * and sconce behind it rather than floating in front of a hole. Derived from that shader's text rather than copied,
  * and refused at load if the text has moved, so `flame` stays the one source of the flame.
  *
@@ -21,7 +21,7 @@ const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(
 const flame = Effect.ShadersStore.flameFragmentShader;
 if (!flame.includes(HEAD) || !flame.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
 Effect.ShadersStore.dungeonFireFragmentShader = flame.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
-  .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}";
+  .slice(0, -TAIL.length) + "gl_FragColor=vec4(mix(c*tint,vec3(7.0,4.0,0.9),core*core)*fade,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the flame's vertex, the fading fragment. */
 const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });

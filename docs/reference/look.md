@@ -1,9 +1,9 @@
 # The look and the sound
 
 What the screens draw and play, and the numbers they do it with. Each section names its constants
-and where they live. A value is **set by eye** (or by ear) while the thing was built, or chosen by
-the owner where the section says so; the owner accepted the look and the sound as they are
-(2026-10-24). Only how loud a touch is and how fast a body's air begins are measured
+and where they live. A value is **set by eye** (or by ear), or chosen by
+the owner where the section says so. Visual changes awaiting the owner's look are listed in
+the [roadmap](../roadmap.md). Only how loud a touch is and how fast a body's air begins are measured
 ([Sound](#sound)). None of it decides a fight,
 except that a drawn wall, post or door is also a collider of the same size.
 
@@ -24,9 +24,12 @@ blue from 0 to 1.
 
 ## Grade
 
-`GRADE` (`src/render/post.ts`), which the arena and the crypt share (`postPipeline`): contrast
+`GRADE` (`src/render/post.ts`), used by the arena, Generated depths and Rootbound Crypt (`postPipeline`): contrast
 1.12, exposure 1.15, vignette weight 1.35, and a bloom from brightness 1.1 at weight 0.16. FXAA and
 ACES tone mapping go with it, as switches.
+
+`CRYPT_GRADE`, selected by Random Crypt at construction: contrast 1.18, exposure 1.28,
+vignette weight 0.85, and bloom from brightness 0.95 at weight 0.22.
 
 ## Arena camera
 
@@ -277,6 +280,11 @@ degrees, zoom 6.5.
 `REFERENCE_LIGHT`, the reference chamber's own: a fill of 0.30 in `#9aaecf`, the reflected image at
 0.58, and a lantern of strength 5 in `#dce5f5`.
 
+`CRYPT_LIGHT`, the Random Crypt's: a fill of 0.22 in `#839dc7`, reflected image at 0.42,
+and a lantern of strength 4.5 in `#d7c3a4`. The guard hall's torches are amber (`#ff943f`),
+with point strength 10 and shadow spot strength 200 (`CRYPT_ROOM_LOOK`). These are visual
+settings chosen toward the owner's wet stone and torchlit guard hall reference.
+
 `REFERENCE_TORCHES` (`src/dungeon/reference.ts`), the chamber's two torches: one on the wall cell
 (3, 8) facing +x, its flame at (3.65, 2.05, 8) and its light at (4, 2.05, 8); one on (12, 14)
 facing -z, its flame at (12, 2.05, 13.35) and its light at (12, 2.05, 13).
@@ -329,7 +337,9 @@ a low sill (`src/dungeon/reference-look.ts`; `cutawayCondition`).
 cut, and a torch whose rock cell lies beyond one is hidden with its wall.
 
 `REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and (13.5, 8.2),
-m. The Random Crypt's is wet under the torches of its damp chambers (`CRYPT_TORCH`).
+m. The Random Crypt's is wet under the guard hall's torches and those of its damp chambers
+(`CRYPT_TORCH`), with irregular patches of half-extents 2.3 by 1.65 m, a wet roughness of 0.16
+and albedo multiplier 0.64 (`CryptDamp`).
 
 A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced (`shadowMapSize`;
 [the crypt's art](../art/crypt.md#random-crypt)).
@@ -375,8 +385,9 @@ textured one 0.5 m; both stand `FLOOR_TOP` high.
 bands at 0.55 m and 1.85 m up, 0.12 m high, 0.28 m deep and 2.9 m wide; and a ring on each face,
 0.55 m to one side of the middle and 1.2 m up, 0.18 m across and 0.03 m thick.
 
-`SCONCE`: nothing of it stands more than 0.08 m off the wall; its plate is 0.12 m by 0.3 m by
-0.02 m, centred 1.82 m up, and its cup is 1.9 m up.
+`SCONCE`: nothing of it stands more than 0.08 m off the wall; its plate is 0.20 m by 0.44 m by
+0.02 m, centred 1.82 m up. Its shallow iron basket is centred 1.94 m up, with two oval rims,
+five bars and two plate rivets.
 
 ## Crypt dressing
 

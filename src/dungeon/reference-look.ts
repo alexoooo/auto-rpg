@@ -60,12 +60,13 @@ class CryptDamp extends MaterialPluginBase {
       CUSTOM_FRAGMENT_DEFINITIONS: `
         float cryptDamp(vec2 p) {
           float edge = sin(p.x*8.1+sin(p.y*5.0)) * sin(p.y*9.3+p.x*2.0)*0.14;
+          edge += sin(p.x*21.0+p.y*13.0)*sin(p.y*17.0-p.x*7.0)*0.055;
           float wetDistance = 10000.0;
-          ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(1.6,0.9)));`).join("\n")}
-          return 1.0-smoothstep(0.60,1.05,wetDistance+edge);
+          ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(2.3,1.65)));`).join("\n")}
+          return 1.0-smoothstep(0.42,1.05,wetDistance+edge);
         }`,
-      CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.68, cryptDamp(vPositionW.xz));",
-      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.24, cryptDamp(vPositionW.xz));",
+      CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.64, cryptDamp(vPositionW.xz));",
+      CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.16, cryptDamp(vPositionW.xz));",
     } : null;
   }
 }
@@ -134,36 +135,51 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
   if(root){root.rotationQuaternion=Quaternion.Identity();root.scaling.setAll(1);}
-  const maps = await Promise.all(["albedo", "normal", "orm"].map(channel => new Promise<Texture>((resolve, reject) => {
-    const texture = new Texture(art.texture(`dungeon-reference/stone-${channel}.png`), scene, false, false,
+  const families = plan ? ["floor", "wall", "trim", "cloth"] : ["stone"];
+  const sets = await Promise.all(families.map(family => Promise.all(["albedo", "normal", "orm"].map(channel => new Promise<Texture>((resolve, reject) => {
+    const asset = plan ? `crypt-kit/${family}-${channel}.png` : `dungeon-reference/stone-${channel}.png`;
+    const texture = new Texture(art.texture(asset), scene, false, false,
       Texture.TRILINEAR_SAMPLINGMODE, () => resolve(texture), message => { texture.dispose(); reject(new Error(message)); });
     texture.gammaSpace = channel === "albedo"; texture.anisotropicFilteringLevel = 4;
-  })));
+  })))));
+  const maps = sets.flat();
   if (scene.isDisposed) throw new DOMException("The screen was closed", "AbortError");
-  const textured = (name: string, colour: string) => {
+  const textured = (name: string, colour: string, family = "wall") => {
+    const channels = sets[plan ? families.indexOf(family) : 0]!;
     const material = flatStone(scene, name, colour);
     material.useRoughnessFromMetallicTextureAlpha = false;
     material.useRoughnessFromMetallicTextureGreen = true;
     material.useMetallnessFromMetallicTextureBlue = true;
     material.useAmbientOcclusionFromMetallicTextureRed = true;
-    material.albedoTexture = maps[0]; material.bumpTexture = maps[1]; material.metallicTexture = maps[2];
+    material.albedoTexture = channels[0]; material.bumpTexture = channels[1]; material.metallicTexture = channels[2];
+    // Relief remains legible at the room camera; cloth keeps a shallow weave.
+    if (plan) material.bumpTexture!.level = family === "floor" ? 2.4 : family === "cloth" ? 1 : 1.8;
     material.invertNormalMapX = true; material.invertNormalMapY = false;
     return material;
   };
-  const trim=textured("crypt.trim", "#ece4d1");
+  const trim=textured("crypt.trim", "#ece4d1", "trim");
   const wall=textured("crypt.wall", "#c7ced0");
-  const floor=textured("crypt.floor", "#bdc7ce");
+  const floor=textured("crypt.floor", "#bdc7ce", "floor");
   new CryptDamp(floor,plan?.damp);
   if(plan)new CryptWeathering(floor,plan);
   const rootMat=textured("reference.root","#756247"); rootMat.roughness=1;
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
-  const tomb=textured("crypt.tomb", "#ddd5c3");
-  const wood=surface(scene,TEXTURED_SURFACES.wood,browserTextures(art));
-  const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
+  const tomb=textured("crypt.tomb", "#ddd5c3", "trim");
+  const woodSource=TEXTURED_SURFACES.wood;
+  const wood=surface(scene, {...woodSource, textures: {...woodSource.textures,
+    normal: {...woodSource.textures.normal!, tangentBasis: plan ? "gltf-rh-imported" : "babylon-lh"}}},browserTextures(art));
+  // Built doors and imported timbers have different tangent bases.
+  const doorWood=plan ? surface(scene,woodSource,browserTextures(art)) : wood;
+  const cloth=plan ? textured("crypt.cloth","#8b3023","cloth") : flatStone(scene,"crypt.cloth","#752c25",.95);
+  cloth.backFaceCulling=false;
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
   new CryptCutaway(wood, cutaway);
-  for(const door of level.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
+  if(doorWood!==wood) {
+    new CryptCutaway(doorWood,cutaway);
+    doorWood.maxSimultaneousLights=6;level.fog?.attach(doorWood,"wall");
+  }
+  for(const door of level.doorVisuals) { door.wood.material=doorWood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
     material.maxSimultaneousLights=6;level.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, cutaway);
@@ -200,5 +216,5 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
     const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
     lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
   }) : null;
-  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));maps.forEach(t=>t.dispose());}};
+  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));if(doorWood!==wood)doorWood.dispose(false,false);maps.forEach(t=>t.dispose());}};
 }

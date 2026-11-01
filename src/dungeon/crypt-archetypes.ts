@@ -102,7 +102,7 @@ interface CryptRoomLook {
 }
 /** Each kind of room's look (`docs/reference/look.md#crypt-rooms`). */
 export const CRYPT_ROOM_LOOK: Readonly<Record<CryptRoomKind, CryptRoomLook>> = {
-  guard: {niches:.08,roots:0,scatter:.05,largeSlab:.3,damp:false,color:'#ffc077',intensity:6,shadow:85,soil:[.43,.35,.23],strength:.36},
+  guard: {niches:.08,roots:0,scatter:.05,largeSlab:.3,damp:false,color:'#ff943f',intensity:10,shadow:200,soil:[.43,.35,.23],strength:.36},
   burial: {niches:.85,roots:.12,scatter:.3,largeSlab:.3,damp:false,color:'#ff9c4b',intensity:4,shadow:60,soil:[.32,.23,.18],strength:.55},
   chapel: {niches:.35,roots:.05,scatter:.15,largeSlab:.58,damp:false,color:'#ffe2ad',intensity:8,shadow:95,soil:[.43,.35,.23],strength:.36},
   rootbound: {niches:.5,roots:1,scatter:1,largeSlab:.3,damp:true,color:'#e7ba78',intensity:5,shadow:70,soil:[.27,.33,.15],strength:.7},

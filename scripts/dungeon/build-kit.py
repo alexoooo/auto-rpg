@@ -10,6 +10,32 @@ OUT.mkdir(parents=True,exist_ok=True); SOURCE.mkdir(parents=True,exist_ok=True)
 for name,color in [('wood',(.25,.13,.055,1)),('cloth',(.22,.045,.035,1))]:
     m=bpy.data.materials.new(name);m.diffuse_color=color;m.use_nodes=True;mats[name]=m
 modules={}
+
+# Stone edges vary independently of layout. Every inset remains inside its module.
+stone_rng=random.Random(57721)
+plain_box=box
+def box(name,p,sz,mat='wall',bevel=.025,turn=0,shade=None):
+    if mat in ['wall','trim'] and bevel:
+        bevel*=stone_rng.uniform(.7,1.65)
+    o=plain_box(name,p,sz,mat,bevel,turn,shade)
+    if mat in ['wall','trim'] and bevel:
+        for v in o.data.vertices:
+            for axis in range(3):
+                # Erode corners rather than pushing stone beyond its footprint.
+                v.co[axis]*=stone_rng.uniform(.976,1)
+    if mat=='wood':
+        # Grain follows the long axis of each individual timber, including uprights.
+        long=max(range(3),key=lambda axis:sz[axis])
+        for poly in o.data.polygons:
+            normal=(poly.normal.x,poly.normal.z,poly.normal.y)
+            face=max(range(3),key=lambda axis:abs(normal[axis]))
+            along=long if face!=long else (long+1)%3
+            across=3-face-along
+            for li in poly.loop_indices:
+                v=o.data.vertices[o.data.loops[li].vertex_index].co
+                coords=(v.x,v.z,v.y)
+                o.data.uv_layers.active.data[li].uv=(coords[across]*.9,coords[along]*.28)
+    return o
 def module(name,build):
     before=set(bpy.context.scene.objects); build()
     modules[name]=[o for o in bpy.context.scene.objects if o not in before]
@@ -23,8 +49,10 @@ def wall():
 def coping(width):
     box('footing',(0,.065,0),(width,.13,.98),'trim',.018)
     box('sill',(0,.83,0),(width,.04,.98),'trim',.012)
-    box('cap',(0,2.73,0),(width,.09,.98),'trim',.016)
-    box('crown',(0,2.815,0),(width-.02,.08,.98),'trim',.024)
+    for i in range(round(width*2)):
+        x=-width/2+.25+i*.5
+        box('cap',(x,2.73,0),(.49,.09,.98),'trim',.022)
+        box('crown',(x,2.807,0),(.48,.095,.97),'trim',.035)
 def niche():
     box('back',(0,1.37,-.34),(3,2.74,.3),'wall',0,shade=.62)
     for k in range(8):
@@ -78,8 +106,12 @@ def altar():
 
 def bench():
     for x in [-.6,.6]:box('leg',(x,.23,0),(.16,.46,.4),'wood',.012)
-    box('seat',(0,.49,0),(1.7,.14,.55),'wood',.02)
-    box('broken.back',(-.3,.6,-.19),(1.1,.1,.11),'wood',.01)
+    box('stretcher',(0,.18,0),(1.32,.09,.10),'wood',.009)
+    for z in [-.18,0,.18]:
+        box('seat.plank',(0,.49,z),(1.7,.14,.17),'wood',.016)
+        for x in [-.6,.6]:box('nail',(x,.562,z),(.025,.006,.025),'iron',.003)
+    for x in [-.64,.64]:
+        box('end.strap',(x,.44,0),(.065,.035,.53),'iron',.007)
 
 def rack():
     for x in [-.78,.78]:box('post',(x,.93,0),(.13,1.86,.18),'wood',.012)
@@ -89,15 +121,33 @@ def rack():
         box('guard',(x,.46,.16),(.32,.06,.08),'iron',.012)
         box('grip',(x,.31,.16),(.06,.23,.06),'wood',.008)
     for x in [-.78,.78]:box('foot',(x,.045,0),(.24,.09,.6),'wood',.015)
+    for x in [-.78,.78]:
+        box('finial',(x,1.865,0),(.18,.06,.23),'iron',.012)
+        for y in [.28,1.50]:
+            box('joint.strap',(x,y,.105),(.14,.22,.018),'iron',.005)
+            for yy in [-.07,.07]:box('rivet',(x,y+yy,.118),(.026,.026,.015),'iron',.006)
 
 def banner():
     box('rod',(0,2.45,.46),(1.35,.06,.06),'iron',.01)
-    # Thick, folded cloth with a split hem; it stays inside the supporting rock cell.
-    for i in range(6):
-        x=-.5+i*.2;h=1.4-(.17 if i in [2,3] else 0)
-        box('cloth',(x,2.36-h/2,.46+math.sin(i*1.6)*.015),(.205,h,.035),'cloth',.008)
-    box('sigil.vertical',(0,1.83,.49),(.07,.55,.014),'trim',.006)
-    box('sigil.cross',(0,1.92,.49),(.4,.06,.014),'trim',.006)
+    # A continuous folded sheet with a frayed hem, rather than separate rigid strips.
+    columns,rows=24,14
+    verts=[]
+    for j in range(rows+1):
+        for i in range(columns+1):
+            x=-.59+1.18*i/columns
+            hem=.07*math.sin(i*2.8)+(.15 if 10<=i<=13 else 0)
+            y=2.36-(1.40-hem)*j/rows
+            z=.455+.024*math.sin(i*.78)+.008*math.sin(j*.7+i*.5)
+            verts.append((x,y,z))
+    faces=[]
+    for j in range(rows):
+        for i in range(columns):
+            a=j*(columns+1)+i;faces.append((a,a+1,a+columns+2,a+columns+1))
+    o=mesh_object('cloth',verts,faces,'cloth',.9)
+    for poly in o.data.polygons:poly.use_smooth=True
+    # Worn embroidery follows the same shallow folds as the cloth.
+    strand('sigil.stem',[(0,2.12,.49),(0,1.82,.49),(0,1.48,.49)],.018,'trim')
+    strand('sigil.arm',[(-.22,1.94,.49),(0,1.94,.49),(.22,1.94,.49)],.017,'trim')
 
 def cluster():
     for x,z,w,d,h in [(-.35,-.15,.9,.9,.48),(.42,.1,.7,1.1,.36),(-.15,.45,.7,.45,.25)]:
@@ -203,4 +253,6 @@ for name,group in modules.items():
         manifest[o.name]={'triangles':sum(len(p.vertices)-2 for p in o.data.polygons)}
 bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/'kit.blend'))
 bpy.ops.export_scene.gltf(filepath=str(OUT/'kit.glb'),export_format='GLB',export_animations=False,export_yup=True)
-(SOURCE/'manifest.json').write_text(json.dumps({'generator':'scripts/dungeon/build-kit.py','pieces':manifest},indent=2)+'\n')
+from crypt_surfaces import build_surfaces
+textures=build_surfaces(OUT)
+(SOURCE/'manifest.json').write_text(json.dumps({'generator':'scripts/dungeon/build-kit.py','pieces':manifest,'textures':textures},indent=2)+'\n')

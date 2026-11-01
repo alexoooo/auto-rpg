@@ -10,23 +10,26 @@
     "altar__tomb": {
       "triangles": 176
     },
+    "bench__iron": {
+      "triangles": 352
+    },
     "bench__wood": {
-      "triangles": 176
+      "triangles": 264
     },
     "rack__iron": {
-      "triangles": 264
+      "triangles": 880
     },
     "rack__wood": {
       "triangles": 396
     },
     "banner__trim": {
-      "triangles": 88
+      "triangles": 192
     },
     "banner__iron": {
       "triangles": 44
     },
     "banner__cloth": {
-      "triangles": 264
+      "triangles": 672
     },
     "cluster__wall": {
       "triangles": 132
@@ -38,25 +41,25 @@
       "triangles": 892
     },
     "corner-left__trim": {
-      "triangles": 528
+      "triangles": 616
     },
     "corner-right__wall": {
       "triangles": 892
     },
     "corner-right__trim": {
-      "triangles": 528
+      "triangles": 616
     },
     "wall__wall": {
       "triangles": 892
     },
     "wall__trim": {
-      "triangles": 176
+      "triangles": 264
     },
     "niche__wall": {
       "triangles": 1244
     },
     "niche__trim": {
-      "triangles": 1256
+      "triangles": 1696
     },
     "niche__iron": {
       "triangles": 44
@@ -74,28 +77,28 @@
       "triangles": 30
     },
     "paving0__floor": {
-      "triangles": 88
+      "triangles": 176
     },
     "paving0__earth": {
       "triangles": 18
     },
     "paving1__floor": {
-      "triangles": 176
+      "triangles": 132
     },
     "paving1__earth": {
-      "triangles": 18
+      "triangles": 12
     },
     "paving2__floor": {
       "triangles": 132
     },
     "paving2__earth": {
-      "triangles": 12
+      "triangles": 18
     },
     "paving3__floor": {
       "triangles": 176
     },
     "paving3__earth": {
-      "triangles": 24
+      "triangles": 12
     },
     "floor-roots__root": {
       "triangles": 480
@@ -104,19 +107,19 @@
       "triangles": 892
     },
     "wall-pier__trim": {
-      "triangles": 616
+      "triangles": 704
     },
     "wall-panel__wall": {
       "triangles": 936
     },
     "wall-panel__trim": {
-      "triangles": 352
+      "triangles": 440
     },
     "wall-repair__wall": {
       "triangles": 1112
     },
     "wall-repair__trim": {
-      "triangles": 176
+      "triangles": 264
     },
     "wall-repair__iron": {
       "triangles": 88
@@ -125,16 +128,16 @@
       "triangles": 44
     },
     "slabs-long__earth": {
-      "triangles": 12
+      "triangles": 18
     },
     "slabs-large__floor": {
-      "triangles": 176
+      "triangles": 220
     },
     "slabs-large__earth": {
-      "triangles": 24
+      "triangles": 18
     },
     "slabs-broken__floor": {
-      "triangles": 196
+      "triangles": 208
     },
     "slabs-broken__earth": {
       "triangles": 12
@@ -148,5 +151,55 @@
     "tomb__tomb": {
       "triangles": 3444
     }
-  }
+  },
+  "textures": [
+    {
+      "file": "cloth-albedo.png",
+      "sha256": "f7b6a2364a366a90aefb1e614d658625f9abcf85cec97393bad1745ad0a4203f"
+    },
+    {
+      "file": "cloth-normal.png",
+      "sha256": "1e715d4ed6e21eaf21ee96e179f048fe6d3f7b484229438615630bcbe6ea0015"
+    },
+    {
+      "file": "cloth-orm.png",
+      "sha256": "052896e7db1e58e674e6063731e5b56d038472d2bebfcc8ed61be2567c4dcfad"
+    },
+    {
+      "file": "floor-albedo.png",
+      "sha256": "fd0d4347882e7a59ecaf4e091e8f135d6e312e455ba50050ec6dff091a737f3e"
+    },
+    {
+      "file": "floor-normal.png",
+      "sha256": "7c80f482b2396727dc1d6a4a7d12b3b635a85b360b698373fa6c0118301ecd40"
+    },
+    {
+      "file": "floor-orm.png",
+      "sha256": "81047e07b198a534536b7be22e53750b0bf97e6c203ecac918fde9d5d87e8d7b"
+    },
+    {
+      "file": "trim-albedo.png",
+      "sha256": "fc1a6cb514e4fc84412abe3074179bfe8dd55354c7ecd44f7991e0407df22914"
+    },
+    {
+      "file": "trim-normal.png",
+      "sha256": "a62549a7c8e08377e2a4bdf95a9878948a1b321cad08c53b4c8f5f1e48ce6fd7"
+    },
+    {
+      "file": "trim-orm.png",
+      "sha256": "2b143c72ee64783e6be9203217040643bccba654fd06d59e7590d42d28a93781"
+    },
+    {
+      "file": "wall-albedo.png",
+      "sha256": "a42a6d4665af08cd659cc1bbf5c92a03b94301de3f143bde736de1b6594bfd88"
+    },
+    {
+      "file": "wall-normal.png",
+      "sha256": "a350c72eee3447f26b8070e11f4ee259531fa8c4a89c42ce83d25bfd4fb0a84d"
+    },
+    {
+      "file": "wall-orm.png",
+      "sha256": "989b240d59a80bcbf1639253868f326982f47637a895e09eac880ab979163185"
+    }
+  ]
 }

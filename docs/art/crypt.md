@@ -97,7 +97,9 @@ Four chambers on a two-by-two grid, joined by three corridors with a working doo
 The entrance is a Guard Hall with room for the party; the other three are a seeded shuffle of a
 Burial Chamber, a Ruined Chapel and a Rootbound Chamber, each in one of three arrangements and
 either way round. The exit is in the chamber farthest from the entrance, and each of the other
-three holds two enemies placed away from the doors. The camera follows the leader, starting at zoom 8 (the wheel sets 2-18).
+three holds two enemies placed away from the doors. The camera follows the leader; the wheel sets zoom 2-18.
+
+[Guard hall at seed 42, High quality](guard-hall.webp).
 
 - **Plan.** `generateCryptDungeon(seed)` returns a `CryptRoomPlan` (`src/dungeon/crypt-plan.ts`):
   the gameplay `DungeonMap` plus the art's placements, the room bounds, torches and damp regions.
@@ -108,11 +110,15 @@ three holds two enemies placed away from the doors. The camera follows the leade
   adds an obstacle to the map and an art placement that share an `obstacleId`. `CRYPT_SIGHT` says
   which block sight: columns do, racks do not. Banners and moss are cosmetic.
 - **Look per room.** `CRYPT_ROOM_LOOK` tints each room's torches (colour, light and shadow
-  intensity); damp is laid only in the rootbound room. Only the two shadow lights nearest the
+  intensity); damp lies beneath the guard hall's torches and in the rootbound room. Only the two shadow lights nearest the
   camera's target are on at once.
 - **Paving and weathering.** `CRYPT_PAVING` packs one-, two- and four-cell paving modules by seed;
   the chapel favours large slabs. `CryptWeathering` (`src/dungeon/crypt-weathering.ts`) stains the
   stone in world space with one soil tint per room kind, cleaner along each room's two centre axes.
+- **Surfaces and fittings.** The kit has separate chipped slate, weathered wall stone, warmer trim
+  and woven cloth maps (`scripts/dungeon/crypt_surfaces.py`), with aligned timber grain, iron
+  straps and rivets, folded banners and shallow basket sconces. Water darkens the paving and
+  lowers its roughness on the same opaque surface; no reflection planes cover the joints.
 - **Assembly.** `assembleCryptKit` (`src/environment/crypt-kit.ts`) clones the kit's pieces for each
   placement and merges them by material, nine batches in the Crypt. The Arena uses the same kit
   and assembly with individual column meshes retaining their collider identities.
@@ -123,8 +129,9 @@ three holds two enemies placed away from the doors. The camera follows the leade
 - **Hover.** `EnemyHover` (`src/dungeon/hover.ts`) outlines the enemy under the cursor with a
   stencil highlight.
 
-The Random Crypt shares the Rootbound Crypt's presentation: its spot lights, cutaways and damp
-(`dressReference`), and the Quality setting. High renders at a hardware scaling of 1 (CSS pixels)
+The Random Crypt uses the Rootbound Crypt's spot lights, cutaways and damp system
+(`dressReference`), with its own cool fill, warm torch key and colour grade (`CRYPT_LIGHT`,
+`CRYPT_GRADE`). Its camera follows the hero at zoom 5.2. High renders at a hardware scaling of 1 (CSS pixels)
 with 2048 px shadow maps and SSAO; Reduced renders at 1/1.4 with 1024 px shadow maps and no SSAO.
 
 ### Rebuilding the kit
@@ -136,18 +143,19 @@ blender --background --python scripts/dungeon/build-kit.py
 `scripts/dungeon/build-kit.py` uses the same helpers (`crypt_geometry.py`) and writes
 `assets/crypt-kit/kit.blend`, `assets/crypt-kit/manifest.json` and
 `assets/art/environment/crypt-kit/kit.glb`: metre-space pieces with their origins baked in. The tomb is
-taken from `chamber.blend`'s sarcophagus. It reuses the chamber's stone maps and does not rewrite
-any of the chamber's files.
+taken from `chamber.blend`'s sarcophagus. `crypt_surfaces.py` writes the kit's twelve maps:
+512 px for floor, 384 px for wall, 256 px for trim and 128 px for cloth. Albedo, OpenGL normal and packed
+occlusion/roughness/metalness maps sit beside `kit.glb`, with hashes
+in the manifest. Periodic fields at seed 161803 supply fractures, strata, pores and cloth weave.
+The stone includes mineral detail from a mirrored interior crop of Poly Haven's CC0
+`large_floor_tiles_02` scan, with matching normal and roughness channels; provenance and input
+hashes are in `src/render/textures.json`. The crop excludes the scan's paving joints so only the
+mesh supplies those. No chamber file is rewritten.
 
 ### Triangles
 
-The pieces a generated crypt places, summed from `assets/crypt-kit/manifest.json` before the
-merge by material, over seeds 0 to 99 (`generateCryptDungeon`, Node):
-
-| | Triangles | Seed |
-|---|---|---|
-| Most | 415,986 | 30 |
-| Least | 337,140 | |
+`assets/crypt-kit/manifest.json` lists triangles per piece before assembly and merging by material.
+The placed count depends on the seed and its room sizes and dressing.
 
 No triangle budget is set: one waits on the frame rate measured on a range of hardware
 ([roadmap](../roadmap.md)).

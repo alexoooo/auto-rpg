@@ -39,7 +39,7 @@ import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { cellKey } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
-import { lightDungeon, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
+import { lightDungeon, CRYPT_LIGHT, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "../ui/frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
@@ -383,7 +383,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       pitch: pitchOr(reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH),
       azimuth: Number.isFinite(azimuthQuery) ? azimuthQuery * Math.PI / 180 : reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH,
       // A random crypt is followed at the scale of a room, rather than fitted whole.
-      zoom: page.cryptPlan ? 8 : reference ? REFERENCE_CAMERA.zoom : 10,
+      zoom: page.cryptPlan ? 5.2 : reference ? REFERENCE_CAMERA.zoom : 10,
       scaling: reference ? page.selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5),
     };
   }
@@ -459,7 +459,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const solids = run.level.solids.length;
     const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed));
     page.soundTorches = torches;
-    const lighting = page.lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined);
+    const lighting = page.lighting = lightDungeon(scene, camera, run.map, torches, azimuth, cryptPlan ? CRYPT_LIGHT : reference ? REFERENCE_LIGHT : undefined);
     run.level.sconces(torches);
     if (!reference && stone.dressing) run.level.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {

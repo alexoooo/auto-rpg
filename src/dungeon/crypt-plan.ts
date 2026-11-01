@@ -256,7 +256,11 @@ export function dressCryptMap(map: DungeonMap, art: () => number, archetypes: Cr
   placements.push(...furniture);
   roomExtras(d, faces);
   const lit = torches(d, faces);
-  const damp = lit.filter(t => CRYPT_ROOM_LOOK[archetypes.find(a => a.room === t.room)!.kind].damp)
+  // The guard hall's tracked-in water is independent of the rootbound room's vegetation.
+  const damp = lit.filter(t => {
+    const kind=archetypes.find(a => a.room === t.room)!.kind;
+    return kind === "guard" || CRYPT_ROOM_LOOK[kind].damp;
+  })
     .map(t => ({ x: t.light.x + t.facing.x * CRYPT_TORCH.dampOut, z: t.light.z + t.facing.z * CRYPT_TORCH.dampOut }));
   return { map, archetypes, placements, torches: lit, bounds: { min, max }, damp };
 }

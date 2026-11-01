@@ -61,11 +61,17 @@ interface DungeonLightProfile {
   environmentIntensity: number;
   lanternIntensity: number;
   lanternColor: string;
+  grade?: "default" | "crypt";
 }
 /** The reference chamber's cooler fill and dimmer lantern (`docs/reference/look.md#crypt-light`). */
 export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
   ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
   lanternIntensity: 5, lanternColor: "#dce5f5",
+});
+/** The modular crypt's torches provide the warm key; cool fill retains the hero's outline. */
+export const CRYPT_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
+  ambientIntensity: .22, ambientColor: "#839dc7", environmentIntensity: .42,
+  lanternIntensity: 4.5, lanternColor: "#d7c3a4", grade: "crypt",
 });
 
 export interface DungeonLighting {
@@ -106,7 +112,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   const flameLook = flameMaterial(scene), fire = flameLook.material;
   const torchColor = Color3.FromHexString(DUNGEON_LOOK.torch.color);
   const flames = torches.map((torch, i) => {
-    const flame = MeshBuilder.CreatePlane(`torch.flame.${i}`, { width: 0.3, height: 0.58 }, scene);
+    const flame = MeshBuilder.CreatePlane(`torch.flame.${i}`, { width: 0.42, height: 0.66 }, scene);
     flame.position.set(torch.flame.x, torch.flame.y, torch.flame.z);
     if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
     flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false; flame.isVisible = false;
@@ -133,12 +139,14 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   // the camera's list, and a frame-cost reading taken after that does not compare with one taken before.
   const buildPost = () => {
     ao?.dispose(true); post?.dispose(); ao = post = null;
+    // Without SSAO there is no prepass consumer; its unrendered target cannot become ready.
+    if (!presentationEnabled || !look.ssao) scene.disablePrePassRenderer();
     if (presentationEnabled && look.ssao) {
       ao = new SSAO2RenderingPipeline("dungeon.ao", scene, { ssaoRatio: DUNGEON_LOOK.ssao.ratio, blurRatio: 1 }, [camera]);
       ao.radius = DUNGEON_LOOK.ssao.radius; ao.totalStrength = DUNGEON_LOOK.ssao.totalStrength;
       ao.samples = DUNGEON_LOOK.ssao.samples; ao.expensiveBlur = false; setMaxZ();
     }
-    if (presentationEnabled && look.post) post = postPipeline(scene, camera);
+    if (presentationEnabled && look.post) post = postPipeline(scene, camera, { grade: profile?.grade });
   };
   buildPost();
 
@@ -167,7 +175,6 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
     setPresentationEnabled(enabled) {
       if (presentationEnabled === enabled) return;
       presentationEnabled = enabled; buildPost();
-      if (!enabled) scene.disablePrePassRenderer();
     },
     setLook(change) {
       const rebuild = (change.ssao !== undefined && change.ssao !== look.ssao) || (change.post !== undefined && change.post !== look.post);

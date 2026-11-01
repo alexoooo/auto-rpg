@@ -160,6 +160,66 @@
       "source": "assets/art/environment/textures/wooden_planks_nor_gl_1k.jpg",
       "kind": "normal",
       "licence": "src/render/textures.json"
+    },
+    "crypt-kit/floor-albedo.png": {
+      "source": "assets/art/environment/crypt-kit/floor-albedo.png",
+      "kind": "colour",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/floor-normal.png": {
+      "source": "assets/art/environment/crypt-kit/floor-normal.png",
+      "kind": "normal",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/floor-orm.png": {
+      "source": "assets/art/environment/crypt-kit/floor-orm.png",
+      "kind": "data",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/wall-albedo.png": {
+      "source": "assets/art/environment/crypt-kit/wall-albedo.png",
+      "kind": "colour",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/wall-normal.png": {
+      "source": "assets/art/environment/crypt-kit/wall-normal.png",
+      "kind": "normal",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/wall-orm.png": {
+      "source": "assets/art/environment/crypt-kit/wall-orm.png",
+      "kind": "data",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/trim-albedo.png": {
+      "source": "assets/art/environment/crypt-kit/trim-albedo.png",
+      "kind": "colour",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/trim-normal.png": {
+      "source": "assets/art/environment/crypt-kit/trim-normal.png",
+      "kind": "normal",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/trim-orm.png": {
+      "source": "assets/art/environment/crypt-kit/trim-orm.png",
+      "kind": "data",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/cloth-albedo.png": {
+      "source": "assets/art/environment/crypt-kit/cloth-albedo.png",
+      "kind": "colour",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/cloth-normal.png": {
+      "source": "assets/art/environment/crypt-kit/cloth-normal.png",
+      "kind": "normal",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/cloth-orm.png": {
+      "source": "assets/art/environment/crypt-kit/cloth-orm.png",
+      "kind": "data",
+      "licence": "docs/art/crypt.md"
     }
   },
   "retained": [
