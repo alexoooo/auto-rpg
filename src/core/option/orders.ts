@@ -41,7 +41,7 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: rea
     entry: (now) => {
       const legs = legsReadiness(now.sight.view);
       if (legs.kind !== "ready") return legs;
-      return now.orders && (now.orders.move !== undefined || now.orders.face !== undefined) ? READY : UNORDERED;
+      return now.orders && (now.orders.move !== undefined || (now.orders.face ?? null) !== null) ? READY : UNORDERED;
     },
     // Firm orders to move or stand keep the legs and the trunk: nothing of its own takes them over.
     status: (now) => now.orders?.firm && now.orders.move !== undefined && now.orders.foe === undefined ? "committed" : "yields",
