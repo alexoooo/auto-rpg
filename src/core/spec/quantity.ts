@@ -48,12 +48,16 @@ interface FromSource {
   readonly where: string;
 }
 
-/** A number computed from other quantities by `rule`, which `compute` states. */
+/**
+ * A number computed from other quantities by `rule`, which `compute` states where the quantity was
+ * made. `compute` is not enumerable: a copy of the quantity (another thread's) keeps the rule and its
+ * inputs and computes nothing.
+ */
 interface Derived {
   readonly kind: "derived";
   readonly rule: string;
   readonly inputs: readonly Quantity[];
-  readonly compute: (...values: never[]) => Value;
+  readonly compute?: (...values: never[]) => Value;
 }
 
 type Provenance = FromSource | Derived;
@@ -89,8 +93,8 @@ export function derive<const I extends readonly Quantity[], V extends Value>(
   finite(value, rule);
   return Object.freeze({
     value: frozen(value), unit,
-    provenance: Object.freeze({ kind: "derived", rule, inputs: Object.freeze([...inputs]),
-      compute: compute as unknown as Derived["compute"] }),
+    provenance: Object.freeze(Object.defineProperty({ kind: "derived", rule, inputs: Object.freeze([...inputs]) } as Derived, "compute",
+      { value: compute as unknown as Derived["compute"], enumerable: false })),
   });
 }
 

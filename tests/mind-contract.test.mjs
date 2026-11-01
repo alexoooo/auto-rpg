@@ -39,6 +39,7 @@ import { loadState, saveState } from "../src/core/state.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { builtAngles, createMind } from "../src/core/mind/minds.ts";
 import { HUMANOID_MODELS } from "../src/core/human/spec.ts";
+import { mindWorkers } from "../src/node/minds.ts";
 
 /** The bout's steps, the step it is forked at, and the gap its sides start at, m: near enough for a blow. */
 const STEPS = 180, FORK = 90, GAP = 0.9;
@@ -96,10 +97,10 @@ function stepTo(world, duel, until, traces, peak, after = () => {}) {
 /**
  * The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from
  * there when asked; with `read`, each side's whole report read after every step; with `mirrored`,
- * each mind on its mirror (`World.mirrored`).
+ * each mind on its mirror (`World.mirrored`); with `minds`, each mind apart in that place (`World.minds`).
  */
-async function played(recipe, hooks, fork, { read = false, mirrored = false } = {}) {
-  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks, ...(mirrored ? { mirrored } : {}) });
+async function played(recipe, hooks, fork, { read = false, mirrored = false, minds = undefined } = {}) {
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
@@ -165,17 +166,23 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
   assert.equal(replay.end.physics, first.end.physics);
 });
 
-test("a bout with every mind on its mirror is the bout with every mind on its body, step for step: poses, physics, order sheets, a fork", async () => {
-  // Option Mind each side with a quarter of its weight to ask, near enough for blows, fists and assist asks (the assisted
-  // replay's bout); the Warrior with sword and buckler against the Rogue with the club; and the reptile against itself,
-  // whose bite reads its contacts.
+/**
+ * The bouts a mind's mirror is held to: Option Mind each side with a quarter of its weight to ask, near enough for blows,
+ * fists and assist asks (the assisted replay's bout); the Warrior with sword and buckler against the Rogue with the club;
+ * and the reptile against itself, whose bite reads its contacts. The first is the assisted one.
+ */
+function mirrorRecipes() {
   const { config, character } = PRESETS.option, reptile = PRESETS["option-reptile"].config;
   const assisted = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
-  const recipes = [assisted,
+  return [assisted,
     { ...assisted, right: "workshop-rogue", loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "empty", right: "club" } } },
     { left: "reptile", right: "reptile", gap: GAP, minds: { left: reptile, right: reptile }, entry: [] },
   ];
-  for (const recipe of recipes) {
+}
+
+test("a bout with every mind on its mirror is the bout with every mind on its body, step for step: poses, physics, order sheets, a fork", async () => {
+  const [assisted] = mirrorRecipes();
+  for (const recipe of mirrorRecipes()) {
     const body = await played(recipe, { record: true }, true), mirror = await played(recipe, { record: true }, true, { mirrored: true });
     const sheets = (run) => JSON.stringify(SIDES.map((side) => run.sheets[side].sheets));
     if (recipe === assisted) assert.ok(body.blows > 0 && SIDES.every((side) => body.sheets[side].sheets.some((sheet) => sheet.hands.length > 0)
@@ -185,6 +192,22 @@ test("a bout with every mind on its mirror is the bout with every mind on its bo
     assert.equal(sheets(mirror), sheets(body), `${recipe.left}: every order sheet`);
     assert.equal(mirror.resumed, body.resumed, `${recipe.left}: forked at ${FORK} and resumed`);
     assert.equal(mirror.blows, body.blows);
+  }
+});
+
+test("a bout with every mind apart, on two minds' threads, is the bout with every mind on its body, its reports read", async () => {
+  // Apart, a mind's memory is where it runs: the bout is neither saved nor forked, and its reports and menus cross as data.
+  for (const recipe of mirrorRecipes()) {
+    const body = await played(recipe, { record: true }, false, { read: true });
+    const minds = mindWorkers(2);
+    try {
+      const apart = await played(recipe, { record: true }, false, { read: true, minds });
+      const sheets = (run) => JSON.stringify(SIDES.map((side) => run.sheets[side].sheets));
+      assert.equal(apart.end.digest, body.end.digest, `${recipe.left}: the poses, step by step`);
+      assert.equal(apart.end.physics, body.end.physics, `${recipe.left}: the physical state to the bit`);
+      assert.equal(sheets(apart), sheets(body), `${recipe.left}: every order sheet`);
+      assert.deepEqual([apart.blows, apart.reading], [body.blows, body.reading], `${recipe.left}: the blows, and the menus and kits read`);
+    } finally { minds.dispose(); }
   }
 });
 

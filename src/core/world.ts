@@ -17,14 +17,24 @@ export const COMMAND_DELAY: Quantity<number> = sourced(0, "1", "owner-command-de
   "none until motor control holds balance and the rise a step late");
 
 /**
+ * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
+ * (`MindPlace`, `src/core/mind/apart.ts`); the world only sends, once its post-physics hooks have
+ * run, what they asked of the minds there, so the minds observe together.
+ */
+export interface MindsApart {
+  dispatch(): void;
+}
+
+/**
  * **The world**: one fixed step that owns physics, control and the clock. The page, the Node stand
  * and the research runners all advance it through `step` (or `advance`, which turns elapsed time
  * into whole steps), and nothing else moves its bodies or its clock.
  *
- * A step is: the sensing hooks; the step hooks, in the order they were added (minds, motor control,
- * the muscle driver); then one solver step of `dt`, which writes every body's node; then the clock advances,
- * the post-physics hooks observe the completed interval; then the
- * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
+ * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
+ * a mirror or apart handed what it reads); the step hooks, in the order they were added (minds,
+ * motor control, the muscle driver); then one solver step of `dt`, which writes every body's node;
+ * then the clock advances, the post-physics hooks observe the completed interval, and what they
+ * asked of minds apart is sent (`MindsApart.dispatch`); then the after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
@@ -49,6 +59,12 @@ export interface World {
    * either way, step for step.
    */
   readonly mirrored: boolean;
+  /**
+   * Where the minds a fight makes run (`MindPlace`, `src/core/mind/apart.ts`): apart from the
+   * world, each on a mirror of its body, or, null, in the world's own thread on the body. A bout is
+   * the same either way, step for step.
+   */
+  readonly minds: MindsApart | null;
   /** Steps taken since the world was made. */
   readonly steps: number;
   /** Seconds since the world was made: `steps / hz`. */
@@ -61,6 +77,12 @@ export interface World {
    * same moment.
    */
   sense(hook: StepHook): Hook;
+  /**
+   * Run `hook` after every sensing hook and before every step hook, after the preparing hooks added
+   * before it: what makes a body ready to be read (its hands' and its toes' shapes) and hands a mind
+   * kept apart what it reads (`World.minds`).
+   */
+  prepare(hook: StepHook): Hook;
   /** Run `hook` before every solver step, after the hooks added before it. */
   beforeStep(hook: StepHook): Hook;
   /** Observe each completed solver interval after the clock advances, before any after-step event can change a body. */
@@ -95,15 +117,17 @@ interface WorldOptions {
   readonly delay?: number;
   /** Each body's mind on its mirror (`World.mirrored`); on its body unless given. */
   readonly mirrored?: true;
+  /** Where a fight's minds run (`World.minds`); in the world's thread unless given. */
+  readonly minds?: MindsApart;
 }
 
 /** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
-export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, mirrored = undefined }: WorldOptions = {}): World {
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true, actuation = "symmetric", delay = COMMAND_DELAY.value, mirrored = undefined, minds = undefined }: WorldOptions = {}): World {
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   if (!(Number.isInteger(delay) && delay >= 0)) throw new Error(`a command's delay is a whole number of steps, not ${String(delay)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
-  const sensing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [];
+  const sensing: HookEntry[] = [], preparing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [];
   const state = { steps: 0, owed: 0 };
   let disposed = false;
 
@@ -118,11 +142,12 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    scene, physics, hz, dt, delay, state, mirrored: mirrored === true,
+    scene, physics, hz, dt, delay, state, mirrored: mirrored === true, minds: minds ?? null,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
     get time() { return state.steps / hz; },
     sense: (hook) => add(sensing, hook),
+    prepare: (hook) => add(preparing, hook),
     beforeStep: (hook) => add(before, hook),
     afterPhysics: (hook) => add(observed, hook),
     afterStep: (hook) => add(after, hook),
@@ -132,10 +157,12 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         // Babylon caches a node's world matrix per render id; a step is a new moment, so a new id.
         (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(sensing);
+        runAll(preparing);
         runAll(before);
         physics.step(dt);
         state.steps += 1;
         runAll(observed);
+        minds?.dispatch();
         runAll(after);
       }
     },
@@ -150,6 +177,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     dispose() {
       disposed = true;
       sensing.length = 0;
+      preparing.length = 0;
       before.length = 0;
       observed.length = 0;
       after.length = 0;

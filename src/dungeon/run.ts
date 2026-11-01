@@ -19,6 +19,7 @@ import { seedOf } from "../core/math/random.ts";
 import { phaseOf } from "../core/mind/host.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
+import type { MindPlace } from "../core/mind/apart.ts";
 import { isBody } from "../core/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, routeLength, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
@@ -189,6 +190,8 @@ interface DungeonRunOptions {
   readonly party?: CommanderConfig;
   /** The enemies' Commander; a mob (`mob`) unless given. */
   readonly enemies?: CommanderConfig;
+  /** Where its minds run (`World.minds`); in the world's thread unless given. */
+  readonly minds?: MindPlace;
 }
 
 /** Resolve every actor and its placement before allocating a world or replacing a running scene. */
@@ -265,13 +268,13 @@ export class DungeonRun {
     this.ahead = { ...rule, wake: rule.wake + AHEAD_METRES, company: rule.company + AHEAD_METRES };
     this.map = runMap(options);
     const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
-    this.world = createWorld(scene, options.engine);
+    this.world = createWorld(scene, options.engine, options.minds ? { minds: options.minds } : {});
     this.senses = createSenses(this.world, reactionSteps(this.rules.reaction.value, this.world.hz));
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
     this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
     this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
-    // Before any body's own hooks, so each body's mind reads this step's orders.
-    this.planning = this.world.beforeStep(() => this.plan());
+    // As the step is prepared, before any body's own hooks, so each body's mind reads this step's orders.
+    this.planning = this.world.prepare(() => this.plan());
     const run = this;
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const character = characters.get(id)!, info = cryptModel(model, character.spec);

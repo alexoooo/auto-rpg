@@ -52,7 +52,7 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
   });
   const model = handPoseModel([...segments.values()].filter((segment) => segment.handPose && segment.poses).map((segment) => segment.spec));
   const check: HandPoses["check"] = requests => checkHandPoses(model, requests);
-  const hook = hands.length === 0 ? null : world.beforeStep(() => {
+  const hook = hands.length === 0 ? null : world.prepare(() => {
     for (const hand of hands) {
       const pose = state[hand.hand]!;
       const attached = hand.part.body.gripping();
