@@ -17,8 +17,8 @@ export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-de
 
 /**
  * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
- * (`MindPlace`, `src/core/mind/apart.ts`); the world only sends, once its post-physics hooks have
- * run, what they asked of the minds there, so the minds observe together.
+ * (`MindPlace`, `src/core/mind/apart.ts`); the world only sends, once its preparing hooks have
+ * run, what they asked of the minds there, so the minds step together.
  */
 export interface MindsApart {
   dispatch(): void;
@@ -32,8 +32,8 @@ export interface MindsApart {
  * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
  * a mirror or apart handed what it reads), then what they asked of minds apart is sent; the step hooks, in the order they were added (minds,
  * motor control, the muscle driver); then one solver step of `dt`, which writes every body's node;
- * then the clock advances, the post-physics hooks observe the completed interval, and what they
- * asked of minds apart is sent (`MindsApart.dispatch`); then the after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
+ * then the clock advances and the post-physics hooks observe the completed interval; then the
+ * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
@@ -172,7 +172,6 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         physics.step(dt);
         state.steps += 1;
         runAll(observed);
-        minds?.dispatch();
         runAll(after);
       }
     },

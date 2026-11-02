@@ -130,6 +130,8 @@ export interface Embodying {
   readonly log?: SheetLog;
   /** An experiment's settings of its command layers (`Experiment`); none unless given. */
   readonly experiment?: Experiment;
+  /** Called as each step's answer is made, before the step's decision where it is still to come (`answerOn`); nothing unless given. */
+  readonly answered?: () => void;
 }
 
 /**
@@ -144,19 +146,22 @@ export interface Embodying {
  * command, and the rings hold it the rest of the delay (`heldSteps`). Its first steps at `full`,
  * from its start or back from another level, apply none but what its motor part sends. Given a
  * `log`, each step's order sheet is written in it as the mind leaves it (`SheetLog`). What observes
- * the completed physics (`OwnBody.afterPhysics`) is run by one hook of `world`'s, added with the
- * first observer.
+ * the completed physics (`OwnBody.afterPhysics`) is run on its body by one hook of `world`'s, added
+ * with the first observer; on its mirror, as the next step is prepared, on the numbers written for
+ * it, before the mind answers, as a mind apart observes (`SeatHost`). `answered` is called with
+ * each answer.
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
-  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
+  { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment, answered }: Embodying = {}): Embodied<M> {
   let mind: M | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null, thinking: Hook | null = null;
   const way = commandWay(built, world, log), held = heldSteps(world.delay), moves = motorPart(() => mind!);
   const muscles = driveMuscles(built, world, (driver, dt) => {
     if (mirrored) mirrored.writer.carry(way.request);
-    else { mind!.step(sense(), dt); moves.move(dt); }
+    else { mind!.step(sense(), dt); moves.move(dt); answered?.(); }
     way.settle(driver);
   }, () => { mind!.idle?.(); mirrored?.mirror.idle(); way.reset(); }, { ...world.mirrored ? { dynamics: false, prepared: true } as const : {}, delay: held });
   way.assisted(createAssist(built, rootSegment(built), ceiling, held));
+  const listeners = new Set<(step: number, time: number) => void>();
   if (world.mirrored) {
     const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
     const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, contactIdentity ? { labels: contactIdentity } : {});
@@ -164,24 +169,22 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     writer.write({ sensing: false });
     const mirror = mirrorBody(statics, writer.channel);
     mirrored = { writer, mirror };
-    // It thinks as the step is prepared, on its mirror; its command is carried out on its body as the step's controls run.
+    // It thinks as the step is prepared, on its mirror, its observers first shown the interval
+    // just completed; its command is carried out on its body as the step's controls run.
     thinking = world.prepare((dt) => {
       if (muscles.level !== "full") return;
       writer.write();
       mirror.refresh({ dynamics: true });
-      think(mind!, moves, mirror, world.delay, dt);
+      for (const one of listeners) one(world.steps, world.time);
+      const deciding = answerOn(mind!, moves, mirror, world.delay, dt);
+      answered?.();
+      if (deciding) decideOn(mind!, mirror, dt);
     });
   }
-  const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null, shown: Hook | null = null;
-  const show = () => { if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); mirrored.mirror.recall(); } };
-  const observe = () => {
-    show();
-    for (const one of listeners) one(world.steps, world.time);
-  };
-  // A mirror shows its body as each step leaves it, and again as a load puts it back: what its mind
-  // says of itself between steps (`MindReport`) reads the body as it stands, a load's as the save's.
-  if (mirrored) { observed = world.afterPhysics(observe); shown = world.onLoad(show); }
+  const observe = () => { for (const one of listeners) one(world.steps, world.time); };
+  // A mirror shows its body again as a load puts it back.
+  if (mirrored) shown = world.onLoad(() => { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); mirrored.mirror.recall(); });
   const mirror = mirrored?.mirror;
   const own: OwnBody = { spec: built.spec,
     delay: world.delay,
@@ -190,7 +193,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
       : { built: readView(built), muscles, assist: way.help.assist, requestHandPoses: way.request, senses: moves.guard(sense), ...(contactIdentity ? { contactIdentity } : {}) }),
     ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
-      observed ??= world.afterPhysics(observe);
+      if (!mirrored) observed ??= world.afterPhysics(observe);
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     } };
@@ -300,19 +303,11 @@ export function motorPart(mind: () => Mind) {
 }
 
 /**
- * **A mind's step on its mirror** (`Mirror`), refreshed: with no delay, what it senses, its step,
- * its motor part and its answer; with one, its motor part and its answer on the senses it last
- * decided on, then what it senses and its step on the same body, so that what the step sends goes
- * with the next answer (`embody`).
- */
-export function think(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): void {
-  if (answerOn(mind, moves, mirror, delay, dt)) decideOn(mind, mirror, dt);
-}
-
-/**
- * **What of a mind's step on its mirror its body waits for** (`think`): with no delay, the whole
- * step; with one, its motor part and its answer, true where its step is still to come
- * (`decideOn`), before the mirror is next refreshed.
+ * **What of a mind's step on its mirror its body waits for**, refreshed: with no delay, what it
+ * senses, its step, its motor part and its answer; with one, its motor part and its answer on the
+ * senses it last decided on, true where its step is still to come (`decideOn`), before the mirror
+ * is next refreshed, on the same body, so that what the step sends goes with the next answer
+ * (`embody`).
  */
 export function answerOn(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): boolean {
   if (delay > 0) { moves.move(dt); mirror.answer(); return true; }

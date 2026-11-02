@@ -18,9 +18,9 @@ import type { MindReport } from "./report.ts";
  * thread, on a mirror of its body (`mirrorBody`), its numbers carried each way on its channel
  * (`MirrorChannel`) and everything else as plain data in order, so that a bout is the same, step for
  * step, wherever its minds run. The world holds a seat of each such mind (`Seat`) in a place
- * (`MindPlace`): it asks the seat to make the mind, to step, to observe the completed physics, to go
- * idle, for its menu, and to go (`SeatAsk`), and reads what the mind says of itself after them
- * (`SeatSays`). Where the minds run, the asks are carried out by a host of seats (`seatHost`), the
+ * (`MindPlace`): it asks the seat to make the mind, to step, to go idle, for its menu, and to go
+ * (`SeatAsk`), and reads what the mind says of itself as it is made and with each answer, and its
+ * menu when asked (`SeatSays`). Where the minds run, the asks are carried out by a host of seats (`seatHost`), the
  * same code wherever it runs (`mindWorkers`, `src/node/minds.ts`, in Node's worker threads).
  */
 
@@ -44,14 +44,13 @@ export interface At { readonly steps: number; readonly time: number }
 
 /**
  * **What the world asks a seat**, in order: to make its mind from its recipe; to step on the numbers
- * the world has just written, with its orders where they have changed since the last step's; to
- * observe the completed physics the numbers now hold (`OwnBody.afterPhysics`); to go idle
- * (`Mind.idle`); for its menu; and to go (`Mind.dispose`).
+ * the world has just written, with its orders where they have changed since the last step's, its
+ * observers of the physics (`OwnBody.afterPhysics`) first shown the completed interval those
+ * numbers hold; to go idle (`Mind.idle`); for its menu; and to go (`Mind.dispose`).
  */
 export type SeatAsk =
   | { readonly kind: "make"; readonly recipe: MindRecipe; readonly at: At }
   | { readonly kind: "step"; readonly at: At; readonly orders?: Orders | null }
-  | { readonly kind: "observe"; readonly at: At }
   | { readonly kind: "idle"; readonly at: At }
   | { readonly kind: "menu"; readonly at: At }
   | { readonly kind: "dispose" };
@@ -60,15 +59,13 @@ export type SeatAsk =
 export type ReportNow = Omit<MindReport, "menu">;
 
 /**
- * **What a seat's mind says of itself** after the asks carried out so far: who has its body
- * (`Mind.has`), whether it observes the completed physics (it has asked to, ever), its report as it
- * stands, and its menu where the last ask was for it.
+ * **What a seat's mind says of itself**: who has its body (`Mind.has`) and its report, as it was
+ * made and then with each answer (`answerOn`), before the step's decision, so that what the world
+ * reads of it never waits on a decision.
  */
 export interface SeatSays {
   readonly has: string;
-  readonly observes: boolean;
   readonly report: ReportNow | null;
-  readonly menu?: readonly MenuEntry[] | null;
 }
 
 /**
@@ -97,7 +94,7 @@ export interface MindPlace {
    * as it is made and as it first thinks, is derived there before a fight needs it.
    */
   warm(catalog: Catalog, recipe: Omit<MindRecipe, "catalog">, channel: MirrorChannel, at: At): void;
-  /** Send what has been asked and not yet sent: the world calls it after its post-physics observers (`MindsApart`, `src/core/world.ts`). */
+  /** Send what has been asked and not yet sent: the world calls it after its preparing hooks (`MindsApart`, `src/core/world.ts`). */
   dispatch(): void;
   /** Stop the minds' threads, where it has any. */
   dispose(): void;
@@ -114,6 +111,10 @@ export interface Seat {
   answer(): void;
   /** What it says once every ask so far is carried out: the world waits for them. */
   says(): SeatSays;
+  /** What it said with its last answer, or as it was made, waiting for nothing more once it has been heard as made. */
+  said(): SeatSays;
+  /** Ask it for its menu at `at`, and wait for it. */
+  menu(at: At): readonly MenuEntry[] | null;
 }
 
 /** One mind seated where it runs: its mirror, its clock, its orders, its observers, the mind and what it made. */
@@ -123,7 +124,6 @@ interface Seated {
   readonly clock: { dt: number; steps: number; time: number };
   readonly orders: { now: Orders | null };
   readonly listeners: Set<(step: number, time: number) => void>;
-  readonly observes: { ever: boolean };
   readonly mind: Mind;
   readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
@@ -142,8 +142,10 @@ export interface SeatHost {
   handle(seat: number, ask: SeatAsk, channel: MirrorChannel): void;
   /** Carry out seat `seat`'s last step's decision, where it is still to come. */
   decide(seat: number): void;
-  /** What seat `seat`'s mind says now. */
+  /** What seat `seat`'s mind says as it stands, its menu aside: as it is made, and as each answer leaves it (`SeatSays`). */
   says(seat: number): SeatSays;
+  /** Seat `seat`'s menu as its last ask for it found it, its last step's decision carried out first. */
+  menu(seat: number): readonly MenuEntry[] | null;
 }
 
 /** Set `seated`'s clock to `at`. */
@@ -168,7 +170,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const { config, statics } = recipe, spec = statics.spec;
     const mirror = mirrorBody(statics, channel);
     const clock = { dt: recipe.dt, steps: at.steps, time: at.time }, orders = { now: null as Orders | null };
-    const listeners = new Set<(step: number, time: number) => void>(), observes = { ever: false };
+    const listeners = new Set<(step: number, time: number) => void>();
     let mind: Mind | null = null;
     const moves = motorPart(() => mind!);
     const own: OwnBody = {
@@ -176,7 +178,6 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       requestHandPoses: (requests) => mirror.requestHandPoses(requests), senses: moves.guard(() => mirror.senses),
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}),
       afterPhysics(listener) {
-        observes.ever = true;
         listeners.add(listener);
         return () => { listeners.delete(listener); };
       },
@@ -195,7 +196,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     const made = catalog.controllerOf(config).create(host, config, wiring);
     if (!mind) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, listeners, observes, mind, moves, made, deciding: false };
+    return { recipe, mirror, clock, orders, listeners, mind, moves, made, deciding: false };
   };
   const decide = (seated: Seated | undefined): void => {
     if (!seated?.deciding) return;
@@ -216,14 +217,8 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
-          seated.deciding = answerOn(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
-          return;
-        }
-        case "observe": {
-          const seated = seatOf(seat);
-          tick(seated, ask.at);
-          seated.mirror.refresh({ dynamics: false });
           for (const listener of seated.listeners) listener(ask.at.steps, ask.at.time);
+          seated.deciding = answerOn(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
           return;
         }
         case "idle": {
@@ -247,19 +242,22 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       }
     },
     says(seat) {
-      const seated = seatOf(seat), { mind, made } = seated, report = made.report;
+      const { mind, made } = seatOf(seat), report = made.report;
+      return { has: mind.has ?? mind.name, report: report ? reportNow(report) : null };
+    },
+    menu(seat) {
+      const seated = seatOf(seat);
       decide(seated);
-      const menu = seated.menu;
+      const menu = seated.menu ?? null;
       delete seated.menu;
-      return {
-        has: mind.has ?? mind.name, observes: seated.observes.ever,
-        report: report ? { engagement: report.engagement, prospects: report.prospects, heading: report.heading, gait: report.gait, navigation: report.navigation,
-          kit: report.kit, actions: report.actions, ended: report.ended } : null,
-        ...(menu !== undefined ? { menu } : {}),
-      };
+      return menu;
     },
   };
 }
+
+/** What `report` says now, its menu aside (`ReportNow`), each field read once. */
+export const reportNow = (report: MindReport): ReportNow => ({ engagement: report.engagement, prospects: report.prospects, heading: report.heading, gait: report.gait,
+  navigation: report.navigation, kit: report.kit, actions: report.actions, ended: report.ended });
 
 /** The name `catalogs` knows `catalog` by. */
 export function catalogName(catalogs: Readonly<Record<string, Catalog>>, catalog: Catalog): string {

@@ -17,8 +17,8 @@ const RESPONSE = 1;
 /** **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance` left, m, in `RESPONSE`. */
 export const approachPace = (ceiling: number, distance: number): number => Math.min(Math.max(0, ceiling), distance / RESPONSE);
 
-/** How near the window's middle a walk into it counts as arrived, m, unless its caller asks nearer. */
-const ARRIVED = .04;
+/** How near the window's middle a walk into it counts as arrived, m, unless its caller asks nearer: about where a walk's last step lands. */
+export const ARRIVED = .04;
 
 /**
  * A walk into a window on a body lying (`Window.on`): how far each foot's middle keeps from that

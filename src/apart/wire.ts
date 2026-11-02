@@ -52,19 +52,21 @@ export interface Carried {
 /** **A batch** of asks to one minds' thread, its count, and the specs it is sent, by their numbers, before its asks; or the word to stop. */
 export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly stop?: true }
 
-/** What a seat's mind says as it crosses: its report but its kit and its gait, which cross only when they change, and its outbound numbers where made anew. */
-export interface Said {
+/**
+ * What a seat's mind says as it crosses: as it is made or answers, who has its body and its report
+ * but its kit and its gait, which cross only when they change, and its outbound numbers where made
+ * anew; or the menu it was asked for.
+ */
+export type Said = {
   readonly seat: number;
   readonly has: string;
-  readonly observes: boolean;
   readonly report: Omit<ReportNow, "kit" | "gait"> | null;
   readonly kit?: ReportNow["kit"];
   readonly gait?: ReportNow["gait"];
-  readonly menu?: readonly MenuEntry[] | null;
   readonly outbound?: Float64Array;
-}
+} | { readonly seat: number; readonly menu: readonly MenuEntry[] | null };
 
-/** **A minds' thread's answer** to a batch: each seat it asked of, as its mind says it now; or the error that stopped it. */
+/** **A minds' thread's answer**: what a seat says with a step's answer, or a batch's, each seat it made and each menu it was asked for; or the error that stopped it. */
 export interface Reply { readonly seq: number; readonly said: readonly Said[]; readonly error?: string }
 
 /**

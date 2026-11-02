@@ -103,19 +103,24 @@ export function contactMass(built: BuiltBody): ContactMass {
     return new Vector3(d[0]! * x[0] + d[1]! * x[1] + d[2]! * x[2], d[0]! * y[0] + d[1]! * y[1] + d[2]! * y[2], d[0]! * z[0] + d[1]! * z[1] + d[2]! * z[2]);
   });
 
-  // The pose, as `update` took it.
+  // The pose, as `update` took it; and the arrays its sums are worked in, made once.
   const centres = segments.map(() => [0, 0, 0] as [number, number, number]);
   const inertias = segments.map(() => [[0, 0, 0], [0, 0, 0], [0, 0, 0]]);
   const pivots = joints.map(() => [0, 0, 0] as [number, number, number]);
   const axes: Vec3[][] = joints.map(() => []);
   const origin: [number, number, number] = [0, 0, 0];
-  let factor: number[][] = [];
+  const square = (size = n) => Array.from({ length: size }, () => new Array<number>(size).fill(0));
+  const M = square(), factor = square(), rows6 = Array.from({ length: 6 }, () => new Array<number>(n).fill(0)), Iw = rows6.slice(0, 3).map(() => new Array<number>(n).fill(0));
+  const R = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], local = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  // M^-1's columns asked of the pose since `update`, by column; and the factor a yield's held block is worked in, grown as needed.
+  const inverseColumns = new Map<number, number[]>();
+  let lower: number[][] = [];
   const v = new Vector3(), q = new Quaternion(), carry = new Quaternion(), bodyAxes: [number, number, number][] = [];
 
-  /** The rows of J at `point` on segment `i`: its velocity in the speeds, and (with `spin`) its segment's spin. */
-  const jacobian = (i: number, point: Vec3, spin: boolean): number[][] => {
+  /** The rows of J at `point` on segment `i`, written in `J`'s first rows: its velocity in the speeds, and (with `spin`) its segment's spin. */
+  const jacobian = (i: number, point: Vec3, spin: boolean, J: number[][] = Array.from({ length: spin ? 6 : 3 }, () => new Array<number>(n).fill(0))): number[][] => {
     const rows = (spin ? 6 : 3);
-    const J = Array.from({ length: rows }, () => new Array<number>(n).fill(0));
+    for (let k = 0; k < rows; k++) J[k]!.fill(0);
     const r = [point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]];
     // The root's velocity, and its spin across the point: w x r = -r x w.
     for (let k = 0; k < 3; k++) J[k]![k] = 1;
@@ -155,23 +160,32 @@ export function contactMass(built: BuiltBody): ContactMass {
 
   return {
     update() {
+      inverseColumns.clear();
       segments.forEach((segment, i) => {
         const rotation = segment.node.rotationQuaternion!;
         localCentre[i]!.applyRotationQuaternionToRef(rotation, v).addInPlace(segment.node.position);
-        centres[i] = [v.x, v.y, v.z];
+        const centre = centres[i]!;
+        centre[0] = v.x; centre[1] = v.y; centre[2] = v.z;
         // R T R' with R's columns the segment frame's axes as they are now.
         const T = segment.rigid.tensor;
-        const local = [[T[0], T[3], T[4]], [T[3], T[1], T[5]], [T[4], T[5], T[2]]];
-        const R = [0, 1, 2].map((k) => { v.set(k === 0 ? 1 : 0, k === 1 ? 1 : 0, k === 2 ? 1 : 0).applyRotationQuaternionToRef(rotation, v); return [v.x, v.y, v.z]; });
-        inertias[i] = [0, 1, 2].map((a) => [0, 1, 2].map((b) => {
+        local[0]![0] = T[0]; local[0]![1] = T[3]; local[0]![2] = T[4];
+        local[1]![0] = T[3]; local[1]![1] = T[1]; local[1]![2] = T[5];
+        local[2]![0] = T[4]; local[2]![1] = T[5]; local[2]![2] = T[2];
+        for (let k = 0; k < 3; k++) {
+          v.set(k === 0 ? 1 : 0, k === 1 ? 1 : 0, k === 2 ? 1 : 0).applyRotationQuaternionToRef(rotation, v);
+          R[k]![0] = v.x; R[k]![1] = v.y; R[k]![2] = v.z;
+        }
+        const inertia = inertias[i]!;
+        for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) {
           let s = 0;
           for (let k = 0; k < 3; k++) for (let l = 0; l < 3; l++) s += R[k]![a]! * local[k]![l]! * R[l]![b]!;
-          return s;
-        }));
+          inertia[a]![b] = s;
+        }
       });
       joints.forEach((joint, j) => {
         localPivot[j]!.applyRotationQuaternionToRef(joint.child.node.rotationQuaternion!, v).addInPlace(joint.child.node.position);
-        pivots[j] = [v.x, v.y, v.z];
+        const pivot = pivots[j]!;
+        pivot[0] = v.x; pivot[1] = v.y; pivot[2] = v.z;
         // A body-frame axis as the parent now carries it: P P0^-1.
         Quaternion.InverseToRef(joint.parent.rest, q);
         joint.parent.node.rotationQuaternion!.multiplyToRef(q, carry);
@@ -183,10 +197,10 @@ export function contactMass(built: BuiltBody): ContactMass {
       const c = centres[index.get(root)!]!;
       origin[0] = c[0]; origin[1] = c[1]; origin[2] = c[2];
       // M = sum of m Jv' Jv + Jw' I Jw over the segments, at their centres.
-      const M = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+      for (const row of M) row.fill(0);
       segments.forEach((segment, i) => {
-        const J = jacobian(i, centres[i]!, true), m = segment.rigid.mass, I = inertias[i]!;
-        const Iw = [0, 1, 2].map((a) => J[3]!.map((_, col) => I[a]![0]! * J[3]![col]! + I[a]![1]! * J[4]![col]! + I[a]![2]! * J[5]![col]!));
+        const J = jacobian(i, centres[i]!, true, rows6), m = segment.rigid.mass, I = inertias[i]!;
+        for (let a = 0; a < 3; a++) for (let col = 0; col < n; col++) Iw[a]![col] = I[a]![0]! * J[3]![col]! + I[a]![1]! * J[4]![col]! + I[a]![2]! * J[5]![col]!;
         for (let a = 0; a < n; a++) {
           for (let b = a; b < n; b++) {
             const value = m * (J[0]![a]! * J[0]![b]! + J[1]![a]! * J[1]![b]! + J[2]![a]! * J[2]![b]!)
@@ -197,7 +211,7 @@ export function contactMass(built: BuiltBody): ContactMass {
         }
       });
       // Cholesky: M = L L'.
-      factor = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+      for (const row of factor) row.fill(0);
       for (let i = 0; i < n; i++) {
         for (let j = 0; j <= i; j++) {
           let s = M[i]![j]!;
@@ -223,16 +237,27 @@ export function contactMass(built: BuiltBody): ContactMass {
         return { column: firstColumn[j]! + hold.index, low: -hold.negative, high: hold.positive };
       });
       // The held freedoms' block of M^-1, and the push's column of it there.
-      const columns = held.map(({ column }) => { const e = new Array<number>(n).fill(0); e[column] = 1; return solve(e); });
+      const columns = held.map(({ column }) => inverseColumn(column));
       const K = held.map((_, i) => held.map(({ column }) => columns[i]![column]!));
       const c = held.map(({ column }) => Ag[column]!);
-      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high), most);
+      return yieldPath(a, c, K, held.map(({ low }) => low), held.map(({ high }) => high), most ?? Infinity, held.length > lower.length ? (lower = square(held.length)) : lower);
     },
   };
 
+  /** Column `column` of M^-1 as the pose stood at `update`, solved the first time it is asked. */
+  function inverseColumn(column: number): number[] {
+    let found = inverseColumns.get(column);
+    if (!found) {
+      const e = new Array<number>(n).fill(0);
+      e[column] = 1;
+      inverseColumns.set(column, found = solve(e));
+    }
+    return found;
+  }
+
   /** The push along `direction` at `point` on `segment` as a row of the body's speeds: n' J, with n of unit length. */
   function pushRow(segment: BuiltSegment, point: Vec3, direction: Vec3): number[] {
-    const J = jacobian(segmentIndex(segment), point, false);
+    const J = jacobian(segmentIndex(segment), point, false, rows6);
     const size = hypot(direction[0], direction[1], direction[2]);
     return J[0]!.map((_, col) => (direction[0] * J[0]![col]! + direction[1] * J[1]![col]! + direction[2] * J[2]![col]!) / size);
   }
@@ -250,18 +275,19 @@ export function contactMass(built: BuiltBody): ContactMass {
  * done changing: its later legs reach impulses no blow carries.
  */
 function yieldPath(a: number, c: readonly number[], K: readonly (readonly number[])[], low: readonly number[], high: readonly number[],
-  most = Infinity): Yield {
+  most: number, L: number[][]): Yield {
   const h = c.length, given = new Array<number>(h).fill(0), turning = new Array<number>(h).fill(0);
   // 0 holds; +1 gives at its high bound, -1 at its low.
   const at = new Array<number>(h).fill(0);
   const impulse = [0], change = [0];
+  const holding: number[] = [], rate = new Array<number>(h).fill(0), dGiven = new Array<number>(h).fill(0), dTurning = new Array<number>(h).fill(0);
   let P = 0;
   for (let leg = 0; leg <= 4 * h + 8; leg++) {
-    const holding: number[] = [];
+    holding.length = 0;
     for (let i = 0; i < h; i++) if (at[i] === 0) holding.push(i);
     // What the holding freedoms give per newton second: K_HH r = -c_H.
-    const rate = spdSolve(holding.map((i) => holding.map((k) => K[i]![k]!)), holding.map((i) => -c[i]!));
-    const dGiven = new Array<number>(h).fill(0), dTurning = new Array<number>(h).fill(0);
+    heldSolve(K, c, holding, L, rate);
+    dGiven.fill(0); dTurning.fill(0);
     holding.forEach((i, k) => { dGiven[i] = rate[k]!; });
     let slope = a;
     for (const i of holding) slope += c[i]! * dGiven[i]!;
@@ -297,23 +323,27 @@ function yieldPath(a: number, c: readonly number[], K: readonly (readonly number
   throw new Error("a push against held freedoms changed them over more than four times as often as there are freedoms");
 }
 
-/** x with A x = b, A symmetric positive definite, by Cholesky. */
-function spdSolve(A: readonly (readonly number[])[], b: readonly number[]): number[] {
-  const m = b.length, L = Array.from({ length: m }, () => new Array<number>(m).fill(0));
+/**
+ * `y`'s first entries the x with A x = b, A = K's block on the rows and columns `holding` names and b
+ * = -c there, symmetric positive definite, by Cholesky, worked in `L`'s lower triangle.
+ */
+function heldSolve(K: readonly (readonly number[])[], c: readonly number[], holding: readonly number[], L: number[][], y: number[]): void {
+  const m = holding.length;
   for (let i = 0; i < m; i++) {
+    const Ki = K[holding[i]!]!, Li = L[i]!;
     for (let j = 0; j <= i; j++) {
-      let s = A[i]![j]!;
-      for (let k = 0; k < j; k++) s -= L[i]![k]! * L[j]![k]!;
+      let s = Ki[holding[j]!]!;
+      const Lj = L[j]!;
+      for (let k = 0; k < j; k++) s -= Li[k]! * Lj[k]!;
       if (i === j) {
         if (!(s > 0)) throw new Error("a held block of the mass matrix's inverse is not positive definite");
-        L[i]![i] = Math.sqrt(s);
-      } else L[i]![j] = s / L[j]![j]!;
+        Li[i] = Math.sqrt(s);
+      } else Li[j] = s / Lj[j]!;
     }
   }
-  const y = b.slice();
+  for (let i = 0; i < m; i++) y[i] = -c[holding[i]!]!;
   for (let i = 0; i < m; i++) { let s = y[i]!; for (let k = 0; k < i; k++) s -= L[i]![k]! * y[k]!; y[i] = s / L[i]![i]!; }
   for (let i = m - 1; i >= 0; i--) { let s = y[i]!; for (let k = i + 1; k < m; k++) s -= L[k]![i]! * y[k]!; y[i] = s / L[i]![i]!; }
-  return y;
 }
 
 /** A contact's time, half the period of the mass `mu` on the stiffness `stiffness`: pi sqrt(mu / k), s. */

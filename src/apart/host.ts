@@ -1,4 +1,5 @@
 import { catalogName, type MindPlace, type ReportNow, type Seat, type SeatAsk, type SeatSays } from "../core/mind/apart.ts";
+import type { MenuEntry } from "../core/skills/framework/menu.ts";
 import type { MirrorChannel, MirrorStatics } from "../core/mind/mirror.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { MIND_CATALOGS } from "./catalogs.ts";
@@ -30,7 +31,7 @@ interface Thread {
   steps: number;
 }
 
-/** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, its last step ask's count on its thread, and what its mind last said. */
+/** One seat as the world holds it: its thread, its channel, what of the channel its thread has, the batch its last ask went in or that it waits to be sent, its last step ask's count on its thread, what its mind last said and whether it has said anything yet, and the menu it last gave. */
 interface Held {
   readonly thread: Thread;
   readonly channel: MirrorChannel;
@@ -40,6 +41,8 @@ interface Held {
   queued: boolean;
   inbound: Float64Array;
   says: SeatSays;
+  heard: boolean;
+  menu: readonly MenuEntry[] | null;
   kit: ReportNow["kit"];
   gait: ReportNow["gait"];
 }
@@ -48,11 +51,11 @@ interface Held {
  * **Minds apart on `links`** (`MindPlace`, `src/core/mind/apart.ts`): each link a host of seats
  * (`mindThread`, `src/apart/thread.ts`), the seats dealt to them in turn as they are made; which
  * bodies share a thread changes nothing of a bout. The channels' numbers are memory the threads
- * share. An ask to step or to observe waits to go with the others the world makes as it prepares
- * the step or after physics, in one batch a thread, as the world dispatches them; every other ask
- * goes at once. A body's command waits for its step's answer alone (`Seat.answer`), so the world
- * carries the commands out while the minds decide; otherwise the world waits on a seat only for
- * the batch that carries its last ask. A spec goes to every thread the first time any ask names it, in a batch of its own
+ * share. An ask to step waits to go with the others the world makes as it prepares the step, in
+ * one batch a thread, as the world dispatches them; every other ask goes at once. A body's command
+ * and what its mind says with it wait for its step's answer alone (`Seat.answer`, `Seat.said`), so
+ * the world carries the commands out and reads the minds while they decide; otherwise the world
+ * waits on a seat only for the batch that carries its last ask. A spec goes to every thread the first time any ask names it, in a batch of its own
  * ahead of that ask, so a thread has every spec a fight has named before a mind of it senses a body
  * of it, and derives what it needs of it as it arrives.
  */
@@ -84,11 +87,12 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
       for (const said of reply.said) {
         const one = seats.get(said.seat);
         if (!one) continue;
+        if ("menu" in said) { one.menu = said.menu; continue; }
         if (said.outbound) one.channel.outbound = said.outbound;
         if (said.kit !== undefined) one.kit = said.kit;
         if (said.gait !== undefined) one.gait = said.gait;
-        one.says = { has: said.has, observes: said.observes, report: said.report ? { ...said.report, kit: one.kit, gait: one.gait } : null,
-          ...(said.menu !== undefined ? { menu: said.menu } : {}) };
+        one.says = { has: said.has, report: said.report ? { ...said.report, kit: one.kit, gait: one.gait } : null };
+        one.heard = true;
       }
     }
   };
@@ -119,14 +123,14 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
     queue(held.thread, [{ seat, ask, ...(told ? { told } : {}), ...(inbound ? { inbound } : {}) }]);
     if (ask.kind === "step") held.stepped = held.thread.steps;
     if (!held.queued) { held.queued = true; held.thread.asking.push(held); }
-    if (ask.kind !== "observe" && ask.kind !== "step") flush(held.thread);
+    if (ask.kind !== "step") flush(held.thread);
   };
   return {
     allocate: SHARED_NUMBERS,
     seat(catalog, recipe, channel, at) {
       if (disposed) throw new Error("the minds' threads were stopped");
       const seat = next++, thread = pool[seat % pool.length]!;
-      const held: Held = { thread, channel, told: channel.told.length, sent: 0, stepped: 0, queued: true, inbound: channel.inbound, says: { has: recipe.name, observes: false, report: null }, kit: null, gait: null };
+      const held: Held = { thread, channel, told: channel.told.length, sent: 0, stepped: 0, queued: true, inbound: channel.inbound, says: { has: recipe.name, report: null }, heard: false, menu: null, kit: null, gait: null };
       seats.set(seat, held);
       queue(thread, [{ seat, ask: { kind: "make", recipe: { ...recipe, catalog: catalogName(MIND_CATALOGS, catalog) }, at }, told: channel.told.slice(), inbound: channel.inbound, outbound: channel.outbound }]);
       thread.asking.push(held);
@@ -145,6 +149,16 @@ export function mindThreads(links: readonly ThreadLink[]): MindPlace {
         says() {
           join(held);
           return held.says;
+        },
+        said() {
+          // Until it is heard as made, nothing it said is known: wait for that, which every later reading has.
+          if (!held.heard) join(held);
+          return held.says;
+        },
+        menu(now) {
+          carry(seat, held, { kind: "menu", at: now });
+          join(held);
+          return held.menu;
         },
       };
       return handle;
