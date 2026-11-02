@@ -3,11 +3,11 @@
  * `src/core/learning/learner.ts`) of a subject's mind, played in its evaluation's worlds, the trainer
  * deciding its outputs. An environment file names:
  *
- * - `evaluation`; `subject`, a mind's config with the part in learning mode (a bare mind's
- *   `network: null`, a straight punch's `tuning` with `steered: true`), or `subjects`, each a `value` (a subject
- *   as the evaluation takes one) for the conditions whose fields equal its `where`'s; `part`, the
- *   path of the learnable part in each (`mind.executors.0`; none for the config itself), which must
- *   name an object; `character`.
+ * - `evaluation`; `subject`, or `subjects`, each a `value` for the conditions whose fields equal
+ *   its `where`'s: a subject as the evaluation takes one, its mind named by preset (`presetMind`),
+ *   never written out, so that it learns the part the game plays; `part`, the path of the learnable
+ *   part in each (`mind.executors.0`; none for the config itself), which must name an object;
+ *   `character`.
  * - `layout`, a file of the part's input and output names (`{ inputs, outputs }`), which the
  *   learner's own must match in number (its outputs where it holds any before the trainer writes
  *   them).
@@ -50,6 +50,7 @@
 import { readFileSync } from 'node:fs';
 import '../tests/harness/preload-data.mjs';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
+import { MINDS } from '../src/entrants/game.ts';
 import { EVALUATIONS } from '../src/evaluation/evaluations.ts';
 import { WORLD_BUILDERS } from '../src/evaluation/worlds.ts';
 
@@ -79,12 +80,39 @@ export function drawCondition(draw, next) {
 /** Whether `condition`'s fields equal `where`'s. */
 const matches = (condition, where = {}) => Object.entries(where).every(([key, value]) => JSON.stringify(condition[key]) === JSON.stringify(value));
 
-/** The subject's config for `condition`: the file's one, or the first of its `subjects` whose `where` it matches. */
+/**
+ * The mind `given` names: `preset`, a mind preset's config as the game holds it (`MINDS`,
+ * `src/entrants/game.ts`); with `action`, kept to that action and its executor, first; with
+ * `steered`, that executor in learning mode, its settings its body's record's and its trainer
+ * steering it (a research `tuning` of `{ steered: true }`). Anything else is refused: a mind written
+ * out, or a setting over the record, learns a skill the game does not throw.
+ */
+export function presetMind(given) {
+  const extra = given && typeof given === 'object' ? Object.keys(given).filter((key) => !['preset', 'action', 'steered'].includes(key)) : [];
+  if (!given || typeof given.preset !== 'string' || extra.length)
+    throw new Error(`an environment's mind is a preset, its action and whether it is steered ({ "preset", "action", "steered" }), not ${JSON.stringify(given).slice(0, 120)}`);
+  const preset = MINDS[given.preset]?.config;
+  if (!preset) throw new Error(`no mind preset ${given.preset}: ${Object.keys(MINDS).join(', ')}`);
+  if (given.action === undefined) {
+    if (given.steered !== undefined) throw new Error('a steered mind names the action whose executor it steers');
+    return preset;
+  }
+  const action = preset.actions?.find((one) => one.name === given.action), executor = preset.executors?.find((one) => one.name === action?.executor);
+  if (!action || !executor) throw new Error(`the ${given.preset} preset has no action ${given.action} and executor for it`);
+  if (given.steered !== undefined && given.steered !== true) throw new Error('`steered` is true where given');
+  return { ...preset, actions: [action], executors: [given.steered ? { ...executor, tuning: { steered: true } } : executor] };
+}
+
+/** `value` with its mind built from its preset (`presetMind`): a drill's subject's `mind`, or the value itself. */
+const subjectOf = (value) => value && typeof value === 'object' && 'mind' in value ? { ...value, mind: presetMind(value.mind) } : presetMind(value);
+
+/** The subject's config for `condition`: the file's one, or the first of its `subjects` whose `where` it matches, its mind from its preset. */
 export function subjectFor(o, condition) {
-  if (o.subject) return o.subject;
+  if (o.subject && o.subjects) throw new Error('an environment names `subject` or `subjects`, not both');
+  if (o.subject) return subjectOf(o.subject);
   const found = (o.subjects ?? []).find((one) => matches(condition, one.where));
   if (!found) throw new Error(`no subject of the environment plays ${JSON.stringify(condition)}`);
-  return found.value;
+  return subjectOf(found.value);
 }
 
 /** The value at `path` (dotted) in `config`. */
@@ -118,7 +146,8 @@ export async function caseEnvironment(configuration = {}) {
   const o = { character: {}, reward: {}, seed: 1, engine: DEFAULT_ENGINE, slice: 4, refresh: 8, ...configuration };
   const evaluation = EVALUATIONS[o.evaluation];
   if (!evaluation) throw new Error(`no evaluation ${o.evaluation}`);
-  const configs = o.subject ? [o.subject] : (o.subjects ?? []).map((one) => one.value);
+  if (o.subject && o.subjects) throw new Error('an environment names `subject` or `subjects`, not both');
+  const configs = (o.subject ? [o.subject] : (o.subjects ?? []).map((one) => one.value)).map(subjectOf);
   if (configs.length === 0) throw new Error('an environment names its subject');
   for (const config of configs) if (!at(config, o.part ?? '') || typeof at(config, o.part ?? '') !== 'object') throw new Error(`the subject's config has no part at ${o.part}`);
   const layout = JSON.parse(readFileSync(o.layout, 'utf8'));
