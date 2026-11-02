@@ -781,6 +781,12 @@ The first roll from the back still fails in a fall more often than placed: the b
 toward a side, and the roll plays its stages and turns it nowhere; rolled again from where it lies
 it turns (the roll held, [Option Mind's rise](#option-minds-rise-on-the-target)).
 
+**Holding the club** the Skeleton stands none: on the technique bed from eight shoves the roll times
+out in four and no sit-back after it stands; in the falls the roll is done in 25 of 44 tries and the
+sit-back in none of 32 (15 end in `fours`, 8 fall back to lying). Rolled over the left, the
+same. A search of all four poses and the sit-back's times scored with and without the club costs
+about 2.5 hours on twelve threads (a club trial runs to its time-outs) and was not run to its end.
+
 ### Where the rise stops
 
 **On the owner's target** (`step-up`, the 64 falls, at `0792d310`; each stage's start read from
