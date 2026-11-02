@@ -6,7 +6,7 @@ import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../../con
 import type { EffectorGoal, PointTask } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
 import type { Cover, Intent } from "../../intent/intent.ts";
-import type { BodySpec, HandPose } from "../../spec/body.ts";
+import type { BodySpec, HandPose, ItemSpec } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../../spec/vec.ts";
 import type { Skill } from "../framework/skill.ts";
@@ -28,12 +28,12 @@ export const GUARD: Pose = Object.freeze({
 export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
 
 /**
- * **How a shield's ward is held** (`Ward`): a covering face's centre `out` m from the place guarded
- * toward the foe's weapon, or at the weapon where that is nearer, so far as the arm reaches: held
- * out at the threat, meeting a blow early, not hugged to the body; reached in `seconds` where the
- * item is `share` of the body's mass. Set: `docs/reference/blows.md#a-shields-ward`.
+ * **How a shield's ward is held** (`Ward`): a covering face's centre as far from the place guarded
+ * toward the foe's weapon as the arm reaches (`faceReach`), or at the weapon where that is nearer:
+ * held out at the threat, meeting a blow early, not hugged to the body; reached in `seconds` where
+ * the item is `share` of the body's mass. Set: `docs/reference/blows.md#a-shields-ward`.
  */
-export const SHIELD_WARD: Ward = Object.freeze({ out: 0.9, seconds: 0.05, share: 0.0114 });
+export const SHIELD_WARD: Ward = Object.freeze({ seconds: 0.05, share: 0.0114 });
 
 /**
  * **The guard a body holds**: `GUARD`, with each hand that holds an item turned at the wrist so
@@ -74,17 +74,34 @@ export interface Covering {
 }
 
 /**
- * A ward's settings (`SHIELD_WARD`): a cover's, its `seconds` those of a body whose item is
- * `share` of its mass. A body whose item is more of its mass reaches in longer, by the root of
+ * A ward's settings (`SHIELD_WARD`): the `seconds` a face is placed in by a body whose item is
+ * `share` of its mass. A body whose item is more of its mass places it in longer, by the root of
  * the ratio, so the item's swing pushes back on each body as the same share of its weight.
  */
-export interface Ward extends Covering {
+export interface Ward {
+  readonly seconds: number;
   readonly share: number;
 }
 
-/** How `ward` is held by a body of `spec` with `item` in a hand: its seconds by the item's share of the body's mass (`Ward`). */
-function wardOf(spec: BodySpec, item: { readonly mass: { readonly value: number } }, ward: Ward): Covering {
-  return { out: ward.out, seconds: ward.seconds * Math.sqrt(item.mass.value / spec.mass.value / ward.share) };
+/**
+ * How far `point` (in the reference body frame) of what `hand` holds reaches from the body's
+ * middle, m: the arm's first joint off its effector's base (the shoulder) its distance across
+ * from the middle, and the arm's joints from there to the point, at full stretch.
+ */
+function faceReach(spec: BodySpec, hand: string, point: Vec3): number {
+  const base = spec.effectors?.find((effector) => effector.segment === hand)?.base, chain = specChainTo(spec, hand);
+  const from = chain.findIndex((joint) => joint.spec.parent === base);
+  if (from < 0) throw new Error(`${spec.model}'s ${hand} has no joint off its base ${base}`);
+  const points = [...chain.slice(from).map((joint) => joint.spec.centre.value), point];
+  let reach = Math.abs(points[0]![0]);
+  for (let k = 1; k < points.length; k++) reach += distance(points[k - 1]!, points[k]!);
+  return reach;
+}
+
+/** How `ward` is held by `hand` of a body of `spec` holding `item` there: out as far as the face reaches (`faceReach`), in seconds by the item's share of the body's mass (`Ward`). */
+function wardOf(spec: BodySpec, hand: string, item: ItemSpec, ward: Ward): Covering {
+  const segment = segmentOf(spec, hand)!, face = rigidPoints(spec, segment).get(item.cover![0]!)!.value;
+  return { out: faceReach(spec, hand, face), seconds: ward.seconds * Math.sqrt(item.mass.value / spec.mass.value / ward.share) };
 }
 
 /**
@@ -168,7 +185,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, war
   const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
   /** Each hand's ward, by segment: a hand holding a covering face where the skill wards. */
   const wards: Readonly<Record<string, Covering>> = Object.fromEntries(ward ? (spec.held ?? []).filter(({ segment, item }) => hands.includes(segment) && item.coverNormal !== undefined)
-    .map(({ segment, item }) => [segment, wardOf(spec, item, ward)]) : []);
+    .map(({ segment, item }) => [segment, wardOf(spec, segment, item, ward)]) : []);
   const guarded = new Vector3(), threat = new Vector3();
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */

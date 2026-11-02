@@ -111,13 +111,16 @@ place asked; off square, the swell's line from square at 1 s. No run fell. At 0.
 
 A hand holding a covering face (a buckler) wards: the guard's rest option asks it against the foe's
 striking point nearest the body (`READINGS.ward`, `nearest`), and the guard skill holds the face's
-centre `out` m from the guarded place toward it, or at it where that is nearer, so far as the arm
-reaches, turned to it (`SHIELD_WARD`, `src/core/skills/guard/guard.ts`). The guard is the ward's one
+centre as far from the guarded place toward it as the arm reaches (`faceReach`: the shoulder's
+distance across from the middle and the arm to the face's centre at full stretch, 0.84 m on the
+Warrior, 0.72 on the Rogue, 0.87 on the Skeleton), or at it where that is nearer, turned to it
+(`SHIELD_WARD`, `src/core/skills/guard/guard.ts`). The guard is the ward's one
 owner: the cover option leaves a hand holding a face alone (`coveringHand`).
 
-**`SHIELD_WARD` is `out` 0.9 m, `seconds` 0.05 s where the item is 0.0114 of the body's mass**
+**`SHIELD_WARD` is `seconds` 0.05 s where the item is 0.0114 of the body's mass**
 (the buckler on the Warrior), longer by the root of the ratio where it is more: the Rogue's 0.059 s,
-the Skeleton's 0.115 s. Read on the Cover drill's weapon rungs (`club`, `sword`), Option Mind,
+the Skeleton's 0.115 s. The readings below hold the face at a fixed `out` (0.9 m on every body,
+past each arm's reach, where the arm goes as far as it can). Read on the Cover drill's weapon rungs (`club`, `sword`), Option Mind,
 Node, core world, Rapier, 120 Hz, the game's command delay, at `7a6c5953` and the change after it;
 the share of blows that touched the body its buckler met first, a blow a touch of the opponent's
 weapon or striking limb (`strikesWith`, `src/evaluation/cover/read.ts`):
