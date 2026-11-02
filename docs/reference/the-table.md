@@ -36,23 +36,26 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **The Skeleton's walk**: shoved by its share of the Warrior's impulses (`shoveOf`, the same
   change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg), it falls in 2 to 8 of 47 trials a
   loadout, against 26 to 30 under the Warrior's own (`0b3fcf3e`). What is left:
-  - **holding the buckler and the club** it never walks: its root sinks from 1.32 to 1.12 m in the
-    first 1.5 s and stays there, 0.00 of the pace asked in every calm walk, and in the lab's gusts
-    every walk falls at 1.59 s, before a step. Empty-handed it settles at 1.27 m and walks; the club
-    alone 1.18 m, the buckler and the sword 1.14 m, and both walk. The sag grows with the mass held,
-    yet its knees give about a fifth of their strength (a walk traced at 0.3 m/s): the legs' control
-    lets the stance sink, not the muscles. Its mind follows the orders (`follow orders` chosen, its
-    gait's envelope 0.7 m/s forward, read from the stance envelope's club entry, which has no
-    combined loadout), so the walk is asked and the legs do not step from that depth;
+  - **holding the buckler and the club** it walks calm (along 0.8 to 1.3 of the pace asked, 1 of
+    8 falls) since the stance reads its centre of mass's height over the hips with what it holds
+    (`c0217508`; before, a held item lowered that height below the hips, the plan set the hips
+    0.14 m higher than the legs reach, no step was within reach and the root sank 0.2 m, 0.00 of the
+    pace asked). In the lab's gusts every walk still falls, at 1.7 to 2.2 s, before a step;
+  - **the club alone and the sword alone** in the gusts: 8 and 4 of 8 walks fall at 4.8 to 8.4 s
+    (1 and 1 before `c0217508`, when the same error crouched them 8 cm and held their pace to
+    0.7 m/s); the gusts are the lab's 45 N on every body, its 15 kg as on the Warrior's 79;
   - **the club alone**: 6 of 24 shoves fall (8.5 and 11.4 N s, aside and back-aside);
   - **every loadout**: a fall or two in the turns and the walks in the gusts.
 
   These are the legs' (step 5's, with the run), not the protocol's.
 - **The buckler's cover**: it meets 1 to 20 of 13 to 30 blows first, 6 to 67 %, against 80 %; the
   Skeleton falls in 2 to 3 of 6 trials.
-- **The walk**: the Warrior falls in its turns with empty hands and the club (2 and 1 of 2); the
-  Rogue, shoved by its share (0.73 of the Warrior's), in one shove (43.7 N s, from ahead), three
-  walks in the gusts with the club, and the run and both turns with the sword alone.
+- **The walk** (read again at `c0217508`, `assets/evaluations/locomotion/2026-11-02-c0217508-15c75b7a.jsonl`;
+  36 falls of 705 trials before it, 46 after): the Warrior falls in its turns with empty hands,
+  the club and the buckler and sword (2 of 2 each) and the sword (1), its hips planned 1.8 cm
+  lower with an item held than before; the Rogue, shoved by its share (0.73 of the Warrior's), in
+  one shove (43.7 N s, from ahead), a turn with the club, a walk in the gusts with the sword and
+  the run with the buckler and sword, its gust walks with the club now standing (0 of 16, 3 before).
 
 ## Each cell
 

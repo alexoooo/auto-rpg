@@ -194,6 +194,32 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   (`tests/move.test.mjs@2a1b29ac`, a `todo` against 3 s).
 - **With balance** the gait asks the assist to right the pelvis ([assist](assist.md#a-gaits-assist)).
 
+## The run on toes
+
+The run's settings (`WALK_RUN_CYCLE`, `WALK_RUN.run`) are the flat foot's. On toes the ankle's
+dorsiflexion stop is 0.8 rad, not the flat foot's 0.36 ([toes](toes.md#on-the-game-bodies)), and
+those settings lean on that stop to hold the stance ankle: on toes the ankle reaches 0.69 rad, the
+body sways wider each step and falls. The ankle's strength is not the limit (the Warrior's
+plantarflexion 418 N·m); a firmer, fuller stance-ankle servo (`ankle` 1, `settle` 0.06) runs the
+empty Warrior 3.0 to 3.4 m/s for 12 s in calm air.
+
+**Against the run's bar** ([the bars](../plans/2026-11-01-option-mind-everywhere.md#the-bars)),
+`research/run-cycle-search.mjs --score` over the bar's matrix (the Warrior and the Rogue; the empty
+hand, the club, the buckler and club, the sword, the buckler and sword; calm and the lab's gusts,
+seeds 1 to 4): asked 3.5 m/s, the slowest second from 3 s to 13 s (`--slowest 3`); a full round
+at 1 rad/s from 3 s at 2 m/s; asked 3 m/s and to stop at 5 s. Node stand, Rapier, 120 Hz, at
+`c0217508`; trials fallen of 25 each:
+
+| Settings | Warrior: held, turn, stop | Rogue: held, turn, stop | Slowest second held, Warrior / Rogue |
+|---|---|---|---|
+| the flat foot's (the game's) | 25, 25, 25 | 25, 17, 8 | – / – |
+| searched on toes ([not kept](#settings-searched-on-toes)) | 9, 25, 24 | 10, 25, 11 | 2.1 to 2.7 / 1.4 to 1.8 m/s |
+
+No cell meets the bar. What holds the turn back is the walk and run itself: its heading turns no
+faster than `swerve` (1.6 m/s²) over the speed, 0.8 rad/s at 2 m/s, and the run goes past the pace
+asked (2.8 m/s asked 2) and banks into the turn until it falls inward. Its `brake` slows the pace
+at 0.47 m/s², where a stop within 1.5 s asks about 2.
+
 ## The walk and run
 
 The game's Run (`walk-run.ts`): the stance's walk, and past its threshold the run cycle,
@@ -332,6 +358,26 @@ not.
   longer steps.
 
 ## Tried and not kept
+
+### Settings searched on toes
+
+The run's settings searched on the toed Warrior and Rogue (`research/run-cycle-search.mjs`, from
+the flat foot's with `ankle` 1 and `settle` 0.06: 9 generations of 12 asked 3 m/s, turning at
+2 m/s and stopping from 3, four loadouts, calm and gusts of seed 1; then 10 asked 3.5 m/s credited
+by the slowest second from 3 s, a full round at 1 rad/s, a stop at 5 s, the sword added) hold the
+straight run at 3.5 m/s in two thirds of the bar's trials ([the table above](#the-run-on-toes)),
+but not the slower runs the game's envelope reads: re-measured (`research/core-stance-envelope.mjs
+--legs walk-run --gusts 1:5:1,2,3,4`, 26 min), the Warrior's forward stays 0.7 m/s (none of its
+trials at 1 to 1.7 m/s hold, against 4 to 9 of 20) and the Rogue's falls from 1.2 to 0.7. The game
+would run no sooner and the Rogue slower; not kept.
+
+### A wider swerve for the run's turn
+
+`swerve` 2.6 m/s² (1.3 rad/s at 2 m/s), searched with the run's settings from those searched on toes over
+the bar's trials in calm air and gusts of seed 1 (`--turn-at 3 --turn-angle 6.2832`, 4
+generations of 12): no candidate scored over its start (0.71 against their 0.73), and
+every full round still fell 1 to 3 s in, banked inward. Not kept; the turn needs the run to hold
+its pace and bank, not only to turn sooner.
 
 ### The stride
 
