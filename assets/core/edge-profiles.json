@@ -2,8 +2,8 @@
   "source": {
     "script": "research/edge-profiles.mjs",
     "records": [
-      "assets/evaluations/rise/2026-10-30-3c0a093a-356447aa.jsonl",
-      "assets/evaluations/rise/2026-10-30-3c0a093a-3cd5c8be.jsonl"
+      "assets/evaluations/rise/2026-11-02-51aaf4d2-d571fdf8.jsonl",
+      "assets/evaluations/rise/2026-11-02-51aaf4d2-9698f800.jsonl"
     ]
   },
   "profiles": [
@@ -13,7 +13,32 @@
         "spec": "abf7565249bb0500",
         "skill": "20fe4dffef5c2edd",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 21,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.755,
+          "down": 0,
+          "ends": []
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "20fe4dffef5c2edd",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -24,7 +49,7 @@
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 2.638,
+          "seconds": 3.244,
           "down": 0,
           "ends": []
         }
@@ -36,7 +61,37 @@
         "spec": "abf7565249bb0500",
         "skill": "96abc6c2092dcc94",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 12,
+          "done": 0.75,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.305,
+          "down": 0.25,
+          "ends": [
+            {
+              "at": "front",
+              "share": 0.25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "96abc6c2092dcc94",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -47,11 +102,11 @@
           "done": 0.9166666666666666,
           "dealt": 0,
           "taken": 0,
-          "seconds": 2.885,
+          "seconds": 3.393,
           "down": 0.08333333333333337,
           "ends": [
             {
-              "at": "between",
+              "at": "back",
               "share": 0.08333333333333333
             }
           ]
@@ -64,18 +119,43 @@
         "spec": "abf7565249bb0500",
         "skill": "9ca3bb4120cb86df",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
         {
           "range": 0,
           "phase": "clear",
-          "trials": 9,
+          "trials": 10,
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 2.678,
+          "seconds": 2.578,
+          "down": 0,
+          "ends": []
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "9ca3bb4120cb86df",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 11,
+          "done": 1,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 2.633,
           "down": 0,
           "ends": []
         }
@@ -87,35 +167,61 @@
         "spec": "abf7565249bb0500",
         "skill": "14d0807c06566d32",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
         {
           "range": 0,
           "phase": "clear",
-          "trials": 8,
+          "trials": 9,
           "done": 0,
           "dealt": 0,
           "taken": 0,
-          "seconds": 1.385,
+          "seconds": 1.405,
           "down": 1,
           "ends": [
             {
-              "at": "left",
-              "share": 0.125
-            },
-            {
               "at": "front",
-              "share": 0.5
+              "share": 0.4444444444444444
             },
             {
               "at": "back",
-              "share": 0.25
-            },
+              "share": 0.5555555555555556
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "14d0807c06566d32",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 10,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 1.393,
+          "down": 1,
+          "ends": [
             {
               "at": "right",
-              "share": 0.125
+              "share": 0.2
+            },
+            {
+              "at": "back",
+              "share": 0.8
             }
           ]
         }
@@ -127,7 +233,8 @@
         "spec": "abf7565249bb0500",
         "skill": "6b7a484da2ca224f",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -138,7 +245,36 @@
           "done": 0,
           "dealt": 0,
           "taken": 0,
-          "seconds": 0.275,
+          "seconds": 0.242,
+          "down": 1,
+          "ends": [
+            {
+              "at": "back",
+              "share": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "6b7a484da2ca224f",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 2,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 0.208,
           "down": 1,
           "ends": [
             {
@@ -155,20 +291,63 @@
         "spec": "abf7565249bb0500",
         "skill": "7c4a6391f13be343",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
         {
           "range": 0,
           "phase": "clear",
-          "trials": 9,
-          "done": 1,
+          "trials": 10,
+          "done": 0.6,
           "dealt": 0,
           "taken": 0,
-          "seconds": 2.803,
-          "down": 0,
-          "ends": []
+          "seconds": 3.963,
+          "down": 0.4,
+          "ends": [
+            {
+              "at": "crouch",
+              "share": 0.3
+            },
+            {
+              "at": "back",
+              "share": 0.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "7c4a6391f13be343",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 11,
+          "done": 0.2727272727272727,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 3.605,
+          "down": 0.7272727272727273,
+          "ends": [
+            {
+              "at": "back",
+              "share": 0.6363636363636364
+            },
+            {
+              "at": "between",
+              "share": 0.09090909090909091
+            }
+          ]
         }
       ]
     },
@@ -178,7 +357,8 @@
         "spec": "abf7565249bb0500",
         "skill": "ec58505702b8f9b9",
         "hz": 120,
-        "reaction": null
+        "reaction": null,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -186,14 +366,71 @@
           "range": 0,
           "phase": "clear",
           "trials": 12,
-          "done": 0.9166666666666666,
+          "done": 0.08333333333333333,
           "dealt": 0,
           "taken": 0,
-          "seconds": 4.356,
-          "down": 0.08333333333333337,
+          "seconds": 5.13,
+          "down": 0.9166666666666666,
           "ends": [
             {
-              "at": "between",
+              "at": "back",
+              "share": 0.16666666666666666
+            },
+            {
+              "at": "crouch",
+              "share": 0.25
+            },
+            {
+              "at": "standing",
+              "share": 0.16666666666666666
+            },
+            {
+              "at": "front",
+              "share": 0.25
+            },
+            {
+              "at": "left",
+              "share": 0.08333333333333333
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "measured": {
+        "body": "workshop-fighter+toes",
+        "spec": "84a063ec033db39a",
+        "skill": "ec58505702b8f9b9",
+        "hz": 120,
+        "reaction": null,
+        "delay": 1
+      },
+      "target": null,
+      "cells": [
+        {
+          "range": 0,
+          "phase": "clear",
+          "trials": 12,
+          "done": 0.08333333333333333,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 5.365,
+          "down": 0.9166666666666666,
+          "ends": [
+            {
+              "at": "back",
+              "share": 0.5
+            },
+            {
+              "at": "right",
+              "share": 0.25
+            },
+            {
+              "at": "left",
+              "share": 0.08333333333333333
+            },
+            {
+              "at": "front",
               "share": 0.08333333333333333
             }
           ]
