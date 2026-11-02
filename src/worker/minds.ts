@@ -2,7 +2,7 @@ import type { MindPlace } from "../core/mind/apart.ts";
 import { replyBox } from "../apart/box.ts";
 import { decodeExact } from "../apart/codec.ts";
 import { mindThreads, type ThreadLink } from "../apart/host.ts";
-import { DONE, waitPast, type Reply } from "../apart/wire.ts";
+import { ANSWERED, COUNTERS, DONE, waitPast, type Reply } from "../apart/wire.ts";
 
 /** How the world waits on a minds' thread, ms: spinning about a step, then sleeping; a thread silent past `timeout` is a defect. */
 const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
@@ -24,12 +24,13 @@ export function browserMindWorkers(threads: number): MindPlace {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
   const links = Array.from({ length: threads }, (): ThreadLink => {
     const worker = new Worker(new URL("./mind.worker.ts", import.meta.url), { type: "module" });
-    const control = new Int32Array(new SharedArrayBuffer(8)), box = replyBox(BOX_BYTES), arena = new SharedArrayBuffer(ARENA_BYTES);
+    const control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS)), box = replyBox(BOX_BYTES), arena = new SharedArrayBuffer(ARENA_BYTES);
     worker.postMessage({ kind: "start", control, box: box.buffer, arena } satisfies MindWorkerStart);
     const unshelve = ({ offset, length }: { readonly offset: number; readonly length: number }) => new Float64Array(arena, 8 * offset, length);
     return {
       post: (batch) => worker.postMessage(batch),
       wait: (seq) => waitPast(control, DONE, seq - 1, WAITING),
+      answered: (steps) => waitPast(control, ANSWERED, steps - 1, WAITING),
       *replies() { for (let text = box.take(); text !== null; text = box.take()) yield decodeExact(text, unshelve) as Reply; },
       stop: () => worker.terminate(),
     };

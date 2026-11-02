@@ -30,7 +30,7 @@ export interface MindsApart {
  * into whole steps), and nothing else moves its bodies or its clock.
  *
  * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
- * a mirror or apart handed what it reads); the step hooks, in the order they were added (minds,
+ * a mirror or apart handed what it reads), then what they asked of minds apart is sent; the step hooks, in the order they were added (minds,
  * motor control, the muscle driver); then one solver step of `dt`, which writes every body's node;
  * then the clock advances, the post-physics hooks observe the completed interval, and what they
  * asked of minds apart is sent (`MindsApart.dispatch`); then the after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
@@ -167,6 +167,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(sensing);
         runAll(preparing);
+        minds?.dispatch();
         runAll(before);
         physics.step(dt);
         state.steps += 1;

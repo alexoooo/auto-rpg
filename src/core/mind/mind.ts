@@ -306,11 +306,27 @@ export function motorPart(mind: () => Mind) {
  * with the next answer (`embody`).
  */
 export function think(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): void {
-  if (delay > 0) { moves.move(dt); mirror.answer(); mirror.sense(); mind.step(mirror.senses, dt); return; }
+  if (answerOn(mind, moves, mirror, delay, dt)) decideOn(mind, mirror, dt);
+}
+
+/**
+ * **What of a mind's step on its mirror its body waits for** (`think`): with no delay, the whole
+ * step; with one, its motor part and its answer, true where its step is still to come
+ * (`decideOn`), before the mirror is next refreshed.
+ */
+export function answerOn(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): boolean {
+  if (delay > 0) { moves.move(dt); mirror.answer(); return true; }
   mirror.sense();
   mind.step(mirror.senses, dt);
   moves.move(dt);
   mirror.answer();
+  return false;
+}
+
+/** **A mind's step after its answer** (`answerOn`): what it senses, and its step on it. */
+export function decideOn(mind: Mind, mirror: Mirror, dt: number): void {
+  mirror.sense();
+  mind.step(mirror.senses, dt);
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

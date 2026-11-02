@@ -1,7 +1,7 @@
 import { MessageChannel, receiveMessageOnPort, Worker } from "node:worker_threads";
 import type { MindPlace } from "../core/mind/apart.ts";
 import { mindThreads, type ThreadLink } from "../apart/host.ts";
-import { DONE, POSTED, waitPast, type Reply } from "../apart/wire.ts";
+import { ANSWERED, COUNTERS, DONE, POSTED, waitPast, type Reply } from "../apart/wire.ts";
 
 /**
  * How the world waits on a minds' thread, ms: spinning `spin` first, about a step, since it has
@@ -13,12 +13,12 @@ const WAITING = Object.freeze({ spin: 8, timeout: 120_000 });
 /**
  * **Minds apart in Node's worker threads** (`mindThreads`, `src/apart/host.ts`): `threads` threads
  * (`src/node/mind-worker.ts`), each sent its batches by message on a port of its own and counted on
- * two counters both share (`POSTED`, `DONE`), its answers taken from the port as they are counted.
+ * counters both share (`POSTED`, `DONE`, `ANSWERED`), its answers taken from the port as they are counted.
  */
 export function mindWorkers(threads: number): MindPlace {
   if (!(Number.isInteger(threads) && threads >= 1)) throw new Error(`minds run on a whole number of threads, one or more, not ${threads}`);
   const links = Array.from({ length: threads }, (): ThreadLink => {
-    const { port1: port, port2 } = new MessageChannel(), control = new Int32Array(new SharedArrayBuffer(8));
+    const { port1: port, port2 } = new MessageChannel(), control = new Int32Array(new SharedArrayBuffer(4 * COUNTERS));
     const worker = new Worker(new URL("./mind-worker.ts", import.meta.url), { workerData: { port: port2, control }, transferList: [port2] });
     worker.unref();
     return {
@@ -28,6 +28,7 @@ export function mindWorkers(threads: number): MindPlace {
         Atomics.notify(control, POSTED);
       },
       wait: (seq) => waitPast(control, DONE, seq - 1, WAITING),
+      answered: (steps) => waitPast(control, ANSWERED, steps - 1, WAITING),
       *replies() { for (let got = receiveMessageOnPort(port); got; got = receiveMessageOnPort(port)) yield got.message as Reply; },
       stop() {
         port.close();
