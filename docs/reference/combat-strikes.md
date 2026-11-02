@@ -63,7 +63,7 @@ extent). Hull geometry is cached per sourced segment.
 | linear/spin prediction (`prediction`), plus observation age | 0.12 s |
 | blocked lane cost (`blocked`) / repeated blocked surface (`repeated`) | 2 / 1 |
 | working-range error (`reachPenalty`) | 2 per metre |
-| hand-radius margin (`handMargin`) | half the sourced radius |
+| hand-radius margin (`handMargin`) | the sourced radius whole: the fist's line clears a guarding limb by the fist |
 | surface priority head / upper / middle trunk (`head`, `upperTrunk`, `middleTrunk`) | 0 / 0.2 / 0.4 |
 | capsule sample elevations (`elevation`) | -0.5, 0, 0.5 radii |
 | hook rank cost / reach kept back (`hookCost`, `hookReserve`) | 0.1 / 0.15 m |
