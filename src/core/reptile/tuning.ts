@@ -17,7 +17,7 @@ export const REPTILE_CRAWL = Object.freeze({
 /** Diagonal travel and measured landing settings: `docs/reference/reptile.md#controller-settings`. */
 export const REPTILE_TROT = Object.freeze({
   crawlHeight: 1, lift: .025, liftConfirm: .001, swing: .22, settle: .025, plant: .2, plantSpeed: .2, placementLimit: 3, landingWait: .1, turnError: .05,
-  speed: .3, acceleration: .5, lead: .3, turnRate: .25, sideways: .15, turnMoveAngle: .2, resumeSpeed: .1, resumeHold: .3, resumeAngle: .05,
+  speed: .5, acceleration: .5, lead: .3, turnRate: .25, sideways: .15, turnMoveAngle: .2, resumeSpeed: .1, resumeHold: .3, resumeAngle: .05,
 });
 
 /** Righting, placing the paws and rising (`recover`): `docs/reference/reptile.md#controller-settings`. */

@@ -24,6 +24,9 @@ transcribed as torque ceilings.
   centre of mass at the midpoint. A box has the uniform cuboid's moments; a capsule is a uniform
   cylinder of its radius and full end-to-end extent. Collision geometry does not change the
   masses. A segment's endpoints define its longitudinal axis; box sizes are in that frame.
+- **Leg speed**: every leg joint (girdle, bend, ankle) runs to 20 rad/s unloaded, the owner's
+  decision for travel at 1.0 m/s or more; the torque ceilings are the estimates'. At 6 rad/s the
+  rat's legs, under its trunk, could not carry it: it trotted .04 m/s.
 - **Surfaces**: ordinary surfaces have an estimated 17,000 N/m, not a borrowed human table.
 - **Teeth**: three lower-jaw tooth pyramids are colliders of their own, each with an authored
   10,000,000 N/m surface. Their bases sit at y .2175 m and z .481-.489 m; their tips rise 8 mm, to
@@ -91,6 +94,36 @@ The rat reaches no Warrior 2 m off or more within 25 s: its walk, not its bite, 
 four fights above at one step it launched no bite and took .94 HP with its teeth (none: 1 bite,
 1.65 HP); the Warrior's mind changed between the two tables, so they are not paired.
 
+### Fast legs
+
+Both bodies' leg joints at 20 rad/s in place of 6 ([leg speed](#anatomical-model)), and the
+trot's speed .5 m/s in place of .3. On the Node stand (Rapier, 120 Hz, a delay of one step;
+standing 2 s, then ordered along a heading for 8 s, the speed read over the last 6 s):
+
+| Body | Legs, trot | Upright, 8 headings | Straight ahead, m/s | Mean of 8 headings, m/s |
+| --- | --- | --- | --- | --- |
+| rat | 6 rad/s, .3 m/s | 8 | .038 | .028 |
+| rat | 20 rad/s, .5 m/s | 8 | .434 | .198 |
+| reptile | 6 rad/s, .3 m/s | 8 | .313 | .125 |
+| reptile | 20 rad/s, .5 m/s | 8 | .487 | .192 |
+
+The mean over headings is held down by the turn (`turnRate`, .25 rad/s): a body facing away
+spends most of the 8 s turning. A faster `turnRate` (.5 to 3 rad/s) tips the rat at 7 of 8
+headings: the commanded heading runs ahead of the trunk while a diagonal pair swings. Bouts at a
+delay of one step against the Warrior with a sword, before and after (fighting: the four gaps
+above, 40 s; standing still: the six gaps above, 25 s):
+
+| Body | Warrior | Bites launched | HP by the teeth |
+| --- | --- | --- | --- |
+| rat | fighting | 0, 0 | .94, .70 |
+| rat | standing still | 4, 2 | .77, 10.69 |
+| reptile | fighting | 3, 1 | 1.74, .86 |
+| reptile | standing still | 15, 18 | 4.62, 4.34 |
+
+The rat now reaches a still Warrior from 2.5 m, and most of its teeth's HP is its open jaw pressed
+into the Warrior's legs as it closes: one bout at 1.25 m is fatal to the Warrior at 11.9 s.
+Fighting, it is kicked over and does not right itself.
+
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
 from a sprawled reference pose, and does not right the rat.
 
@@ -113,7 +146,7 @@ point.
 | Travel response | centre .06, endpoint .04, turn .06, posture .06 s | Faster support and free-paw tracking during the trot |
 | Support solve | lever .3 m, damping .005, rootMotion .05 s | Wrench weighting, regularization and observed root-acceleration filtering |
 | Trot geometry | crawlHeight 1, lift .025 m, lead .3 s | Standing COM height and paw placement ahead of the actual COM by the commanded velocity times the lead |
-| Trot travel | speed .3 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel |
+| Trot travel | speed .5 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel |
 | Trot timing | swing .22, settle .025, plant .2 s; plantSpeed .2 m/s | Alternating diagonal pairs, with root motion subtracted from landing velocity |
 | Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
 | Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count a step only for a paw that lifted; end a swing once its pair bears, lifted or not; brake on delayed landing and return an unlanded pair to its anchors |
@@ -237,7 +270,8 @@ of forward travel on a 100 m ground, driven and unstruck; overrides passed into 
 | .40 | 1 | .339 | .034 | 296 | 6 |
 | .30 | .85 | .351 | .035 | 308 | 10 |
 
-The .30 m/s command is the qualified default; the sweep does not establish a maximum. The crawl it
+That sweep is the reptile's legs at 6 rad/s; the default is .5 m/s on legs at 20 rad/s
+([fast legs](#fast-legs)). The crawl it
 replaced (`42cd1e5a`) covered .156 m in the same ten seconds, about 20.8 times slower. Without a
 `--sweep`, the script plays four autonomous arena mirrors and tells jaw blows in a committed stroke
 from incidental collisions; the 30 s combat target is `research/reptile-combat.mjs`'s.
