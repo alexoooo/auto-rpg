@@ -8,7 +8,7 @@ import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
 import { FALL_CAP, type BuiltFall, type FallReading } from "../fall.ts";
-import { risingMind, risingReport, type RisingRow } from "../rising.ts";
+import { risingMind, risingReport, STAND_WITHIN, type RisingRow } from "../rising.ts";
 import { RISING_TARGET_CASES, type TargetCondition } from "./cases.ts";
 
 /** A riser as a subject: its id, the label shown, and its mind whole. */
@@ -33,10 +33,10 @@ const made = (r: FallReading): boolean => r.takeover !== null;
 /** A fall's time to its verified stand, s; a fall made and not stood counts at the cap; none for one not made. */
 const timeOf = (r: FallReading): number | null => !made(r) ? null : r.stood && r.verified !== null ? r.verified : FALL_CAP;
 
-/** What a riser is read by: the falls made; and over those, stood within 6 s, stood at all, and the failure-inclusive median. */
+/** What a riser is read by: the falls made; and over those, stood within the target's time (`STAND_WITHIN`), stood at all, and the failure-inclusive median. */
 export const FALL_FIGURES: readonly Figure<FallReading>[] = [
   { name: "falls made", unit: "share of shoves", kind: "rate", better: "higher", of: made },
-  { name: "within 6 s", unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? timeOf(r)! <= 6 : null },
+  { name: `within ${STAND_WITHIN} s`, unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? timeOf(r)! <= STAND_WITHIN : null },
   { name: "stood", unit: "share of falls made", kind: "rate", better: "higher", of: (r) => made(r) ? r.stood && r.verified !== null : null },
   { name: "time to stand", unit: "s, a fall made and not stood at the cap", kind: "median", better: "lower", of: timeOf },
 ];
@@ -49,8 +49,8 @@ export function fallSummary<C extends Json>({ subjects, cases }: Table<C, FallRe
     return { subject: subject.id, mode, groups, gates, techniques, claims };
   });
   const lines = reports.flatMap(({ subject, groups, gates, claims }) => [
-    `${subject}:`, "", "| Group | Within 6 s | Within 12 s | Stood | Median, s | No takeover |", "|---|---|---|---|---|---|",
-    ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within6}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`),
+    `${subject}:`, "", `| Group | Within ${STAND_WITHIN} s | Within 12 s | Stood | Median, s | No takeover |`, "|---|---|---|---|---|---|",
+    ...[...groups].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map((g) => `| ${g.key} | ${g.within}/${g.all} | ${g.within12}/${g.all} | ${g.stood}/${g.all} | ${g.median?.toFixed(2) ?? "none"} | ${g.noTakeover} |`),
     ...(gates ? ["", `gates: ${Object.entries(gates).map(([gate, met]) => `${gate} ${met ? "met" : "not met"}`).join(", ")}`] : []),
     `meets the owner's target: ${claims.meetsOwnerTarget}`, "",
   ]);

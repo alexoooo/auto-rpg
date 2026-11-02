@@ -57,10 +57,10 @@ npm run evaluate -- rising-target [riser ...]
   first down by the fight's rule), through landing, orientation and retries. A fall not stood
   counts at the cap; a fall not made is no stand-up.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
-  16 within 6 s in each body and loadout group, and 61 of 64 overall; every cardinal direction
-  within 6 s; a failure-inclusive median of at most 10 s (the owner, 2026-10-31: Option Mind's
-  fastest tenth of the Warrior's 64 falls, the target's and the fresh, stand by 10.45 s at
-  `bfdae8db`, its median 17.0 s).
+  16 within 10 s (`STAND_WITHIN`, the owner, 2026-11-01) in each body and loadout group, and 61 of
+  64 overall; every cardinal direction within 10 s; a failure-inclusive median of at most 10 s (the
+  owner, 2026-10-31: Option Mind's fastest tenth of the Warrior's 64 falls, the target's and the
+  fresh, stand by 10.45 s at `bfdae8db`, its median 17.0 s).
 - **Against people** ([competencies](competencies.md#targets)): young adults rising from the floor
   at a comfortable rate take a mean 1.4 to 2.6 s by starting position, and from the back a third
   less asked for speed; healthy older adults take 2.4 to 5.5 s (Alexander et al. 1997). College-age
@@ -70,8 +70,7 @@ npm run evaluate -- rising-target [riser ...]
   the target's also holds the landing and settling after the fall and the steadying to a verified,
   quiet stance (on step-up's stood falls a median 1.1 s before the rise and 2.7 after it, [where the rise
   stops](#where-the-rise-stops)). With
-  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s median, and
-  the 6 s a fall is above the older adults' slowest mean.
+  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s a fall.
 - **The baseline** is the game's Stand up (`step-up`) ([Step-up on the owner's target](#step-up-on-the-owners-target)).
 - **A controller that acts on the muscles from an observation** runs on the stand-up screen's
   sixteen falls, made afresh each run:
@@ -277,6 +276,29 @@ At 5.625 alone the Rogue's down is done 50 % of the times begun at 1.0 and 66 to
 1.6 with `prop`'s arms out too stands the Rogue 2 fewer. On the owner's target, the staged route: 52 and 53 of 64 (a placebo, thoracic
 flexion 0.3000001) against 49 and 50; step-up 56 against 51; the fresh falls 54 and 55 against 50
 and 51. The Rogue with the club stands 9 to 13 of 16 either way.
+
+### The tuck's righting
+
+`tuck` and `prop` right the body as it tips onto a side (`LEVEL`, `src/core/recovery/rise/stages.ts`):
+each side's hip abduction is asked 1 rad and its shoulder abduction 0.5 rad past the posture for
+the pelvis tipped fully down toward that side (how far the pelvis's axis toward the other side
+points up, of 1; negative as it tips away), so the low side's knee and arm go out and the high
+side's come in. Without it, the tuck carries a tip the body lies in, or one a held item gives it,
+onto the side: the Skeleton holding the club, in its first attempts on 9 falls of the target
+(Node, core world, Rapier, 120 Hz), came into `prop` tipped 0.72 to 1.00 in 7 of the 8 that reached
+it; with it, 0.76 to 0.98 in 4 of 7, and its sit-backs reach `up` and the steady after it. Stood on the target's falls (`rise-trace.mjs --loadout`, at
+`b75c8dc4`), before and after; the offset set is the same falls turned 11.25 degrees:
+
+| Body, loadout | Stood | Median of those stood, s | Offset set: stood | Median, s |
+|---|---|---|---|---|
+| Skeleton, empty | 13, 14 of 15 | 13.4, 12.7 | 10, 14 of 15 | 15.2, 12.0 |
+| Skeleton, club | 0, 0 of 15 | | | |
+| Rogue, club | 11, 11 of 16 | 14.3, 17.5 | 9, 10 of 16 | 12.9, 14.8 |
+| Warrior, club | 16, 16 of 16 | 10.7, 10.3 | | |
+
+The Skeleton with the club now fails after it rises: in the stance's steady, under the club's
+mass (the legs' sag, [the table](the-table.md#what-falls-short-by-cause)), and in its roll from the back, which
+stalls a third of the way over with the club's arm the one that comes across.
 
 Fallen forward, at each stage's last step (read with the tuck's arms folded), the heights of the centre of mass and of the pelvis's,
 upper trunk's and head's centres of mass, m:
@@ -1576,6 +1598,19 @@ and its lunge's on its back. The Rogue's kneel-up after down is done 4 of 6 (6 o
 arms folded); placed at rest it is done in none.
 
 ## Tried and not kept
+
+- **A rock-up from the back by poses alone** (at `9c26cf77`: a route part from the back, its
+  recipe the knees drawn up and the arms out or overhead, a fast rock, a squat, then the
+  sit-back's `up`; offered first in `STAND_UP`; `rise-trace.mjs`, the Warrior empty-handed): taken
+  from the back 14 times, done none. However the legs are swung, the pelvis stays flat on the
+  ground (its front axis -0.98 to -1.00 throughout) and `up` waits out its 4 s: the legs rise and
+  fall, the trunk does not come up over them. The witness that rises from the back
+  ([a fast route](#a-fast-route)) does it in a bearing phase that carries the centre of mass over
+  the feet at a speed, which no stage here asks.
+- **A roll that fails from the back tried over the other side** (`routePart`: a second roll begun
+  from the back ends the attempt, so the next goes over the other side): the Skeleton holding the
+  club rolls over neither side (20 of 93 rolls done, against 18 of 40), stands none either way, and
+  empty-handed its rolls are done 15 of 21 against 19 of 20.
 
 - **Fast edges from the witnesses** (at `63b74deb`: `src/core/recovery/ground/phased-rise.ts`,
   `research/fast-edge-search.mjs`; Node stand, core world, Rapier, 120 Hz, the Warrior
