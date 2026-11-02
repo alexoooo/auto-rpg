@@ -107,6 +107,50 @@ place asked; off square, the swell's line from square at 1 s. No run fell. At 0.
   at the end of the Rogue's arm does not follow ([human-and-strikes.md](human-and-strikes.md#ik)).
   The skill's line stays.
 
+### A shield's ward
+
+A hand holding a covering face (a buckler) wards: the guard's rest option asks it against the foe's
+striking point nearest the body (`READINGS.ward`, `nearest`), and the guard skill holds the face's
+centre `out` m from the guarded place toward it, or at it where that is nearer, so far as the arm
+reaches, turned to it (`SHIELD_WARD`, `src/core/skills/guard/guard.ts`). The guard is the ward's one
+owner: the cover option leaves a hand holding a face alone (`coveringHand`).
+
+**`SHIELD_WARD` is `out` 0.9 m, `seconds` 0.05 s where the item is 0.0114 of the body's mass**
+(the buckler on the Warrior), longer by the root of the ratio where it is more: the Rogue's 0.059 s,
+the Skeleton's 0.115 s. Read on the Cover drill's weapon rungs (`club`, `sword`), Option Mind,
+Node, core world, Rapier, 120 Hz, the game's command delay, at `7a6c5953` and the change after it;
+the share of blows that touched the body its buckler met first, a blow a touch of the opponent's
+weapon or striking limb (`strikesWith`, `src/evaluation/cover/read.ts`):
+
+| Change, the Warrior's club rung (12 trials) | Met first |
+|---|---|
+| `GUARD_COVER` (0.3 m, 0.15 s), the fastest-closing point | 11 / 38 (29 %) |
+| `out` 0.5, 0.7, 0.9 m | 55, 60, 65 % |
+| 0.9 m; `seconds` 0.15, 0.10, 0.05, 0.03 s | 64, 73, 82, 48 % |
+| 0.9 m, 0.05 s, the nearest point | 28 / 31 (90 %) |
+
+- **The cover at 0.3 m stood inside the guard's own reach**: the face's place was 0.5 m behind
+  where the guard held it, and the arm did not move to it.
+- **The fastest-closing point was the opponent's empty hand in 43 % of the steps** (1668 of 3840,
+  four trials), and the face followed it; the nearest is the weapon, which reaches further.
+- **At 0.05 s the Skeleton (15 kg) falls before any blow**, the face's swing pulling it over; at
+  0.15 s it stands. Hence the time by the item's share of the body's mass.
+- **A rung's 12 trials do not settle a setting**: the same setting at 0.05 s and at 0.04998 s reads
+  90 % and 62 % on the Warrior's club rung, the trials parting at the first blow. Wider (each
+  loadout at 5 offsets across, -0.2 to 0.2 m, by 5 gaps, 1.2 to 2 m, 50 trials a rung), the
+  Warrior's ward meets 102 of 168 blows first on the club rung (61 %) and 188 of 234 on the sword
+  rung (80 %), none fallen. What meets the blow before it is mostly the Warrior's own weapon arm
+  (its hand 24 times, its forearm 20) and its right leg (20).
+
+| Body, the standard rungs (12 trials each) | Club rung | Sword rung | Fell |
+|---|---|---|---|
+| Warrior | 23 / 37 (62 %) | 38 / 51 (75 %) | 0, 0 |
+| Rogue | 36 / 50 (72 %) | 35 / 51 (69 %) | 0, 0 |
+| Skeleton | 33 / 48 (69 %) | 26 / 37 (70 %) | 4, 7 |
+
+The bar (4 of 5, none fallen) is not met. The Skeleton falls under the Warrior's blows on its
+buckler and on its hand that holds it (8 of the club rung's misses).
+
 ## Threat
 
 A threat (`THREAT`, `src/core/perception/threat.ts`) is a foe's striking point (its knuckles, the

@@ -957,6 +957,14 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   numbers. What would split it further: the numbers written in two buffers by the step's parity,
   so that the world writes a step's while the minds still decide on the last's; more mind threads
   where the machine has them; and a cheaper motor part (its hands' solves, `ReachMeter`).
+- **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
+  engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
+  details made and was copied with every answer, on the world's wait. Crowd fight, its opening
+  (steps 396 to 800) with its minds in one process, CPU time a step, Node 24.19,
+  `rapier-coordinate`, 120 Hz, three runs each interleaved under two PPO runs, before 15e42584:
+  65.1, 66.1, 63.5 ms; after, 63.4, 62.0, 60.1 ms. No pose moved; the crowd fight to its verdict,
+  the two reference bouts and the Crypt at seeds 10 and 25 are the same on one and on four mind
+  threads.
 - **A spec goes to every thread once and is derived as it arrives** (`deriveSpec`,
   `src/core/mind/apart.ts`: the openings' hulls and the spec's digest), named by its number after.
   Derived in a mind's step instead, the first a thread's mind sensed a body cost about 40 ms (the

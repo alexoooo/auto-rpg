@@ -485,7 +485,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`hand-poses.ts`) names it by side. The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
-  also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
+  also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
+  turned to it (`SHIELD_WARD`); `cover-guard` is the line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
@@ -538,8 +539,9 @@ labels contacts. A bout on mirrors is the bout on bodies, step for step
 (`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
 written there: its observers of the physics see the interval just completed, then it answers, and
 the driver carries out its answer; then, at a delay, it decides. What it reports (`MindReport`)
-is what it said with its answer, before the decision, and its menu as it stands (`createMind`),
-so that a fight reads the same of it wherever it runs.
+is what it said with its answer, before the decision, and its menu and what it shows a person
+(`MindReport.engagement`) as they stand (`createMind`), so that a fight reads the same of it
+wherever it runs.
 
 **Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
 `src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
@@ -563,7 +565,9 @@ thread once by number and derived as it arrives (`deriveSpec`), the asks carried
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
 the step asks go together as the world dispatches them, every other ask at once, what a seat says
 with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
-(`src/apart/wire.ts`). A report's kit and gait cross only when they change.
+(`src/apart/wire.ts`). A report's kit and gait cross only when they change, and its engagement,
+which no rule or Commander reads, as the mind is made and with the answer to a step asked after
+a page read it (`SeatAsk`'s `shown`).
 
 - **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
   message on a port, two shared counters a thread pace the two sides, and the replies are taken
@@ -796,7 +800,8 @@ strike is priced there as at any place (`Option.at`), its window tested at the p
 (`windowHolds`, the ready limb's window carried by its readiness, `Readiness.window`). The rest
 options (`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position
 facing the focus (`hold`, the legs), the hands at their guard (`guard`, over the body's hands,
-`guardOf`), and down, brace (`brace`, the whole body, priced as the rise that never stands from
+`guardOf`; a hand holding a covering face wards against the foe's weapon nearest the body,
+`Situation.ward`, `READINGS.ward`: the ward's one owner), and down, brace (`brace`, the whole body, priced as the rise that never stands from
 where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
 A ground option (`groundOptions`, `ground.ts`) is carried out through the skills as an action of
 the ground executor (`groundExecutor`, `ground/held.ts`): each technique of a list, the
@@ -968,7 +973,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   it walks into (`clinched`).
 - **The cover** (`covers`, `cover.ts`): one option, its target a blow predicted to reach the head
   (`incoming`, `READINGS.predicted`), on offer while the hand on the side the blow comes from has
-  no action under way holding it, at most a second a run of blows; it claims that hand, asks it
+  no action under way holding it and holds no covering face (that side is the guard's ward,
+  `coveringHand`), at most a second a run of blows; it claims that hand, asks it
   between the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS`
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
 - Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill leads it by orders, as it leads any mind
@@ -1420,7 +1426,8 @@ segment, when it came read as `Duel.shoved`), as plain data. What a page hears (
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page plays each
 bout in a fresh world in its worker ([the world in a worker](#the-world-in-a-worker)) and a body's
-time starts at its first view (`BodyView.born`).
+time starts at its first view its command is made on (`BodyView.born`): at a delay, the first step
+its decision is carried out.
 
 - **Verdict** (`Duel.judge`): a side is out by the first of the recipe's end rules that puts it out
   (`EndRule`, `src/arena/end-rule.ts`; each a part of the list `END_RULES`, `ends.ts`), which

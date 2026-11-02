@@ -50,7 +50,7 @@ export interface At { readonly steps: number; readonly time: number }
  */
 export type SeatAsk =
   | { readonly kind: "make"; readonly recipe: MindRecipe; readonly at: At }
-  | { readonly kind: "step"; readonly at: At; readonly orders?: Orders | null }
+  | { readonly kind: "step"; readonly at: At; readonly orders?: Orders | null; readonly shown?: boolean }
   | { readonly kind: "idle"; readonly at: At }
   | { readonly kind: "menu"; readonly at: At }
   | { readonly kind: "dispose" };
@@ -61,7 +61,9 @@ export type ReportNow = Omit<MindReport, "menu">;
 /**
  * **What a seat's mind says of itself**: who has its body (`Mind.has`) and its report, as it was
  * made and then with each answer (`answerOn`), before the step's decision, so that what the world
- * reads of it never waits on a decision.
+ * reads of it never waits on a decision. What it shows a person (`MindReport.engagement`) is said
+ * as it is made and with the answer to a step asked with `shown`, and is otherwise as it last said
+ * it: no rule or Commander reads it.
  */
 export interface SeatSays {
   readonly has: string;

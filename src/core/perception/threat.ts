@@ -19,9 +19,10 @@ import { lieBy, type Position } from "../control/ground-reading.ts";
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
 /**
- * **What a ward covers** (`threatOf` with `hold`): a foe's striking point within `within` m of the
- * body however slowly it closes, so the cover stands between the foe's weapon and the body before
- * any blow begins: 2 m, an arm and a short blade with a step to spare.
+ * **What a ward covers** (`threatOf` with `hold` and `nearest`): the foe's striking point nearest
+ * the body within `within` m, however slowly it closes, so the cover stands between the foe's
+ * weapon and the body before any blow begins, and keeps to the weapon, which reaches nearer than
+ * the hand that holds nothing: 2 m, an arm and a short blade with a step to spare.
  */
 const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
 
@@ -31,13 +32,15 @@ const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 /**
  * How a threat is read (`threatOf`): what counts as one; with `prediction`, its predicted crossing;
  * with `body`, the body's axis guarded in place of the head; with `hold`, a point with no
- * crossing covered where it is.
+ * crossing covered where it is; with `nearest`, of the points that count the nearest the place
+ * guarded, not the fastest closing.
  */
 interface ThreatReading {
   readonly counts: Threat;
   readonly prediction?: { readonly out: number; readonly horizon: number };
   readonly body?: boolean;
   readonly hold?: boolean;
+  readonly nearest?: boolean;
 }
 
 /** The readings minds use: the threat as it stands, its predicted contact on the head or on the body, and the weapon warded off. */
@@ -45,7 +48,7 @@ export const READINGS = Object.freeze({
   threat: Object.freeze({ counts: THREAT }),
   predicted: Object.freeze({ counts: THREAT, prediction: PREDICTION }),
   body: Object.freeze({ counts: THREAT, prediction: PREDICTION, body: true }),
-  ward: Object.freeze({ counts: WARD, prediction: PREDICTION, body: true, hold: true }),
+  ward: Object.freeze({ counts: WARD, prediction: PREDICTION, body: true, hold: true, nearest: true }),
 }) satisfies Readonly<Record<string, ThreatReading>>;
 
 /** What counts as a threat (`THREAT`). */
@@ -159,9 +162,9 @@ export function sensedPhase(view: ThreatView, focus: string): FoePhase {
  * contact is the crossing's, or with none its distance at its closing speed.
  */
 function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
-  { counts, prediction, body = false, hold = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; limb: string } | null {
+  { counts, prediction, body = false, hold = false, nearest = false }: ThreatReading): { cover: Cover; closing: number; seconds: number; foe: BodySense; limb: string } | null {
   const { senses, head } = view;
-  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, by: { foe: BodySense; limb: string } | null = null;
+  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, soon = Infinity, nearestFar = Infinity, chosen = 0, by: { foe: BodySense; limb: string } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
@@ -177,7 +180,7 @@ function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
       const dx = point.x - at[0], dy = point.y - at[1], dz = point.z - at[2], far = hypot(dx, dy, dz);
       if (far > counts.within || far === 0) continue;
       const closing = -(dx * velocity.x + dy * velocity.y + dz * velocity.z) / far;
-      if (closing <= fastest) continue;
+      if (nearest ? closing <= counts.closing || far >= nearestFar : closing <= fastest) continue;
       let candidate: Vec3 = [point.x, point.y, point.z], seconds = far / closing;
       if (prediction && far > prediction.out) {
         const normal: Vec3 = [dx / far, dy / far, dz / far];
@@ -187,10 +190,10 @@ function threatOf(view: ThreatView, { point, velocity, lever }: ThreatWork,
         if (crossing) { candidate = crossing.position; seconds = crossing.seconds; }
         else if (!hold) continue;
       }
-      fastest = closing; soon = seconds; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, limb };
+      fastest = nearest ? fastest : closing; nearestFar = far; chosen = closing; soon = seconds; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, limb };
     }
   }
-  return threat && guarded && by && { cover: { threat, guarded }, closing: fastest, seconds: soon, ...by };
+  return threat && guarded && by && { cover: { threat, guarded }, closing: chosen, seconds: soon, ...by };
 }
 
 /** The point of the segment from `from` to `to` nearest `point`. */

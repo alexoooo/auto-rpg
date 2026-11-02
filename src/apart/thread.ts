@@ -30,15 +30,15 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
   const sent = new Map<number, { kit: ReportNow["kit"]; gait: ReportNow["gait"]; outbound: Float64Array }>();
   // The step asks carried out, ever: every one of a batch once it is answered, failed or not.
   let steps = 0;
-  // What `seat` says as it stands, its kit and gait where they changed since it last said them, and its numbers where made anew.
-  const saying = (seat: number): Said => {
+  // What `seat` says as it stands, its kit and gait where they changed since it last said them, its engagement where `shown`, and its numbers where made anew.
+  const saying = (seat: number, shown: boolean): Said => {
     const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!, report = says.report;
     let kit: ReportNow["kit"] | undefined, gait: ReportNow["gait"] | undefined;
     if (report && report.kit !== last.kit) kit = last.kit = report.kit;
     if (report && report.gait !== last.gait) gait = last.gait = report.gait;
     const outbound = channel.outbound !== last.outbound ? (last.outbound = channel.outbound) : undefined;
     return { seat, has: says.has,
-      report: report ? { engagement: report.engagement, prospects: report.prospects, heading: report.heading, navigation: report.navigation, actions: report.actions, ended: report.ended } : null,
+      report: report ? { ...(shown ? { engagement: report.engagement } : {}), prospects: report.prospects, heading: report.heading, navigation: report.navigation, actions: report.actions, ended: report.ended } : null,
       ...(kit !== undefined ? { kit } : {}), ...(gait !== undefined ? { gait } : {}), ...(outbound ? { outbound } : {}) };
   };
   return {
@@ -63,10 +63,10 @@ export function mindThread(allocate: (length: number) => Float64Array, { say, an
           if (inbound) channel.inbound = inbound;
           host.handle(seat, ask, channel);
           switch (ask.kind) {
-            case "make": said.push(saying(seat)); break;
+            case "make": said.push(saying(seat, true)); break;
             case "step":
               steps += 1;
-              say({ seq: batch.seq, said: [saying(seat)] });
+              say({ seq: batch.seq, said: [saying(seat, ask.shown === true)] });
               answered(steps);
               deciding.push(seat);
               break;

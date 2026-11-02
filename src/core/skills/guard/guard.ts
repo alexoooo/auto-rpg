@@ -28,6 +28,14 @@ export const GUARD: Pose = Object.freeze({
 export const GUARD_COVER: Covering = Object.freeze({ out: 0.3, seconds: 0.15 });
 
 /**
+ * **How a shield's ward is held** (`Ward`): a covering face's centre `out` m from the place guarded
+ * toward the foe's weapon, or at the weapon where that is nearer, so far as the arm reaches: held
+ * out at the threat, meeting a blow early, not hugged to the body; reached in `seconds` where the
+ * item is `share` of the body's mass. Set: `docs/reference/blows.md#a-shields-ward`.
+ */
+export const SHIELD_WARD: Ward = Object.freeze({ out: 0.9, seconds: 0.05, share: 0.0114 });
+
+/**
  * **The guard a body holds**: `GUARD`, with each hand that holds an item turned at the wrist so
  * that the item stands as near upright, along the body frame's up, as the wrist's range allows.
  * Out of a fist held as `GUARD` holds it, a haft leans back over the head, and the head bears it.
@@ -63,6 +71,20 @@ export function guardPosture(spec: BodySpec): Pose {
 export interface Covering {
   readonly out: number;
   readonly seconds: number;
+}
+
+/**
+ * A ward's settings (`SHIELD_WARD`): a cover's, its `seconds` those of a body whose item is
+ * `share` of its mass. A body whose item is more of its mass reaches in longer, by the root of
+ * the ratio, so the item's swing pushes back on each body as the same share of its weight.
+ */
+export interface Ward extends Covering {
+  readonly share: number;
+}
+
+/** How `ward` is held by a body of `spec` with `item` in a hand: its seconds by the item's share of the body's mass (`Ward`). */
+function wardOf(spec: BodySpec, item: { readonly mass: { readonly value: number } }, ward: Ward): Covering {
+  return { out: ward.out, seconds: ward.seconds * Math.sqrt(item.mass.value / spec.mass.value / ward.share) };
 }
 
 /**
@@ -120,8 +142,9 @@ const NO_LINE = 1e-6;
  * - Two points (a club's swell) have their middle there, and their line square to the line from
  *   the place guarded to the threat: of the ways square to it, the one nearest how the item lies
  *   now, so it is not swung end over end. Each point is half their distance to either side.
- * - A face has one centre point and an independent orientation target, turning its declared
- *   outward normal toward the threat while preserving its current roll as closely as possible.
+ * - A face, where the skill wards (`ward`), has one centre point, held at the ward's `out`, and an
+ *   independent orientation target, turning its declared outward normal toward the threat while
+ *   preserving its current roll as closely as possible. Without a ward a face covers as a point.
  *
  * A hand whose guard names no cover has no goal: its arm is the posture's (`GUARD`). So has the
  * hand a strike has. A free hand that can change its pose is opened. The skill remembers nothing.
@@ -141,8 +164,11 @@ export interface GuardSkill extends Skill {
   command(view: BodyView, guard: Intent["guard"]): Readonly<Record<string, EffectorGoal | null>>;
 }
 
-export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, faces = false, hold: GuardSkill["hold"] = null): GuardSkill {
+export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, ward: Ward | null = null, hold: GuardSkill["hold"] = null): GuardSkill {
   const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
+  /** Each hand's ward, by segment: a hand holding a covering face where the skill wards. */
+  const wards: Readonly<Record<string, Covering>> = Object.fromEntries(ward ? (spec.held ?? []).filter(({ segment, item }) => hands.includes(segment) && item.coverNormal !== undefined)
+    .map(({ segment, item }) => [segment, wardOf(spec, item, ward)]) : []);
   const guarded = new Vector3(), threat = new Vector3();
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
@@ -151,12 +177,12 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, fac
     intoFrameToRef(view.root, cover.threat, threat);
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
     if (far < NO_LINE) return null;
-    const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(covering.out, far)));
-    const seconds = cover.seconds === undefined ? covering.seconds : Math.min(covering.seconds, cover.seconds);
-    const { points, span, normal } = covers[hand]!;
+    const { points, span, normal } = covers[hand]!, held = wards[hand] ?? covering;
+    const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(held.out, far)));
+    const seconds = cover.seconds === undefined ? held.seconds : Math.min(held.seconds, cover.seconds);
     if (points.length === 1) {
       const goal = { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
-      if (!faces || !normal) return goal;
+      if (!wards[hand] || !normal) return goal;
       const rotation = view.effectors[hand]!.rotation;
       normalNow.set(...normal).applyRotationQuaternionToRef(rotation, normalNow).normalize();
       const current: Vec3 = [normalNow.x, normalNow.y, normalNow.z], axis = cross(current, toward), cosine = dot(current, toward);
