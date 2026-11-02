@@ -1600,6 +1600,19 @@ arms folded); placed at rest it is done in none.
 
 ## Tried and not kept
 
+- **A rock-up from the back by poses alone** (at `9c26cf77`: a route part from the back, its
+  recipe the knees drawn up and the arms out or overhead, a fast rock, a squat, then the
+  sit-back's `up`; offered first in `STAND_UP`; `rise-trace.mjs`, the Warrior empty-handed): taken
+  from the back 14 times, done none. However the legs are swung, the pelvis stays flat on the
+  ground (its front axis -0.98 to -1.00 throughout) and `up` waits out its 4 s: the legs rise and
+  fall, the trunk does not come up over them. The witness that rises from the back
+  ([a fast route](#a-fast-route)) does it in a bearing phase that carries the centre of mass over
+  the feet at a speed, which no stage here asks.
+- **A roll that fails from the back tried over the other side** (`routePart`: a second roll begun
+  from the back ends the attempt, so the next goes over the other side): the Skeleton holding the
+  club rolls over neither side (20 of 93 rolls done, against 18 of 40), stands none either way, and
+  empty-handed its rolls are done 15 of 21 against 19 of 20.
+
 - **Fast edges from the witnesses** (at `63b74deb`: `src/core/recovery/ground/phased-rise.ts`,
   `research/fast-edge-search.mjs`; Node stand, core world, Rapier, 120 Hz, the Warrior
   empty-handed, calm, no assist): a witness's first three phases ([a fast route](#a-fast-route)),
