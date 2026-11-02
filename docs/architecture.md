@@ -487,7 +487,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`hand-poses.ts`) names it by side. The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
-  also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
+  also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
+  turned to it (`SHIELD_WARD`); `cover-guard` is the line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
@@ -801,7 +802,8 @@ strike is priced there as at any place (`Option.at`), its window tested at the p
 (`windowHolds`, the ready limb's window carried by its readiness, `Readiness.window`). The rest
 options (`rest.ts`), worth nothing, take what nothing else is worth more on: hold the position
 facing the focus (`hold`, the legs), the hands at their guard (`guard`, over the body's hands,
-`guardOf`), and down, brace (`brace`, the whole body, priced as the rise that never stands from
+`guardOf`; a hand holding a covering face wards against the foe's weapon nearest the body,
+`Situation.ward`, `READINGS.ward`: the ward's one owner), and down, brace (`brace`, the whole body, priced as the rise that never stands from
 where the body lies, `downTerms`, asking the ground's brace, `Ground.rest`).
 A ground option (`groundOptions`, `ground.ts`) is carried out through the skills as an action of
 the ground executor (`groundExecutor`, `ground/held.ts`): each technique of a list, the
@@ -973,7 +975,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   it walks into (`clinched`).
 - **The cover** (`covers`, `cover.ts`): one option, its target a blow predicted to reach the head
   (`incoming`, `READINGS.predicted`), on offer while the hand on the side the blow comes from has
-  no action under way holding it, at most a second a run of blows; it claims that hand, asks it
+  no action under way holding it and holds no covering face (that side is the guard's ward,
+  `coveringHand`), at most a second a run of blows; it claims that hand, asks it
   between the blow and the head, and is worth the share of the blow's life it keeps off (`STOPS`
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
 - Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill leads it by orders, as it leads any mind
