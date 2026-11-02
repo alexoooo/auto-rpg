@@ -236,7 +236,7 @@ async function decoders(folder) {
   await writeFile(join(folder, "NOTICE.txt"), await Promise.all(["license.md", "NOTICE.md"].map(name => readFile(join(base, name), "utf8"))).then(text => text.join("\n"))
     + "\n" + await readFile(join(ROOT, "node_modules/meshoptimizer/LICENSE.md"), "utf8")
     + "\nCharacter sources: MakeHuman/MPFB CC0; clothing, equipment and motion authored by Auto-RPG.\n"
-    + "Skeleton: Blender Studio Human Base Meshes, CC0. Rat: Poly Haven Street Rat, Sean Buckley, CC0. Surface photographs: Poly Haven, CC0; sources in src/render/textures.json. Forge and crypt art authored by Auto-RPG.\n");
+    + "Skeleton: Blender Studio Human Base Meshes, CC0. Rat: Poly Haven Street Rat, Sean Buckley, CC0. Reptile: CC0 Japanese grass lizard, ffish.asia / floraZia.com, CC0. Surface photographs: Poly Haven, CC0; sources in src/render/textures.json. Forge and crypt art authored by Auto-RPG.\n");
   return outputs;
 }
 

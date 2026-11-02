@@ -9,9 +9,7 @@ import type { WorkshopModel } from "../core/human/rig.ts";
 import { appearanceFor, type Appearance } from "./appearance.ts";
 import { dressRobot } from "./robot-skin.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
-import { dressReptile } from "./reptile-skin.ts";
-import { dressRat, loadRatArt } from "./rat-skin.ts";
-import { MODEL_DISPLAY } from "./models.ts";
+import { dressSkinnedArt, loadSkinnedArt, SKINNED_LOOKS } from "./skinned-art.ts";
 
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
 const SHAPES_TINT = Color3.FromHexString("#b9a58a");
@@ -26,12 +24,15 @@ type Art = (model: BodyModel, scene: Scene, options: { readonly skeletonArt?: ()
 const humanSkin: Art = (model, scene) => loadSkin(model as WorkshopModel, scene)
   .then(container => (built, instance) => dressBody(built, container, scene, instance.clothing, instance.closure));
 
+/** A creature drawn as one skinned mesh (`SKINNED_LOOKS`). */
+const skinned = (model: keyof typeof SKINNED_LOOKS): Art => (_model, scene) => loadSkinnedArt(SKINNED_LOOKS[model])
+  .then(art => (built: DrawnBody) => dressSkinnedArt(built, art, scene));
+
 /** **Every model's own art**: the one list a body family is added to here. */
 const ART: Readonly<Record<BodyModel, Art>> = Object.freeze({
   "workshop-fighter": humanSkin, "workshop-rogue": humanSkin,
   "crypt-skeleton": (_model, scene, options) => (options.skeletonArt ?? loadSkeletonArt)().then(art => (built: DrawnBody) => dressSkeleton(built, art, scene)),
-  reptile: (model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene, MODEL_DISPLAY[model].tint)),
-  rat: (_model, scene) => loadRatArt().then(art => (built: DrawnBody) => dressRat(built, art, scene)),
+  reptile: skinned("reptile"), rat: skinned("rat"),
 });
 
 /**

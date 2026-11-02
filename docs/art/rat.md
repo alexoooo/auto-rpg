@@ -45,12 +45,13 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 
 ## How it rides the body
 
-`src/render/rat-skin.ts` reads the GLB without a glTF loader (`src/render/glb.ts`), builds a
-Babylon skeleton of one bone a segment, and before each render sets each bone to its segment's
-reference frame inverted (`skinReference`) times the segment's achieved transform. At the
-reference pose every bone is the identity and the mesh is the art as authored. The material is
-the published one: the colour map, the OpenGL normal map, occlusion, roughness and metalness
-packed red, green and blue, double-sided for the whiskers and ears.
+`dressSkinnedArt` (`src/render/skinned-art.ts`, the reptile's too) reads the GLB without a glTF
+loader (`src/render/glb.ts`), builds a Babylon skeleton of one bone a segment, and before each
+render sets each bone to its segment's reference frame inverted (`skinReference`) times the
+segment's achieved transform. At the reference pose every bone is the identity and the mesh is the
+art as authored. The material is the published one: the colour map, the OpenGL normal map,
+occlusion, roughness and metalness packed red, green and blue, double-sided for the whiskers and
+ears.
 
 ## The body fitted to the art
 

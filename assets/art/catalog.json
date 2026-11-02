@@ -8,7 +8,7 @@
     "dataQuality": 2,
     "zstdLevel": 18,
     "baseBudgetBytes": 8000000,
-    "totalBudgetBytes": 33000000
+    "totalBudgetBytes": 35000000
   },
   "characters": {
     "fighter": {
@@ -52,6 +52,10 @@
     "rat/rat.glb": {
       "source": "assets/art/environment/rat/rat.glb",
       "licence": "docs/art/rat.md"
+    },
+    "reptile/reptile.glb": {
+      "source": "assets/art/environment/reptile/reptile.glb",
+      "licence": "docs/art/reptile.md"
     }
   },
   "textures": {
@@ -224,6 +228,16 @@
       "source": "assets/art/environment/rat/street_rat_arm_1k.jpg",
       "kind": "data",
       "licence": "docs/art/rat.md"
+    },
+    "reptile/grass_lizard_diff_1k.jpg": {
+      "source": "assets/art/environment/reptile/grass_lizard_diff_1k.jpg",
+      "kind": "colour",
+      "licence": "docs/art/reptile.md"
+    },
+    "reptile/grass_lizard_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/reptile/grass_lizard_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "docs/art/reptile.md"
     }
   },
   "retained": [

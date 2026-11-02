@@ -41,7 +41,7 @@ At `89518e3c`:
   `dispose` (4). `rotationQuaternion` is nullable on a `TransformNode`, hence the `!` at most reads.
 - Pages hang meshes on the core's own nodes where a world runs on the page: the Lab
   (`src/lab/`), the Control foundation (`src/control-foundation/tasks.ts`), the shapes and skins
-  (`src/render/body-shapes.ts`, `reptile-skin.ts`, `robot-skin.ts`, `skeleton-skin.ts`). Where the
+  (`src/render/body-shapes.ts`, `skinned-art.ts`, `robot-skin.ts`, `skeleton-skin.ts`). Where the
   world is in a worker (the Arena, the crowd fight, the Crypt), the page draws a puppet
   (`puppetBody`, `src/render/puppet.ts`) it poses from what the worker sends.
 - The Lab's history (`recordHistory`, `src/lab/history.ts`) shows a past frame by writing it into

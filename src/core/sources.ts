@@ -41,11 +41,11 @@ export const SOURCES = Object.freeze({
   },
   "rat-anatomy": {
     kind: "asset", file: "assets/rat/body.json",
-    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs); mass, torques, joint speeds and ranges, teeth and paw footprint the reptile's, but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side, and the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
+    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs); mass, torques, joint speeds and ranges, teeth and paw footprint the authored quadruped's (assets/quadruped/authored-body.json), but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side, and the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
-    what: "Authored estimates for the 8 kg sprawling reptile: geometry, tooth contact surfaces, mass weights, joint limits and muscle ceilings, the leg joints' unloaded speed (20 rad/s) the owner's decision for travel at 1.0 m/s or more; docs/reference/reptile.md states their uncertainty and derivations.",
+    what: "The 8 kg sprawling reptile fitted to the grass lizard scan (scripts/reptile/fit.mjs): trunk, head, jaw, legs and tail where the posed art's are, its tail shortened to .28 of the scan's so its footprint fits a Crypt room three times, and light (weights .15 and .08, peaks 1.5 and .6 N m) so the trot is not dragged to a stop, the owner's decisions. Mass weights, joint limits, muscle ceilings, teeth and paw footprint are the authored quadruped's estimates (assets/quadruped/authored-body.json), the leg joints' unloaded speed (20 rad/s) the owner's decision for travel at 1.0 m/s or more, the neck's torque scaled by the head and jaw's weighted lever about it; docs/reference/reptile.md states their uncertainty and derivations.",
   },
   "contact-projection-fixture": {
     kind: "asset", file: "assets/research/contact-projection.json",

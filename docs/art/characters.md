@@ -6,7 +6,7 @@ MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights; their clo
 boots, weapons, equipment fitting and preview motion are this project's work. They reach the game
 through shared generated geometry and textures. The workshop descriptor adds authored preview
 motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
-delivery. The reptile's procedural skin is [at the end](#the-reptile).
+delivery. The reptile and the rat are drawn from scans of their own: [the reptile](reptile.md), [the rat](rat.md).
 
 The shared Blender export fits each boot's toe box to the bare foot's toe, stretching only
 vertices ahead of the ball. The heel, ankle, cuff and skin weights retain their authored fit.
@@ -169,12 +169,3 @@ launches Microsoft Edge (`channel: 'msedge'`):
 - `anatomy-review.mjs` and `grip-review.mjs` (URL argument, default port 5182) and
   `realistic-grips.mjs` (fixed to port 5183): further captures.
   `geometry-report.mjs` and `contact-report.mjs` print measurements from the GLBs in Node.
-
-## The reptile
-
-The reptile has no workshop rig: `src/render/reptile-skin.ts` draws procedural shells, one on each
-physical segment, olive `#78834d`. Two 25 mm eye spheres of 12 segments sit at the head's
-`eye.left` and `eye.right` points (`assets/reptile/body.json`, reference coordinates
-`(±.055, .285, .34)` m), diffuse `#171f13`, specular `#c3bb65`. Three ivory `#eadcc2` tooth meshes
-draw the jaw's anatomical contact hulls, from the physical spec, on the jaw node. None of it
-collides or decides a hit; the skin owns its materials and leaves the scene's shared ones.

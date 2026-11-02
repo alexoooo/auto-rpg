@@ -404,11 +404,13 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 - **Input:** the Lab's locomotion courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
-  `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
+  `tangentBasis: "babylon-lh"` orients normal maps; the sound's gaps (unplayed
   cues dropped at the end, two blows at once heard as one, a step within the contact margin
   unheard; [look](reference/look.md#sound)).
 - **New bodies:** the reptile ([reptile](reference/reptile.md),
-  [bites](reference/reptile-bites.md)): its legs completing the toolkit's legs goal over its four
+  [bites](reference/reptile-bites.md)): its body fitted to the grass lizard travels nowhere and
+  sinks onto its belly as it sets off in a bout ([the grass lizard](reference/reptile.md#the-grass-lizard));
+  its legs completing the toolkit's legs goal over its four
   bearing ends ([skills](architecture.md#skills)); richer surface response, broader
   recovery, combat against the humans, injury wins across more opponents.
 - **Another engine** (Box3D, Jolt or another): a bench adapter in `src/physics-bench/engines/`

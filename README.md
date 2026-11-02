@@ -7,7 +7,8 @@ There is no attack button and no animation. A fighter is a body of jointed segme
 muscles with the strength and speed of their anatomy, and a mind decides what the body does. A
 blow is whatever one body carries into another, and it wounds by the energy it brings. The bodies
 are the Warrior and the Rogue (two humans), the crypt's skeleton, a four-legged reptile with a driven
-jaw, and a rat on the reptile's body plan with its legs under it, drawn as Poly Haven's Street Rat.
+jaw drawn as a grass lizard, and a rat on the reptile's body plan with its legs under it, drawn as
+Poly Haven's Street Rat.
 
 **[Play it in your browser](https://alexoooo.github.io/auto-rpg/).** The main menu opens the
 **Dungeon** (the Crypt), **Arena**, **Lab**, **Ratings** and **Tools** (development viewers).

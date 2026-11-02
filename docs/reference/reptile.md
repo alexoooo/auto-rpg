@@ -1,17 +1,19 @@
 # Reptile anatomy and control
 
-The reptile's authored anatomy (`assets/reptile/body.json`, `reptile-anatomy` in `SOURCES`,
+The reptile's anatomy (`assets/reptile/body.json`, `reptile-anatomy` in `SOURCES`,
 `src/core/reptile/spec.ts`), its controller's settings (`src/core/reptile/tuning.ts`), its place in
 the crypt's encounters, and the checks that qualify the combination. How its bite wounds is
 [pointed contact](reptile-bites.md).
 
 ## Anatomical model
 
-The reptile is an authored, low, sprawling quadruped, 8 kg with 1 HP and zero balance: a game
-creature, not a reconstruction of a species. `assets/reptile/body.json` holds its reference
-geometry, relative segment masses, joint limits, torque ceilings and unloaded speeds. Four legs
-carry a rigid trunk; a two-axis neck carries the head, a hinge opens the lower jaw, and two weakly
-driven tail segments hang behind.
+The reptile is a low, sprawling quadruped, 8 kg with 1 HP and zero balance: a game creature, not a
+reconstruction of a species. Its geometry is fitted to a grass lizard scan
+([the grass lizard](#the-grass-lizard)); its relative segment masses, joint limits, torque
+ceilings, unloaded speeds and teeth are the authored quadruped's
+(`assets/quadruped/authored-body.json`), the estimates below, from which the rat's body is fitted
+too. Four legs carry a rigid trunk; a two-axis neck carries the head, a hinge opens the lower jaw,
+and two weakly driven tail segments hang behind.
 
 Every proportion, mass weight, joint excursion, torque ceiling and speed is an explicit estimate
 for a gap in anatomical evidence, not a measurement of a specimen; the limits include the declared
@@ -29,11 +31,62 @@ transcribed as torque ceilings.
   rat's legs, under its trunk, could not carry it: it trotted .04 m/s.
 - **Surfaces**: ordinary surfaces have an estimated 17,000 N/m, not a borrowed human table.
 - **Teeth**: three lower-jaw tooth pyramids are colliders of their own, each with an authored
-  10,000,000 N/m surface. Their bases sit at y .2175 m and z .481-.489 m; their tips rise 8 mm, to
+  10,000,000 N/m surface. In the authored quadruped their bases sit at y .2175 m and z .481-.489 m; their tips rise 8 mm, to
   y .2255 m, and lean 18 mm forward to z .503 m, leading the blunt jaw front by 8 mm. The piercing
   direction is the normalized base-to-tip axis `[0, .008, .018]`, with a .5 contact-normal cosine.
   The lower middle tip is the jaw's `bite` point. Teeth add no mass, inertia or strength. These are
-  game estimates, not enamel stiffness or bite forces.
+  game estimates, not enamel stiffness or bite forces. A fitted body carries them scaled and tipped
+  about its neck onto its own jaw's tip.
+
+## The grass lizard
+
+The reptile (`assets/reptile/body.json`) is fitted to the posed grass lizard
+(`scripts/reptile/fit.mjs`, [its art](../art/reptile.md#the-body-fitted-to-the-art)): its trunk,
+head, jaw, legs and tail where the posed art's are. Its scale keeps the authored front leg's reach,
+girdle to wrist, .2715 m, and its paws the authored footprint, .26 m from the middle; the scan's
+long body and short legs make it about 1.95 m from snout to tail tip. The neck's torque ceiling scales
+with the head and jaw's weighted lever about it, as the rat's does.
+
+| What | Authored quadruped | Grass lizard |
+| --- | --- | --- |
+| Trunk | capsule radius .08 m, z ±.14, axis at y .24 | radius .078 m, z -.29 to .43, axis at y .19 to .22 |
+| Head | to z .4 m, radius .065 | to z .69 m, radius .035 |
+| Hip and shoulder centres | x ±.085, z ±.16, y .24 m | fore x ±.081, z .29, y .22; hind x ±.078, z -.29, y .19 m |
+| Elbow and knee axes | the body's z | each leg's own plane's normal, the right's mirroring the left's |
+| Tail | to z -.68 m; weights .45 and .25 (.76 kg), peaks .4 and .2 N m | to z -1.22 m; weights .15 and .08 (.27 kg), peaks 1.5 and .6 N m |
+| Neck's torque ceiling | 1.5 N m | 2.03 N m |
+| The Crypt's footprint (`cryptModel`) | .70 m | 1.23 m |
+
+- **The tail is .28 of the scan's** (`TAIL`, `scripts/reptile/pose.mjs`), the owner's decision:
+  at the scan's half (to z -1.88 m, a footprint of 1.89 m) no generated Crypt level holds its
+  three-reptile packs (0 of seeds 0 to 39), and at a footprint of 1.5 m none does; at 1.35 m and
+  under all 40 do.
+- **The tail is light and its joints carry it.** At the authored weight and strength, the trot
+  drags it to a stop on the Node stand.
+
+Before and after the fit. Walking (Node stand, Rapier, 120 Hz, the game's delay; standing 2 s,
+then ordered along a heading for 8 s, the speed read over the last 6 s):
+
+| Body | Upright, 8 headings | Straight ahead, m/s | Mean of 8 headings, m/s |
+| --- | --- | --- | --- |
+| authored | 8 | .487 | .192 |
+| grass lizard | 4 (tipped at 5.9 s, upright again by 10 s) | .003 | -.005 |
+
+Bouts against the Warrior with a sword (Node Arena Duel, Rapier, 120 Hz, the game's delay; the
+Warrior fighting at the default gap and 1.5, 2.5 and 3.5 m, 40 s; standing still, stand orders,
+firm, at .8, 1, 1.25, 1.5, 2 and 2.5 m, 25 s; over `04746b5e`):
+
+| Body | Warrior | Bites launched | HP by the teeth | Bouts fatal to the reptile | Bouts fatal to the Warrior | First down |
+| --- | --- | --- | --- | --- | --- | --- |
+| authored | fighting | 3 | .59 | 2 of 4 | 0 | 6.6 to 20.2 s, once never |
+| grass lizard | fighting | 0 | 0 | 4 of 4 | 0 | .6 s |
+| authored | standing still | 21 | 17.81 | 0 | 3 of 6 | never |
+| grass lizard | standing still | 0 | 0 | 0 | 0 | .6 s |
+
+Setting off toward the Warrior from a stand, the grass lizard sinks onto its belly within .6 s,
+its centre of mass under .6 of its standing height (traced at 3.5 m: still on its belly at 3 s); on
+the Node stand, ordered nowhere, it holds its standing height. The same holds with the tail at the
+scan's half (the same trace).
 
 ## The rat
 
@@ -373,6 +426,9 @@ and `tests/reptile-integration.test.mjs`, all @2a1b29ac.
 | No floor | No invented support or completed rise in a gravity-free unsupported inverted body |
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
 | Generated packs | Both layout generators, 24 seeds each; complete-map repeatability, physical clearance, reachability and pack separation |
+
+These held for the authored body. The grass lizard does not travel
+([the grass lizard](#the-grass-lizard)), so it meets none of the travel gates.
 
 The bite meter credits actual load wounds during a launched bite and its loaded withdrawal; a
 completed cycle needs the verified release. The eight recovery poses are development witnesses,
