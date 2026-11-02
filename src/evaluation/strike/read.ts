@@ -350,8 +350,11 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         return;
       }
       if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
-      // The drill's action: the first with the asked limb at a body that the fight did not ask.
-      const action = skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body");
+      // The drill's action: the first with the asked limb at a body that the fight did not ask, or
+      // the fight's own that the drill carries on from its moment (`adopts`), under way as it takes the body.
+      const action = id !== null ? skills.report.actions.find((one) => one.id === id)
+        : skills.report.actions.find((one) => !before.has(one.id) && one.effector === effector && one.target.kind === "body")
+          ?? (drill.phase === "under way" ? [...skills.report.actions].reverse().find((one) => one.effector === effector && one.target.kind === "body") : undefined);
       if (action && id === null) {
         id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
         const kind = skills.kit.find((one) => one.action === action.action)?.kind;

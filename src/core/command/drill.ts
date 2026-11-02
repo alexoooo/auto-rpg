@@ -20,7 +20,8 @@ import type { Commander, MemberReport, MemberView, SensedBody, TeamDecision, Tea
  * it. With `letGo`, it orders a stand that long after the action began, where the action is
  * still before its point of no return. With `moment`, it orders nothing until its member begins its
  * `moment`th action aimed at a body, and the mind fights by itself till then; from that step it
- * orders its own in that one's place, which the mind lets go where it can.
+ * carries that one on where it is the choice it asks (`adopts`), else orders its own in that one's
+ * place, which the mind lets go where it can.
  */
 export interface DrillCommanderConfig extends CommanderConfig {
   readonly kind: "drill";
@@ -100,6 +101,17 @@ const STAND: Orders = deepFreeze({ move: null, face: null, firm: true });
 
 const sameRegion = (a: Region | null, b: Region | null): boolean => a !== null && b !== null
   && (a.kind === "mark" ? b.kind === "mark" && a.mark === b.mark : b.kind === "segment" && a.segment === b.segment);
+
+/**
+ * **Whether a drill asking `config`'s choice takes `action` as its own**: an action under way at a
+ * body, the action, limb and region its config names (each where it names one). At its moment the
+ * drill carries such an action on rather than letting it go and ordering it again.
+ */
+function adopts(config: Pick<DrillCommanderConfig, "action" | "limb" | "region">, action: ActionStatus): boolean {
+  return action.target.kind === "body" && (config.action === undefined || action.action === config.action)
+    && (config.limb === undefined || action.effector === config.limb)
+    && (config.region === undefined || sameRegion(action.target.region, config.region));
+}
 
 /**
  * How a spot beside a body lying is held (`Held`): chosen again once that body's middle moves
@@ -188,6 +200,12 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (state.phase === "fighting") {
         if (!reached(member)) return decided(member, null);
         state.since = view.time - config.after;
+        // The moment's own action, where it is the choice asked, is carried on as the drill's.
+        const own = member.actions?.find((action) => action.id === state.begun[(config.moment ?? 0) - 1]);
+        if (own && own.target.kind === "body" && adopts(config, own)) {
+          state.choice = { action: own.action, limb: own.effector, region: own.target.region };
+          state.struck = own.target.body; state.id = own.id; state.began = view.time; state.phase = "under way";
+        }
       }
       state.since ??= view.time;
       const foe = nearest(member, view.others);
