@@ -14,12 +14,13 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **Skills with no record for the body** (`usableSkills` leaves them out; the drill counts every
   trial refused): the Skeleton has only the low kick (no punch, stomp, club, cut or thrust is
   tuned for `crypt-skeleton+toes`); the Rogue has the punch and the stomp (no club, cut, thrust or
-  kick). Option Mind does not refuse the Rogue's punch: it throws it on the still rung, 30 of 32, none
-  at her bar since her elbows extend at twice their peak ([the learned punch](learned-punch.md)).
+  kick). Option Mind does not refuse the Rogue's punch: it throws it on the still rung, 30 of 32, 8 at
+  her bar ([the learned punch](learned-punch.md)).
   The Skeleton's "no such choice on its menu" is the drill Commander finding no punch in its kit.
 - **Blows thrown but weak or elsewhere**: the Warrior's punch from a walk (52 of 64; still, 31 of
   32 meets its rung), the club (6 and 12 of 16), the cut and the thrust (none of 7 to 32); in every
-  fight rung but the Warrior's punch no blow meets the foe's body past its arms (0 on the body):
+  fight rung but the punch's no blow meets the foe's body past its arms (0 on the body); the
+  Rogue's punch lands 2 of 8 middle-mark moments:
   the Warrior's punch meets it 3 times of 8 middle-mark moments, all weak, crowded inside the
   window or grazing, since the drill carries on the mind's own blow and the punch begins only
   standing quiet ([the learned punch](learned-punch.md#fine-tuned-on-option-mind)).
@@ -183,9 +184,9 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **empty,empty, run**: short
   - locomotion/run: 0 of 32 met, 28 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **empty,empty, punch**: short
-  - strike/still: 0 of 30 thrown, 0 fell, 33 refused, 64 trials, at `824d82d1` with her elbows at twice their peak (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=e1de089a1341813b`)
-  - strike/walk-bodies: 42 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=f05aee0b47b0a119`)
-  - strike/fight-bodies: 0 of 2 on the body, 0 fell, 10 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=fb8eeedcb7df65ba`)
+  - strike/still: 8 of 30 thrown, 0 fell, 34 refused, 64 trials, at `5d8976ea`, her network trained again with her elbows at twice their peak (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d71e316f0c869660`)
+  - strike/walk-bodies: 19 of 64 thrown, 0 fell, 64 refused, 128 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=23aeb49499fd7f8a`)
+  - strike/fight-bodies: 2 of 8 on the body, 0 fell, 8 refused, 16 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
 - **empty,empty, stomp**: met
   - strike/stomping-bodies: 7 of 7 thrown, 0 fell, 4 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
 - **empty,empty, front-kick**: short

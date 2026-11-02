@@ -13,15 +13,15 @@ on Option Mind's straight punch (`assets/core/straight-punch.json`;
   Warrior: the walk rung 47 of 64 against 31, the still rung 30 of 32 against 26; held out at
   480 Hz, still 37 of 45 against 30 and from a walk 21 of 35 against 1
   ([the one punch](#the-one-punch)). None fell.
-- **The toed Rogue's** lands 69 of 100 held-out trials at 120 Hz and 64 at 480 Hz (on fresh
-  trials 65 and 71), none fallen, at its scaled bar (`barOf`, `src/evaluation/strike/read.ts`), against
-  59 and 61 of the same fresh trials at 2 M decisions: the Warrior's settings, steered by a
-  network trained by PPO for 4 M decisions on the Warrior's environment
-  (`research/environments/punch.json`) with the Rogue in his place and the gaps scaled by 0.92, from
-  the Warrior's network with its outputs scaled by a quarter. Unsteered, its hits meet 0.3 to
-  0.9 kg against the bar's 1.54, landing 0 of 24; the Warrior's network whole lands 0 of 30.
-- **The toed Rogue's network is retrained** since her elbows extend at twice their measured
-  peak: the 4 M network lands 0 of 30 on the still rung at `e01be414`, every blow weak.
+- **The toed Rogue's** lands 110 and 171 of 320 held-out trials at 120 and 480 Hz (34 % and
+  53 %, seed 7001, still and walking in), none fallen, at her scaled bar (`barOf`,
+  `src/evaluation/strike/read.ts`). Her network was trained by PPO for 4 M decisions on the
+  Warrior's environment (`research/environments/punch.json`) with the Rogue in his place and the
+  gaps scaled by 0.92, from the Warrior's network with its outputs scaled by a quarter; then, since
+  her elbows extend at twice their measured peak (under which it landed 0 of 30 on the still
+  rung), 1.05 M more on Option Mind's punch, flat from there to 1.38 M. Her misses are short on the
+  fist's mass (230) and straightness (132). On the drill at `5d8976ea` and `b43f4799`: still 8 of
+  30 thrown, from a walk 19 of 64, in fights 2 of 8 middle-mark moments land.
 - **The Skeleton has no punch**: no record for `crypt-skeleton+toes`. Its schedule searched from the
   Warrior's (`research/punch-drill.mjs`, the arm's channels free, gaps 0.76 to 0.84 m;
   `research/environments/skeleton-punch-schedule.json`) meets the target with the elbow straight at
