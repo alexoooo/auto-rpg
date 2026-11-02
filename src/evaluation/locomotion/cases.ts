@@ -18,7 +18,7 @@
  * - `run-stop`: told to run forward at `STOPPING_PACE` for `RUN_UP` s and `SETTLE` s more, then to stop.
  *
  * A trial may name what the body holds (`loadout`, empty hands where it names none), the lab's
- * gusts (`gusts`, `LAB_GUSTS`) and the seed of its mind's chance and the gusts (`seed`). Calm
+ * gusts (`gusts`, `labGusts`: the Warrior's, scaled by the body's mass) and the seed of its mind's chance and the gusts (`seed`). Calm
  * air, no balance unless its character has one. A change here is a new protocol.
  */
 import { CONTROLLERS } from "../../entrants/game.ts";

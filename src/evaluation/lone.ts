@@ -22,7 +22,7 @@ import { rulebook } from "../core/rules/rulebook.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { CaseWorld, WorldKind } from "./evaluation.ts";
 import { GAME } from "../entrants/game.ts";
-import { LAB_GUSTS, startWind } from "../lab/wind.ts";
+import { labGusts, startWind } from "../lab/wind.ts";
 
 /**
  * A cue of a lone body's script, `at` s into the case: the orders it is given from then on (none
@@ -38,7 +38,7 @@ export interface LoneCue {
 /**
  * One lone body, as plain data: its body, its character's attributes, what it holds, its mind in
  * full, its balance, per cent of its weight, in place of its character's, its script, whether the
- * lab's gusts blow (`LAB_GUSTS`), and the seed of its mind's chance and the gusts (its mind's own
+ * lab's gusts blow (`labGusts`, scaled by its mass), and the seed of its mind's chance and the gusts (its mind's own
  * where it names none, the gusts' 1).
  */
 export interface LoneCase {
@@ -73,7 +73,7 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
     const body = enlist(world, { id: "lone", side: "lone", name: "lone", spec: modelHolding(lone.model, lone.loadout ?? EMPTY_LOADOUT, lone.character), rules: rulebook("arena"),
       mind: lone.mind, catalog: GAME, at: [0, 0, 0], senses: createSenses(world), out: () => false, orders: () => orders, ...(lone.balance !== undefined ? { balance: lone.balance } : {}),
       ...(lone.seed !== undefined ? { seed: lone.seed } : {}) });
-    const wind = lone.gusts ? startWind(body.built, world, LAB_GUSTS, lone.seed ?? 1) : null;
+    const wind = lone.gusts ? startWind(body.built, world, labGusts(lone.model), lone.seed ?? 1) : null;
     const trunk = body.built.segments.get("middleTrunk"), point = new Vector3(), impulse = new Vector3();
     // First in every step: the cues that fall on it, before the mind reads its orders.
     world.sense(() => {

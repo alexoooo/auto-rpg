@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
+import { modelSpec, type BodyModel } from "../core/models.ts";
 import { randomStream } from "../core/math/random.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { World } from "../core/world.ts";
@@ -32,8 +33,16 @@ export interface WindSettings {
   readonly strength: number;
 }
 
-/** **The lab's gusts**: what its Stand-up mode, the falls and the drills blow when they name gusts. */
+/** **The lab's gusts** on the Warrior: what its Stand-up mode, the falls and the drills blow when they name gusts (`labGusts`). */
 export const LAB_GUSTS: WindSettings = Object.freeze({ rate: .7, strength: 45 });
+
+/**
+ * **The lab's gusts on `model`'s body**: `LAB_GUSTS` with each gust's force scaled by its mass over
+ * the Warrior's (`BodySpec.mass`, without what it holds), so a gust changes every body's speed
+ * as much as his.
+ */
+export const labGusts = (model: BodyModel): WindSettings =>
+  ({ rate: LAB_GUSTS.rate, strength: LAB_GUSTS.strength * (modelSpec(model).mass.value / modelSpec("workshop-fighter").mass.value) });
 
 /** Still air. */
 export const CALM: WindSettings = Object.freeze({ rate: 0, strength: 0 });
