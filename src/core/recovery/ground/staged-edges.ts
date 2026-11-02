@@ -7,7 +7,8 @@ import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { SIT_BACK, derivedRecipe, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
-import { LIMIT, LOW, stanceSteady, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
+import { LIMIT, LOW, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
+import { stanceSteady } from "./steady.ts";
 import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
 
@@ -36,7 +37,7 @@ const handsOver = (g: GroundReading): boolean =>
 const SAT_BACK = .22;
 
 /**
- * **A part of a staged route**: the recipe it plays (absent, step up's, `stepUp`), where in its rise
+ * **A part of a staged route**: the recipe it plays (absent, step up's, `stepUpRecipe`), where in its rise
  * it begins (none: the roll alone), the
  * stage before that it begins at instead on a body not yet sat back (`SAT_BACK`), the positions it
  * is begun from, the one it takes the body to, and how slow a body it is begun on is: `moving`,
@@ -250,5 +251,5 @@ export const SIT_BACK_EDGE = routeTechnique("sit-back", "Sit back");
 /** **Sit back from the front**: onto hands and knees as step up comes, and on through the sit-back without a stop (`SIT_BACK`). */
 export const FRONT_SIT_BACK = routeTechnique("front-sit-back", "Sit back from the front");
 
-/** **The staged route**: step up's parts in route order, then step up from whatever they do not take. */
-export const STAGED_ROUTE: readonly TechniqueName[] = Object.freeze(["staged-roll", "staged-down", "staged-kneel-up", "staged-step-through", "staged-lunge", "step-up"]);
+/** **The staged route**: step up's parts in route order. */
+export const STAGED_ROUTE: readonly TechniqueName[] = Object.freeze(["staged-roll", "staged-down", "staged-kneel-up", "staged-step-through", "staged-lunge"]);
