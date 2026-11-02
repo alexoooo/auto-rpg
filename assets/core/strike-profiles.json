@@ -16,13 +16,13 @@
       "assets/evaluations/strike/2026-11-01-d8853e19-a61304c5.jsonl",
       "assets/evaluations/strike/2026-11-01-d8853e19-b185d4ec.jsonl",
       "assets/evaluations/strike/2026-11-01-d8853e19-d4e93ad9.jsonl",
-      "assets/evaluations/baseline/2026-11-02-ff50098d-8a0cabde.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-0d030dd0.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-156dc166.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-36977b2f.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-b5733a5e.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-b9f7c442.jsonl",
-      "assets/evaluations/strike/2026-11-02-ff50098d-ceb0e2c2.jsonl"
+      "assets/evaluations/baseline/2026-11-02-5b9ebaf8-f535f520.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-203b5d61.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-80a9e971.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-8736a866.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-8d63c542.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-b6c0d5d8.jsonl",
+      "assets/evaluations/strike/2026-11-02-5b9ebaf8-e81bac6f.jsonl"
     ]
   },
   "profiles": [
@@ -682,7 +682,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "9dd5860b1b281879",
+        "skill": "56ce5323f41cc275",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60
@@ -701,13 +701,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 1,
-          "dealt": 1.5124,
+          "dealt": 1.0468,
           "taken": 0.0004,
-          "seconds": 2.7292,
+          "seconds": 2.2708,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8321
+            "range": 0.8179
           }
         },
         {
@@ -715,13 +715,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 1,
-          "dealt": 1.341,
+          "dealt": 0.772,
           "taken": 0,
-          "seconds": 2.9958,
+          "seconds": 2.5417,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8508
+            "range": 0.826
           }
         },
         {
@@ -729,13 +729,13 @@
           "phase": "clear",
           "trials": 14,
           "done": 0.7143,
-          "dealt": 1.0568,
-          "taken": 0.3199,
-          "seconds": 2.6742,
+          "dealt": 1.1964,
+          "taken": 0.2488,
+          "seconds": 2.5142,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8608
+            "range": 0.8469
           },
           "letGo": [
             {
@@ -764,19 +764,19 @@
           "phase": "clear",
           "trials": 14,
           "done": 0.7143,
-          "dealt": 0.9455,
-          "taken": 0.116,
-          "seconds": 2.9439,
+          "dealt": 1.0054,
+          "taken": 0.1321,
+          "seconds": 2.9167,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8124
+            "range": 0.8292
           },
           "letGo": [
             {
               "progress": 0.0083,
               "seconds": 3.4944,
-              "taken": 0.1766
+              "taken": 0.1012
             }
           ]
         },
@@ -785,13 +785,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 1,
-          "dealt": 1.1786,
+          "dealt": 1.3883,
           "taken": 0,
-          "seconds": 3.1729,
+          "seconds": 2.5438,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8419
+            "range": 0.8642
           }
         },
         {
@@ -799,13 +799,13 @@
           "phase": "clear",
           "trials": 14,
           "done": 0.7143,
-          "dealt": 0.711,
-          "taken": 0.1401,
-          "seconds": 2.6858,
+          "dealt": 0.8045,
+          "taken": 0.1344,
+          "seconds": 2.8375,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8362
+            "range": 0.8587
           },
           "letGo": [
             {
@@ -820,13 +820,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 1,
-          "dealt": 1.0811,
+          "dealt": 1.1643,
           "taken": 0,
-          "seconds": 4.4604,
+          "seconds": 2.5563,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8323
+            "range": 0.8398
           }
         }
       ]
@@ -835,7 +835,7 @@
       "measured": {
         "body": "workshop-rogue+toes",
         "spec": "4f6051727100aab4",
-        "skill": "a619254bde50a9b5",
+        "skill": "03ccb97228e1023c",
         "hz": 120,
         "reaction": 0.15,
         "rate": 60
@@ -854,13 +854,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.0998,
+          "dealt": 0.1564,
           "taken": 0,
-          "seconds": 2.2792,
+          "seconds": 2.1417,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.788
+            "range": 0.8494
           }
         },
         {
@@ -868,13 +868,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.0973,
+          "dealt": 0.1561,
           "taken": 0,
-          "seconds": 2.4125,
+          "seconds": 2.0438,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8389
+            "range": 0.8473
           }
         },
         {
@@ -896,13 +896,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.1922,
+          "dealt": 0.0767,
           "taken": 0,
-          "seconds": 3.2125,
+          "seconds": 3.2694,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7989
+            "range": 0.8162
           }
         },
         {
@@ -910,13 +910,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.1569,
+          "dealt": 0.1358,
           "taken": 0,
-          "seconds": 5.1,
+          "seconds": 3.6458,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8289
+            "range": 0.8328
           }
         },
         {
@@ -924,13 +924,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.1162,
+          "dealt": 0.1235,
           "taken": 0,
-          "seconds": 2.45,
+          "seconds": 3.3611,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8085
+            "range": 0.823
           }
         },
         {
@@ -938,13 +938,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.3587,
+          "dealt": 0.0276,
           "taken": 0,
-          "seconds": 2.55,
+          "seconds": 2.5167,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8421
+            "range": 0.8047
           }
         },
         {
@@ -952,13 +952,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.0967,
+          "dealt": 0.0248,
           "taken": 0,
-          "seconds": 2.4979,
+          "seconds": 2.5042,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8401
+            "range": 0.8
           }
         }
       ]
