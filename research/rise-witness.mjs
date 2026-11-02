@@ -8,7 +8,7 @@
  * once ready (`research/climb.mjs`). A phase is one of two kinds:
  *
  * - **pose**, open-loop: a posture the pose drive (`poseDrive`) holds at its rate and activation;
- * - **bear**, closed-loop: plant-up's bearing solve (`plantUp`, `src/core/recovery/ground/plant-up.ts`)
+ * - **bear**, closed-loop: the bearing solve (`makeBearing`, `src/core/control/bearing.ts`)
  *   on the limbs given shares of the body's weight, carrying the centre of mass toward a place (an
  *   offset from the bearing limbs' centre toward the feet, and a height) at a velocity (toward the
  *   feet and up), so a phase can carry momentum, and the pelvis to a pitch, at a response time;
@@ -205,7 +205,7 @@ export function acceptedSeeds(move, spec, count) {
   return seeds;
 }
 
-/** A bear phase's runner on `own`: the bearing solve of `plantUp`, its aims the phase's. */
+/** A bear phase's runner on `own`: the bearing solve (`makeBearing`), its aims the phase's. */
 function bearer(own, view) {
   const muscles = own.muscles, root = muscles.dynamics.root.segment, low = uprightness(own.built), made = riseLimbs(own);
   const kinds = own.spec.ends.map(limb => limb.name.split(".")[0]);

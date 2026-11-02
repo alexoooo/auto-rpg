@@ -1,5 +1,5 @@
 /**
- * **The Rise drill's cases**: an edge of the staged route (`STAGED_ROUTE`, `staged-edges.ts`) played
+ * **The Rise drill's cases**: an edge of the game's Stand up (`STAND_UP`, `stand-up.ts`) played
  * alone on a body (`technique.ts`), begun once its entry admits the body. Rung `placed`: from each
  * position the edge is begun from, placed there at rest (`groundPlacement`, a seed moving its joints).
  * Rung `moving`: after the edges before it on the route, from the nearest begun lying, placed there
@@ -18,8 +18,7 @@ import { readTechnique, techniquePlacement, TECHNIQUE_LIMITS, type BuiltTechniqu
 
 /** An edge drilled, by its technique; the edge before it on the route, none for the first. */
 export const EDGES: Readonly<Record<string, TechniqueName | null>> = Object.freeze({
-  "staged-roll": null, "staged-down": "staged-roll", "staged-kneel-up": "staged-down", "staged-step-through": "staged-kneel-up", "staged-lunge": "staged-step-through",
-  "sit-back": "staged-down", "front-sit-back": "staged-roll",
+  "staged-roll": null, "staged-down": "staged-roll", "sit-back": "staged-down", "front-sit-back": "staged-roll",
 });
 /** The edges drilled, in route order. */
 export const DRILLED: readonly TechniqueName[] = Object.freeze(Object.keys(EDGES) as TechniqueName[]);
@@ -35,8 +34,8 @@ const MODELS: readonly HumanoidModel[] = ["workshop-fighter"];
 /** What the hands hold: nothing, and the buckler in the left with the club in the right. */
 const ARMS: readonly { readonly held: Held; readonly left?: Held }[] = [{ held: "empty" }, { held: "club", left: "buckler" }];
 const SEEDS = [1, 2, 3, 4, 5, 6];
-/** The positions the staged edges are begun from, as placed starts. */
-const POSTURES: readonly Posture[] = ["back", "left", "right", "front", "fours", "kneeling", "half-kneel"];
+/** The positions the edges are begun from, as placed starts. */
+const POSTURES: readonly Posture[] = ["back", "left", "right", "front", "fours"];
 
 /** The technique an edge subject names, or why its value is none. */
 const edgeOf = (value: Json): TechniqueName | string => {

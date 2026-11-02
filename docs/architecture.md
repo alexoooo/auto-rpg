@@ -414,10 +414,10 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 **Combat skills:**
 
 - **Arm reach** (`arm-reach.ts`): where a hand meets a target with its arm laid straight from the
-  shoulder (`placedReach`, `placedHeightFits`), from the spec's reference pose and the point the
+  shoulder (`placedReach`), from the spec's reference pose and the point the
   hand strikes with (`aimOf`, `held-strike.ts`), read once a spec; the openings, threats, the edge and
   the executors' admission ask it. `held-strike.ts` holds what a hand strikes with (`FIST`, `heldIn`,
-  `closesToStrike`, `strikesWithBlunt`).
+  `closesToStrike`).
 - **Every skill tuned per body** (`SkillRecord`, `skills/framework/records.ts`): an executor's
   settings are its body's record, read as mind data by `bodyKey` (`dataOf`, `assets/core/<skill>.json`;
   an entrant's own skill from its own data), each row saying how it was made and written by the run
@@ -431,9 +431,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   body's record, all of them where it has none. A strike's digest reads only the thrower's row
   (`skillDigest`), so another body's row moves no profile.
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
-  stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`,
-  `path-part.ts`) and each foot of the stomp (`stomp.ts`, which adds support transfer; its part,
-  `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
+  stroke, bounded contact, verified return) for each foot of the stomp (`stomp.ts`, which adds
+  support transfer; its part, `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
   A bare hand closes for its blow and strikes with the fist's point
   (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
@@ -504,11 +503,9 @@ action's aim). Action selection belongs to the decider, not to an executor.
 
 An action (`ActionConfig`) is a name, its executor and the effectors it may strike with; where its
 executor aims (`ExecutorPart.aims`), also the regions it strikes and its aim, and neither where not.
-Any other key is its executor's (`ExecutorPart.actionKeys`, `actionFields`): the path strike's
-path and arm extension (`PathActionConfig`, `skills/strikes/path-part.ts`), and `lower`, the support height
-a low blow is thrown from. An aim is a part of role `aim` (`AimPart`, `skills/framework/aim-part.ts`; the
-stock ones in `AIMS`, `skills/framework/aims.ts`) made for the blow its executor names (`ExecutorPart.blow`);
-it is held in an action, not a slot, so its code is keyed with the toolkit's. Every resource an
+Any other key is its executor's (`ExecutorPart.actionKeys`, `actionFields`). An aim is a part of
+role `aim` (`AimPart`, `skills/framework/aim-part.ts`; the stock ones in `AIMS`,
+`skills/framework/aims.ts`); it is held in an action, not a slot, so its code is keyed with the toolkit's. Every resource an
 action may hold is checked as the skill set is built (`actionInstances`).
 
 ### Minds
@@ -1017,14 +1014,13 @@ its edges have fresh profiles (`edgeExpected`, `profile.ts`) and rolling to repo
 (`TechniquePart.moving`) is begun on a body still moving. A technique is handed the mind's kit
 (`MindKit`, `mind/kit.ts`: its motor, its guard and the guard's posture, and the lookup), so a
 motor or guard swapped into the mind is the one it rises with (`kitOf`). The game's (`STAND_UP`)
-is the staged roll and down, the sit-back and the front sit-back, on toes; the flat-footed route
-in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`, its recipe and settings
-step up's, `ground/step-up.ts`), is kept for the Rise drill's comparison. An edge to standing
+is the staged roll and down, the sit-back and the front sit-back, on toes, each an edge
+(`ground/staged-edges.ts`, played on step up's settings, `ground/step-up.ts`). An edge to standing
 holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-back and its
 climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `sword-cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
@@ -1632,7 +1628,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Techniques in turn** (`technique.ts`): one body on the arena's solids, placed in a posture or
   shoved from standing, its stand-up techniques played one after another with no Stand up to route
   them, each begun once its entry admits the body; not bit-equal between JavaScript engines, as a
-  fall is. The Rise drill (`rise/`) plays each edge of the staged route from its posture placed and
+  fall is. The Rise drill (`rise/`) plays each edge of the game's Stand up from its posture placed and
   after the edges before it ([the Rise drill](reference/rising.md#the-rise-drill)).
 - **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
   model's own, each side's Commander (the party's and a mob unless named), and a script of the

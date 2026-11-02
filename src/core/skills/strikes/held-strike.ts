@@ -27,9 +27,3 @@ export const holdsNothing = (spec: BodySpec, segment: string): boolean => !spec.
 export function aimOf(spec: BodySpec, hand: Side): string {
   return closesToStrike(spec, hand) ? "strike" : effectorAim(spec, `hand.${hand}`);
 }
-
-/** Whether `effector` strikes bare or with an aimed blunt item: what a path strike throws; a directed blade has its own executors. */
-export function strikesWithBlunt(spec: BodySpec, effector: string): boolean {
-  const held = spec.held?.find(held => held.segment === effector);
-  return !held || !!held.item.aim && !held.item.surface?.directed && !(held.item.contacts ?? []).some(region => region.surface.directed);
-}

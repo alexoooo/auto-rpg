@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import { attackPathToRef, attackPathWork, ATTACK_PATH, type AttackTuning } from "../skills/strikes/attack-path.ts";
+import { attackPathToRef, attackPathWork, ATTACK_PATH } from "../skills/strikes/attack-path.ts";
 import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "../skills/strikes/attack-path.ts";
@@ -410,7 +410,7 @@ export function openingNow(view: BodyView, foe: BodySense, name: string, local: 
 /** `openingNow`'s work vector, which carries nothing between calls. */
 const NOW = new Vector3();
 
-export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
+export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}) {
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
   const settings = { ...OPENINGS, ...tuning };
   /** The preference for a part by its segment's name (`OpeningTuning`'s `head`, `upperTrunk`, `middleTrunk`); none, 0. */
@@ -488,7 +488,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
           .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
         if (contactDirection) { direction[0] = contactDirection.x; direction[1] = contactDirection.y; direction[2] = contactDirection.z; }
         const p = view.effectors[HANDS[hand]]!.points[search.aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
-        attackPathToRef(home, end, hand, family, paths, contactDirection ? direction : undefined, path);
+        attackPathToRef(home, end, hand, family, ATTACK_PATH, contactDirection ? direction : undefined, path);
         from.position = path.chamber;
         worldToRef(view, path.chamber, previous); blocked = false;
         const curve = path.curved ? path.curve : undefined;
@@ -500,7 +500,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         }
       }
       const score = (preference[name] ?? 0) + (search.repeated ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-        + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost + off;
+        + settings.reachPenalty * Math.abs(flat - reach + ATTACK_PATH.windup) + terms.cost + off;
       if (!search.found || score < search.score) {
         search.found = true; bestTarget[0] = target[0]; bestTarget[1] = target[1]; bestTarget[2] = target[2];
         bestFront[0] = front[0]; bestFront[1] = front[1]; bestFront[2] = front[2];
