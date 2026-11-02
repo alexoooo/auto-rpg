@@ -23,7 +23,7 @@ import { treeObeys, CONTROLLERS, MINDS } from "../../entrants/game.ts";
 import type { DrillCommanderConfig } from "../../core/command/drill.ts";
 import { presetFitsModel } from "../../core/mind/controller.ts";
 import type { BodyModel } from "../../core/models.ts";
-import { modelHolding } from "../../core/models.ts";
+import { modelHolding, modelSpec } from "../../core/models.ts";
 import { EMPTY_LOADOUT, loadoutFaults, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
@@ -117,14 +117,22 @@ const LETTING_GO = deepFreeze({ ...OPPONENT, letGo: [0, .05, .1, .15] });
 const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: [0, .05, .1, .15] });
 
 /**
+ * **How a rung lays its target down**: limp, a body folds where it stands and comes to rest on its
+ * back, its front or sitting on its heels as chance has it; shoved back at the bout's start at its
+ * middle trunk, `speed` m/s of its whole mass, it goes over backward onto its back. A setting of
+ * the fixture. The trial reads whether it lies by the drill's first moment (`Ending.laid`).
+ */
+const LAID = deepFreeze({ segment: "middleTrunk", speed: .5 });
+
+/**
  * Stomping: the opponent rungs' trials thrown with each foot (`feet`), no hand, at the middle mark
  * of a target lying on its back: a Warrior's or a Skeleton's body (`targets`) under the bare mind
- * with no network, which pulls no muscle, so it falls limp from where it stood and lies still
- * before the striker, standing `settled` s first, walks round to its side; longer than the
- * others, for that walk and the stomp's slow preparation.
+ * with no network, which pulls no muscle, laid down (`laid`) and lying still before the striker,
+ * standing `settled` s first, walks round to its side; longer than the others, for that walk and
+ * the stomp's slow preparation.
  */
 const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: ["left", "right"] as Hand[], targets: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
-  marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25 });
+  marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25, laid: LAID });
 
 /**
  * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/arena/rail.ts`),
@@ -209,7 +217,7 @@ function railOf(moving: Moving, settled: number, direction: Direction, speed: nu
 }
 
 function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[]; readonly opponent?: string; readonly letGo?: readonly number[];
-  readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[] } & Partial<Moving>): Cases<StrikeCondition, StrikeReading> {
+  readonly feet?: readonly Hand[]; readonly targets?: readonly BodyModel[]; readonly laid?: typeof LAID } & Partial<Moving>): Cases<StrikeCondition, StrikeReading> {
   const conditions: StillCondition[] = [], limbs: Limb[] = [...protocol.hands.map((hand) => ({ hand })), ...(protocol.feet ?? []).map((foot) => ({ foot }))];
   const moving: Moving | null = protocol.directions === undefined ? null : protocol as Moving;
   const motions = moving ? moving.directions.flatMap((direction) => moving.speeds.map((speed) => ({ direction, speed }))) : [undefined];
@@ -235,7 +243,10 @@ function stillCases(protocol: typeof STILL & { readonly starts?: readonly Start[
         ...opposed(striker(value as unknown as StrikeSubject, effectorOf(condition as StillCondition), mark, { after: protocol.settled, pace: protocol.pace,
           walking: start === "walking" || carried !== null, ...(letGo === undefined ? {} : { letGo }) }),
           opponentOf(protocol.opponent ?? STANDING)!),
-        ...(carried ? { rail: carried.rail } : {}) } };
+        ...(carried ? { rail: carried.rail } : {}),
+        // Facing -x, its back is toward +x: 90 degrees from +z.
+        ...(protocol.laid ? { shove: { side: "right", segment: protocol.laid.segment, degrees: 90, at: 0,
+          impulse: protocol.laid.speed * modelSpec(target ?? "workshop-fighter").mass.value } } : {}) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };
