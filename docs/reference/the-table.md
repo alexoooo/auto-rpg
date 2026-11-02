@@ -31,8 +31,9 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **The Skeleton's rise** (read again at `e8d6c775`): it rolls and sits back by its own poses and
   times ([the roll](rising.md#the-roll)) and stands 13 of 15 falls empty-handed, 6 and 3 of 14 with
   the sword and with the sword and buckler, 1 of 15 with the buckler and the club and none with the
-  club alone: with the club it never comes onto hands and knees, and twice its strength does not
-  help.
+  club alone. With the club its tuck now stays square ([the tuck's righting](rising.md#the-tucks-righting),
+  at `9c26cf77`, 14 of 15 empty-handed) and its sit-backs reach the steady, which fails under the
+  club's mass; its roll from the back stalls with the club's arm coming across.
 - **The Skeleton's walk**: shoved by its share of the Warrior's impulses (`shoveOf`, the same
   change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg), it falls in 2 to 8 of 47 trials a
   loadout, against 26 to 30 under the Warrior's own (`0b3fcf3e`). What is left:
