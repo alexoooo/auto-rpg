@@ -17,6 +17,7 @@ import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { measuredOn, techniqueDigest } from "../src/core/skills/framework/profile.ts";
 import { techniqueSpec } from "../src/evaluation/technique.ts";
+import { harnessRule } from "../src/evaluation/record.ts";
 
 const DIR = "assets/evaluations/rise", OUT = new URL("../assets/core/edge-profiles.json", import.meta.url);
 const write = process.argv.includes("--write");
@@ -47,13 +48,14 @@ const profiles = new Map();
 for (const path of paths) {
   const [header, ...lines] = read(path);
   if (header.evaluation !== "rise") throw new Error(`${path} is no record of the Rise drill`);
-  const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
-  if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const rule = harnessRule(header.harness);
+  if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const { hz, delay } = rule;
   for (const line of lines) {
     if (line.fault || !line.reading) continue;
     const link = line.reading.links[line.reading.links.length - 1];
     if (!link.entry) continue;
-    const measured = measuredOn(techniqueSpec(line.world.technique), techniqueDigest({ kind: link.technique }), hz, null), key = JSON.stringify(measured);
+    const measured = measuredOn(techniqueSpec(line.world.technique), techniqueDigest({ kind: link.technique }), hz, null, hz, delay), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${line.condition.model} ${link.technique}`, begun: 0, done: 0, seconds: 0, fails: {} };
     profiles.set(key, profile);
     profile.begun++; profile.seconds += link.seconds;

@@ -27,6 +27,8 @@ export interface OptionsGiven {
   readonly hz: number;
   /** The rate its mind decides at, Hz (`OptionMindConfig.rate`); the world's unless given. */
   readonly rate?: number;
+  /** The steps its body's command waits (`Body.delay`). */
+  readonly delay: number;
   readonly parts: PartLookup;
   readonly locomotion: LocomotionConfig;
   readonly executors: readonly ExecutorEntry[];
@@ -55,7 +57,7 @@ export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes
 
 /** **Each gait its legs go by** (`gaitsOf`) as the Gait drill measured it stopping to throw each of its strikes (`goings`). */
 const gaitsGiven = (given: OptionsGiven) => goings(given.spec, given.hz, gaitsOf(given.locomotion),
-  given.actions.map((action, i) => ({ name: action.name, skill: given.measures[i]!.measured.skill })), given.tables.gaits, given.rate);
+  given.actions.map((action, i) => ({ name: action.name, skill: given.measures[i]!.measured.skill })), given.tables.gaits, given.rate ?? given.hz, given.delay);
 
 /**
  * **Footwork to `destinations`**: an option of each gait its legs go by (`walkBy`, `gaitsGiven`),
