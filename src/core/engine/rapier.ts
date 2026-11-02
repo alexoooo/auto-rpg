@@ -706,7 +706,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         setMotor(k, speed, ceiling) { command(handle, axes[k]!, MOTOR_KIND.velocity, speed, ceiling, 0, 0); },
         setMotorBounds(k, speed, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
-            || !(-negative <= positive)) throw new Error("invalid directional motor command");
+            || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
           command(handle, axes[k]!, MOTOR_KIND.bounded, speed, -positive, negative, 0);
         },

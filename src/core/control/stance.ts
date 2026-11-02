@@ -219,12 +219,6 @@ export interface StanceControl {
   /** The push-off as a torque (`SwingGoal.launch`), written over the solve's command once it has run. */
   launch(driver: MuscleDriver): void;
   /**
-   * Withdraw what the solve expects (`MuscleDriver.expect`) of a swinging leg whose foot still
-   * touches the ground: the solve moves it as free, and the ground holds it. A stance that swings
-   * no leg leaves it out.
-   */
-  unexpect?(driver: MuscleDriver): void;
-  /**
    * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next
    * command begins from the body as it is. The steps counted stay.
    */
@@ -912,11 +906,6 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });
       s.ask.lever = leverOf(s, muscles.dynamics.root.centre[1]);
       return s.ask;
-    },
-    unexpect(muscles) {
-      const { reading, step } = s.state, swing = step.swing;
-      if (reading.phase !== "swing" || !swing || !reading.touching[swing.foot]) return;
-      for (const foot of s.feet) if (foot.side === swing.foot) for (const i of foot.memory.channels) muscles.expect[i] = NaN;
     },
     launch(muscles) {
       if (s.state.aim.on && !s.state.pose) pushOff(s, muscles);

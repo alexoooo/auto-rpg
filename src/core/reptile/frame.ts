@@ -115,7 +115,9 @@ const tuningFaults = (config: QuadrupedConfig): readonly string[] => Object.entr
  * on its situation (`quadrupedReader`). Each step it reads the body, decides its set, and hands the
  * layers the first chosen's intent; where that is the righting, the righting has the body (released
  * from the layers as a host hands it to a sub-mind, and the layers resumed once it hands it back).
- * It decides every control step, from no measured predictions. Its memory is its layers', its
+ * It decides every control step, from no measured predictions; where its decisions are late
+ * (`OwnBody.delay`), its motor part carries out the gait's last command, or the righting, on the
+ * body as it is (`Mind.move`). Its memory is its layers', its
  * stalk's, its righting's, its chooser's and its options'.
  */
 function quadrupedOptionMind(host: BodyHost, deciding: OptionDeciding, config: QuadrupedConfig, wiring: MindWiring) {
@@ -157,7 +159,7 @@ function quadrupedOptionMind(host: BodyHost, deciding: OptionDeciding, config: Q
         const ask = set.length ? set[0]!.step(now, dt) : idle(now);
         if (ask.intent === null) {
           if (!state.righting) { forget(); layers.release(); righting.begin(); state.righting = true; }
-          righting.step(view.senses, dt);
+          if (!layers.late) righting.step(view.senses, dt);
           return;
         }
         if (state.righting) { righting.end(); forget(); layers.resume(); state.righting = false; }
@@ -168,6 +170,8 @@ function quadrupedOptionMind(host: BodyHost, deciding: OptionDeciding, config: Q
         forget(); layers.release();
       },
       resume() { forget(); layers.resume(); },
+      // Where its decisions are late, its body's motor part: the righting, or the gait's last command, on its own body as it is.
+      ...layers.late ? { move(dt: number) { layers.feel(); if (state.righting) righting.step(view.senses, dt); else layers.move(dt); } } : {},
     };
     return hosting(mind, []);
   });

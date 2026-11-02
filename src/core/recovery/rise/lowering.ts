@@ -5,8 +5,15 @@ import { cos, sin } from "../../math/real.ts";
 import type { LegsDrive, Locomotion, LocomotionContext } from "../../skills/locomotion/locomotion.ts";
 import { ALL_MET, FIELD_BIT, fieldsOf, type LegsAsked, type LegsUnmet } from "../../skills/framework/skill.ts";
 import { heldBody } from "../../mind/held-body.ts";
+import { NOTHING_SENSED } from "../../mind/senses.ts";
 import { stagedRise } from "./staged.ts";
 import { LOWERINGS, stageFaults, type Lowering } from "./stages.ts";
+
+/** The lowering's motor program's name (`Body.program`). */
+export const LOWERING = "lowering";
+
+/** No push. */
+const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
 
 /** What legs report of a goal whose ends they could not bear on: its feet. */
 const FEET_UNMET: LegsUnmet = Object.freeze({ fields: fieldsOf(FIELD_BIT.feet), centre: 0, height: 0 });
@@ -30,10 +37,12 @@ const sameEnds = (asked: readonly string[], ends: readonly string[]): boolean =>
  * other goal they are `legs` again; a lowering that fails (the player lets the body go slack)
  * hands the legs back too, reporting the ends unmet until a goal asks other ends, as legs that do
  * not say when their feet are placed (`Locomotion.placed`) do at once. Their memory is the lowering
- * under way and its command, beside `legs`' own (`legs`).
+ * under way and its command, beside `legs`' own (`legs`). At a delay (`Body.delay`) the lowering
+ * under way is the body's motor program `LOWERING` (`MotorProgram`): motor control plays its
+ * stages on the body as it is.
  */
 export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lowering[] = LOWERINGS): Locomotion {
-  const n = body.muscles.channels.length, spec = body.built.spec;
+  const n = body.muscles.channels.length, spec = body.built.spec, late = body.delay > 0;
   const command = { activation: new Float64Array(n), velocity: new Float64Array(n) };
   const own = heldBody(body, command.activation, command.velocity);
   const playable = lowerings.filter((one) => stageFaults(one.recipe, spec).length === 0);
@@ -64,6 +73,14 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
     for (let i = 0; i < n; i++) out.push({ channel: body.muscles.channels[i]!.name, sense: command.velocity[i]! < 0 ? -1 : 1, level: command.activation[i]!, speed: command.velocity[i]! });
     return out;
   };
+  // A motor program reads its own body alone: the senses are the step's (`Mind.move`).
+  if (late) body.program(LOWERING, (dt) => {
+    if (state.phase !== "lowering") return null;
+    const player = players[state.lowering]!;
+    if (player.state.phase !== "rise") return null;
+    player.step(NOTHING_SENSED, dt);
+    return pushes();
+  });
   return {
     state,
     get heading() { return legs.heading; },
@@ -119,13 +136,14 @@ export function lowering(body: Body, legs: Locomotion, lowerings: readonly Lower
         state.phase = "lowering";
       }
       const player = players[asked]!;
-      player.step(view.senses, dt);
+      if (!late) player.step(view.senses, dt);
       if (player.state.phase !== "rise") {
         state.phase = "failed";
         legs.resume(view);
         return legs.goal(view, { ...goal, feet: undefined }, dt, context);
       }
-      return { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing };
+      return late ? { kind: "drive", posture: {}, pushes: NO_PUSHES, program: LOWERING, held: chosen.rests * view.standing }
+        : { kind: "drive", posture: {}, pushes: pushes(), held: chosen.rests * view.standing };
     },
   };
 }

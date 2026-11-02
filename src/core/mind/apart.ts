@@ -7,6 +7,7 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
+import { motorPart, think } from "./mind.ts";
 import { deriveSensed } from "../perception/openings.ts";
 import { specDigest } from "../skills/framework/profile.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -119,6 +120,7 @@ interface Seated {
   readonly listeners: Set<(step: number, time: number) => void>;
   readonly observes: { ever: boolean };
   readonly mind: Mind;
+  readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
   menu?: readonly MenuEntry[] | null;
 }
@@ -154,9 +156,11 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     const mirror = mirrorBody(statics, channel);
     const clock = { dt: recipe.dt, steps: at.steps, time: at.time }, orders = { now: null as Orders | null };
     const listeners = new Set<(step: number, time: number) => void>(), observes = { ever: false };
+    let mind: Mind | null = null;
+    const moves = motorPart(() => mind!);
     const own: OwnBody = {
-      spec, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
-      requestHandPoses: (requests) => mirror.requestHandPoses(requests), senses: () => mirror.senses,
+      spec, delay: statics.delay, built: mirror.read, muscles: mirror.muscles, assist: mirror.assist,
+      requestHandPoses: (requests) => mirror.requestHandPoses(requests), senses: moves.guard(() => mirror.senses),
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}),
       afterPhysics(listener) {
         observes.ever = true;
@@ -164,7 +168,6 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
         return () => { listeners.delete(listener); };
       },
     };
-    let mind: Mind | null = null;
     const host: BodyHost = Object.freeze({
       spec, parts: catalog.treeLookup(config), seed: recipe.seed, phase: recipe.phase, rules: recipe.rules,
       clock: Object.freeze({ dt: clock.dt, get steps() { return clock.steps; }, get time() { return clock.time; } }),
@@ -179,7 +182,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     const made = catalog.controllerOf(config).create(host, config, wiring);
     if (!mind) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, listeners, observes, mind, made };
+    return { recipe, mirror, clock, orders, listeners, observes, mind, moves, made };
   };
   return {
     handle(seat, ask, channel) {
@@ -193,9 +196,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
-          seated.mirror.ahead(seated.recipe.dt);
-          seated.mind.step(seated.mirror.senses, seated.recipe.dt);
-          seated.mirror.answer();
+          think(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
           return;
         }
         case "observe": {
@@ -209,6 +210,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           const seated = seatOf(seat);
           tick(seated, ask.at);
           seated.mind.idle?.();
+          seated.mirror.idle();
           return;
         }
         case "menu": {

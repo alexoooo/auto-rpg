@@ -34,3 +34,10 @@ export function delayLine(delay: number): DelayLine {
     reset() { state.sent = 0; },
   };
 }
+
+/**
+ * **The steps a body's rings hold what its mind sends**, at a world's delay of `delay` steps: none
+ * at none; one fewer than the delay otherwise, since there a mind decides once its body has taken
+ * the step's command (`embody`), and what it decides goes with the next step's.
+ */
+export const heldSteps = (delay: number): number => delay > 0 ? delay - 1 : 0;

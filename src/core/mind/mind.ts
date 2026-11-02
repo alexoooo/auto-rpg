@@ -11,7 +11,7 @@ import { mirrorBody, mirrorStatics, mirrorWriter, type Mirror, type MirrorStatic
 import type { BodySpec } from "../spec/body.ts";
 import type { Hook, World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
-import { delayLine } from "../command-delay.ts";
+import { delayLine, heldSteps } from "../command-delay.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /**
@@ -39,6 +39,13 @@ export interface Mind {
   readonly has?: string;
   /** One control step, before the solver's: write this step's command into the body's muscles. */
   step(senses: Senses, dt: number): void;
+  /**
+   * **Its motor part**, where it has one: each control step, on the body as it is, it turns what its
+   * steps decided into the muscles' command. Its body takes that command at once; what a step
+   * decides reaches it `OwnBody.delay` steps later (`embody`). It reads its own body alone: the
+   * senses are its step's (`OwnBody.senses` refuses it).
+   */
+  move?(dt: number): void;
   /**
    * Its body is nobody's from now (`BodyLevel` below `full`): it is not stepped until the body
    * is its own again, and then goes on from the body as it is. A mind with nothing under way
@@ -69,6 +76,8 @@ export interface Mind {
  */
 export interface OwnBody {
   readonly spec: BodySpec;
+  /** The steps between its mind's step and its motor part carrying out what the step decided (`World.delay`, `Mind.move`). */
+  readonly delay: number;
   readonly built: ReadBody;
   readonly muscles: MuscleDriver;
   /** The force and the moment on its root that it is allowed beyond its muscles (`Assist`): none unless it was given a ceiling. */
@@ -96,7 +105,7 @@ interface Embodied<M extends Mind = Mind> {
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
   readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
   readonly mind: M;
-  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, and the mind's own, or null. */
+  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own or null, and on a mirror what its mind has asked and not yet answered (`Mirror.command`). */
   readonly state: object;
   /** Stop driving: the mind lets go (`Mind.dispose`), its observers stop, and the motors are released. */
   dispose(): void;
@@ -129,7 +138,11 @@ export interface Embodying {
  * clock alone unless given). **What a mind sends on a step is applied `world.delay` steps later**
  * (`World.delay`): its muscles' command (`driveMuscles`), its assist's ask, given within its
  * ceiling (none unless given) with the muscles' torques, and the hand poses it asked since its last
- * step. Its first steps at `full`, from its start or back from another level, apply none. Given a
+ * step. **What its motor part sends (`Mind.move`) is applied at once**: with no delay it moves
+ * after its step, the same step; with one, its body's motor part moves and its command is taken,
+ * then its mind steps on the same body, so that what the step sends goes with the next step's
+ * command, and the rings hold it the rest of the delay (`heldSteps`). Its first steps at `full`,
+ * from its start or back from another level, apply none but what its motor part sends. Given a
  * `log`, each step's order sheet is written in it as the mind leaves it (`SheetLog`). What observes
  * the completed physics (`OwnBody.afterPhysics`) is run by one hook of `world`'s, added with the
  * first observer.
@@ -137,13 +150,13 @@ export interface Embodying {
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
   { senses: sense = clockSenses(world), assist: ceiling = NO_ASSIST, contactIdentity, log, experiment }: Embodying = {}): Embodied<M> {
   let mind: M | null = null, mirrored: { readonly writer: MirrorWriter; readonly mirror: Mirror } | null = null, thinking: Hook | null = null;
-  const way = commandWay(built, world, log);
+  const way = commandWay(built, world, log), held = heldSteps(world.delay), moves = motorPart(() => mind!);
   const muscles = driveMuscles(built, world, (driver, dt) => {
     if (mirrored) mirrored.writer.carry(way.request);
-    else mind!.step(sense(), dt);
+    else { mind!.step(sense(), dt); moves.move(dt); }
     way.settle(driver);
-  }, () => { mind!.idle?.(); way.reset(); }, world.mirrored ? { dynamics: false, prepared: true } : {});
-  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
+  }, () => { mind!.idle?.(); mirrored?.mirror.idle(); way.reset(); }, { ...world.mirrored ? { dynamics: false, prepared: true } as const : {}, delay: held });
+  way.assisted(createAssist(built, rootSegment(built), ceiling, held));
   if (world.mirrored) {
     const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
     const writer = mirrorWriter(built, statics, world, muscles, way.help, sense, contactIdentity ? { labels: contactIdentity } : {});
@@ -156,9 +169,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
       if (muscles.level !== "full") return;
       writer.write();
       mirror.refresh({ dynamics: true });
-      mirror.ahead(dt);
-      mind!.step(mirror.senses, dt);
-      mirror.answer();
+      think(mind!, moves, mirror, world.delay, dt);
     });
   }
   const listeners = new Set<(step: number, time: number) => void>();
@@ -169,9 +180,10 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   };
   const mirror = mirrored?.mirror;
   const own: OwnBody = { spec: built.spec,
-    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: () => mirror.senses,
+    delay: world.delay,
+    ...(mirror ? { built: mirror.read, muscles: mirror.muscles, assist: mirror.assist, requestHandPoses: mirror.requestHandPoses, senses: moves.guard(() => mirror.senses),
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}) }
-      : { built: readView(built), muscles, assist: way.help.assist, requestHandPoses: way.request, senses: sense, ...(contactIdentity ? { contactIdentity } : {}) }),
+      : { built: readView(built), muscles, assist: way.help.assist, requestHandPoses: way.request, senses: moves.guard(sense), ...(contactIdentity ? { contactIdentity } : {}) }),
     ...(experiment ? { experiment } : {}),
     afterPhysics(listener) {
       observed ??= world.afterPhysics(observe);
@@ -183,7 +195,8 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   catch (error) { observed?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
   mind = made;
   return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
-    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null },
+    state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null,
+      ...(mirrored ? { asked: mirrored.mirror.command } : {}) },
     dispose: () => { made.dispose?.(); observed?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 
@@ -198,8 +211,8 @@ function commandWay(built: BuiltBody, world: World, log: SheetLog | undefined) {
   let help: ReturnType<typeof createAssist> | null = null;
   // The hand poses asked since the last sheet, which the next sheet carries.
   const hands: HandPoseRequest[] = [];
-  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step of the world's delay and one more.
-  const line = delayLine(world.delay), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
+  // The hand poses asked since the mind's last step, and those sent and not yet asked of the hands, a slot a step the rings hold them (`heldSteps`) and one more.
+  const line = delayLine(heldSteps(world.delay)), posed = { asked: [] as HandPoseRequest[], sent: Array.from({ length: line.size }, () => [] as HandPoseRequest[]), line: line.state };
   return {
     posed,
     get help() { return help!; },
@@ -252,12 +265,46 @@ export function mirrorDriven(built: BuiltBody, world: World, allocate: (length: 
     answered();
     writer!.carry(way.request);
     way.settle(driver);
-  }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true });
-  way.assisted(createAssist(built, rootSegment(built), ceiling, world.delay));
+  }, () => { idle(); way.reset(); }, { dynamics: false, prepared: true, delay: heldSteps(world.delay) });
+  way.assisted(createAssist(built, rootSegment(built), ceiling, heldSteps(world.delay)));
   const statics = mirrorStatics(built, contactIdentity !== undefined, world.delay);
   writer = mirrorWriter(built, statics, world, muscles, way.help, sense, { allocate, ...(contactIdentity ? { labels: contactIdentity } : {}) });
   writer.write({ sensing: false });
   return { muscles, help: way.help, posed: way.posed, writer, statics, senses: sense };
+}
+
+/**
+ * **A mind's motor part as its body runs it** (`Mind.move`): `move` runs it where the mind has one,
+ * and `guard` makes a senses reader refuse while it runs.
+ */
+export function motorPart(mind: () => Mind) {
+  let moving = false;
+  return {
+    move(dt: number): void {
+      const made = mind();
+      if (!made.move) return;
+      moving = true;
+      try { made.move(dt); } finally { moving = false; }
+    },
+    guard<S>(senses: () => S): () => S {
+      return () => {
+        if (moving) throw new Error("a mind's motor part reads its own body alone, not its senses");
+        return senses();
+      };
+    },
+  };
+}
+
+/**
+ * **A mind's step on its mirror** (`Mirror`), refreshed: with no delay, its step, its motor part
+ * and its answer; with one, its motor part and its answer, then its step on the same body, so that
+ * what the step sends goes with the next answer (`embody`).
+ */
+export function think(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): void {
+  if (delay > 0) { moves.move(dt); mirror.answer(); mind.step(mirror.senses, dt); return; }
+  mind.step(mirror.senses, dt);
+  moves.move(dt);
+  mirror.answer();
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

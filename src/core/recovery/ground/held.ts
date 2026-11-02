@@ -8,6 +8,7 @@ import type { ActionBinding, ExecutorBinding } from "../../skills/framework/acti
 import type { Side } from "../../spec/body.ts";
 import type { MindKit } from "../../mind/kit.ts";
 import { flatten } from "./flatten.ts";
+import { NOTHING_SENSED, type Senses } from "../../mind/senses.ts";
 import { brace, steadying } from "./steady.ts";
 import { poseDrive, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
 
@@ -19,7 +20,10 @@ import { poseDrive, type TechniqueEnd, type TechniquePart, type TechniqueRun } f
 const GROUND_MODES = Object.freeze(["brace", "land", "steady"] as const);
 type GroundMode = (typeof GROUND_MODES)[number];
 
-/** The ground executor's name among a body's executors. */
+/** No push. */
+const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
+
+/** The ground executor's name among a body's executors, and its motor program's (`Body.program`). */
 export const GROUND = "ground";
 
 /** A side's effector: what a ground action names the side it is begun on by. */
@@ -50,9 +54,13 @@ const endingOf = (end: TechniqueEnd | null): ActionEnding => end === null ? { ki
  * its end, holding its last command until it is let go; a mode runs until it is let go. Running, an
  * action is committed, and ended, released. Its memory is the instance it runs, the command, and
  * each run's.
+ *
+ * At a delay (`Body.delay`) a live action is the body's motor program `GROUND` (`MotorProgram`):
+ * motor control steps it on the body as it is, and its claim names the program in place of its
+ * pushes; ended, its claim pushes its last command again.
  */
 export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry: Readonly<Record<string, TechniquePart>>): GroundExecutor {
-  const n = body.muscles.channels.length;
+  const n = body.muscles.channels.length, late = body.delay > 0;
   const command = { activation: new Float64Array(n), velocity: new Float64Array(n) };
   const own = heldBody(body, command.activation, command.velocity);
   const runs: Record<string, TechniqueRun> = {};
@@ -70,7 +78,7 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
   const sideOf = (effector: string): Side => effector === sideEffector("right") ? "right" : "left";
   const isMode = (action: string): action is GroundMode => (GROUND_MODES as readonly string[]).includes(action);
   /** Step the live action once: its technique's end where it ends. */
-  const stepLive = (view: BodyView, dt: number): TechniqueEnd | null => {
+  const stepLive = (view: BodyView, dt: number, senses: Senses = view.senses): TechniqueEnd | null => {
     const live = state.live!;
     if (isMode(live.action)) {
       switch (live.action) {
@@ -81,7 +89,7 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
       }
     }
     const g = view.ground;
-    return g ? runs[live.action]!.step(g, view.senses, dt) : null;
+    return g ? runs[live.action]!.step(g, senses, dt) : null;
   };
   const status = (id: number): LifecycleUpdate => {
     const live = state.live!, phase: Phase = live.end !== null ? "release" : "commit";
@@ -106,7 +114,7 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
       if (!state.live) return [];
       const id = state.live.id;
       if (!continued.some((request) => request.id === id)) { const ending = endingOf(state.live.end); letGo(); return [{ id, ending }]; }
-      if (state.live.end === null) state.live.end = stepLive(view, dt);
+      if (state.live.end === null && !late) state.live.end = stepLive(view, dt);
       return [status(id)];
     },
     start(view, request) {
@@ -116,15 +124,26 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
       state.live = { id: request.id, action: request.action, side, end: null };
       if (request.action === "steady") steady.begin();
       else if (!isMode(request.action)) runs[request.action]!.begin(side);
-      state.live.end = stepLive(view, clock.dt);
+      if (!late) state.live.end = stepLive(view, clock.dt);
     },
     command(): ActionClaim {
-      const pushes: MusclePush[] = [];
-      for (let i = 0; i < n; i++) pushes.push({ channel: own.muscles.channels[i]!.name, sense: command.velocity[i]! < 0 ? -1 : 1, level: command.activation[i]!, speed: command.velocity[i]! });
-      return { pushes, legs: null };
+      if (late && state.live?.end === null) return { pushes: NO_PUSHES, program: GROUND, legs: null };
+      return { pushes: commanded(), legs: null };
     },
     interrupt(_view, id) { if (state.live?.id === id) letGo(); },
     resume() { if (state.live) letGo(); state.carried = false; },
   };
+  /** The command as pushes, every muscle at its activation and toward its speed. */
+  const commanded = (): MusclePush[] => {
+    const pushes: MusclePush[] = [];
+    for (let i = 0; i < n; i++) pushes.push({ channel: own.muscles.channels[i]!.name, sense: command.velocity[i]! < 0 ? -1 : 1, level: command.activation[i]!, speed: command.velocity[i]! });
+    return pushes;
+  };
+  if (late) body.program(GROUND, (dt) => {
+    if (state.live?.end !== null) return null;
+    // A motor program reads its own body alone: the senses are the step's (`Mind.move`).
+    state.live.end = stepLive(body.view, dt, NOTHING_SENSED);
+    return commanded();
+  });
   return { binding: { name: GROUND, kind: GROUND, executor }, actions: names.map((name) => ({ name, executor: GROUND, effectors: [sideEffector("left"), sideEffector("right")] })), runs, steady: steady.state };
 }
