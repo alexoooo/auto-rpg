@@ -8,18 +8,16 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import poses from "../../assets/research/posture-holds.json" with { type: "json" };
 import { commandedBody } from "../core/mind/host.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { humanSpec, humanoidSpec } from "../core/human/spec.ts";
+import { humanoidSpec } from "../core/human/spec.ts";
 import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/held.ts";
 import { OPTION_MIND, type OptionMindConfig } from "../core/option/mind.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/control/ground-reading.ts";
 import { MINDS, partLookup } from "../entrants/game.ts";
 import { kitOf } from "../core/mind/kit.ts";
-import { plantPostures, plantUp, PLANT_UP } from "../core/recovery/ground/plant-up.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import type { TechniqueName, TechniqueRun } from "../core/recovery/ground/technique.ts";
 import { modelSpec, type HumanoidModel } from "../core/models.ts";
@@ -56,8 +54,6 @@ type RisingJob = Omit<FallCase, "mind" | "model" | "start"> & {
   readonly techniques?: readonly TechniqueName[];
   readonly technique?: TechniqueName;
   readonly after?: TechniqueName | null;
-  readonly tuning?: Parameters<typeof plantUp>[4];
-  readonly waypoint?: "installed" | keyof ReturnType<typeof plantPostures>;
 };
 
 /** A job with what it came to: a fall's reading, a refused start's error, or a technique's end as its status. */
@@ -126,26 +122,17 @@ type TechniqueResult = RisingJob & {
 export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const model = job.model ?? "workshop-fighter", factor = job.factor ?? 1, cap = Math.min(8, job.cap ?? 8);
   if (!Number.isFinite(factor) || factor < 1 || factor > 1.5) throw new Error("research strength factor stays between 1 and 1.5");
-  const technique = job.technique ?? "plant-up";
+  const technique = job.technique ?? "sit-back";
   if (!TECHNIQUES[technique]) throw new Error(`unknown technique ${technique}`);
   const destination = TECHNIQUES[technique].edges[0]!.to;
   if (!["workshop-fighter", "workshop-rogue", "crypt-skeleton"].includes(model)) throw new Error(`unsupported humanoid technique model ${model}`);
   const spec = strengthSpec(armedWith(humanoidSpec(model as "workshop-fighter"), "right", job.held ?? "empty"), factor);
   const start = job.start ?? "placed", posture = job.posture ?? "squat", seed = job.seed ?? 1;
-  const waypoint = job.waypoint ? (() => {
-    const source = poses.find(pose => pose.model === "workshop-fighter" && pose.id === posture);
-    if (!source) throw new Error(`no ${posture} waypoint`);
-    const reference = humanSpec("workshop-fighter");
-    const targets: Readonly<Record<string, number>> = job.waypoint === "installed" ? Object.fromEntries(reference.joints.flatMap(joint => joint.dofs.map((dof, k) =>
-      [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec, kitOf(partLookup, spec, TECHNIQUE_KIT).posture)[job.waypoint!];
-    return { ...source.placement, joints: Object.fromEntries(spec.joints.map(joint => [joint.name,
-      joint.dofs.map(dof => (targets[`${joint.name} ${dof.positive}`] ?? 0) - dof.bind.value)])) } as unknown as NonNullable<Parameters<typeof groundPlacement>[2]>;
-  })() : undefined;
-  const key = JSON.stringify([model, job.held ?? "empty", start, posture, seed, job.waypoint ?? null]);
+  const key = JSON.stringify([model, job.held ?? "empty", start, posture, seed]);
   let fixture = starts.get(key);
   if (!fixture) {
     const address = { seed, ground: { start, posture, degrees: null, impulse: null, foe: 0, gusts: false } } as unknown as Pick<LabAddress, "seed" | "ground">;
-    fixture = deepFreeze(groundPlacement(spec, address, waypoint));
+    fixture = deepFreeze(groundPlacement(spec, address));
     starts.set(key, fixture);
   }
   if ("refused" in fixture) return { ...job, factor, reached: false, survived: false, end: "rejected start", phase: null, seconds: cap, error: fixture.refused, trail: [], saturation: {} };
@@ -158,7 +145,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = commandedBody(built, world, { servoSeconds: .1 }, [(own, view, into) => {
     const kit = kitOf(partLookup, own.spec, TECHNIQUE_KIT);
-    run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, kit);
+    run = TECHNIQUES[technique].make(own, view, into, kit);
     predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, kit) ?? null : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
     return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },

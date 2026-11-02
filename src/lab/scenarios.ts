@@ -150,7 +150,6 @@ export interface LabAddress extends LabLoadout, ViewSettings {
     readonly drive: "mind" | TechniqueName;
     /** What the mind gets up by: its own techniques, the game's Stand up's, or the staged route's. */
     readonly rise: GroundRise;
-    readonly waypoint: "none" | "brace" | "plant" | "transfer" | "rise";
     /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
     readonly start: "shoved" | "dropped" | "placed" | "round";
     readonly posture: (typeof GROUND_POSTURES)[number];
@@ -218,7 +217,6 @@ export function labAddress(search: string): LabAddress {
     ground: {
       level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
-      waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
       rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "mind",
       start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: GROUND_POSTURES.find(v => v === query.get("groundPosture")) ?? "back",
@@ -258,9 +256,7 @@ export function labHref(address: LabAddress, search = ""): string {
   for (const key of KEYS) query.delete(key);
   if (address.ground.level !== "open") query.set("groundLevel", address.ground.level);
   query.delete("groundDrive");
-  query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);
-  if (address.ground.waypoint !== "none") query.set("groundWaypoint", address.ground.waypoint);
   if (address.ground.rise !== "mind") query.set("groundRise", address.ground.rise);
   if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
   if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
