@@ -187,10 +187,19 @@ and not kept:
 | --- | --- |
 | Paws tucked toward the hip, or stretched along the trunk, by the effector tracker | The pinned ground-side legs do not move; stays on its side |
 | Legs swung fore and aft (hip's second axis ±1.2 rad) | Rolls to an up of .6, then stalls |
+| Knees folded ±1.2 rad through the roll, the hips swung ±.8 rad or not | Up of .3 to .6 |
 | Hip abduction ±1.6 or ±2 rad, the loaded-hip push | Rolls to an up of .8 to .9 within a second |
 | The same, `rightingGain` 16 to 64 | Up of .95 within 1 to 2 s, resting on its belly's edge and two paws, its centre of mass outside them |
 | Then the gaits at once, or after the legs settle at their reference or stretched angles | The crawl commands its centre over paws the body is not on, and tips it over |
 | Then the rise (`startRise`), its centre at the paws' mean, at the centre of mass, or its paws sent to their own footprints | Tips it onto its back within .25 s; sent to their footprints, it rises neither body |
+| From an up of .85, the legs off the ground set to their reference angles one at a time, the others held | All four paws bear at an up of .87; the ground-side thighs stay down |
+| Then the rise with the legs held where they are, its trunk's turn and height eased in over .5 to 2 s from the pose it has | Tips it onto its back within .25 s, as at once |
+| The support motor bearing wherever the ground presses a leg: at the middle of its contacts, carried by the freedoms down to the segment pressed nearest the body | Holds the rat at an up of .89 with no shortfall, and does not level it: two of the front ground-side hip's axes sit at their limits. The rat's walk tips at 4 s in 8 of 8 headings, its lower legs grazing the ground |
+
+Every hand-over tips it for one reason: the support motor (`supportedMotor`) bears on the paws
+alone, and on its side the rat's weight is on its ground-side thighs and its tail. Asked to hold
+still at an up of .88, the motor finds the paws 3.3 N·m short of the moment, plans the roll that
+follows (76 rad/s²), and drives the legs into it. Read on the Node stand at `40358702`.
 
 Built level on its belly over stretched legs, the rat is not down, and the crawl stands it up and
 walks 3.1 to 3.9 m in 10 s: what is missing is a placement that brings its centre of mass over
