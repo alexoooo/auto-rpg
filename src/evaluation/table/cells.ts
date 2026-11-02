@@ -113,7 +113,7 @@ export const TABLE_SKILLS: readonly Skill[] = Object.freeze([
   { name: "club-blow", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "club"), readings: (body, loadout) => blowRungs("club-blow", body, loadout),
     bar: "90 % landed at 64.8 J (`BAR.held`), met blunt, none fallen" },
   { name: "cut", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "sword"), readings: (body, loadout) => blowRungs("sword-cut", body, loadout),
-    bar: "90 % landed at the edge's speed (Muggenthaler 2018 less one SD), met with the edge, none fallen" },
+    bar: "90 % landed at the blade's far end's 18.5 m/s (Muggenthaler 2018, less one SD from Trinh 2018's range), met with the edge, none fallen" },
   { name: "thrust", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "sword"), readings: (body, loadout) => blowRungs("sword-thrust", body, loadout),
     bar: "90 % landed at the point's 4.6 m/s (Horsfall 1999 less one SD), met with the point, none fallen" },
   { name: "buckler-cover", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "buckler"),
