@@ -213,6 +213,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   return {
     name: COMMAND,
     view, body, look, act, move, state,
+    feel() {
+      if (!late) return;
+      feel(clock.time);
+      state.felt = true;
+    },
     firstLook() {
       feedback?.read(clock.steps);
       look(own.senses());

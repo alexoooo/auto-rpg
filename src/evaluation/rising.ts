@@ -168,7 +168,10 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
         if (!predecessor) control.candidateFrom = into.time;
       },
       end() { if (!control.end) run.end(); },
-      step(senses, dt) {
+      // The techniques run in the motor part, on the body as it is, as the game's ground actions do (`groundExecutor`).
+      step() {},
+      move(dt) {
+        const senses = view.senses;
         if (!view.ground) return;
         if (control.predecessor === "running") {
           let end: string | null = predecessor!.step(view.ground, senses, dt);
