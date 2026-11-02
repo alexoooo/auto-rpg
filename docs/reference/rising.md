@@ -1800,3 +1800,16 @@ the rise's end and verified standing, the idle settling begun two or three times
 the same 0.4 m from its place, the feet 0.55 to 0.81 m apart. Lying on the club, the Warrior's hand
 holding it rests on it across the other hand, the head and the upper trunk, and reads down only
 once the body shifts off it, about 1 s into `fours`.
+
+Where those seconds go (`research/rise-trace.mjs --loadout empty,club`, at `c0217508`; Node, core
+world, Rapier, 120 Hz): the six falls whose verified stand comes 1.6 to 6.6 s after the rise's end
+are the idle settling's ([idle settling](human-and-strikes.md#idle-settling)). Traced at 135
+degrees: a catch step leaves the soles 0.71 m apart, both turned 0.65 rad from the pelvis though
+parallel to each other, so neither stays and both step; each step's weight shift takes 0.75 s and
+carries the centre of mass at up to 0.43 m/s, and the swinging foot rises 3 mm, drags on the
+floor and lands 0.2 m short of its place, which asks for another step.
+
+- **Settling about the feet's own facing** where they face one way within 0.2 rad (the pelvis
+  turning back over them, one foot stepping): the same 16 falls stand by a median 10.74 s against
+  10.75, the slow six 1.6 to 7.0 s after the rise against 1.6 to 6.6, one shove held and no fall
+  made. The drag, not the choice of foot, holds the stand; not kept.

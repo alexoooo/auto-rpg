@@ -35,25 +35,23 @@ and with the sword and buckler. No cell is accepted by the owner.
   at `9c26cf77`, 14 of 15 empty-handed) and its sit-backs reach the steady, which fails under the
   club's mass; its roll from the back stalls with the club's arm coming across.
 - **The Skeleton's walk**: shoved by its share of the Warrior's impulses (`shoveOf`, the same
-  change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg), it falls in 2 to 8 of 47 trials a
-  loadout, against 26 to 30 under the Warrior's own (`0b3fcf3e`). What is left:
-  - **holding the buckler and the club** it never walks: its root sinks from 1.32 to 1.12 m in the
-    first 1.5 s and stays there, 0.00 of the pace asked in every calm walk, and in the lab's gusts
-    every walk falls at 1.59 s, before a step. Empty-handed it settles at 1.27 m and walks; the club
-    alone 1.18 m, the buckler and the sword 1.14 m, and both walk. The sag grows with the mass held,
-    yet its knees give about a fifth of their strength (a walk traced at 0.3 m/s): the legs' control
-    lets the stance sink, not the muscles. Its mind follows the orders (`follow orders` chosen, its
-    gait's envelope 0.7 m/s forward, read from the stance envelope's club entry, which has no
-    combined loadout), so the walk is asked and the legs do not step from that depth;
-  - **the club alone**: 6 of 24 shoves fall (8.5 and 11.4 N s, aside and back-aside);
-  - **every loadout**: a fall or two in the turns and the walks in the gusts.
-
-  These are the legs' (step 5's, with the run), not the protocol's.
+  change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg) and blown by its share of the lab's
+  gusts (`labGusts`, 8.5 N), it meets the walk's bar holding the buckler and the club and holding
+  the buckler and the sword. Holding the club alone it falls in 7 of 47 trials (`629f7c3b`): 6 of
+  its 24 standing shoves (8.5 and 11.4 N s, aside and back-aside) and a walk in the gusts. Its
+  catch lands short: the body rolls on over the catching foot, the other foot lifts, the catching
+  foot pushes the centre of mass up off the ground and no second step is in time. Empty-handed it
+  falls in the run and a shove (11.4 N s), and with the sword in a walking turn; these trials fall
+  or stand by small changes to the legs.
 - **The buckler's cover**: it meets 1 to 20 of 13 to 30 blows first, 6 to 67 %, against 80 %; the
   Skeleton falls in 2 to 3 of 6 trials.
-- **The walk**: the Warrior falls in its turns with empty hands and the club (2 and 1 of 2); the
-  Rogue, shoved by its share (0.73 of the Warrior's), in one shove (43.7 N s, from ahead), three
-  walks in the gusts with the club, and the run and both turns with the sword alone.
+- **The walk** (read again at `629f7c3b`, `assets/evaluations/locomotion/2026-11-02-629f7c3b-ab1210ec.jsonl`):
+  11 falls of 705 trials, 11 of the 15 cells met. A walk slowing crouches for the speed the body
+  goes (`paceToward`): its plan slowed at its acceleration while the body went on faster, and the
+  hips rose over legs stepping long to brake it, so a stop from the top walk vaulted the body
+  over a planted foot at a quarter of the stride's phases, and the walking turns, which slow to the
+  pace they turn at, fell (9 of 30 at `c714c035`; 1 after). Every Warrior cell meets the bar; the
+  Rogue's but the empty-handed, which falls in the largest shove from ahead (43.7 N s).
 
 ## Each cell
 
