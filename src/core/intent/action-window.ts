@@ -21,14 +21,15 @@ export const approachPace = (ceiling: number, distance: number): number => Math.
 const ARRIVED = .04;
 
 /**
- * A walk into a window on a body lying (`Window.on`): how far each foot keeps from that body's
- * colliders, m, as the ground approach's do, up to how high over the ground, m (a shin to the knee,
+ * A walk into a window on a body lying (`Window.on`): how far each foot's middle keeps from that
+ * body's colliders, m, past its sole's reach from its middle (a Warrior's sole is 0.26 m long), so
+ * no foot stands on a limb, up to how high over the ground, m (a shin to the knee,
  * read at its foot, middle and top), how many bearings about the window's target it tries for a
  * place where both feet are clear of them; what a turn of the body's facing to a place's costs
  * beside the walk there, m a radian, and how far ahead of the body's motion the walk is reckoned
  * from, s, so a place the body has turned or set off toward stays its choice.
  */
-const LYING = Object.freeze({ footRadius: .12, column: .5, bearings: 16, turn: .25, lead: .5, shift: .2, rethink: 1 });
+const LYING = Object.freeze({ footRadius: .18, column: .5, bearings: 16, turn: .25, lead: .5, shift: .2, rethink: 1 });
 
 /** Pure geometric admission, in the same ground frame the approach controller uses. */
 export function withinActionWindow(view: BodyView, window: Window, heading: number): boolean {
