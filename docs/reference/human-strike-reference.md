@@ -85,7 +85,9 @@ hilt's accelerometer. The table gives the mean, the 95th percentile and the maxi
 
 - **The front kick's mean less one SD** (**derived**): 8.18 - 1.76 = **6.4 m/s**, the ankle's peak,
   not the foot's at contact; the novices practised taekwondo, and the men and women are pooled.
-- **The stomp** has a force, not a speed, and no SD in what was read: no bar is drawn from it yet.
+- **The stomp** has a force, not a speed, and no SD in what was read, and no source read gives a
+  stomp's speed: it is held to the front kick's 6.4 m/s at the ankle, the owner's decision
+  (`Bar.foot`, `src/evaluation/strike/read.ts`).
 
 ## 4. Kinematic chain: peak angular velocities and trunk rotation
 

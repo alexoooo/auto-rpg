@@ -71,9 +71,9 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
 - **The front kick**: the foot closing at 6.4 m/s, the novices' peak ankle speed less one SD
   (Landeo and McIntosh 2007;
   [human strike reference](../reference/human-strike-reference.md#3b-front-kick-and-stomp)).
-  **The stomp**: only a force is held (Schirmer et al. 2016, men's mean peak 8494 to 9016 N, no
-  SD in its abstract); its step reads the full text, or another source, for a speed before any
-  search.
+  **The stomp**: held to the front kick's ankle speed, the owner's decision (`Bar.foot`,
+  `src/evaluation/strike/read.ts`): its source gives a force alone (Schirmer et al. 2016, men's
+  mean peak 8494 to 9016 N, no SD in its abstract), and no source read gives a stomp's speed.
 - **The buckler's cover**: it meets four of five blows that reach the body before the body does
   ([sword and buckler](../reference/sword-and-buckler.md#2-the-buckler-against-a-blade)).
 - **Stand-up**: the owner's target on the Warrior and the Rogue in every loadout
