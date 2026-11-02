@@ -4,7 +4,7 @@ import { wrap } from "../math/turn.ts";
 import type { Window } from "../skills/framework/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { groundRoute } from "../perception/downed/route.ts";
-import { placeMovement, type GroundPoint, type MovementRequest } from "./movement.ts";
+import { ARRIVED, placeMovement, stands, SWAY, type GroundPoint, type MovementRequest } from "./movement.ts";
 import type { BodySense } from "../mind/senses.ts";
 import { lyingAxis } from "./targets.ts";
 import { stepObstacle } from "../navigation/sensed-bounds.ts";
@@ -17,9 +17,6 @@ const RESPONSE = 1;
 /** **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance` left, m, in `RESPONSE`. */
 export const approachPace = (ceiling: number, distance: number): number => Math.min(Math.max(0, ceiling), distance / RESPONSE);
 
-/** How near the window's middle a walk into it counts as arrived, m, unless its caller asks nearer: about where a walk's last step lands. */
-export const ARRIVED = .04;
-
 /**
  * A walk into a window on a body lying (`Window.on`): how far each foot's middle keeps from that
  * body's colliders, m, past its sole's reach from its middle (a Warrior's sole is 0.26 m long), so
@@ -30,6 +27,45 @@ export const ARRIVED = .04;
  * from, s, so a place the body has turned or set off toward stays its choice.
  */
 const LYING = Object.freeze({ footRadius: .18, column: .5, bearings: 16, turn: .25, lead: .5, shift: .2, rethink: 1 });
+
+/** The most speed over the ground a standing body has once a walk's sway has died out, m/s. */
+export const SETTLED = .06;
+
+/** How long a body stays that slow before it counts as settled, s: a centre of mass slows that long before the feet stop stepping. */
+export const STILL_FOR = .25;
+
+/** `window` widened by `by` m along and across. */
+export function widened(window: Window, by: number): Window {
+  return { ...window, along: [window.along[0] - by, window.along[1] + by], across: [window.across[0] - by, window.across[1] + by] };
+}
+
+/**
+ * **A walk into a window as it ends**: since when its body has been at most `SETTLED` fast (null
+ * while it moves faster), and whether it has arrived (`arrivedIn`); plain data in its walker's state.
+ */
+export interface WindowArrival { still: number | null; arrived: boolean }
+
+/** A walk into a window that has not arrived. */
+export const windowArrival = (): WindowArrival => ({ still: null, arrived: false });
+
+/** **Whether a body `speed` m/s over the ground at `time` s has stayed at most `SETTLED` fast for `STILL_FOR` s**, as `arrival` keeps it: read once a step. */
+export function settledAt(arrival: WindowArrival, speed: number, time: number): boolean {
+  arrival.still = speed > SETTLED ? null : arrival.still ?? time;
+  return arrival.still !== null && time - arrival.still >= STILL_FOR;
+}
+
+/**
+ * **Whether a body at (`x`, `z`) facing `heading`, walking into `window`, has arrived**, as
+ * `arrival` keeps it: come within `near` of its place, `distance` m off (`stands`), it stays
+ * arrived while it sways no further than `SWAY` out of the window, until it stands `settled`
+ * outside the window itself, when it walks again. A body stopped at the window's edge is admitted
+ * where the action reaches least, and one walked again for each centimetre it sways steps on and
+ * never settles.
+ */
+export function arrivedIn(arrival: WindowArrival, window: Window, x: number, z: number, heading: number, distance: number, settled: boolean, near = ARRIVED): boolean {
+  arrival.arrived = arrival.arrived ? windowHolds(widened(window, SWAY), x, z, heading) && !(settled && !windowHolds(window, x, z, heading)) : stands(distance, near, false);
+  return arrival.arrived;
+}
 
 /** Pure geometric admission, in the same ground frame the approach controller uses. */
 export function withinActionWindow(view: BodyView, window: Window, heading: number): boolean {
@@ -191,14 +227,13 @@ export function windowSpot(view: BodyView, window: Window, heading: number, kept
 
 /**
  * **A walk to `spot`**, facing `face`: a place goal there (its route where it has one) under
- * `ceiling` and no faster than it closes in `RESPONSE`, which counts as arrived `near` m from it;
- * standing once within that.
+ * `ceiling` and no faster than it closes in `RESPONSE`, which counts as arrived `near` m from it
+ * (`stands`, as the navigator reads it).
  */
 export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: number, near = ARRIVED): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number;
 } {
   const distance = hypot(spot.x - view.stance.centre.x, spot.z - view.stance.centre.z);
-  if (distance <= near) return { move: null, face };
   const movement: MovementRequest = spot.route ? { kind: "place", points: spot.route.map((point) => ({ x: point.x, z: point.z })), near, ...(spot.by === undefined ? {} : { by: spot.by }) }
     : placeMovement({ x: spot.x, z: spot.z }, near);
   return { move: null, face, movement, pace: approachPace(ceiling, distance) };
@@ -210,15 +245,15 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: 
  * while that place is more than `travel` m off, the body faces its way there (`travelFacing`), and
  * turns to the target within it. On a body lying, the place is beside it and the walk goes round it
  * (`besideLying`), held in `kept` where given (`HeldBeside`). The walk counts as arrived `near` m
- * from that place.
+ * from that place (`stands`, as the navigator reads it), and stands while the window admits the
+ * body: a fight strikes the first step it is ready, and a body held standing outside the window
+ * through its sway strikes later.
  */
 export function approachActionWindow(view: BodyView, window: Window, heading: number, ceiling: number, travel = Infinity, near = ARRIVED, kept?: HeldBeside): {
   readonly move: null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number; readonly travelFacing?: true;
 } {
-  const { offset: { x, z, face }, beside } = placeOf(view, window, heading, kept);
-  if (withinActionWindow(view, window, heading)) return { move: null, face };
-  const distance = hypot(x, z);
-  if (distance === 0) return { move: null, face };
+  const { offset: { x, z, face }, beside } = placeOf(view, window, heading, kept), distance = hypot(x, z);
+  if (withinActionWindow(view, window, heading) || distance === 0) return { move: null, face };
   // Beside a body lying, its way round that body, which is not kept off as a fallen one (`MovementRequest`'s `by`).
   const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near, by: beside.by }
     : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near);

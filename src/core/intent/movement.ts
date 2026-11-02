@@ -67,6 +67,19 @@ export function walkGoal(heading: number, move: readonly [forward: number, right
   return { movement: directMovement(move[0] * sin(heading) + move[1] * cos(heading), move[0] * cos(heading) - move[1] * sin(heading)), pace: speed };
 }
 
+/** How near a place a walk into an action's window counts as arrived, m, unless its asker says otherwise: about where a walk's last step lands. */
+export const ARRIVED = .04;
+
+/** How far past where it arrived a body standing may sway and still stand there, m: its centre bobs that much as a walk's last steps land. */
+export const SWAY = .03;
+
+/**
+ * **Whether a body `distance` m from a place, arrived within `near` of it, stands there**: within
+ * `near`, or within `near` and `SWAY` once it has stood there (`stood`). A body walked again for
+ * each centimetre it sways off steps on and never settles.
+ */
+export const stands = (distance: number, near: number, stood: boolean): boolean => distance <= near + (stood ? SWAY : 0);
+
 /** One destination, or the next of a drawn route, is a physical place with an arrival tolerance. */
 export const placeMovement = (at: GroundPoint, near = .2): MovementRequest => ({ kind: "place", points: [{ x: at.x, z: at.z }], near });
 
