@@ -107,6 +107,25 @@ before it asks.
   (0.3 to 0.5 / 0.55 to 0.75 m), whose blows with the knee bent 43 to 66 degrees reached 47 to 126 J,
   but where 2 to 3 trials of 12 fell and 2 to 10 never reached the window.
 
+**The toed Warrior's stomp is held by where it stands, not by its stroke** (`00e851dd`, Node, the
+bout world, Rapier, 120 Hz, one step late). Searched on the stomping rung's 8 trials from 0.8 and
+1.2 m (`research/skill-search.mjs stomp workshop-fighter`, CMA over contactSpeed, swingSeconds,
+lift, over, alongNear, alongFar and chamberSeconds, 10 generations of 16, 4.1 h), the best scored
+9.69. On `--confirm`'s 12 fresh trials from 0.9, 1 and 1.1 m it landed 3 and its start 4, so the
+row is unchanged; every blow landed met the bar, the foot at 3.1 to 5.1 m/s. The trials it fails
+it fails before the stroke:
+
+- **The lying Warrior is not lying**: limp from 1 m off, it folds where it stood, its trunk on its
+  thighs, and sits there, its middle 0.70 m up; at 0.9 and 1.1 m it falls flat on its back within
+  2 s. The stomp's height band (`top`, 0.39 m over the sole) refuses it with either foot.
+- **The place beside the body** flips: the menu offers the cheapest place from where the walker
+  stands and faces (`windowSpot`), and the drill takes it again each second (`HELD_SPOT`), so on
+  the Skeleton from 0.9 m the walk turns from one side of the body to the other for 8 s, and once
+  there steps between rings 0.15 m apart, never settled enough to ask.
+- **Tried and not kept**: the drill's spot held until the body moves (no rethink): 1 of 12 landed
+  against 4, 6 outside the window, the searched best falling once; taking the menu's place again
+  each second is what corrects a walk that set off for a poor one.
+
 **The toed Rogue has no front kick.** The Warrior's settings, its lengths scaled by the Rogue's
 stature (`research/skill-search.mjs front-kick workshop-rogue --try`), put nothing on the mark
 (-0.99). Searched from there on the kicking rung's 12 trials (27 generations of 16), the best
