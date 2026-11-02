@@ -135,7 +135,7 @@ type Beside = { readonly offset: Offset; readonly route: readonly Vec3[]; readon
  * **A place beside a body lying, held** (`Held`): the place chosen, its ground x, z and facing, and
  * its way there, plain data in its walker's state. It is chosen again when another body lies under
  * the window, that body's centre moves `CROWD.settled` m, the window's target `LYING.shift` m (more
- * than a stride moves the sole a kick's window is read from), the place's feet or its way stop
+ * than a stride moves the sole a stomp's window is read from), the place's feet or its way stop
  * clearing that body, or `LYING.rethink` s pass.
  */
 export interface HeldBeside {

@@ -8,14 +8,10 @@
  * with `--write`, that is the body's row (`writeRecord`, `research/skill-records.mjs`), saying how it
  * was made.
  *
- * - The front kick: the Strike drill's `kicking` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
- *   each foot at the middle of a Warrior, a Skeleton and a Reptile lying limp from two gaps, thrown
- *   by Option Mind's low kick (`src/entrants/option/mind.ts`); a
- *   trial scores the drill's bar (`barScore`: -3 a fall, -1 nothing on the mark, 9 landed) and 5 a
- *   hit point the kick dealt.
- * - The stomp: the Strike drill's `stomping` rung, each foot at the middle of a Warrior and a
- *   Skeleton lying limp from its gaps, thrown by Option Mind's stomp (`src/entrants/option/mind.ts`);
- *   scored as the kick.
+ * - The stomp: the Strike drill's `stomping` rung (`STRIKE_CASES`, `src/evaluation/strike/cases.ts`),
+ *   each foot at the middle of a Warrior and a Skeleton lying limp from its gaps, thrown by Option
+ *   Mind's stomp (`src/entrants/option/mind.ts`); a trial scores the drill's bar (`barScore`: -3 a
+ *   fall, -1 nothing on the mark, 9 landed) and 5 a hit point the stomp dealt.
  *
  * A body with no record of its own starts from the Warrior's, its lengths (`SEARCHES`' `lengths`,
  * m) scaled by the body's stature over his. `--until` ends the search once its best scores that
@@ -48,18 +44,6 @@ import { recordsOf, writeRecord } from "./skill-records.mjs";
 
 const WARRIOR = "workshop-fighter+toes";
 
-/** A mind throwing the front kick with `settings` at the trunk's middle: Option Mind's Skeleton preset's, on any body. */
-const kicker = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "support-fold" },
-  executors: [{ name: "low-kick", kind: "front-kick", tuning: settings }],
-  actions: [{ name: "low-kick", executor: "low-kick", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } }] });
-
-/** One kicking trial of whole `settings`: the drill's bar and the hit points dealt. */
-async function kickTrial(settings, { condition }) {
-  const reading = await play(STRIKE_CASES.kicking, { mind: kicker(settings), action: "low-kick" }, condition);
-  const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
-  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, foot: reading.hit?.foot?.speed ?? null };
-}
-
 /** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
 const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "support-fold" },
   executors: [{ name: "stomp", kind: "stomp", tuning: settings }],
@@ -76,19 +60,12 @@ async function stompTrial(settings, { condition }) {
 const stompTrials = (model, gaps) => STRIKE_CASES.stomping.conditions.filter((c) => c.model === "workshop-fighter")
   .flatMap((c) => gaps.map((gap) => ({ condition: { ...c, model, gap } }))).filter((t, i, all) => all.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
 
-/** The kicking rung's trials on `model`: each foot at each target from each gap. */
-const kickTrials = (model, gaps) => STRIKE_CASES.kicking.conditions.filter((c) => c.model === "crypt-skeleton")
-  .flatMap((c) => gaps.map((gap) => ({ condition: { ...c, model, gap } }))).filter((t, i, all) => all.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
-
 /**
  * **What each skill's search plays**: the settings it searches, each with its range (the rest the
  * start's), the trials it searches on and confirms on (`gaps`, m), a trial's score, and its
  * settings that are lengths (`lengths`, m), scaled to a body that starts from the Warrior's.
  */
 const SEARCHES = {
-  "front-kick": { dims: [["contactSpeed", 1.5, 14], ["swingSeconds", .1, .5], ["lift", .2, .6], ["windup", 0, .3], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
-    trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
-    task: "the Strike drill's kicking rung (each foot at the middle mark of a Warrior, a Skeleton and a Reptile lying limp)" },
   stomp: { dims: [["contactSpeed", 3, 14], ["swingSeconds", .1, .4], ["lift", .4, .9], ["over", .6, 1], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
     trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: stompTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp)" },

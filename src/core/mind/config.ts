@@ -1,5 +1,4 @@
 import type { OpeningTuning } from "../perception/openings.ts";
-import { KICK_PATH, type KickTuning } from "../skills/strikes/kick.ts";
 import { deepFreeze } from "../state.ts";
 
 /**
@@ -11,9 +10,6 @@ export interface MindConfig { readonly kind: string }
 
 /** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });
-
-/** The Arena's low kick: `docs/reference/front-kicks.md#arena-selection`. */
-export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 });
 
 /**
  * **The path strikes at the body**: the path strike's executor, its straight blow, cross, hook and
