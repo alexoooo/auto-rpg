@@ -18,15 +18,11 @@ const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, 
   "elbow.left flexion": 1.7, "elbow.right flexion": 1.7, "hip.left flexion": .8, "hip.right flexion": .8,
   "knee.left flexion": 1.2, "knee.right flexion": 1.2 });
 
-/**
- * How the brace is driven (`poseDrive`: the seconds a gap closes in, the top rate, rad/s, and the
- * activation): falling, firmly; backing off after no route stood the body, softly.
- */
-const BRACINGS = deepFreeze({ falling: [.3, 2, .4], "backing off": [.4, 1, .2] } as const);
-type Bracing = keyof typeof BRACINGS;
+/** How the brace is driven, firmly (`poseDrive`): the seconds a gap closes in, the top rate, rad/s, and the activation. */
+const BRACING = deepFreeze({ within: .3, top: 2, activation: .4 });
 
-/** Drive the brace (`BRACE`) as `how` says, with `drive` (`poseDrive`). */
-export const brace = (drive: ReturnType<typeof poseDrive>, how: Bracing): void => { const [within, top, activation] = BRACINGS[how]; drive(BRACE, within, top, activation); };
+/** Drive the brace (`BRACE`, `BRACING`) with `drive` (`poseDrive`). */
+export const brace = (drive: ReturnType<typeof poseDrive>): void => drive(BRACE, BRACING.within, BRACING.top, BRACING.activation);
 
 /**
  * **The climb** from a crouch quiet on both feet (`quietOnFeet`, lower than `below` of standing
