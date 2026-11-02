@@ -124,8 +124,31 @@ The rat now reaches a still Warrior from 2.5 m, and most of its teeth's HP is it
 into the Warrior's legs as it closes: one bout at 1.25 m is fatal to the Warrior at 11.9 s.
 Fighting, it is kicked over and does not right itself.
 
+### Righting
+
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
-from a sprawled reference pose, and does not right the rat.
+from a sprawled reference pose, and does not right the rat. Built lying (on its back, either
+side, and rolled 69 degrees; two headings; Node stand, Rapier, 120 Hz, a delay of one step, at
+`656a3dbf`), the rat never leaves the roll in 60 s, and the reptile hands back to its gaits in 3
+of 8 (10 to 39 s; with its legs at 6 rad/s, 5 of 8 in 100 s, 15 to 80 s, most falling again on
+the walk after).
+
+On its side the rat rests on its ground-side thighs, which prop it 17 degrees short of its side:
+its hips are low on a round trunk, and abducted at most .8 rad they cannot lever it over. Tried
+and not kept:
+
+| Change | Result |
+| --- | --- |
+| Paws tucked toward the hip, or stretched along the trunk, by the effector tracker | The pinned ground-side legs do not move; stays on its side |
+| Legs swung fore and aft (hip's second axis ±1.2 rad) | Rolls to an up of .6, then stalls |
+| Hip abduction ±1.6 or ±2 rad, the loaded-hip push | Rolls to an up of .8 to .9 within a second |
+| The same, `rightingGain` 16 to 64 | Up of .95 within 1 to 2 s, resting on its belly's edge and two paws, its centre of mass outside them |
+| Then the gaits at once, or after the legs settle at their reference or stretched angles | The crawl commands its centre over paws the body is not on, and tips it over |
+| Then the rise (`startRise`), its centre at the paws' mean, at the centre of mass, or its paws sent to their own footprints | Tips it onto its back within .25 s; sent to their footprints, it rises neither body |
+
+Built level on its belly over stretched legs, the rat is not down, and the crawl stands it up and
+walks 3.1 to 3.9 m in 10 s: what is missing is a placement that brings its centre of mass over
+four planted paws from the belly's edge.
 
 ## Controller settings
 
