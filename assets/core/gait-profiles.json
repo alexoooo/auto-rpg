@@ -2,7 +2,7 @@
   "source": {
     "script": "research/gait-profiles.mjs",
     "records": [
-      "assets/evaluations/gait/2026-11-02-51aaf4d2-37e72c0c.jsonl"
+      "assets/evaluations/gait/2026-11-02-252a17eb-bd322d5a.jsonl"
     ]
   },
   "profiles": [
@@ -25,7 +25,7 @@
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 3.769,
+          "seconds": 3.792,
           "down": 0,
           "ends": []
         }
@@ -50,7 +50,7 @@
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 3.769,
+          "seconds": 3.792,
           "down": 0,
           "ends": []
         }
