@@ -123,14 +123,21 @@ profiles not, Option Mind read its prior and in the fight rung began no action a
 from the baseline's punch rung and the drill's punching, guarding, stepping, letgo and
 letgo-punched rungs (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`).
 
-**The fight rung** (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=c85fda2fc05c45f3`):
-of 8 middle-mark moments none lands; 1 weak (0.91 m/s, 16.9 kg), 2 guarded, 1 missed, 4 refused.
-The foe stands 0.79 to 1.05 m off as each moment begins, at and inside the window's near edge
-(0.89 m). Where it throws, the drill waits first on a hand the mind's own guard holds
-("resources held") and the fist meets the raised arms; where it refuses, the punch read ready and
-never began within the drill's 2 s patience. The cause is the fighters' range against the window,
-not the network: with the 55.0 M network at `91983216` no blow met the body either, 10 of 16
-refused.
+**The fight rung** (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=636a427499ab7f9c`,
+at `824d82d1`): of 8 middle-mark moments, 3 meet the foe's body, all weak; 2 guarded, 2 missed, 1
+outside. The weak blows come at 7.8 to 8.1 m/s, two with the elbow 0.7 and 0.9 rad short of
+straight (1.2 and 1.6 kg), the foe 0.81 to 0.84 m off as the moment began, inside the window's near
+edge; one straight (9.0 kg) but grazing, 88° off the surface. Two causes had kept every blow off
+the body (at `e01be414`: 1 weak, 2 guarded, 1 missed, 4 refused):
+
+- **The drill let go of the moment's own blow.** At its moment it ordered a stand before its
+  strike; the mind let go of the punch that made the moment, and the drill's own then waited for
+  a window that had passed. It now carries the moment's own action on where it is the choice asked
+  (`adopts`, `src/core/command/drill.ts`).
+- **The punch waited to settle after it was admitted.** Readiness admitted it walking; its prepare
+  then waited for a quiet stance (`quietToPunch`), 0.2 to 0.4 s in a fight, while the foe closed
+  0.3 to 0.6 m, and the blow came crowded. Poised (`StraightPunch.poised`), it is ready only
+  standing quiet and commits at once; the walk rung stays 52 of 64 and the still 31 of 32.
 
 ### Trained on its unmet asks
 
