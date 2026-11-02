@@ -432,9 +432,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`skillDigest`), so another body's row moves no profile.
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
   stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`,
-  `path-part.ts`) and each foot of the kick (`kick.ts`, which adds support transfer; the front kick,
-  `kick-part.ts`, and the stomp, `stomp-part.ts`, a kick down from a high chamber on a body lying
-  ahead, each its own records). A bare hand closes for its blow and strikes with the fist's point
+  `path-part.ts`) and each foot of the stomp (`stomp.ts`, which adds support transfer; its part,
+  `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
+  A bare hand closes for its blow and strikes with the fist's point
   (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
   stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
@@ -490,7 +490,7 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
-- **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
+- **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
   a line in `SUPPORTS`, `skills/locomotion/supports.ts`) that says whether the legs may walk under it (`walks`).
 
@@ -1019,7 +1019,7 @@ is the staged roll and down, the sit-back and the front sit-back, on toes; `step
 `STAGED_ROUTE`), are flat-footed and kept for the Rise drill's comparison.
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `front-kick.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
@@ -1571,9 +1571,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   its bout against Option Mind on the Warrior's body, which fights on; rung `stomping`, thrown with
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
-  round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a
-  Warrior, a Skeleton or a Reptile lying limp; rungs `still-bodies`, `walk-bodies`, `fight-bodies`,
-  `stomping-bodies` and `kicking-bodies`, those rungs thrown from the bodies their own leave out
+  round to from 0.8 to 1.2 m; rungs `still-bodies`, `walk-bodies`, `fight-bodies` and
+  `stomping-bodies`, those rungs thrown from the bodies their own leave out
   (the Warrior, the Rogue and the Skeleton strike); each trial's reading records the target's posture and the range
   centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
   landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind

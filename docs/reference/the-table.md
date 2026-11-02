@@ -2,20 +2,19 @@
 
 Option Mind on every body, loadout and skill against its bar
 ([the plan](../plans/2026-11-01-option-mind-everywhere.md#3-the-table)), first read at `91983216`:
-**103 cells, 8 met, 95 short**. `npm run evaluate -- table --play --workers 22`, every reading
+**88 cells, 6 met, 82 short**. `npm run evaluate -- table --play --workers 22`, every reading
 played and written (`assets/evaluations/*/2026-11-01-91983216-*.jsonl`); Node, core world,
 `rapier-coordinate`, 120 Hz, command delay 0. The met cells: the Warrior's walk holding the club
 and buckler, the sword, and the sword and buckler; the Rogue's walk with the sword and buckler; the
-Warrior's low kick holding the sword (one thrown of 18 trials); the Rogue's stomp with empty hands
-and with the sword and buckler. No cell is accepted by the owner.
+Rogue's stomp with empty hands and with the sword and buckler. No cell is accepted by the owner.
 
 ## What falls short, by cause
 
 - **Skills with no record for the body** (`usableSkills` leaves them out; the drill counts every
-  trial refused): the Skeleton has only the low kick (no punch, stomp, club, cut or thrust is
-  tuned for `crypt-skeleton+toes`); the Rogue has the punch and the stomp (no club, cut, thrust or
-  kick). Option Mind does not refuse the Rogue's punch: it throws it on the still rung, 30 of 32, 8 at
-  her bar ([the learned punch](learned-punch.md)).
+  trial refused): the Skeleton's one strike is a stomp seeded from the Warrior's, which lands on
+  nothing yet (no punch, club, cut or thrust is tuned for `crypt-skeleton+toes`); the Rogue has the punch and the stomp
+  (no club, cut or thrust). Option Mind does not refuse the Rogue's punch: it throws it on the
+  still rung, 30 of 32, 8 at her bar ([the learned punch](learned-punch.md)).
   The Skeleton's "no such choice on its menu" is the drill Commander finding no punch in its kit.
 - **Blows thrown but weak or elsewhere**: the Warrior's punch from a walk (52 of 64; still, 31 of
   32 meets its rung), the club (6 and 12 of 16), the cut and the thrust (none of 7 to 32); in every
@@ -61,23 +60,23 @@ and with the sword and buckler. No cell is accepted by the owner.
 ## Each cell
 
 
-| Body | Loadout | stand-up | walk | run | punch | stomp | front-kick | club-blow | cut | thrust | buckler-cover |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Warrior | empty,empty | short | short | short | short | short | short | – | – | – | – |
-| Warrior | empty,club | short | short | short | short | short | short | short | – | – | – |
-| Warrior | buckler,club | short | **met** | short | – | short | short | short | – | – | short |
-| Warrior | empty,sword | short | **met** | short | short | short | **met** | – | short | short | – |
-| Warrior | buckler,sword | short | **met** | short | – | short | **met** | – | short | short | short |
-| Rogue | empty,empty | short | short | short | short | **met** | short | – | – | – | – |
-| Rogue | empty,club | short | short | short | short | short | short | short | – | – | – |
-| Rogue | buckler,club | short | short | short | – | short | short | short | – | – | short |
-| Rogue | empty,sword | short | short | short | short | short | short | – | short | short | – |
-| Rogue | buckler,sword | short | **met** | short | – | **met** | short | – | short | short | short |
-| Skeleton | empty,empty | short | short | – | short | short | short | – | – | – | – |
-| Skeleton | empty,club | short | short | – | short | short | short | short | – | – | – |
-| Skeleton | buckler,club | short | short | – | – | short | short | short | – | – | short |
-| Skeleton | empty,sword | short | short | – | short | short | short | – | short | short | – |
-| Skeleton | buckler,sword | short | short | – | – | short | short | – | short | short | short |
+| Body | Loadout | stand-up | walk | run | punch | stomp | club-blow | cut | thrust | buckler-cover |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Warrior | empty,empty | short | short | short | short | short | – | – | – | – |
+| Warrior | empty,club | short | short | short | short | short | short | – | – | – |
+| Warrior | buckler,club | short | **met** | short | – | short | short | – | – | short |
+| Warrior | empty,sword | short | **met** | short | short | short | – | short | short | – |
+| Warrior | buckler,sword | short | **met** | short | – | short | – | short | short | short |
+| Rogue | empty,empty | short | short | short | short | **met** | – | – | – | – |
+| Rogue | empty,club | short | short | short | short | short | short | – | – | – |
+| Rogue | buckler,club | short | short | short | – | short | short | – | – | short |
+| Rogue | empty,sword | short | short | short | short | short | – | short | short | – |
+| Rogue | buckler,sword | short | **met** | short | – | **met** | – | short | short | short |
+| Skeleton | empty,empty | short | short | – | short | short | – | – | – | – |
+| Skeleton | empty,club | short | short | – | short | short | short | – | – | – |
+| Skeleton | buckler,club | short | short | – | – | short | short | – | – | short |
+| Skeleton | empty,sword | short | short | – | short | short | – | short | short | – |
+| Skeleton | buckler,sword | short | short | – | – | short | – | short | short | short |
 
 
 ### Warrior
@@ -94,8 +93,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight: 0 of 3 on the body, 0 fell, 8 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=636a427499ab7f9c`)
 - **empty,empty, stomp**: short
   - strike/stomping: 4 of 5 thrown, 0 fell, 7 refused, 12 trials (`?play=ratings&evaluation=strike&subject=stomp60&version=69250816729e6455`)
-- **empty,empty, front-kick**: short
-  - strike/kicking: 1 of 3 thrown, 1 fell, 4 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick&version=54900567d308105b`)
 - **empty,club, stand-up**: short
   - rising-target/standard: 16 of 16 stood, 1 within 6 s, median 10.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
 - **empty,club, walk**: short
@@ -108,8 +105,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight: 0 of 0 on the body, 0 fell, 7 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Cclub&version=a770874fcc1c91e4`)
 - **empty,club, stomp**: short
   - strike/stomping: 2 of 6 thrown, 1 fell, 4 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Cclub&version=fb99f066ffa0519e`)
-- **empty,club, front-kick**: short
-  - strike/kicking: 0 of 0 thrown, 1 fell, 6 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Cclub&version=cb32ea3ac2d899fe`)
 - **empty,club, club-blow**: short
   - strike/still: 6 of 16 thrown, 1 fell, 48 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=1ef9ec97fd15dd0a`)
   - strike/walk: 9 of 29 thrown, 0 fell, 99 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=1d1b9ef6e679d6c5`)
@@ -122,8 +117,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/run: 0 of 32 met, 0 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **buckler,club, stomp**: short
   - strike/stomping: 3 of 8 thrown, 0 fell, 2 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Cclub&version=317c4ef6fa502cc1`)
-- **buckler,club, front-kick**: short
-  - strike/kicking: 0 of 1 thrown, 0 fell, 6 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Cclub&version=7f82a348886e2e32`)
 - **buckler,club, club-blow**: short
   - strike/still: 12 of 16 thrown, 0 fell, 48 refused, 64 trials (`?play=ratings&evaluation=strike&subject=club-blow60&version=d02e401d32ed9026`)
   - strike/walk: 6 of 29 thrown, 0 fell, 99 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40buckler%2Cclub&version=7f3e41dca14ec88e`)
@@ -143,8 +136,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight: 0 of 0 on the body, 0 fell, 12 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Csword&version=46e48e02a5130bcc`)
 - **empty,sword, stomp**: short
   - strike/stomping: 1 of 5 thrown, 0 fell, 5 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Csword&version=9ea861b917581918`)
-- **empty,sword, front-kick**: met
-  - strike/kicking: 1 of 1 thrown, 0 fell, 7 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Csword&version=301b98d4b4600118`)
 - **empty,sword, cut**: short
   - strike/still: 0 of 13 thrown, 0 fell, 51 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=01cc29283dd92e34`)
   - strike/walk: 0 of 29 thrown, 0 fell, 99 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=4c83e89264450962`)
@@ -161,8 +152,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/run: 0 of 32 met, 5 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **buckler,sword, stomp**: short
   - strike/stomping: 2 of 6 thrown, 0 fell, 6 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Csword&version=75b802fa96711461`)
-- **buckler,sword, front-kick**: met
-  - strike/kicking: 1 of 1 thrown, 0 fell, 8 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Csword&version=0fa3a97418a046f5`)
 - **buckler,sword, cut**: short
   - strike/still: 0 of 7 thrown, 0 fell, 55 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=4d9bd33612d360d0`)
   - strike/walk: 0 of 24 thrown, 0 fell, 101 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=ff308da17bc8c5b7`)
@@ -189,8 +178,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 2 of 8 on the body, 0 fell, 8 refused, 16 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
 - **empty,empty, stomp**: met
   - strike/stomping-bodies: 7 of 7 thrown, 0 fell, 4 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
-- **empty,empty, front-kick**: short
-  - strike/kicking-bodies: 0 of 0 thrown, 0 fell, 18 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick&version=bcab44e5c1b8fb24`)
 - **empty,club, stand-up**: short
   - rising-target/standard: 11 of 16 stood, 0 within 6 s, median 16.7 s (`?play=ratings&evaluation=rising-target&subject=game&version=ecb59f5a90d3beb6`, at `e8d6c775`)
 - **empty,club, walk**: short
@@ -203,8 +190,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 0 of 1 on the body, 1 fell, 12 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Cclub&version=0c7d515d9a776a72`)
 - **empty,club, stomp**: short
   - strike/stomping-bodies: 4 of 7 thrown, 3 fell, 3 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Cclub&version=c529bad1f7156ae0`)
-- **empty,club, front-kick**: short
-  - strike/kicking-bodies: 0 of 0 thrown, 0 fell, 18 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Cclub&version=29b44f3f5056f5ef`)
 - **empty,club, club-blow**: short
   - strike/still: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=1ef9ec97fd15dd0a`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=c568cc3155c017d1`)
@@ -217,8 +202,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/run: 0 of 32 met, 9 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **buckler,club, stomp**: short
   - strike/stomping-bodies: 1 of 4 thrown, 3 fell, 7 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Cclub&version=9001c8483c7d2cfb`)
-- **buckler,club, front-kick**: short
-  - strike/kicking-bodies: 0 of 0 thrown, 0 fell, 18 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Cclub&version=c1ac4e8bae92baeb`)
 - **buckler,club, club-blow**: short
   - strike/still: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=club-blow60&version=d02e401d32ed9026`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40buckler%2Cclub&version=6ea887ac74fa57fc`)
@@ -238,8 +221,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 11 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Csword&version=cc58bf734f8dec23`)
 - **empty,sword, stomp**: short
   - strike/stomping-bodies: 7 of 7 thrown, 1 fell, 2 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Csword&version=9f157fde6037e3f3`)
-- **empty,sword, front-kick**: short
-  - strike/kicking-bodies: 0 of 0 thrown, 0 fell, 18 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Csword&version=fed90a2f98d4868d`)
 - **empty,sword, cut**: short
   - strike/still: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=01cc29283dd92e34`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=9f6be6021a2cf3ed`)
@@ -256,8 +237,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/run: 0 of 32 met, 24 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **buckler,sword, stomp**: met
   - strike/stomping-bodies: 1 of 1 thrown, 0 fell, 9 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Csword&version=cfffa7f264b50376`)
-- **buckler,sword, front-kick**: short
-  - strike/kicking-bodies: 0 of 0 thrown, 0 fell, 18 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Csword&version=e5f68e99fb12eebb`)
 - **buckler,sword, cut**: short
   - strike/still: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=4d9bd33612d360d0`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=a3d2506d93c54a03`)
@@ -282,8 +261,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 0 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=fb8eeedcb7df65ba`)
 - **empty,empty, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
-- **empty,empty, front-kick**: short
-  - strike/kicking: 0 of 1 thrown, 1 fell, 1 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick&version=54900567d308105b`)
 - **empty,club, stand-up**: short
   - equipped-rise/every: 0 of 15 stood, median - s of those (`?play=ratings&evaluation=equipped-rise&subject=option&version=fdcddc5fd95608ac`, at `e8d6c775`)
 - **empty,club, walk**: short
@@ -294,8 +271,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 0 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Cclub&version=0c7d515d9a776a72`)
 - **empty,club, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Cclub&version=c529bad1f7156ae0`)
-- **empty,club, front-kick**: short
-  - strike/kicking: 0 of 0 thrown, 0 fell, 0 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Cclub&version=cb32ea3ac2d899fe`)
 - **empty,club, club-blow**: short
   - strike/still-bodies: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=0723cb4b2798dbed`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40empty%2Cclub&version=c568cc3155c017d1`)
@@ -306,8 +281,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/every: 8 of 47 fell, walk along 0.00 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,club, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Cclub&version=9001c8483c7d2cfb`)
-- **buckler,club, front-kick**: short
-  - strike/kicking: 0 of 0 thrown, 0 fell, 0 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Cclub&version=7f82a348886e2e32`)
 - **buckler,club, club-blow**: short
   - strike/still-bodies: 0 of 0 thrown, 6 fell, 58 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40buckler%2Cclub&version=2ec436447acc3afd`)
   - strike/walk-bodies: 0 of 0 thrown, 4 fell, 124 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fclub-blow%40buckler%2Cclub&version=6ea887ac74fa57fc`)
@@ -325,8 +298,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - strike/fight-bodies: 0 of 0 on the body, 0 fell, 0 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch%40empty%2Csword&version=cc58bf734f8dec23`)
 - **empty,sword, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40empty%2Csword&version=9f157fde6037e3f3`)
-- **empty,sword, front-kick**: short
-  - strike/kicking: 0 of 0 thrown, 0 fell, 0 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40empty%2Csword&version=301b98d4b4600118`)
 - **empty,sword, cut**: short
   - strike/still-bodies: 0 of 0 thrown, 0 fell, 64 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=d0b7c6f86b54957e`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40empty%2Csword&version=9f6be6021a2cf3ed`)
@@ -341,8 +312,6 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/every: 2 of 47 fell, walk along 0.75 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **buckler,sword, stomp**: short
   - strike/stomping-bodies: 0 of 0 thrown, 0 fell, 12 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp%40buckler%2Csword&version=cfffa7f264b50376`)
-- **buckler,sword, front-kick**: short
-  - strike/kicking: 0 of 0 thrown, 0 fell, 0 refused, 18 trials (`?play=ratings&evaluation=strike&subject=option%2Flow-kick%40buckler%2Csword&version=0fa3a97418a046f5`)
 - **buckler,sword, cut**: short
   - strike/still-bodies: 0 of 0 thrown, 4 fell, 60 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=4a75a1fab824d414`)
   - strike/walk-bodies: 0 of 0 thrown, 0 fell, 128 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fsword-cut%40buckler%2Csword&version=a3d2506d93c54a03`)
