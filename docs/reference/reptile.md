@@ -59,8 +59,9 @@ trot at .15 m/s):
   upright at all 8 headings with its swinging paws clearing about 25 mm; at .3 m/s it sank to its
   belly at every heading.
 
-Against the Warrior with a sword (Node Arena Duel, Rapier, 120 Hz, default rules and balance,
-rat on the left, 40 s cap), with the head carried at the art's height the rat launched no bite and
+Against the Warrior with a sword (Node Arena Duel, Rapier, 120 Hz, no command delay, at
+`5fc406b5`, default rules and balance, rat on the left, 40 s cap), with the head carried at the
+art's height the rat launched no bite and
 was killed in every bout; with the head raised (`HEAD_RAISE`), the stance settled over its paws
 and the lean measured from where the chamber began, it bites:
 
@@ -73,6 +74,22 @@ and the lean measured from where the chamber began, it bites:
 
 Most of the teeth's HP is the Warrior's foot pressing on an open jaw. Once kicked over, the rat
 does not right itself, which bounds its bites to the first one or two.
+
+At the game's command delay of one step (`COMMAND_DELAY`; the quadruped's motor part carries out
+the gait's last command on the body as it is), the bite still launches. Against the Warrior
+standing still, holding its sword (stand orders, firm; 25 s cap; gaps .8, 1, 1.25, 1.5, 2 and
+2.5 m; at `4658de52`, which also carries the Warrior's newer mind):
+
+| Body | Delay | Bites launched | HP by the teeth | Gaps with a bite |
+| --- | --- | --- | --- | --- |
+| rat | none | 1 | 1.53 | 1 m |
+| rat | one step | 4 | .77 | .8 to 1.5 m |
+| reptile | none | 17 | 6.52 | 1 to 2.5 m |
+| reptile | one step | 15 | 4.62 | 1 to 2.5 m |
+
+The rat reaches no Warrior 2 m off or more within 25 s: its walk, not its bite, bounds it. In the
+four fights above at one step it launched no bite and took .94 HP with its teeth (none: 1 bite,
+1.65 HP); the Warrior's mind changed between the two tables, so they are not paired.
 
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
 from a sprawled reference pose, and does not right the rat.
