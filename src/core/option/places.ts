@@ -57,6 +57,17 @@ export function goings(spec: BodySpec, hz: number, gaits: readonly GaitOf[], str
   });
 }
 
+/**
+ * **What a walk of `duration` s by `going` leaves to settle**: each strike's seconds until it is
+ * ready, and the most of them, as the gait's profile measured them stopping from its top speed,
+ * none longer than the walk: a walk unsettles the body no longer than it moved it.
+ */
+function settling(going: Going, duration: number): { readonly braced: number; readonly ready: Readonly<Record<string, number>> } {
+  const ready: Record<string, number> = {};
+  for (const [name, seconds] of Object.entries(going.ready)) ready[name] = Math.min(seconds, duration);
+  return { braced: Math.min(going.braced, duration), ready };
+}
+
 /** What an option asks of the legs walking to a place. */
 type Walk = ReturnType<Walker["kept"]>;
 
@@ -224,13 +235,14 @@ export function walkTerms(now: Situation, spot: Spot, going: Going, walk: Walker
     } else if (focus) nearest = Math.min(nearest, hypot(x - focus.centre.x, z - focus.centre.z));
     x = point.x; z = point.z;
   }
+  const { braced, ready } = settling(going, duration);
   if (!focus) return { duration, dealt: 0, taken: now.predictions.danger, orders: 0,
-    exit: fromHere(now, { range: Infinity, down: going.down, unbraced: going.braced, at: spot, ready: going.ready }) };
+    exit: fromHere(now, { range: Infinity, down: going.down, unbraced: braced, at: spot, ready }) };
   const apart = hypot(spot.x - focus.centre.x, spot.z - focus.centre.z), bearing = bearingAround(focus, spot.x, spot.z);
   const around = (bearing < 0 ? -1 : 1) * Math.max(0, Math.abs(bearing) - now.predictions.turns * duration);
   return { duration, dealt: 0, taken: now.predictions.danger + threatened(now, inReach, nearest - offset), orders: 0,
     exit: fromHere(now, { range: apart - offset, down: Math.max(going.down, apart >= CLINCH.within ? 0 : clinched(now, duration)),
-      unbraced: going.braced, around, at: spot, ready: going.ready }) };
+      unbraced: braced, around, at: spot, ready }) };
 }
 
 /**

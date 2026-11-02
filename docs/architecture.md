@@ -898,8 +898,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   the range and the bearing around the focus, turned by what the focus turns while the walk lasts
   (`Predictions.turns`, its measured turn, `turnAt`). A gait (`goings`, a `Going`) goes at its pace,
   asking it (`Intent.gait`), and leaves the body unbraced for the seconds the Gait drill measured it
-  stopping to throw each strike (`ready`, by the action), at its share fallen
-  (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
+  stopping from its top speed to throw each strike (`ready`, by the action), none longer than the
+  walk lasts (`settling`), at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
   gait, an option of each kind; another source of places, a kind. With no focus a walk is priced
   by its way and its gait alone. What a walk's place is worth
   beyond the position is the chooser's to look past (below).

@@ -339,15 +339,14 @@ for (const [id, preset] of MINDS.filter(([, preset]) => treeObeys(preset.config)
   test(`${id}: ordered to strike a still foe with a choice of its menu it would not make, it begins that and no other`, async (t) => {
     const on = `${id} on ${modelFor(preset)}`, own = await strikesAt(preset, 1);
     if (own.begun === null) { t.skip(`${on} reports no action aimed at a body`); return; }
-    if (own.begun.length === 0) { t.skip(`the fixture does not reach ${on}: unordered, it begins no strike at a still foe in ${ORDERED.steps} steps`); return; }
     const [first] = own.begun;
-    // The last choice at the foe that its body could start or walk to, other than the strike it begins by itself.
+    // The last choice at the foe that its body could start or walk to, other than the strike it begins by itself, where it begins one.
     const choice = own.menu.filter((entry) => entry.foe === "right" && (entry.readiness.kind === "ready" || entry.readiness.kind === "position")
-      && !(entry.action === first.action && entry.limb === first.limb)).at(-1);
+      && !(first && entry.action === first.action && entry.limb === first.limb)).at(-1);
     if (!choice) { t.skip(`${on} has no choice at a still foe on its menu but the strike it begins by itself`); return; }
     const asked = { action: choice.action, limb: choice.limb, target: { kind: "body", body: "right", region: choice.region } };
     const ordered = await strikesAt(preset, ORDERED.strikes, () => ({ foe: "right", region: choice.region, action: choice.action, limb: choice.limb }));
-    assert.ok(ordered.begun.length > 0, `${on}, ordered ${JSON.stringify(asked)}, began no strike in ${ORDERED.steps} steps; unordered it began ${JSON.stringify(first)}`);
+    assert.ok(ordered.begun.length > 0, `${on}, ordered ${JSON.stringify(asked)}, began no strike in ${ORDERED.steps} steps; unordered it began ${JSON.stringify(first ?? "none")}`);
     for (const one of ordered.begun) assert.deepEqual(one, asked, `${on} began what it was not ordered`);
   });
 }
