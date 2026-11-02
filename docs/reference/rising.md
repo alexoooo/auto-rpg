@@ -278,6 +278,29 @@ At 5.625 alone the Rogue's down is done 50 % of the times begun at 1.0 and 66 to
 flexion 0.3000001) against 49 and 50; step-up 56 against 51; the fresh falls 54 and 55 against 50
 and 51. The Rogue with the club stands 9 to 13 of 16 either way.
 
+### The tuck's righting
+
+`tuck` and `prop` right the body as it tips onto a side (`LEVEL`, `src/core/recovery/rise/stages.ts`):
+each side's hip abduction is asked 1 rad and its shoulder abduction 0.5 rad past the posture for
+the pelvis tipped fully down toward that side (how far the pelvis's axis toward the other side
+points up, of 1; negative as it tips away), so the low side's knee and arm go out and the high
+side's come in. Without it, the tuck carries a tip the body lies in, or one a held item gives it,
+onto the side: the Skeleton holding the club, in its first attempts on 9 falls of the target
+(Node, core world, Rapier, 120 Hz), came into `prop` tipped 0.72 to 1.00 in 7 of the 8 that reached
+it; with it, 0.76 to 0.98 in 4 of 7, and its sit-backs reach `up` and the steady after it. Stood on the target's falls (`rise-trace.mjs --loadout`, at
+`b75c8dc4`), before and after; the offset set is the same falls turned 11.25 degrees:
+
+| Body, loadout | Stood | Median of those stood, s | Offset set: stood | Median, s |
+|---|---|---|---|---|
+| Skeleton, empty | 13, 14 of 15 | 13.4, 12.7 | 10, 14 of 15 | 15.2, 12.0 |
+| Skeleton, club | 0, 0 of 15 | | | |
+| Rogue, club | 11, 11 of 16 | 14.3, 17.5 | 9, 10 of 16 | 12.9, 14.8 |
+| Warrior, club | 16, 16 of 16 | 10.7, 10.3 | | |
+
+The Skeleton with the club now fails after it rises: in the stance's steady, under the club's
+mass (the legs' sag, [the table](the-table.md#what-falls-short-by-cause)), and in its roll from the back, which
+stalls a third of the way over with the club's arm the one that comes across.
+
 Fallen forward, at each stage's last step (read with the tuck's arms folded), the heights of the centre of mass and of the pelvis's,
 upper trunk's and head's centres of mass, m:
 

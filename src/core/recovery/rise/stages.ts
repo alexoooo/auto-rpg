@@ -44,6 +44,8 @@ export interface PoseStage {
   readonly pace?: Pace;
   /** Channels asked past its posture while a foot's ball is up. */
   readonly press?: Press;
+  /** Channels asked past its posture as the body tips onto a side. */
+  readonly level?: Level;
 }
 
 /**
@@ -79,6 +81,16 @@ export interface Pace {
  */
 interface Press {
   readonly above: number;
+  readonly gains: Readonly<Record<string, number>>;
+}
+
+/**
+ * **A righting toward lying square**: each channel of `gains`, written `name.@ motion` for a side,
+ * asked past the stage's posture by its rad for the pelvis tipped down toward that side, read as
+ * how far the pelvis's axis toward its other side points up, of 1 (negative as it tips away): what
+ * widens the low side's base and draws in the high side's (`docs/reference/rising.md#the-tucks-righting`).
+ */
+interface Level {
   readonly gains: Readonly<Record<string, number>>;
 }
 
@@ -243,6 +255,8 @@ const FOLD = { "shoulder.@ flexion": 0.9, "shoulder.@ abduction": 0.7, "elbow.@ 
  * body does not tip onto a side as it comes up (`docs/reference/rising.md#the-pose-stages`).
  */
 const TUCK = { ...FOLD, "hip.@ flexion": 2.1, "knee.@ flexion": 2.5, "lumbar flexion": 0.7, "thoracic flexion": 0.3, "shoulder.@ abduction": 1.6 };
+/** The tuck's and the prop's righting: the low side's knee and arm out, the high side's in (`docs/reference/rising.md#the-tucks-righting`). */
+const LEVEL = { gains: { "hip.@ abduction": 1, "shoulder.@ abduction": 0.5 } };
 /**
  * The arms brought in and reached ahead, the hands turned palm down, and the toes tucked under, so
  * that each shin is propped on its foot (`docs/reference/rising.md#stages`).
@@ -383,9 +397,9 @@ export const RISE: Recipe = deepFreeze({
   rise: [
     { kind: "pose", name: "fold", posture: bothSides(FOLD), seconds: 1 },
     // The pelvis comes off the ground over the shins.
-    { kind: "pose", name: "tuck", posture: bothSides(TUCK), seconds: 2 },
+    { kind: "pose", name: "tuck", posture: bothSides(TUCK), seconds: 2, level: LEVEL },
     // The arms prop the trunk.
-    { kind: "pose", name: "prop", posture: bothSides(PROP), seconds: 1.5 },
+    { kind: "pose", name: "prop", posture: bothSides(PROP), seconds: 1.5, level: LEVEL },
     // The shins bear two thirds of the body and the hands a third: the centre of mass is held
     // that far between them. The shins leave the body no height of its own.
     {
@@ -706,7 +720,7 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
       case "pose": {
         postureFaults(stage, stage.posture);
         if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
-        const { until, pace, press } = stage;
+        const { until, pace, press, level } = stage;
         if (until && stage.hold) faults.push(`stage ${stage.name} is both held and ended by a reading`);
         if (until) {
           if (!(until.for >= 0) || !Number.isFinite(until.for)) faults.push(`stage ${stage.name} holds its end ${until.for} s`);
@@ -725,6 +739,13 @@ function recipeFaults(recipe: Recipe, spec: BodySpec): string[] {
             if (!Number.isFinite(gain)) faults.push(`stage ${stage.name} presses ${channel} by ${gain}`);
             if (!channel.includes("@")) faults.push(`stage ${stage.name} presses ${channel}, which names no foot's side`);
             for (const side of SIDES) if (!ranges.has(channel.replace("@", side))) faults.push(`stage ${stage.name} presses ${channel.replace("@", side)}, which ${spec.model} lacks`);
+          }
+        }
+        if (level) {
+          for (const [channel, gain] of Object.entries(level.gains)) {
+            if (!Number.isFinite(gain)) faults.push(`stage ${stage.name} levels ${channel} by ${gain}`);
+            if (!channel.includes("@")) faults.push(`stage ${stage.name} levels ${channel}, which names no side`);
+            for (const side of SIDES) if (!ranges.has(channel.replace("@", side))) faults.push(`stage ${stage.name} levels ${channel.replace("@", side)}, which ${spec.model} lacks`);
           }
         }
         break;
