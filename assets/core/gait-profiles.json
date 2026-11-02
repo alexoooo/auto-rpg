@@ -2,8 +2,7 @@
   "source": {
     "script": "research/gait-profiles.mjs",
     "records": [
-      "assets/evaluations/gait/2026-10-31-8739fa22-371b9ad9.jsonl",
-      "assets/evaluations/gait/2026-11-01-d8853e19-c7da99ea.jsonl"
+      "assets/evaluations/gait/2026-11-02-e01be414-67f57b78.jsonl"
     ]
   },
   "profiles": [
@@ -11,53 +10,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "6c03fe4c057208b2",
-        "hz": 120,
-        "reaction": null
-      },
-      "target": null,
-      "cells": [
-        {
-          "range": 0,
-          "phase": "clear",
-          "trials": 9,
-          "done": 1,
-          "dealt": 0,
-          "taken": 0,
-          "seconds": 0,
-          "down": 0.111,
-          "ends": []
-        }
-      ]
-    },
-    {
-      "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "abf7565249bb0500",
-        "skill": "432d085191a49f03",
-        "hz": 120,
-        "reaction": null
-      },
-      "target": null,
-      "cells": [
-        {
-          "range": 0,
-          "phase": "clear",
-          "trials": 9,
-          "done": 1,
-          "dealt": 0,
-          "taken": 0,
-          "seconds": 0,
-          "down": 0.111,
-          "ends": []
-        }
-      ]
-    },
-    {
-      "measured": {
-        "body": "workshop-fighter+toes",
-        "spec": "abf7565249bb0500",
-        "skill": "6c03fe4c057208b2",
+        "skill": "759e4dce7e3aefc0",
         "hz": 120,
         "reaction": null,
         "rate": 60
@@ -67,12 +20,12 @@
         {
           "range": 0,
           "phase": "clear",
-          "trials": 9,
+          "trials": 8,
           "done": 1,
           "dealt": 0,
           "taken": 0,
           "seconds": 0,
-          "down": 0.111,
+          "down": 0,
           "ends": []
         }
       ]
@@ -81,7 +34,7 @@
       "measured": {
         "body": "workshop-fighter+toes",
         "spec": "abf7565249bb0500",
-        "skill": "432d085191a49f03",
+        "skill": "13c0826b62f47589",
         "hz": 120,
         "reaction": null,
         "rate": 60
@@ -91,12 +44,12 @@
         {
           "range": 0,
           "phase": "clear",
-          "trials": 9,
+          "trials": 8,
           "done": 1,
           "dealt": 0,
           "taken": 0,
           "seconds": 0,
-          "down": 0.111,
+          "down": 0,
           "ends": []
         }
       ]
