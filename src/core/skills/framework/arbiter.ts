@@ -2,6 +2,7 @@ import { kitOf, menuOf } from "./menu.ts";
 import type { GaitName } from "../locomotion/gaits.ts";
 import { stockClearance } from "../../navigation/clear-step.ts";
 import type { Intent } from "../../intent/intent.ts";
+import { heldBeside, type HeldBeside } from "../../intent/action-window.ts";
 import type { Body, BodyCommand, BodyView } from "../../body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import type { EffectorGoal, MusclePush, PointTask } from "../../control/motor.ts";
@@ -52,6 +53,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     reservations: {} as Record<string, number>,
     /** The hands a cover drove at the last step (`SkillReport.covering`). */
     covering: [] as string[],
+    /** The place beside a body lying its menu holds for each choice (`menuOf`), by the choice. */
+    beside: {} as Record<string, HeldBeside>,
     /** Whether last step an action held the legs with no stance (`ActionClaim.legs` null): the services resume when none does. */
     unstanced: false,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
@@ -88,7 +91,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const kit = kitOf(executors, actions);
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness, needs: instances.needs,
-    kit, menu: () => menuOf(kit, body.view, around, instances.readiness),
+    kit, menu: () => menuOf(kit, body.view, around, instances.readiness, (choice) => state.beside[choice] ??= heldBeside()),
     clearance: navigation ?? stockClearance(body.built.spec),
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },

@@ -1,5 +1,5 @@
 import type { BodyView } from "../../body.ts";
-import { windowSpot, type Spot } from "../../intent/action-window.ts";
+import { windowSpot, type HeldBeside, type Spot } from "../../intent/action-window.ts";
 import { deepFreeze } from "../../state.ts";
 import type { ActionAround, Readiness, Region, TargetRef } from "./action.ts";
 import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
@@ -21,7 +21,7 @@ export interface KitEntry {
  * null for an action on the body itself), and whether it could start from where the body stands
  * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason); where
  * it names a window, where the body would stand in its middle (`spot`, `windowSpot`: beside a body
- * lying, with the way round it), which a leader can walk it to. Out of position where no place
+ * lying, with the way round it, held as a mind's own walk holds it), which a leader can walk it to. Out of position where no place
  * beside the body lying clears the feet, it is refused (`NO_PLACE`).
  */
 export interface MenuEntry {
@@ -52,16 +52,18 @@ export function kitOf(executors: readonly ExecutorBinding[], actions: readonly A
 /**
  * **The menu**: for each action of `kit`, each of its limbs, each foe `view` senses (in the fight,
  * of another side) and each region it aims at, or once for an action on the body itself, its
- * readiness as `readiness` reads it from `around`. It reads and changes nothing.
+ * readiness as `readiness` reads it from `around`, and its spot, the place beside a body lying held
+ * in `kept`'s for that choice (`HeldBeside`). It changes nothing but the places it holds.
  */
 export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionAround,
-  readiness: (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround) => Readiness): readonly MenuEntry[] {
+  readiness: (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround) => Readiness,
+  kept: (choice: string) => HeldBeside): readonly MenuEntry[] {
   const foes = view.senses.others.filter((other) => !other.out && other.side !== view.senses.side), entries: MenuEntry[] = [];
   for (const { action, limbs, regions } of kit) for (const limb of limbs) {
     if (regions.length === 0) { entries.push({ action, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) }); continue; }
-    for (const foe of foes) for (const region of regions) {
+    for (const foe of foes) for (const [k, region] of regions.entries()) {
       const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
-      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading) : null;
+      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading, kept(`${action} ${limb} ${foe.id} ${k}`)) : null;
       if (ready.kind === "position" && !spot) { entries.push({ action, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
       entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
     }
