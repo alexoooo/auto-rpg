@@ -60,8 +60,9 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
   the striker up; 90 %, read holding the buckler in the left hand where the loadout has it.
   - The club (`BAR.held`): 64.8 J of the rules' energy, the crutch's 75.5 ± 10.7 J less one SD
     ([human strike reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)).
-  - The cut: the edge's speed at its striking point, the lay men's one-handed rod (Muggenthaler
-    2018, 23.9 m/s at the tip) less one SD, read at the edge's place on the blade
+  - The cut: the lay men's one-handed rod (Muggenthaler 2018, 23.9 m/s at the tip) less one SD,
+    the SD Trinh 2018's men's range over 4 (5.4 m/s, the owner's decision): 18.5 m/s, read where
+    the source read it, at the blade's far end (the tip), met with the edge
     ([human strike reference](../reference/human-strike-reference.md#3-one-handed-sword-cut)).
   - The thrust: a person's stab, the men's underarm stab's speed at impact less one SD, 4.6 m/s at
     the point closing (Horsfall et al. 1999, the SD derived from the 95th percentile;
