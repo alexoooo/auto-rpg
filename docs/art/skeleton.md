@@ -159,7 +159,15 @@ Warrior's, the arm's channels free; Node, Rapier, the middle mark), read at the 
 | x1.5 (0.8 to 0.88 m) | 8.1 (120 Hz), 8.4 (480 Hz) | 1.31 kg at 8.1 m/s (120 Hz, 0.88 m), 0.25 at 8.4 | none: the heavy blow 31° off its line |
 | x2 (0.8 to 0.88 m) | 8.6 (120 Hz), 8.5 (480 Hz) | 0.41 kg at 8.6 m/s, 0.40 at 8.5 | 480 Hz at 0.88 m; 120 Hz there 1° outside the cone |
 
-The Skeleton's other cells (its stand-up, walk and kicks) are not read again at the factor.
+Its other cells at x1 and x2 (Node, Rapier, 120 Hz; the stand-up by `research/rise-trace.mjs`
+on the owner's target's 16 falls, the walk by the Locomotion drill's `every` protocol, 47 trials a
+loadout); the kicks are not read again:
+
+| Cell | x1 | x2 |
+| --- | --- | --- |
+| stand-up, empty-handed | 14 of 16 stood, median 13.1 s | 13 of 16, median 11.7 s |
+| stand-up, club | 0 of 16 stood | 1 of 16 |
+| walk, fallen of 47: empty, club, buckler and club, sword, buckler and sword | 2, 7, 0, 1, 0 | 1, 3, 1, 0, 0 |
 
 ### Tried and not kept
 
