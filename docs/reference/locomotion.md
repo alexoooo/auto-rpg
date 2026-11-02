@@ -371,6 +371,13 @@ but not the slower runs the game's envelope reads: re-measured (`research/core-s
 trials at 1 to 1.7 m/s hold, against 4 to 9 of 20) and the Rogue's falls from 1.2 to 0.7. The game
 would run no sooner and the Rogue slower; not kept.
 
+Searched again from them asked 1.2, 2 and 3.5 m/s (each credited by its slowest second from 3 s,
+five loadouts, calm and gusts of seed 1, 7 generations of 12): asked 1.2 m/s, the Warrior falls in
+2 of 10 trials and runs 1.5 to 1.9 m/s in the rest, the Rogue falls in 6; asked 3.5, the Warrior
+holds 2.2 to 2.4 m/s and the Rogue 1.2 to 1.8. A run asked just past its handover goes faster than
+asked or falls, which no envelope speed over 0.7 m/s survives; stopped there, not measured on the
+envelope.
+
 ### A wider swerve for the run's turn
 
 `swerve` 2.6 m/s² (1.3 rad/s at 2 m/s), searched with the run's settings from those searched on toes over
