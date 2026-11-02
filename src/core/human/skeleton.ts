@@ -200,6 +200,14 @@ export function skeletonFigure(): HumanFigure {
 const MOTOR_CURVATURE = sourced(1000, "1", "owner-skeleton-motor", "the motor's torque falling in a straight line with speed");
 /** A motor holds no more torque while it is turned back than at rest. */
 const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more torque turned back than at rest");
+/**
+ * The arms' motors (the shoulders' and the elbows') run this many times the unloaded speed of the
+ * peak-power line, so its straight punch reaches its bar (`owner-skeleton-arms`,
+ * `docs/art/skeleton.md#the-arms-speed`).
+ */
+const ARM_MOTOR_SPEED = sourced(2, "1", "owner-skeleton-arms", "the arms' motors' unloaded speed over the peak-power line's");
+/** Whether `joint` is an arm's, its motor run at `ARM_MOTOR_SPEED`. */
+const armJoint = (joint: string): boolean => joint.startsWith("shoulder.") || joint.startsWith("elbow.");
 
 /**
  * **The skeleton's joints as motors** (`owner-skeleton-motor`): each freedom of `spec` pushes as
@@ -209,15 +217,16 @@ const MOTOR_ECCENTRIC_CEILING = sourced(1, "1", "owner-skeleton-motor", "no more
  *
  * A side's motor gives the muscle's peak power (`samePower`). Kept at the muscle's unloaded speed,
  * the straight line would give over twice that power and fall off far more slowly with speed, and
- * the stance rocks on it.
+ * the stance rocks on it. The arms' motors run faster (`ARM_MOTOR_SPEED`).
  */
 export function skeletonMotors(spec: BodySpec): BodySpec {
   const joints = spec.joints.map((joint) => ({ ...joint, dofs: joint.dofs.map((dof) => {
     const { peakPositive, peakNegative, speedPositive, speedNegative } = dof.muscle;
     const peak = derive("N m", "the stronger side's peak, either way", [peakPositive, peakNegative], Math.max);
+    const unloaded = derive("rad/s", "the more powerful side's motor speed, either way",
+      [samePower(speedPositive), samePower(speedNegative)], Math.max);
     const speed: ForceVelocitySpec = {
-      unloadedSpeed: derive("rad/s", "the more powerful side's motor speed, either way",
-        [samePower(speedPositive), samePower(speedNegative)], Math.max),
+      unloadedSpeed: armJoint(joint.name) ? derive("rad/s", "an arm's motor speed at its factor", [unloaded, ARM_MOTOR_SPEED], (w, k) => w * k) : unloaded,
       curvature: MOTOR_CURVATURE, eccentricCeiling: MOTOR_ECCENTRIC_CEILING, eccentricSlopeRatio: speedPositive.eccentricSlopeRatio,
     };
     const muscle: MuscleSpec = { peakPositive: peak, peakNegative: peak, speedPositive: speed, speedNegative: speed };
