@@ -912,12 +912,31 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   decision its next answer carries out, while the world takes the answer, steps, and its
   Commanders read what each member said with its answer (`Seat.said`). The world waits for the
   decision only as it writes the next step's numbers (`Seat.says`) or asks a menu: one write and
-  one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to the bit on one
-  thread and on one to four mind threads (`research/minds-apart.mjs`, the whole physics world's
-  bytes each second, at 37871d97): the crowd fight to its verdict (13449 steps, 4129 blows, the
-  right side's by draining at 112.075 s), the bare-hands and sword bouts and the Crypt at seeds 10
-  and 25 for 30 s. A preview at 37871d97 played the crowd fight on four mind threads to Node's
-  verdict.
+  one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
+  the bit on one thread and on one to four mind threads (`research/minds-apart.mjs`, the whole
+  physics world's bytes each second, at 81c323b6): the crowd fight to its verdict (13668 steps,
+  2577 blows, the left side's by draining at 113.9 s), the bare-hands and sword bouts and the
+  Crypt at seeds 10 and 25 for 30 s. A preview at 37871d97, where the world still waited for each
+  decision after physics, played the crowd fight on four mind threads to Node's verdict.
+- **At a step of delay the crowd fight is still behind real time, by 0.14 to 0.17 s at best**,
+  built over its opening (steps 396 to 557, as the ten close), where the world waited for each
+  decision after physics fell 0.56 to 1.39 s behind late in the fight. `research/step-time.mjs
+  --crowd --minds 4`, four playings read on the last three, two runs each interleaved, Node 24.19,
+  `rapier-coordinate`, 120 Hz, a quiet machine; before is 3f0ab87d, after 81c323b6:
+
+  | Run | Mean step, ms | Least of each, ms | Over 8.33 past 2 s | Dearest past 2 s, ms | Worst lag, ms |
+  | --- | --- | --- | --- | --- | --- |
+  | before, 1 | 8.20 to 8.49 | 7.91 | 3020 of 13428 | 17.32 | 1391 |
+  | before, 2 | 7.95 to 8.15 | 7.69 | 2334 of 13428 | 17.47 | 562 |
+  | after, 1 | 6.77 to 7.10 | 6.51 | 591 of 13428 | 15.82 | 136 |
+  | after, 2 | 6.82 to 6.99 | 6.53 | 612 of 13428 | 16.95 | 170 |
+
+  What is left is the dear steps, each about 3 ms of solver and 11 to 13 of the rest: the world
+  still waits for every mind's motor part and answer before its muscles take them, three or so
+  minds on each of four threads in turn, and for each decision before it writes the next step's
+  numbers. What would split it further: the numbers written in two buffers by the step's parity,
+  so that the world writes a step's while the minds still decide on the last's; more mind threads
+  where the machine has them; and a cheaper motor part (its hands' solves, `ReachMeter`).
 - **A spec goes to every thread once and is derived as it arrives** (`deriveSpec`,
   `src/core/mind/apart.ts`: the openings' hulls and the spec's digest), named by its number after.
   Derived in a mind's step instead, the first a thread's mind sensed a body cost about 40 ms (the
