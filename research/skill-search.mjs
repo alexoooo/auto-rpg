@@ -89,7 +89,7 @@ const SEARCHES = {
   "front-kick": { dims: [["contactSpeed", 1.5, 14], ["swingSeconds", .1, .5], ["lift", .2, .6], ["windup", 0, .3], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
     trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's kicking rung (each foot at the middle mark of a Warrior, a Skeleton and a Reptile lying limp)" },
-  stomp: { dims: [["contactSpeed", 3, 14], ["swingSeconds", .1, .4], ["lift", .4, .9], ["over", .6, 1.2], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
+  stomp: { dims: [["contactSpeed", 3, 14], ["swingSeconds", .1, .4], ["lift", .4, .9], ["over", .6, 1], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
     trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: stompTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp)" },
 };
