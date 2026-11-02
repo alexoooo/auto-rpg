@@ -54,7 +54,7 @@ point.
 | Trot travel | speed .3 m/s, acceleration .5 m/s2, sideways .15 | Bounded velocity changes and slower lateral travel |
 | Trot timing | swing .22, settle .025, plant .2 s; plantSpeed .2 m/s | Alternating diagonal pairs, with root motion subtracted from landing velocity |
 | Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
-| Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count physical lift and reload; brake on delayed landing and return an unlanded pair to its anchors |
+| Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count a step only for a paw that lifted; end a swing once its pair bears, lifted or not; brake on delayed landing and return an unlanded pair to its anchors |
 | Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s, resumeAngle .05 rad | Align and place paws through the crawl, then require quiet four-sole support before trotting |
 | Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
 | Crawl timing | swing 1.2, shift .45, settle .3, plant .2 s; plantSpeed .05 m/s | Slow placement and continued downward acquisition |
@@ -87,8 +87,12 @@ What the settings serve:
   crawl** shifts the centre into the other three contact patches before each swing, and shortens
   its stride with travel intent so approach braking slows it. Placements are relative to the actual
   centre of mass, so the stance does not widen.
-- **A landing** needs a paw that clears the floor and then carries a positive ground impulse; one
-  that does not returns toward its anchor and retries. Gaits switch after the active placement.
+- **A crawl's landing** needs a paw that clears the floor and then carries a positive ground
+  impulse; one that does not returns toward its anchor and retries. **A trot's pair** has landed
+  once both its paws bear after the swing, a paw that never cleared the floor (dragged, or already
+  at its target) where it stands, so the step does not hold while the body travels over the other
+  pair; only a paw that cleared the floor counts a step, and a pair not down within placementLimit
+  returns to its anchors. Gaits switch after the active placement.
   Close fighting and crowded withdrawal crawl; a resumed host crawls into place, aligns its heading
   and verifies quiet four-sole support before trotting.
 - **The bite** takes the first exposed surface on a tooth's closing arc, keeps the material point in

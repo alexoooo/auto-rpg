@@ -35,7 +35,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
     groups.splice(0, groups.length, [0, opposite], names.map((_name, i) => i).filter(i => i !== 0 && i !== opposite));
   }
   const state = {
-    phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, sequence: 0, yaw: 0, standing: false, lifted: false,
+    phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, sequence: 0, yaw: 0, standing: false,
     centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
     anchors: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
     targets: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
@@ -100,7 +100,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
       state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
       state.command.centre[1] = ground + reference[1] * (travelling || state.phase !== "settle" ? T.crawlHeight : 1);
       if (state.phase === "settle" && moving && state.time >= T.settle && view.feet.every(e => e.contact)) {
-        state.phase = "swing"; state.time = 0; state.sequence++; state.lifted = false;
+        state.phase = "swing"; state.time = 0; state.sequence++;
         state.liftedPaws.fill(false);
         for (const i of free) {
           const n = nominal[i]!, c = cos(state.yaw), s = sin(state.yaw), x = n[0] - reference[0], z = n[2] - reference[2];
@@ -111,15 +111,18 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
       } else if (state.phase !== "settle") {
         if (state.phase === "swing") {
           for (const i of free) if (!view.feet[i]!.contact && view.feet[i]!.low - view.feet[i]!.ground > T.liftConfirm) state.liftedPaws[i] = true;
-          state.lifted = free.every(i => state.liftedPaws[i]);
           if (state.time >= T.swing) { state.phase = "land"; state.time = 0; }
-        } else if (state.phase === "land" && state.lifted && free.every(i => view.feet[i]!.contact)) {
+        } else if (state.phase === "land" && free.every(i => view.feet[i]!.contact)) {
+          // A pair whose paws all bear has landed, a paw that never cleared the floor (dragged, or
+          // already at its target) where it stands: waiting on its lift would hold the step while
+          // the body travels over its other pair. Only a paw that cleared the floor counts a step.
           for (const i of free) { state.anchors[i]![0] = view.feet[i]!.at.x; state.anchors[i]![1] = view.feet[i]!.ground; state.anchors[i]![2] = view.feet[i]!.at.z; }
-          state.steps += free.length; state.paw = (state.paw + 1) % groups.length; state.phase = "settle"; state.time = 0;
+          for (const i of free) if (state.liftedPaws[i]) state.steps++;
+          state.paw = (state.paw + 1) % groups.length; state.phase = "settle"; state.time = 0;
         } else if ((state.phase === "land" || state.phase === "return") && state.time >= T.placementLimit) {
           if (free.every(i => view.feet[i]!.contact)) { state.phase = "settle"; state.time = 0; }
           else {
-            state.phase = "return"; state.time = 0; state.sequence++; state.lifted = false;
+            state.phase = "return"; state.time = 0; state.sequence++;
             for (const i of free) state.targets[i]!.splice(0, 3, ...state.anchors[i]!);
           }
         } else if (state.phase === "return" && state.time >= T.plant && free.every(i => view.feet[i]!.contact)) {
