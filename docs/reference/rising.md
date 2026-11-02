@@ -1293,6 +1293,22 @@ From the front, `front-sit-back` plays the game's rise onto hands and knees firs
 same stages. The game's `down` hands over on hands and knees or sat back on the heels; the
 sit-back is begun only from the first.
 
+**Stand up keeps the front sit-back.** From the front onto hands and knees and on through the
+sit-back without a stop is one rise; stopping on hands and knees and beginning the sit-back
+afresh (the chain `staged-down` then `sit-back`) loses most falls. Read with `rise-trace.mjs` on
+the owner's target falls (Node, core world, Rapier, 120 Hz, command delay 1; at `94ffd2f4`): the
+game's route (`staged-roll`, `staged-down`, `sit-back`) with and without `front-sit-back`, a fall
+not stood counted as 30 s.
+
+| Body | Loadout | With: stood of 16, within 10 s, median | Without |
+|---|---|---|---|
+| Warrior | empty | 14, 10, 8.83 s | 12, 6, 13.86 s |
+| Warrior | club | 16, 7, 10.78 s | 8, 3, 27.77 s |
+| Rogue | empty | 16, 4, 12.33 s | 7, 0, 30 s |
+| Rogue | club | 11, 0, 14.75 s | 1, 0, 30 s |
+
+Paired by fall, without against with, each body is faster on 3, slower on 24 and the same on 5.
+
 - **The plant lowers the shins** (`PLANT`): with the hips over the knees, the hands-and-knees
   knee of 2.4 rad holds each shin about 0.5 rad off level and the balls 0.17 m up, and the plant
   waited on the trunk sinking back to bring them down: 1.3 to 2 s, and 3 of 8 front starts timed
