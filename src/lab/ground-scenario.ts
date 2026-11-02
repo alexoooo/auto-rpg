@@ -6,7 +6,6 @@ import { GROUND_RISES, labAddress, type GroundRise, type LabAddress } from "./sc
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
-import { STAGED_ROUTE } from "../core/recovery/ground/staged-edges.ts";
 import type { TechniqueConfig, TechniqueName, TechniquePart } from "../core/recovery/ground/technique.ts";
 import { partLookup } from "../entrants/game.ts";
 import { STAND_UP } from "../core/recovery/ground/stand-up.ts";
@@ -27,7 +26,7 @@ import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 /** What each way of getting up is called in the menu. */
-const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game", staged: "Stand up: the staged route" };
+const RISES: Readonly<Record<GroundRise, string>> = { mind: "As its mind says", "stand-up": "Stand up, as the game" };
 
 /** A mind that names the techniques it gets up by from the ground, in rank order (`OptionMindConfig.ground`). */
 type Rising = MindConfig & { readonly ground: readonly TechniqueConfig[] };
@@ -35,12 +34,11 @@ type Rising = MindConfig & { readonly ground: readonly TechniqueConfig[] };
 /** Whether `mind` names the techniques it gets up by, so the Lab may give it others. */
 const rises = (mind: MindConfig): mind is Rising => Array.isArray((mind as Partial<Rising>).ground);
 
-/** The techniques `rise` names, or `drive`'s alone: the game's Stand up's, the staged route's, or `own`. */
+/** The techniques `rise` names, or `drive`'s alone: the game's Stand up's, or `own`. */
 function techniquesBy(own: readonly TechniqueConfig[], rise: GroundRise, drive: LabAddress["ground"]["drive"]): readonly TechniqueConfig[] {
   if (drive !== "mind") return [{ kind: drive } as TechniqueConfig];
   switch (rise) {
     case "stand-up": return STAND_UP.techniques;
-    case "staged": return STAGED_ROUTE.map((kind) => ({ kind }) as TechniqueConfig);
     case "mind": return own;
     default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }
   }

@@ -3,7 +3,6 @@
  * A riser is Option Mind getting up by its techniques (`risingMind`): the game's Stand up's
  * (`STAND_UP`) unless others are named. The summary is the bed's report with the target's gates (`risingReport`).
  */
-import { STAGED_ROUTE } from "../../core/recovery/ground/staged-edges.ts";
 import { TECHNIQUES } from "../../core/recovery/ground/techniques.ts";
 import type { TechniqueName } from "../../core/recovery/ground/technique.ts";
 import type { Evaluation, Figure, Json, Subject, SubjectChoice, Table } from "../evaluation.ts";
@@ -15,16 +14,15 @@ import { RISING_TARGET_CASES, type TargetCondition } from "./cases.ts";
 const riserSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `mind:${id}`, value }], value });
 
 /**
- * The risers named: `game`, the game's Stand up (`STAND_UP`), `stand-up` with every technique, `staged` for a stand-up on the staged route (`STAGED_ROUTE`), a technique's name
+ * The risers named: `game`, the game's Stand up (`STAND_UP`), `stand-up` with every technique, a technique's name
  * for a stand-up with it alone, or a mind given whole; the game's Stand up when none is.
  */
 export function riserSubjects(choice: SubjectChoice): readonly Subject[] {
   return (choice.length > 0 ? choice : ["game"]).map((one) => typeof one !== "string" ? riserSubject(one.id, one.label, one.value)
     : one === "game" ? riserSubject(one, "The game's Stand up", risingMind() as unknown as Json)
     : one === "stand-up" ? riserSubject(one, "Stand up, every technique", risingMind(Object.keys(TECHNIQUES) as TechniqueName[]) as unknown as Json)
-    : one === "staged" ? riserSubject(one, "Stand up on the staged route", risingMind(STAGED_ROUTE) as unknown as Json)
     : Object.hasOwn(TECHNIQUES, one) ? riserSubject(one, `Stand up by ${TECHNIQUES[one as TechniqueName].label}`, risingMind([one as TechniqueName]) as unknown as Json)
-    : (() => { throw new Error(`${one} is no riser: game, stand-up, staged or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
+    : (() => { throw new Error(`${one} is no riser: game, stand-up or a technique (${Object.keys(TECHNIQUES).join(", ")})`); })());
 }
 
 /** Whether a fall was made: the body was taken over by its rise; one not made did not reach its case. */

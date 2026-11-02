@@ -1014,9 +1014,8 @@ its edges have fresh profiles (`edgeExpected`, `profile.ts`) and rolling to repo
 (`TechniquePart.moving`) is begun on a body still moving. A technique is handed the mind's kit
 (`MindKit`, `mind/kit.ts`: its motor, its guard and the guard's posture, and the lookup), so a
 motor or guard swapped into the mind is the one it rises with (`kitOf`). The game's (`STAND_UP`)
-is the staged roll and down, the sit-back and the front sit-back, on toes; the flat-footed route
-in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`, its recipe and settings
-step up's, `ground/step-up.ts`), is kept for the Rise drill's comparison. An edge to standing
+is the staged roll and down, the sit-back and the front sit-back, on toes, each an edge
+(`ground/staged-edges.ts`, played on step up's settings, `ground/step-up.ts`). An edge to standing
 holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-back and its
 climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
@@ -1629,7 +1628,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Techniques in turn** (`technique.ts`): one body on the arena's solids, placed in a posture or
   shoved from standing, its stand-up techniques played one after another with no Stand up to route
   them, each begun once its entry admits the body; not bit-equal between JavaScript engines, as a
-  fall is. The Rise drill (`rise/`) plays each edge of the staged route from its posture placed and
+  fall is. The Rise drill (`rise/`) plays each edge of the game's Stand up from its posture placed and
   after the edges before it ([the Rise drill](reference/rising.md#the-rise-drill)).
 - **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
   model's own, each side's Commander (the party's and a mob unless named), and a script of the

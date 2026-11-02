@@ -136,7 +136,7 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first, its mind's own techniques. */
-export const GROUND_RISES = ["mind", "stand-up", "staged"] as const;
+export const GROUND_RISES = ["mind", "stand-up"] as const;
 export type GroundRise = (typeof GROUND_RISES)[number];
 
 /** The Attack field's target count and random seed unless the address supplies them. */
@@ -148,7 +148,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
     readonly level: GroundLevel;
     /** A technique its mind gets up by alone, in place of those it names; "mind", as `rise` says. */
     readonly drive: "mind" | TechniqueName;
-    /** What the mind gets up by: its own techniques, the game's Stand up's, or the staged route's. */
+    /** What the mind gets up by: its own techniques or the game's Stand up's. */
     readonly rise: GroundRise;
     /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
     readonly start: "shoved" | "dropped" | "placed" | "round";
