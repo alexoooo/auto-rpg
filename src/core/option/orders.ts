@@ -1,39 +1,32 @@
 import { NO_COVER } from "../intent/intent.ts";
 import { orderedIntent } from "../intent/ordered.ts";
 import { legsReadiness } from "../skills/locomotion/locomotion.ts";
-import { asking, blocked, READY, type Option } from "./option.ts";
+import { asking, blocked, READY, type Option, type Situation } from "./option.ts";
 import { threatened } from "./percepts.ts";
 import { here } from "./position.ts";
 import type { Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
-import type { ActionConfig } from "../skills/config.ts";
-import { regionSegments } from "../intent/action-aim.ts";
-import { orderAllows, orderedRegions } from "../intent/orders.ts";
-import { around } from "./strike.ts";
-import type { ActionRequest } from "../skills/framework/action.ts";
-
-/** Whether an admitted action is one of the configured blows that following orders may continue. */
-export const orderedBlow = (actions: readonly ActionConfig[], action: Pick<ActionRequest, "action" | "effector">): boolean =>
-  actions.some(config => config.name === action.action && config.effectors.includes(action.effector));
 
 /** How far ahead following orders is priced, s. */
 const AHEAD = 1;
 
+/** Whether `now`'s orders are to stand and fight a foe: they name one and walk nowhere, so the strikes, which stand, carry them out. */
+const fights = (now: Situation): boolean => now.orders?.foe !== undefined && (now.orders.move ?? null) === null;
+
 /**
- * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing the admitted
- * blows the orders allow (`orderAllows`) and asking for a ready action against the explicitly selected foe. On offer while the legs can
- * carry the body (`legsReadiness`) and it has an explicit movement, stop or facing order. It claims the legs and the
- * trunk, and holds the legs and what its blows hold (a cover of a hand a blow holds dropped,
- * `stepSet`); it yields, but to firm orders to move or stand that name no foe (`Orders.firm`), which
- * it keeps: a foe's are its strikes' to carry out. Its
- * model: carrying out the orders for `AHEAD` s, a walk, a stand or a facing, is worth the metres its
- * gait would walk as long (`Walker.stride`), whatever pace the orders set and however near the walk
- * ends; through the
- * blow coming and the focus's reach where it stands in it; where the orders take it is theirs, so
- * it is priced as leaving the body where it is, and what it follows as the share of it the body is
- * up there (`here`): a body counted down while its rise runs follows none.
+ * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), and nothing else: it asks
+ * no blow, so an ordered foe is struck by the strike options (`strike`, which keep to the orders'
+ * region, action and limb, `orderedTarget`, `orderAllows`). On offer while the legs can carry the
+ * body (`legsReadiness`) and it has an explicit movement, stop or facing order. It claims the legs
+ * and the trunk, and holds the legs and what its walk holds; it yields, but to firm orders to move
+ * or stand that name no foe (`Orders.firm`), which it keeps: a foe's are its strikes' to carry out.
+ * Its model: carrying out the orders for `AHEAD` s, a walk, a stand or a facing, is worth the metres
+ * its gait would walk as long (`Walker.stride`), whatever pace the orders set and however near the
+ * walk ends, but none where they are to stand and fight a foe (`fights`); through the blow coming and the focus's reach where it stands in it; where the orders
+ * take it is theirs, so it is priced as leaving the body where it is, and what it follows as the
+ * share of it the body is up there (`here`): a body counted down while its rise runs follows none.
  */
-export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: readonly ActionConfig[] = []): Option {
+export function followOrders(walk: Pick<Walker, "stride" | "kept">): Option {
   const UNORDERED = blocked("no orders to move, stand or face"), LEGS_HELD: readonly string[] = Object.freeze(["legs"]);
   const claims: readonly string[] = Object.freeze(["legs", "trunk"]);
   return {
@@ -48,27 +41,14 @@ export function followOrders(walk: Pick<Walker, "stride" | "kept">, actions: rea
     begin() {},
     end() {},
     model: (now): Terms => {
-      const kept = walk.stride(now) * AHEAD, at = here(now);
+      const kept = fights(now) ? 0 : walk.stride(now) * AHEAD, at = here(now);
       return { duration: AHEAD, dealt: 0, taken: now.predictions.danger + threatened(now, AHEAD), orders: kept * (1 - at.down), exit: at };
     },
     step(now) {
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
-      // Its blows under way go on where the orders allow them; one they do not is let go where it can be.
-      const asks: ActionRequest[] = now.sight.report.actions.filter((action) => orderedBlow(actions, action) && (action.target.kind !== "body" || orderAllows(now.orders, action.target.body, action.action, action.effector)))
-        .map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredClone(action.target) }));
-      if (now.focus && now.orders?.foe === now.focus.id) outer: for (const action of actions) {
-        if (!action.regions) continue;
-        const region = orderedRegions(now.orders, now.focus.id, action.regions).find(region => regionSegments(now.focus!.spec, region).length > 0);
-        if (!region) continue;
-        const target = { kind: "body" as const, body: now.focus.id, region };
-        for (const effector of action.effectors) if (orderAllows(now.orders, now.focus.id, action.name, effector) && now.sight.readiness(now.sight.view, action.name, effector, target, around(now.sight)).kind === "ready") {
-          asks.push({ id: now.sight.instance(), action: action.name, effector, target });
-          break outer;
-        }
-      }
       // The body an ordered way goes round (`MovementRequest`'s `by`) is not kept off as a fallen one.
       const move = now.orders?.move, by = move?.kind === "place" ? move.by ?? null : null;
-      const asked = walk.kept(now, { ...ordered, actions: asks }, by);
+      const asked = walk.kept(now, { ...ordered, actions: [] }, by);
       return { asked, holds: [...LEGS_HELD, ...asking(now, asked).filter((resource) => resource !== "legs")] };
     },
   };

@@ -96,17 +96,14 @@ test("idle placement untwists a physically turned footing", async () => {
 });
 
 
-test("following orders continues configured blows and releases recovery actions", async () => {
-  const { followOrders, orderedBlow } = await import("../src/core/option/orders.ts");
-  const actions = [{ name: "punch", executor: "punch", effectors: ["hand.left"] }];
+test("following orders asks no blow and releases recovery actions", async () => {
+  const { followOrders } = await import("../src/core/option/orders.ts");
   const punch = { id: 1, action: "punch", effector: "hand.left", target: { kind: "point", at: [0, 1, 1] }, holds: ["hand.left"] };
   const steady = { id: 2, action: "steady", effector: "foot.left", target: { kind: "point", at: [0, 0, 0] }, holds: ["legs"] };
-  assert.ok(orderedBlow(actions, punch)); assert.ok(!orderedBlow(actions, steady));
-  const option = followOrders({ kept: (_now, asked) => asked }, actions);
-  const now = { orders: { move: null }, focus: null, sight: { report: { heading: 0, actions: [punch, steady] },
+  const option = followOrders({ kept: (_now, asked) => asked });
+  const now = { orders: { move: null, face: null }, focus: null, sight: { report: { heading: 0, actions: [punch, steady] },
     needs: () => ["hand.left"] } };
-  const { holds: _, ...request } = punch;
-  assert.deepEqual(option.step(now).asked.actions, [request]);
+  assert.deepEqual(option.step(now).asked.actions, [], "a walk, stand or facing asks no action: blows are the strike options'");
 });
 
 
