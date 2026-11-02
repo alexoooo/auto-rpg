@@ -1,197 +1,136 @@
 {
   "workshop-fighter+toes": {
-    "made": "Set by hand: the straight punch's settings on the toed Warrior (assets/core/straight-punch.json), unsteered and not fired.",
+    "made": "The schedule searched on the still rung, drawn back (research/punch-drill.mjs --blow sword-thrust --chamber, 80 generations; docs/reference/held-blows.md#the-thrust), on the record's admission; unsteered and not fired.",
     "settings": {
       "pace": 1.021,
       "reach": 0.8,
-      "band": 0.03,
-      "settle": 0,
-      "through": 0.09699366634092638,
-      "hips": 0.6,
-      "turn": 0.21938691326107268,
-      "lean": 0.3548884523260764,
-      "chamber": 0,
-      "lead": 0.11136689955033603,
+      "band": 0.25,
+      "settle": 0.33499423278110396,
+      "through": 0.019552995312759763,
+      "hips": 0.5046743860800489,
+      "turn": 0.3710569013566926,
+      "lean": 0.37988100388036256,
+      "chamber": 0.8946795525730783,
+      "lead": 0.21099709937820646,
       "elbow": 0,
-      "brake": 0.035364668418451956,
+      "brake": 0.07199623661860403,
       "follow": 0.02,
-      "longest": 0.3,
+      "longest": 0.5,
       "recover": 0.376,
-      "aside": 0.17,
+      "aside": 0.3,
       "squared": true,
       "above": 0.1,
       "halts": true,
       "timed": {
-        "left": [
-          {
-            "channel": "thoracic rotation right",
-            "level": 1,
-            "from": 0.018894205402851732,
-            "length": 0.3514880760046568
-          },
-          {
-            "channel": "lumbar rotation right",
-            "level": 0.48254901435084274,
-            "from": 0.15478688497815826,
-            "length": 0.45
-          },
-          {
-            "channel": "thoracic flexion",
-            "level": 0.6601989967941946,
-            "from": 0.2828276366840063,
-            "length": 0.24309590314283966
-          },
-          {
-            "channel": "lumbar flexion",
-            "level": 0.1576916207844199,
-            "from": 0.11413454826313968,
-            "length": 0.2777812999548098
-          },
-          {
-            "channel": "hip.left flexion",
-            "level": -0.2709423961925145,
-            "from": 0.13389666745993495,
-            "length": 0.14653477794332018
-          },
-          {
-            "channel": "hip.left abduction",
-            "level": 0,
-            "from": 0.0078076471841295675,
-            "length": 0.3298899199543132
-          },
-          {
-            "channel": "hip.left internal rotation",
-            "level": 0.24192346082593374,
-            "from": 0.20665775418765586,
-            "length": 0.1844670141690179
-          },
-          {
-            "channel": "knee.left flexion",
-            "level": 0.89001172944618,
-            "from": 0.10417075213007211,
-            "length": 0.22386463470193046
-          },
-          {
-            "channel": "ankle.left dorsiflexion",
-            "level": -0.7164646993756902,
-            "from": 0.24925299749857846,
-            "length": 0.22181894196804727
-          },
-          {
-            "channel": "hip.right flexion",
-            "level": 0.43496996214025696,
-            "from": 0.16034779394093157,
-            "length": 0.1156033306449754
-          },
-          {
-            "channel": "hip.right abduction",
-            "level": 0.37401949331616846,
-            "from": 0.3119673489028315,
-            "length": 0.37278420582032623
-          },
-          {
-            "channel": "hip.right internal rotation",
-            "level": 0.6718528712525731,
-            "from": 0.29092804168515624,
-            "length": 0.24310270045182994
-          },
-          {
-            "channel": "knee.right flexion",
-            "level": 0.633931017752803,
-            "from": 0,
-            "length": 0.25221347820185885
-          },
-          {
-            "channel": "ankle.right dorsiflexion",
-            "level": 0.2789913433017528,
-            "from": 0.3174030207129092,
-            "length": 0.3623788561640473
-          }
-        ],
+        "left": [],
         "right": [
           {
             "channel": "thoracic rotation right",
-            "level": -1,
-            "from": 0.018894205402851732,
-            "length": 0.3514880760046568
+            "level": -0.6355325154383602,
+            "from": 0.1329243433267582,
+            "length": 0.4307677581425682
           },
           {
             "channel": "lumbar rotation right",
-            "level": -0.48254901435084274,
-            "from": 0.15478688497815826,
-            "length": 0.45
+            "level": -0.5111746324095369,
+            "from": 0.09424043186673403,
+            "length": 0.28944413185517137
           },
           {
             "channel": "thoracic flexion",
-            "level": 0.6601989967941946,
-            "from": 0.2828276366840063,
-            "length": 0.24309590314283966
-          },
-          {
-            "channel": "lumbar flexion",
-            "level": 0.1576916207844199,
-            "from": 0.11413454826313968,
-            "length": 0.2777812999548098
+            "level": 0.7010822834841715,
+            "from": 0.327813104125022,
+            "length": 0.014902816109884332
           },
           {
             "channel": "hip.left flexion",
-            "level": 0.43496996214025696,
-            "from": 0.16034779394093157,
-            "length": 0.1156033306449754
+            "level": 0.3975829484285833,
+            "from": 0.12442605912980824,
+            "length": 0.14333832994983148
           },
           {
             "channel": "hip.left abduction",
-            "level": 0.37401949331616846,
-            "from": 0.3119673489028315,
-            "length": 0.37278420582032623
+            "level": 0.34033802859919815,
+            "from": 0.2053701724946498,
+            "length": 0.3684070348324788
           },
           {
             "channel": "hip.left internal rotation",
-            "level": 0.6718528712525731,
-            "from": 0.29092804168515624,
-            "length": 0.24310270045182994
+            "level": -1,
+            "from": 0.37232219347546325,
+            "length": 0.28773116592420167
           },
           {
             "channel": "knee.left flexion",
-            "level": 0.633931017752803,
-            "from": 0,
-            "length": 0.25221347820185885
+            "level": 0.7020857728446845,
+            "from": 0.20482583246799704,
+            "length": 0.41635714531121787
           },
           {
             "channel": "ankle.left dorsiflexion",
-            "level": 0.2789913433017528,
-            "from": 0.3174030207129092,
-            "length": 0.3623788561640473
+            "level": 0.40477581374256877,
+            "from": 0.23940921619357303,
+            "length": 0.3724932055920274
           },
           {
             "channel": "hip.right flexion",
-            "level": -0.2709423961925145,
-            "from": 0.13389666745993495,
-            "length": 0.14653477794332018
+            "level": -0.5921267614233439,
+            "from": 0.3323902371664222,
+            "length": 0.16525548961429204
           },
           {
             "channel": "hip.right abduction",
-            "level": 0,
-            "from": 0.0078076471841295675,
-            "length": 0.3298899199543132
+            "level": -0.5793820883275302,
+            "from": 0.12791422206540334,
+            "length": 0.35467215656740114
           },
           {
             "channel": "hip.right internal rotation",
-            "level": 0.24192346082593374,
-            "from": 0.20665775418765586,
-            "length": 0.1844670141690179
-          },
-          {
-            "channel": "knee.right flexion",
-            "level": 0.89001172944618,
-            "from": 0.10417075213007211,
-            "length": 0.22386463470193046
+            "level": 0.25400486570288106,
+            "from": 0.0587070121561467,
+            "length": 0.02457679452254279
           },
           {
             "channel": "ankle.right dorsiflexion",
-            "level": -0.7164646993756902,
-            "from": 0.24925299749857846,
-            "length": 0.22181894196804727
+            "level": -0.2847660662749858,
+            "from": 0.13455383643825372,
+            "length": 0.3334552533259198
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "level": 0.8989117851539052,
+            "from": 0.01436652557481873,
+            "length": 0.18911356015632808
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "level": 0.2855626655422505,
+            "from": 0.08588200397513554,
+            "length": 0.3008836888518181
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "level": -0.4530702559356161,
+            "from": 0.15838691524756154,
+            "length": 0.3174930262137801
+          },
+          {
+            "channel": "elbow.right flexion",
+            "level": -0.8750233434878946,
+            "from": 0.011102678022067424,
+            "length": 0.14295084162647337
+          },
+          {
+            "channel": "wrist.right flexion",
+            "level": -0.9269354552891144,
+            "from": 0.23137164708574387,
+            "length": 0.1555534767405006
+          },
+          {
+            "channel": "wrist.right radial deviation",
+            "level": 0.3715720437995844,
+            "from": 0.28838544656957454,
+            "length": 0.18470389919828378
           }
         ]
       }

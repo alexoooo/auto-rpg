@@ -259,8 +259,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
         // Come within a walk's landing (`ARRIVED`) of its spot, the window's middle or the place beside a body lying, it stands while
         // it stays inside the window, swaying no further than `SWAY`, and holds there once slow enough inside it: a body stopped at
         // the window's edge is admitted where the action reaches least, and one walked again for each centimetre it sways off its
-        // spot steps on and never settles.
-        state.reached = state.reached && windowHolds(widened(window, SWAY), at.x, at.z, h) || distance <= ARRIVED;
+        // spot steps on and never settles. One that has settled outside the window walks again.
+        state.reached = state.reached && windowHolds(widened(window, SWAY), at.x, at.z, h) && !(settled && !within(window)) || distance <= ARRIVED;
         state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : state.reached && within(window);
         // Held beside a body lying, it faces as its spot does; else at the foe.
         if (state.held) state.set ??= state.spot ? spot.face : toward;
