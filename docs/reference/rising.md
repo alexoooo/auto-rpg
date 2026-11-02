@@ -754,6 +754,33 @@ of the falls first read on the back, the next reading is the front in 9 of 11 an
 Warrior (empty, club), 11 of 14 and 8 of 11 for the Rogue, and 0 of 11 and 1 of 10 for the
 skeleton.
 
+**The Skeleton's roll** (`STEP_UP["crypt-skeleton"].roll`, `RollPoses`). The game's poses do not
+turn the Skeleton: its ribcage is flat and wide, and `swing` leaves it rocking on its back. Its
+own poses and stage times were searched by CMA-ES (the toolkit's `research/cma.mjs`, Node, core
+world, Rapier, 120 Hz, at `a8693571`) on the technique bed (`buildTechnique`), the step-up's
+tuning passed in for each candidate, each pose's channels within the Skeleton's ranges:
+
+1. The four poses' channels (the game's, with the far knee, the far shoulder and, in `swing`, the
+   trunk's twist toward the near side, `rotation near`, which `rollingOver` mirrors for a roll
+   over the left) and their times, scored on the staged roll alone from placed starts on the back
+   and on each side: 4, 4 and 3 of 4 fresh seeds turned onto the front.
+2. Then on the roll and the front sit-back after it, from the same starts: the roll left the arms
+   where the sit-back could not use them (`flat`'s near arm swept back), and the sit-back failed
+   in 1.5 s after every roll.
+3. Then on shoves (`start: shoved`, eight directions 45 degrees apart from 2.8): `flat`'s arms,
+   the roll's and the sit-back's stage times, `fours`' completion and the climb; a direction stood
+   scores 2 and its speed, one rolled 1 and how long the sit-back lasted. Five of eight stood from
+   the step before, six after.
+
+| Skeleton, target falls (`rise-trace.mjs --loadout`) | empty | club | buckler, club | sword | buckler, sword |
+|---|---|---|---|---|---|
+| at `a8693571`, stood of those made | 0 of 15 | 0 of 15 | 0 of 15 | 0 of 14 | 0 of 14 |
+| **its own roll and sit-back**, and the roll held (`routePart`) | **13 of 15**, 15.1 s | 0 | 0 | 5 | 2 |
+
+The first roll from the back still fails in a fall more often than placed: the body lies tilted
+toward a side, and the roll plays its stages and turns it nowhere; rolled again from where it lies
+it turns (the roll held, [Option Mind's rise](#option-minds-rise-on-the-target)).
+
 ### Where the rise stops
 
 **On the owner's target** (`step-up`, the 64 falls, at `0792d310`; each stage's start read from
@@ -1358,6 +1385,13 @@ What moves it, each read on the same falls against the one before:
   hand-over began a new rise from where the body was: the legs' resumed height rises over 1.3 s
   (`RISING_SECONDS`), at 0.17 m/s from 0.8 of standing height, so the whole body moves and
   verification waits. The edge now holds the body until it stands ready or fails.
+- **The roll is the technique's** too, once it has turned the body (`routePart`'s `yields`). The
+  staged roll yielded whenever it lay slack between its tries, so a roll that left the body on its
+  back or side was cut by the brace or a flatten and begun again from the back over the same side;
+  the roll alone, lying slack and reading its lie again, plays the side's roll from where the body
+  is. Read on the target's falls at `a8693571` with the Skeleton's roll: the Skeleton empty-handed
+  from 0 to 9 of 15; the Warrior 32 of 32 either way (median 9.18 s); the Rogue 24 and 23 of 32
+  (median 18.8 and 15.4 s), the same within the fall set's spread.
 - **Idle settling steps one foot** (`idleGoal`,
   [idle settling](human-and-strikes.md#idle-settling)). It read the footing about the soles'
   midpoint, so both feet were off by the same distance and both stepped.

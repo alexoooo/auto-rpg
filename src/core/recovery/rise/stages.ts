@@ -13,7 +13,7 @@ import type { Lie } from "../../control/ground-reading.ts";
  * the anatomical position: `DofSpec.bind`), so it is the same shape on bodies whose reference
  * poses differ. A channel it does not name goes to that zero.
  */
-type Posture = Readonly<Record<string, number>>;
+export type Posture = Readonly<Record<string, number>>;
 
 /** **A stage that is a pose**: every freedom driven toward `posture` for `seconds`. */
 export interface PoseStage {
@@ -182,11 +182,15 @@ function bothSides(posture: Posture): Posture {
 
 /**
  * `posture` for a roll over the body's `over` side: a channel written `name.near motion` is that
- * side's, the one that goes under, and `name.far motion` the other's, which comes over the top.
+ * side's, the one that goes under, and `name.far motion` the other's, which comes over the top; a
+ * trunk's twist written `name rotation near` turns it toward the near side (`rotation right` over
+ * the right, `rotation left` over the left).
  */
 function rollingOver(over: Side, posture: Posture): Posture {
   const far = otherSide(over);
-  return Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(".near ", `.${over} `).replace(".far ", `.${far} `), angle]));
+  return Object.fromEntries(Object.entries(posture).map(([name, angle]) => name.endsWith(" rotation near")
+    ? [name.replace(/ near$/, " right"), over === "right" ? angle : -angle]
+    : [name.replace(".near ", `.${over} `).replace(".far ", `.${far} `), angle]));
 }
 
 /**
@@ -214,13 +218,19 @@ const OVER = { "hip.far flexion": 1.2, "hip.far abduction": 0.54, "shoulder.near
  */
 const FLAT = { "shoulder.near flexion": 2.8, "shoulder.far internal rotation": -0.8, "elbow.far flexion": 2.1 };
 
-/** The stages that turn a body on its back onto its front, over its `over` side. */
-export const rollOver = (over: Side): PoseStage[] => [
-  { kind: "pose", name: "wind", posture: rollingOver(over, WIND), seconds: 0.5, over },
+/** **A roll's poses**, each written over the `near` side it turns onto and the `far` side that comes over (`rollingOver`). */
+export interface RollPoses { readonly wind: Posture; readonly swing: Posture; readonly over: Posture; readonly flat: Posture }
+
+/** The game's roll (`docs/reference/rising.md#the-roll`): found on the Warrior. */
+export const ROLL_POSES: RollPoses = Object.freeze({ wind: WIND, swing: SWING, over: OVER, flat: FLAT });
+
+/** The stages that turn a body on its back onto its front, over its `over` side, by `poses`. */
+export const rollOver = (over: Side, poses: RollPoses = ROLL_POSES): PoseStage[] => [
+  { kind: "pose", name: "wind", posture: rollingOver(over, poses.wind), seconds: 0.5, over },
   // Held until the body is on its near side (`docs/reference/rising.md#the-roll`).
-  { kind: "pose", name: "swing", posture: rollingOver(over, SWING), seconds: 1, over, hold: { turned: 0.6, most: 3 } },
-  { kind: "pose", name: "over", posture: rollingOver(over, OVER), seconds: 0.5, over },
-  { kind: "pose", name: "flat", posture: rollingOver(over, FLAT), seconds: 1, over },
+  { kind: "pose", name: "swing", posture: rollingOver(over, poses.swing), seconds: 1, over, hold: { turned: 0.6, most: 3 } },
+  { kind: "pose", name: "over", posture: rollingOver(over, poses.over), seconds: 0.5, over },
+  { kind: "pose", name: "flat", posture: rollingOver(over, poses.flat), seconds: 1, over },
 ];
 
 /**
