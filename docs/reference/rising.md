@@ -57,10 +57,10 @@ npm run evaluate -- rising-target [riser ...]
   first down by the fight's rule), through landing, orientation and retries. A fall not stood
   counts at the cap; a fall not made is no stand-up.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
-  16 within 6 s in each body and loadout group, and 61 of 64 overall; every cardinal direction
-  within 6 s; a failure-inclusive median of at most 10 s (the owner, 2026-10-31: Option Mind's
-  fastest tenth of the Warrior's 64 falls, the target's and the fresh, stand by 10.45 s at
-  `bfdae8db`, its median 17.0 s).
+  16 within 10 s (`STAND_WITHIN`, the owner, 2026-11-01) in each body and loadout group, and 61 of
+  64 overall; every cardinal direction within 10 s; a failure-inclusive median of at most 10 s (the
+  owner, 2026-10-31: Option Mind's fastest tenth of the Warrior's 64 falls, the target's and the
+  fresh, stand by 10.45 s at `bfdae8db`, its median 17.0 s).
 - **Against people** ([competencies](competencies.md#targets)): young adults rising from the floor
   at a comfortable rate take a mean 1.4 to 2.6 s by starting position, and from the back a third
   less asked for speed; healthy older adults take 2.4 to 5.5 s (Alexander et al. 1997). College-age
@@ -70,8 +70,7 @@ npm run evaluate -- rising-target [riser ...]
   the target's also holds the landing and settling after the fall and the steadying to a verified,
   quiet stance (on step-up's stood falls a median 1.1 s before the rise and 2.7 after it, [where the rise
   stops](#where-the-rise-stops)). With
-  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s median, and
-  the 6 s a fall is above the older adults' slowest mean.
+  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s a fall.
 - **The baseline** is the game's Stand up (`step-up`) ([Step-up on the owner's target](#step-up-on-the-owners-target)).
 - **A controller that acts on the muscles from an observation** runs on the stand-up screen's
   sixteen falls, made afresh each run:

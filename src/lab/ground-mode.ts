@@ -27,9 +27,10 @@ import { hypot } from "../core/math/real.ts";
  * **How a stand is verified**: from its recovery's takeover, upright and loaded on both feet,
  * quiet for `quiet` s (`recoveryMeasurement`); then holding `standing` s and walking forward at
  * `pace` m/s for `walking` s, its host in command at the end and never down meanwhile. A recovery
- * not quiet `cap` s after its takeover has failed.
+ * not quiet `cap` s after its takeover has failed; one quiet within `within` s meets the owner's
+ * target's time (`docs/reference/rising.md#the-owners-target`).
  */
-export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30 });
+export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30, within: 10 });
 /** The owner's target's shove: N s for each kg of the body, once, at the chest. */
 const TARGET_SHOVE = 1.5;
 /** A round's falls: sixteen ways round, 22.5 degrees apart, the target's directions. */
@@ -193,7 +194,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     const stood = state.falls.flatMap((f) => f.verified === null ? [] : [f.verified]), sorted = [...stood].sort((a, b) => a - b);
     // Failures count at the cap, as the target's median counts them.
     const all = state.falls.map((f) => f.verified ?? STAND_CHECK.cap).sort((a, b) => a - b), middle = all.length >> 1;
-    return { falls: state.falls.length, of: ROUND_FALLS, stood: stood.length, within6: sorted.filter((t) => t <= 6).length,
+    return { falls: state.falls.length, of: ROUND_FALLS, stood: stood.length, within: sorted.filter((t) => t <= STAND_CHECK.within).length,
       median: all.length ? (all.length % 2 ? all[middle]! : (all[middle - 1]! + all[middle]!) / 2) : null };
   };
   return {

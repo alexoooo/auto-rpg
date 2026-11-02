@@ -156,7 +156,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
           meter.write({ level: GROUND_LEVELS[shown.level].label, position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
             seconds: shown.seconds.toFixed(2), check: shown.check.stage, verified: seconds(shown.check.verified),
-            round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within 6 s ${shown.round.within6}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
+            round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within ${STAND_CHECK.within} s ${shown.round.within}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
             handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
             hands: `${load("hand.left")} / ${load("hand.right")}`,
             feet: `${load("foot.left")} / ${load("foot.right")}`,

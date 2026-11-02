@@ -220,7 +220,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   ([the walk and run](reference/locomotion.md#the-walk-and-run)).
 - **Recovery** ([stand-up](plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
-  at least 15 of 16 verified recoveries within 6 s in every group, 61 of 64 overall, every
+  at least 15 of 16 verified recoveries within 10 s in every group, 61 of 64 overall, every
   cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. Step-up,
   the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
   edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
