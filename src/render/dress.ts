@@ -10,6 +10,7 @@ import { appearanceFor, type Appearance } from "./appearance.ts";
 import { dressRobot } from "./robot-skin.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 import { dressReptile } from "./reptile-skin.ts";
+import { dressRat, loadRatArt } from "./rat-skin.ts";
 import { MODEL_DISPLAY } from "./models.ts";
 
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
@@ -30,11 +31,11 @@ const ART: Readonly<Record<BodyModel, Art>> = Object.freeze({
   "workshop-fighter": humanSkin, "workshop-rogue": humanSkin,
   "crypt-skeleton": (_model, scene, options) => (options.skeletonArt ?? loadSkeletonArt)().then(art => (built: DrawnBody) => dressSkeleton(built, art, scene)),
   reptile: (model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene, MODEL_DISPLAY[model].tint)),
-  rat: (model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene, MODEL_DISPLAY[model].tint)),
+  rat: (_model, scene) => loadRatArt().then(art => (built: DrawnBody) => dressRat(built, art, scene)),
 });
 
 /**
- * `model`'s dresser in `scene`: the crypt skeleton's art or a human's skin, or its
+ * `model`'s dresser in `scene`: its own art (`ART`), or its
  * shapes in `SHAPES_TINT` if the skin does not load. `skeletonArt` is asked for only by the skeleton.
  */
 export function dresserFor(model: BodyModel, scene: Scene,

@@ -34,24 +34,30 @@ transcribed as torque ceilings.
 
 ## The rat
 
-The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is the reptile's body with its legs
-under the trunk; every other segment, mass weight, torque ceiling and unloaded speed is the
-reptile's, and its controller settings are the reptile's.
+The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is fitted to Poly Haven's Street Rat
+(`scripts/rat/fit.mjs`, [its art](../art/rat.md#the-body-fitted-to-the-art)): its trunk, head,
+jaw, legs and tail where the art's are. Its mass weights, torque ceilings, unloaded speeds, joint
+ranges, teeth and paw footprint are the reptile's, and its controller settings are the reptile's.
 
 | What | Reptile | Rat |
 | --- | --- | --- |
-| Hip and shoulder centres | x ±.085, y .24 m | x ±.07, y .2 m |
-| Paw soles, across the body | ±.26 m | ±.08 m |
+| Trunk | capsule radius .08 m, axis at y .24 | radius .115 m, axis at y .19, belly at .077 |
+| Hip and shoulder centres | x ±.085, y .24 m | fore x ±.067, y .125; hind x ±.077, y .115 m |
+| Paw soles, across the body | ±.26 m | fore ±.072, hind ±.082 m |
 | Elbow (fore) and knee (hind) | out to the side, bending about the body's z axis, -.2 to 2.8 rad | behind (fore) and ahead (hind) of the paw, bending about the body's x axis, ±1.2 rad |
-| Bend at the reference pose, upper to lower leg | | 1.51 rad fore, 1.64 rad hind |
+| Bend at the reference pose, upper to lower leg | | 1.77 rad fore, 1.55 rad hind |
 | Girdle's third axis (z) | ±2.8 rad | ±.8 rad |
 
-The crouch is what the trot needs of legs under the body. On the Node stand (Rapier, 120 Hz, one
-run a case, 2 s standing then 18 s ordered one way, the trot at .15 m/s): built with elbows and
-knees at about 1.0 rad, a fore leg nearly straightens at the end of its stance, its paw drags
-without lifting and the body tips in 4 of 8 headings; built at about 1.5 rad, it trots upright at
-all 8, its swinging paws clearing about 25 mm (the reptile's about 17 mm); at about 1.8 rad, it
-tips in 4. At the trot's .3 m/s it sinks to its belly at every heading; at .2 m/s at 3 of 8.
+On the Node stand (Rapier, 120 Hz, one run a case, 2 s standing then 18 s ordered one way, the
+trot at .15 m/s):
+
+- **Paws the art's size (about .04 by .08 m) tip it in a turn**, at 4.7 s in each heading that
+  turns right; with the reptile's footprint (.075 by .1 m) it stays upright at all 8 headings.
+- **It travels .04 to .13 m/s**, the ordered .15 only nearly when straight ahead, its swinging
+  paws often dragging: 30 to 57 of 69 steps had a swinging paw that never lifted.
+- A hand-built body with longer legs (hips at y .2, elbows and knees about 1.5 rad) trotted
+  upright at all 8 headings with its swinging paws clearing about 25 mm; at .3 m/s it sank to its
+  belly at every heading.
 
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
 from a sprawled reference pose, and does not right the rat.

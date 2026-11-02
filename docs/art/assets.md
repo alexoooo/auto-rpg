@@ -62,7 +62,7 @@ normal conventions and physical repeat scales belong to the runtime material des
 
 The combined base resources of both characters have an 8,000,000-byte ceiling, counting shared
 resources once, before HTTP compression. Workshop additions and decoders are reported separately.
-The entire art inventory, including all decoders, the HDR and menu image, has a 30,000,000-byte
+The entire art inventory, including all decoders, the HDR and menu image, has a 33,000,000-byte
 ceiling. Both budgets count shared payloads once, before HTTP compression; manifest and licence
 text are excluded. Neither is a single scene's download. A larger asset needs a visible purpose
 and an explicit recipe budget change; an encoder failure never relaxes the ceiling automatically.

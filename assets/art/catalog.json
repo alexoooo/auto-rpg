@@ -8,7 +8,7 @@
     "dataQuality": 2,
     "zstdLevel": 18,
     "baseBudgetBytes": 8000000,
-    "totalBudgetBytes": 30000000
+    "totalBudgetBytes": 33000000
   },
   "characters": {
     "fighter": {
@@ -48,6 +48,10 @@
     "skeleton/skeleton.glb": {
       "source": "assets/art/environment/skeleton/skeleton.glb",
       "licence": "public/assets/skeleton/README.md"
+    },
+    "rat/rat.glb": {
+      "source": "assets/art/environment/rat/rat.glb",
+      "licence": "docs/art/rat.md"
     }
   },
   "textures": {
@@ -205,6 +209,21 @@
       "source": "assets/art/environment/crypt-kit/wood-orm.png",
       "kind": "data",
       "licence": "docs/art/crypt.md"
+    },
+    "rat/street_rat_diff_1k.jpg": {
+      "source": "assets/art/environment/rat/street_rat_diff_1k.jpg",
+      "kind": "colour",
+      "licence": "docs/art/rat.md"
+    },
+    "rat/street_rat_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/rat/street_rat_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "docs/art/rat.md"
+    },
+    "rat/street_rat_arm_1k.jpg": {
+      "source": "assets/art/environment/rat/street_rat_arm_1k.jpg",
+      "kind": "data",
+      "licence": "docs/art/rat.md"
     }
   },
   "retained": [

@@ -70,7 +70,7 @@ Option Mind's preset for its model (`defaultMind`, `src/entrants/game.ts`).
 | `workshop-fighter` (the Warrior), `workshop-rogue` (the Rogue) | `figureSpec(workshopFigure(...))`, `src/core/human/spec.ts` |
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`) for its joints, its bones (`assets/skeleton/bones.json`, [record](art/skeleton.md#the-body-fitted-to-the-bones)) for its masses and colliders, 15 kg |
 | `reptile` | an independently authored quadruped (`assets/reptile/body.json`, [record](reference/reptile.md)) |
-| `rat` | the reptile's body with its legs under the trunk (`assets/rat/body.json`, [record](reference/reptile.md#the-rat)) |
+| `rat` | the quadruped fitted to Poly Haven's Street Rat, legs under the trunk (`assets/rat/body.json`, [record](reference/reptile.md#the-rat), [art](art/rat.md)) |
 
 `figureSpec` takes a `HumanFigure` and lays out 16 segments and 15 joints from published tables
 (de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness
@@ -1780,8 +1780,9 @@ An older pool is listed with what differs from the newest.
   resolves the generated manifest and self-hosted decoders; `asset-cache.ts` decodes scene-owned
   containers. The core reads exact versioned metadata independently of web compression.
 - `dress.ts` and `dresserFor` draw a body as its skin, or its collision shapes if the skin does not
-  load; skins (`skin.ts`, `skeleton-skin.ts`, `reptile-skin.ts`, the robot shells via
-  `robot-skin.ts`) read only segment transforms and own no collision. `skinSlot` swaps a view
+  load; skins (`skin.ts`, `skeleton-skin.ts`, `reptile-skin.ts`, `rat-skin.ts`, the robot shells via
+  `robot-skin.ts`) read only segment transforms and own no collision. `glb.ts` reads a GLB's own
+  vertex data without a glTF loader, for the skeleton's and the rat's art. `skinSlot` swaps a view
   without touching physics. Appearance is a link setting outside recipes and tapes.
 - `strike-hands.ts` gives skins finger closure from the body's applied hand poses (`fighterHands`).
 - `post.ts`, `surface.ts`, `materials.ts` are the shared post pipeline and surfaces.

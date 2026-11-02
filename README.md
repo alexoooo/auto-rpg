@@ -7,7 +7,7 @@ There is no attack button and no animation. A fighter is a body of jointed segme
 muscles with the strength and speed of their anatomy, and a mind decides what the body does. A
 blow is whatever one body carries into another, and it wounds by the energy it brings. The bodies
 are the Warrior and the Rogue (two humans), the crypt's skeleton, a four-legged reptile with a driven
-jaw, and a rat on the reptile's body plan with its legs under it.
+jaw, and a rat on the reptile's body plan with its legs under it, drawn as Poly Haven's Street Rat.
 
 **[Play it in your browser](https://alexoooo.github.io/auto-rpg/).** The main menu opens the
 **Dungeon** (the Crypt), **Arena**, **Lab**, **Ratings** and **Tools** (development viewers).
@@ -176,7 +176,8 @@ reliable: getting up from every fall, finishing a fight decisively, and AI above
 MIT ([LICENSE](LICENSE)); third-party assets keep their own licences. The environment map is Poly
 Haven's `kloofendal_43d_clear` (CC0); textures are CC0 maps listed in `src/render/textures.json`;
 the humans are customised MakeHuman/MPFB CC0 models ([characters](docs/art/characters.md)); the
-skeleton is Blender Studio's CC0 skeleton ([skeleton](docs/art/skeleton.md)); the crypt
+skeleton is Blender Studio's CC0 skeleton ([skeleton](docs/art/skeleton.md)); the rat is Poly
+Haven's CC0 Street Rat ([rat](docs/art/rat.md)); the crypt
 ([crypt](docs/art/crypt.md)) and the arena's forge kit ([forge](assets/forge/README.md)) are
 original, with Blender sources under `assets/`.
 

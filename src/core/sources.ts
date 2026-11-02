@@ -41,7 +41,7 @@ export const SOURCES = Object.freeze({
   },
   "rat-anatomy": {
     kind: "asset", file: "assets/rat/body.json",
-    what: "The reptile's anatomy with its legs under the trunk: hips beneath it, elbows behind and knees ahead of the paws, bending about the body's x axis, built crouched; mass, torques and joint speeds the reptile's. docs/reference/reptile.md#the-rat says what is the rat's own.",
+    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are; mass, torques, joint speeds and ranges, teeth and paw footprint the reptile's. docs/reference/reptile.md#the-rat says what is the rat's own.",
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
