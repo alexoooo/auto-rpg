@@ -14,7 +14,8 @@
  *
  * In a fight's moment the striker is the subject's mind fighting a foe's by itself, as a bout does,
  * until it begins its `moment`th action aimed at a body; the drill orders its own in that one's place
- * from that step, walking into its window as at a still target, and the foe fights on. Up to that step the bout is
+ * from that step, walking into its window and asking the first step it is ready, as at a moving
+ * target (a foe fighting is never settled in a window), and the foe fights on. Up to that step the bout is
  * the subject's own bout against that foe: the Commander orders nothing.
  */
 import type { MindConfig } from "../../core/mind/config.ts";
@@ -264,7 +265,7 @@ function fightCases(protocol: typeof FIGHT): Cases<StrikeCondition, StrikeReadin
       return { kind: "bout", engine, tape: [],
         recipe: { left: model, right: "workshop-fighter", capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [], ends: [],
           ...sideAttributes({ left: character, right: MINDS[foe]!.character }), ...loadoutsOf(value as unknown as StrikeSubject),
-          ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, moment }), opponentOf(foe)!) } };
+          ...opposed(striker(value as unknown as StrikeSubject, `hand.${hand}`, mark, { after: 0, pace: protocol.pace, walking: true, moment }), opponentOf(foe)!) } };
     },
     read: (built, condition) => readStrike(built, condition, protocol),
   };

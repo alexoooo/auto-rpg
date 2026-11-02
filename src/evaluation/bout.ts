@@ -19,6 +19,8 @@ interface BoutOptions {
   readonly physicsEngine?: PhysicsEngine;
   readonly hz?: number;
   readonly actuation?: World["actuation"];
+  /** The command's delay, steps (`World.delay`): the game's unless a study asks for another. */
+  readonly delay?: number;
   /** Each mind on its mirror (`World.mirrored`); on its body unless given. */
   readonly mirrored?: true;
   /** Where its minds run (`World.minds`); in the world's thread unless given. */
@@ -35,9 +37,9 @@ export interface BuiltBout {
 }
 
 /** A world with the arena's solids and `recipe`'s bout in it, on a scene of its own with no canvas. */
-export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, mirrored, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
+export async function buildBout(recipe: DuelRecipe, { engine: name = DEFAULT_ENGINE, physicsEngine, hz = 120, actuation, delay, mirrored, minds, hooks = {} }: BoutOptions = {}): Promise<BuiltBout> {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, actuation, ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
+  const world = createWorld(scene, physicsEngine ?? await loadEngine(name), { hz, actuation, ...(delay === undefined ? {} : { delay }), ...(mirrored ? { mirrored } : {}), ...(minds ? { minds } : {}) });
   const solids = arenaSolids(recipe.level);
   const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
   try {
