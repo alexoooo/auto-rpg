@@ -155,8 +155,8 @@ table before the delay and after; every cell as good as before, or its fine-tune
   goal and holds only the limbs it moves, so an arm it does not use is the policy's, and no
   technique writes the muscles itself (`groundExecutor`, `src/core/recovery/ground/held.ts`).
 - **The Rogue's rise**: a route that does not push up on straight arms. The Riser's contact-driven
-  rise (`src/entrants/riser/`) is read first: folded into Option Mind's rise where it does better,
-  deleted where it does not. Its arms are read before any strength is raised.
+  rise stood none of the Rogue's 32 falls or the Skeleton's 15 and is deleted
+  ([rising](../reference/rising.md#tried-and-not-kept)). Its arms are read before any strength is raised.
 - **The Skeleton's rise** on toes on the target's falls, each edge's profile measured on its body.
 - **Then speed** on the Warrior and the Rogue: the chain's time (the roll, the front sit-back, the
   hand-over to standing).

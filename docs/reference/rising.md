@@ -1600,6 +1600,11 @@ arms folded); placed at rest it is done in none.
   `tall 1` at 1, 0.8 and 0.5 stand 60 of its 64 against 62, 0.9 s sooner. The Warrior settled to
   0.1 or 0.05 m/s before it reads its lie stands 26 and 24 of its 32 target falls against 29.
 - **The contact sequence** (`CONTACT_RISE`) as the target's riser: none of 64 stands.
+- **The Riser entrant's contact-driven rise** (`src/entrants/riser/@924e9c97`: turn onto the
+  right side, gather, plant, extend, each held until its contacts say it is done), on the target's
+  falls traced (`research/rise-trace.mjs`, Node, Rapier, 120 Hz, at `924e9c97`): the Rogue empty
+  and with the club stands none of 32 against Option Mind's 24 (median 18.8 s); the Skeleton
+  empty-handed none of 15 made. Its moves stall at `right` and `gather`. Deleted, not folded in.
 - **The bear route** from hands and knees: onto hands and toes, hands and feet, a squat with the
   hands down, then the hands let go. As built (`research/core-posture.mjs --variants built`,
   at `cb523f2f`) hands and toes, hands and feet and the squat at 0.70 m are held (margins 0.50,
