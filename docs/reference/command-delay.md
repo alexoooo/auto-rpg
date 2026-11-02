@@ -79,8 +79,11 @@ one step; the motor programs at 8411a492 with the network before:
 | | fell | 0 | 0.083 | 0.083 |
 
 The punch is admitted less often at one step (46 of 128 against 62) and lands on 6 against 31:
-its policy was trained at none. The punch, the club and the stomp are fine-tuned at one step in
-the table's pass ([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)).
+its policy was trained at none. The fine-tune list at one step, the table's pass
+([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)): the Warrior's and
+the Rogue's punch. The stomp needs none: at 252a17eb it lands 4 of 12 at one step, none fallen. The club blow
+leaves the list: a club is swung, not punched with, and the punch's drive thrown with the club's
+head gives way to a swing, which is trained at the game's delay.
 
 **The profiles** are measured at one step at 252a17eb, with a blow's line clear of a guard by the
 fist's radius and the Rise drill's techniques in the motor part: the strikes', the gaits' and the
