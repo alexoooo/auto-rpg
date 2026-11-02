@@ -25,9 +25,9 @@
  *
  *   node research/skill-search.mjs <skill> <model> --out <file.json> [--generations 10] [--lambda 16] [--sigma 0.2] [--until <score>] [--patience <generations>] [--workers N] [--seed 1] [--resume]
  *   node research/skill-search.mjs <skill> <model> --out <file.json> --try
- *   node research/skill-search.mjs <skill> <model> --confirm <file.json> [--write [--from "<what the search started from>"]]
+ *   node research/skill-search.mjs <skill> <model> --confirm <file.json> [--hz 480] [--write [--from "<what the search started from>"]]
  *
- * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), 120 Hz.
+ * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), 120 Hz, or `--hz`'s rate.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
@@ -57,7 +57,7 @@ const kicker = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "suppo
 async function kickTrial(settings, { condition }) {
   const reading = await play(STRIKE_CASES.kicking, { mind: kicker(settings), action: "low-kick" }, condition);
   const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
-  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt };
+  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, ankle: reading.hit?.ankle ?? null };
 }
 
 /** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
@@ -69,7 +69,7 @@ const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "supp
 async function stompTrial(settings, { condition }) {
   const reading = await play(STRIKE_CASES.stomping, { mind: stomper(settings), action: "stomp" }, condition);
   const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
-  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt };
+  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, ankle: reading.hit?.ankle ?? null };
 }
 
 /** The stomping rung's trials on `model`: each foot at each target from each gap. */
@@ -86,10 +86,10 @@ const kickTrials = (model, gaps) => STRIKE_CASES.kicking.conditions.filter((c) =
  * settings that are lengths (`lengths`, m), scaled to a body that starts from the Warrior's.
  */
 const SEARCHES = {
-  "front-kick": { dims: [["contactSpeed", 1.5, 9], ["swingSeconds", .2, .5], ["lift", .2, .6], ["windup", 0, .2], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
+  "front-kick": { dims: [["contactSpeed", 1.5, 14], ["swingSeconds", .1, .5], ["lift", .2, .6], ["windup", 0, .3], ["alongNear", .1, .5], ["alongFar", .4, .9], ["returnNear", .04, .15]],
     trials: kickTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: kickTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's kicking rung (each foot at the middle mark of a Warrior, a Skeleton and a Reptile lying limp)" },
-  stomp: { dims: [["contactSpeed", 3, 9], ["swingSeconds", .15, .4], ["lift", .4, .9], ["over", .6, 1.2], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
+  stomp: { dims: [["contactSpeed", 3, 14], ["swingSeconds", .1, .4], ["lift", .4, .9], ["over", .6, 1.2], ["alongNear", .35, .7], ["alongFar", .6, 1], ["chamberSeconds", .4, .8]],
     trials: stompTrials, search: [.8, 1.2], confirm: [.9, 1, 1.1], trial: stompTrial, lengths: ["lift", "windup", "alongNear", "alongFar", "across", "returnNear"],
     task: "the Strike drill's stomping rung (each foot at the middle mark of a Warrior and a Skeleton lying limp)" },
 };
@@ -97,7 +97,7 @@ const SEARCHES = {
 /** Play `subject` (a tuning, or a strike subject) on `condition` of `cases` to its reader's end. */
 async function play(cases, subject, condition) {
   const world = cases.world([subject], condition, undefined, [{}]);
-  const built = await buildBout(world.recipe, { hz: 120 });
+  const built = await buildBout(world.recipe, { hz: workerData?.hz ?? 120 });
   try {
     const reader = cases.read(built, condition);
     built.duel.play(world.tape);
@@ -143,17 +143,17 @@ if (!isMainThread && workerData?.search) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values, positionals: [skill, model] } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, confirm: { type: "string" }, write: { type: "boolean" },
     from: { type: "string" }, generations: { type: "string" }, lambda: { type: "string" }, sigma: { type: "string" }, workers: { type: "string" }, seed: { type: "string" }, resume: { type: "boolean" },
-    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" } } });
+    until: { type: "string" }, patience: { type: "string" }, try: { type: "boolean" }, hz: { type: "string" } } });
   const search = SEARCHES[skill];
   if (!search || !model) throw new Error(`usage: <skill> <model>, skill one of ${Object.keys(SEARCHES).join(", ")}`);
   const workers = Number(values.workers ?? Math.max(1, availableParallelism() - 4));
-  const pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill }, workers);
+  const hz = Number(values.hz ?? 120), pool = workerPool(fileURLToPath(import.meta.url), { search: true, skill, hz }, workers);
   const body = bodyKey(modelSpec(model)), started = Date.now();
   if (values.confirm) {
     const found = JSON.parse(readFileSync(values.confirm, "utf8")), trials = search.trials(model, search.confirm);
     const start = await scored(pool, found.start, trials), best = await scored(pool, found.best.settings, trials);
     const kept = best.score > start.score && best.falls <= start.falls ? "best" : "start";
-    const report = { skill, body, trials: trials.length, gaps: search.confirm, start: { score: start.score, falls: start.falls, each: start.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
+    const report = { skill, body, hz, trials: trials.length, gaps: search.confirm, start: { score: start.score, falls: start.falls, each: start.each }, best: { score: best.score, falls: best.falls, each: best.each }, kept,
       seconds: Math.round((Date.now() - started) / 1000) };
     console.log(JSON.stringify(report));
     if (values.write) {
