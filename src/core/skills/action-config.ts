@@ -15,21 +15,15 @@ export function blowsOf(parts: PartLookup, executors: readonly ExecutorEntry[], 
   return executor ? parts.of("executor", executor).blows?.(executor) ?? 1 : 1;
 }
 
-/**
- * **`action`'s aim** on a body of `spec`, made by its aim's part (`AimPart.make`) for the blow its
- * executor names (`ExecutorPart.blow`); null for an action that names no aim.
- */
-export function aimOf(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], action: ActionConfig): Aim | null {
-  if (!action.aim) return null;
-  const executor = executors.find((one) => one.name === action.executor);
-  const blow = executor ? parts.of("executor", executor).blow?.(spec, executor, action) ?? null : null;
-  return parts.of("aim", action.aim).make(spec, action.aim, blow);
+/** **`action`'s aim** on a body of `spec`, made by its aim's part (`AimPart.make`); null for an action that names no aim. */
+function aimOf(parts: PartLookup, spec: BodySpec, action: ActionConfig): Aim | null {
+  return action.aim ? parts.of("aim", action.aim).make(spec, action.aim) : null;
 }
 
 /** **Each aiming action's aim**, by the action's name (`aimOf`): what its executor and its tactics ask where it strikes. */
-export function configuredAims(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): ReadonlyMap<string, Aim> {
+export function configuredAims(parts: PartLookup, spec: BodySpec, actions: readonly ActionConfig[]): ReadonlyMap<string, Aim> {
   return new Map(actions.flatMap((action) => {
-    const aim = aimOf(parts, spec, executors, action);
+    const aim = aimOf(parts, spec, action);
     return aim ? [[action.name, aim] as const] : [];
   }));
 }
@@ -39,7 +33,7 @@ export const aimsState = (aims: ReadonlyMap<string, Aim>): readonly object[] => 
 
 /** Compile the executors' measured estimates without exposing execution kinds to the selector; each action's aim is `aims`', the body's one (`configuredAims`). */
 export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[],
-  aims: ReadonlyMap<string, Aim> = configuredAims(parts, spec, executors, actions)): ActionEstimates {
+  aims: ReadonlyMap<string, Aim> = configuredAims(parts, spec, actions)): ActionEstimates {
   const providers: Record<string, ActionEstimates[string]> = {};
   for (const action of actions) {
     const executor = executors.find(entry => entry.name === action.executor), aim = aims.get(action.name);
@@ -180,7 +174,7 @@ export function actionConfigFaults(parts: PartLookup, executors: readonly Execut
 
 /** Build each named motion state the body can use (`usableSkills`) once and resolve every action through its own aim, `aims`' (the body's one, `configuredAims`). */
 export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => [],
-  aims: ReadonlyMap<string, Aim> = configuredAims(parts, body.built.spec, executors, actions)): readonly ExecutorBinding[] {
+  aims: ReadonlyMap<string, Aim> = configuredAims(parts, body.built.spec, actions)): readonly ExecutorBinding[] {
   const faults = actionConfigFaults(parts, executors, actions);
   if (faults.length) throw new Error(faults.join("; "));
   const usable = usableSkills(parts, body.built.spec, executors, actions);

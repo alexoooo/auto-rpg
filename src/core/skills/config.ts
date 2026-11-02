@@ -22,8 +22,7 @@ export type AimConfig = ConfigOf<typeof AIMS>;
  * **A configured action**: its name, the executor that carries it out and the effectors it may
  * strike with. Where its executor aims (`ExecutorPart.aims`), the regions it strikes, in order,
  * and its aim, any part of the role (`AimPart`). Its other settings are its executor's
- * (`ExecutorPart.actionKeys`): the path strike's path (`PathActionConfig`), and `lower`, the
- * support height a low blow is thrown from, which planners read to tell a low blow.
+ * (`ExecutorPart.actionKeys`).
  */
 export interface ActionConfig {
   readonly name: string;
@@ -31,7 +30,6 @@ export interface ActionConfig {
   readonly effectors: readonly string[];
   readonly regions?: readonly Region[];
   readonly aim?: AimConfig | PartConfig;
-  readonly lower?: number;
 }
 
 /** **A stock guard's config**, by kind (`GUARDS`). */

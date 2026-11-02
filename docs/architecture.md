@@ -414,10 +414,10 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 **Combat skills:**
 
 - **Arm reach** (`arm-reach.ts`): where a hand meets a target with its arm laid straight from the
-  shoulder (`placedReach`, `placedHeightFits`), from the spec's reference pose and the point the
+  shoulder (`placedReach`), from the spec's reference pose and the point the
   hand strikes with (`aimOf`, `held-strike.ts`), read once a spec; the openings, threats, the edge and
   the executors' admission ask it. `held-strike.ts` holds what a hand strikes with (`FIST`, `heldIn`,
-  `closesToStrike`, `strikesWithBlunt`).
+  `closesToStrike`).
 - **Every skill tuned per body** (`SkillRecord`, `skills/framework/records.ts`): an executor's
   settings are its body's record, read as mind data by `bodyKey` (`dataOf`, `assets/core/<skill>.json`;
   an entrant's own skill from its own data), each row saying how it was made and written by the run
@@ -431,9 +431,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   body's record, all of them where it has none. A strike's digest reads only the thrower's row
   (`skillDigest`), so another body's row moves no profile.
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
-  stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`,
-  `path-part.ts`) and each foot of the stomp (`stomp.ts`, which adds support transfer; its part,
-  `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
+  stroke, bounded contact, verified return) for each foot of the stomp (`stomp.ts`, which adds
+  support transfer; its part, `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
   A bare hand closes for its blow and strikes with the fist's point
   (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
@@ -504,11 +503,9 @@ action's aim). Action selection belongs to the decider, not to an executor.
 
 An action (`ActionConfig`) is a name, its executor and the effectors it may strike with; where its
 executor aims (`ExecutorPart.aims`), also the regions it strikes and its aim, and neither where not.
-Any other key is its executor's (`ExecutorPart.actionKeys`, `actionFields`): the path strike's
-path and arm extension (`PathActionConfig`, `skills/strikes/path-part.ts`), and `lower`, the support height
-a low blow is thrown from. An aim is a part of role `aim` (`AimPart`, `skills/framework/aim-part.ts`; the
-stock ones in `AIMS`, `skills/framework/aims.ts`) made for the blow its executor names (`ExecutorPart.blow`);
-it is held in an action, not a slot, so its code is keyed with the toolkit's. Every resource an
+Any other key is its executor's (`ExecutorPart.actionKeys`, `actionFields`). An aim is a part of
+role `aim` (`AimPart`, `skills/framework/aim-part.ts`; the stock ones in `AIMS`,
+`skills/framework/aims.ts`); it is held in an action, not a slot, so its code is keyed with the toolkit's. Every resource an
 action may hold is checked as the skill set is built (`actionInstances`).
 
 ### Minds
@@ -1024,7 +1021,7 @@ holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-b
 climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `club-blow.json`, `sword-cut.json`, `sword-thrust.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
