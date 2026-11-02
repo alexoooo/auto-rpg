@@ -440,11 +440,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   contact pose its IK solves each step. With `timed`, the drive pushes each channel the schedule
   names on a schedule of its own (`TimedPush`: a level, a start and a length into the drive; a
   control step it covers in part pushes for that part, so a schedule means the same at every rate)
-  and every other channel at the contact pose as before, the stance beneath; with `driven` beside it,
-  the striking point is driven along the line too. With `fire`, the arm's drive begins once the
-  fist comes within that share of the arm's length of the target, so it opens at one distance
-  whatever the range. With `ease`, a channel pushed at the contact pose eases off in proportion
-  near its goal instead of pushing past it each step, so the fist keeps its line. With `steered`,
+  and every other channel at the contact pose as before, the stance beneath. With `fire`, the
+  arm's drive begins once the fist comes within that share of the arm's length of the target, so
+  it opens at one distance whatever the range. With `steered`,
   60 times a second through the drive it reads itself (`punchFeatures`,
   `src/core/skills/strikes/learned-punch.ts`: the target from the shoulder and its velocity, the fist, the
   trunk's, legs' and arm's angles and speeds, the gait's phase, the left hand mirrored), adds a
@@ -476,7 +474,7 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   `research/punch-export.mjs`), its steer laid out by `assets/core/<kind>.layout.json` (the
   punch's with the wrist), read at its face's striking point. A held face's arm is solved from its
   guard each step, and its chamber may lie behind the shoulder (a negative `chamber`, the blow
-  drawn back). A held face is neither `fire`d nor `driven` (`faceFault`): each reads the fist.
+  drawn back). A held face is not `fire`d (`faceFault`): it reads the fist.
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
