@@ -76,11 +76,10 @@ fingerprint case.
    Gait drill, the baseline battery and the stand-up on the owner's target
    ([rising](../reference/rising.md#the-owners-target)) read against the version before, and the match
    against it. Balance and the rise are held by splitting each mind: its step decides a step
-   late, and its body's motor part (`Mind.move`: motor control, the stance's and ground's reads,
-   the ground techniques and the lowering as motor programs) carries the decision out on the body
-   as it is. At one step every probe passes, the walk falls as at none and the stand-up stands
-   within the fall-set's spread ([the command delay](../reference/command-delay.md)); the game's
-   delay stays none until the owner's switch. A trained
+   late, and its body's motor part (`Mind.move`: the body read, the skills making the command from
+   the decided intent, and motor control) carries the decision out on the body as it is, on the
+   senses the decision was made on. The game's delay is one step
+   ([the command delay](../reference/command-delay.md)). A trained
    skill that loses is fine-tuned in the table's first pass
    ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3), not here.
 3. **A mind's body read from a snapshot, on one thread.** Each body's mirror is made from its spec

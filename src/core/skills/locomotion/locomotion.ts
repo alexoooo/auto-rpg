@@ -269,9 +269,7 @@ interface StanceWalk extends Locomotion {
  */
 export type LegsDrive =
   | { readonly kind: "stance"; readonly goal: StanceGoal | null }
-  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number;
-    /** A motor program the body knows (`BodyCommand.programs`) that pushes the legs on the body as it is. */
-    readonly program?: string };
+  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[]; readonly held?: number };
 
 /** **What the locomotion skill remembers.** */
 interface LocomotionState extends LegsMemory {
