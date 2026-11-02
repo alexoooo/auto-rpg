@@ -36,6 +36,21 @@ export function soleGoal(point: string, at: Vector3, seconds: number, sequence: 
     ...(curve ? { curve: [curve.x, curve.y, curve.z] as const } : {}), orientation: { target: [turn.x, turn.y, turn.z, turn.w], seconds } };
 }
 
+/**
+ * Where a body standing on its `paws` at the reference pose carries its centre of mass, body
+ * frame, from the paws' mean: a settled stance puts the centre there, wherever the legs meet the
+ * trunk.
+ */
+export function overPaws(own: OwnBody, paws: readonly string[]): readonly [number, number] {
+  const mass = own.spec.mass.value, centre = own.spec.segments.reduce((c, p) => {
+    const m = p.mass.value / mass, at = p.centreOfMass.value;
+    return [c[0] + m * at[0], c[1] + m * at[2]] as [number, number];
+  }, [0, 0] as [number, number]);
+  let x = 0, z = 0;
+  for (const name of paws) { const sole = own.built.segments.get(name)!.spec.points!.sole!.value; x += sole[0]; z += sole[2]; }
+  return [centre[0] - x / paws.length, centre[1] - z / paws.length];
+}
+
 /** One paw moves after the centre enters the other three paws' support triangle. */
 export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, names: readonly string[], T = REPTILE_CRAWL) {
   const root = motor.root, nominal = names.map(name => own.built.segments.get(name)!.spec.points!.sole!.value);
@@ -43,7 +58,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
-  const q = root.node.rotationQuaternion!;
+  const over = overPaws(own, names), q = root.node.rotationQuaternion!;
   const state = {
     phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
     centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
@@ -87,8 +102,8 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
       if (state.phase === "settle") {
         if (moving || !state.standing) {
           const c = cos(state.yaw), s = sin(state.yaw);
-          state.centre[0] = average[0]! + c * reference[0] + s * reference[2];
-          state.centre[2] = average[2]! - s * reference[0] + c * reference[2];
+          state.centre[0] = average[0]! + c * over[0] + s * over[1];
+          state.centre[2] = average[2]! - s * over[0] + c * over[1];
         }
         state.standing = !moving;
         state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
@@ -124,11 +139,14 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
         } else if (state.phase === "swing") {
           if (!view.feet[state.paw]!.contact && view.feet[state.paw]!.low - view.feet[state.paw]!.ground > T.liftConfirm) state.lifted = true;
           if (state.time >= T.swing) { state.phase = "land"; state.time = 0; }
-        } else if (state.phase === "land" && state.lifted && view.feet[state.paw]!.contact) {
+        } else if (state.phase === "land" && view.feet[state.paw]!.contact) {
+          // A paw that bears has landed, whether it cleared the floor or never left it (dragged, or
+          // already at its target); only one that cleared the floor counts a step.
           state.anchors[state.paw]![0] = view.feet[state.paw]!.at.x;
           state.anchors[state.paw]![1] = view.feet[state.paw]!.ground;
           state.anchors[state.paw]![2] = view.feet[state.paw]!.at.z;
-          state.steps++; state.paw = (state.paw + 1) % names.length; state.phase = "settle"; state.time = 0;
+          if (state.lifted) state.steps++;
+          state.paw = (state.paw + 1) % names.length; state.phase = "settle"; state.time = 0;
         } else if ((state.phase === "land" || state.phase === "return") && state.time >= T.placementLimit) {
           if (view.feet[state.paw]!.contact) { state.phase = "settle"; state.time = 0; }
           else {

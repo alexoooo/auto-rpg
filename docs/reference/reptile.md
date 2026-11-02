@@ -59,6 +59,21 @@ trot at .15 m/s):
   upright at all 8 headings with its swinging paws clearing about 25 mm; at .3 m/s it sank to its
   belly at every heading.
 
+Against the Warrior with a sword (Node Arena Duel, Rapier, 120 Hz, default rules and balance,
+rat on the left, 40 s cap), with the head carried at the art's height the rat launched no bite and
+was killed in every bout; with the head raised (`HEAD_RAISE`), the stance settled over its paws
+and the lean measured from where the chamber began, it bites:
+
+| Gap | Bites launched | HP by the teeth | Warrior's bar | Rat's bar | Rat first down | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| default | 1 (0 before) | .65 (.24) | .892 (.959) | .702 (.565) | 12.0 s | none (fatal to the rat, 23.4 s) |
+| 1.5 m | 1 (0) | .29 (.03) | .951 (.995) | .949 (.235) | 13.9 s | none (fatal, 18.4 s) |
+| 2.5 m | 0 (0) | .13 (0) | .978 (1) | .696 (.532) | 8.7 s | none (fatal, 19.2 s) |
+| 3.5 m | 0 (0) | .07 (.08) | .988 (.987) | .211 (.447) | 9.8 s | fatal to the rat, 39.9 s (13.8 s) |
+
+Most of the teeth's HP is the Warrior's foot pressing on an open jaw. Once kicked over, the rat
+does not right itself, which bounds its bites to the first one or two.
+
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
 from a sprawled reference pose, and does not right the rat.
 
@@ -88,13 +103,13 @@ point.
 | Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s, resumeAngle .05 rad | Align and place paws through the crawl, then require quiet four-sole support before trotting |
 | Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
 | Crawl timing | swing 1.2, shift .45, settle .3, plant .2 s; plantSpeed .05 m/s | Slow placement and continued downward acquisition |
-| Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; require real lift-off |
+| Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; count a step only for a paw that lifted |
 | Support margins | inset .4 m, supportInset .1 m, shiftError .008 m | Desired support-centre inset and actual containment tolerance |
 | Heading | yawStep .18 rad per four paws, turnError .05 rad | Bounded heading advance |
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .65 rad, jawError .03 rad, jawClosed .001 rad | Measured opening and closing, with finite angular motion |
 | Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection and physical chamber readiness |
-| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Project the retained surface onto the selected tooth arc; bound COM displacement within loaded paw support |
+| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Project the retained surface onto the selected tooth arc; bound COM displacement from where the chamber began, within loaded paw support |
 | Bite selection | biteSamples 4, biteLead .03 s | First exposed entry over the tooth arc, including natural colliders; predict the retained material point from sensed linear and angular motion |
 | Material contact | contactSeconds .25 s | Bound an admitted stroke by time and the physical 8 mm tooth depth |
 | Withdrawal | neckRetract .3 rad | Ceiling on upward neck retraction during a loaded return |
@@ -117,12 +132,12 @@ What the settings serve:
   crawl** shifts the centre into the other three contact patches before each swing, and shortens
   its stride with travel intent so approach braking slows it. Placements are relative to the actual
   centre of mass, so the stance does not widen.
-- **A crawl's landing** needs a paw that clears the floor and then carries a positive ground
-  impulse; one that does not returns toward its anchor and retries. **A trot's pair** has landed
-  once both its paws bear after the swing, a paw that never cleared the floor (dragged, or already
-  at its target) where it stands, so the step does not hold while the body travels over the other
-  pair; only a paw that cleared the floor counts a step, and a pair not down within placementLimit
-  returns to its anchors. Gaits switch after the active placement.
+- **A crawl's paw and a trot's pair** have landed once they bear after the swing, a paw that
+  never cleared the floor (dragged, or already at its target) where it stands, so neither the step
+  nor a bite waiting on support holds; only a paw that cleared the floor counts a step, and one not
+  down within placementLimit returns to its anchors. **A settled stance** holds the centre of mass
+  where the reference pose carries it over the paws' mean (`overPaws`), wherever the legs meet
+  the trunk. Gaits switch after the active placement.
   Close fighting and crowded withdrawal crawl; a resumed host crawls into place, aligns its heading
   and verifies quiet four-sole support before trotting.
 - **The bite** takes the first exposed surface on a tooth's closing arc, keeps the material point in

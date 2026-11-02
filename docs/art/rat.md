@@ -30,6 +30,9 @@ in the script, kept in `.cache/art/downloads/street_rat/`), and writes `rat.glb`
 - **Frame.** The body frame at the rat's reference pose, in the game's left-handed coordinates:
   +Y up, +Z forward, +X the body's right; the source's x is mirrored and each triangle's winding
   reversed with it. The runtime converts nothing, so a glTF viewer shows it mirrored.
+- **Pose.** The head and jaw turned up .5 rad about the neck (`HEAD_RAISE`,
+  `scripts/rat/landmarks.mjs`), each vertex by its head and jaw weight, as the body carries them
+  ([the body](#the-body-fitted-to-the-art)); the rest of the mesh is the art's pose.
 - **Scale.** The source's height (33.86 mm) at the rat's stature, 0.325 m, ×9.6
   (`scripts/rat/landmarks.mjs`).
 - **Bones.** One a segment of `assets/rat/body.json`, named by it, each at the body frame's origin
@@ -59,6 +62,7 @@ packed red, green and blue, double-sided for the whiskers and ears.
 | trunk | a capsule rump to shoulders at the back's height, its radius the body's half height |
 | head | a capsule behind the eyes to the snout; the neck where it leaves the shoulders |
 | jaw | the hinge under the ear to the lower incisors; the reptile's teeth and mouth, scaled and tipped onto them |
+| head and jaw raised | .5 rad about the neck (`HEAD_RAISE`): the art holds its mouth about .05 m off the floor, where the jaw, opened to the bite's gape, drops the incisors into it; raised, the mouth stands at about .17 m and the open incisors .09 m clear |
 | legs | the shoulder or hip, elbow or knee and wrist or ankle where the legs bend; bending about x |
 | paws | under the ankles, the reptile's footprint (0.075 by 0.1 m), wider than the art's paws |
 | tail | two capsules, root to the taper's end and on to the tip |

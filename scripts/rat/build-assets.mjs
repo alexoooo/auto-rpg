@@ -9,7 +9,7 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { Document, NodeIO } from "@gltf-transform/core";
 import { MeshoptSimplifier } from "meshoptimizer";
-import { ART, SCALE } from "./landmarks.mjs";
+import { ART, HEAD_RAISE, SCALE, turnUp } from "./landmarks.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../.."), CACHE = join(ROOT, ".cache/art/downloads/street_rat");
 const OUT = join(ROOT, "assets/art/environment/rat");
@@ -135,6 +135,20 @@ const mesh = await simplified(await source()), count = mesh.positions.length / 3
 // Weights are measured in the art's millimetres, before the mesh is scaled.
 const millimetres = mesh.positions.map((v) => v * 1000);
 const { joints, shares } = weights(millimetres, segments);
+
+// Posed as the body carries its head (`HEAD_RAISE`): each vertex turned up about the neck by its
+// head and jaw weight, as the skin would turn it, so the reference pose is the body's.
+const normals0 = Float32Array.from(mesh.normals);
+for (let v = 0; v < count; v++) {
+  let w = 0;
+  for (let k = 0; k < 4; k++) if (["head", "jaw"].includes(segments[joints[v * 4 + k]])) w += shares[v * 4 + k] / 255;
+  if (!w) continue;
+  const p = [millimetres[v * 3], millimetres[v * 3 + 1], millimetres[v * 3 + 2]], q = turnUp(p, ART.neck, HEAD_RAISE);
+  for (let i = 0; i < 3; i++) millimetres[v * 3 + i] = p[i] + w * (q[i] - p[i]);
+  const n = [normals0[v * 3], normals0[v * 3 + 1], normals0[v * 3 + 2]], m = turnUp(n, [0, 0, 0], HEAD_RAISE);
+  const blended = n.map((x, i) => x + w * (m[i] - x)), size = Math.sqrt(blended.reduce((s, x) => s + x * x, 0));
+  for (let i = 0; i < 3; i++) mesh.normals[v * 3 + i] = blended[i] / size;
+}
 
 // Into the body frame: scaled, x mirrored to the body's right, and so each triangle's winding reversed.
 const positions = new Float32Array(count * 3), normals = new Float32Array(count * 3);

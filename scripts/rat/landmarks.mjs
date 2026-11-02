@@ -28,3 +28,17 @@ export const ART = Object.freeze({
   front: { girdle: [7, 13, 12], bend: [7.5, 6, 6], ankle: [7.5, 2.4, 12.5], toe: [7.5, 1, 22], upper: 2.8, lower: 1.9 },
   hind: { girdle: [8, 12, -25], bend: [9, 6.5, -19], ankle: [8.5, 2.4, -22.5], toe: [8.5, 1, -10], upper: 3, lower: 2 },
 });
+
+/**
+ * How far the body carries its head above the art's, rad, about the neck (`ART.neck`): standing,
+ * the rat's mouth is about 0.05 m off the floor as the art holds it, and its jaw, opened to the
+ * bite's gape (`REPTILE_BITE.open`), drops its incisors about 0.1 m, into the floor. Raised
+ * 0.5 rad, the mouth stands at about 0.17 m and the open incisors 0.09 m clear.
+ */
+export const HEAD_RAISE = 0.5;
+
+/** `p` turned about the x axis through `pivot` by `angle`, forward points rising. */
+export const turnUp = ([x, y, z], [, py, pz], angle) => {
+  const dy = y - py, dz = z - pz, c = Math.cos(angle), s = Math.sin(angle);
+  return [x, py + dy * c + dz * s, pz + dz * c - dy * s];
+};

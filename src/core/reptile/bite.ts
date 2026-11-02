@@ -56,7 +56,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const state = { cycle, target: [0, 0, 0] as [number, number, number], aim: [0, 0, 0] as [number, number, number], reach: 0, launched: 0, returned: 0, failed: 0, aborted: 0,
     selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0, strikeNeck: neck.dofs.map(() => 0),
-    shift: [0, 0] as [number, number],
+    shift: [0, 0] as [number, number], anchor: [0, 0] as [number, number],
     jaw: { sequence: -1, opening: false, time: 0, start: 0, rate: 0, sample: [0, 0, 0] as [number, number, number] } };
   const frame = { position: new Vector3(), rotation: new Quaternion() }, root = { position: new Vector3(), rotation: new Quaternion() };
   const at = new Vector3(), point = new Vector3(), velocity = new Vector3(), carried = new Vector3(), spin = new Vector3(), inverse = new Quaternion();
@@ -84,7 +84,12 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
       const rate: Vec3 = [velocity.x, velocity.y, velocity.z];
       intoFrameToRef(frame, [at.x, at.y, at.z], point);
       const measured: Vec3 = [point.x, point.y, point.z];
-      if (cycle.phase === null && target && ready) { state.target.splice(0, 3, ...target); strikeTransition(cycle, "chamber", rate); state.reach = cycle.sequence; }
+      if (cycle.phase === null && target && ready) {
+        state.target.splice(0, 3, ...target); strikeTransition(cycle, "chamber", rate); state.reach = cycle.sequence;
+        // The lean is measured from the centre of mass where the stalk read the target's reach,
+        // not from the gait's centre, which may trail it.
+        state.anchor[0] = view.centre.x; state.anchor[1] = view.centre.z;
+      }
       if (cycle.phase === "chamber" && target) state.target.splice(0, 3, ...target);
       if (cycle.phase === "chamber") state.selected = selection ? { ...selection } : null;
       const strokeTip = tips.find(t => t.name === state.selected?.tooth)?.tip ?? tip;
@@ -120,7 +125,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         support.forEach((sole, i) => { if (view.feet[i]!.contact) { sole.corners[0]!.copyFrom(view.feet[i]!.at); loadedSupport[loaded++] = sole; } });
         loadedSupport.length = loaded;
         if (loaded >= support.length - 1) {
-          const placed = withinSupport(loadedSupport, centre[0] + state.shift[0], centre[2] + state.shift[1], T.biteInset);
+          const placed = withinSupport(loadedSupport, state.anchor[0] + state.shift[0], state.anchor[1] + state.shift[1], T.biteInset);
           centre[0] = placed[0]; centre[2] = placed[1];
         }
       }

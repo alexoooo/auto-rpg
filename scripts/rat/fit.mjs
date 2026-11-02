@@ -5,7 +5,7 @@
 // Without --write it prints the body and its fit to the art; with it, writes assets/rat/body.json.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { ART, at, mm } from "./landmarks.mjs";
+import { ART, at, HEAD_RAISE, mm, turnUp } from "./landmarks.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const reptile = JSON.parse(readFileSync(resolve(ROOT, "assets/reptile/body.json"), "utf8"));
@@ -38,6 +38,14 @@ jaw.size = round([jaw.size[0] * k, span, jaw.size[2] * k]);
 jaw.points = { bite: place(jaw.points.bite) };
 for (const contact of jaw.contacts) { contact.points = contact.points.map(place); contact.direction = round(rotate(contact.direction)); }
 joint("neck").centre = round(neck); joint("jaw").centre = jaw.proximal;
+// The head and jaw carried raised (`HEAD_RAISE`); the skin's head is posed to them (build-assets.mjs).
+const up = (p) => round(turnUp(p, neck, HEAD_RAISE)), upward = (v) => round(turnUp(v, [0, 0, 0], HEAD_RAISE));
+for (const part of [head, jaw]) {
+  part.proximal = up(part.proximal); part.distal = up(part.distal);
+  part.points = Object.fromEntries(Object.entries(part.points).map(([key, p]) => [key, up(p)]));
+}
+for (const contact of jaw.contacts) { contact.points = contact.points.map(up); contact.direction = upward(contact.direction); }
+joint("jaw").centre = jaw.proximal;
 
 // The tail, in two.
 const base = segment("tail.base"), end = segment("tail.tip");

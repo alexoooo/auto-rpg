@@ -8,7 +8,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_TROT } from "./tuning.ts";
 import { deepFreeze } from "../state.ts";
 import { fitsPaws, type GaitPart } from "./parts.ts";
-import type { QuadrupedView, TravelOrders } from "./crawl.ts";
+import { overPaws, type QuadrupedView, type TravelOrders } from "./crawl.ts";
 
 /** Travel admission reads the body's actual heading against the requested direction. */
 export function headingAligned(yaw: number, face: Orders["face"], maximum: number): boolean {
@@ -24,7 +24,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
     const m = p.mass.value / mass, at = p.centreOfMass.value;
     return [c[0] + m * at[0], c[1] + m * at[1], c[2] + m * at[2]] as Vec3;
   }, [0, 0, 0] as Vec3);
-  const q = root.node.rotationQuaternion!;
+  const over = overPaws(own, names), q = root.node.rotationQuaternion!;
   const groups = names.map((_name, i) => [i]);
   if (names.length === 4) {
     let opposite = 1, farthest = 0;
@@ -93,8 +93,8 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
       if (travelling) { state.centre[0] = view.centre.x; state.centre[2] = view.centre.z; }
       else if (!state.standing) {
         const c = cos(state.yaw), s = sin(state.yaw);
-        state.centre[0] = average[0]! + c * reference[0] + s * reference[2];
-        state.centre[2] = average[2]! - s * reference[0] + c * reference[2];
+        state.centre[0] = average[0]! + c * over[0] + s * over[1];
+        state.centre[2] = average[2]! - s * over[0] + c * over[1];
       }
       state.standing = !travelling;
       state.command.centre[0] = state.centre[0]; state.command.centre[2] = state.centre[2];
