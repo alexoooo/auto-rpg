@@ -12,7 +12,7 @@
  * the failures ended in.
  *
  *   node research/rise-trace.mjs [--model workshop-fighter] [--offsets 0,11.25] [--mind <file.json>]
- *     [--only <held>/<degrees>,...] [--workers N] [--out <rows.json>] [--falls]
+ *     [--loadout <left>,<right>] [--only <held>/<degrees>,...] [--workers N] [--out <rows.json>] [--falls]
  */
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -136,12 +136,17 @@ function summary(rows) {
 
 if (isMainThread) {
   const { values } = parseArgs({ options: { model: { type: "string", default: "workshop-fighter" }, offsets: { type: "string", default: "0" },
-    mind: { type: "string" }, only: { type: "string" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
+    mind: { type: "string" }, loadout: { type: "string" }, only: { type: "string" }, workers: { type: "string" }, out: { type: "string" }, falls: { type: "boolean", default: false } } });
   const { risingJobs } = await import("../src/evaluation/rising.ts");
   const { MINDS } = await import("../src/entrants/game.ts");
   const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
   const only = values.only ? new Set(values.only.split(",")) : null;
-  const jobs = values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset })
+  const [left, right] = (values.loadout ?? "").split(",");
+  const jobs = values.loadout ? risingJobs({ loadouts: [{ left, right }], models: [values.model] })
+    .filter((job) => !only || only.has(`${values.loadout}/${job.degrees}`))
+    .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) => ({
+      key: { model, held: values.loadout, degrees }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: false, equipped: true, mind } }))
+    : values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ target: true, offset })
     .filter((job) => job.model === values.model && (!only || only.has(`${job.held}/${job.degrees}`)))
     .map(({ model, held, seed, start, degrees, balance, grit, gusts }) => ({
       key: { model, held, degrees }, fall: { model, held, seed, start, degrees, balance, grit, gusts, target: true, mind } })));

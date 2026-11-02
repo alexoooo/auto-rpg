@@ -23,6 +23,8 @@ import { groundRefusal } from "../core/control/ground-reading.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { createSenses } from "../core/mind/senses.ts";
 import { STAND_ORDERS } from "../core/intent/orders.ts";
+import { GROUND } from "../core/recovery/ground/held.ts";
+import type { MindReport } from "../core/mind/report.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type World } from "../core/world.ts";
@@ -230,6 +232,7 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
   const wind = startWind(fighter.built, world, fall.gusts ? LAB_GUSTS : CALM, fall.seed);
   const hosted = "view" in body ? body as HostedBody : null, meter = hosted ? groundMeter(hosted, world, fall.balance ?? 0) : null;
   const state = { shoves: 0, shovedAt: null as number | null, ended: false };
+  const ledger = groundLedger(fighter.minded.report ?? null, () => world.time);
   return {
     world, body: fighter.built, actor: null, combatant: fighter,
     get ended() { return state.ended; },
@@ -239,16 +242,45 @@ export async function buildFall(fall: FallCase, engine: EngineName): Promise<Bui
       const { takeover } = check!.state;
       const held = state.shovedAt !== null && takeover === null && !body.down && state.shoves < SHOVED.most && world.time - state.shovedAt >= SHOVED.again;
       if (state.shovedAt === null && world.time >= SHOVED.first || held) { shoving.shove(impulse, degrees); state.shovedAt = world.time; state.shoves++; }
+      ledger.sample();
       if (check!.done() || takeover === null && world.time >= SHOVED_UNFELLED || world.time >= cap + FALL_AFTER) state.ended = true;
     },
     reading() {
       const c = check!.state, stood = c.stage === "stood", frame = meter?.frame();
       return { status: stood ? "stood" : c.takeover === null ? "no takeover" : c.stage === "fell after verification" ? "fell after verification" : "failed",
         stood, handback: frame?.handback ?? null, handBackReason: frame?.handBackReason ?? null, takeover: c.takeover, verified: c.verified, walked: c.walked,
-        trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts ?? []) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
+        trail: (frame?.trail ?? []) as unknown as Json, attempts: (frame?.attempts?.length ? frame.attempts : ledger.attempts(world.time)) as unknown as Json, phases: (frame?.phases ?? {}) as unknown as Json,
         assist: (frame?.assist ?? null) as unknown as Json };
     },
     dispose() { wind.dispose(); shoving.dispose(); body.dispose(); fighter.built.dispose(); world.dispose(); scene.dispose(); babylon.dispose(); },
+  };
+}
+
+/** An attempt at a way up, as a fall's reading records it: begun at, s, how long it ran, s, the ground action, and how it ended. */
+interface GroundAttempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: string }
+
+/**
+ * **A mind's ground attempts from its report**: each ground action (`GROUND`'s, by its kit) it has
+ * ended, from its ledger (`MindReport.ended`), and those under way when read, ended `cap`. A mind
+ * that runs the ground's actions as its own (Option Mind) is read so; one whose rise is a sub-mind's
+ * is read by the ground meter instead. A completed action ends `done`.
+ */
+function groundLedger(report: MindReport | null, clock: () => number) {
+  const ground = new Set((report?.kit ?? []).filter((entry) => entry.kind === GROUND).map((entry) => entry.action));
+  const kept: GroundAttempt[] = [], begun = new Map<number, number>();
+  let seen = 0;
+  return {
+    sample() {
+      for (const action of report?.actions ?? []) if (ground.has(action.action) && !begun.has(action.id)) begun.set(action.id, clock());
+      for (const ended of report?.ended ?? []) {
+        if (ended.sequence <= seen) continue;
+        seen = ended.sequence;
+        if (ground.has(ended.action)) kept.push({ at: ended.began, seconds: ended.ended - ended.began, controller: ended.action,
+          end: ended.ending.kind === "completed" ? "done" : ended.ending.reason ?? ended.ending.kind });
+      }
+    },
+    attempts: (time: number): readonly GroundAttempt[] => [...kept, ...(report?.actions ?? []).filter((action) => ground.has(action.action))
+      .map((action) => { const at = begun.get(action.id) ?? time; return { at, seconds: time - at, controller: action.action, end: "cap" }; })],
   };
 }
 

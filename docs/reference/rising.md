@@ -754,6 +754,39 @@ of the falls first read on the back, the next reading is the front in 9 of 11 an
 Warrior (empty, club), 11 of 14 and 8 of 11 for the Rogue, and 0 of 11 and 1 of 10 for the
 skeleton.
 
+**The Skeleton's roll** (`STEP_UP["crypt-skeleton"].roll`, `RollPoses`). The game's poses do not
+turn the Skeleton: its ribcage is flat and wide, and `swing` leaves it rocking on its back. Its
+own poses and stage times were searched by CMA-ES (the toolkit's `research/cma.mjs`, Node, core
+world, Rapier, 120 Hz, at `a8693571`) on the technique bed (`buildTechnique`), the step-up's
+tuning passed in for each candidate, each pose's channels within the Skeleton's ranges:
+
+1. The four poses' channels (the game's, with the far knee, the far shoulder and, in `swing`, the
+   trunk's twist toward the near side, `rotation near`, which `rollingOver` mirrors for a roll
+   over the left) and their times, scored on the staged roll alone from placed starts on the back
+   and on each side: 4, 4 and 3 of 4 fresh seeds turned onto the front.
+2. Then on the roll and the front sit-back after it, from the same starts: the roll left the arms
+   where the sit-back could not use them (`flat`'s near arm swept back), and the sit-back failed
+   in 1.5 s after every roll.
+3. Then on shoves (`start: shoved`, eight directions 45 degrees apart from 2.8): `flat`'s arms,
+   the roll's and the sit-back's stage times, `fours`' completion and the climb; a direction stood
+   scores 2 and its speed, one rolled 1 and how long the sit-back lasted. Five of eight stood from
+   the step before, six after.
+
+| Skeleton, target falls (`rise-trace.mjs --loadout`) | empty | club | buckler, club | sword | buckler, sword |
+|---|---|---|---|---|---|
+| at `a8693571`, stood of those made | 0 of 15 | 0 of 15 | 0 of 15 | 0 of 14 | 0 of 14 |
+| **its own roll and sit-back**, and the roll held (`routePart`) | **13 of 15**, 15.1 s | 0 | 0 | 5 | 2 |
+
+The first roll from the back still fails in a fall more often than placed: the body lies tilted
+toward a side, and the roll plays its stages and turns it nowhere; rolled again from where it lies
+it turns (the roll held, [Option Mind's rise](#option-minds-rise-on-the-target)).
+
+**Holding the club** the Skeleton stands none: on the technique bed from eight shoves the roll times
+out in four and no sit-back after it stands; in the falls the roll is done in 25 of 44 tries and the
+sit-back in none of 32 (15 end in `fours`, 8 fall back to lying). Rolled over the left, the
+same. A search of all four poses and the sit-back's times scored with and without the club costs
+about 2.5 hours on twelve threads (a club trial runs to its time-outs) and was not run to its end.
+
 ### Where the rise stops
 
 **On the owner's target** (`step-up`, the 64 falls, at `0792d310`; each stage's start read from
@@ -1305,6 +1338,26 @@ median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each p
 | the rise paced by the feet's load, not the balls' height | 14 | – |
 | the rise's hip press | 1 | – |
 
+### The Rogue's arms
+
+The Rogue's elbow extension is twice its measured peak (`WORKSHOP_EXERTIONS`,
+`src/core/human/attributes.ts`; the owner's decision `owner-rogue-arms`): about 50 N m against 23
+to 27, the Warrior's 57. At its measured peak its elbows bear bent on hands and knees
+([Option Mind's rise](#option-minds-rise-on-the-target)), and holding the buckler and the club it
+comes to `fours` and is given up there in most rises. Read on the target's falls by loadout
+(`research/rise-trace.mjs --model workshop-rogue --loadout`, Node, core world, Rapier, 120 Hz, at
+`00500d0f`; stood of 16, median s with a fall not stood at 30):
+
+| Elbow extension | buckler, club | empty | club | buckler, sword | sword |
+|---|---|---|---|---|---|
+| measured | 1, 30.0 | 13, 17.8 | 10 (the table) | 10 (the table) | 14 (the table) |
+| x1.5 | 2, 30.0 | 16, 12.0 | 11, 17.5 | 14, 13.9 | |
+| **x2** | **8, 28.2** | **15, 13.6** | **11, 16.7** | **12, 19.4** | **14, 12.9** |
+| x2, and shoulder flexion x1.5 | 7, 30.0 | 15, 11.6 | | | |
+
+A fall set's stood count moves by about three between sets, so only the buckler and the club's
+moves past it; the shoulder adds nothing. The factor moves every Rogue bout and its strikes.
+
 ## Option Mind's rise on the target
 
 Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 254 of 256
@@ -1358,6 +1411,13 @@ What moves it, each read on the same falls against the one before:
   hand-over began a new rise from where the body was: the legs' resumed height rises over 1.3 s
   (`RISING_SECONDS`), at 0.17 m/s from 0.8 of standing height, so the whole body moves and
   verification waits. The edge now holds the body until it stands ready or fails.
+- **The roll is the technique's** too, once it has turned the body (`routePart`'s `yields`). The
+  staged roll yielded whenever it lay slack between its tries, so a roll that left the body on its
+  back or side was cut by the brace or a flatten and begun again from the back over the same side;
+  the roll alone, lying slack and reading its lie again, plays the side's roll from where the body
+  is. Read on the target's falls at `a8693571` with the Skeleton's roll: the Skeleton empty-handed
+  from 0 to 9 of 15; the Warrior 32 of 32 either way (median 9.18 s); the Rogue 24 and 23 of 32
+  (median 18.8 and 15.4 s), the same within the fall set's spread.
 - **Idle settling steps one foot** (`idleGoal`,
   [idle settling](human-and-strikes.md#idle-settling)). It read the footing about the soles'
   midpoint, so both feet were off by the same distance and both stepped.
@@ -1600,6 +1660,11 @@ arms folded); placed at rest it is done in none.
   `tall 1` at 1, 0.8 and 0.5 stand 60 of its 64 against 62, 0.9 s sooner. The Warrior settled to
   0.1 or 0.05 m/s before it reads its lie stands 26 and 24 of its 32 target falls against 29.
 - **The contact sequence** (`CONTACT_RISE`) as the target's riser: none of 64 stands.
+- **The Riser entrant's contact-driven rise** (`src/entrants/riser/@924e9c97`: turn onto the
+  right side, gather, plant, extend, each held until its contacts say it is done), on the target's
+  falls traced (`research/rise-trace.mjs`, Node, Rapier, 120 Hz, at `924e9c97`): the Rogue empty
+  and with the club stands none of 32 against Option Mind's 24 (median 18.8 s); the Skeleton
+  empty-handed none of 15 made. Its moves stall at `right` and `gather`. Deleted, not folded in.
 - **The bear route** from hands and knees: onto hands and toes, hands and feet, a squat with the
   hands down, then the hands let go. As built (`research/core-posture.mjs --variants built`,
   at `cb523f2f`) hands and toes, hands and feet and the squat at 0.70 m are held (margins 0.50,

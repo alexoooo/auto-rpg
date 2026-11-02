@@ -343,6 +343,8 @@ export interface Mirror {
    * (the margin over the inertia beyond the joint), the root as the joints and its own motion carry
    * it (`forecast`). While anything but its legs' ends touches (`legSegments`), the forecast does
    * not know the contact: it reads the body as it was, and the command it answers expects nothing.
+   * A command made while the body touched otherwise than it touches now (`touchingOf`: a foot's
+   * strike or lift-off since) carries it no further: what the command planned for is gone.
    * With no delay it does nothing. Read after `refresh` with dynamics.
    */
   ahead(dt: number): void;
@@ -449,10 +451,12 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
   // The speeds each command in flight was solved to reach and the speeds it was solved from, a slot a step of the delay; whether its body was on its legs as its mind last stepped.
   const flight = { expect: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)), from: Array.from({ length: statics.delay }, () => new Float64Array(n)),
-    sent: 0, legs: true };
+    sent: 0, legs: true, touched: new Float64Array(statics.delay), touching: 0 };
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) }, flight };
   const expect = new Float64Array(n).fill(NaN), step = new Float64Array(6 + n).fill(NaN), legs = legSegments(statics.spec);
+  /** Each channel's range, rad (`DofSpec.min`, `max`). */
+  const lows = Float64Array.from(channels, (c) => c.dof.spec.min.value), highs = Float64Array.from(channels, (c) => c.dof.spec.max.value);
   const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
@@ -618,17 +622,28 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       if (reading) dynamics!.update(jointAngles, motion_);
     },
     ahead(dt) {
-      flight.legs = onLegs(read, legs);
       const d = flight.expect.length;
+      if (d === 0) return;
+      flight.legs = onLegs(read, legs);
+      flight.touching = touchingOf(read, records);
       if (!flight.legs) return;
       for (let k = 0; k < d; k++) {
         const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, from = flight.from[slot]!, mass = dynamics!.mass;
+        if (flight.touched[slot] !== flight.touching) continue;
         for (let i = 0; i < n; i++) {
           const a = (wanted[i]! - from[i]!) / dt;
           if (Number.isNaN(a)) { step[6 + i] = NaN; continue; }
           const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
           const toward = (wanted[i]! - speeds[i]!) / dt;
           step[6 + i] = toward < a - reach ? a - reach : toward > a + reach ? a + reach : toward;
+        }
+        // A joint's stop holds it: a channel carried past its range ends the step at its stop, at rest.
+        for (let i = 0; i < n; i++) {
+          const accel = Number.isNaN(step[6 + i]!) ? 0 : step[6 + i]!, next = angles[i]! + dt * (speeds[i]! + dt * accel);
+          const stop = next > highs[i]! ? highs[i]! : next < lows[i]! ? lows[i]! : NaN;
+          if (Number.isNaN(stop)) continue;
+          const reach = (stop - angles[i]!) / dt;
+          step[6 + i] = ((reach * (next - stop) > 0 ? reach : 0) - speeds[i]!) / dt;
         }
         mirror.forecast(step, dt);
       }
@@ -671,6 +686,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         if (!flight.legs) expect.fill(NaN);
         const slot = flight.sent % d;
         flight.from[slot]!.set(speeds);
+        flight.touched[slot] = flight.touching;
         flight.expect[slot]!.set(expect);
         flight.sent += 1;
       }
@@ -713,6 +729,15 @@ function legSegments(spec: BodySpec): ReadonlySet<string> {
 }
 
 /** Whether `read` touches anything with none but the segments its legs bear it on (`legs`), as last read. */
+/** Which of `records`' segments the solver pushed on, as last read: a bit a segment. */
+function touchingOf(read: ReadBody, records: readonly { readonly segment: ReadSegment }[]): number {
+  let bits = 0;
+  for (let i = 0; i < records.length; i++) {
+    for (const contact of read.physics.contactsOf(records[i]!.segment.body)) if (contact.impulse > 0) { bits |= 1 << i; break; }
+  }
+  return bits;
+}
+
 function onLegs(read: ReadBody, legs: ReadonlySet<string>): boolean {
   for (const segment of read.segments.values()) if (!legs.has(segment.spec.name) && read.physics.contactsOf(segment.body).length > 0) return false;
   return true;

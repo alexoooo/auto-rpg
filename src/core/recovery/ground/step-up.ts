@@ -10,7 +10,7 @@ import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../../mind/mind.ts";
 import { stagedRise } from "../rise/staged.ts";
-import { RISE, derivedRecipe, rollOver, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
+import { RISE, derivedRecipe, rollOver, type BearStage, type Recipe, type RollPoses, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
@@ -23,14 +23,15 @@ interface StageTiming { readonly scale: number; readonly progress?: NonNullable<
  * height, s, and each of the recipe's stages by name, a roll's stages as `roll <name>`; and, where
  * a body's bearing stages come to rest short of their aims, how long at rest and within how many
  * times their tolerances hands them on (`Recipe.progress`, `docs/reference/rising.md#what-a-bearing-stage-is-done-by`);
- * and the side a body's roll from its back goes over where it is not the recipe's (`rollOver`,
- * `docs/reference/rising.md#the-roll`).
+ * and the side a body's roll from its back goes over where it is not the recipe's, and its poses where
+ * they are not the game's (`rollOver`, `docs/reference/rising.md#the-roll`).
  */
 interface StepUpTuning {
   readonly settle: { readonly speed: number; readonly seconds: number };
   readonly climb: number;
   readonly rest?: { readonly seconds: number; readonly widen: number };
   readonly over?: Side;
+  readonly roll?: RollPoses;
   readonly stages: Readonly<Record<string, StageTiming>>;
 }
 
@@ -109,16 +110,27 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
     },
   },
   "crypt-skeleton": {
-    settle: { speed: .1881, seconds: .05626 }, climb: 1.82,
+    settle: { speed: .1881, seconds: .05626 }, climb: 1.6377,
+    // Its own roll and sit-back, searched on its body (`docs/reference/rising.md#the-roll`).
+    over: "right",
+    roll: {
+      wind: { "hip.far flexion": 1.481, "hip.far abduction": .216, "hip.near flexion": -.284, "shoulder.near flexion": 1.632, "shoulder.far flexion": 2.832 },
+      swing: { "hip.far flexion": 1.59, "hip.far internal rotation": -.261, "hip.near abduction": .019, "lumbar flexion": .716, "shoulder.far flexion": 2.022, "shoulder.near flexion": .931, "shoulder.near abduction": .796, "knee.far flexion": .388, "lumbar rotation near": .001, "thoracic rotation near": -.338, "shoulder.far abduction": .293 },
+      over: { "hip.far flexion": 1.577, "hip.far abduction": .142, "shoulder.near flexion": 2.978, "knee.far flexion": .113, "shoulder.far flexion": 1.935 },
+      flat: { "shoulder.near flexion": 2.689, "shoulder.far internal rotation": -.844, "elbow.far flexion": 1.579, "shoulder.far flexion": -.368, "elbow.near flexion": .28, "shoulder.near abduction": .002 },
+    },
     stages: {
-      "roll wind": { scale: 2 },
-      "roll swing": { scale: 1.694 },
-      "roll over": { scale: 2 },
-      "roll flat": { scale: .7876 },
-      "fold": { scale: .2594 },
-      "tuck": { scale: .1618 },
-      "prop": { scale: .6194 },
-      "fours": { scale: .5009, progress: { speed: .6359, near: .1422, turn: .2654 } },
+      "up": { scale: 1.0063 },
+      "sit back": { scale: 1.1391 },
+      "plant": { scale: .7391 },
+      "roll wind": { scale: .7776 },
+      "roll swing": { scale: .5243 },
+      "roll over": { scale: 2.165 },
+      "roll flat": { scale: .7084 },
+      "fold": { scale: .2391 },
+      "tuck": { scale: .4884 },
+      "prop": { scale: .7831 },
+      "fours": { scale: .737, progress: { speed: .7269, near: .2155, turn: .3278 } },
       "sit": { scale: 1.447 },
       "kneel 0": { scale: .8964 },
       "kneel 1": { scale: .3324 },
@@ -175,7 +187,9 @@ function tunedRecipe(tuning: StepUpTuning, base: Recipe): Recipe {
   };
   return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds,
     ...(tuning.rest ? { restSeconds: tuning.rest.seconds, restWiden: tuning.rest.widen } : {}) },
-    roll: { back: (tuning.over ? rollOver(tuning.over) : base.roll.back).map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
+    roll: { back: (tuning.over || tuning.roll ? rollOver(tuning.over ?? "right", tuning.roll) : base.roll.back).map(timed("roll ")),
+      left: (tuning.roll && base.roll.left.length ? rollOver("left", tuning.roll).slice(2) : base.roll.left).map(timed("roll ")),
+      right: (tuning.roll && base.roll.right.length ? rollOver("right", tuning.roll).slice(2) : base.roll.right).map(timed("roll ")) },
     rise: base.rise.map(timed("")) });
 }
 
