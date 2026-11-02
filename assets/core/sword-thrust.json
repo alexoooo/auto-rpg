@@ -4,7 +4,7 @@
     "settings": {
       "pace": 1.021,
       "reach": 0.8,
-      "band": 0.03,
+      "band": 0.25,
       "settle": 0.33499423278110396,
       "through": 0.019552995312759763,
       "hips": 0.5046743860800489,
@@ -17,7 +17,7 @@
       "follow": 0.02,
       "longest": 0.5,
       "recover": 0.376,
-      "aside": 0.17,
+      "aside": 0.3,
       "squared": true,
       "above": 0.1,
       "halts": true,
