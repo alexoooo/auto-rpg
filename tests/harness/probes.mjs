@@ -25,16 +25,21 @@ import { wrap } from "../../src/core/math/turn.ts";
 export const lookupWith = (more) => Object.freeze({ of: (role, config) => more[config.kind] ?? partLookup.of(role, config) });
 
 /**
- * A rig: the Warrior standing in the guard on a stand of its own, its motor `motor` (the game's
+ * A rig: the Warrior standing in the guard on a stand of its own, built turned `RIG_TURN` about up
+ * (what a body takes as it is born, it takes facing as it was built), its motor `motor` (the game's
  * unless named), its legs `legs`, the parts found by `lookup`. `run(seconds, ask)` steps it, each
  * control step asking `ask(view)`'s claim: the legs goal (`legs`, a walk of none facing the legs'
  * heading unless set), the posture over the guard, and the other claim terms as they are.
  * `wrapLegs(legs)` stands in for the legs a test controls; `filter(command)` for the command a
  * motor is given.
  */
+/** How far a rig's body is built turned from the world's heading 0, rad: none of its legs' headings by default. */
+const RIG_TURN = 1;
+
 export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = GAME_MOTOR, lookup = partLookup, wrapLegs = (legs) => legs,
   filter = (command) => command, engine, delay, mirrored } = {}) {
-  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec), stand = await coreStand(spec, { posture: guard, engine, delay, mirrored });
+  const spec = modelSpec("workshop-fighter"), guard = guardPosture(spec);
+  const stand = await coreStand(spec, { posture: guard, rotation: [0, Math.sin(RIG_TURN / 2), 0, Math.cos(RIG_TURN / 2)], engine, delay, mirrored });
   const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
   const legs = wrapLegs(legsOf(lookup, hosted.driver, legsConfig));
   let ask = () => ({});

@@ -152,7 +152,8 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   const feel = (time: number): void => {
     moved();
     state.time = time;
-    state.born ??= time;
+    // At a delay the body is born on the first step its driver's decision is carried out.
+    if (!late) state.born ??= time;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < fists.length; i++) fists[i]![1].update();
     rootFrameToRef(motor.root, state.root);
@@ -195,6 +196,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.felt = true;
     if (state.pending.length >= own.delay) {
       const due = state.pending.shift();
+      if (due !== null && due !== undefined) state.born ??= clock.time;
       const next = due === null || due === undefined ? null : driver?.carry(view, due, dt);
       if (next) obey(next);
     }
