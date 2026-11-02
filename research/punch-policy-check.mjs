@@ -44,7 +44,7 @@ async function trial(o, act, protocol, condition, hz) {
       }
     }
     const r = reader.reading(), h = r.hit;
-    return { outcome: r.outcome, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, faced: h.faced, speed: h.speed }
+    return { outcome: r.outcome, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }
       : { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean }) };
   } finally { built.dispose(); }
 }
