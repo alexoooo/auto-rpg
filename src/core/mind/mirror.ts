@@ -5,7 +5,7 @@ import type { ContactPair, MassProperties } from "../engine/engine.ts";
 import { NOTHING_SENSED, type BodySense, type Senses } from "./senses.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
 import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
-import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
+import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
 import type { BodySpec, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
@@ -178,7 +178,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   const put = (x: number) => { channel.inbound[k++] = x; };
   const room = (more: number) => { channel.inbound = grown(channel.inbound, k + more, channel.allocate); };
   const vec = (a: { readonly x: number; readonly y: number; readonly z: number }) => { put(a.x); put(a.y); put(a.z); };
-  const triple = (a: Vec3) => { put(a[0]); put(a[1]); put(a[2]); };
+  // Stored straight from array to array: a number read from an array of numbers and passed on is boxed.
+  const triple = (a: Vec3) => { const into = channel.inbound; into[k] = a[0]; into[k + 1] = a[1]; into[k + 2] = a[2]; k += 3; };
   const quat = (q: { readonly x: number; readonly y: number; readonly z: number; readonly w: number }) => { put(q.x); put(q.y); put(q.z); put(q.w); };
   // The bodies this writing's contacts name, which its labels are written for.
   const touched = new Map<number, BodyRef>();
@@ -381,6 +382,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const index = new Map<ReadSegmentBody, number>(records.map((record, i) => [record.segment.body, i]));
   /** Where each segment's contacts and manifolds start in the inbound numbers, as last read. */
   const contactsAt = new Int32Array(records.length), manifoldsAt = new Int32Array(records.length);
+  // Each segment's contacts and manifolds as an unfiltered read last made them from the numbers: the same until they are refreshed.
+  const whole = { contacts: new Array<readonly ReadContact[] | null>(records.length).fill(null), manifolds: new Array<readonly ReadManifold[] | null>(records.length).fill(null) };
   const names = new Map<number, string>();
   const refOf = (code: number): BodyRef | null => {
     if (Number.isNaN(code)) return null;
@@ -397,8 +400,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const physics: ReadPhysics = Object.freeze({
     gravity: statics.gravity,
     contactsOf(body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean): readonly ReadContact[] {
-      const a = channel.inbound;
-      let at = contactsAt[segmentOf(body)]!, out: ReadContact[] | null = null;
+      const a = channel.inbound, s = segmentOf(body), kept = wanted ? null : whole.contacts[s]!;
+      if (kept) return kept;
+      let at = contactsAt[s]!, out: ReadContact[] | null = null;
       const count = a[at++]!;
       for (let c = 0; c < count; c++) {
         const other = refOf(a[at]!), fixed = a[at + 1]!, impulse = a[at + 2]!, pairs = a[at + 9]!;
@@ -409,11 +413,13 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let p = 0; p < pairs; p++, at += PAIR) made.push({ mine: a[at]!, theirs: a[at + 1]!, impulse: a[at + 2]!, point: at3(a, at + 3), normal: at3(a, at + 6) });
         (out ??= []).push({ other, fixed: Number.isNaN(fixed) ? null : fixed, impulse, point, normal, pairs: made });
       }
+      if (!wanted) whole.contacts[s] = out ?? EMPTY;
       return out ?? EMPTY;
     },
     contactManifoldsOf(body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean) {
-      const a = channel.inbound;
-      let at = manifoldsAt[segmentOf(body)]!;
+      const a = channel.inbound, s = segmentOf(body), kept = wanted ? null : whole.manifolds[s]!;
+      if (kept) return kept;
+      let at = manifoldsAt[s]!;
       const out: { other: BodyRef | null; fixed: number | null; mine: number; theirs: number; normal: Vec3; points: { point: Vec3; distance: number }[]; impulse: number }[] = [];
       const count = a[at++]!;
       for (let m = 0; m < count; m++) {
@@ -424,6 +430,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let p = 0; p < points; p++, at += 4) made.push({ point: at3(a, at), distance: a[at + 3]! });
         out.push({ other, fixed: Number.isNaN(fixed) ? null : fixed, mine, theirs, normal, points: made, impulse });
       }
+      if (!wanted) whole.manifolds[s] = out.length === 0 ? EMPTY : out;
       return out.length === 0 ? EMPTY : out;
     },
   });
@@ -551,6 +558,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       help.given.force.set(a[k]!, a[k + 1]!, a[k + 2]!); help.given.moment.set(a[k + 3]!, a[k + 4]!, a[k + 5]!); k += 6;
       help.meter.steps = a[k++]!; help.meter.force = a[k++]!; help.meter.moment = a[k++]!; help.withdrawn = a[k++] === 1;
       clock.out = a[k++] === 1; clock.life = a[k++]!;
+      whole.contacts.fill(null); whole.manifolds.fill(null);
       for (let s = 0; s < records.length; s++) {
         contactsAt[s] = k;
         const contacts = a[k++]!;

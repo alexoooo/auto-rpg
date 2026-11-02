@@ -87,10 +87,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     pending: [] as (BodyCommand | null)[],
     /** Whether the ground was read this step, by the motor part before the look. */
     groundRead: false,
+    /** The command motor control carries out: the pushes it gives and the motor programs it runs beside them. */
+    obeyed: { pushes: [] as readonly MusclePush[], programs: NO_PROGRAMS as readonly string[] },
   };
-  // The motor programs the body knows (`Body.program`), and the ones the command runs.
+  // The motor programs the body knows (`Body.program`).
   const programs = new Map<string, MotorProgram>();
-  let given: readonly MusclePush[] = [], running: readonly string[] = NO_PROGRAMS;
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
   // The step's reading: its stamp moves wherever the view may, so it is no state and carries nothing on.
@@ -138,10 +139,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
       if (!task.accel && !task.spin) throw new Error(`a point driven on ${task.segment} needs an acceleration or a spin`);
       if (![...task.accel ?? [], ...task.spin ?? []].every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration and spin`);
     }
-    given = command.pushes;
-    running = command.programs ?? NO_PROGRAMS;
-    for (const name of running) if (!programs.has(name)) throw new Error(`no motor program ${name}`);
-    motor.setPushes(given);
+    state.obeyed.pushes = command.pushes;
+    state.obeyed.programs = command.programs ?? NO_PROGRAMS;
+    for (const name of state.obeyed.programs) if (!programs.has(name)) throw new Error(`no motor program ${name}`);
+    motor.setPushes(command.pushes);
     motor.setPoints(command.points ?? NO_POINTS);
     motor.setStance(command.stance);
     state.held = command.stance ? null : command.held ?? null;
@@ -182,9 +183,9 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   };
   /** Motor control on the body as it is: the programs' pushes beside the command's, then the solve. */
   const control = (dt: number): void => {
-    if (running.length > 0) {
-      const pushes = [...given];
-      for (const name of running) pushes.push(...programs.get(name)!(dt) ?? NO_PUSHES);
+    if (state.obeyed.programs.length > 0) {
+      const pushes = [...state.obeyed.pushes];
+      for (const name of state.obeyed.programs) pushes.push(...programs.get(name)!(dt) ?? NO_PUSHES);
       motor.setPushes(pushes);
     }
     motor.control(muscles, dt);

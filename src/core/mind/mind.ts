@@ -173,11 +173,15 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     });
   }
   const listeners = new Set<(step: number, time: number) => void>();
-  let observed = null as Hook | null;
+  let observed = null as Hook | null, shown: Hook | null = null;
+  const show = () => { if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); } };
   const observe = () => {
-    if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); }
+    show();
     for (const one of listeners) one(world.steps, world.time);
   };
+  // A mirror shows its body as each step leaves it, and again as a load puts it back: what its mind
+  // says of itself between steps (`MindReport`) reads the body as it stands, a load's as the save's.
+  if (mirrored) { observed = world.afterPhysics(observe); shown = world.onLoad(show); }
   const mirror = mirrored?.mirror;
   const own: OwnBody = { spec: built.spec,
     delay: world.delay,
@@ -192,12 +196,12 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
     } };
   let made: M;
   try { made = make(own); }
-  catch (error) { observed?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
+  catch (error) { observed?.dispose(); shown?.dispose(); thinking?.dispose(); muscles.dispose(); throw error; }
   mind = made;
   return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
     state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null,
       ...(mirrored ? { asked: mirrored.mirror.command } : {}) },
-    dispose: () => { made.dispose?.(); observed?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
+    dispose: () => { made.dispose?.(); observed?.dispose(); shown?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 
 /**

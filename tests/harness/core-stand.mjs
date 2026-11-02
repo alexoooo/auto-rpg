@@ -68,6 +68,7 @@ export const saveStand = (world, states) => ({ physics: world.physics.save(), st
 export function loadStand(world, states, saved) {
   world.physics.load(saved.physics);
   loadState({ world: world.state, ...states }, saved.state);
+  world.loaded();
 }
 
 /**

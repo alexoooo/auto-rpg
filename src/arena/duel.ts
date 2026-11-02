@@ -465,6 +465,7 @@ export class Duel {
     this.world.physics.load(saved.physics);
     loadState(this.state, saved.state);
     this.senses.show();
+    this.world.loaded();
   }
 
   /** Step the world until the verdict, or `seconds` more; returns the verdict, if there is one. */
