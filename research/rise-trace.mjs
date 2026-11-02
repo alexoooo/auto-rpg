@@ -142,7 +142,7 @@ if (isMainThread) {
   const mind = values.mind ? JSON.parse(readFileSync(values.mind, "utf8")) : MINDS.option.config;
   const only = values.only ? new Set(values.only.split(",")) : null;
   const [left, right] = (values.loadout ?? "").split(",");
-  const jobs = values.loadout ? risingJobs({ loadouts: [{ left, right }], models: [values.model] })
+  const jobs = values.loadout ? values.offsets.split(",").map(Number).flatMap((offset) => risingJobs({ loadouts: [{ left, right }], models: [values.model], offset }))
     .filter((job) => !only || only.has(String(job.degrees)))
     .map(({ model, loadout, seed, start, degrees, balance, grit, gusts }) => ({
       key: { model, held: values.loadout, degrees }, fall: { model, loadout, seed, start, degrees, balance, grit, gusts, target: false, equipped: true, mind } }))

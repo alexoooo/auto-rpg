@@ -1733,3 +1733,35 @@ arms folded); placed at rest it is done in none.
   measured hulls with the club's haft leaning back over the head, at `83c3540c`: 9 of 14, 11 of
   16; 0, 2. The hulls cost the rise; the upright guard of [Staged](#staged) moves only the club's
   rows, within a row's spread.
+
+- **Speed by the stages' own settings** (at `fbefff31`, `rise-trace.mjs --loadout`, Node stand,
+  core world, Rapier, 120 Hz; stood of 16 and the median, empty-handed then with the club, against
+  the code's). The Warrior stands 16 and 16 at 8.76 and 10.75 s, 1 of each within 6 s: a fall on its
+  back lands and braces for about 0.6 s, rolls for 2.3 to 2.8 s, and rises from the front for 4.2
+  to 4.9 s (`plant` 1.0, `up` 1.1, the steady after it 1.1), verified 0.6 s after; a front fall
+  stands in 5.5 to 6.5 s. The Rogue stands 15 and 11 at 13.6 and 16.7 s, none within 6 s: its roll
+  takes 4.3 s, its `prop` 1.5 and its settling before a roll 1.5 to 2 s. None closes the gap:
+
+  | Change | Warrior | Rogue |
+  |---|---|---|
+  | `up` paced 2.4 of the way a second, not 1.6 | 15, 16; 8.78, 10.93 s | – |
+  | step up's climb 0.35 s, not the Warrior's 0.614 | 16, 15; 9.11, 11.04 s | – |
+  | `plant` ends on the balls within 0.025 m for 0.05 s, not 0.01 m for 0.1 s | 16, 16; 7.10, 10.72 s (6 and 0 within 6 s) | 12, 10; 15.86, 18.07 s |
+  | the Rogue's `prop` at 0.3 of its time, not 1 | – | 14, 6; 16.53, 30 s |
+  | the Rogue's roll at 0.75 of its times | – | 12, 10; 13.89, 20.08 s |
+  | the Rogue settled at 0.2 m/s, not 0.06 | – | 11, 11; 11.09, 13.02 s |
+  | the Rogue settled at 0.12 m/s | – | 14, 12; 12.10, 15.53 s; on the falls turned 11.25 degrees 13, 9; 20.38, 24.13 s against 14, 9; 13.25, 17.90 s |
+
+  Step up's settings are a searched set, and a gain on one set of falls is lost on the next. 15 of
+  16 within 6 s needs a rise from the back of about 3 s; the roll and the rise from the front are
+  each longer.
+- **The Skeleton stronger with a held item** (its figure's `strength`): with the club 3 of 16 at
+  1.5 and 0 at 2, against 0; with the sword 7 and 3, against 6. Its strength is not what holds it:
+  with the club `fours` begins with the pelvis 1.5 to 3 rad from its aim and neither shin nor hand
+  down, the body not on hands and knees after `prop`.
+
+What the Warrior with the club loses after it stands: in 5 of its 16 falls 2 to 7.6 s pass between
+the rise's end and verified standing, the idle settling begun two or three times with each foot
+the same 0.4 m from its place, the feet 0.55 to 0.81 m apart. Lying on the club, the Warrior's hand
+holding it rests on it across the other hand, the head and the upper trunk, and reads down only
+once the body shifts off it, about 1 s into `fours`.

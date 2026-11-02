@@ -238,7 +238,7 @@ interface RisingOptions {
   readonly balance?: number;
   readonly gusts?: boolean;
   readonly target?: boolean;
-  /** The target's shoves turned this far, degrees: its fresh falls (`FRESH_OFFSET`). */
+  /** The shoves turned this far, degrees: the target's fresh falls (`FRESH_OFFSET`), or a loadout's. */
   readonly offset?: number;
   readonly obstacles?: boolean;
   readonly loadouts?: readonly Loadout[] | null;
@@ -265,7 +265,7 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   const jobs: RisingJob[] = [], techniques = options.techniques ? { techniques: options.techniques } : {};
   if (options.loadouts) {
     for (const model of options.models!) for (const loadout of options.loadouts) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
+      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
   } else if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"] as const) for (const held of ["empty", "club"] as const) for (let direction = 0; direction < 16; direction++)
       jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
