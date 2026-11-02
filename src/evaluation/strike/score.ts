@@ -4,13 +4,15 @@
 import type { Hand, StrikeReading } from "./read.ts";
 
 /**
- * A trial's score, `hand` the hand it struck with, null a limb the bar sets no test for: a landed
+ * A trial's score, `hand` the hand it struck with, null a foot: a landed
  * blow 9, and a hand's above 9 by how far inside each of the bar's tests it is, each
  * margin a share of its limit's room up to the test's best, so a search moves off every test's
  * edge, the ones its blows scatter most across included; else up to 8 by how
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin, the mass counted `heavier` times within those 8 (8 for another limb's on the mark),
- * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A held item's blow,
+ * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A foot's blow, which the
+ * bar tests by its speed (`Bar.foot`, `StrikeHit.foot`), scores alike: landed, 9 and up to 1 more as
+ * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
  * which the bar tests by its energy and its face (`Bar.held`, `StrikeHit.faced`), scores alike:
  * landed, 9 and up to 1 more as its energy goes from the bar to twice it; else up to 8, half by its
  * share of the bar's energy and half for meeting with its face. The bar is the reading's, its striker's
@@ -21,7 +23,10 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
   if (reading.down) return -3;
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;
-  if (hand === null) return reading.outcome === "landed" ? 9 : 8 - (reading.ended === null ? 0.5 : 0);
+  if (hand === null) {
+    const share = hit.foot ? hit.foot.speed / hit.foot.bar : 0;
+    return reading.outcome === "landed" ? 9 + Math.min(1, Math.max(0, (share - 1) / .5)) : 8 * Math.min(1, share) - (reading.ended === null ? 0.5 : 0);
+  }
   if (typeof hit.hard === "boolean") {
     const share = hit.energy / BAR.held.energy;
     return reading.outcome === "landed" ? 9 + Math.min(1, share - 1) : 4 * (Math.min(1, share) + (hit.faced === false ? 0 : 1)) - (reading.ended === null ? 0.5 : 0);

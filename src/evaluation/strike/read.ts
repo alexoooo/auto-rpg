@@ -36,7 +36,7 @@ function limbAbove(spec: BodySpec, segment: string, steps: number): string | und
 }
 export type Hand = "left" | "right";
 
-/** The limb a trial strikes with: a hand, read against the bar, or a foot, which the bar sets no test for. */
+/** The limb a trial strikes with: a hand, read against the bar's fist or held blow, or a foot, read against its kick (`Bar.foot`). */
 export type Limb = { readonly hand: Hand } | { readonly foot: Hand };
 
 /** The hand `limb` names; null for a foot. */
@@ -53,6 +53,11 @@ export type Bar = {
   readonly run: number; readonly cone: number; readonly within: number; readonly along: number; readonly bend: number; readonly lean: number;
   /** A held item's blow's energy, J. */
   readonly held: { readonly energy: number };
+  /**
+   * A foot's blow, m/s: a kick's ankle's peak speed from the action's start to the contact; a
+   * stomp's foot's speed into it, over its last `run` m.
+   */
+  readonly foot: { readonly kick: number; readonly stomp: number };
 };
 
 /**
@@ -82,12 +87,19 @@ export type Bar = {
  * the club blunt, the sword's cut with its edge, its thrust with its point). Its speed and time are
  * reported, not tested: the rod's one-handed speeds have no spread to set a bar by, and the fist's
  * `within` is engineering.
+ *
+ * A foot's blow is judged by `foot` alone: the ankle's peak speed, m/s, the taekwondo novices' front
+ * kick less one SD (Landeo & McIntosh 2007, 8.18 ± 1.76 m/s; [human strike reference](../../../docs/reference/human-strike-reference.md#3b-front-kick-and-stomp)).
+ * A stomp is judged by its foot's speed into the contact, the stamps on a dummy in a simulated
+ * ruck less one SD (Oudshoorn et al. 2018, 4.3 m/s, 2.1 to 6.3 over 12 people, the SD derived from
+ * the range; [human strike reference](../../../docs/reference/human-strike-reference.md#3b-front-kick-and-stomp)).
  */
 export const BAR: Bar = Object.freeze({
   speed: Object.freeze({ right: 6.8, left: 5.3 }),
   mass: Object.freeze({ right: 2.12, left: 2.34 }),
   run: .1, cone: 20, within: .5, along: 45, bend: 30, lean: 30,
   held: Object.freeze({ energy: 64.8 }),
+  foot: Object.freeze({ kick: 6.4, stomp: 3 }),
 });
 
 /** A body's strength: its muscles' peak isometric torques, both ways about every joint's every axis, summed, N m. */
@@ -106,7 +118,7 @@ const BARS = new WeakMap<BodySpec, Bar>();
  * mass against his. The energy a body puts into a blow is its muscles' work, so it scales with
  * their strength (`strengthOf`, the ratio `s`); the mass a blow meets with scales with the body's
  * (`m`); a speed is then the one that carries that energy in that mass, `sqrt(s / m)`. So a held
- * item's energy is scaled by `s`, a fist's mass by `m` and its speed by `sqrt(s / m)`; the form's
+ * item's energy is scaled by `s`, a fist's mass by `m` and its speed and a foot's by `sqrt(s / m)`; the form's
  * angles and time are not. The Warrior's is `BAR` itself. Checked against the one sex difference
  * the sources measure at a fixed implement: women swing a 1 kg rod one-handed at 0.72 of men's tip
  * speed, 0.52 of the energy (Muggenthaler et al. 2018,
@@ -120,7 +132,7 @@ export function barOf(spec: BodySpec): Bar {
   const bar: Bar = strength === 1 && mass === 1 ? BAR : Object.freeze({ ...BAR,
     speed: Object.freeze({ right: BAR.speed.right * speed, left: BAR.speed.left * speed }),
     mass: Object.freeze({ right: BAR.mass.right * mass, left: BAR.mass.left * mass }),
-    held: Object.freeze({ energy: BAR.held.energy * strength }) });
+    held: Object.freeze({ energy: BAR.held.energy * strength }), foot: Object.freeze({ kick: BAR.foot.kick * speed, stomp: BAR.foot.stomp * speed }) });
   BARS.set(spec, bar);
   return bar;
 }
@@ -136,8 +148,8 @@ export type StrikeContact = {
 
 /**
  * How the asked limb's touch on the mark measured against the bar: a bare hand's against each of
- * its fist's tests; a hand's holding an item against `hard` alone; a foot's, which the bar sets
- * none for, its speed and line alone, its arm's form and its tests null.
+ * its fist's tests; a hand's holding an item against `hard` alone; a foot's against `fast` alone,
+ * by its kick's or its stomp's speed (`Bar.foot`), its arm's form null.
  */
 type StrikeHit = StrikeContact & {
   /** Its strike point's speed over its last `run` m, m/s; null where it travelled less. */
@@ -148,6 +160,8 @@ type StrikeHit = StrikeContact & {
   readonly along: number | null;
   /** How far the elbow was from straight at contact, and the chest from upright, rad; null for a foot. */
   readonly bend: number | null; readonly lean: number | null;
+  /** A foot's blow: the speed its bar reads (`Bar.foot`), m/s, and that bar; null for a hand. */
+  readonly foot: { readonly speed: number; readonly bar: number } | null;
   /** Which of the bar's tests it met; null for a test the bar does not set the limb. */
   readonly fast: boolean | null; readonly heavy: boolean | null; readonly square: boolean | null; readonly soon: boolean | null;
   readonly lined: boolean | null; readonly extended: boolean | null; readonly upright: boolean | null;
@@ -258,10 +272,15 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const armed = hand !== null && !holdsNothing(spec, effector);
   /** What the action asked meets the target with (`ExecutorPart.meets`), read where it begins: blunt where its executor says none. */
   let meets: Mechanism = "blunt";
+  /** Whether the action asked is a stomp, read where it begins: a foot's blow judged by its speed into the contact, not its ankle's peak. */
+  let stamping = false;
   /** The strike point: a hand's fist, or the face of what it holds its action meets with (`faceOf`), its item's aim where it has none such; a foot's own. */
   let aim = points.get(hand === null ? effectorAim(spec, effector) : aimOf(spec, hand))!.value;
   const chest = left.built.segments.get("upperTrunk");
   if (!chest) throw new Error("the striker has no chest to read its limb against");
+  /** A foot's ankle: the joint its foot hangs from, the point a kick's speed is read at; null for a hand. */
+  const ankle = hand === null ? spec.joints.find((joint) => joint.child === effector) ?? null : null;
+  if (hand === null && !ankle) throw new Error(`the striker's ${effector} has no ankle to read a kick by`);
   /** A hand's arm, what a punch's form is read by: its shoulder, its elbow and the elbow's straight end; null for a foot. */
   const arm = hand === null ? null : (() => {
     const shoulderJoint = spec.joints.find((joint) => joint.child === limbAbove(spec, effector, 2)), upperArm = shoulderJoint && left.built.segments.get(shoulderJoint.child);
@@ -278,7 +297,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
     pointOfToRef(limb, aim, point); pointOfToRef(chest, ORIGIN, chestAt); turnOfToRef(chest, turn);
     return point.subtractToRef(chestAt, out).applyRotationQuaternionToRef(turn.conjugateInPlace(), out);
   };
-  /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z, its elbow's bend and the chest's lean, rad (0 for a foot). */
+  /** The strike point's path, world, a step at a time: time, the strike point's x, y, z, and a hand's shoulder's x, y, z (a foot's ankle's), its elbow's bend and the chest's lean, rad (0 for a foot). */
   const path: number[] = [];
   const STRIDE = 9;
   const times = { began: null as number | null, committed: null as number | null, released: null as number | null, ended: null as number | null };
@@ -341,6 +360,15 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
     }
     return null;
   };
+  /** A foot's ankle's peak speed over its path up to the step at `end`, m/s: the fastest of its steps. */
+  const anklePeak = (end: number): number => {
+    let peak = 0;
+    for (let k = STRIDE; k <= end; k += STRIDE) {
+      const dt = path[k]! - path[k - STRIDE]!, dx = path[k + 4]! - path[k - STRIDE + 4]!, dy = path[k + 5]! - path[k - STRIDE + 5]!, dz = path[k + 6]! - path[k - STRIDE + 6]!;
+      if (dt > 0) peak = Math.max(peak, Math.sqrt(dx * dx + dy * dy + dz * dz) / dt);
+    }
+    return peak;
+  };
   return {
     afterStep() {
       const drill = drillTask(duel.commanded("left")?.task ?? "lost");
@@ -359,6 +387,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         id = action.id; times.began = world.time; asked = footing(); foeBegan ??= sensed();
         const kind = skills.kit.find((one) => one.action === action.action)?.kind;
         meets = (kind !== undefined && Object.hasOwn(EXECUTORS, kind) ? EXECUTORS[kind as keyof typeof EXECUTORS].meets : undefined) ?? "blunt";
+        stamping = kind === "stomp";
         const face = armed && hand !== null ? faceOf(spec, hand, meets) : null;
         if (face) aim = points.get(face.point)!.value;
         againstChest(rest);
@@ -393,7 +422,10 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
           up.set(0, 1, 0).applyRotationQuaternionToRef(turnOfToRef(chest, turn), up);
           path.push(world.time, point.x, point.y, point.z, shoulder.x, shoulder.y, shoulder.z,
             jointAngles(arm.elbow, angles)[0]! - arm.straight, acos(Math.max(-1, Math.min(1, up.y))));
-        } else path.push(world.time, point.x, point.y, point.z, 0, 0, 0, 0, 0);
+        } else {
+          pointOfToRef(limb, ankle!.centre.value, shoulder);
+          path.push(world.time, point.x, point.y, point.z, shoulder.x, shoulder.y, shoulder.z, 0, 0);
+        }
       }
       down ||= left.body.down;
     },
@@ -421,15 +453,18 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const hits = byLimb.filter(({ contact }) => marked.has(contact.on)).map(({ contact, normal }): StrikeHit => {
         const travel = approach(contact.time), at = stepBefore(contact.time);
         const straight = travel && travel.direction[0] * normal[0] + travel.direction[1] * normal[1] + travel.direction[2] * normal[2];
-        if (hand === null) return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null,
-          fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: null };
+        if (hand === null) {
+          const foot = stamping ? { speed: travel?.speed ?? 0, bar: bar.foot.stomp } : { speed: anklePeak(at), bar: bar.foot.kick };
+          return { ...contact, speed: travel?.speed ?? null, straight, along: null, bend: null, lean: null, foot,
+            fast: foot.speed >= foot.bar, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: null, faced: null };
+        }
         const ax = path[at + 1]! - path[at + 4]!, ay = path[at + 2]! - path[at + 5]!, az = path[at + 3]! - path[at + 6]!, arm = Math.sqrt(ax * ax + ay * ay + az * az) || 1;
         const along = travel && (travel.direction[0] * ax + travel.direction[1] * ay + travel.direction[2] * az) / arm;
         const bent = at < 0 ? Math.PI : path[at + 7]!, leaning = at < 0 ? Math.PI : path[at + 8]!;
-        if (armed) return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning,
+        if (armed) return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null,
           fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: contact.energy >= bar.held.energy,
           faced: contact.mechanism === meets };
-        return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning,
+        return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null,
           fast: travel !== null && travel.speed >= bar.speed[hand], heavy: contact.kg >= bar.mass[hand], square: straight !== null && straight >= coneCosine,
           soon: times.began !== null && contact.time - times.began <= bar.within,
           lined: along !== null && along >= alongCosine, extended: bent <= bend, upright: leaning <= lean, hard: null, faced: null };

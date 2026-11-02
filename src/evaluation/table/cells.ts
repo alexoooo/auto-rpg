@@ -107,7 +107,7 @@ export const TABLE_SKILLS: readonly Skill[] = Object.freeze([
   { name: "punch", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "empty"), readings: (body, loadout) => blowRungs("straight-punch", body, loadout),
     bar: "90 % landed at the body's scaled punch bar (`BAR`, `barOf`), none fallen" },
   { name: "stomp", bodies: TABLE_BODIES, limbs: always, readings: (body, loadout) => [strikeRung("stomping", "landed", "stomp", body, loadout)],
-    bar: "90 % landed, none fallen; its human figure is a force (Schirmer 2016), no speed bar yet" },
+    bar: "90 % landed at the foot's 3 m/s into the contact (Oudshoorn 2018, less one SD), none fallen" },
   { name: "front-kick", bodies: TABLE_BODIES, limbs: always, readings: (body, loadout) => [strikeRung("kicking", "landed", "low-kick", body, loadout)],
     bar: "90 % landed at the ankle's 6.4 m/s (Landeo & McIntosh 2007, less one SD), none fallen" },
   { name: "club-blow", bodies: TABLE_BODIES, limbs: (loadout) => holds(loadout, "club"), readings: (body, loadout) => blowRungs("club-blow", body, loadout),
