@@ -16,6 +16,13 @@ strikes land less often than at none and are on the table's fine-tune list.
   moves on the body as it is and its command is taken, then the mind steps on the same body; what
   the step sends goes with the next step's command, and the rings hold it the rest of the delay
   (`heldSteps`). With no delay the step decides and the motor part moves in the same step.
+- **Birth at the first decision carried out** (`BodyView.born`, the command layers' `move`): at a
+  delay a body's time starts on the first step its driver's decision is carried out, not the step
+  before, when the motor part first reads it, so what the legs take at birth they take from the
+  body as it was built: its facing (`locomotion`). The probes' rig builds its body turned a radian
+  (`tests/harness/probes.mjs`); taken a step early, the legs keep heading 0 and turn the pelvis of
+  every body built facing elsewhere toward it, 34 degrees in 0.2 s on the Warrior, and every legs
+  probe fails.
 - **The split driver** (`SplitDriver`, `src/core/body.ts`): a driver decides on the view
   (`decide`) and carries the decision out (`carry`). The command layers' motor part reads the body
   (`feel`), has the driver carry out what it decided a delay before (`pending`, in their state) and
