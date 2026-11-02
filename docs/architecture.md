@@ -978,8 +978,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
 - Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill leads it by orders, as it leads any mind
   (the `drill` and `stand` Commanders); firm orders to move or stand that name no foe keep its
-  follow-orders option running (`followOrders`, `options/orders.ts`), whose blows are those the
-  orders allow and whose ordered way round a body lying is not kept off it.
+  follow-orders option running (`followOrders`, `options/orders.ts`), whose ordered way round a
+  body lying is not kept off it. It walks, stands and faces only: an ordered foe is struck by the
+  strike options, at the region, action and limb the orders name (`orderedTarget`,
+  `orderAllows`, `intent/orders.ts`), and an order to stand and fight a foe is worth no metres to
+  following orders, so the strikes carry it out.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its body
 is driven through its layers (`quadrupedLayers`, `src/core/reptile/layers.ts`), any quadruped

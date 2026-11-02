@@ -1,4 +1,6 @@
-import type { Region } from "../skills/framework/action.ts";
+import type { Region, TargetRef } from "../skills/framework/action.ts";
+import type { BodySpec } from "../spec/body.ts";
+import { regionSegments } from "./action-aim.ts";
 import { GAIT_NAMES, type GaitName } from "../skills/locomotion/gaits.ts";
 import { isMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 
@@ -11,7 +13,7 @@ export type Heading = GroundPoint;
  * (`Part.obeys`); the body defends itself meanwhile. An order says as much as it likes: what it
  * leaves out its mind chooses (no `foe`, whom it fights; a `foe` and no `region`, `action` or
  * `limb`, where and how it strikes it), and what it names the mind keeps to (`orderAllows`,
- * `orderedRegions`).
+ * `orderedRegions`, `orderedTarget`).
  */
 export interface Orders {
   /** A world movement objective. Null requests a controlled stop; omission leaves movement to the Mind. */
@@ -52,6 +54,12 @@ export const orderAllows = (orders: Orders | null, foe: string, action: string, 
 /** The regions to aim at at `foe`: the region `orders` name there, else `regions`, an action's own. */
 export const orderedRegions = (orders: Orders | null, foe: string, regions: readonly Region[]): readonly Region[] =>
   orders?.foe === foe && orders.region !== undefined ? [orders.region] : regions;
+
+/** Where to strike `foe` with an action aimed at `regions`: the first of its ordered regions (`orderedRegions`) the foe's body has; null where it has none. */
+export function orderedTarget(orders: Orders | null, foe: { readonly id: string; readonly spec: BodySpec }, regions: readonly Region[]): TargetRef | null {
+  const region = orderedRegions(orders, foe.id, regions).find((r) => regionSegments(foe.spec, r).length > 0);
+  return region ? { kind: "body", body: foe.id, region } : null;
+}
 
 /** What `orders` name of a strike, as one string: a mind that keeps what it chose for an order chooses again when this changes. */
 export const struckKey = (orders: Orders | null): string | null =>
