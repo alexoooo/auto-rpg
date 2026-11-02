@@ -34,7 +34,7 @@ At `418f4809`, from the records ([Option Mind's rise](../reference/rising.md#opt
 | Walk, forward | 1.7 m/s | 1.5 m/s | its envelope, on toes |
 | Run on toes | held to 0.7 m/s: it falls past 1 m/s | the same | — |
 | Straight punch | 83 % held out | about 67 % at its scaled bar | no record |
-| Stomp, front kick | both recorded | the stomp; no kick | a low kick |
+| Stomp | recorded | recorded | a seed, the Warrior's scaled |
 | Club blow | 91 and 92 % held out, 3 fallen at 480 Hz | the Warrior's network did not transfer | no record |
 | Sword cut, thrust | the best cut 15 to 20 J at the edge, the best thrust 25 to 28 J at the point; neither read at the bars below | the arm's path only (`BLADE_STRIKE`) | the arm's path only |
 | Buckler cover | held between the weapon and the body; the Cover drill has no rung against a weapon | — | — |
@@ -60,20 +60,18 @@ is the Warrior's scaled by its strength and mass (`barOf`, `src/evaluation/strik
   the striker up; 90 %, read holding the buckler in the left hand where the loadout has it.
   - The club (`BAR.held`): 64.8 J of the rules' energy, the crutch's 75.5 ± 10.7 J less one SD
     ([human strike reference](../reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling)).
-  - The cut: the edge's speed at its striking point, the lay men's one-handed rod (Muggenthaler
-    2018, 23.9 m/s at the tip) less one SD, read at the edge's place on the blade
+  - The cut: the lay men's one-handed rod (Muggenthaler 2018, 23.9 m/s at the tip) less one SD,
+    the SD Trinh 2018's men's range over 4 (5.4 m/s, the owner's decision): 18.5 m/s, read where
+    the source read it, at the blade's far end (the tip), met with the edge
     ([human strike reference](../reference/human-strike-reference.md#3-one-handed-sword-cut)).
   - The thrust: a person's stab, the men's underarm stab's speed at impact less one SD, 4.6 m/s at
     the point closing (Horsfall et al. 1999, the SD derived from the 95th percentile;
     [human strike reference](../reference/human-strike-reference.md#3a-one-handed-thrust-a-persons-stab)),
     its energy (the source's mean less one SD, 11.8 J, includes the push through the target) and
     wound reported beside it.
-- **The front kick**: the foot closing at 6.4 m/s, the novices' peak ankle speed less one SD
-  (Landeo and McIntosh 2007;
-  [human strike reference](../reference/human-strike-reference.md#3b-front-kick-and-stomp)).
-  **The stomp**: the foot's speed into the contact, 3.0 m/s, the stamps in a simulated ruck less
-  one SD (Oudshoorn et al. 2018, the SD derived from the range;
-  [human strike reference](../reference/human-strike-reference.md#3b-front-kick-and-stomp)).
+- **The stomp**, an unarmed fighter's blow at a foe low (there is no kick): the foot's speed into
+  the contact, 3.0 m/s, the stamps in a simulated ruck less one SD (Oudshoorn et al. 2018, the SD
+  derived from the range; [human strike reference](../reference/human-strike-reference.md#3b-stomp)).
 - **The buckler's cover**: it meets four of five blows that reach the body before the body does
   ([sword and buckler](../reference/sword-and-buckler.md#2-the-buckler-against-a-blade)).
 - **Stand-up**: the owner's target on the Warrior and the Rogue in every loadout
@@ -206,7 +204,7 @@ The bite keeps its press (`pointLoad`); blunt, the edge and the axe keep their p
 gate; the fingerprint, the moved cases named; a table of the cut and the thrust as measured,
 their wounds on each part before and after; [wounds](../reference/wounds.md#mechanisms) updated.
 
-Then, in order: the punch; the stomp and the front kick; the club blow; the sword's cut and thrust; the
+Then, in order: the punch; the stomp; the club blow; the sword's cut and thrust; the
 buckler's cover. Each on the Warrior first, then on the Rogue and the Skeleton seeded from it (the
 Warrior's network the start, its outputs scaled down, as the Rogue's punch was), with each body's
 own schedule and window at its scaled bar. Where a body cannot reach a bar, its ceiling for the

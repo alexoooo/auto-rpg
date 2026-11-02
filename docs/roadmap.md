@@ -28,7 +28,7 @@ as it needs ([architecture](architecture.md#the-layers)).
   already holds (profiles, values, a trained policy). Searching ahead is offline research
   ([oracle](reference/oracle.md)), not a mind's during a fight.
 - **Competencies first**, proved one drill ladder at a time without assistance: footwork,
-  striking, guarding, standing, standing up, kicking and running.
+  striking, guarding, standing, standing up and running.
 - **Items next**, each with its own weight and shape: weapons, shields, two-handed items, ranged
   weapons and armour. Every weapon keeps its ratio to the club; edged and pointed ones bring the
   rulebook's other mechanisms into play.
@@ -58,7 +58,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Drills](plans/2026-10-24-drills.md) | Skills proved on watched drill ladders, each rung's opponent a mind's configuration (the drill opponent a toolkit mind, its scripts the evaluation's; built: Strike's rung 1 at a pad on a rail, the trial's overlays and the previous version beside it, the Stand drill). Left: Footwork's rungs; Cover's rung 2, which waits on a counter skill |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
 | [A garbage-free step](plans/2026-10-30-garbage-free-step.md) | The steady state close to garbage-free: every game mind under one allocation ceiling, lowered as each site's allocation goes (built: step 1, the per-mind ceiling and the opening selector; step 2, the contacts' read). Left: the contact-mass solve, the toolkit's tail, each mind's own |
-| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser (built: steps 1 to 3; steps 4 and 5 at no delay, the world waiting for its minds each step, in Node and in the browser's crowd fight and Crypt where the page is isolated: the crowd fight 7.2 to 7.4 ms a step on four mind threads, still behind real time, and the Crypt at worst 9 to 12 ms behind, [step cost](reference/step-cost.md#minds-on-worker-threads)). The game's delay is a step: a mind decides its intent a step late and its skills carry it out on the body as it is ([the command delay](reference/command-delay.md)). At the game's delay the world steps while its minds think, the same to the bit on one to four mind threads, in Node and the browser ([step cost](reference/step-cost.md#minds-on-worker-threads)). Left: the crowd fight's step time and lag with the overlap, read on a quiet machine; the owner plays the crowd fight and the Crypt on the preview |
+| [Minds in parallel, a step late](plans/2026-11-01-parallel-minds.md) | Each body's mind and motor control in mind workers beside the world's, over shared memory, its command taking effect a step after it is made, the same bout on any number of threads: the gain read first, then the delay as a rule on one thread, a mind's body read from a snapshot, minds in workers on Node, then in the browser (built: steps 1 to 3; steps 4 and 5 at no delay, the world waiting for its minds each step, in Node and in the browser's crowd fight and Crypt where the page is isolated: the crowd fight 7.2 to 7.4 ms a step on four mind threads, still behind real time, and the Crypt at worst 9 to 12 ms behind, [step cost](reference/step-cost.md#minds-on-worker-threads)). The game's delay is a step: a mind decides its intent a step late and its skills carry it out on the body as it is ([the command delay](reference/command-delay.md)). At the game's delay the world steps while its minds think, the same to the bit on one to four mind threads, in Node and the browser ([step cost](reference/step-cost.md#minds-on-worker-threads)). With what a mind says sent with its answer and its observers with the next step's ask, the crowd fight on four mind threads steps in 6.8 to 7.1 ms and falls 0.14 to 0.17 s behind at best, over its opening ([step cost](reference/step-cost.md#minds-on-worker-threads)). Left: at most a step behind (the numbers in two buffers, more threads, a cheaper motor part); the owner plays the crowd fight and the Crypt on the preview |
 | [The core without Babylon](plans/2026-11-01-core-without-babylon.md) | The simulation free of the graphics layer: the core's own vector maths, copied exactly; every page drawing a mirror posed from the simulation; poses without scene nodes and worlds without a scene; the boundary test refusing Babylon in the core and the entrants. No bout moves |
 | [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules. Steps 3 to 5 after Minds in parallel and the core without Babylon. Not started; its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back. Left: a rat knocked over in a fight can be left crouched until its righting's retry) |
@@ -125,7 +125,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its low kick, approach and cover; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The Option Reptile against a Warrior and a Reptile
   (`?play=arena&matchup=reptile,workshop-fighter&control=option-reptile,option`,
   `?play=arena&matchup=reptile,reptile&control=option-reptile,option-reptile`), and the Walker reaching its
@@ -256,8 +256,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
   [the strikes on every body](plans/2026-11-01-option-mind-everywhere.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
-  Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
-  and thrusts, a club blow, kicks and low support (a legs-and-trunk commitment that lends the
+  Blade cuts and thrusts, a club blow, the stomp and low support (a legs-and-trunk commitment that lends the
   trunk to a low strike) come into Option Mind's shape after the punch, each tuned for each body
   that uses it, a configuration of the general trainer where it is learned and drilled as the
   Strike drill drills the punch.
@@ -362,8 +361,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     an order without its walk (`Orders.walk`).
 - **The stomping rung lands 3 of 12**: the place beside a lying body is held (`HeldBeside`,
   the drill's `HELD_SPOT`), and the drill's spot jumps more than 0.5 m 6 times over the rung
-  where it jumped 124; a kick's window is read from where the kicking sole stands now
-  (`kick.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
+  where it jumped 124; a stomp's window is read from where the stomping sole stands now
+  (`stomp.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
   9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
   instead lands 8 of the stomping rung's 12 against 10. At `8739fa22` the rung lands 5 of 12: each
   stomp thrown at a lying Warrior lands (3 of 3), three trials are ready and never thrown, and in

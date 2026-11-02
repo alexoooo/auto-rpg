@@ -583,6 +583,16 @@ numbers (`hullEntry`, `src/core/perception/hull-entry.ts`; the facing plane in `
   0.5 M decisions.
 - **Aiming further ahead in a fight**: the target predicted 0.2 or 0.3 s ahead instead of 0.12 s
   moves 2 to 5 blows off the guard onto the trunk, all weak.
+- **A walk's place held standing** (at `eccedb04`: the navigator, standing at a place it was asked,
+  returns it as `NavigationStep.rest`, the arbiter's `legsGoal` sets `LegsGoal.centre` over it, and
+  the drill keeps its place move asked once arrived; never committed; Node, the bout world, 120 Hz, one
+  step late). Traced on the punch environment's held-out place that was refused (right hand,
+  1.047 m, -0.103 across), the stance held the centre over the feet's middle, which the last step
+  left 8 cm behind, and the body slid past the window's far edge; held over the place, it stands at
+  0.71 to 0.72 m and throws at 5.1 s. Over 30 held-out places, schedule alone, not thrown went 3 to 2.
+  The walk rung landed 16 of 128 against 20 (weak 22 against 19), every change in its settled
+  trials, and the Mind contract failed: ordered a left straight punch at a still foe, Option Mind
+  and the punch drill began no strike in 960 steps (`tests/mind-contract.test.mjs`).
 - **The high mark**: its point is 0.2 to 0.28 m over the shoulder; the best schedule searched for
   it (`punch-drill.mjs --mark high --near`) meets the head at 6.3 m/s coming down onto its crown,
   79° off the surface's normal and 84° off the arm's line: the guard covers the face, and the open

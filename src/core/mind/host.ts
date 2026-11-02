@@ -11,7 +11,6 @@ import type { PartLookup } from "../parts/lookup.ts";
 import { embody, type Embodying, type Experiment, type Mind, type OwnBody } from "./mind.ts";
 import type { Senses } from "./senses.ts";
 import { commandedMind, type SubMindMaker } from "./sub-mind.ts";
-import type { SheetLog } from "./sheets.ts";
 
 /**
  * **What a fight grants a body**, read from its wiring and never from the mind it makes: its
@@ -104,11 +103,13 @@ export function commandedBody(built: BuiltBody, world: World, options: BodyOptio
 
 /**
  * A host for `built` in `world` under `grants`, its parts looked up in `parts`, its sheets written in
- * `log` if given, and the body its mind took through it (`made`), which the fight holds.
+ * `log` and `answered` called with each answer (`Embodying`) where given, and the body its mind
+ * took through it (`made`), which the fight holds.
  */
-export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, log?: SheetLog): { readonly host: BodyHost; made(): PhysicalBody } {
+export function bodyHost(built: BuiltBody, world: World, grants: HostGrants, parts: PartLookup, { log, answered }: Pick<Embodying, "log" | "answered"> = {}): { readonly host: BodyHost; made(): PhysicalBody } {
   let body: PhysicalBody | null = null;
-  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log, ...(grants.experiment ? { experiment: grants.experiment } : {}) };
+  const given: Embodying = { senses: grants.senses, assist: grants.assist, contactIdentity: grants.contactIdentity, log, ...(grants.experiment ? { experiment: grants.experiment } : {}),
+    ...(answered ? { answered } : {}) };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world), parts, seed: grants.seed ?? 0, phase: grants.phase ?? 0, rules: rulesOf(grants),
     take<M extends Mind>(make: (own: OwnBody) => M): M {

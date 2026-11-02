@@ -74,7 +74,7 @@ export function groundExecutor(body: Body, clock: Clock, kit: MindKit, registry:
     const live = state.live!;
     if (isMode(live.action)) {
       switch (live.action) {
-        case "brace": brace(drive, "falling"); return null;
+        case "brace": brace(drive); return null;
         case "land": return null;
         case "steady": steady.step(dt); return null;
         default: { const never: never = live.action; throw new Error(`unknown ground mode ${never}`); }

@@ -15,17 +15,17 @@ import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetReso
 import { footEnd, type LegsGoal } from "../framework/skill.ts";
 import { withinActionWindow } from "../../intent/action-window.ts";
 import { otherSide, segmentOf } from "../../spec/body.ts";
-/** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
-export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
+/** The stomp's settings where its body's record leaves them, first qualified on a front kick: `docs/reference/front-kicks.md#execution-settings`. */
+export const STOMP_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
   prepareLimit: 4, returnLimit: 2, near: .04, returnNear: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
   recenterLimit: 4, over: 0, top: 1, alongNear: .25, alongFar: .65, across: .16, facing: .4, admitSpeed: .5 });
-export type KickTuning = {
-  readonly [K in keyof typeof KICK_PATH]: number;
+export type StompTuning = {
+  readonly [K in keyof typeof STOMP_PATH]: number;
 };
-export function validKickTuning(tuning: KickTuning): boolean {
+export function validStompTuning(tuning: StompTuning): boolean {
   return Object.values(tuning).every(v => Number.isFinite(v) && v >= 0)
     && [tuning.setupLimit, tuning.transferLimit, tuning.transferSeconds, tuning.chamberSeconds, tuning.swingSeconds, tuning.returnSeconds, tuning.prepareLimit,
       tuning.returnLimit, tuning.hold, tuning.response, tuning.placeSeconds, tuning.placeLimit, tuning.recenterLimit].every(v => v > 0)
@@ -33,10 +33,10 @@ export function validKickTuning(tuning: KickTuning): boolean {
     && tuning.over <= 1 && tuning.top > 0 && tuning.top <= 1 && tuning.alongFar > tuning.alongNear && tuning.across > 0 && tuning.facing > 0;
 }
 type Rotation = readonly [number, number, number, number];
-/** One named kick executor shares its support transfer between its actions. */
-export function kickExecutor(body: Body, actions: readonly string[], tuning: KickTuning,
+/** One named stomp executor shares its support transfer between its actions. */
+export function stompExecutor(body: Body, actions: readonly string[], tuning: StompTuning,
   resolve: TargetResolver): Executor {
-  if (!validKickTuning(tuning)) throw new Error("invalid kick executor settings");
+  if (!validStompTuning(tuning)) throw new Error("invalid stomp executor settings");
   const feet = footStatesOf(body.built), support = supportReadiness(body.built), middle = new Vector3();
   const local = new Vector3(), world = new Vector3(), turn = new Quaternion(), inverse = new Quaternion(), rotation = new Quaternion(), axis = new Vector3();
   const limits = Object.freeze({ ...tuning, impact: tuning });
@@ -47,14 +47,14 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
   const sideOf = (name: string): Side => {
     if (name === "foot.left") return "left";
     if (name === "foot.right") return "right";
-    throw new Error(`kick executor has no effector ${name}`);
+    throw new Error(`stomp executor has no effector ${name}`);
   };
   const coordinates = (point: Vector3): Vec3 => [point.x, point.y, point.z];
   const worldPoint = (view: BodyView, point: Vector3): Vec3 => coordinates(point.applyRotationQuaternionToRef(view.root.rotation, world).addInPlace(view.root.position));
   /**
    * Where `foot` stands now and its stroke's chamber: `lift` over the point `over` of the way from
-   * its strike point to `target` across the ground (0 over the foot, a front kick's; 1 over the
-   * target, a stomp's), `windup` back along `heading`. The stroke starts from the chamber and
+   * its strike point to `target` across the ground (0 over the foot, 1 over the target),
+   * `windup` back along `heading`. The stroke starts from the chamber and
    * returns to it.
    */
   const capture = (view: BodyView, foot: Side, heading: number, target: Vec3) => {
@@ -68,7 +68,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     phase: "prepare" | "commit" | "release"; time: number; held: number; heading: number; height: number; target: Vec3;
     initial: ReturnType<typeof capture>; back: Vec3 | null; withdrawn: boolean; ending: ActionEnding; bearing: Vec3;
     bearingRotation: Rotation; setting: Side | null; footing: Record<Side, readonly [number, number]> };
-  // The support is read only while a kick is under way: each of its readings is of that step alone.
+  // The support is read only while a stomp is under way: each of its readings is of that step alone.
   const state = { live: null as Motion | null,
     cycles: { left: strikes.left.state, right: strikes.right.state } };
   const hipWidth = Math.abs(body.built.spec.joints.find(j => j.name === "hip.right")!.centre.value[0] - body.built.spec.joints.find(j => j.name === "hip.left")!.centre.value[0]);
@@ -108,7 +108,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "foot.left" && effector !== "foot.right") return { kind: "blocked", reason: "unsupported effector" };
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (state.live) return { kind: "waiting", reason: "a kick is under way" };
+      if (state.live) return { kind: "waiting", reason: "a stomp is under way" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const foot = sideOf(effector), hip = body.built.spec.joints.find(j => j.name === `hip.${foot}`)!.centre.value;
@@ -118,7 +118,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (at[1] < soleAt.y - tuning.near || at[1] > soleAt.y + tuning.top * reach) return { kind: "blocked", reason: "target is outside the leg's height band" };
       const dx = soleAt.x - view.stance.centre.x, dz = soleAt.z - view.stance.centre.z;
       const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
-      // The low-kick entry uses the tracking selection's reach; admission can brake an ordinary walk.
+      // The entry uses the tracking selection's reach; admission can brake an ordinary walk.
       const window = { at, along: [ahead + tuning.alongNear, ahead + tuning.alongFar] as const, across: [across - tuning.across, across + tuning.across] as const,
         facing: tuning.facing, speed: tuning.admitSpeed, ...(target.kind === "body" ? { on: target.body } : {}) };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
@@ -126,12 +126,12 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
     },
     resume() { state.live = null; strikes.left.reset(); strikes.right.reset(); },
     start(view, request, around) {
-      if (state.live) throw new Error("kick executor already owns an instance");
+      if (state.live) throw new Error("stomp executor already owns an instance");
       const foot = sideOf(request.effector), other = otherSide(foot);
       const target = resolve(view, request.target, request.action, request.effector);
-      if (!target) throw new Error("kick target has no aim");
+      if (!target) throw new Error("stomp target has no aim");
       const initial = capture(view, foot, around.heading, target), bearing = capture(view, other, around.heading, target);
-      // The stance it kicks from: the kicking foot where it stands, where its window was read from, and the bearing foot a hip's width beside it, square to the heading.
+      // The stance it stomps from: the stomping foot where it stands, where its window was read from, and the bearing foot a hip's width beside it, square to the heading.
       const x = view.stance.soles[foot].x, z = view.stance.soles[foot].z, across = foot === "left" ? hipWidth : -hipWidth;
       const beside: readonly [number, number] = [x + across * cos(around.heading), z - across * sin(around.heading)];
       state.live = { request: { ...request }, foot, stage: "admitting", phase: "prepare", time: 0, held: 0, heading: around.heading,
@@ -212,13 +212,13 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
           if (live.held >= tuning.hold) return [finish(live.ending)];
           if (live.time >= tuning.recenterLimit) return [finish({ kind: "stalled", reason: `recenter deadline after ${live.ending.reason ?? live.ending.kind}` })];
           break;
-        default: { const never: never = live.stage; throw new Error(`unknown kick stage ${never}`); }
+        default: { const never: never = live.stage; throw new Error(`unknown stomp stage ${never}`); }
       }
       return [{ id: live.request.id, phase: live.phase, stage: live.stage === "strike" ? strike.state.phase ?? "return" : live.stage, holds: footprints[live.foot] }];
     },
     command(view, id) {
       const live = state.live;
-      if (!live || live.request.id !== id) throw new Error(`kick executor has no instance ${id}`);
+      if (!live || live.request.id !== id) throw new Error(`stomp executor has no instance ${id}`);
       const foot = live.foot, other = otherSide(foot), strike = strikes[foot];
       const centred = live.stage === "admitting" || live.stage === "setup" || live.stage === "recenter";
       const both = centred || live.stage === "transfer";

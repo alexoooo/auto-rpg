@@ -11,8 +11,8 @@ const STRAIGHT_PUNCH_ACTION: ActionConfig = deepFreeze({ name: "straight-punch",
   aim: { kind: "surface", tuning: { upperTrunk: 1, middleTrunk: -1, square: 4 } } });
 
 /**
- * **The stomp's stroke**, as its body's record has it (`assets/core/stomp.json`): the front kick's,
- * its chamber high over the target, its height band low, so it strikes down on a body lying ahead
+ * **The stomp's stroke**, as its body's record has it (`assets/core/stomp.json`): its chamber
+ * high over the target, its height band low, so it strikes down on a body lying ahead
  * and nothing standing.
  */
 const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
@@ -20,13 +20,6 @@ const STOMP: ExecutorEntry = deepFreeze({ name: "stomp", kind: "stomp" });
 /** **The stomp**: its stroke with either foot at the trunk's middle, aimed at its centre. */
 const STOMP_ACTION: ActionConfig = deepFreeze({ name: "stomp", executor: "stomp", effectors: ["foot.right", "foot.left"], regions: [{ kind: "mark", mark: "middle" }],
   aim: { kind: "centre", lead: 0 } });
-
-/** The low front kick, as its body's record has it (`assets/core/front-kick.json`): a trunk below the punch's height band. */
-const LOW_KICK: ExecutorEntry = deepFreeze({ name: "low-kick", kind: "front-kick" });
-
-/** **The low kick**: its kick with either foot at the trunk's middle, aimed at its centre. */
-const LOW_KICK_ACTION: ActionConfig = deepFreeze({ name: "low-kick", executor: "low-kick", effectors: ["foot.right", "foot.left"],
-  regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "centre", lead: 0 } });
 
 /** The held blows, each as its body's record has it (`assets/core/<kind>.json`): the club's, the sword's cut and its thrust. */
 const HELD_BLOWS: readonly ExecutorEntry[] = deepFreeze((["club-blow", "sword-cut", "sword-thrust"] as const).map((kind) => ({ name: kind, kind })));
@@ -36,12 +29,12 @@ const HELD_BLOW_ACTIONS: readonly ActionConfig[] = deepFreeze(HELD_BLOWS.map(({ 
 
 /**
  * As it starts: the toolkit's Option Mind (`OPTION_MIND`) with every skill (the straight punch, the
- * held blows, the stomp and the low kick) and the support fold. A body uses those it can
+ * held blows and the stomp) and the support fold. A body uses those it can
  * (`usableSkills`): those tuned for it, as it holds what it holds. It decides at 60 Hz, every other
  * control step (`OptionMindConfig.rate`), where its strike and gait profiles are measured.
  */
 const OPTION_DEFAULTS: OptionMindConfig = deepFreeze({ ...(OPTION_MIND.defaults as OptionMindConfig), support: { kind: "support-fold" }, rate: 60,
-  executors: [PUNCH, ...HELD_BLOWS, STOMP, LOW_KICK], actions: [STRAIGHT_PUNCH_ACTION, ...HELD_BLOW_ACTIONS, STOMP_ACTION, LOW_KICK_ACTION] });
+  executors: [PUNCH, ...HELD_BLOWS, STOMP], actions: [STRAIGHT_PUNCH_ACTION, ...HELD_BLOW_ACTIONS, STOMP_ACTION] });
 
 /** Its one config, on any body it fits. */
 export const OPTION_PRESETS: Readonly<Record<string, MindPreset>> = deepFreeze({

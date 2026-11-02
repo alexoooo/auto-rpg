@@ -433,9 +433,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`skillDigest`), so another body's row moves no profile.
 - **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
   stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`,
-  `path-part.ts`) and each foot of the kick (`kick.ts`, which adds support transfer; the front kick,
-  `kick-part.ts`, and the stomp, `stomp-part.ts`, a kick down from a high chamber on a body lying
-  ahead, each its own records). A bare hand closes for its blow and strikes with the fist's point
+  `path-part.ts`) and each foot of the stomp (`stomp.ts`, which adds support transfer; its part,
+  `stomp-part.ts`, a stroke down from a high chamber on a body lying ahead, with its own records).
+  A bare hand closes for its blow and strikes with the fist's point
   (`closesToStrike`, `aimOf`).
 - **Straight punch** (`straight-punch.ts`, `punch-part.ts`): from a
   stand-off a share of the arm, the trunk turned and leaned and the arm driven flat out at a
@@ -491,7 +491,7 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
-- **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
+- **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
   a line in `SUPPORTS`, `skills/locomotion/supports.ts`) that says whether the legs may walk under it (`walks`).
 
@@ -531,8 +531,8 @@ the muscles read the joints.
 **The mirror.** In a world made `mirrored` (`World.mirrored`), each mind is made with its body's
 mirror (`mirrorBody`, `src/core/mind/mirror.ts`) in place of the body: the same `OwnBody`, made from
 the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refreshed from one body's
-numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) wherever the mind could
-read: before the mind steps, and as each completed physics interval is observed. They hold the
+numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) once a step, before the
+mind steps, and again as a load puts the body back. They hold the
 clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
 read them; the muscles' command, ceilings, delivered torque and bounds; the assist's; the senses';
 and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
@@ -542,20 +542,24 @@ for the first time (a contact's other body, a sensed body or object, the senses'
 once, in order (`MirrorChannel.told`), with each touched body's contact label where the fight
 labels contacts. A bout on mirrors is the bout on bodies, step for step
 (`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
-written there, and the driver carries out its answer.
+written there: its observers of the physics see the interval just completed, then it answers, and
+the driver carries out its answer; then, at a delay, it decides. What it reports (`MindReport`)
+is what it said with its answer, before the decision, and its menu as it stands (`createMind`),
+so that a fight reads the same of it wherever it runs.
 
 **Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
 `src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
 (`embodyApart`, `src/core/mind/mind.ts`) and keeps the body's side (the muscles, the assist, the
 command's rings, the order sheet). Everything else crosses as data, in order: the world asks the
 seat to make the mind from a recipe (its config, the catalog's name, its grants, its body's
-statics), to step on the numbers just written with its orders where they changed, to observe the
-completed physics, to go idle, for its menu, and to go (`SeatAsk`); the seat says who has the body,
-whether it observes, its report and its menu (`SeatSays`). The mind's side is a host of seats
+statics), to step on the numbers just written with its orders where they changed, to go idle, for
+its menu, and to go (`SeatAsk`); the seat says who has the body and its report as the mind is made
+and with each answer (`SeatSays`), and its menu when asked. The mind's side is a host of seats
 (`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
-orders those last sent, its observers run when asked. At any delay the world waits for a mind's
-answer before its driver applies it, so a bout apart is the bout on bodies, step for step, and the
-same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+orders those last sent, its observers run as a step is asked, before its answer. At any delay the
+world waits for a mind's answer before its driver applies it, and reads what it said with it
+(`Seat.said`); it waits for the decision only to ask the next step or a menu (`Seat.says`), so a
+bout apart is the bout on bodies, step for step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
 The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
@@ -563,9 +567,9 @@ thread a `ThreadLink` that posts a batch, waits for it done and yields the repli
 is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
 thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
-an ask to observe is batched with the others made after physics, every other sent at once, and a
-side waiting spins about a step, then sleeps (`src/apart/wire.ts`). A report's kit and gait cross
-only when they change.
+the step asks go together as the world dispatches them, every other ask at once, what a seat says
+with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
+(`src/apart/wire.ts`). A report's kit and gait cross only when they change.
 
 - **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
   message on a port, two shared counters a thread pace the two sides, and the replies are taken
@@ -975,8 +979,11 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   of `danger`, that blow's life), so it outbids the guard on that hand while a blow comes.
 - Its defaults are `OPTION_DEFAULTS` (`mind.ts`). A drill leads it by orders, as it leads any mind
   (the `drill` and `stand` Commanders); firm orders to move or stand that name no foe keep its
-  follow-orders option running (`followOrders`, `options/orders.ts`), whose blows are those the
-  orders allow and whose ordered way round a body lying is not kept off it.
+  follow-orders option running (`followOrders`, `options/orders.ts`), whose ordered way round a
+  body lying is not kept off it. It walks, stands and faces only: an ordered foe is struck by the
+  strike options, at the region, action and limb the orders name (`orderedTarget`,
+  `orderAllows`, `intent/orders.ts`), and an order to stand and fight a foe is worth no metres to
+  following orders, so the strikes carry it out.
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its body
 is driven through its layers (`quadrupedLayers`, `src/core/reptile/layers.ts`), any quadruped
@@ -1011,12 +1018,14 @@ its edges have fresh profiles (`edgeExpected`, `profile.ts`) and rolling to repo
 (`TechniquePart.moving`) is begun on a body still moving. A technique is handed the mind's kit
 (`MindKit`, `mind/kit.ts`: its motor, its guard and the guard's posture, and the lookup), so a
 motor or guard swapped into the mind is the one it rises with (`kitOf`). The game's (`STAND_UP`)
-is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up`
-(`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`,
-`STAGED_ROUTE`), are flat-footed and kept for the Rise drill's comparison.
+is the staged roll and down, the sit-back and the front sit-back, on toes; the flat-footed route
+in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`, its recipe and settings
+step up's, `ground/step-up.ts`), is kept for the Rise drill's comparison. An edge to standing
+holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-back and its
+climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
-(`assets/core/straight-punch.json`, `front-kick.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
+(`assets/core/straight-punch.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in
 `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
 fetches only when a mind it builds reads it. What a key's data is, its reader declares
 (`DataOf`, added to by `skills/framework/profile.ts`, `skills/strikes/punch-records.ts` and the
@@ -1282,8 +1291,9 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 3. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
    the mind steps, the assist gives, the motors are set), and a page's own (the Lab's shove);
 4. one solver step, which writes every node; the clock advances;
-5. the post-physics observations (`afterPhysics`: effector feedback, contacts), then what they
-   asked of minds apart sent together (`MindsApart.dispatch`);
+5. the post-physics observations (`afterPhysics`: effector feedback, contacts) of minds on their
+   bodies; a mind on a mirror or apart observes as the next step is prepared, on what its world
+   wrote, before it answers;
 6. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
@@ -1567,9 +1577,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   its bout against Option Mind on the Warrior's body, which fights on; rung `stomping`, thrown with
   each foot (the condition's `foot` in place of `hand`) at the middle of a Warrior or a Skeleton
   (the condition's `target`) lying limp on its back under the bare mind with no network, walked
-  round to from 0.8 to 1.2 m; rung `kicking`, the same trials from a Warrior or a Skeleton at a
-  Warrior, a Skeleton or a Reptile lying limp; rungs `still-bodies`, `walk-bodies`, `fight-bodies`,
-  `stomping-bodies` and `kicking-bodies`, those rungs thrown from the bodies their own leave out
+  round to from 0.8 to 1.2 m; rungs `still-bodies`, `walk-bodies`, `fight-bodies` and
+  `stomping-bodies`, those rungs thrown from the bodies their own leave out
   (the Warrior, the Rogue and the Skeleton strike); each trial's reading records the target's posture and the range
   centre to centre where it began (`StrikeReading.foeAt`), which the strikes' profiles are cut by;
   landed (a hand on the mark at the untrained fist's bar: speed over the last 0.1 m, the mass behind

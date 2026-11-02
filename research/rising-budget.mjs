@@ -2,7 +2,7 @@
  * **The stand-up's time budget** on the owner's target (Node stand, core world, Rapier, 120 Hz):
  * what of the target's median is spent before and after the rise. Two readings:
  *
- * - The target's 64 falls under Stand up with Step up alone (`risingJobs`, the falls
+ * - The target's 64 falls under the game's Stand up (`risingJobs`, the falls
  *   `npm run evaluate -- rising-target` plays): each fall's lie when the body is first slow
  *   (centre of mass under 0.5 m/s and trunk spin under 1 rad/s, the brace's own test), when it
  *   first lands and first slows after takeover, the brace's length, and the hand-back: from the end
@@ -81,7 +81,7 @@ async function squatStance({ model, held, seed }) {
 if (isMainThread) {
   const { values } = parseArgs({ options: { workers: { type: "string" }, out: { type: "string" } } });
   const { risingJobs } = await import("../src/evaluation/rising.ts");
-  const jobs = [...risingJobs({ target: true, techniques: ["step-up"] }).map(job => ({ kind: "fall", job })),
+  const jobs = [...risingJobs({ target: true }).map(job => ({ kind: "fall", job })),
     ...["workshop-fighter", "workshop-rogue"].flatMap(model => ["empty", "club"].flatMap(held => Array.from({ length: 8 }, (_, k) => ({ kind: "squat", job: { model, held, seed: k + 1 } }))))];
   const count = Math.min(jobs.length, Number(values.workers ?? Math.max(1, availableParallelism() - 4)));
   const rows = (await Promise.all(Array.from({ length: count }, (_, w) => new Promise((resolve, reject) => {

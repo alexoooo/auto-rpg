@@ -2,20 +2,20 @@
   "source": {
     "script": "research/strike-profiles.mjs",
     "records": [
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-9c33718c.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-ee7eb0fa.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-16662206.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-e1aa7b9d.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-56150de6.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-4429f410.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-8e011cd1.jsonl",
-      "assets/evaluations/baseline/2026-11-02-51aaf4d2-90674b2f.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-57b599dc.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-103188b0.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-58394181.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-a600e9ba.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-1c94c0c2.jsonl",
-      "assets/evaluations/strike/2026-11-02-51aaf4d2-f2b3f0b3.jsonl"
+      "assets/evaluations/strike/2026-11-02-252a17eb-61cb2875.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-bbe869d7.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-3048c628.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-42f4dd47.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-542acfc4.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-7241a697.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-3cc129b6.jsonl",
+      "assets/evaluations/baseline/2026-11-02-252a17eb-5d24d034.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-dcd217a7.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-54254f1e.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-b3a38f45.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-8af53239.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-51113062.jsonl",
+      "assets/evaluations/strike/2026-11-02-252a17eb-16149a09.jsonl"
     ]
   },
   "profiles": [
@@ -39,30 +39,18 @@
       ],
       "cells": [
         {
-          "range": 0.6,
-          "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.0022,
-          "taken": 0,
-          "seconds": 14,
-          "down": 0,
-          "ends": [],
-          "postures": {
-            "own": "standing",
-            "target": "back"
-          }
-        },
-        {
           "range": 0.8,
           "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0,
+          "trials": 2,
+          "done": 0.5,
+          "dealt": 0.0849,
           "taken": 0,
-          "seconds": 14,
+          "seconds": 8.875,
           "down": 0,
           "ends": [],
+          "exit": {
+            "range": 0.7143
+          },
           "postures": {
             "own": "standing",
             "target": "back"
@@ -71,31 +59,20 @@
         {
           "range": 0.9,
           "phase": "down",
-          "trials": 1,
-          "done": 1,
-          "dealt": 0.1663,
+          "trials": 2,
+          "done": 0.5,
+          "dealt": 0.1018,
           "taken": 0,
-          "seconds": 8.2833,
+          "seconds": 7.9083,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6263
+            "range": 0.7411
           },
           "postures": {
             "own": "standing",
             "target": "back"
           }
-        },
-        {
-          "range": 0.8,
-          "phase": "clear",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.0536,
-          "taken": 0.0345,
-          "seconds": 14,
-          "down": 1,
-          "ends": []
         },
         {
           "range": 1,
@@ -130,36 +107,15 @@
       ],
       "cells": [
         {
-          "range": 0.6,
-          "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.1733,
-          "taken": 0,
-          "seconds": 13.2667,
-          "down": 0,
-          "ends": [],
-          "exit": {
-            "range": 1.1785
-          },
-          "postures": {
-            "own": "standing",
-            "target": "back"
-          }
-        },
-        {
           "range": 0.7,
           "phase": "down",
-          "trials": 4,
-          "done": 0.25,
-          "dealt": 0.0738,
+          "trials": 2,
+          "done": 0,
+          "dealt": 0,
           "taken": 0,
-          "seconds": 10.4125,
+          "seconds": 14,
           "down": 0,
           "ends": [],
-          "exit": {
-            "range": 0.9303
-          },
           "postures": {
             "own": "standing",
             "target": "back"
@@ -168,16 +124,31 @@
         {
           "range": 0.8,
           "phase": "down",
-          "trials": 1,
-          "done": 0,
-          "dealt": 0.0431,
+          "trials": 3,
+          "done": 0.6667,
+          "dealt": 0.0252,
           "taken": 0,
           "seconds": 9.2667,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 1.2254
+            "range": 0.5526
           },
+          "postures": {
+            "own": "standing",
+            "target": "back"
+          }
+        },
+        {
+          "range": 0.9,
+          "phase": "down",
+          "trials": 1,
+          "done": 0,
+          "dealt": 0,
+          "taken": 0,
+          "seconds": 14,
+          "down": 0,
+          "ends": [],
           "postures": {
             "own": "standing",
             "target": "back"
@@ -208,13 +179,13 @@
           "phase": "clear",
           "trials": 2,
           "done": 0,
-          "dealt": 0.6626,
-          "taken": 0.0043,
-          "seconds": 4.3625,
+          "dealt": 0.6727,
+          "taken": 0.0032,
+          "seconds": 3.6042,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.5254
+            "range": 0.7565
           }
         },
         {
@@ -222,13 +193,13 @@
           "phase": "clear",
           "trials": 2,
           "done": 0,
-          "dealt": 0.5421,
-          "taken": 0.0004,
-          "seconds": 4.4625,
+          "dealt": 0.3521,
+          "taken": 0.0005,
+          "seconds": 4.625,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6062
+            "range": 0.6916
           }
         },
         {
@@ -236,28 +207,28 @@
           "phase": "clear",
           "trials": 5,
           "done": 0,
-          "dealt": 0.3291,
-          "taken": 0.0697,
-          "seconds": 5.7083,
+          "dealt": 0.557,
+          "taken": 0.1746,
+          "seconds": 6.2792,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6093
+            "range": 0.7071
           },
           "letGo": [
             {
               "progress": 0.0083,
-              "seconds": 0.175,
+              "seconds": 0.1042,
               "taken": 0
             },
             {
               "progress": 0.0583,
-              "seconds": 0.3833,
-              "taken": 0
+              "seconds": 0.3667,
+              "taken": 0.0088
             },
             {
               "progress": 0.1083,
-              "seconds": 0.4667,
+              "seconds": 0.4792,
               "taken": 0
             }
           ]
@@ -266,14 +237,14 @@
           "range": 0.9,
           "phase": "clear",
           "trials": 2,
-          "done": 0.5,
-          "dealt": 0.6303,
+          "done": 0,
+          "dealt": 0.4661,
           "taken": 0,
-          "seconds": 5.4667,
+          "seconds": 5.1583,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6968
+            "range": 0.8381
           }
         },
         {
@@ -281,13 +252,13 @@
           "phase": "clear",
           "trials": 5,
           "done": 0,
-          "dealt": 0.3878,
+          "dealt": 0.2359,
           "taken": 0,
-          "seconds": 1.6483,
+          "seconds": 1.3283,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7199
+            "range": 0.6598
           },
           "letGo": [
             {
@@ -297,7 +268,7 @@
             },
             {
               "progress": 0.0667,
-              "seconds": 0.3917,
+              "seconds": 0.3875,
               "taken": 0
             },
             {
@@ -311,14 +282,14 @@
           "range": 1.1,
           "phase": "clear",
           "trials": 2,
-          "done": 0.5,
-          "dealt": 1.3195,
-          "taken": 0,
-          "seconds": 4.5708,
+          "done": 0,
+          "dealt": 0.387,
+          "taken": 0.0054,
+          "seconds": 4.375,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6567
+            "range": 0.6446
           }
         },
         {
@@ -326,13 +297,13 @@
           "phase": "clear",
           "trials": 5,
           "done": 0,
-          "dealt": 0.4206,
-          "taken": 0.068,
-          "seconds": 4.575,
+          "dealt": 0.3793,
+          "taken": 0.0002,
+          "seconds": 4.2917,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.5341
+            "range": 0.697
           },
           "letGo": [
             {
@@ -342,7 +313,7 @@
             },
             {
               "progress": 0.0583,
-              "seconds": 0.4083,
+              "seconds": 0.3917,
               "taken": 0
             },
             {
@@ -357,13 +328,13 @@
           "phase": "clear",
           "trials": 2,
           "done": 0,
-          "dealt": 0.2873,
+          "dealt": 0.5906,
           "taken": 0,
-          "seconds": 4.2,
+          "seconds": 4.2125,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6766
+            "range": 0.6757
           }
         }
       ]
@@ -391,28 +362,28 @@
           "range": 0.6,
           "phase": "clear",
           "trials": 8,
-          "done": 0.25,
-          "dealt": 0.3015,
-          "taken": 0.0178,
-          "seconds": 3.3813,
+          "done": 0.5,
+          "dealt": 0.4192,
+          "taken": 0.0237,
+          "seconds": 2.8167,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8018
+            "range": 0.7433
           }
         },
         {
           "range": 0.7,
           "phase": "clear",
           "trials": 8,
-          "done": 0.25,
-          "dealt": 0.4239,
-          "taken": 0.0005,
-          "seconds": 5.0639,
+          "done": 0,
+          "dealt": 0.1757,
+          "taken": 0.0146,
+          "seconds": 4.3194,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8704
+            "range": 0.7566
           }
         },
         {
@@ -420,13 +391,13 @@
           "phase": "clear",
           "trials": 14,
           "done": 0,
-          "dealt": 0.0189,
-          "taken": 0.3608,
-          "seconds": 5.32,
+          "dealt": 0.0081,
+          "taken": 0.005,
+          "seconds": 5.7133,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8661
+            "range": 0.7338
           },
           "letGo": [
             {
@@ -441,13 +412,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 0.25,
-          "dealt": 0.4257,
-          "taken": 0.0061,
-          "seconds": 4.4542,
+          "dealt": 0.4251,
+          "taken": 0,
+          "seconds": 4.725,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8506
+            "range": 0.7456
           }
         },
         {
@@ -455,13 +426,13 @@
           "phase": "clear",
           "trials": 14,
           "done": 0.1429,
-          "dealt": 0.1955,
-          "taken": 0.1565,
-          "seconds": 4.3657,
+          "dealt": 0.2208,
+          "taken": 0.2173,
+          "seconds": 5.3854,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8109
+            "range": 0.7687
           },
           "letGo": [
             {
@@ -475,28 +446,28 @@
           "range": 1.1,
           "phase": "clear",
           "trials": 8,
-          "done": 0,
-          "dealt": 0.2957,
-          "taken": 0.008,
-          "seconds": 3.45,
+          "done": 0.75,
+          "dealt": 0.8627,
+          "taken": 0,
+          "seconds": 4.9208,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8294
+            "range": 0.7336
           }
         },
         {
           "range": 1.2,
           "phase": "clear",
           "trials": 14,
-          "done": 0.3571,
-          "dealt": 0.3521,
-          "taken": 0.1354,
-          "seconds": 5.9883,
+          "done": 0.2143,
+          "dealt": 0.1475,
+          "taken": 0,
+          "seconds": 4.6604,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8241
+            "range": 0.7541
           },
           "letGo": [
             {
@@ -511,13 +482,13 @@
           "phase": "clear",
           "trials": 8,
           "done": 0,
-          "dealt": 0.1605,
-          "taken": 0.0094,
-          "seconds": 2.825,
+          "dealt": 0.2262,
+          "taken": 0.0247,
+          "seconds": 3.0479,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.8886
+            "range": 0.7595
           }
         }
       ]
@@ -546,13 +517,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.0547,
-          "taken": 0.004,
-          "seconds": 3.9028,
+          "dealt": 0.0268,
+          "taken": 0.0261,
+          "seconds": 4,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.753
+            "range": 0.683
           }
         },
         {
@@ -560,55 +531,55 @@
           "phase": "clear",
           "trials": 4,
           "done": 0.25,
-          "dealt": 0.0638,
-          "taken": 0.0029,
-          "seconds": 3.7333,
+          "dealt": 0.0758,
+          "taken": 0.0162,
+          "seconds": 3.8833,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7116
+            "range": 0.7967
           }
         },
         {
           "range": 0.8,
           "phase": "clear",
           "trials": 4,
-          "done": 0.25,
-          "dealt": 0.0713,
-          "taken": 0.0345,
-          "seconds": 4.5854,
+          "done": 0,
+          "dealt": 0.0311,
+          "taken": 0.0075,
+          "seconds": 4.6167,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.6803
+            "range": 0.6848
           }
         },
         {
           "range": 0.9,
           "phase": "clear",
           "trials": 4,
-          "done": 0.25,
-          "dealt": 0.1066,
-          "taken": 0.0078,
-          "seconds": 4.5958,
+          "done": 0.5,
+          "dealt": 0.2249,
+          "taken": 0,
+          "seconds": 4.5042,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.744
+            "range": 0.7647
           }
         },
         {
           "range": 1,
           "phase": "clear",
           "trials": 4,
-          "done": 0.25,
-          "dealt": 0.1204,
-          "taken": 0.0232,
-          "seconds": 3.6875,
+          "done": 0,
+          "dealt": 0.0458,
+          "taken": 0.0097,
+          "seconds": 4.0396,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7164
+            "range": 0.7221
           }
         },
         {
@@ -616,27 +587,27 @@
           "phase": "clear",
           "trials": 4,
           "done": 0,
-          "dealt": 0.0257,
-          "taken": 0.0052,
+          "dealt": 0.0197,
+          "taken": 0,
           "seconds": 2.7937,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7291
+            "range": 0.7099
           }
         },
         {
           "range": 1.2,
           "phase": "clear",
           "trials": 4,
-          "done": 0.5,
-          "dealt": 0.2905,
+          "done": 0.25,
+          "dealt": 0.2116,
           "taken": 0,
-          "seconds": 2.2521,
+          "seconds": 2.1813,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7505
+            "range": 0.7023
           }
         },
         {
@@ -644,13 +615,13 @@
           "phase": "clear",
           "trials": 4,
           "done": 0.25,
-          "dealt": 0.103,
+          "dealt": 0.1035,
           "taken": 0,
-          "seconds": 2.7667,
+          "seconds": 2.75,
           "down": 0,
           "ends": [],
           "exit": {
-            "range": 0.7347
+            "range": 0.7331
           }
         }
       ]

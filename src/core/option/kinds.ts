@@ -50,7 +50,7 @@ function kind<K extends string>(kind: K, label: string, make: (given: OptionsGiv
 }
 
 /** **Following the orders** a person gives (`followOrders`). */
-export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followOrders(given.walk, given.actions)]);
+export const ORDERS_OPTION = kind("orders", "Follow orders", (given) => [followOrders(given.walk)]);
 
 /** **A strike** of each blow it throws (`strike`). */
 export const STRIKE_OPTION = kind("strikes", "Strikes", (given) => given.strikes);

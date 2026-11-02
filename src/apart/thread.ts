@@ -6,16 +6,16 @@ import type { AskCrossing, Batch, Reply, Said, SpecNumber, ToldCrossing } from "
 
 /**
  * **A minds' thread, whatever carries its batches** (`mindThreads`, `src/apart/host.ts`): a host of
- * seats (`seatHost`) that carries out each batch's asks in order on the channels' shared numbers
- * and answers with what each seat it was asked of says. Each step ask it carries out as far as its
- * answer (`SeatHost.handle`) and counts to `answered`, then each step's decision once every step of
- * the batch is answered, so the world carries out the commands while the minds decide; it holds
- * the count back from the first answer whose numbers were made anew, which cross with the reply,
- * until the batch is answered (`steps`). A spec sent is derived as it arrives
+ * seats (`seatHost`) that carries out each batch's asks in order on the channels' shared numbers.
+ * Each step ask it carries out as far as its answer (`SeatHost.handle`), says what its seat says
+ * then, its numbers made anew with it (`say`), and counts it to `answered`; then each step's
+ * decision once every step of the batch is answered, so the world carries out the commands and
+ * reads what the minds said while they decide. It answers the batch (`steps`) with what each seat
+ * it was asked to make says, and each menu it was asked for. A spec sent is derived as it arrives
  * (`deriveSpec`). Numbers it makes anew are made by `allocate`, in memory the world shares.
  * Every mind's data is loaded before its first batch (`loadData`, its transport's to await).
  */
-export function mindThread(allocate: (length: number) => Float64Array, answered: (steps: number) => void): { handle(batch: Batch): Reply; readonly steps: number } {
+export function mindThread(allocate: (length: number) => Float64Array, { say, answered }: { say(reply: Reply): void; answered(steps: number): void }): { handle(batch: Batch): Reply; readonly steps: number } {
   const host = seatHost(MIND_CATALOGS), channels = new Map<number, MirrorChannel>();
   // The specs the world has sent, by their numbers.
   const specs = new Map<SpecNumber, BodySpec>();
@@ -30,6 +30,17 @@ export function mindThread(allocate: (length: number) => Float64Array, answered:
   const sent = new Map<number, { kit: ReportNow["kit"]; gait: ReportNow["gait"]; outbound: Float64Array }>();
   // The step asks carried out, ever: every one of a batch once it is answered, failed or not.
   let steps = 0;
+  // What `seat` says as it stands, its kit and gait where they changed since it last said them, and its numbers where made anew.
+  const saying = (seat: number): Said => {
+    const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!, report = says.report;
+    let kit: ReportNow["kit"] | undefined, gait: ReportNow["gait"] | undefined;
+    if (report && report.kit !== last.kit) kit = last.kit = report.kit;
+    if (report && report.gait !== last.gait) gait = last.gait = report.gait;
+    const outbound = channel.outbound !== last.outbound ? (last.outbound = channel.outbound) : undefined;
+    return { seat, has: says.has,
+      report: report ? { engagement: report.engagement, prospects: report.prospects, heading: report.heading, navigation: report.navigation, actions: report.actions, ended: report.ended } : null,
+      ...(kit !== undefined ? { kit } : {}), ...(gait !== undefined ? { gait } : {}), ...(outbound ? { outbound } : {}) };
+  };
   return {
     get steps() { return steps; },
     handle(batch) {
@@ -37,10 +48,8 @@ export function mindThread(allocate: (length: number) => Float64Array, answered:
       for (const { ask } of batch.asks) if (ask.kind === "step") end += 1;
       // What each seat says crosses by copy: a value that cannot be copied fails the batch, said as its error.
       try {
-        const deciding: number[] = [];
-        let held = false;
+        const deciding: number[] = [], said: Said[] = [];
         for (const [number, spec] of batch.specs ?? []) { specs.set(number, spec); deriveSpec(spec); }
-        const touched = new Set<number>();
         for (const { seat, ask: crossing, told: tells, inbound, outbound } of batch.asks) {
           const ask = asked(crossing);
           let channel = channels.get(seat);
@@ -53,28 +62,21 @@ export function mindThread(allocate: (length: number) => Float64Array, answered:
           if (tells) for (const entry of tells) channel.told.push(told(entry));
           if (inbound) channel.inbound = inbound;
           host.handle(seat, ask, channel);
-          if (ask.kind === "step") {
-            steps += 1;
-            held ||= channel.outbound !== sent.get(seat)!.outbound;
-            if (!held) answered(steps);
-            deciding.push(seat);
+          switch (ask.kind) {
+            case "make": said.push(saying(seat)); break;
+            case "step":
+              steps += 1;
+              say({ seq: batch.seq, said: [saying(seat)] });
+              answered(steps);
+              deciding.push(seat);
+              break;
+            case "menu": said.push({ seat, menu: host.menu(seat) }); break;
+            case "dispose": channels.delete(seat); sent.delete(seat); break;
+            case "idle": break;
+            default: { const never: never = ask; throw new Error(`no ask ${JSON.stringify(never)}`); }
           }
-          if (ask.kind === "dispose") { channels.delete(seat); sent.delete(seat); touched.delete(seat); }
-          else touched.add(seat);
         }
         for (const seat of deciding) host.decide(seat);
-        const said: Said[] = [];
-        for (const seat of touched) {
-          const says = host.says(seat), last = sent.get(seat)!, channel = channels.get(seat)!;
-          const report = says.report;
-          let kit: Said["kit"], gait: Said["gait"];
-          if (report && report.kit !== last.kit) kit = last.kit = report.kit;
-          if (report && report.gait !== last.gait) gait = last.gait = report.gait;
-          const outbound = channel.outbound !== last.outbound ? (last.outbound = channel.outbound) : undefined;
-          said.push({ seat, has: says.has, observes: says.observes,
-            report: report ? { engagement: report.engagement, prospects: report.prospects, heading: report.heading, navigation: report.navigation, actions: report.actions, ended: report.ended } : null,
-            ...(kit !== undefined ? { kit } : {}), ...(gait !== undefined ? { gait } : {}), ...(says.menu !== undefined ? { menu: says.menu } : {}), ...(outbound ? { outbound } : {}) });
-        }
         return { seq: batch.seq, said };
       } catch (error) {
         return { seq: batch.seq, said: [], error: String((error as Error)?.stack ?? error) };

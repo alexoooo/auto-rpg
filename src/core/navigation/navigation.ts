@@ -5,7 +5,7 @@ import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep, stockClearance } from "./clear-step.ts";
 import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
-import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "../intent/movement.ts";
+import { copyMovement, sameMovement, stands, type MovementRequest, type GroundPoint } from "../intent/movement.ts";
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "./navigator.ts";
 import type { SolidSense } from "../mind/object-senses.ts";
 import { createRouter, footprinter, footprints, NO_SOLIDS } from "./route-search.ts";
@@ -90,6 +90,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
     reach: null as { radius: number; at: number } | null,
     /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
     held: false, lying: new Map() as FallenMemory,
+    /** Whether it stood at its goal at its last step (`stands`). */
+    stood: false,
     report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null } };
   const update = (status: NavigationStatus, remaining: number | null, goal: GroundPoint | null) => {
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
@@ -122,7 +124,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
       const changed = !same && !following;
       if (!same) state.request = request && copyMovement(request);
-      if (changed) { state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
+      if (changed) { state.stood = false; state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
       const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
       state.lastTime = view.time;
       if (!available) { state.lastProgress += Math.max(0, elapsed); update("unavailable", state.report.remaining, state.goal); return { move: null, face: null }; }
@@ -206,7 +208,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
       let goal: GroundPoint, near: number;
       switch (request.kind) {
         case "place": {
-          while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= request.near) { state.waypoint++; state.route = []; }
+          while (state.waypoint < request.points.length - 1 && apart(here, request.points[state.waypoint]!) <= request.near) { state.waypoint++; state.route = []; state.stood = false; }
           goal = request.points[state.waypoint]!; near = request.near;
           break;
         }
@@ -279,7 +281,8 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
         }
       }
       const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
-      if (distance <= near) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }
+      state.stood = stands(distance, near, state.stood);
+      if (state.stood) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }
       // A corner is passed within `NAV.waypoint` of it, or once the leg past it is clear from here.
       while (state.route.length > 1 && (apart(here, state.route[0]!) <= NAV.waypoint
         || clearStep(atHeight(here, centre.y), atHeight(state.route[1]!, centre.y), radius, solids))) state.route.shift();

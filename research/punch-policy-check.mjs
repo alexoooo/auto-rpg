@@ -44,7 +44,7 @@ async function trial(o, act, protocol, condition, hz) {
       }
     }
     const r = reader.reading(), h = r.hit;
-    return { outcome: r.outcome, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, faced: h.faced, speed: h.speed }
+    return { outcome: r.outcome, began: r.began, score: barScore(r, condition.hand), hit: h && (typeof h.hard === 'boolean' ? { energy: h.energy, held: h.held, faced: h.faced, speed: h.speed }
       : { speed: h.speed, kg: h.kg, straight: h.straight, along: h.along, bend: h.bend, lean: h.lean }) };
   } finally { built.dispose(); }
 }
@@ -84,7 +84,7 @@ if (!isMainThread) {
   })));
   for (const job of jobs) {
     const r = results[job.id], c = job.condition;
-    console.log(JSON.stringify({ hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), outcome: r.outcome, score: +r.score.toFixed(2),
+    console.log(JSON.stringify({ began: r.began, hz: job.hz, model: c.model, hand: c.hand, ...(c.foe ? { foe: c.foe, moment: c.moment } : { gap: +c.gap.toFixed(3), across: +c.across.toFixed(3) }), outcome: r.outcome, score: +r.score.toFixed(2),
       hit: r.hit && Object.fromEntries(Object.entries(r.hit).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(3) : v ?? null])) }));
   }
   // By rate and body: the landed share, and by how far the target stands (its gap and offset across together).

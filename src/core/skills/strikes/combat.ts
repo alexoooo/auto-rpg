@@ -1,5 +1,4 @@
 import { standingFooting } from "../../control/support.ts";
-import { kickExecutor, type KickTuning } from "./kick.ts";
 import { stanceFeetOf } from "../framework/skill.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
@@ -37,8 +36,6 @@ export function validCombatExecution(execution: CombatExecution): boolean {
 interface CombatSettings {
   /** The hands' paths. */
   readonly paths?: AttackTuning;
-  /** The kick, or none for a body that does not kick. */
-  readonly kick?: KickTuning | null;
   /** How a contact is held, and whether a blow waits on planted support; with none, a contact ends the stroke. */
   readonly execution?: CombatExecution;
   readonly turnLimit?: number;
@@ -55,16 +52,14 @@ const smoothElbow = (from: number, to: number, u: number) => from + (to - from) 
 /** What a path strike's blows are carried out with; a setting left out is its default. */
 type PathStrikeSettings = Pick<CombatSettings, "paths" | "execution" | "overlap">;
 
-/** The path strike's usual skills of `body`: the walk, the guard, the path strike, and the kick and the support fold it has. */
-export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
+/** The path strike's usual skills of `body`: the walk, the guard, the path strike, and the support fold where it has one. */
+export function pathParts(body: Body, { paths, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
   const actions: PathAction[] = (["straight", "cross", "hook", "downward", "overhand", "uppercut"] as const).map(family => ({ name: family, family }));
   const guard = guardSkill(body.built.spec);
   return {
     legs: locomotion(stanceFeetOf(body.built.spec), body.envelope, { turnLimit, turnStartup, idleFooting: standingFooting(body.built) }), navigation: null, guard,
-    executors: [{ name: "paths", kind: "path-strike", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) },
-      ...(kick ? [{ name: "kicks", kind: "front-kick", executor: kickExecutor(body, ["kick"], kick, pointTarget) }] : [])],
-    actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),
-      ...(kick ? [{ name: "kick", executor: "kicks", effectors: ["foot.left", "foot.right"] }] : [])],
+    executors: [{ name: "paths", kind: "path-strike", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap, resolve: pointTarget }) }],
+    actions: actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),
     support: ground ? supportFold(body) : null,
   };
 }

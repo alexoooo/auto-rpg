@@ -1,6 +1,6 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import { approachPace, straightSpot, windowHolds, type Spot } from "../intent/action-window.ts";
-import { directMovement, placeMovement } from "../intent/movement.ts";
+import { approachPace, arrivedIn, settledAt, straightSpot, widened, windowArrival, windowHolds, type Spot } from "../intent/action-window.ts";
+import { ARRIVED, directMovement, placeMovement, SWAY } from "../intent/movement.ts";
 import { isRegion, type Orders } from "../intent/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../skills/framework/action.ts";
 import { GAIT_NAMES, type GaitName } from "../skills/locomotion/gaits.ts";
@@ -64,32 +64,6 @@ export function drillTask(task: string): { readonly phase: DrillPhase; readonly 
   return at < 0 ? { phase: task as DrillPhase, reason: "" } : { phase: task.slice(0, at) as DrillPhase, reason: task.slice(at + 2) };
 }
 
-/** How near the middle of an action's window the drill walks to, m: a body stopped at the window's edge is admitted where the action reaches least. */
-const MIDDLE = .01;
-
-/**
- * How far past an action's window a body that stopped inside it may sway and still stand there, m:
- * the window moves with the head, which bobs that much as a walk's last steps land.
- */
-const SWAY = .03;
-
-/** The most speed over the ground a standing body has once a walk's sway has died out, m/s. */
-const SETTLED = .06;
-
-/** How long its member stays that slow before it counts as settled, s: a centre of mass slows that long before the feet stop stepping. */
-const STILL_FOR = .25;
-
-/** `window` narrowed to `MIDDLE` about its middle. */
-function middleOf(window: Window): Window {
-  const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
-  return { ...window, along: [along - MIDDLE, along + MIDDLE], across: [across - MIDDLE, across + MIDDLE] };
-}
-
-/** `window` widened by `by` m along and across. */
-function widened(window: Window, by: number): Window {
-  return { ...window, along: [window.along[0] - by, window.along[1] + by], across: [window.across[0] - by, window.across[1] + by] };
-}
-
 /** A ground heading of `angle`, rad from +z toward +x. */
 const heading = (angle: number) => ({ x: sin(angle), z: cos(angle) });
 
@@ -143,8 +117,8 @@ function drillCommander(config: DrillCommanderConfig): Commander {
     choice: null as Choice | null,
     /** Where its member stood at its last decision, and when: what its speed over the ground is read from. */
     last: null as { x: number; z: number; time: number } | null,
-    /** Since when its member's speed has stayed at most `SETTLED`; null while it moves faster. */
-    still: null as number | null,
+    /** How its member's walk into the window ends (`arrivedIn`), and since when its speed has stayed at most `SETTLED`. */
+    arrival: windowArrival(),
     /** Whether, going at the foe, it has come where the window would admit its member but for its speed. */
     arrived: false,
   };
@@ -196,7 +170,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       const at = member.at, last = state.last, dt = last ? view.time - last.time : 0;
       const speed = last && dt > 0 ? hypot(at.x - last.x, at.z - last.z) / dt : 0;
       state.last = { x: at.x, z: at.z, time: view.time };
-      state.still = speed > SETTLED ? null : state.still ?? view.time;
+      const settled = settledAt(state.arrival, speed, view.time);
       if (state.phase === "fighting") {
         if (!reached(member)) return decided(member, null);
         state.since = view.time - config.after;
@@ -248,7 +222,7 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       const entry = ordered(member, foe.id), readiness = entry?.readiness ?? { kind: "blocked" as const, reason: "no such choice on its menu" };
       state.phase = readiness.kind;
       state.reason = readiness.kind === "blocked" || readiness.kind === "waiting" ? readiness.reason : "";
-      const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z), settled = state.still !== null && view.time - state.still >= STILL_FOR;
+      const h = member.heading ?? 0, toward = atan2(foe.at.x - at.x, foe.at.z - at.z);
       if (readiness.kind === "position") state.window = readiness.window;
       if (entry?.spot) {
         const offered = entry.spot.route ? entry.spot : null, drift = [{ at: [foe.at.x, foe.at.z], within: HELD_SPOT.moved }];
@@ -259,17 +233,19 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       }
       const window = state.window;
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
-        const middle = middleOf(window), within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
+        const within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
         // Beside a body lying, the place its menu names and the way round that body; else straight into the window's middle.
-        const spot: Spot = state.spot ?? straightSpot(middle, at), distance = hypot(spot.x - at.x, spot.z - at.z);
-        // Come to its spot inside the window, it holds there while it stays inside, swaying no further than `SWAY`.
-        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : within(middle) || distance <= MIDDLE && within(window);
+        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z);
+        // Arrived at its spot, the window's middle or the place beside a body lying (`arrivedIn`), it stands, and holds there once
+        // slow enough inside the window, while it sways no further than `SWAY` out of it and until it stands settled outside it.
+        const arrived = arrivedIn(state.arrival, window, at.x, at.z, h, distance, settled);
+        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : arrived && within(window);
         // Held beside a body lying, it faces as its spot does; else at the foe.
         if (state.held) state.set ??= state.spot ? spot.face : toward;
-        if (config.pace === undefined || state.held || distance <= MIDDLE) return decided(member, stay(state.set ?? spot.face));
+        if (config.pace === undefined || state.held || arrived) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
-        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: MIDDLE, ...(spot.by === undefined ? {} : { by: spot.by }) }
-          : placeMovement({ x: spot.x, z: spot.z }, MIDDLE);
+        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: ARRIVED, ...(spot.by === undefined ? {} : { by: spot.by }) }
+          : placeMovement({ x: spot.x, z: spot.z }, ARRIVED);
         return decided(member, { move, pace: approachPace(config.pace, distance), face: heading(spot.face) });
       }
       const face = state.set ?? toward;
