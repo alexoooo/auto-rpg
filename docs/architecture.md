@@ -1252,8 +1252,10 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
   and the bare entrant take it.
 - **One case environment trains any part** (`research/case-learning-environment.mjs`, served to
   the trainer by `research/run-learning-server.mjs`): an environment file
-  (`research/environments/`) names an evaluation, the subject's mind with the part in learning mode
-  and its path, the part's layout file, the places its trials are drawn from or picked among, split
+  (`research/environments/`) names an evaluation; the subject's mind by its preset as the game
+  holds it (`MINDS`), kept to one action and with that action's executor `steered` (its body's
+  record's settings, the trainer steering), never written out (`presetMind`); the part's path;
+  the part's layout file, the places its trials are drawn from or picked among, split
   train and held out by their condition's digest, and the reward. It finds the one learner in the
   hosted minds of the subject's kind (`WorldKind.hosted`), plays from its first decision to its
   next, and ends with the case's reader or the part no longer running. Its reward is the outputs'
