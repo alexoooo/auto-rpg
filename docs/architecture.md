@@ -868,8 +868,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   the percepts its trials ended in, by name (`exit`: a strike's range head to head, which the
   strike's exit takes), and how the two bodies stood as its trials began (`Postures`, both standing
   unless named) (`ProfileCell`). Each names what it
-  was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
-  reaction time), and one read on another is stale (`staleness`) and not read; a strike's names the limbs it was thrown with (`limbs`); and the body it was
+  was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate, the
+  mind's rate, the reaction time and the command delay, which a record's harness names,
+  `harnessOf`), and one read on another is stale (`staleness`) and not read; a strike's names the limbs it was thrown with (`limbs`); and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
   `readProfile` (`ProfileReading`), at a pair of postures, its cells measured there alone: its reach in a phase, what it expects from a place (`ProfilePlace`:
   the range, the foe's phase and the motion's progress) against the body struck now (`Expected`, in

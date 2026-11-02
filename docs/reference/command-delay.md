@@ -82,10 +82,30 @@ The punch is admitted less often at one step (46 of 128 against 62) and lands on
 its policy was trained at none. The punch, the club and the stomp are fine-tuned at one step in
 the table's pass ([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)).
 
-**The Gait drill** (`stopped`, 20 trials on the Warrior, at f0c6807c): 18 ready at one step, a step
-unbraced (0.008 s) where none leaves none, at 0.75 m/s at the stop against 0.72; two fall, at
-0.5 m/s with the right hand in both gaits, where none falls at none. The strike and gait profiles
-(`assets/core/strike-profiles.json`, `gait-profiles.json`) are measured at one step.
+**The profiles** are measured at one step at 84e7c898, on the merged code: the strikes', the
+gaits' and the rise's edges (`assets/core/strike-profiles.json`, `gait-profiles.json`,
+`edge-profiles.json`). A profile names the delay it was measured at (`Measured.delay`,
+`staleness`), so one measured at another delay is stale and not read. Measured at none, the
+Warrior's punch profile kept Option Mind from striking a still foe 0.9 m off (no strike in 8 s);
+measured at one step, it strikes from 2.7 s.
+
+**The Gait drill** (`stopped`, 20 trials on the Warrior, at 51aaf4d2): 16 ready at one step,
+3.5 to 4.2 s unbraced with either hand, where none leaves the right hand 0 and the left 3.7 (the
+punch begins only standing quiet); at 0.5 m/s the strike is never admitted (4 trials). None falls.
+
+**The rise's edges** (the Rise drill's `placed` and `moving`, the Warrior empty-handed, at
+51aaf4d2), done of begun:
+
+| Edge | None | One step |
+| --- | --- | --- |
+| `staged-roll` | 22 of 22 | 21 of 21 |
+| `staged-down` | 10 of 12 | 9 of 12 |
+| `staged-kneel-up` | 9 of 9 | 10 of 10 |
+| `sit-back` | 9 of 9 | 6 of 10 |
+| `front-sit-back` | 10 of 12 | 1 of 12 |
+| `staged-step-through`, `staged-lunge` | none | none |
+
+The sit-back and the front sit-back are on the fine-tune list.
 
 **The standard match** (`npm run match -- option bare`, protocol 908550df542eb469; ten minutes'
 budget): Option Mind wins every unit played against the bare mind at one step as at none, by a
