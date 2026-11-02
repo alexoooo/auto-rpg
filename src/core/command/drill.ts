@@ -1,5 +1,5 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import { approachPace, straightSpot, windowHolds, type Spot } from "../intent/action-window.ts";
+import { approachPace, ARRIVED, straightSpot, windowHolds, type Spot } from "../intent/action-window.ts";
 import { directMovement, placeMovement } from "../intent/movement.ts";
 import { isRegion, type Orders } from "../intent/orders.ts";
 import type { ActionStatus, Readiness, Region, Window } from "../skills/framework/action.ts";
@@ -64,9 +64,6 @@ export function drillTask(task: string): { readonly phase: DrillPhase; readonly 
   return at < 0 ? { phase: task as DrillPhase, reason: "" } : { phase: task.slice(0, at) as DrillPhase, reason: task.slice(at + 2) };
 }
 
-/** How near the middle of an action's window the drill walks to, m: a body stopped at the window's edge is admitted where the action reaches least. */
-const MIDDLE = .01;
-
 /**
  * How far past an action's window a body that stopped inside it may sway and still stand there, m:
  * the window moves with the head, which bobs that much as a walk's last steps land.
@@ -78,12 +75,6 @@ const SETTLED = .06;
 
 /** How long its member stays that slow before it counts as settled, s: a centre of mass slows that long before the feet stop stepping. */
 const STILL_FOR = .25;
-
-/** `window` narrowed to `MIDDLE` about its middle. */
-function middleOf(window: Window): Window {
-  const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
-  return { ...window, along: [along - MIDDLE, along + MIDDLE], across: [across - MIDDLE, across + MIDDLE] };
-}
 
 /** `window` widened by `by` m along and across. */
 function widened(window: Window, by: number): Window {
@@ -133,8 +124,11 @@ function drillCommander(config: DrillCommanderConfig): Commander {
     since: null as number | null, struck: null as string | null, id: null as number | null, began: null as number | null, let: null as number | null,
     /** The actions aimed at a body its member began before its moment, by id. */
     begun: [] as number[],
-    /** The window the ordered choice last named, whether it has walked toward it, whether it holds there, and the way it faces once it does. */
-    window: null as Window | null, walked: false, held: false, set: null as number | null,
+    /**
+     * The window the ordered choice last named, whether it has walked toward it, whether it has come within a walk's landing
+     * (`ARRIVED`) of its spot since it last left that window, whether it holds there, and the way it faces once it does.
+     */
+    window: null as Window | null, walked: false, reached: false, held: false, set: null as number | null,
     /** Where its member's menu last said the body would stand in its choice's window, where that is beside a body lying, with the way round it: null where it stands straight. */
     spot: null as Spot | null,
     /** The spot beside a body lying as held (`HELD_SPOT`). */
@@ -259,17 +253,21 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       }
       const window = state.window;
       if (window && (readiness.kind === "position" || readiness.kind === "ready" && state.walked && !state.held && !config.walking)) {
-        const middle = middleOf(window), within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
+        const within = (one: Window) => windowHolds(one, at.x, at.z, h) && speed <= one.speed;
         // Beside a body lying, the place its menu names and the way round that body; else straight into the window's middle.
-        const spot: Spot = state.spot ?? straightSpot(middle, at), distance = hypot(spot.x - at.x, spot.z - at.z);
-        // Come to its spot inside the window, it holds there while it stays inside, swaying no further than `SWAY`.
-        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : within(middle) || distance <= MIDDLE && within(window);
+        const spot: Spot = state.spot ?? straightSpot(window, at), distance = hypot(spot.x - at.x, spot.z - at.z);
+        // Come within a walk's landing (`ARRIVED`) of its spot, the window's middle or the place beside a body lying, it stands while
+        // it stays inside the window, swaying no further than `SWAY`, and holds there once slow enough inside it: a body stopped at
+        // the window's edge is admitted where the action reaches least, and one walked again for each centimetre it sways off its
+        // spot steps on and never settles.
+        state.reached = state.reached && windowHolds(widened(window, SWAY), at.x, at.z, h) || distance <= ARRIVED;
+        state.held = state.held ? within(widened(window, SWAY)) && !(settled && !within(window)) : state.reached && within(window);
         // Held beside a body lying, it faces as its spot does; else at the foe.
         if (state.held) state.set ??= state.spot ? spot.face : toward;
-        if (config.pace === undefined || state.held || distance <= MIDDLE) return decided(member, stay(state.set ?? spot.face));
+        if (config.pace === undefined || state.held || state.reached) return decided(member, stay(state.set ?? spot.face));
         state.walked = true;
-        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: MIDDLE, ...(spot.by === undefined ? {} : { by: spot.by }) }
-          : placeMovement({ x: spot.x, z: spot.z }, MIDDLE);
+        const move = spot.route ? { kind: "place" as const, points: spot.route.map((point) => ({ x: point.x, z: point.z })), near: ARRIVED, ...(spot.by === undefined ? {} : { by: spot.by }) }
+          : placeMovement({ x: spot.x, z: spot.z }, ARRIVED);
         return decided(member, { move, pace: approachPace(config.pace, distance), face: heading(spot.face) });
       }
       const face = state.set ?? toward;
