@@ -57,7 +57,7 @@ const kicker = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "suppo
 async function kickTrial(settings, { condition }) {
   const reading = await play(STRIKE_CASES.kicking, { mind: kicker(settings), action: "low-kick" }, condition);
   const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
-  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, ankle: reading.hit?.ankle ?? null };
+  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, foot: reading.hit?.foot?.speed ?? null };
 }
 
 /** A mind throwing the stomp with `settings` at the middle of a body lying ahead: Option Mind's stomp, on any body. */
@@ -69,7 +69,7 @@ const stomper = (settings) => ({ ...OPTION_MIND.defaults, support: { kind: "supp
 async function stompTrial(settings, { condition }) {
   const reading = await play(STRIKE_CASES.stomping, { mind: stomper(settings), action: "stomp" }, condition);
   const dealt = reading.contacts.reduce((sum, contact) => sum + contact.damage, 0);
-  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, ankle: reading.hit?.ankle ?? null };
+  return { score: barScore(reading, null) + 5 * dealt, outcome: reading.outcome, down: reading.down, dealt, foot: reading.hit?.foot?.speed ?? null };
 }
 
 /** The stomping rung's trials on `model`: each foot at each target from each gap. */

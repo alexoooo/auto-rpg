@@ -11,8 +11,8 @@ import type { Hand, StrikeReading } from "./read.ts";
  * near it came to each test, its speed counted twice, none past the bar, so no test is traded for
  * another's margin, the mass counted `heavier` times within those 8 (8 for another limb's on the mark),
  * less 0.5 where its action did not end; -1 nothing on the mark; -3 a fall. A foot's blow, which the
- * bar tests by its ankle's peak (`Bar.foot`), scores alike: landed, 9 and up to 1 more as the peak
- * goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
+ * bar tests by its speed (`Bar.foot`, `StrikeHit.foot`), scores alike: landed, 9 and up to 1 more as
+ * the speed goes from the bar to 1.5 times it; else up to 8 by its share of the bar. A held item's blow,
  * which the bar tests by its energy and its face (`Bar.held`, `StrikeHit.faced`), scores alike:
  * landed, 9 and up to 1 more as its energy goes from the bar to twice it; else up to 8, half by its
  * share of the bar's energy and half for meeting with its face. The bar is the reading's, its striker's
@@ -24,7 +24,7 @@ export function barScore(reading: StrikeReading, hand: Hand | null, heavier = 1)
   const hit = reading.hit;
   if (!hit) return reading.outcome === "elsewhere" || reading.outcome === "guarded" ? -0.5 : -1;
   if (hand === null) {
-    const share = (hit.ankle ?? 0) / BAR.foot;
+    const share = hit.foot ? hit.foot.speed / hit.foot.bar : 0;
     return reading.outcome === "landed" ? 9 + Math.min(1, Math.max(0, (share - 1) / .5)) : 8 * Math.min(1, share) - (reading.ended === null ? 0.5 : 0);
   }
   if (typeof hit.hard === "boolean") {

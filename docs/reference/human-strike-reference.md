@@ -82,12 +82,15 @@ hilt's accelerometer. The table gives the mean, the 95th percentile and the maxi
 |---|---|---|---|
 | Front kick, peak ankle linear velocity (fastest of three to a screen at a chosen distance; sagittal video at 500 Hz) | 8.18 ± 1.76 m/s (20 taekwondo novices, men and women, the 40 aged 22 ± 3.2) | 10.39 ± 1.95 m/s (20 experts) | Landeo & McIntosh 2007, XXV ISBS Symposium, Ouro Preto, pp. 298-301, Table 1, read at its source, https://ojs.ub.uni-konstanz.de/cpa/article/view/465 |
 | Stomp, mean peak force on a force plate | men 8494 to 9016 N, women 4694 to 5970 N (55 volunteers; sturdy and soft shoes, with and without an elastic layer like a scalp). Jumping on it is about twice | -- | Schirmer et al. 2016, Int J Legal Med 130(3):827-34, https://doi.org/10.1007/s00414-015-1254-7 (the abstract only; no SD there) |
+| Stamp on a dummy lying in a simulated ruck, the foot's inbound speed (high-speed video) | 4.3 m/s mean, 2.1 to 6.3 m/s (12 participants; no SD in the abstract) | -- | Oudshoorn, Driscoll, Dunn & James 2018, J Sports Sci 36(8):914-919, https://doi.org/10.1080/02640414.2017.1346273 (the abstract only) |
 
 - **The front kick's mean less one SD** (**derived**): 8.18 - 1.76 = **6.4 m/s**, the ankle's peak,
   not the foot's at contact; the novices practised taekwondo, and the men and women are pooled.
-- **The stomp** has a force, not a speed, and no SD in what was read, and no source read gives a
-  stomp's speed: it is held to the front kick's 6.4 m/s at the ankle, the owner's decision
-  (`Bar.foot`, `src/evaluation/strike/read.ts`).
+- **The stomp's mean less one SD** (**derived**): Oudshoorn et al. give a mean and a range, no
+  SD; a normal sample of 12 spans about 3.26 SD (the expected range, `d2`), so the SD is about
+  (6.3 - 2.1) / 3.26 = 1.29 m/s and the bar 4.3 - 1.29 = **3.0 m/s**, the foot's speed into the
+  contact (`Bar.foot`, `src/evaluation/strike/read.ts`). Schirmer's force is not read: the rules
+  price a contact's energy, not a plate's peak.
 
 ## 4. Kinematic chain: peak angular velocities and trunk rotation
 
