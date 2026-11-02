@@ -15,5 +15,5 @@ const OVER_QUADRUPED: FramedOptionMindConfig = deepFreeze({ kind: "option", fram
  */
 export const OPTION_REPTILE: Entrant = Object.freeze({
   name: "option-reptile",
-  presets: deepFreeze({ "option-reptile": { label: "Option Reptile", config: OVER_QUADRUPED, models: ["reptile"] } } satisfies Record<string, MindPreset>),
+  presets: deepFreeze({ "option-reptile": { label: "Option Reptile", config: OVER_QUADRUPED, models: ["reptile", "rat"] } } satisfies Record<string, MindPreset>),
 });
