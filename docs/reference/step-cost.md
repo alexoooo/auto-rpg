@@ -906,10 +906,13 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   ms under one thread's, near the 8.33 a step allows, and it falls behind wherever its fight is
   dense.
 - **At a step of delay a mind answers before it decides** (`answerOn`, `decideOn`,
-  `src/core/mind/mind.ts`): its thread runs its motor part on the body the world wrote and sends
-  that answer (`Thread.steps`, the count of answered steps in `ANSWERED`, `src/apart/wire.ts`),
-  then makes the decision its next answer carries out, while the world takes the answer and steps
-  (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to the bit on one
+  `src/core/mind/mind.ts`): its thread shows its observers the interval just completed, runs its
+  motor part on the body the world wrote and sends that answer with what the mind says then
+  (`Thread.steps`, the count of answered steps in `ANSWERED`, `src/apart/wire.ts`), then makes the
+  decision its next answer carries out, while the world takes the answer, steps, and its
+  Commanders read what each member said with its answer (`Seat.said`). The world waits for the
+  decision only as it writes the next step's numbers (`Seat.says`) or asks a menu: one write and
+  one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to the bit on one
   thread and on one to four mind threads (`research/minds-apart.mjs`, the whole physics world's
   bytes each second, at 37871d97): the crowd fight to its verdict (13449 steps, 4129 blows, the
   right side's by draining at 112.075 s), the bare-hands and sword bouts and the Crypt at seeds 10

@@ -5,12 +5,12 @@ import { ANSWERED, DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Repl
 
 /**
  * **A minds' thread in Node** (`mindWorkers`, `src/node/minds.ts`): it waits for each batch the
- * world posts and counts, carries it out (`mindThread`), and answers on its port, until it is told
- * to stop. Every mind's data is loaded before the first batch is read (`loadData`).
+ * world posts and counts, carries it out (`mindThread`), and answers on its port, what a seat says
+ * with each step's answer before the answer is counted, until it is told to stop. Every mind's data is loaded before the first batch is read (`loadData`).
  */
 const { port, control } = workerData as { readonly port: MessagePort; readonly control: Int32Array };
 await loadData(DATA_KEYS);
-const thread = mindThread(SHARED_NUMBERS, count);
+const thread = mindThread(SHARED_NUMBERS, { say: (reply) => port.postMessage(reply), answered: count });
 
 /** Count `steps` step asks answered (`ANSWERED`). */
 function count(steps: number): void {

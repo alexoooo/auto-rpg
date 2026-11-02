@@ -8,8 +8,7 @@ import type { MindReport } from "./report.ts";
 import type { Catalog } from "../parts/catalog.ts";
 import { bodyHost, rulesOf, type BodyHost, type HostGrants } from "./host.ts";
 import { mirrorDriven, type Embodying, type OwnBody } from "./mind.ts";
-import { isMindPlace, type At, type MindPlace, type MindRecipe, type Seat, type SeatSays } from "./apart.ts";
-import type { Hook } from "../world.ts";
+import { isMindPlace, reportNow, type At, type MindPlace, type MindRecipe, type ReportNow, type Seat } from "./apart.ts";
 import { physicalBody, type PhysicalBody } from "../physical-body.ts";
 import type { Orders } from "../intent/orders.ts";
 import type { Senses } from "./senses.ts";
@@ -55,9 +54,11 @@ export function builtAngles(catalog: Catalog, spec: BodySpec, config: MindConfig
  * (`Catalog.controllers`) through a host of the body (`bodyHost`) that finds only the parts its tree names
  * (`treeLookup`); a config with a fault anywhere in its
  * tree (`treeFaults`) is refused. Given a `log`, its order
- * sheets are written in it (`SheetLog`). Where the world runs its minds apart (`World.minds`), it
- * is made there, on a mirror of its body (`embodyApart`): it has no skills to read here, and its
- * memory is where it runs.
+ * sheets are written in it (`SheetLog`). What it reports (`Minded.report`) is what it said as it
+ * was made and then with each answer, before the step's decision (`saidReport`), its menu as it
+ * stands, as a mind apart reports. Where the world runs its minds apart (`World.minds`), it is made
+ * there, on a mirror of its body (`embodyApart`): it has no skills to read here, and its memory is
+ * where it runs.
  */
 export function createMind(catalog: Catalog, built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = catalog.treeFaults(config)[0];
@@ -69,9 +70,29 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
     { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
     return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
   }
-  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), log);
-  const mind = catalog.controllerOf(config).create(host, config, wiring);
-  return { ...mind, kind: config.kind, body: made() };
+  let mind: MindMade | null = null, said: ReportNow | null = null;
+  const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { said = saidOf(mind!.report); } });
+  mind = catalog.controllerOf(config).create(host, config, wiring);
+  const live = mind.report;
+  if (!live) return { ...mind, kind: config.kind, body: made() };
+  said = saidOf(live);
+  return { ...mind, report: saidReport(() => said!, () => live.menu), kind: config.kind, body: made() };
+}
+
+/** What `report` says now, its menu aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
+const saidOf = (report: MindReport | undefined): ReportNow | null => {
+  if (!report) return null;
+  const { kit, gait, ...rest } = reportNow(report);
+  return { ...structuredClone(rest), kit, gait };
+};
+
+/** A mind's report read from what it last said (`said`), and its menu from `menu`. */
+function saidReport(said: () => ReportNow, menu: () => MindReport["menu"]): MindReport {
+  return {
+    get engagement() { return said().engagement; }, get prospects() { return said().prospects; }, get heading() { return said().heading; },
+    get gait() { return said().gait; }, get navigation() { return said().navigation; }, get kit() { return said().kit; },
+    get actions() { return said().actions; }, get ended() { return said().ended; }, get menu() { return menu(); },
+  };
 }
 
 /** What a mind apart keeps in place of its memory: a mind's memory is where it runs, so a body under one is neither saved nor forked. */
@@ -83,7 +104,7 @@ export interface EmbodiedApart {
   readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
   /** Who has the body, as its mind last said (`Mind.has`). */
   has(): string;
-  /** What its mind publishes, as it last said it, its menu asked for when read (`MindReport`). */
+  /** What its mind publishes, as it said it with its last answer, its menu asked for when read (`MindReport`). */
   readonly report: MindReport;
   /** The body's memory: what is kept here, the mind's kept where it runs. */
   readonly state: object;
@@ -95,42 +116,37 @@ export interface EmbodiedApart {
  * world's side of a mind on its mirror (`embody`, `World.mirrored`) whose mind runs where `place`
  * runs it (`MindPlace`). As each step is prepared the body is written to its channel and the mind
  * asked to step, with `orders` as its fight gives them now where they have changed; its command is
- * carried out on the body as the step's controls run, once the mind has made it. Its observers of
- * the physics are asked to observe each completed interval, from the first step after it asks to.
- * What it is given and does is the same as on its body, step for step.
+ * carried out on the body as the step's controls run, once the mind has made it, and what it says
+ * of itself is what it said with that answer (`Seat.said`). Its observers of the physics see each
+ * completed interval as the next step's numbers hold it. What it is given and does is the same as
+ * on its body, step for step.
  */
 export function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: Catalog, recipe: Omit<MindRecipe, "catalog" | "statics" | "dt">,
   orders: (senses: Senses) => Orders | null, given: Embodying = {}): EmbodiedApart {
   const at = (): At => ({ steps: world.steps, time: world.time });
-  let seat: Seat | null = null, observed: Hook | null = null, sent: string | undefined;
-  // What the mind says once every ask so far is carried out; the first time it says it observes, the world observes for it.
-  const heard = (): SeatSays => {
-    const says = seat!.says();
-    if (says.observes && !observed) observed = world.afterPhysics(() => { heard(); writer.write(); seat!.ask({ kind: "observe", at: at() }); });
-    return says;
-  };
+  let seat: Seat | null = null, sent: string | undefined;
   const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: () => seat!.answer(), idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
   seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
   const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
     // Nothing it was asked still reads the numbers.
-    heard();
-    writer!.write();
+    seat!.says();
+    writer.write();
     const now = orders(sense()), key = JSON.stringify(now);
     seat!.ask(key === sent ? { kind: "step", at: at() } : { kind: "step", at: at(), orders: now });
     sent = key;
   });
-  const said = () => heard().report;
+  const said = () => seat!.said().report;
   const report: MindReport = {
     get engagement() { return said()?.engagement ?? null; }, get prospects() { return said()?.prospects ?? null; }, get heading() { return said()?.heading ?? null; },
     get gait() { return said()?.gait ?? null; }, get navigation() { return said()?.navigation ?? null; }, get kit() { return said()?.kit ?? null; },
     get actions() { return said()?.actions ?? null; }, get ended() { return said()?.ended ?? null; },
-    get menu() { heard(); seat!.ask({ kind: "menu", at: at() }); return heard().menu ?? null; },
+    get menu() { return seat!.menu(at()); },
   };
   return {
-    held: { muscles, assist: help.assist, senses: sense }, report, has: () => heard().has,
+    held: { muscles, assist: help.assist, senses: sense }, report, has: () => seat!.said().has,
     state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, posed, toes: built.toes, mind: MIND_APART },
-    dispose: () => { seat!.ask({ kind: "dispose" }); observed?.dispose(); thinking.dispose(); muscles.dispose(); },
+    dispose: () => { seat!.ask({ kind: "dispose" }); thinking.dispose(); muscles.dispose(); },
   };
 }
 

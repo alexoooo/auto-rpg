@@ -12,7 +12,7 @@ strikes land less often than at none and are on the table's fine-tune list.
 
 - **The delay as a rule** (`World.delay`, `delayLine`): any whole number of steps, every world.
   The game's is one step, the owner's decision (`owner-command-delay`).
-- **The motor part** (`Mind.move`, `motorPart`, `think`): with a delay, each step the motor part
+- **The motor part** (`Mind.move`, `motorPart`, `answerOn`): with a delay, each step the motor part
   moves on the body as it is and its command is taken, then the mind steps on the same body; what
   the step sends goes with the next step's command, and the rings hold it the rest of the delay
   (`heldSteps`). With no delay the step decides and the motor part moves in the same step.

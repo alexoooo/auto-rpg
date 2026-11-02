@@ -530,8 +530,8 @@ the muscles read the joints.
 **The mirror.** In a world made `mirrored` (`World.mirrored`), each mind is made with its body's
 mirror (`mirrorBody`, `src/core/mind/mirror.ts`) in place of the body: the same `OwnBody`, made from
 the spec as the builder makes it (`segmentShapes`, `jointKinematics`) and refreshed from one body's
-numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) wherever the mind could
-read: before the mind steps, and as each completed physics interval is observed. They hold the
+numbers (`MirrorChannel.inbound`), which the world writes (`mirrorWriter`) once a step, before the
+mind steps, and again as a load puts the body back. They hold the
 clock and level; each segment's pose, motion, hand, toes and mass; the joints as the muscles last
 read them; the muscles' command, ceilings, delivered torque and bounds; the assist's; the senses';
 and each segment's contacts and manifolds. The mirror reads the body's dynamics itself (the driver
@@ -541,20 +541,24 @@ for the first time (a contact's other body, a sensed body or object, the senses'
 once, in order (`MirrorChannel.told`), with each touched body's contact label where the fight
 labels contacts. A bout on mirrors is the bout on bodies, step for step
 (`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
-written there, and the driver carries out its answer.
+written there: its observers of the physics see the interval just completed, then it answers, and
+the driver carries out its answer; then, at a delay, it decides. What it reports (`MindReport`)
+is what it said with its answer, before the decision, and its menu as it stands (`createMind`),
+so that a fight reads the same of it wherever it runs.
 
 **Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
 `src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
 (`embodyApart`, `src/core/mind/mind.ts`) and keeps the body's side (the muscles, the assist, the
 command's rings, the order sheet). Everything else crosses as data, in order: the world asks the
 seat to make the mind from a recipe (its config, the catalog's name, its grants, its body's
-statics), to step on the numbers just written with its orders where they changed, to observe the
-completed physics, to go idle, for its menu, and to go (`SeatAsk`); the seat says who has the body,
-whether it observes, its report and its menu (`SeatSays`). The mind's side is a host of seats
+statics), to step on the numbers just written with its orders where they changed, to go idle, for
+its menu, and to go (`SeatAsk`); the seat says who has the body and its report as the mind is made
+and with each answer (`SeatSays`), and its menu when asked. The mind's side is a host of seats
 (`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
-orders those last sent, its observers run when asked. At any delay the world waits for a mind's
-answer before its driver applies it, so a bout apart is the bout on bodies, step for step, and the
-same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+orders those last sent, its observers run as a step is asked, before its answer. At any delay the
+world waits for a mind's answer before its driver applies it, and reads what it said with it
+(`Seat.said`); it waits for the decision only to ask the next step or a menu (`Seat.says`), so a
+bout apart is the bout on bodies, step for step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
 The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
@@ -562,9 +566,9 @@ thread a `ThreadLink` that posts a batch, waits for it done and yields the repli
 is `mindThread` (`src/apart/thread.ts`): the minds' data loaded first, each spec sent to every
 thread once by number and derived as it arrives (`deriveSpec`), the asks carried out on a seat host
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
-an ask to observe is batched with the others made after physics, every other sent at once, and a
-side waiting spins about a step, then sleeps (`src/apart/wire.ts`). A report's kit and gait cross
-only when they change.
+the step asks go together as the world dispatches them, every other ask at once, what a seat says
+with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
+(`src/apart/wire.ts`). A report's kit and gait cross only when they change.
 
 - **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
   message on a port, two shared counters a thread pace the two sides, and the replies are taken
@@ -1281,8 +1285,9 @@ An item may be simulated as its own body, gripped by joints, beside the game's c
 3. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
    the mind steps, the assist gives, the motors are set), and a page's own (the Lab's shove);
 4. one solver step, which writes every node; the clock advances;
-5. the post-physics observations (`afterPhysics`: effector feedback, contacts), then what they
-   asked of minds apart sent together (`MindsApart.dispatch`);
+5. the post-physics observations (`afterPhysics`: effector feedback, contacts) of minds on their
+   bodies; a mind on a mirror or apart observes as the next step is prepared, on what its world
+   wrote, before it answers;
 6. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
    end or remove a fighter.
 
