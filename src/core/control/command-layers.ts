@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { COMMAND, type Body, type BodyCommand, type BodyDriver, type BodyView, type Fist, type LayerOptions } from "../body.ts";
+import { COMMAND, type Body, type BodyCommand, type BodyView, type Fist, type LayerOptions, type SplitDriver } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import { NOTHING_SENSED, type Senses } from "../mind/senses.ts";
@@ -20,6 +20,9 @@ import { standingHeight } from "./support.ts";
  * **The command layers as a mind** (`commandLayers`): motor control under a driver that hands it
  * goals (`BodyDriver`), seen through a view. Each step it reads the view (`look`), then asks the
  * driver for a command and gives the command to motor control, which writes the muscles (`act`).
+ * At a delay (`OwnBody.delay`) motor control is its motor part (`Mind.move`): it reads the body
+ * as it is (`feel`), has the driver carry out what it decided the delay's steps before
+ * (`SplitDriver.carry`) and carries the command out, and `act` only asks the driver to decide.
  * A mind that hands its body over hosts them (`HostMind`): released, motor control forgets what was
  * under way, so while another has the body the view shows no stance asked and the body is down by
  * its standing height; resumed, the driver is told (`BodyView.resumed`).
@@ -49,7 +52,7 @@ export interface CommandLayers extends HostMind {
  */
 export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock): CommandLayers {
   const { servoSeconds, stance, feedback: feedbackEnabled, contacts, motor: makeMotor } = options;
-  const { built, muscles } = own;
+  const { built, muscles } = own, late = own.delay > 0;
   // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
   const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), own.contactIdentity,
@@ -80,6 +83,10 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     released: false,
     groundActive: false,
     resumed: false,
+    /** At a delay, what the driver decided that it has not yet carried out, oldest first: null keeps the command. */
+    pending: [] as unknown[],
+    /** Whether the body was read this step, by the motor part before the look. */
+    felt: false,
   };
   // A hand is asked its pose by its segment; the port names it by its own name.
   const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
@@ -104,7 +111,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     get resumed() { return state.resumed; },
     reading,
   };
-  let driver: BodyDriver | null = null;
+  let driver: SplitDriver<unknown> | null = null;
   let released: ((view: BodyView, reason: "takeover" | "idle" | "replaced") => void) | undefined;
 
   const obey = (command: BodyCommand): void => {
@@ -141,11 +148,11 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
   };
   obey(restCommand());
 
-  const look = (senses: Senses): void => {
+  /** Read the body as it is at `time`: everything the view shows but the senses. */
+  const feel = (time: number): void => {
     moved();
-    state.time = senses.time;
-    state.born ??= senses.time;
-    view.senses = senses;
+    state.time = time;
+    state.born ??= time;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     for (let i = 0; i < fists.length; i++) fists[i]![1].update();
     rootFrameToRef(motor.root, state.root);
@@ -161,24 +168,51 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     state.down = upright.down(standing ? standing.height : state.held ?? undefined, standing?.pose !== undefined);
     state.groundActive = state.down || state.released || state.groundActive && standing === null;
     if (ground) {
-      if (state.groundActive) ground.read();
-      else ground.reset();
+      if (!state.groundActive) ground.reset();
+      else ground.read();
     }
   };
+  const look = (senses: Senses): void => {
+    // At a delay the motor part read the body before the look.
+    if (state.felt) moved();
+    else feel(senses.time);
+    state.felt = false;
+    view.senses = senses;
+  };
   const act = (dt: number): void => {
-    const next = driver?.(view, dt);
-    if (next) obey(next);
-    motor.control(muscles, dt);
+    if (late) state.pending.push(driver ? driver.decide(view, dt) : null);
+    else {
+      const next = driver?.carry(view, driver.decide(view, dt), dt);
+      if (next) obey(next);
+      motor.control(muscles, dt);
+    }
     state.resumed = false;
     moved();
   };
-  const drive: Body["drive"] = (next, onRelease) => { if (driver && driver !== next) released?.(view, "replaced"); driver = next; released = onRelease; };
+  const move = (dt: number): void => {
+    if (!late) return;
+    feel(clock.time);
+    state.felt = true;
+    if (state.pending.length >= own.delay) {
+      const due = state.pending.shift();
+      const next = due === null || due === undefined ? null : driver?.carry(view, due, dt);
+      if (next) obey(next);
+    }
+    motor.control(muscles, dt);
+    moved();
+  };
+  const drive: Body["drive"] = (next, onRelease) => {
+    const split = typeof next === "function" ? { decide: next, carry: carried } : next;
+    if (driver && split?.decide !== driver.decide) { released?.(view, "replaced"); state.pending.length = 0; }
+    driver = split;
+    released = onRelease;
+  };
   own.afterPhysics((step) => { moved(); feedback?.read(step); });
   const envelope = !options.measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(own.spec) : null;
-  const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics };
+  const body: Body = { built, muscles, assist: own.assist, view, envelope, drive, afterPhysics: own.afterPhysics, delay: own.delay };
   return {
     name: COMMAND,
-    view, body, look, act, state,
+    view, body, look, act, move, state,
     firstLook() {
       feedback?.read(clock.steps);
       look(own.senses());
@@ -186,6 +220,7 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     step(senses, dt) { look(senses); act(dt); },
     release(reason = "takeover") {
       state.released = true;
+      state.pending.length = 0;
       released?.(view, reason);
       motor.reset();
       for (const segment in goals) goals[segment] = null;
@@ -194,6 +229,9 @@ export function commandLayers(own: OwnBody, options: LayerOptions, clock: Clock)
     dispose() { drive(null); },
   };
 }
+
+/** A driver that decides its command whole carries out the command it decided. */
+const carried = (_view: BodyView, command: unknown): BodyCommand | null => command as BodyCommand | null;
 
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);

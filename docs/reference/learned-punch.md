@@ -1,24 +1,33 @@
 # The learned punch
 
-**The toed Warrior's learned punch lands 83 % of 640 held-out trials, still or walking in, at
-120 and 480 Hz alike, short of the 90 % asked; on the baseline's punch rung, 26 of 32 still on the
-middle mark and 52 of 64 from a walk, at 120 Hz.** It is a timed straight punch steered by a
-network that pushes the trunk and the arm and asks the legs goal for the hip's turn and the
-weight's shift, trained on the toed Warrior from still and walking starts, its legs' unmet asks
-weighed (`assets/core/straight-punch.json`, 55.0 M decisions;
-[trained on its unmet asks](#trained-on-its-unmet-asks)).
+**The toed Warrior's learned punch lands 83 % of 640 held-out trials on Option Mind, still or
+walking in, 81 % at 120 Hz and 85 % at 480, none fallen, short of the 90 % asked; on the Strike
+drill, 31 of 32 still on the middle mark (its rung met) and 52 of 64 from a walk, at 120 Hz; in
+fights none lands.** It is a timed straight punch steered by a network that pushes the trunk and
+the arm and asks the legs goal for the hip's turn and the weight's shift, trained on the toed
+Warrior from still and walking starts, its legs' unmet asks weighed, then fine-tuned 3.0 M decisions
+on Option Mind's straight punch (`assets/core/straight-punch.json`;
+[fine-tuned on Option Mind](#fine-tuned-on-option-mind)).
 
 - **Against the network before it** (its legs' outputs pushes, trained on flat feet), on the toed
   Warrior: the walk rung 47 of 64 against 31, the still rung 30 of 32 against 26; held out at
   480 Hz, still 37 of 45 against 30 and from a walk 21 of 35 against 1
   ([the one punch](#the-one-punch)). None fell.
-- **The toed Rogue's** lands 69 of 100 held-out trials at 120 Hz and 64 at 480 Hz (on fresh
-  trials 65 and 71), none fallen, at its scaled bar (`barOf`, `src/evaluation/strike/read.ts`), against
-  59 and 61 of the same fresh trials at 2 M decisions: the Warrior's settings, steered by a
-  network trained by PPO for 4 M decisions on the Warrior's environment
-  (`research/environments/punch.json`) with the Rogue in his place and the gaps scaled by 0.92, from
-  the Warrior's network with its outputs scaled by a quarter. Unsteered, its hits meet 0.3 to
-  0.9 kg against the bar's 1.54, landing 0 of 24; the Warrior's network whole lands 0 of 30.
+- **The toed Rogue's** lands 110 and 171 of 320 held-out trials at 120 and 480 Hz (34 % and
+  53 %, seed 7001, still and walking in), none fallen, at her scaled bar (`barOf`,
+  `src/evaluation/strike/read.ts`). Her network was trained by PPO for 4 M decisions on the
+  Warrior's environment (`research/environments/punch.json`) with the Rogue in his place and the
+  gaps scaled by 0.92, from the Warrior's network with its outputs scaled by a quarter; then, since
+  her elbows extend at twice their measured peak (under which it landed 0 of 30 on the still
+  rung), 1.05 M more on Option Mind's punch, flat from there to 1.38 M. Her misses are short on the
+  fist's mass (230) and straightness (132). On the drill at `5d8976ea` and `b43f4799`: still 8 of
+  30 thrown, from a walk 19 of 64, in fights 2 of 8 middle-mark moments land.
+- **The Skeleton has no punch**: no record for `crypt-skeleton+toes`. Its schedule searched from the
+  Warrior's (`research/punch-drill.mjs`, the arm's channels free, gaps 0.76 to 0.84 m;
+  `research/environments/skeleton-punch-schedule.json`) meets the target with the elbow straight at
+  6.3 m/s and 0.54 kg at 120 Hz and 4.7 m/s and 0.15 kg at 480 Hz, against its bar's 7.53 m/s and
+  0.40 kg; nearer gaps meet it with the elbow bent. Whether its arm's numbers are the limit is not
+  yet read.
 - **On the Strike drill's still rung** the high mark is refused, since it aims at the middle only.
 - **On the fight rung** the network before it landed 3 of 56 middle-mark moments; of the 23 blows
   that met the foe past its arms, 3 met the bar, and 9 moments never came into its window.
@@ -69,11 +78,66 @@ lead. Speeds are over the fist's last 0.1 m. The bar is `BAR` (`src/evaluation/s
   (`research/runs/option-punch`), its places the still rung's 0.6 to 1.3 m and walks in from 1.6
   to 3 m, halting the walk as it commits from 45.8 M. The checkpoint is the run's best on the
   drill's still and walk rungs of the 21 from 46.0 M on (the last; the others 25 to 31 of 32 and
-  33 to 41 of 64). Exported by `research/punch-export.mjs`.
+  33 to 41 of 64). Exported by `research/punch-export.mjs`. Then 3.0 M more on Option
+  Mind's straight punch ([fine-tuned on Option Mind](#fine-tuned-on-option-mind)).
 - **Its drill subject**: `research/learned-puncher.json`, the Puncher with the learned punch as its
   strike, on the toed Warrior (`character`). On the drill it plays Option Mind's bouts to the bit.
 
 ## Measurement
+
+### Fine-tuned on Option Mind
+
+The 55.0 M network trained on 3.0 M decisions (`research/runs/option-punch-4`, kept outside Git;
+log-std -2, learning rate 1e-4) on `research/environments/punch.json` with Option Mind's straight
+punch as the subject, at command delay 0. Its checkpoints read held out every 0.5 M (seed 4001,
+160 trials a rate) rose from 123 and 112 at 120 and 480 Hz to 133 and 137; the best two were read
+again on a fresh seed, and the last, at 3,018,752, kept (531 against 524 at 2,625,536).
+
+Held out: `research/punch-policy-check.mjs`, seed 5001, 320 trials a rate drawn as training draws
+them, Node, the core's world on `rapier-coordinate`, the toed Warrior, both hands; landed of trials.
+
+| Start, hand | 120 Hz before | 120 Hz now | 480 Hz before | 480 Hz now |
+|---|---|---|---|---|
+| still, left | 51/70 | 56/70 | 47/70 | 55/70 |
+| still, right | 60/89 | 75/89 | 67/89 | 75/89 |
+| walking in, left | 63/79 | 68/79 | 67/79 | 73/79 |
+| walking in, right | 57/82 | 59/82 | 58/82 | 70/82 |
+| all | 231/320 | 258/320 | 239/320 | 273/320 |
+
+None fell. Of the 109 misses, 105 are weak: a fist short of its mass (38), of straightness (42) or
+of speed (21), the elbow's bend in 9 (a blow may miss several); 17 refused, 2 missed. Walking in,
+the right hand at 120 Hz (72 %) is the furthest short.
+
+**The Strike drill** (Node, the bout world on `rapier-coordinate`, 120 Hz, command delay 0, at
+`e01be414`): still, 31 of 32 on the middle mark land, the one weak 6.41 m/s at 1.22 kg (record
+`2026-11-02-e01be414-ecbb0de6`,
+`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=a4d78d474fe48d4c`); from a
+walk 52 of 64, 12 weak
+(`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=c7ff35607a9320a8`). The
+high mark is refused, since the punch aims at the middle only.
+
+**A new network needs its profiles.** A strike's profile names its skill's digest, which reads the
+network (`skillDigest`, `src/core/skills/framework/profile.ts`): with the network changed and the
+profiles not, Option Mind read its prior and in the fight rung began no action at a body in 30 s
+(16 of 16 unreached, and the stomp's fight rung alike). The punch's profiles were measured again
+from the baseline's punch rung and the drill's punching, guarding, stepping, letgo and
+letgo-punched rungs (`research/strike-profiles.mjs`, `assets/core/strike-profiles.json`).
+
+**The fight rung** (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=636a427499ab7f9c`,
+at `824d82d1`): of 8 middle-mark moments, 3 meet the foe's body, all weak; 2 guarded, 2 missed, 1
+outside. The weak blows come at 7.8 to 8.1 m/s, two with the elbow 0.7 and 0.9 rad short of
+straight (1.2 and 1.6 kg), the foe 0.81 to 0.84 m off as the moment began, inside the window's near
+edge; one straight (9.0 kg) but grazing, 88° off the surface. Two causes had kept every blow off
+the body (at `e01be414`: 1 weak, 2 guarded, 1 missed, 4 refused):
+
+- **The drill let go of the moment's own blow.** At its moment it ordered a stand before its
+  strike; the mind let go of the punch that made the moment, and the drill's own then waited for
+  a window that had passed. It now carries the moment's own action on where it is the choice asked
+  (`adopts`, `src/core/command/drill.ts`).
+- **The punch waited to settle after it was admitted.** Readiness admitted it walking; its prepare
+  then waited for a quiet stance (`quietToPunch`), 0.2 to 0.4 s in a fight, while the foe closed
+  0.3 to 0.6 m, and the blow came crowded. Poised (`StraightPunch.poised`), it is ready only
+  standing quiet and commits at once; the walk rung stays 52 of 64 and the still 31 of 32.
 
 ### Trained on its unmet asks
 

@@ -24,7 +24,7 @@ function partFigures<R>(part: BaselinePart, figures: readonly Figure<R & Json>[]
 
 const STRIKE_FIGURES = STRIKE.figures.filter((figure) => ["landed", "landed on the body", "admitted", "fell"].includes(figure.name));
 
-/** The stand-up (`FALL_FIGURES`): the falls made, and on them stood within 6 s, stood, and the failure-inclusive median. */
+/** The stand-up (`FALL_FIGURES`): the falls made, and on them stood within the target's time, stood, and the failure-inclusive median. */
 const STAND_FIGURES = FALL_FIGURES as readonly Figure<FallReading & Json>[];
 
 const FIGHT_FIGURES: readonly Figure<FightReading & Json>[] = [

@@ -109,7 +109,7 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
     if (says.observes && !observed) observed = world.afterPhysics(() => { heard(); writer.write(); seat!.ask({ kind: "observe", at: at() }); });
     return says;
   };
-  const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: heard, idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
+  const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: () => seat!.answer(), idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
   seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
   const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;

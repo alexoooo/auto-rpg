@@ -75,14 +75,11 @@ fingerprint case.
    `research/gait-profiles.mjs`). Check: every rung of the punch, club and stomp drills, the
    Gait drill, the baseline battery and the stand-up on the owner's target
    ([rising](../reference/rising.md#the-owners-target)) read against the version before, and the match
-   against it. Balance and the rise are held: where they suffer, motor control predicts its own
-   body a step ahead from the command it has sent (its sense of its own pose is a step older),
-   inside the mind. The rule is in every world; at one step motor control does not yet hold a
-   planted root pose or the stand-up target, and predicting the body at constant velocity does not
-   restore them; predicting from its solve's planned accelerations on its mirror (step 3), with
-   the body correcting toward the speeds planned, holds the root pose, the walk and the stagger
-   but not the halt ([the command delay](../reference/command-delay.md)), so the game's delay
-   stays none. A trained
+   against it. Balance and the rise are held by splitting each mind: its step decides a step
+   late, and its body's motor part (`Mind.move`: the body read, the skills making the command from
+   the decided intent, and motor control) carries the decision out on the body as it is, on the
+   senses the decision was made on. The game's delay is one step
+   ([the command delay](../reference/command-delay.md)). A trained
    skill that loses is fine-tuned in the table's first pass
    ([Option Mind on every body](2026-11-01-option-mind-everywhere.md), step 3), not here.
 3. **A mind's body read from a snapshot, on one thread.** Each body's mirror is made from its spec

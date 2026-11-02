@@ -38,13 +38,14 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
   const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
   const legs = wrapLegs(legsOf(lookup, hosted.driver, legsConfig));
   let ask = () => ({});
-  hosted.drive((view, dt) => {
-    const claim = ask(view), drive = legs.goal(view, { walk: null, face: legs.heading, ...claim.legs }, dt);
+  // The claim is decided on the view as sensed; the legs carry it out on the body as it is (`SplitDriver`).
+  hosted.drive({ decide: (view) => ask(view), carry: (view, claim, dt) => {
+    const drive = legs.goal(view, { walk: null, face: legs.heading, ...claim.legs }, dt);
     const stance = drive.kind === "stance";
     return filter({ posture: { ...guard, ...(stance ? {} : drive.posture), ...claim.posture }, pushes: [...(stance ? [] : drive.pushes), ...claim.pushes ?? []],
       stance: stance ? drive.goal : null, ...(!stance && drive.held !== undefined ? { held: drive.held } : {}), ...(claim.effectors ? { effectors: claim.effectors } : {}), ...(claim.points ? { points: claim.points } : {}),
       ...(claim.handPoses ? { handPoses: claim.handPoses } : {}) });
-  });
+  } });
   // The first step builds the stance's reference; what the probes read from is the body standing after it.
   stand.step(1);
   const view = hosted.view, s = view.stance;
@@ -52,6 +53,8 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
     support: [s.support.x, s.support.z], guard };
   return {
     view, legs, start, channels: hosted.muscles.channels.map((channel) => channel.name),
+    /** The steps a command waits before motor control carries it out (`World.delay`). */
+    delay: stand.world.delay,
     /** The height over the ground of the centre of the segment the spec's bearing end `end` is on, m. */
     endHeight: (end) => stand.built.segments.get(spec.ends.find((one) => one.name === end).segment).node.position.y,
     run(seconds, asked) { ask = asked; stand.step(stand.seconds(seconds)); },
@@ -208,7 +211,8 @@ export const CLAIM_PROBES = Object.freeze({
     const from = rig.view.angles["elbow.right flexion"];
     rig.run(0.15, () => ({ pushes: [{ channel: "elbow.right flexion", sense: 1, level: 1 }] }));
     const bent = rig.view.angles["elbow.right flexion"] - from;
-    rig.run(1 / 120, () => ({ pushes: [{ channel: "knee.left flexion", sense: 1, level: 1 }] }));
+    // Motor control reports the push once it carries the command out, the world's delay after it is given.
+    rig.run((1 + rig.delay) / 120, () => ({ pushes: [{ channel: "knee.left flexion", sense: 1, level: 1 }] }));
     const reported = rig.view.unmet.pushes[rig.channels.indexOf("knee.left flexion")] === 1;
     return reading(bent >= 0.2 && reported, false, `the elbow pushed ${round(bent)} rad in 0.15 s, limit 0.2; a stance leg's push ${reported ? "" : "not "}reported`);
   } },

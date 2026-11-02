@@ -210,7 +210,8 @@ test("a requested step releases the preceding catch's recovery heading", async (
     heading = .3;
     const sole = hosted.view.stance.soles.left;
     swing = { foot: "left", to: [sole.x, sole.z + .06], seconds: .3, lift: .05, shift: true };
-    stand.step();
+    // Motor control takes the step once it carries the command out, the world's delay after it is given.
+    stand.step(1 + stand.world.delay);
     assert.equal(balance.state.step.recovering, false, "the requested step must leave recovery control");
     assert.equal(balance.state.step.facing, null, "the old catch must not override the new step's heading");
   } finally { hosted.dispose(); stand.dispose(); }

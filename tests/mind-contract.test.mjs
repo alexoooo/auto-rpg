@@ -155,7 +155,8 @@ for (const [id, preset] of MINDS) {
 test("an assisted bout with blows, fists and assist asks replays from its sheets to the bit", async () => {
   // The control for the bouts above, where nobody is assisted: Option Mind each side, with a quarter of its weight to ask.
   const { config, character } = PRESETS.option;
-  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
+  // Nearer than the bouts above, so that blows land within the bout's steps.
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 0.8, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const first = await played(recipe, { record: true }, false);
   const carried = (key) => SIDES.map((side) => first.sheets[side].sheets.filter((sheet) => key(sheet)).length);
   assert.ok(first.blows > 0, "a blow lands");
@@ -227,7 +228,8 @@ test("a mind that draws by chance plays apart on two bout seeds, and a seed's bo
 test("a mind senses its own life at once and another's as late as the rest of it, a fraction of the whole, never a part's hit points", async () => {
   // Option Mind at arm's reach each side, each with a quarter of its weight to ask, wound each other within the bout.
   const { config, character } = PRESETS.option;
-  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: GAP, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
+  // Nearer than the bouts above, so that blows land within the bout's steps.
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 0.8, balance: { left: 25, right: 25 }, minds: { left: config, right: config }, ...bothAs(character) };
   const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   try {
     duel.play([]);

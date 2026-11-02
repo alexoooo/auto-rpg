@@ -128,10 +128,7 @@ export interface EngineJoint {
    * (rad/s), with at most `ceiling` (N m) either way.
    */
   setMotor(k: number, speed: number, ceiling: number): void;
-  /**
-   * The same velocity motor, its torque on the child held from `-negative` to `positive` (N m): each
-   * a ceiling in its sense when both are nonnegative, a window apart from zero when one is negative.
-   */
+  /** The same velocity motor, bounded separately in the child's negative and positive senses (nonnegative N m). */
   setMotorBounds(k: number, speed: number, negative: number, positive: number): void;
   /**
    * Freedom k's motor as a spring, solved within the step: a torque of `stiffness` (N m/rad) times
@@ -196,6 +193,18 @@ export interface Contact {
   readonly pairs: readonly ContactPair[];
 }
 
+/**
+ * **Where contacts are told number by number** (`PhysicsWorld.tellContacts`, `tellManifolds`): each
+ * contact (`Contact`) with its pairs' count, then its pairs; each manifold (`ContactManifold`)
+ * with its points' count, then its points.
+ */
+export interface ContactSink {
+  contact(other: SegmentBody | null, fixed: number | null, impulse: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number, pairs: number): void;
+  pair(mine: number, theirs: number, impulse: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number): void;
+  manifold(other: SegmentBody | null, fixed: number | null, mine: number, theirs: number, nx: number, ny: number, nz: number, impulse: number, points: number): void;
+  point(x: number, y: number, z: number, distance: number): void;
+}
+
 /** A narrow-phase manifold before contact points are averaged; a diagnostic/model reading. */
 export interface ContactManifold {
   readonly other: SegmentBody | null;
@@ -249,6 +258,10 @@ export interface PhysicsWorld {
   contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
   /** Unaveraged solver geometry. A predicted point or zero impulse is not proof of load-bearing contact. */
   contactManifoldsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly ContactManifold[];
+  /** Everything `body` is in contact with, as `contactsOf` reads it unfiltered, told to `sink` number by number: no object made. */
+  tellContacts(body: SegmentBody, sink: ContactSink): void;
+  /** `body`'s manifolds, as `contactManifoldsOf` reads them unfiltered, told to `sink` number by number. */
+  tellManifolds(body: SegmentBody, sink: ContactSink): void;
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

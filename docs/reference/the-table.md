@@ -14,11 +14,16 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **Skills with no record for the body** (`usableSkills` leaves them out; the drill counts every
   trial refused): the Skeleton has only the low kick (no punch, stomp, club, cut or thrust is
   tuned for `crypt-skeleton+toes`); the Rogue has the punch and the stomp (no club, cut, thrust or
-  kick). Option Mind does not refuse the Rogue's punch: it throws it on the still rung, 23 of 30.
+  kick). Option Mind does not refuse the Rogue's punch: it throws it on the still rung, 30 of 32, 8 at
+  her bar ([the learned punch](learned-punch.md)).
   The Skeleton's "no such choice on its menu" is the drill Commander finding no punch in its kit.
-- **Blows thrown but weak or elsewhere**: the Warrior's punch on the still rung (26 of 32 thrown),
-  the club (6 and 12 of 16), the cut and the thrust (none of 7 to 32); in every fight rung no blow
-  meets the foe's body past its arms (0 on the body, all bodies and blows).
+- **Blows thrown but weak or elsewhere**: the Warrior's punch from a walk (52 of 64; still, 31 of
+  32 meets its rung), the club (6 and 12 of 16), the cut and the thrust (none of 7 to 32); in every
+  fight rung but the punch's no blow meets the foe's body past its arms (0 on the body); the
+  Rogue's punch lands 2 of 8 middle-mark moments:
+  the Warrior's punch meets it 3 times of 8 middle-mark moments, all weak, crowded inside the
+  window or grazing, since the drill carries on the mind's own blow and the punch begins only
+  standing quiet ([the learned punch](learned-punch.md#fine-tuned-on-option-mind)).
 - **The run**: no cell meets it. On toes the run gait is held to its envelope, about 0.7 m/s forward
   ([toes](toes.md#on-the-game-bodies)), so the held run cannot reach 3 m/s; the Rogue falls in 24
   to 28 of its 32 run trials with empty hands or the sword.
@@ -35,25 +40,23 @@ and with the sword and buckler. No cell is accepted by the owner.
   at `9c26cf77`, 14 of 15 empty-handed) and its sit-backs reach the steady, which fails under the
   club's mass; its roll from the back stalls with the club's arm coming across.
 - **The Skeleton's walk**: shoved by its share of the Warrior's impulses (`shoveOf`, the same
-  change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg), it falls in 2 to 8 of 47 trials a
-  loadout, against 26 to 30 under the Warrior's own (`0b3fcf3e`). What is left:
-  - **holding the buckler and the club** it never walks: its root sinks from 1.32 to 1.12 m in the
-    first 1.5 s and stays there, 0.00 of the pace asked in every calm walk, and in the lab's gusts
-    every walk falls at 1.59 s, before a step. Empty-handed it settles at 1.27 m and walks; the club
-    alone 1.18 m, the buckler and the sword 1.14 m, and both walk. The sag grows with the mass held,
-    yet its knees give about a fifth of their strength (a walk traced at 0.3 m/s): the legs' control
-    lets the stance sink, not the muscles. Its mind follows the orders (`follow orders` chosen, its
-    gait's envelope 0.7 m/s forward, read from the stance envelope's club entry, which has no
-    combined loadout), so the walk is asked and the legs do not step from that depth;
-  - **the club alone**: 6 of 24 shoves fall (8.5 and 11.4 N s, aside and back-aside);
-  - **every loadout**: a fall or two in the turns and the walks in the gusts.
-
-  These are the legs' (step 5's, with the run), not the protocol's.
+  change of speed: 0.19 of his 30, 45 and 60 N s on its 15 kg) and blown by its share of the lab's
+  gusts (`labGusts`, 8.5 N), it meets the walk's bar holding the buckler and the club and holding
+  the buckler and the sword. Holding the club alone it falls in 7 of 47 trials (`629f7c3b`): 6 of
+  its 24 standing shoves (8.5 and 11.4 N s, aside and back-aside) and a walk in the gusts. Its
+  catch lands short: the body rolls on over the catching foot, the other foot lifts, the catching
+  foot pushes the centre of mass up off the ground and no second step is in time. Empty-handed it
+  falls in the run and a shove (11.4 N s), and with the sword in a walking turn; these trials fall
+  or stand by small changes to the legs.
 - **The buckler's cover**: it meets 1 to 20 of 13 to 30 blows first, 6 to 67 %, against 80 %; the
   Skeleton falls in 2 to 3 of 6 trials.
-- **The walk**: the Warrior falls in its turns with empty hands and the club (2 and 1 of 2); the
-  Rogue, shoved by its share (0.73 of the Warrior's), in one shove (43.7 N s, from ahead), three
-  walks in the gusts with the club, and the run and both turns with the sword alone.
+- **The walk** (read again at `629f7c3b`, `assets/evaluations/locomotion/2026-11-02-629f7c3b-ab1210ec.jsonl`):
+  11 falls of 705 trials, 11 of the 15 cells met. A walk slowing crouches for the speed the body
+  goes (`paceToward`): its plan slowed at its acceleration while the body went on faster, and the
+  hips rose over legs stepping long to brake it, so a stop from the top walk vaulted the body
+  over a planted foot at a quarter of the stride's phases, and the walking turns, which slow to the
+  pace they turn at, fell (9 of 30 at `c714c035`; 1 after). Every Warrior cell meets the bar; the
+  Rogue's but the empty-handed, which falls in the largest shove from ahead (43.7 N s).
 
 ## Each cell
 
@@ -85,10 +88,10 @@ and with the sword and buckler. No cell is accepted by the owner.
   - locomotion/every: 2 of 47 fell, walk along 1.01 of the pace asked (median) (`?play=ratings&evaluation=locomotion&subject=option&version=a203f2b49d91beaa`)
 - **empty,empty, run**: short
   - locomotion/run: 0 of 32 met, 5 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
-- **empty,empty, punch**: short
-  - strike/still: 26 of 32 thrown, 0 fell, 32 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d8128035105153bf`)
-  - strike/walk: 54 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=f71986767906ef87`)
-  - strike/fight: 0 of 0 on the body, 0 fell, 10 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=27282924d20db673`)
+- **empty,empty, punch**: short (still met; read at `824d82d1`)
+  - strike/still: 31 of 32 thrown, 0 fell, 32 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=e1de089a1341813b`)
+  - strike/walk: 52 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=b71bc87e110f04bd`)
+  - strike/fight: 0 of 3 on the body, 0 fell, 8 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=636a427499ab7f9c`)
 - **empty,empty, stomp**: short
   - strike/stomping: 4 of 5 thrown, 0 fell, 7 refused, 12 trials (`?play=ratings&evaluation=strike&subject=stomp60&version=69250816729e6455`)
 - **empty,empty, front-kick**: short
@@ -181,9 +184,9 @@ and with the sword and buckler. No cell is accepted by the owner.
 - **empty,empty, run**: short
   - locomotion/run: 0 of 32 met, 28 fell; short: run-held, run-turn, run-stop (`?play=ratings&evaluation=locomotion&subject=option&version=6903c3a0de3b5adc`)
 - **empty,empty, punch**: short
-  - strike/still: 23 of 30 thrown, 0 fell, 34 refused, 64 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d8128035105153bf`)
-  - strike/walk-bodies: 42 of 64 thrown, 0 fell, 64 refused, 128 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=f05aee0b47b0a119`)
-  - strike/fight-bodies: 0 of 2 on the body, 0 fell, 10 refused, 16 trials (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=fb8eeedcb7df65ba`)
+  - strike/still: 8 of 30 thrown, 0 fell, 34 refused, 64 trials, at `5d8976ea`, her network trained again with her elbows at twice their peak (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d71e316f0c869660`)
+  - strike/walk-bodies: 19 of 64 thrown, 0 fell, 64 refused, 128 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=23aeb49499fd7f8a`)
+  - strike/fight-bodies: 2 of 8 on the body, 0 fell, 8 refused, 16 trials, at `b43f4799` (`?play=ratings&evaluation=strike&subject=option%2Fstraight-punch&version=d17b198620e27fa5`)
 - **empty,empty, stomp**: met
   - strike/stomping-bodies: 7 of 7 thrown, 0 fell, 4 refused, 12 trials (`?play=ratings&evaluation=strike&subject=option%2Fstomp&version=922a202826ac9b87`)
 - **empty,empty, front-kick**: short

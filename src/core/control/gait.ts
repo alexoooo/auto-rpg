@@ -557,8 +557,10 @@ function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Ve
  * than the legs can step its way facing `heading` with their hips lowered by the gait's `crouch`
  * from `hip`, the goal's height over the soles (`fastestPace`): a pace asked past that is taken at
  * that, and the steps planned are steps the legs can take. The hips are lowered no further than the
- * steps at the pace need (`walkHeight`, into `StanceState.crouch`): a longer step lands further from
- * a lower hip, and a walk crouches for its pace, not for the pace asked.
+ * steps at the pace need, or at the body's own speed where it goes faster, up to what the legs step
+ * (`walkHeight`, into `StanceState.crouch`): a longer step lands further from a lower hip, a walk
+ * crouches for its pace, not for the pace asked, and a walk slowing still takes the long steps its
+ * speed needs, its hips not raised over legs that brake it.
  */
 export function paceToward(s: Stance, walk: readonly [number, number] | null | undefined, heading: number, hip: number, dt: number): void {
   const { state } = s, { pace, gait } = state, { bend } = s.tuning;
@@ -575,7 +577,8 @@ export function paceToward(s: Stance, walk: readonly [number, number] | null | u
       pace[0] *= fastest / p;
       pace[1] *= fastest / p;
     }
-    state.crouch = hip - walkHeight(s.feet, ux, uz, Math.min(p, fastest), heading, gait, bend, low, hip);
+    const v = state.reading.velocity, speed = Math.max(Math.min(p, fastest), Math.min(fastest, Math.sqrt(v.x * v.x + v.z * v.z)));
+    state.crouch = hip - walkHeight(s.feet, ux, uz, speed, heading, gait, bend, low, hip);
   }
 }
 

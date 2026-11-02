@@ -57,10 +57,10 @@ npm run evaluate -- rising-target [riser ...]
   first down by the fight's rule), through landing, orientation and retries. A fall not stood
   counts at the cap; a fall not made is no stand-up.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
-  16 within 6 s in each body and loadout group, and 61 of 64 overall; every cardinal direction
-  within 6 s; a failure-inclusive median of at most 10 s (the owner, 2026-10-31: Option Mind's
-  fastest tenth of the Warrior's 64 falls, the target's and the fresh, stand by 10.45 s at
-  `bfdae8db`, its median 17.0 s).
+  16 within 10 s (`STAND_WITHIN`, the owner, 2026-11-01) in each body and loadout group, and 61 of
+  64 overall; every cardinal direction within 10 s; a failure-inclusive median of at most 10 s (the
+  owner, 2026-10-31: Option Mind's fastest tenth of the Warrior's 64 falls, the target's and the
+  fresh, stand by 10.45 s at `bfdae8db`, its median 17.0 s).
 - **Against people** ([competencies](competencies.md#targets)): young adults rising from the floor
   at a comfortable rate take a mean 1.4 to 2.6 s by starting position, and from the back a third
   less asked for speed; healthy older adults take 2.4 to 5.5 s (Alexander et al. 1997). College-age
@@ -70,8 +70,7 @@ npm run evaluate -- rising-target [riser ...]
   the target's also holds the landing and settling after the fall and the steadying to a verified,
   quiet stance (on step-up's stood falls a median 1.1 s before the rise and 2.7 after it, [where the rise
   stops](#where-the-rise-stops)). With
-  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s median, and
-  the 6 s a fall is above the older adults' slowest mean.
+  those, a young adult's comfortable rise comes to about 5.2 to 6.4 s, under the 10 s a fall.
 - **The baseline** is the game's Stand up (`step-up`) ([Step-up on the owner's target](#step-up-on-the-owners-target)).
 - **A controller that acts on the muscles from an observation** runs on the stand-up screen's
   sixteen falls, made afresh each run:
@@ -1801,3 +1800,16 @@ the rise's end and verified standing, the idle settling begun two or three times
 the same 0.4 m from its place, the feet 0.55 to 0.81 m apart. Lying on the club, the Warrior's hand
 holding it rests on it across the other hand, the head and the upper trunk, and reads down only
 once the body shifts off it, about 1 s into `fours`.
+
+Where those seconds go (`research/rise-trace.mjs --loadout empty,club`, at `c0217508`; Node, core
+world, Rapier, 120 Hz): the six falls whose verified stand comes 1.6 to 6.6 s after the rise's end
+are the idle settling's ([idle settling](human-and-strikes.md#idle-settling)). Traced at 135
+degrees: a catch step leaves the soles 0.71 m apart, both turned 0.65 rad from the pelvis though
+parallel to each other, so neither stays and both step; each step's weight shift takes 0.75 s and
+carries the centre of mass at up to 0.43 m/s, and the swinging foot rises 3 mm, drags on the
+floor and lands 0.2 m short of its place, which asks for another step.
+
+- **Settling about the feet's own facing** where they face one way within 0.2 rad (the pelvis
+  turning back over them, one foot stepping): the same 16 falls stand by a median 10.74 s against
+  10.75, the slow six 1.6 to 7.0 s after the rise against 1.6 to 6.6, one shove held and no fall
+  made. The drag, not the choice of foot, holds the stand; not kept.

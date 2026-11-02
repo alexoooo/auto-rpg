@@ -905,9 +905,16 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   the minds overlap each other but never the solver. The crowd fight's step is about 7.3 ms, 1.7
   ms under one thread's, near the 8.33 a step allows, and it falls behind wherever its fight is
   dense.
-- **A step of delay lets the solver and the minds overlap**, the 5.3 ms the split projected
-  ([above](#the-minds-split-off-the-world)); it needs the driver's and the assist's rings written
-  as each answer comes, apart from what they apply.
+- **At a step of delay a mind answers before it decides** (`answerOn`, `decideOn`,
+  `src/core/mind/mind.ts`): its thread runs its motor part on the body the world wrote and sends
+  that answer (`Thread.steps`, the count of answered steps in `ANSWERED`, `src/apart/wire.ts`),
+  then makes the decision its next answer carries out, while the world takes the answer and steps
+  (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to the bit on one
+  thread and on one to four mind threads (`research/minds-apart.mjs`, the whole physics world's
+  bytes each second, at 37871d97): the crowd fight to its verdict (13449 steps, 4129 blows, the
+  right side's by draining at 112.075 s), the bare-hands and sword bouts and the Crypt at seeds 10
+  and 25 for 30 s. A preview at 37871d97 played the crowd fight on four mind threads to Node's
+  verdict.
 - **A spec goes to every thread once and is derived as it arrives** (`deriveSpec`,
   `src/core/mind/apart.ts`: the openings' hulls and the spec's digest), named by its number after.
   Derived in a mind's step instead, the first a thread's mind sensed a body cost about 40 ms (the
