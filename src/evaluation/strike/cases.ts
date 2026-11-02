@@ -121,18 +121,10 @@ const LETTING_GO_PUNCHED = deepFreeze({ ...PUNCHING, letGo: [0, .05, .1, .15] })
  * of a target lying on its back: a Warrior's or a Skeleton's body (`targets`) under the bare mind
  * with no network, which pulls no muscle, so it falls limp from where it stood and lies still
  * before the striker, standing `settled` s first, walks round to its side; longer than the
- * others, for that walk and the kick's slow preparation.
+ * others, for that walk and the stomp's slow preparation.
  */
 const STOMPING = deepFreeze({ ...OPPONENT, hands: [] as Hand[], feet: ["left", "right"] as Hand[], targets: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
   marks: ["middle"] as Mark[], opponent: "bare", settled: 2, patience: 12, seconds: 25 });
-
-/**
- * Kicking: the stomping rung's trials thrown by a Warrior or a Skeleton, at a Warrior, a Skeleton or
- * a Reptile lying limp (`targets`): a low front kick at the trunk's middle, whose band is below a
- * standing humanoid's trunk.
- */
-const KICKING = deepFreeze({ ...STOMPING, models: ["workshop-fighter", "crypt-skeleton"] as BodyModel[],
-  targets: ["workshop-fighter", "crypt-skeleton", "reptile"] as BodyModel[] });
 
 /**
  * Rung 1, a moving target: the opponent rungs' trials at a pad on a rail (`Rail`, `src/arena/rail.ts`),
@@ -282,6 +274,5 @@ const onOtherBodies = <P extends { readonly models: readonly BodyModel[] }>(rung
 export const STRIKE_CASES: Readonly<Record<string, Cases<StrikeCondition, StrikeReading>>> = Object.freeze({ still: stillCases(STILL), moving: stillCases(MOVING), walk: stillCases(WALK),
   stepping: stillCases(STEPPING), guarding: stillCases(GUARDING), punching: stillCases(PUNCHING), fight: fightCases(FIGHT),
   letgo: stillCases(LETTING_GO), "letgo-punched": stillCases(LETTING_GO_PUNCHED), stomping: stillCases(STOMPING),
-  kicking: stillCases(KICKING),
   "still-bodies": stillCases(onOtherBodies(STILL)), "walk-bodies": stillCases(onOtherBodies(WALK)), "fight-bodies": fightCases(onOtherBodies(FIGHT)),
-  "stomping-bodies": stillCases(onOtherBodies(STOMPING)), "kicking-bodies": stillCases(onOtherBodies(KICKING)) });
+  "stomping-bodies": stillCases(onOtherBodies(STOMPING)) });

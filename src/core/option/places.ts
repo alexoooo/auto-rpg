@@ -115,7 +115,7 @@ const ceilingOf = (now: Situation): number => now.orders?.pace ?? Infinity;
  * reached once a limb is ready.
  */
 export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
-  const NO_WINDOW = blocked(`no window to walk to for ${strike.name}`);
+  const NO_WINDOW = blocked(`no window to walk to for ${strike.name}`), NO_PLACE = blocked(`no place beside the body lying clears the feet for ${strike.name}`);
   // The place beside a body lying, held while it holds, for its spot and its walk alike.
   const state = { beside: heldBeside(), into: unread<Spot>() };
   const into = once((now) => {
@@ -124,7 +124,7 @@ export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
   }, state.into);
   return {
     name: `into ${strike.name}'s window`, spot: into, state,
-    entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : NO_WINDOW,
+    entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : strike.window(now) ? NO_PLACE : NO_WINDOW,
     reached: (now) => strike.window(now) === null,
     walk: (now) => {
       const window = strike.window(now);

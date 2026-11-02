@@ -441,7 +441,7 @@ read as a call tree, so a row's parts are in it:
 | the engine's step (`step`, `src/core/engine/rapier.ts`) | 0.55 | Rapier's solve |
 | the minds' choices (`decide`, `src/core/option/tactics.ts`) | 0.26 | the chooser 0.15 (`decide`, `src/core/mind/choice.ts`), the options' steps 0.08, the situation 0.03 |
 | the skills (`command`, `src/core/skills/framework/arbiter.ts`) | 0.66 | the live actions' updates 0.30, the punch's commands 0.19, the walk's route 0.05 |
-| the kick's support reading (`update`, `src/core/skills/strikes/kick.ts`) | 0.19 | every segment's contacts read through the engine each step (`supportReadiness`), a kick under way or not; in the skills' row |
+| the stomp's support reading (`update`, `src/core/skills/strikes/stomp.ts`) | 0.19 | every segment's contacts read through the engine each step (`supportReadiness`), a stomp under way or not; in the skills' row |
 | the punch's arm (`solve`, `src/core/skills/strikes/straight-punch.ts`) | 0.16 | the arm solved (`solveReach`) to its chamber, and while driven to its chamber and its contact pose, each step; in the skills' row |
 | motor control (`control`, `src/core/control/motor.ts`) | 0.29 | the whole-body solve 0.15 (`solveBody`), the stance 0.05, the servo 0.03; the effector tracker's reach 0.02 |
 | a body's look (`look`, `command-layers.ts`) | 0.16 | angles, effector points, stance and ground read for the mind |
