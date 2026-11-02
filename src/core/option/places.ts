@@ -67,7 +67,7 @@ type Walk = ReturnType<Walker["kept"]>;
  */
 export interface Destination {
   readonly name: string;
-  /** What it holds from step to step (`HeldBeside`), where it holds anything: plain data, in its walk's state. */
+  /** What it holds from step to step (`HeldBeside`, what it read this step), where it holds anything: plain data, in its walk's state. */
   readonly state?: object;
   spot(now: Situation): Spot | null;
   entry(now: Situation): Readiness;
@@ -75,9 +75,14 @@ export interface Destination {
   walk(now: Situation): Walk;
 }
 
-/** `spot`'s where it is, read once a step at each focus: its memory, the step and focus it last read at. */
-function once<T>(spot: (now: Situation) => T | null): (now: Situation) => T | null {
-  const memory = { time: NaN, focus: null as string | null, spot: null as T | null };
+/** What `once` keeps of a place: the time and focus it last read at, and what it read, plain data in its place's state. */
+interface Once<T> { time: number; focus: string | null; spot: T | null }
+
+/** A place's memory before it has read (`once`). */
+const unread = <T>(): Once<T> => ({ time: NaN, focus: null, spot: null });
+
+/** `spot`'s where it is, read once a step at each focus, kept in `memory`. */
+function once<T>(spot: (now: Situation) => T | null, memory: Once<T>): (now: Situation) => T | null {
   return (now) => {
     const focus = now.focus?.id ?? null;
     if (memory.time !== now.time || memory.focus !== focus) { memory.time = now.time; memory.focus = focus; memory.spot = spot(now); }
@@ -101,11 +106,11 @@ const ceilingOf = (now: Situation): number => now.orders?.pace ?? Infinity;
 export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
   const NO_WINDOW = blocked(`no window to walk to for ${strike.name}`);
   // The place beside a body lying, held while it holds, for its spot and its walk alike.
-  const state = { beside: heldBeside() };
+  const state = { beside: heldBeside(), into: unread<Spot>() };
   const into = once((now) => {
     const window = strike.window(now);
     return window ? windowSpot(now.sight.view, window, now.sight.report.heading, state.beside) : null;
-  });
+  }, state.into);
   return {
     name: `into ${strike.name}'s window`, spot: into, state,
     entry: (now) => !now.focus ? NO_FOCUS : into(now) ? READY : NO_WINDOW,
@@ -127,15 +132,16 @@ export function windowPlace(strike: StrikeOption, walk: Walker): Destination {
 export function outOfPressure(walk: Walker): Destination {
   const THERE = blocked("out of its reach");
   const edge = (now: Situation): number => edgeOf(now, now.predictions.pressure) + now.predictions.closes;
+  const state = { spot: unread<Spot>() };
   const spot = once((now) => {
     const focus = now.focus;
     if (!focus || now.range >= edge(now)) return null;
     const centre = now.sight.view.stance.centre, apart = now.apart, to = edge(now) + apart - now.range;
     const x = apart > 0 ? (centre.x - focus.centre.x) / apart : -sin(walk.facing(now)), z = apart > 0 ? (centre.z - focus.centre.z) / apart : -cos(walk.facing(now));
     return { x: focus.centre.x + x * to, z: focus.centre.z + z * to, face: walk.facing(now) };
-  });
+  }, state.spot);
   return {
-    name: "out of pressure", spot,
+    name: "out of pressure", spot, state,
     entry: (now) => !now.focus ? NO_FOCUS : spot(now) ? READY : THERE,
     reached: (now) => now.range >= edge(now),
     walk: (now) => {
@@ -160,7 +166,7 @@ const NOWHERE = blocked("no place found");
  */
 export function placeBy(name: string, where: (now: Situation) => Ground | null, within: number, walk: Walker): Destination {
   const THERE = blocked("there");
-  const found = once(where);
+  const state = { found: unread<Ground>() }, found = once(where, state.found);
   const off = (now: Situation, at: Ground): number => hypot(at.x - now.sight.view.stance.centre.x, at.z - now.sight.view.stance.centre.z);
   const spot = (now: Situation): Spot | null => {
     const at = found(now);
@@ -169,7 +175,7 @@ export function placeBy(name: string, where: (now: Situation) => Ground | null, 
     return { x: at.x, z: at.z, face: off(now, at) > 0 ? atan2(at.x - centre.x, at.z - centre.z) : now.sight.report.heading };
   };
   return {
-    name, spot,
+    name, spot, state,
     entry: (now) => {
       const at = found(now);
       return !at ? NOWHERE : off(now, at) > within ? READY : THERE;

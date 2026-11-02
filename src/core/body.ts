@@ -42,11 +42,25 @@ export interface Body {
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: Assist;
+  /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
+  readonly delay: number;
+  /**
+   * Know `run` as the motor program `name` (`MotorProgram`), which a command runs by naming it
+   * (`BodyCommand.programs`). Made with the body, once a name.
+   */
+  program(name: string, run: MotorProgram): void;
   /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
   drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
   /** Observe completed physics intervals after effector feedback is sampled, including while idle or under a sub-mind (`OwnBody.afterPhysics`). */
   afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
+
+/**
+ * **A motor program**: muscle pushes worked out each step on the body as it is, where a driver's
+ * command cannot know them a step ahead (a ground technique's, which reads the ground as it moves):
+ * this step's, or null for none. It reads its own body alone, as motor control does (`Mind.move`).
+ */
+export type MotorProgram = (dt: number) => readonly MusclePush[] | null;
 
 /**
  * **A body under the command layers as the one who built it holds it** (`commandedBody`): the
@@ -92,6 +106,11 @@ export interface BodyCommand {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
+  /**
+   * The motor programs, by the names the body knows them by (`Body.program`), whose pushes motor
+   * control adds each step, on the body as it is, until a command names them no more.
+   */
+  readonly programs?: readonly string[];
   /**
    * Effectors' points driven at an acceleration, or turned, while the body stands (`PointTask`): an effector
    * driven so has no goal and its chain no push.

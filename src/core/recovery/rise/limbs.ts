@@ -197,7 +197,9 @@ function chainOf(own: OwnBody, spec: EndLimb | ProppedLimb | FootLimb) {
  * A segment's end where it touches the ground. On a capsule: a point a radius under its lower
  * end's centre, or, both its ends down (within `DOWN` of the ground), under the middle of the two.
  * On a hand pose's hull: the middle of its corners that are down, or its lowest corner if none
- * is. Held, the segment turning about it as the body moves. Some freedoms of its chain take the
+ * is. A segment that holds something and is not down by its own shape is down where its rigid body
+ * presses the ground (`pressedOn`): a hand on a club's end or a buckler's rim bears through it. Held,
+ * the segment turning about it as the body moves. Some freedoms of its chain take the
  * point, as near the posture as the point lets them; the others are asked toward the posture
  * ahead of it. Its reach is its own shape's capsule radius, whatever pose its hand is in.
  */
@@ -215,35 +217,56 @@ function endLimb(own: OwnBody, spec: EndLimb): Part {
   return {
     limb, over: at,
     read(ground) {
-      const now = shape();
-      switch (now.kind) {
-        case "capsule":
-          pointOfToRef(segment, now.near, at).y -= now.radius;
-          pointOfToRef(segment, now.far, other).y -= now.radius;
-          if (at.y - ground < DOWN && other.y - ground < DOWN) at.addInPlace(other).scaleInPlace(0.5);
-          else if (other.y < at.y) at.copyFrom(other);
-          return;
-        case "hull": {
-          let down = 0;
-          at.setAll(0);
-          other.setAll(Infinity);
-          for (const point of now.corners) {
-            pointOfToRef(segment, point, corner);
-            if (corner.y - ground < DOWN) { at.addInPlace(corner); down++; }
-            if (corner.y < other.y) other.copyFrom(corner);
-          }
-          if (down > 0) at.scaleInPlace(1 / down);
-          else at.copyFrom(other);
-          return;
-        }
-        default: unknownEnd(now);
-      }
+      readEnd(ground);
+      // A segment that holds something bears where what it holds presses the ground, its own end held off it.
+      if (at.y - ground >= DOWN && segment.rigid.shapes.length > 1) pressedOn(own, segment, at);
     },
     bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);
       chain.ask(goal, rate, transfer);
     },
   };
+
+  /** The end's point by its own shape: a capsule's or a hand pose's hull's, as the limb's comment says. */
+  function readEnd(ground: number): void {
+    const now = shape();
+    switch (now.kind) {
+      case "capsule":
+        pointOfToRef(segment, now.near, at).y -= now.radius;
+        pointOfToRef(segment, now.far, other).y -= now.radius;
+        if (at.y - ground < DOWN && other.y - ground < DOWN) at.addInPlace(other).scaleInPlace(0.5);
+        else if (other.y < at.y) at.copyFrom(other);
+        return;
+      case "hull": {
+        let down = 0;
+        at.setAll(0);
+        other.setAll(Infinity);
+        for (const point of now.corners) {
+          pointOfToRef(segment, point, corner);
+          if (corner.y - ground < DOWN) { at.addInPlace(corner); down++; }
+          if (corner.y < other.y) other.copyFrom(corner);
+        }
+        if (down > 0) at.scaleInPlace(1 / down);
+        else at.copyFrom(other);
+        return;
+      }
+      default: unknownEnd(now);
+    }
+  }
+}
+
+/**
+ * Where `segment`'s rigid body presses the ground, into `at`: its ground contacts' points weighed by
+ * the impulse each was pushed with; `at` as it was where none pressed.
+ */
+function pressedOn(own: OwnBody, segment: ReadSegment, at: Vector3): void {
+  let x = 0, y = 0, z = 0, sum = 0;
+  for (const contact of own.built.physics.contactsOf(segment.body, (other) => other === null)) {
+    if (!(contact.impulse > 0)) continue;
+    x += contact.impulse * contact.point[0]; y += contact.impulse * contact.point[1]; z += contact.impulse * contact.point[2];
+    sum += contact.impulse;
+  }
+  if (sum > 0) at.set(x / sum, y / sum, z / sum);
 }
 
 /**

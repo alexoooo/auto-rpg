@@ -6,6 +6,7 @@
 import { loadoutKey, type Loadout } from "../../core/items/held.ts";
 import type { Json } from "../evaluation.ts";
 import { STOPPING_PACE, TURNING_PACE } from "../locomotion/cases.ts";
+import { STAND_WITHIN } from "../rising.ts";
 import type { Cell, Judge, Reading } from "./cells.ts";
 
 /** A row as the table reads it: its condition and its reading. */
@@ -14,8 +15,8 @@ export interface TableRow { readonly condition: Json; readonly reading: Json }
 /** What one reading of a cell came to: met, short of its bar, or no rows; its figures in words. */
 export interface Verdict { readonly state: "met" | "short" | "unread"; readonly figures: string }
 
-/** How many of the target's sixteen falls a group must stand within 6 s; the median it must stand by, s (`risingReport`'s gates). */
-const WITHIN6 = 15, MEDIAN = 10, CAP = 30;
+/** How many of the target's sixteen falls a group must stand within `STAND_WITHIN`; the median it must stand by, s (`risingReport`'s gates). */
+const STOOD_IN_TIME = 15, MEDIAN = 10, CAP = 30;
 
 /** The share of thrown blows a strike must land (90 %). */
 const LANDS = .9;
@@ -83,15 +84,15 @@ export function verdictOf(judge: Judge, rows: readonly TableRow[]): Verdict {
     case "target": {
       const falls = rows.map((row) => ({ ...(row.reading as unknown as Fall), degrees: (row.condition as { degrees?: number }).degrees ?? 0 })).filter((one) => one.takeover !== null);
       const time = (one: Fall) => one.stood && one.verified !== null ? one.verified : null;
-      const stood = falls.filter((one) => time(one) !== null).length, within6 = falls.filter((one) => (time(one) ?? Infinity) <= 6).length;
+      const stood = falls.filter((one) => time(one) !== null).length, inTime = falls.filter((one) => (time(one) ?? Infinity) <= STAND_WITHIN).length;
       const middle = median(falls.map((one) => time(one) ?? CAP)), cardinals = falls.filter((one) => one.degrees % 90 === 0);
-      const met = falls.length === 16 && within6 >= WITHIN6 && cardinals.every((one) => (time(one) ?? Infinity) <= 6) && middle !== null && middle <= MEDIAN;
-      return { state: met ? "met" : "short", figures: `${stood} of ${falls.length} stood, ${within6} within 6 s, median ${middle?.toFixed(1) ?? "-"} s` };
+      const met = falls.length === 16 && inTime >= STOOD_IN_TIME && cardinals.every((one) => (time(one) ?? Infinity) <= STAND_WITHIN) && middle !== null && middle <= MEDIAN;
+      return { state: met ? "met" : "short", figures: `${stood} of ${falls.length} stood, ${inTime} within ${STAND_WITHIN} s, median ${middle?.toFixed(1) ?? "-"} s` };
     }
     case "stood": {
       const falls = rows.map((row) => row.reading as unknown as Fall).filter((one) => one.takeover !== null);
       const stood = falls.filter((one) => one.stood && one.verified !== null), middle = median(stood.map((one) => one.verified!));
-      return { state: falls.length === 16 && stood.length >= WITHIN6 ? "met" : "short", figures: `${stood.length} of ${falls.length} stood, median ${middle?.toFixed(1) ?? "-"} s of those` };
+      return { state: falls.length === 16 && stood.length >= STOOD_IN_TIME ? "met" : "short", figures: `${stood.length} of ${falls.length} stood, median ${middle?.toFixed(1) ?? "-"} s of those` };
     }
     case "run": {
       const readings = rows.map((row) => row.reading as unknown as Run), missed = readings.filter((one) => !ran(one));

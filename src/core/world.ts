@@ -89,6 +89,13 @@ export interface World {
   afterPhysics(hook: StepHook): Hook;
   /** Run `hook` after all post-physics observations, after the hooks added before it. */
   afterStep(hook: StepHook): Hook;
+  /** Run `hook` each time the world is put back where a save left it (`loaded`), after the hooks added before it. */
+  onLoad(hook: StepHook): Hook;
+  /**
+   * The world and what hangs on it has been put back where a save left it, its physics and its
+   * state: what shows its bodies to their minds (`Mirror`) shows them again.
+   */
+  loaded(): void;
   /** Take `n` steps. */
   step(n?: number): void;
   /**
@@ -127,7 +134,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   if (!(Number.isInteger(delay) && delay >= 0)) throw new Error(`a command's delay is a whole number of steps, not ${String(delay)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
-  const sensing: HookEntry[] = [], preparing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [];
+  const sensing: HookEntry[] = [], preparing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [], loading: HookEntry[] = [];
   const state = { steps: 0, owed: 0 };
   let disposed = false;
 
@@ -142,7 +149,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   };
 
   const world: World = {
-    // A mind a step or more behind its body reads it through its mirror, which it carries forward through its commands in flight.
+    // A mind a step or more behind its body decides on its mirror, its motor part carrying out the decision on the body as it is.
     scene, physics, hz, dt, delay, state, mirrored: mirrored === true || delay > 0, minds: minds ?? null,
     get actuation() { return actuation; },
     get steps() { return state.steps; },
@@ -152,6 +159,8 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     beforeStep: (hook) => add(before, hook),
     afterPhysics: (hook) => add(observed, hook),
     afterStep: (hook) => add(after, hook),
+    onLoad: (hook) => add(loading, hook),
+    loaded() { runAll(loading); },
     step(n = 1) {
       if (disposed) throw new Error("the world was disposed");
       for (let i = 0; i < n; i++) {
@@ -182,6 +191,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
       before.length = 0;
       observed.length = 0;
       after.length = 0;
+      loading.length = 0;
       physics.dispose();
     },
   };

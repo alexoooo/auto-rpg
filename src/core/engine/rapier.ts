@@ -241,8 +241,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
    */
   let contacts = new Float64Array(4096);
   let contactsFresh = false;
+  // Each body's contacts and manifolds as an unfiltered read last made them: the same until the contacts are read again.
+  const whole = { contacts: new Map<unknown, readonly Contact[]>(), manifolds: new Map<unknown, readonly ContactManifold[]>() };
   const readContacts = () => {
     if (contactsFresh) return;
+    whole.contacts.clear(); whole.manifolds.clear();
     const { colliders } = listFor();
     const length = raw.narrowPhase.raw.contact_readings(raw.bodies.raw, colliders, contacts);
     if (length > contacts.length) {
@@ -706,7 +709,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         setMotor(k, speed, ceiling) { command(handle, axes[k]!, MOTOR_KIND.velocity, speed, ceiling, 0, 0); },
         setMotorBounds(k, speed, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
-            || !(-negative <= positive)) throw new Error("invalid directional motor command");
+            || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
           command(handle, axes[k]!, MOTOR_KIND.bounded, speed, -positive, negative, 0);
         },
@@ -784,6 +787,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const body = own(segment);
       if (reading) throw new Error("a body's contacts are read while another's are");
       readContacts();
+      const kept = wanted ? undefined : whole.manifolds.get(body);
+      if (kept) return kept;
       reading = true;
       let out: ContactManifold[] | null = null;
       try {
@@ -811,12 +816,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           }
         }
       } finally { reading = false; }
+      if (!wanted) whole.manifolds.set(body, out ?? NONE);
       return out ?? NONE;
     },
     contactsOf(segment, wanted) {
       const body = own(segment);
       if (reading) throw new Error("a body's contacts are read while another's are");
       readContacts();
+      const kept = wanted ? undefined : whole.contacts.get(body);
+      if (kept) return kept;
       reading = true;
       let sides = 0, pushes = 0, shapePairs = 0;
       try {
@@ -859,7 +867,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
             }
           }
         }
-        return sides === 0 ? NONE : contactsFrom(sides, pushes, shapePairs);
+        const made = sides === 0 ? NONE : contactsFrom(sides, pushes, shapePairs);
+        if (!wanted) whole.contacts.set(body, made);
+        return made;
       } finally {
         reading = false;
         for (let i = 0; i < sides; i++) sums.others[i] = null;

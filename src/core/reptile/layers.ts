@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { SupportEndpoint } from "../control/supported-motor.ts";
+import type { SupportedCommand, SupportEndpoint } from "../control/supported-motor.ts";
 import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
@@ -63,20 +63,34 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
   const feedback = effectorFeedback(built, [lower.spec.name, head.spec.name], own.contactIdentity, undefined,
     { [lower.spec.name]: { point: "bite", regions: lower.spec.contacts!.filter(c => c.surface.directed?.mechanism === "point").map(c => c.name) },
       [head.spec.name]: { point: "mouth" } });
-  const read = (s: Senses) => {
-    motor.read(); feedback.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
-    reading.senses = s; look.yaw = atan2(front.x, front.z); look.down = down();
+  // Its own body as it stands: the motor's support, its heading and whether it is down.
+  const feel = () => {
+    motor.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
+    look.yaw = atan2(front.x, front.z); look.down = down();
   };
+  const read = (s: Senses) => { feel(); feedback.read(); reading.senses = s; };
   const biteConfig = config.bite ?? QUADRUPED_PARTS.bite;
   const snap = parts.of("bite", biteConfig).make(own, tracker, biteTuning, { jaw: feedback.state[lower.spec.name]!, head: feedback.state[head.spec.name]! }, biteConfig);
   const skills = [travel, creep, snap];
-  const resumeSkills = () => { for (const s of skills) s.resume(view); };
+  const resumeSkills = () => { for (const s of skills) s.resume(view); planned.command = null; };
+  // Where its decisions are late (`OwnBody.delay`), the gait's command its motor part carries out on the next step, and whether that holds still.
+  const late = own.delay > 0, planned = { command: null as SupportedCommand | null, hold: false };
+  if (own.delay > 1) throw new Error(`a quadruped's motor part carries out a step's decision on the next step, not ${own.delay} steps later`);
+  const drive = (command: SupportedCommand, hold: boolean, dt: number) => {
+    const tracked = tracker.step(own.muscles, command.posture, dt);
+    motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), hold ? support.hold : support.travel,
+      i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name));
+  };
   return {
-    view, motor, tracker, paws, gait, biteTuning, bite: snap,
+    view, motor, tracker, paws, gait, biteTuning, bite: snap, late,
     /** What the body's skills keep, by name, for its mind's state. */
-    state: { motor: motor.state, travel: travel.state, crawl: creep.state, gait, bite: snap.state, tracker: tracker.state, feedback: feedback.state, look },
+    state: { motor: motor.state, travel: travel.state, crawl: creep.state, gait, bite: snap.state, tracker: tracker.state, feedback: feedback.state, look, planned },
     /** Read the body as the last step left it. */
     read,
+    /** Read its own body alone, as its motor part does: its support, heading and whether it is down. */
+    feel,
+    /** Its motor part, where its decisions are late: the gait's command the last step decided, carried out on the body as it is. */
+    move(dt: number) { if (planned.command) drive(planned.command, planned.hold, dt); },
     /** Read the body as built, once, and resume every skill from it. */
     begin() { read(senses()); resumeSkills(); },
     /**
@@ -129,9 +143,8 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
           tracker.reach(paw.segment, soleGoal(paw.point, target, goal.bearing ? T.plant : T.swing, active.state.sequence, descending, flat, goal.bearing ? still : lift));
         }
       });
-      const tracked = tracker.step(own.muscles, command.posture, dt);
-      motor.control(command, dt, i => snap.tracked(i) ?? tracked(i), gait.kind === "crawl" || active.state.standing && active.state.phase === "settle" ? support.hold : support.travel,
-        i => snap.response(i) ?? tracker.response(own.muscles.channels[i]!.name));
+      const hold = gait.kind === "crawl" || active.state.standing && active.state.phase === "settle";
+      if (late) { planned.command = command; planned.hold = hold; } else drive(command, hold, dt);
     },
     /** Another has the body: the tracker forgets its goals and every skill resumes. */
     release() { tracker.reset(); resumeSkills(); },

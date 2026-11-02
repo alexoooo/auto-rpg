@@ -69,6 +69,8 @@ interface RiseTables {
   readonly pastOf: ReadonlyMap<PoseStage, readonly { readonly index: number; readonly angle: number }[]>;
   /** For a pose stage that presses, by foot, each channel it presses and how hard, rad a metre. */
   readonly pressOf: ReadonlyMap<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>;
+  /** For a pose stage that levels, the left side's channels then the right's, and how hard each, rad. */
+  readonly levelOf: ReadonlyMap<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>;
 }
 
 /** Each recipe's tables for each spec (`riseTables`): recipes and specs are data, so every body of a spec shares them. */
@@ -92,6 +94,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
   const channelOf = (name: string): number => channels.findIndex((channel) => channel.name === name);
   const pastOf = new Map<PoseStage, readonly { readonly index: number; readonly angle: number }[]>();
   const pressOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
+  const levelOf = new Map<PoseStage, readonly (readonly { readonly index: number; readonly gain: number }[])[]>();
   for (const stage of stagesOf(recipe)) {
     if (stage.kind === "pose" && stage.until?.past) {
       pastOf.set(stage, Object.entries(stage.until.past).map(([name, angle]) => { const index = channelOf(name); return { index, angle: angle - channels[index]!.dof.spec.bind.value }; }));
@@ -100,6 +103,10 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
       const gains = stage.press.gains;
       pressOf.set(stage, feet.map((foot) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", foot.side)), gain }))));
     }
+    if (stage.kind === "pose" && stage.level) {
+      const gains = stage.level.gains;
+      levelOf.set(stage, (["left", "right"] as const).map((side) => Object.entries(gains).map(([name, gain]) => ({ index: channelOf(name.replace("@", side)), gain }))));
+    }
     const posture = stage.posture;
     goalsOf.set(stage, Float64Array.from(channels, (channel) => (posture === "reference" ? 0 : (posture[channel.name] ?? 0) - channel.dof.spec.bind.value)));
     if (stage.kind !== "bear") continue;
@@ -107,7 +114,7 @@ function readTables(recipe: Recipe, spec: BodySpec, channels: MuscleDriver["chan
     bearsOf.set(stage, { on: shares.map((share) => share !== undefined), share: shares.map((share) => share?.share ?? 0), leaves,
       toes: ends.map((limb) => stage.toes?.includes(limb.name) ?? false), keeps: stage.leave.length === 0 });
   }
-  return Object.freeze({ goalsOf, bearsOf, balls: Object.freeze(balls), pastOf, pressOf });
+  return Object.freeze({ goalsOf, bearsOf, balls: Object.freeze(balls), pastOf, pressOf, levelOf });
 }
 
 /**
@@ -173,7 +180,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const fallen = (): boolean => view.down && !onFeet();
   /** Every segment but the trunk's: the trunk's clearance is the ground's gap under the rest of the body's complement. */
   const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
-  const { goalsOf, bearsOf, balls, pastOf, pressOf } = riseTables(recipe, own.spec, muscles.channels, feet);
+  const { goalsOf, bearsOf, balls, pastOf, pressOf, levelOf } = riseTables(recipe, own.spec, muscles.channels, feet);
 
   const state = {
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
@@ -266,9 +273,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     if (phase === "rise" && index > state.furthest) state.furthest = index;
   };
   const pose = (stage: PoseStage, dt: number): void => {
-    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press } = stage;
+    const top = stage.drive?.speed ?? POSE_SPEED, within = stage.drive?.within ?? POSE_SECONDS, { pace, press, level } = stage;
     let goals = goalsOf.get(stage)!;
-    if (pace || press) {
+    if (pace || press || level) {
       const asked = work.goals;
       asked.set(goals);
       if (pace) {
@@ -285,6 +292,15 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         const over = Math.max(0, work.heights[k]! - press.above);
         for (const { index, gain } of gains) asked[index] += gain * over;
       });
+      // Each side's channels by how far the pelvis tips down toward that side: its right's height
+      // is how far it tips down toward the left.
+      if (level) {
+        const tip = lying.way.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, lying.turn), lying.way).y;
+        levelOf.get(stage)!.forEach((gains, k) => {
+          const down = k === 0 ? tip : -tip;
+          for (const { index, gain } of gains) asked[index] += gain * down;
+        });
+      }
       for (let i = 0; i < count; i++) { const dof = muscles.channels[i]!.dof.spec; asked[i] = Math.max(dof.min.value, Math.min(dof.max.value, asked[i]!)); }
       goals = asked;
     }

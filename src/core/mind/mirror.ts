@@ -4,8 +4,8 @@ import type { ContactIdentity, ContactTarget } from "../control/effector-feedbac
 import type { ContactPair, MassProperties } from "../engine/engine.ts";
 import { NOTHING_SENSED, type BodySense, type Senses } from "./senses.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
-import { muscleChannels, PLAN_REFLEX, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
-import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
+import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
+import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
 import type { BodySpec, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
@@ -13,8 +13,6 @@ import type { BuiltBody } from "../build/build-body.ts";
 import { bodyDynamics } from "../build/dynamics.ts";
 import { checkHandPoses, handPoseModel, type HandPoseRequest } from "../build/hand-poses.ts";
 import { jointKinematics } from "../build/joint-kinematics.ts";
-import { jointTracker } from "../build/joint-state.ts";
-import { cos, sin } from "../math/real.ts";
 import { segmentShapes } from "../build/segment-shapes.ts";
 
 /**
@@ -31,8 +29,7 @@ import { segmentShapes } from "../build/segment-shapes.ts";
  *
  * Its numbers, by section (`layoutOf`): the clock and level; each segment's pose, motion, hand, toes
  * and mass; each joint's angles, speeds, rates and turning as the muscles last read them; the
- * muscles' command, ceilings, delivered torque and bounds; the assist's ceiling, ask, gift, meter and
- * withdrawal; the senses' own life; then, of variable length, each segment's contacts and manifolds,
+ * muscles' ceilings, delivered torque and bounds; the assist's ceiling, gift, meter and withdrawal; the senses' own life; then, of variable length, each segment's contacts and manifolds,
  * each other body and object the senses show, and, where its fight labels what it touches
  * (`OwnBody.contactIdentity`), the label of each body its contacts name and of the world's.
  */
@@ -47,7 +44,7 @@ export interface MirrorStatics {
   readonly joints: readonly string[];
   /** Whether its fight labels what it touches (`OwnBody.contactIdentity`): the numbers then carry each label its contacts need. */
   readonly labelled: boolean;
-  /** The world's command delay, steps (`World.delay`): the commands a mind's mirror carries it forward through (`Mirror.ahead`). */
+  /** The world's command delay, steps (`World.delay`): at one or more, its mind decides once its motor part has answered (`embody`). */
   readonly delay: number;
 }
 
@@ -85,8 +82,8 @@ const channelFor = (layout: Layout, allocate: (length: number) => Float64Array):
 const HEAD = 3;
 /** A segment's numbers: position 3, turn 4, velocity 3, spin 3, the hand's applied and requested pose (`POSES`), the toes' bend, mass 1, centre 3, moments 3, orientation 4. */
 const SEGMENT = 27;
-/** The assist's numbers: its ceilings 2, its ask 6, its gift 6, its meter 3, whether withdrawn. */
-const ASSIST = 18;
+/** The assist's numbers: its ceilings 2, its gift 6, its meter 3, whether withdrawn. */
+const ASSIST = 12;
 /** A contact's numbers before its pairs: the other's identity (NaN for none), the fixed collider's (NaN for none), impulse, point 3, normal 3, its pairs' count. */
 const CONTACT = 10;
 /** A contact pair's numbers: mine, theirs, impulse, point 3, normal 3. */
@@ -127,8 +124,8 @@ function layoutOf(statics: Pick<MirrorStatics, "spec" | "segments" | "joints">):
     at += 3 * dofs + dofs * dofs; channels += dofs;
     return made;
   });
-  const muscles = at, assist = muscles + 6 * channels, senses = assist + ASSIST;
-  return { segments: statics.segments.length, joints, channels, muscles, assist, senses, fixed: senses + 2, command: 3 * channels + 6 };
+  const muscles = at, assist = muscles + 4 * channels, senses = assist + ASSIST;
+  return { segments: statics.segments.length, joints, channels, muscles, assist, senses, fixed: senses + 2, command: 2 * channels + 6 };
 }
 
 /** `array` grown to hold `length` numbers from `allocate`, its numbers kept. */
@@ -181,7 +178,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   const put = (x: number) => { channel.inbound[k++] = x; };
   const room = (more: number) => { channel.inbound = grown(channel.inbound, k + more, channel.allocate); };
   const vec = (a: { readonly x: number; readonly y: number; readonly z: number }) => { put(a.x); put(a.y); put(a.z); };
-  const triple = (a: Vec3) => { put(a[0]); put(a[1]); put(a[2]); };
+  // Stored straight from array to array: a number read from an array of numbers and passed on is boxed.
+  const triple = (a: Vec3) => { const into = channel.inbound; into[k] = a[0]; into[k + 1] = a[1]; into[k + 2] = a[2]; k += 3; };
   const quat = (q: { readonly x: number; readonly y: number; readonly z: number; readonly w: number }) => { put(q.x); put(q.y); put(q.z); put(q.w); };
   // The bodies this writing's contacts name, which its labels are written for.
   const touched = new Map<number, BodyRef>();
@@ -277,14 +275,12 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
         c += joint.dofs;
       }
       const n = layout.channels;
-      channel.inbound.set(driver.activation, k); k += n;
-      channel.inbound.set(driver.velocity, k); k += n;
       channel.inbound.set(driver.ceiling, k); k += n;
       channel.inbound.set(driver.pulled, k); k += n;
       channel.inbound.set(driver.bounds.negative, k); k += n;
       channel.inbound.set(driver.bounds.positive, k); k += n;
       const help = assist.assist;
-      put(help.most.force); put(help.most.moment); vec(assist.asked.force); vec(assist.asked.moment); vec(help.given.force); vec(help.given.moment);
+      put(help.most.force); put(help.most.moment); vec(help.given.force); vec(help.given.moment);
       put(help.meter.steps); put(help.meter.force); put(help.meter.moment); put(help.withdrawn ? 1 : 0);
       put(senses.out ? 1 : 0); put(senses.life);
       writeContacts();
@@ -295,9 +291,8 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       const out = channel.outbound, n = layout.channels;
       driver.activation.set(out.subarray(0, n));
       driver.velocity.set(out.subarray(n, 2 * n));
-      driver.expect.set(out.subarray(2 * n, 3 * n));
-      assist.asked.force.set(out[3 * n]!, out[3 * n + 1]!, out[3 * n + 2]!);
-      assist.asked.moment.set(out[3 * n + 3]!, out[3 * n + 4]!, out[3 * n + 5]!);
+      assist.asked.force.set(out[2 * n]!, out[2 * n + 1]!, out[2 * n + 2]!);
+      assist.asked.moment.set(out[2 * n + 3]!, out[2 * n + 4]!, out[2 * n + 5]!);
       let at = layout.command;
       const calls = out[at++]!;
       for (let call = 0; call < calls; call++) {
@@ -329,25 +324,20 @@ export interface Mirror {
   /** Write what its mind asked into the channel's outbound numbers, and forget the hands' requests sent. */
   answer(): void;
   /**
-   * **Carry the body forward a step of `dt`** under `motion`, in the dynamics' rows
-   * (`BodyDynamics`; NaN where the body moves as it was): each segment's spin and its centre's velocity change by what the
-   * motion accelerates it at (`BodyDynamics.accelerationToRef`), its pose moves by them as the
-   * solver moves a body, its joints are read again from the poses and spins, and its dynamics
-   * read there. Its contacts, hands and senses stay as last read. Read after `refresh` with dynamics.
+   * **What its mind has asked and not yet answered**, plain data its bout saves (`MirrorCommand`):
+   * kept from step to step as its body keeps it, read by none but the answer.
    */
-  forecast(motion: ArrayLike<number>, dt: number): void;
-  /**
-   * **Read the body as the commands in flight will leave it**, before its mind steps: on its legs,
-   * each channel carried toward the speed each command expects (`MuscleDriver.expect`), oldest
-   * first, as far as the plan's reflex (`PLAN_REFLEX`) can take it from the acceleration solved
-   * (the margin over the inertia beyond the joint), the root as the joints and its own motion carry
-   * it (`forecast`). While anything but its legs' ends touches (`legSegments`), the forecast does
-   * not know the contact: it reads the body as it was, and the command it answers expects nothing.
-   * A command made while the body touched otherwise than it touches now (`touchingOf`: a foot's
-   * strike or lift-off since) carries it no further: what the command planned for is gone.
-   * With no delay it does nothing. Read after `refresh` with dynamics.
-   */
-  ahead(dt: number): void;
+  readonly command: MirrorCommand;
+  /** Its body has left `full`: what its mind asked is dropped, as its body drops the command it holds. */
+  idle(): void;
+}
+
+/** What a mirror's mind has asked: its muscles' command, its assist's ask and each call's hand requests since the last answer. */
+export interface MirrorCommand {
+  readonly activation: Float64Array;
+  readonly velocity: Float64Array;
+  readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
+  readonly hands: (readonly HandPoseRequest[])[];
 }
 
 const EMPTY: readonly never[] = Object.freeze([]);
@@ -390,11 +380,10 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     return [name, Object.freeze({ spec: jointSpec, dofs, axes, parent: segments.get(jointSpec.parent)!, child: segments.get(jointSpec.child)! })];
   }));
   const index = new Map<ReadSegmentBody, number>(records.map((record, i) => [record.segment.body, i]));
-  // Its joints as its muscles read them, for a forecast: each from the poses and spins its segments are given.
-  const trackers = statics.joints.map((name) => jointTracker(joints.get(name)!));
-  const ahead = { linear: new Vector3(), angular: new Vector3(), turn: new Quaternion(), offset: new Vector3(), spin: (segment: ReadSegment) => spins.get(segment)! };
   /** Where each segment's contacts and manifolds start in the inbound numbers, as last read. */
   const contactsAt = new Int32Array(records.length), manifoldsAt = new Int32Array(records.length);
+  // Each segment's contacts and manifolds as an unfiltered read last made them from the numbers: the same until they are refreshed.
+  const whole = { contacts: new Array<readonly ReadContact[] | null>(records.length).fill(null), manifolds: new Array<readonly ReadManifold[] | null>(records.length).fill(null) };
   const names = new Map<number, string>();
   const refOf = (code: number): BodyRef | null => {
     if (Number.isNaN(code)) return null;
@@ -411,8 +400,9 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const physics: ReadPhysics = Object.freeze({
     gravity: statics.gravity,
     contactsOf(body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean): readonly ReadContact[] {
-      const a = channel.inbound;
-      let at = contactsAt[segmentOf(body)]!, out: ReadContact[] | null = null;
+      const a = channel.inbound, s = segmentOf(body), kept = wanted ? null : whole.contacts[s]!;
+      if (kept) return kept;
+      let at = contactsAt[s]!, out: ReadContact[] | null = null;
       const count = a[at++]!;
       for (let c = 0; c < count; c++) {
         const other = refOf(a[at]!), fixed = a[at + 1]!, impulse = a[at + 2]!, pairs = a[at + 9]!;
@@ -423,11 +413,13 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let p = 0; p < pairs; p++, at += PAIR) made.push({ mine: a[at]!, theirs: a[at + 1]!, impulse: a[at + 2]!, point: at3(a, at + 3), normal: at3(a, at + 6) });
         (out ??= []).push({ other, fixed: Number.isNaN(fixed) ? null : fixed, impulse, point, normal, pairs: made });
       }
+      if (!wanted) whole.contacts[s] = out ?? EMPTY;
       return out ?? EMPTY;
     },
     contactManifoldsOf(body: ReadSegmentBody, wanted?: (other: BodyRef | null) => boolean) {
-      const a = channel.inbound;
-      let at = manifoldsAt[segmentOf(body)]!;
+      const a = channel.inbound, s = segmentOf(body), kept = wanted ? null : whole.manifolds[s]!;
+      if (kept) return kept;
+      let at = manifoldsAt[s]!;
       const out: { other: BodyRef | null; fixed: number | null; mine: number; theirs: number; normal: Vec3; points: { point: Vec3; distance: number }[]; impulse: number }[] = [];
       const count = a[at++]!;
       for (let m = 0; m < count; m++) {
@@ -438,6 +430,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let p = 0; p < points; p++, at += 4) made.push({ point: at3(a, at), distance: a[at + 3]! });
         out.push({ other, fixed: Number.isNaN(fixed) ? null : fixed, mine, theirs, normal, points: made, impulse });
       }
+      if (!wanted) whole.manifolds[s] = out.length === 0 ? EMPTY : out;
       return out.length === 0 ? EMPTY : out;
     },
   });
@@ -449,19 +442,13 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   const n = layout.channels, channels = muscleChannels(read);
   const angles = new Float64Array(n), speeds = new Float64Array(n), rates = new Float64Array(n), turning = new Float64Array(3 * n);
   const jointAngles = layout.joints.map((joint) => new Array<number>(joint.dofs).fill(0));
-  // The speeds each command in flight was solved to reach and the speeds it was solved from, a slot a step of the delay; whether its body was on its legs as its mind last stepped.
-  const flight = { expect: Array.from({ length: statics.delay }, () => new Float64Array(n).fill(NaN)), from: Array.from({ length: statics.delay }, () => new Float64Array(n)),
-    sent: 0, legs: true, touched: new Float64Array(statics.delay), touching: 0 };
   const state = { level: "full" as BodyLevel, activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
-    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) }, flight };
-  const expect = new Float64Array(n).fill(NaN), step = new Float64Array(6 + n).fill(NaN), legs = legSegments(statics.spec);
-  /** Each channel's range, rad (`DofSpec.min`, `max`). */
-  const lows = Float64Array.from(channels, (c) => c.dof.spec.min.value), highs = Float64Array.from(channels, (c) => c.dof.spec.max.value);
+    bounds: { negative: new Float64Array(n), positive: new Float64Array(n) } };
   const motion_ = { spin: (segment: ReadSegment) => spins.get(segment)! };
   let dynamics: ReturnType<typeof bodyDynamics> | null = null;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const muscles: MuscleDriver = {
-    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, expect, bounds: state.bounds,
+    channels, state, activation: state.activation, velocity: state.velocity, ceiling: state.ceiling, pulled: state.pulled, bounds: state.bounds,
     get dynamics() { return dynamics!; },
     get level() { return state.level; },
     angle: (i) => angles[i]!, rate: (i) => rates[i]!, speed: (i) => speeds[i]!, turning: (i, k) => turning[3 * i + k]!,
@@ -503,6 +490,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
 
   /** Each call's hand requests since the last answer, in order. */
   const hands: (readonly HandPoseRequest[])[] = [];
+  const command: MirrorCommand = { activation: state.activation, velocity: state.velocity, asked, hands };
   /** Each label told, by its code; the world's, and each touched body's, as the numbers last read tell them. */
   const targets: ContactTarget[] = [], labelled = { world: -1, bodies: new Map<number, number>() };
   const label = (code: number | undefined): ContactTarget | null => code === undefined || code < 0 ? null : targets[code]!;
@@ -562,17 +550,15 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         for (let i = 0; i < d; i++) for (let m = 0; m < d; m++) turning[3 * (c + i) + m] = a[k + 3 * d + i * d + m]!;
         k += 3 * d + d * d; c += d;
       });
-      state.activation.set(a.subarray(k, k + n)); k += n;
-      state.velocity.set(a.subarray(k, k + n)); k += n;
       state.ceiling.set(a.subarray(k, k + n)); k += n;
       state.pulled.set(a.subarray(k, k + n)); k += n;
       state.bounds.negative.set(a.subarray(k, k + n)); k += n;
       state.bounds.positive.set(a.subarray(k, k + n)); k += n;
       help.most.force = a[k++]!; help.most.moment = a[k++]!;
-      asked.force.set(a[k]!, a[k + 1]!, a[k + 2]!); asked.moment.set(a[k + 3]!, a[k + 4]!, a[k + 5]!); k += 6;
       help.given.force.set(a[k]!, a[k + 1]!, a[k + 2]!); help.given.moment.set(a[k + 3]!, a[k + 4]!, a[k + 5]!); k += 6;
       help.meter.steps = a[k++]!; help.meter.force = a[k++]!; help.meter.moment = a[k++]!; help.withdrawn = a[k++] === 1;
       clock.out = a[k++] === 1; clock.life = a[k++]!;
+      whole.contacts.fill(null); whole.manifolds.fill(null);
       for (let s = 0; s < records.length; s++) {
         contactsAt[s] = k;
         const contacts = a[k++]!;
@@ -621,85 +607,26 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       }
       if (reading) dynamics!.update(jointAngles, motion_);
     },
-    ahead(dt) {
-      const d = flight.expect.length;
-      if (d === 0) return;
-      flight.legs = onLegs(read, legs);
-      flight.touching = touchingOf(read, records);
-      if (!flight.legs) return;
-      for (let k = 0; k < d; k++) {
-        const slot = (flight.sent + k) % d, wanted = flight.expect[slot]!, from = flight.from[slot]!, mass = dynamics!.mass;
-        if (flight.touched[slot] !== flight.touching) continue;
-        for (let i = 0; i < n; i++) {
-          const a = (wanted[i]! - from[i]!) / dt;
-          if (Number.isNaN(a)) { step[6 + i] = NaN; continue; }
-          const up = muscles.strength(i, 1), down = muscles.strength(i, -1), reach = PLAN_REFLEX * (up > down ? up : down) / mass[i]![i]!;
-          const toward = (wanted[i]! - speeds[i]!) / dt;
-          step[6 + i] = toward < a - reach ? a - reach : toward > a + reach ? a + reach : toward;
-        }
-        // A joint's stop holds it: a channel carried past its range ends the step at its stop, at rest.
-        for (let i = 0; i < n; i++) {
-          const accel = Number.isNaN(step[6 + i]!) ? 0 : step[6 + i]!, next = angles[i]! + dt * (speeds[i]! + dt * accel);
-          const stop = next > highs[i]! ? highs[i]! : next < lows[i]! ? lows[i]! : NaN;
-          if (Number.isNaN(stop)) continue;
-          const reach = (stop - angles[i]!) / dt;
-          step[6 + i] = ((reach * (next - stop) > 0 ? reach : 0) - speeds[i]!) / dt;
-        }
-        mirror.forecast(step, dt);
-      }
-    },
-    forecast(motion, dt) {
-      const d = dynamics!, { linear, angular, turn, offset } = ahead;
-      for (const record of records) {
-        const segment = record.segment, c = d.centre(segment), node = record.node, q = node.rotationQuaternion!;
-        d.accelerationToRef(segment, motion, linear, angular);
-        record.angular.addInPlaceFromFloats(dt * angular.x, dt * angular.y, dt * angular.z);
-        record.linear.addInPlaceFromFloats(dt * linear.x, dt * linear.y, dt * linear.z);
-        // Its turn over the step, about its new spin (`rotationStep`), carries the node about the centre.
-        rotationStep(record.angular, dt, turn);
-        offset.set(node.position.x - c[0], node.position.y - c[1], node.position.z - c[2]).applyRotationQuaternionToRef(turn, offset);
-        node.position.set(c[0] + dt * record.linear.x + offset.x, c[1] + dt * record.linear.y + offset.y, c[2] + dt * record.linear.z + offset.z);
-        turn.multiplyToRef(q, q);
-        q.normalize();
-      }
-      let c = 0;
-      trackers.forEach((tracker, j) => {
-        tracker.update(ahead.spin);
-        const dofs = tracker.angles.length, mine = jointAngles[j]!;
-        for (let i = 0; i < dofs; i++) {
-          angles[c + i] = tracker.angles[i]!; mine[i] = tracker.angles[i]!; speeds[c + i] = tracker.speeds[i]!; rates[c + i] = tracker.rates[i]!;
-          for (let m = 0; m < dofs; m++) turning[3 * (c + i) + m] = tracker.turning[i]![m]!;
-        }
-        c += dofs;
-      });
-      d.update(jointAngles, motion_);
-    },
     answer() {
       let calls = 0, size = 0;
       for (const call of hands) { calls += 1; size += 1 + 2 * call.length; }
       channel.outbound = grown(channel.outbound, layout.command + 1 + size, channel.allocate);
       const out = channel.outbound;
       out.set(state.activation, 0); out.set(state.velocity, n);
-      // A command sent ahead expects what it was solved for only on its legs (`ahead`), and is kept to carry the mirror forward by.
-      const flight = state.flight, d = flight.expect.length;
-      if (d > 0) {
-        if (!flight.legs) expect.fill(NaN);
-        const slot = flight.sent % d;
-        flight.from[slot]!.set(speeds);
-        flight.touched[slot] = flight.touching;
-        flight.expect[slot]!.set(expect);
-        flight.sent += 1;
-      }
-      out.set(expect, 2 * n);
-      expect.fill(NaN);
-      out[3 * n] = asked.force.x; out[3 * n + 1] = asked.force.y; out[3 * n + 2] = asked.force.z;
-      out[3 * n + 3] = asked.moment.x; out[3 * n + 4] = asked.moment.y; out[3 * n + 5] = asked.moment.z;
+      out[2 * n] = asked.force.x; out[2 * n + 1] = asked.force.y; out[2 * n + 2] = asked.force.z;
+      out[2 * n + 3] = asked.moment.x; out[2 * n + 4] = asked.moment.y; out[2 * n + 5] = asked.moment.z;
       let at = layout.command;
       out[at++] = calls;
       for (const call of hands) {
         out[at++] = call.length;
         for (const request of call) { out[at++] = request.hand === "left" ? 0 : 1; out[at++] = POSES.indexOf(request.pose); }
       }
+      hands.length = 0;
+    },
+    command,
+    idle() {
+      state.activation.fill(0); state.velocity.fill(0);
+      asked.force.setAll(0); asked.moment.setAll(0);
       hands.length = 0;
     },
   };
@@ -711,34 +638,3 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
 
 /** What an object the senses show keeps from its first showing. */
 interface ObjectStatics { readonly id: string; readonly owner: string | null; readonly points: Readonly<Record<string, Vec3>> }
-
-/**
- * The turn a body spinning at `spin` (rad/s, world) makes over `dt`, into `out`: about the spin's
- * axis by its speed times the step, as the solver turns a body.
- */
-function rotationStep(spin: Vector3, dt: number, out: Quaternion): Quaternion {
-  const speed = Math.sqrt(spin.x * spin.x + spin.y * spin.y + spin.z * spin.z), half = speed * dt / 2;
-  if (speed === 0) return out.set(0, 0, 0, 1);
-  const k = sin(half) / speed;
-  return out.set(spin.x * k, spin.y * k, spin.z * k, cos(half));
-}
-
-/** The segments `spec`'s legs bear it on: its feet, paws and propped shins (`BodySpec.ends`), not its hands. */
-function legSegments(spec: BodySpec): ReadonlySet<string> {
-  return new Set((spec.ends ?? []).filter((end) => end.kind !== "end").map((end) => end.segment));
-}
-
-/** Whether `read` touches anything with none but the segments its legs bear it on (`legs`), as last read. */
-/** Which of `records`' segments the solver pushed on, as last read: a bit a segment. */
-function touchingOf(read: ReadBody, records: readonly { readonly segment: ReadSegment }[]): number {
-  let bits = 0;
-  for (let i = 0; i < records.length; i++) {
-    for (const contact of read.physics.contactsOf(records[i]!.segment.body)) if (contact.impulse > 0) { bits |= 1 << i; break; }
-  }
-  return bits;
-}
-
-function onLegs(read: ReadBody, legs: ReadonlySet<string>): boolean {
-  for (const segment of read.segments.values()) if (!legs.has(segment.spec.name) && read.physics.contactsOf(segment.body).length > 0) return false;
-  return true;
-}
