@@ -6,7 +6,7 @@ import type { ActionBinding, ExecutorBinding } from "./action-instances.ts";
 
 /**
  * **An action a body has**, as its skills bind it: its name, its executor's kind (what the skill
- * is, named alike across minds: `straight-punch`, `club-blow`, `front-kick`), the limbs it may
+ * is, named alike across minds: `straight-punch`, `club-blow`, `stomp`), the limbs it may
  * be asked with, and the regions it aims at (none: it acts on the body itself, as a rise does).
  */
 export interface KitEntry {
@@ -21,7 +21,8 @@ export interface KitEntry {
  * null for an action on the body itself), and whether it could start from where the body stands
  * (`Readiness`: ready; out of position, with the window; waiting; refused, with the reason); where
  * it names a window, where the body would stand in its middle (`spot`, `windowSpot`: beside a body
- * lying, with the way round it), which a leader can walk it to.
+ * lying, with the way round it), which a leader can walk it to. Out of position where no place
+ * beside the body lying clears the feet, it is refused (`NO_PLACE`).
  */
 export interface MenuEntry {
   readonly action: string;
@@ -31,6 +32,9 @@ export interface MenuEntry {
   readonly readiness: Readiness;
   readonly spot?: Spot;
 }
+
+/** The refusal of a choice out of position whose window is over a body lying, with no place beside that body clearing the feet (`windowSpot`). */
+const NO_PLACE: Readiness = deepFreeze({ kind: "blocked", reason: "no place beside the body lying clears the feet" });
 
 /** The target of an action on the body itself: none; its executor reads the body. */
 const SELF: TargetRef = deepFreeze({ kind: "point", at: [0, 0, 0] });
@@ -57,7 +61,9 @@ export function menuOf(kit: readonly KitEntry[], view: BodyView, around: ActionA
     if (regions.length === 0) { entries.push({ action, limb, foe: null, region: null, readiness: readiness(view, action, limb, SELF, around) }); continue; }
     for (const foe of foes) for (const region of regions) {
       const ready = readiness(view, action, limb, { kind: "body", body: foe.id, region }, around);
-      entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(ready.kind === "position" || ready.kind === "ready" && ready.window ? { spot: windowSpot(view, ready.window!, around.heading) } : {}) });
+      const spot = ready.kind === "position" || ready.kind === "ready" && ready.window ? windowSpot(view, ready.window!, around.heading) : null;
+      if (ready.kind === "position" && !spot) { entries.push({ action, limb, foe: foe.id, region, readiness: NO_PLACE }); continue; }
+      entries.push({ action, limb, foe: foe.id, region, readiness: ready, ...(spot ? { spot } : {}) });
     }
   }
   return entries;

@@ -28,7 +28,7 @@ as it needs ([architecture](architecture.md#the-layers)).
   already holds (profiles, values, a trained policy). Searching ahead is offline research
   ([oracle](reference/oracle.md)), not a mind's during a fight.
 - **Competencies first**, proved one drill ladder at a time without assistance: footwork,
-  striking, guarding, standing, standing up, kicking and running.
+  striking, guarding, standing, standing up and running.
 - **Items next**, each with its own weight and shape: weapons, shields, two-handed items, ranged
   weapons and armour. Every weapon keeps its ratio to the club; edged and pointed ones bring the
   rulebook's other mechanisms into play.
@@ -117,7 +117,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its low kick, approach and cover; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The Option Reptile against a Warrior and a Reptile
   (`?play=arena&matchup=reptile,workshop-fighter&control=option-reptile,option`,
   `?play=arena&matchup=reptile,reptile&control=option-reptile,option-reptile`), and the Walker reaching its
@@ -221,10 +221,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([stand-up](plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
   at least 15 of 16 verified recoveries within 10 s in every group, 61 of 64 overall, every
-  cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. Step-up,
-  the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
-  edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
-  Rogue with the club (9 and 10 of 16 against 11 and 12). The fast edge from hands and knees on
+  cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. The fast edge from hands and knees on
   toes, `sit-back` ([the sit-back](reference/rising.md#the-sit-back)), stands the Warrior 32 of 32
   from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise
   (`--mind` Option Mind's preset) stands the toed Warrior from 31 of the target's 32 falls, 5
@@ -249,8 +246,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   thirds at its scaled bar, and the high mark is refused ([learned punch](reference/learned-punch.md),
   [the strikes on every body](plans/2026-11-01-option-mind-everywhere.md#6-the-strikes-on-every-body)). Read on the Strike drill's rungs
   ([Drills](plans/2026-10-24-drills.md)), then in fights by the paired report.
-  Kicks: higher targets and kick selection ([front kicks](reference/front-kicks.md)). Blade cuts
-  and thrusts, a club blow, kicks and low support (a legs-and-trunk commitment that lends the
+  Blade cuts and thrusts, a club blow, the stomp and low support (a legs-and-trunk commitment that lends the
   trunk to a low strike) come into Option Mind's shape after the punch, each tuned for each body
   that uses it, a configuration of the general trainer where it is learned and drilled as the
   Strike drill drills the punch.
@@ -355,8 +351,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     an order without its walk (`Orders.walk`).
 - **The stomping rung lands 3 of 12**: the place beside a lying body is held (`HeldBeside`,
   the drill's `HELD_SPOT`), and the drill's spot jumps more than 0.5 m 6 times over the rung
-  where it jumped 124; a kick's window is read from where the kicking sole stands now
-  (`kick.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
+  where it jumped 124; a stomp's window is read from where the stomping sole stands now
+  (`stomp.ts`), which a stride moves about 0.1 m. Option Mind stomps a lying Warrior 1.2 m off its feet at
   9.2 s at `fe82cf01` and not in 20 s at `d597bd5b`; reading the window from the squared stance
   instead lands 8 of the stomping rung's 12 against 10. At `8739fa22` the rung lands 5 of 12: each
   stomp thrown at a lying Warrior lands (3 of 3), three trials are ready and never thrown, and in

@@ -4,19 +4,8 @@ import type { SubMind } from "../core/mind/sub-mind.ts";
 import type { Clock } from "../core/clock.ts";
 import { TECHNIQUES } from "../core/recovery/ground/techniques.ts";
 import type { TechniqueEnd, TechniqueName, TechniquePart } from "../core/recovery/ground/technique.ts";
-import { plantPostures } from "../core/recovery/ground/plant-up.ts";
 import { partLookup } from "../entrants/game.ts";
 import { GAME_GUARD, kitOf } from "../core/mind/kit.ts";
-import type { BodySpec } from "../core/spec/body.ts";
-import type { buildBody } from "../core/build/build-body.ts";
-import poses from "../../assets/research/posture-holds.json" with { type: "json" };
-
-/** The technique's own anatomical phase goals, built through joint-consistent placement on either human. */
-export function plantWaypoint(spec: BodySpec, phase: "brace" | "plant" | "transfer" | "rise"): Parameters<typeof buildBody>[2] {
-  const target = plantPostures(spec, kitOf(partLookup, spec, { guard: GAME_GUARD }).posture)[phase], source = poses.find(p => p.model === "workshop-fighter" && p.id === (phase === "transfer" ? "squat" : "fours"))!;
-  return { position: [0, 0, 0], rotation: phase === "rise" ? [0, 0, 0, 1] : source.placement.rotation as [number, number, number, number],
-    joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (target[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
-}
 
 /** Detached diagnostic state for the single-technique Lab driver. */
 export interface GroundTechniqueState {

@@ -2,7 +2,7 @@ import type { ActionAround, Readiness, Resource, TargetRef, Window } from "../sk
 import { STANCE_LOWER } from "../skills/locomotion/locomotion.ts";
 import { regionSegments } from "../intent/action-aim.ts";
 import { windowHolds } from "../intent/action-window.ts";
-import { orderAllows, orderedRegions } from "../intent/orders.ts";
+import { orderAllows, orderedTarget } from "../intent/orders.ts";
 import type { ActionConfig, ExecutorEntry } from "../skills/config.ts";
 import type { PartLookup } from "../parts/lookup.ts";
 import { measuredOn, profileFor, readProfile, skillDigest, staleness, type Expected, type Measured, type Profile } from "../skills/framework/profile.ts";
@@ -107,9 +107,7 @@ export function strike(action: ActionConfig, walk: Walker, throws: number, measu
   };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
-    if (!focus || !action.regions) return null;
-    const region = orderedRegions(now.orders ?? null, focus.id, action.regions).find((r) => regionSegments(focus.spec, r).length > 0);
-    return region ? { kind: "body", body: focus.id, region } : null;
+    return focus && action.regions ? orderedTarget(now.orders ?? null, focus, action.regions) : null;
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
     now.sight.readiness(now.sight.view, action.name, limb, target, around(now.sight));

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { allParts, partLookup } from "../src/entrants/game.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
+import { EXECUTORS } from "../src/core/skills/framework/executors.ts";
 
 /**
  * Every skill's settings are its body's record (`SkillRecord`, `src/core/skills/framework/records.ts`):
@@ -13,7 +14,8 @@ import { bodyKey } from "../src/core/spec/body.ts";
 test("every executor refuses a body with no record of its skill, and says so", () => {
   const warrior = modelSpec("workshop-fighter"), unrecorded = { ...warrior, model: "unrecorded" };
   const executors = Object.entries(allParts()).filter(([, part]) => part.role === "executor");
-  assert.ok(executors.length >= 7, `the catalog's executors reached: ${executors.map(([kind]) => kind).join(", ")}`);
+  const reached = executors.map(([kind]) => kind);
+  assert.ok(Object.keys(EXECUTORS).every((kind) => reached.includes(kind)), `the catalog's executors reached: ${reached.join(", ")}`);
   for (const [kind, part] of executors) {
     assert.equal(part.fits(warrior, part.defaults, partLookup), null, `${kind} fits the Warrior, which has its record`);
     assert.match(part.fits(unrecorded, part.defaults, partLookup) ?? "", new RegExp(`not tuned for ${bodyKey(unrecorded).replace("+", "\\+")}`),

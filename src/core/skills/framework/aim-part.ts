@@ -1,9 +1,7 @@
 import type { BodyView } from "../../body.ts";
 import type { Ended, TargetRef } from "./action.ts";
-import type { AttackTuning } from "../strikes/attack-path.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Aimed } from "../../intent/action-aim.ts";
-import type { BlowFamily } from "../strikes/attack-path.ts";
 import type { Part, PartConfig } from "../../parts/parts.ts";
 
 /**
@@ -13,12 +11,6 @@ import type { Part, PartConfig } from "../../parts/parts.ts";
 export interface Aim {
   (view: BodyView, target: TargetRef, effector: string, ledger?: readonly Ended[]): Aimed | null;
   readonly state?: object;
-}
-
-/** **The blow an aim is made for**, where its executor says (`ExecutorPart.blow`): the path's family and the hands' paths. */
-export interface AimedBlow {
-  readonly family: BlowFamily;
-  readonly paths?: AttackTuning;
 }
 
 /**
@@ -31,6 +23,6 @@ export interface AimPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly unit: "opening" | "net" | null;
   /** Whether it aims a blow struck with `effector`; with any unless it says. */
   aimsWith?(effector: string): boolean;
-  /** Its aim on a body of `spec`, for `blow` where the executor names one, else a straight blow on the stock paths. */
-  make(spec: BodySpec, config: C, blow: AimedBlow | null): Aim;
+  /** Its aim on a body of `spec`. */
+  make(spec: BodySpec, config: C): Aim;
 }

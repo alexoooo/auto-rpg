@@ -136,7 +136,7 @@ function createOptionMind(host: BodyHost, given: OptionMindConfig, wiring: MindW
   const registry = techniquesOf(parts, { kind: "stand-up", techniques: config.ground });
   const ground = groundExecutor(body, host.clock, kitOf(parts, host.spec, config), registry);
   let skills: Skills | undefined;
-  const aims = configuredAims(parts, host.spec, config.executors, config.actions);
+  const aims = configuredAims(parts, host.spec, config.actions);
   const make = (made: Body) => kitSkills(made, host.clock, parts, config, () => skills?.report.ledger ?? [],
     { executors: [ground.binding], actions: ground.actions }, aims);
   const hz = Math.round(1 / host.clock.dt), every = everyOf(config.rate, hz), rising = { executor: ground, registry };

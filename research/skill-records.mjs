@@ -14,9 +14,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { KICK_PATH, validKickTuning } from "../src/core/skills/strikes/kick.ts";
-import { ATTACK_PATH, validAttackTuning } from "../src/core/skills/strikes/attack-path.ts";
-import { validCombatExecution } from "../src/core/skills/strikes/combat.ts";
+import { STOMP_PATH, validStompTuning } from "../src/core/skills/strikes/stomp.ts";
 import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straight-punch.ts";
 
 /** Whether `settings` holds exactly `keys`. */
@@ -24,10 +22,7 @@ const whole = (settings, keys) => settings !== null && typeof settings === "obje
 
 /** Each skill tuned per body: whether settings are its whole and valid. */
 export const SKILLS = Object.freeze({
-  "front-kick": (s) => whole(s, Object.keys(KICK_PATH)) && validKickTuning(s),
-  stomp: (s) => whole(s, Object.keys(KICK_PATH)) && validKickTuning(s),
-  "path-strike": (s) => s !== null && typeof s === "object" && Object.keys(s).every((key) => key === "paths" || key === "execution")
-    && whole(s.paths, Object.keys(ATTACK_PATH)) && validAttackTuning(s.paths) && (s.execution === undefined || validCombatExecution(s.execution)),
+  stomp: (s) => whole(s, Object.keys(STOMP_PATH)) && validStompTuning(s),
   ...Object.fromEntries(["club-blow", "sword-cut", "sword-thrust"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null])),
 });
 

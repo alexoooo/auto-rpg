@@ -1,5 +1,5 @@
 /** **Mind data**, by key: loaded before the minds that read it are built, and read synchronously after. */
-export type DataKey = "straight-punch" | "front-kick" | "stomp" | "path-strike" | "club-blow" | "sword-cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles";
+export type DataKey = "straight-punch" | "stomp" | "club-blow" | "sword-cut" | "sword-thrust" | "strike-profiles" | "edge-profiles" | "gait-profiles";
 
 /**
  * **What each key's data is, as its reader declares it**: the module that reads a key adds it here
@@ -20,9 +20,7 @@ export interface DataOf {}
  */
 const LOADERS: { readonly [K in DataKey]: () => Promise<unknown> } = {
   "straight-punch": () => import("./straight-punch.ts").then((m) => m.STRAIGHT_PUNCH_RECORDS),
-  "front-kick": () => import("./front-kick.ts").then((m) => m.FRONT_KICK_RECORDS),
   "stomp": () => import("./stomp.ts").then((m) => m.STOMP_RECORDS),
-  "path-strike": () => import("./path-strike.ts").then((m) => m.PATH_STRIKE_RECORDS),
   "club-blow": () => import("./club-blow.ts").then((m) => m.CLUB_BLOW_RECORDS),
   "sword-cut": () => import("./sword-cut.ts").then((m) => m.SWORD_CUT_RECORDS),
   "sword-thrust": () => import("./sword-thrust.ts").then((m) => m.SWORD_THRUST_RECORDS),

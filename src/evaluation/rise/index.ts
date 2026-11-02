@@ -1,5 +1,5 @@
 /**
- * **The Rise drill**: does an edge of the staged route, begun once its entry admits the body, take
+ * **The Rise drill**: does an edge of the game's Stand up, begun once its entry admits the body, take
  * the body to the posture it goes to, and how long does it take? Rung `placed` begins it from its
  * own postures at rest, rung `moving` after the edge before it (`cases.ts`). Its summary is each
  * edge's profile: how often it is done and how long it takes, by how fast the body moved as it
@@ -48,7 +48,7 @@ export const RISE: Evaluation<RiseCondition, TechniqueReading & Json, BuiltTechn
   id: "rise",
   title: "The Rise drill",
   group: "skills",
-  question: "Does an edge of the staged route, begun once its entry admits the body, take the body to its posture, and how fast?",
+  question: "Does an edge of the game's Stand up, begun once its entry admits the body, take the body to its posture, and how fast?",
   protocols: RISE_CASES,
   defaultProtocol: "placed",
   schedule: "all",

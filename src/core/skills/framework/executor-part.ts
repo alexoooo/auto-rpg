@@ -7,7 +7,7 @@ import type { ActionConfig } from "../config.ts";
 import type { PartField } from "../../parts/fields.ts";
 import type { KeysOf, Part, PartConfig } from "../../parts/parts.ts";
 import type { Aimed } from "../../intent/action-aim.ts";
-import type { Aim, AimedBlow } from "./aim-part.ts";
+import type { Aim } from "./aim-part.ts";
 import type { Mechanism } from "../../rules/rulebook.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
@@ -38,10 +38,7 @@ type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector:
 /** The point `aim` aims at, or null: what an executor that drives at a point reads of it. */
 export const aimedPoint = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.at ?? null;
 
-/** The way `aim` drives at its point, or null for the executor's own. */
-export const aimedWay = (aim: ActionAimer): TargetResolver => (view, target, action, effector) => aim(view, target, action, effector)?.direction ?? null;
-
-/** The keys every action holds, whatever its executor (`ActionConfig`), `lower` aside: an executor that honours it names it in its own. */
+/** The keys every action holds, whatever its executor (`ActionConfig`). */
 export const ACTION_KEYS = Object.freeze(["name", "executor", "effectors", "regions", "aim"]);
 
 /**
@@ -66,8 +63,6 @@ export interface ExecutorPart<C extends NamedConfig = NamedConfig, A extends Act
   strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
   /** What is wrong with the settings of its own `action` holds, each a sentence. */
   actionFaults(action: A): readonly string[];
-  /** The blow `action` throws from a body of `spec`, where its aim may read it (`AimPart.make`): the path's family and the hands' paths. */
-  blow?(spec: BodySpec, config: C, action: A): AimedBlow;
   /** How many blows an action of it throws; one unless it says. */
   blows?(config: C): number;
   estimate?(spec: BodySpec, config: C, action: A, aim: Aim, unit: "opening" | "net" | null): ActionEstimates[string] | null;

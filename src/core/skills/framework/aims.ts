@@ -117,8 +117,8 @@ export const SURFACE_AIM: AimPart<SurfaceConfig> = deepFreeze({
   fields: [preference("head", "Head"), preference("upperTrunk", "Upper trunk"), preference("middleTrunk", "Middle trunk")], fits: anyBody,
   faults: (config: SurfaceConfig) => validOpeningTuning(config.tuning) ? [] : ["unsupported surface aim"],
   aimsWith: (effector: string) => effector === "hand.left" || effector === "hand.right",
-  make(spec, config: SurfaceConfig, blow) {
-    const surface = openingSelector(spec, config.tuning, blow?.paths), family = blow?.family ?? "straight";
+  make(spec, config: SurfaceConfig) {
+    const surface = openingSelector(spec, config.tuning);
     // Each opening held (`HELD_OPENING`), for the foe, hand, region and blocked segments it was found for.
     const state = { held: [] as HeldOpening[] };
     // Each aim answered at `of`'s reading's `stamp`, for its foe as observed at its time, hand, region and blocked segments: every caller's while they stand.
@@ -142,7 +142,7 @@ export const SURFACE_AIM: AimPart<SurfaceConfig> = deepFreeze({
       let aimed: Aimed | null;
       if (kept && at) aimed = { at, ...(kept.direction ? { direction: kept.direction } : {}), estimate: { unit: "opening", value: kept.value } };
       else {
-        const opening = surface(view, foe, side, null, "mixed", { family, segments: names, blocked });
+        const opening = surface(view, foe, side, null, "mixed", { family: "straight", segments: names, blocked });
         aimed = opening ? deepFreeze<Aimed>({ at: opening.target, ...(opening.direction ? { direction: opening.direction } : {}), estimate: { unit: "opening", value: -opening.score } }) : null;
         if (!kept) {
           for (let k = state.held.length - 1; k >= 0; k--) if (view.time >= state.held[k]!.held.made + HELD_OPENING.rethink) state.held.splice(k, 1);

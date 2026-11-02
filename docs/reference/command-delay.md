@@ -79,33 +79,44 @@ one step; the motor programs at 8411a492 with the network before:
 | | fell | 0 | 0.083 | 0.083 |
 
 The punch is admitted less often at one step (46 of 128 against 62) and lands on 6 against 31:
-its policy was trained at none. The punch, the club and the stomp are fine-tuned at one step in
-the table's pass ([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)).
+its policy was trained at none. The fine-tune list at one step, the table's pass
+([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)): the Warrior's and
+the Rogue's punch. The stomp needs none: at 252a17eb it lands 4 of 12 at one step, none fallen. The club blow
+leaves the list: a club is swung, not punched with, and the punch's drive thrown with the club's
+head gives way to a swing, which is trained at the game's delay.
 
-**The profiles** are measured at one step at 84e7c898, on the merged code: the strikes', the
-gaits' and the rise's edges (`assets/core/strike-profiles.json`, `gait-profiles.json`,
+**The profiles** are measured at one step at 252a17eb, with a blow's line clear of a guard by the
+fist's radius and the Rise drill's techniques in the motor part: the strikes', the gaits' and the
+rise's edges (`assets/core/strike-profiles.json`, `gait-profiles.json`,
 `edge-profiles.json`). A profile names the delay it was measured at (`Measured.delay`,
 `staleness`), so one measured at another delay is stale and not read. Measured at none, the
 Warrior's punch profile kept Option Mind from striking a still foe 0.9 m off (no strike in 8 s);
 measured at one step, it strikes from 2.7 s.
 
-**The Gait drill** (`stopped`, 20 trials on the Warrior, at 51aaf4d2): 16 ready at one step,
-3.5 to 4.2 s unbraced with either hand, where none leaves the right hand 0 and the left 3.7 (the
-punch begins only standing quiet); at 0.5 m/s the strike is never admitted (4 trials). None falls.
+**The Gait drill** (`stopped`, 20 trials on the Warrior, at 252a17eb): 20 ready at one step, 3.1
+to 4.3 s from the stop with either hand (3.1 and 3.9 s from 0.5 m/s), where none leaves the right
+hand 0 and the left 3.7 (the punch begins only standing quiet; at 51aaf4d2, at one step, the
+strike was never admitted from 0.5 m/s). None falls.
 
-**The rise's edges** (the Rise drill's `placed` and `moving`, the Warrior empty-handed, at
-51aaf4d2), done of begun:
+**The rise's edges hold at one step as at none.** The Rise drill plays each technique in its
+body's motor part, as the game's ground actions run (`groundExecutor`), so a technique's command
+reaches the muscles the step it is made (`src/evaluation/technique.ts`). The Warrior,
+empty-handed and with the buckler and the club, done of begun, at 252a17eb; none at 84e7c898:
 
-| Edge | None | One step |
-| --- | --- | --- |
-| `staged-roll` | 22 of 22 | 21 of 21 |
-| `staged-down` | 10 of 12 | 9 of 12 |
-| `staged-kneel-up` | 9 of 9 | 10 of 10 |
-| `sit-back` | 9 of 9 | 6 of 10 |
-| `front-sit-back` | 10 of 12 | 1 of 12 |
-| `staged-step-through`, `staged-lunge` | none | none |
+| Edge | Placed, none | Placed, one step | Moving, none | Moving, one step |
+| --- | --- | --- | --- | --- |
+| `staged-roll` | 36 of 36 | 36 of 36 | 8 of 8 | 7 of 7 |
+| `staged-down` | 12 of 12 | 12 of 12 | 10 of 12 | 8 of 12 |
+| `staged-kneel-up` | 12 of 12 | 12 of 12 | 5 of 6 | 10 of 11 |
+| `sit-back` | 12 of 12 | 12 of 12 | 4 of 6 | 7 of 11 |
+| `front-sit-back` | 7 of 12 | 7 of 12 | 8 of 12 | 4 of 12 |
+| `staged-step-through` | 0 of 10 | 0 of 10 | 0 of 5 | 0 of 10 |
+| `staged-lunge` | 0 of 4 | 0 of 4 | none | none |
 
-The sit-back and the front sit-back are on the fine-tune list.
+The front sit-back's moving cases on 72 seeds of each loadout (the drill's six, then 7 to 72) are
+76 of 144 done at one step against 81 at none; the prop's abort ends 28 empty-handed trials against
+18. Run in the mind's decision instead, a technique's command came a step late, and the sit-back
+stood 6 of 10 and the front sit-back 1 of 12 (51aaf4d2, empty-handed, the two rungs together).
 
 **The standard match** (`npm run match -- option bare`, protocol 908550df542eb469; ten minutes'
 budget): Option Mind wins every unit played against the bare mind at one step as at none, by a

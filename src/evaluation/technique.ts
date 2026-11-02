@@ -137,8 +137,10 @@ export async function buildTechnique(one: TechniqueCase, engine: CaseWorld["engi
       wants: () => state.phase !== "over" && state.phase !== "stood" && (one.start.kind === "placed" || state.down),
       begin() { state.phase = "wait"; state.since = clock.time; if (lying) { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); } else drive(held); remember(); },
       end() { if (state.phase === "run") { runs[state.link]!.end(); close("interrupted", view.ground); state.phase = "over"; } },
-      step(senses, dt) {
-        const g = view.ground;
+      // The chain runs in the motor part, on the body as it is, as the game's ground actions do (`groundExecutor`).
+      step() {},
+      move(dt) {
+        const g = view.ground, senses = view.senses;
         if (!g) { carry(); return; }
         if (state.phase === "rest") {
           // A technique that ended short: the body lies slack until it comes to rest, read there.

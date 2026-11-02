@@ -96,7 +96,6 @@ Scripts not listed above, by what they study; each is read by the record named.
 | Held items | the court task is an evaluation (`src/evaluation/`) | [sword and buckler](../docs/reference/sword-and-buckler.md) |
 | Contact and the solver | `contact-*.mjs`, `posture-limits.mjs` | [contact step](../docs/reference/contact-step.md), [friction](../docs/reference/contact-friction.md), [solver contract](../docs/reference/solver-contract.md) |
 | The reptile | `reptile-*.mjs`, `bite-load.mjs`, `body-plan-regression.mjs` | [reptile](../docs/reference/reptile.md), [bites](../docs/reference/reptile-bites.md) |
-| Minds | `action-cycles.mjs` (a request ledger) | |
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
 `cma.mjs` is the resumable CMA-ES the searches share.

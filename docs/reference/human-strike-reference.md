@@ -56,7 +56,7 @@ Peer-reviewed data are thin; most figures are from practitioners.
   Muggenthaler 2018 gives means only (the full text is behind a paywall), and its sister study
   (Trinh 2018, the same rods and lab) a range, men 14.0 to 35.5 m/s over every rod's mass and
   length. The SD is that range over 4, (35.5 - 14.0) / 4 = 5.4 m/s, as a range gives the stomp's
-  ([3b](#3b-front-kick-and-stomp); the expected range of 29 men, `d2` 4.06, gives 5.3; the range spans
+  ([3b](#3b-stomp); the expected range of 29 men, `d2` 4.06, gives 5.3; the range spans
   every rod, so it is wider than one rod's). The bar is 23.9 - 5.4 = **18.5 m/s** at the point
   Muggenthaler measured: the rod's tip, 0.65 m from its held end. On the short sword that is the
   tip, 0.62 m from the grip's end, not the edge's striking point (`edge.right`, 0.36 m), so the cut
@@ -86,16 +86,13 @@ hilt's accelerometer. The table gives the mean, the 95th percentile and the maxi
   own estimate). The rules' energy is the impact's alone ([wounds](wounds.md#mechanisms)), so the
   thrust's bar is the point's speed, with its energy and wound reported beside it.
 
-## 3b. Front kick and stomp
+## 3b. Stomp
 
 | Quantity | Typical (novice) | Trained | Source |
 |---|---|---|---|
-| Front kick, peak ankle linear velocity (fastest of three to a screen at a chosen distance; sagittal video at 500 Hz) | 8.18 ± 1.76 m/s (20 taekwondo novices, men and women, the 40 aged 22 ± 3.2) | 10.39 ± 1.95 m/s (20 experts) | Landeo & McIntosh 2007, XXV ISBS Symposium, Ouro Preto, pp. 298-301, Table 1, read at its source, https://ojs.ub.uni-konstanz.de/cpa/article/view/465 |
 | Stomp, mean peak force on a force plate | men 8494 to 9016 N, women 4694 to 5970 N (55 volunteers; sturdy and soft shoes, with and without an elastic layer like a scalp). Jumping on it is about twice | -- | Schirmer et al. 2016, Int J Legal Med 130(3):827-34, https://doi.org/10.1007/s00414-015-1254-7 (the abstract only; no SD there) |
 | Stamp on a dummy lying in a simulated ruck, the foot's inbound speed (high-speed video) | 4.3 m/s mean, 2.1 to 6.3 m/s (12 participants; no SD in the abstract) | -- | Oudshoorn, Driscoll, Dunn & James 2018, J Sports Sci 36(8):914-919, https://doi.org/10.1080/02640414.2017.1346273 (the abstract only) |
 
-- **The front kick's mean less one SD** (**derived**): 8.18 - 1.76 = **6.4 m/s**, the ankle's peak,
-  not the foot's at contact; the novices practised taekwondo, and the men and women are pooled.
 - **The stomp's mean less one SD** (**derived**): Oudshoorn et al. give a mean and a range, no
   SD; a normal sample of 12 spans about 3.26 SD (the expected range, `d2`), so the SD is about
   (6.3 - 2.1) / 3.26 = 1.29 m/s and the bar 4.3 - 1.29 = **3.0 m/s**, the foot's speed into the

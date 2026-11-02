@@ -27,8 +27,8 @@ import { holdsOf, seriesStiffness } from "../src/core/rules/blows.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
 import { energyShares } from "../src/core/rules/share.ts";
-import { combatSkills } from "../src/core/skills/strikes/combat.ts";
 import { guardPosture } from "../src/core/skills/guard/guard.ts";
+import { standingSkills } from "../src/core/skills/framework/skills.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 /** How long the struck body stands in guard before it is read, s. */
@@ -41,7 +41,7 @@ const SETTLE = 1;
  */
 export async function referenceHead({ model = "workshop-fighter", physique, part = "head", hz = 120 } = {}) {
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
-  const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body);
+  const body = commandedBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = standingSkills(body);
   body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt));
   try {
     for (let i = 0; i < Math.round(SETTLE * hz); i++) s.world.step();

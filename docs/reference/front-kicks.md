@@ -1,14 +1,16 @@
-# Shared front kicks
+# Front kicks and the stomp
 
-The Warrior's front kick settings (`KICK_PATH`, `src/core/skills/strikes/kick.ts`, its row of
-`assets/core/front-kick.json`), the Arena's faster profile
-and its selector (`ARENA_KICKS`, `KICKER`, `KICK_SELECTION`, `src/core/mind/config.ts`), and how
-both were qualified. The force they deliver against trained adults is
+The stomp's executor (`stompExecutor`, `src/core/skills/strikes/stomp.ts`) began as a front kick:
+its settings where a body's record leaves them (`STOMP_PATH`) are the front kick's, qualified on
+its stand; the stomp's own are [below](#stomp-settings). The front kick, the low kick and the
+Arena's faster kick are not kept: there is no kick, the stomp is an unarmed fighter's blow at a foe
+low. What follows of them is the qualification the executor rests on. The force they deliver
+against trained adults is
 [trained-attack-force.md](trained-attack-force.md)'s.
 
 ## Execution settings
 
-`KICK_PATH` is engineering data, independent of anatomy. Either foot uses the named effector
+`STOMP_PATH` is engineering data, independent of anatomy. Either foot uses the named effector
 tracker and finite strike cycle shared with punching. Ordinary gait places both soles under the
 hip centres; both feet settle before their landing pose is captured (capturing the first gait
 contact can keep transient floor penetration and reject a quiet landing by 0.2 mm at the 2 cm
@@ -61,7 +63,7 @@ discards the foot path through the common skill resume list.
 ## Stomp settings
 
 The Warrior's stomp (its row of `assets/core/stomp.json`, `stomp-part.ts`; Option Mind's `STOMP`
-throws it) is the front kick's executor with these settings changed; the rest are `KICK_PATH`'s. They are set for the result, the owner's goal
+throws it) is its executor with these settings changed; the rest are `STOMP_PATH`'s. They are set for the result, the owner's goal
 of a blow down on a body lying ahead; no source pins them. Read on the Strike drill's `stomping`
 rung (Node stand, Rapier, 120 Hz; 12 trials, each foot at a limp Warrior and Skeleton lying on its
 back, 0.8 to 1.2 m off).
@@ -133,9 +135,9 @@ rows cannot select a faster profile.
 
 | Swing / terminal request | Left hit / miss / block | Right hit / miss / block | Selection |
 | --- | --- | --- | --- |
-| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference (`KICK_PATH`) |
+| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference (`STOMP_PATH`) |
 | 0.35 s / 2.5 m/s | pass / pass / pass | pass / pass / pass | rejected: built in its reference pose with the foot returned to the ground itself, it fails both hits' returns and the right miss's |
-| 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile (`ARENA_KICKS`) |
+| 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile (not kept) |
 
 At 0.4 s / 2 m/s the four clean left impacts deliver 7.645, 7.775, 7.855 and 7.966 N s, the
 right 7.932, 7.714, 7.730 and 7.581 N s; per-step peak forces 229 to 241 N left and 225 to 235 N
@@ -148,11 +150,11 @@ sole rotation and faster settings** expose readiness or landing failures.
 
 ## Arena selection
 
-`KICKER`, **Kicker (experimental)**, adds an optional kick (`ARENA_KICKS`) selector around
+Not kept. `KICKER`, **Kicker (experimental)**, added an optional kick selector around
 Scrapper's tactics, with the same body, muscles, damage, hands, low attacks and recovery; a downed
-or moving foe gets the ground and punch policy. `ARENA_KICKS` is `KICK_PATH` with `swingSeconds`
+or moving foe gets the ground and punch policy. The Arena's kick was `STOMP_PATH` with `swingSeconds`
 0.3 and `contactSpeed` 3: its mean clean stand impulses are 10.112 N s left and 10.300 right,
-against 7.810 and 7.739 for `KICK_PATH`, on the same Node apparatus, 120 Hz, symmetric actuation,
+against 7.810 and 7.739 for `STOMP_PATH`, on the same Node apparatus, 120 Hz, symmetric actuation,
 balance 0, every eligible complete hit in the 24 s trial. A trajectory gain with the anatomy
 unchanged, and no claim of human parity.
 
@@ -183,7 +185,7 @@ the normal; slower foot contacts are recorded apart. The mirrored trials land 5 
 kicks with no falls or failed cycles, each returning the left foot once and the right twice.
 Self-play completes no kick cycle: the quiet-foe gate rarely admits one. The profile establishes
 integration and a narrow physical capability, not stronger combat.
-`arena-front-kicks-reference.json.gz` keeps `KICK_PATH`'s 45 s rows (no strong kicks; another
+`arena-front-kicks-reference.json.gz` keeps `STOMP_PATH`'s 45 s rows (no strong kicks; another
 bout length, not a contact-rate comparison).
 
 **The set-down.** Setting the foot down from over its place, not bringing it back to the ground

@@ -3,10 +3,10 @@
  * (`sit-back`, `src/core/recovery/ground/staged-edges.ts`) played alone from hands and knees at rest on
  * toes, the start the toes' stand-up was measured from (`placement("push-off-bear")`,
  * `research/rise-witness.mjs`), and the body watched to verified standing (`STAND_CHECK`): quiet on
- * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints. Node stand, core world, Rapier,
+ * its feet `STAND_CHECK.quiet` s. A seed moves the start's joints; the technique runs in the motor part, as the game's ground actions do. Node stand, core world, Rapier,
  * 120 Hz, calm, no assist; the stance holds the body once the technique is done.
  *
- *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each]
+ *   node research/sit-back.mjs [--model workshop-fighter] [--held empty] [--seeds 1-32] [--each] [--delay <steps>]
  *
  * Prints how many stood within 6 s and the median time to verified standing, failures counted
  * last; `--each` a line a seed.
@@ -38,10 +38,10 @@ import { placement } from "./rise-witness.mjs";
 const WITHIN = 6, CAP = 12;
 
 /** One seed: when the technique ended and how, and when the body was verified standing, s from the start; null where it was not. */
-export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back" }) {
+export async function sitBackTrial({ model = "workshop-fighter", held = "empty", seed = 1, technique = "sit-back", delay = undefined }) {
   const spec = armedWith(humanoidSpec(model), "right", held), placed = placement("push-off-bear", spec, seed);
   if ("refused" in placed) return { seed, refused: placed.refused };
-  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"));
+  const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await loadEngine("rapier"), delay === undefined ? {} : { delay });
   world.physics.addFixedBox([0, -.5, 0], [40, 1, 40]);
   const built = buildBody(spec, world, placed);
   const trial = { end: null, at: null, heading: 0, stage: [] };
@@ -49,7 +49,10 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
     const run = TECHNIQUES[technique].make(own, view, clock, kitOf(partLookup, own.spec, OPTION_MIND.defaults));
     let reader = null, begun = false;
     return { name: technique, state: { trial }, wants: () => trial.end === null, begin() {}, end() {},
-      step(senses, dt) {
+      // The technique runs in the motor part, on the body as it is, as the game's ground actions do.
+      step() {},
+      move(dt) {
+        const senses = view.senses;
         reader ??= groundReading(own.built, dt);
         const g = reader.read();
         if (!begun) { run.begin("left"); begun = true; }
@@ -79,11 +82,11 @@ export async function sitBackTrial({ model = "workshop-fighter", held = "empty",
 
 if (process.argv[1]?.endsWith("sit-back.mjs")) {
   const { values } = parseArgs({ options: { model: { type: "string" }, held: { type: "string" }, seeds: { type: "string" },
-    each: { type: "boolean" }, technique: { type: "string" } } });
+    each: { type: "boolean" }, technique: { type: "string" }, delay: { type: "string" } } });
   const [lo, hi] = (values.seeds ?? "1-32").split("-").map(Number);
   const rows = [];
   for (let seed = lo; seed <= (hi ?? lo); seed++) {
-    const row = await sitBackTrial({ model: values.model, held: values.held, seed, technique: values.technique });
+    const row = await sitBackTrial({ model: values.model, held: values.held, seed, technique: values.technique, delay: values.delay === undefined ? undefined : Number(values.delay) });
     rows.push(row);
     if (values.each) console.log(JSON.stringify(row));
   }
