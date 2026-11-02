@@ -70,28 +70,28 @@ export function createMind(catalog: Catalog, built: BuiltBody, world: World, con
     { senses: wiring.senses, assist: wiring.assist, contactIdentity: wiring.contactIdentity, log });
     return { state: MIND_APART, report: apart.report, kind: config.kind, body: physicalBody(built, apart.held, world, apart.has, apart.state, apart.dispose) };
   }
-  let mind: MindMade | null = null, said: ReportNow | null = null;
+  let mind: MindMade | null = null, said: Omit<ReportNow, "engagement"> | null = null;
   const { host, made } = bodyHost(built, world, wiring, catalog.treeLookup(config), { log, answered: () => { said = saidOf(mind!.report); } });
   mind = catalog.controllerOf(config).create(host, config, wiring);
   const live = mind.report;
   if (!live) return { ...mind, kind: config.kind, body: made() };
   said = saidOf(live);
-  return { ...mind, report: saidReport(() => said!, () => live.menu), kind: config.kind, body: made() };
+  return { ...mind, report: saidReport(() => said!, live), kind: config.kind, body: made() };
 }
 
-/** What `report` says now, its menu aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
-const saidOf = (report: MindReport | undefined): ReportNow | null => {
+/** What `report` says now, its menu and engagement aside, as plain data that what it goes on to do leaves as it is: as a mind apart's crosses. */
+const saidOf = (report: MindReport | undefined): Omit<ReportNow, "engagement"> | null => {
   if (!report) return null;
-  const { kit, gait, ...rest } = reportNow(report);
+  const { kit, gait, engagement: _shown, ...rest } = reportNow(report);
   return { ...structuredClone(rest), kit, gait };
 };
 
-/** A mind's report read from what it last said (`said`), and its menu from `menu`. */
-function saidReport(said: () => ReportNow, menu: () => MindReport["menu"]): MindReport {
+/** A mind's report read from what it last said (`said`), and what it shows a person and its menu from `live`, which only a page reads. */
+function saidReport(said: () => Omit<ReportNow, "engagement">, live: MindReport): MindReport {
   return {
-    get engagement() { return said().engagement; }, get prospects() { return said().prospects; }, get heading() { return said().heading; },
+    get engagement() { return live.engagement; }, get prospects() { return said().prospects; }, get heading() { return said().heading; },
     get gait() { return said().gait; }, get navigation() { return said().navigation; }, get kit() { return said().kit; },
-    get actions() { return said().actions; }, get ended() { return said().ended; }, get menu() { return menu(); },
+    get actions() { return said().actions; }, get ended() { return said().ended; }, get menu() { return live.menu; },
   };
 }
 
@@ -124,7 +124,8 @@ export interface EmbodiedApart {
 export function embodyApart(built: BuiltBody, world: World, place: MindPlace, catalog: Catalog, recipe: Omit<MindRecipe, "catalog" | "statics" | "dt">,
   orders: (senses: Senses) => Orders | null, given: Embodying = {}): EmbodiedApart {
   const at = (): At => ({ steps: world.steps, time: world.time });
-  let seat: Seat | null = null, sent: string | undefined;
+  // `shown`: what it shows a person was read since its last step was asked, so the next answer says it.
+  let seat: Seat | null = null, sent: string | undefined, shown = false;
   const { muscles, help, posed, writer, statics, senses: sense } = mirrorDriven(built, world, place.allocate, { answered: () => seat!.answer(), idle: () => seat!.ask({ kind: "idle", at: at() }) }, given);
   seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
   const thinking = world.prepare(() => {
@@ -133,12 +134,12 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
     seat!.says();
     writer.write();
     const now = orders(sense()), key = JSON.stringify(now);
-    seat!.ask(key === sent ? { kind: "step", at: at() } : { kind: "step", at: at(), orders: now });
-    sent = key;
+    seat!.ask({ kind: "step", at: at(), ...(key === sent ? {} : { orders: now }), ...(shown ? { shown } : {}) });
+    sent = key; shown = false;
   });
   const said = () => seat!.said().report;
   const report: MindReport = {
-    get engagement() { return said()?.engagement ?? null; }, get prospects() { return said()?.prospects ?? null; }, get heading() { return said()?.heading ?? null; },
+    get engagement() { shown = true; return said()?.engagement ?? null; }, get prospects() { return said()?.prospects ?? null; }, get heading() { return said()?.heading ?? null; },
     get gait() { return said()?.gait ?? null; }, get navigation() { return said()?.navigation ?? null; }, get kit() { return said()?.kit ?? null; },
     get actions() { return said()?.actions ?? null; }, get ended() { return said()?.ended ?? null; },
     get menu() { return seat!.menu(at()); },

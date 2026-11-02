@@ -541,8 +541,9 @@ labels contacts. A bout on mirrors is the bout on bodies, step for step
 (`tests/mind-contract.test.mjs`). A mirrored mind thinks in the preparing hooks, on the numbers
 written there: its observers of the physics see the interval just completed, then it answers, and
 the driver carries out its answer; then, at a delay, it decides. What it reports (`MindReport`)
-is what it said with its answer, before the decision, and its menu as it stands (`createMind`),
-so that a fight reads the same of it wherever it runs.
+is what it said with its answer, before the decision, and its menu and what it shows a person
+(`MindReport.engagement`) as they stand (`createMind`), so that a fight reads the same of it
+wherever it runs.
 
 **Minds apart.** In a world given a place for minds (`World.minds`, a `MindPlace`,
 `src/core/mind/apart.ts`), each mind runs where the world does not: `createMind` seats it
@@ -566,7 +567,9 @@ thread once by number and derived as it arrives (`deriveSpec`), the asks carried
 over the game's and the toolkit's catalogs (`catalogs.ts`). The channels' numbers are shared memory;
 the step asks go together as the world dispatches them, every other ask at once, what a seat says
 with an answer before the answer is counted, and a side waiting spins about a step, then sleeps
-(`src/apart/wire.ts`). A report's kit and gait cross only when they change.
+(`src/apart/wire.ts`). A report's kit and gait cross only when they change, and its engagement,
+which no rule or Commander reads, as the mind is made and with the answer to a step asked after
+a page read it (`SeatAsk`'s `shown`).
 
 - **Node**: `mindWorkers(threads)` (`src/node/minds.ts`, `mind-worker.ts`): the batches go by
   message on a port, two shared counters a thread pace the two sides, and the replies are taken

@@ -94,6 +94,7 @@ function whyFailed(reading: StrikeReading): string | undefined {
         : `short of the aim${nearest === null ? "" : ` by ${nearest.toFixed(2)} m`}`;
     }
     case "abandoned": return "let go before it committed";
+    case "unlaid": return "invalid fixture: the target was not lying by the drill's first moment";
     case "outside": case "refused": case "waiting": case "unreached":
       return `outside the entry condition: ${reading.outcome === "unreached" ? "the fight never came to its moment" : `${reading.phase}${reading.reason ? `, ${reading.reason}` : ""}`}`;
     default: { const never: never = reading.outcome; return never; }

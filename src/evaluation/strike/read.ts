@@ -178,9 +178,11 @@ type StrikeHit = StrikeContact & {
  * target's body but not the mark; `missed`, committed and nothing of the
  * limb's on the target; `abandoned`, begun and ended before committing; `outside`, never in its
  * window; `refused` or `waiting`, never admitted for the reason its readiness gave; `fell`, the
- * striker down at any time of the trial; `unreached`, a fight that never came to its moment.
+ * striker down at any time of the trial; `unreached`, a fight that never came to its moment;
+ * `unlaid`, a target the rung lays down not lying by the drill's first moment (`Ending.laid`):
+ * the fixture did not reach its case.
  */
-type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached";
+type StrikeOutcome = "landed" | "weak" | "guarded" | "elsewhere" | "missed" | "abandoned" | "outside" | "refused" | "waiting" | "fell" | "unreached" | "unlaid";
 
 /** What a trial came to. */
 export type StrikeReading = {
@@ -248,7 +250,14 @@ export const meetsBar = (hit: StrikeHit): boolean =>
 const BACK = Object.freeze({ within: .05, still: .3 });
 
 /** When a trial ends: the protocol's longest, how long it runs on after the action's end, and how long the striker may wait to be admitted `settled` s after the drill has the body. */
-export interface Ending { readonly seconds: number; readonly settle: number; readonly settled: number; readonly patience: number }
+export interface Ending {
+  readonly seconds: number; readonly settle: number; readonly settled: number; readonly patience: number;
+  /** How the rung lays its target down (a shove at a segment, m/s of its mass): it lies once its middle trunk's centre is under `LIES` of its height as built. */
+  readonly laid?: { readonly segment: string; readonly speed: number };
+}
+
+/** A laid target lies once its middle trunk's centre is under this share of its height as built (`Ending.laid`): a body folded sitting holds it above. */
+const LIES = 1 / 3;
 
 /**
  * The reader of a trial in which the striker, the bout's left side, asks one action with `limb` at
@@ -310,6 +319,11 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
   const coneCosine = cos(bar.cone * Math.PI / 180), alongCosine = cos(bar.along * Math.PI / 180), bend = bar.bend * Math.PI / 180, lean = bar.lean * Math.PI / 180;
   let id: number | null = null, phase: DrillPhase = "lost", reason = "", down = false, handed: number | null = null, fought = false, ready: number | null = null;
   let letAt: number | null = null, again: number | null = null, nearest: number | null = null;
+  /** The laid target's middle trunk, its height as built, and whether it lay by the drill's first moment: null before that moment, or with no `laid`. */
+  const trunk = ending.laid ? centreReading(duel.duelists.right.built, "middleTrunk") : null;
+  trunk?.update();
+  const built = trunk ? trunk.centre.y : 0;
+  let lay: boolean | null = null;
   /** The striker's view, where its body is hosted: where its fists were as its last step read them. */
   const view = "view" in left.body ? (left.body as HostedBody).view : null;
   let asked: StrikeReading["asked"] = null;
@@ -375,6 +389,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         return;
       }
       if (handed === null) { handed = fought ? world.time : 0; atHand = sensed(); }
+      if (trunk && lay === null && world.time >= handed + ending.settled) { trunk.update(); lay = trunk.centre.y < LIES * built; }
       // The drill's action: the first with the asked limb at a body that the fight did not ask, or
       // the fight's own that the drill carries on from its moment (`adopts`), under way as it takes the body.
       const action = id !== null ? skills.report.actions.find((one) => one.id === id)
@@ -472,7 +487,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
       const fastest = hits.reduce<StrikeHit | null>((best, one) => best === null || (one.speed ?? 0) > (best.speed ?? 0) ? one : best, null);
       const hit = hand === null ? fastest : hits.find(meetsBar) ?? fastest;
       const ledger = id === null ? undefined : skills.report.ledger.find((record) => record.id === id);
-      const outcome: StrikeOutcome = handed === null ? "unreached" : down ? "fell" : hit ? meetsBar(hit) && times.ended !== null ? "landed" : "weak"
+      const outcome: StrikeOutcome = handed === null ? "unreached" : lay === false ? "unlaid" : down ? "fell" : hit ? meetsBar(hit) && times.ended !== null ? "landed" : "weak"
         : byLimb.length ? byLimb.every(({ contact }) => arms.has(contact.on)) ? "guarded" : "elsewhere"
         : times.committed !== null ? "missed" : id !== null ? "abandoned" : phase === "position" ? "outside" : phase === "waiting" ? "waiting" : "refused";
       const foe = foeBegan ?? atHand;
