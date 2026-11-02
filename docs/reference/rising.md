@@ -1338,6 +1338,26 @@ median of 3.98 s at its settings in `c/.runvar.sh`) in its simplest form, each p
 | the rise paced by the feet's load, not the balls' height | 14 | – |
 | the rise's hip press | 1 | – |
 
+### The Rogue's arms
+
+The Rogue's elbow extension is twice its measured peak (`WORKSHOP_EXERTIONS`,
+`src/core/human/attributes.ts`; the owner's decision `owner-rogue-arms`): about 50 N m against 23
+to 27, the Warrior's 57. At its measured peak its elbows bear bent on hands and knees
+([Option Mind's rise](#option-minds-rise-on-the-target)), and holding the buckler and the club it
+comes to `fours` and is given up there in most rises. Read on the target's falls by loadout
+(`research/rise-trace.mjs --model workshop-rogue --loadout`, Node, core world, Rapier, 120 Hz, at
+`00500d0f`; stood of 16, median s with a fall not stood at 30):
+
+| Elbow extension | buckler, club | empty | club | buckler, sword | sword |
+|---|---|---|---|---|---|
+| measured | 1, 30.0 | 13, 17.8 | 10 (the table) | 10 (the table) | 14 (the table) |
+| x1.5 | 2, 30.0 | 16, 12.0 | 11, 17.5 | 14, 13.9 | |
+| **x2** | **8, 28.2** | **15, 13.6** | **11, 16.7** | **12, 19.4** | **14, 12.9** |
+| x2, and shoulder flexion x1.5 | 7, 30.0 | 15, 11.6 | | | |
+
+A fall set's stood count moves by about three between sets, so only the buckler and the club's
+moves past it; the shoulder adds nothing. The factor moves every Rogue bout and its strikes.
+
 ## Option Mind's rise on the target
 
 Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 254 of 256
