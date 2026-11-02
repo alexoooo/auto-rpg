@@ -43,11 +43,11 @@ interface GaitSettings {
 /**
  * **A gait over support chains**: where the body and each paw go this step for the travel asked
  * (`SupportedCommand`), at `height` of its standing height where it takes one. Its state says the
- * phase it is in (`settle` between steps), the steps and placements it has made, and whether it
- * stands; a gait that turns in place says by how much it is still turning (`align`).
+ * phase it is in (`settle` between steps), the steps it has made (paws that cleared the floor),
+ * its placements (paws that landed, cleared or dragged) and whether it stands.
  */
 export interface Gait extends Skill<QuadrupedView> {
-  readonly state: { readonly phase: string; readonly steps: number; readonly sequence: number; readonly standing: boolean; readonly align?: number };
+  readonly state: { readonly phase: string; readonly steps: number; readonly placed: number; readonly sequence: number; readonly standing: boolean };
   readonly settings: GaitSettings;
   command(view: QuadrupedView, orders: TravelOrders, dt: number, height?: number): SupportedCommand;
 }

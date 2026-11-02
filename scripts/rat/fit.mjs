@@ -76,7 +76,8 @@ for (const end of ["front", "hind"]) for (const side of ["left", "right"]) {
   paw.size = round([paw.size[0], 2 * (ankle[1] / 2 - 0.0025), paw.size[2]]);
   paw.points = { sole: round([ankle[0], 0.0025, ankle[2]]) };
   const g = joint(`girdle.${end}.${side}`), b = joint(`bend.${end}.${side}`), a = joint(`ankle.${end}.${side}`);
-  g.centre = upper.proximal; g.limits = [[-1.2, 1.2], [-1.2, 1.2], [-0.8, 0.8]];
+  // The hips' second and third axes reach ±1.6 rad, the range its righting needs (docs/reference/reptile.md#the-rat).
+  g.centre = upper.proximal; g.limits = [[-1.2, 1.2], [-1.6, 1.6], [-1.6, 1.6]];
   b.centre = lower.proximal; b.axes = [[1, 0, 0]]; b.limits = [[-1.2, 1.2]];
   a.centre = paw.proximal;
 }

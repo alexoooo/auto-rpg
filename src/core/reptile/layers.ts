@@ -13,9 +13,9 @@ import { atan2, cos, sin } from "../math/real.ts";
 import { pawsOf } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { soleGoal, STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
-import { headingAligned } from "./trot.ts";
 import { REPTILE_TROT, REPTILE_BITE } from "./tuning.ts";
 import { recover } from "./recover.ts";
+import { RIGHTING, rightingByRecipe } from "./righting.ts";
 import type { QuadrupedConfig } from "./config.ts";
 import type { BiteTuning, QuadrupedIntent } from "./parts.ts";
 
@@ -101,8 +101,7 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
       const busy = snap.state.cycle.phase !== null;
       const withdrawing = snap.withdraw();
       const heading = intent.face ?? intent.move;
-      const misaligned = gait.reacquire && !headingAligned(view.yaw, heading, REPTILE_TROT.resumeAngle);
-      const placing = creep.state.steps < gait.homeAt || misaligned || (creep.state.align ?? 0) > 0;
+      const placing = creep.state.placed < gait.homeAt;
       if (gait.reacquire && !placing && creep.state.phase === "settle") {
         const stable = view.feet.every(foot => foot.contact && foot.flat) && view.velocity.lengthSquared() < REPTILE_TROT.resumeSpeed * REPTILE_TROT.resumeSpeed;
         gait.stable = stable ? gait.stable + dt : 0;
@@ -151,10 +150,13 @@ export function quadrupedLayers(own: OwnBody, parts: PartLookup, config: Quadrup
     /** The body is its own again: it crawls until its paws are placed again and still. */
     resume() {
       motor.resume(); tracker.reset(); resumeSkills();
-      gait.kind = "crawl"; gait.reacquire = true; gait.homeAt = creep.state.steps + paws.length; gait.stable = 0;
+      gait.kind = "crawl"; gait.reacquire = true; gait.homeAt = creep.state.placed + paws.length; gait.stable = 0;
     },
     /** Its righting (`recover`), over its motor and tracker: wanted while the body is down or righting itself. */
-    righting(): SubMind { return recover(own, motor, tracker, paws, view); },
+    righting(): SubMind {
+      const recipe = config.tuning?.righting?.[own.spec.model] ?? RIGHTING[own.spec.model];
+      return recipe ? rightingByRecipe(own, motor, tracker, view, recipe) : recover(own, motor, tracker, paws, view);
+    },
   };
 }
 

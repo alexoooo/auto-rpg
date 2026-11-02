@@ -40,7 +40,8 @@ transcribed as torque ceilings.
 The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is fitted to Poly Haven's Street Rat
 (`scripts/rat/fit.mjs`, [its art](../art/rat.md#the-body-fitted-to-the-art)): its trunk, head,
 jaw, legs and tail where the art's are. Its mass weights, torque ceilings, unloaded speeds, joint
-ranges, teeth and paw footprint are the reptile's, and its controller settings are the reptile's.
+ranges, teeth and paw footprint are the reptile's, and its controller settings are the reptile's,
+but for its hips' range and its righting (below).
 The neck's torque ceiling keeps the reptile's margin over the head and jaw's weight: it scales by
 their weighted lever about the neck at the reference pose, the rat's head reaching 1.69 times as
 far ahead, so 2.53 N m in place of 1.5. At the reptile's 1.5 the rat's neck sags .15 to .27 rad
@@ -53,7 +54,8 @@ below level and returns from a bite at about .02 rad/s, so a return waits out it
 | Paw soles, across the body | ±.26 m | fore ±.072, hind ±.082 m |
 | Elbow (fore) and knee (hind) | out to the side, bending about the body's z axis, -.2 to 2.8 rad | behind (fore) and ahead (hind) of the paw, bending about the body's x axis, ±1.2 rad |
 | Bend at the reference pose, upper to lower leg | | 1.77 rad fore, 1.55 rad hind |
-| Girdle's third axis (z) | ±2.8 rad | ±.8 rad |
+| Girdle's second axis (y) | ±1.2 rad | ±1.6 rad |
+| Girdle's third axis (z) | ±2.8 rad | ±1.6 rad: at ±.8 its righting stalls on its thighs at an up of .8 |
 
 On the Node stand (Rapier, 120 Hz, one run a case, 2 s standing then 18 s ordered one way, the
 trot at .15 m/s):
@@ -172,16 +174,63 @@ launches no bite in a fight while it cannot right itself.
 
 ### Righting
 
-The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
-from a sprawled reference pose, and does not right the rat. Built lying (on its back, either
-side, and rolled 69 degrees; two headings; Node stand, Rapier, 120 Hz, a delay of one step, at
-`656a3dbf`), the rat never leaves the roll in 60 s, and the reptile hands back to its gaits in 3
-of 8 (10 to 39 s; with its legs at 6 rad/s, 5 of 8 in 100 s, 15 to 80 s, most falling again on
-the walk after).
+The rat rights itself by recipe (`rightingByRecipe`, `src/core/reptile/righting.ts`): three
+poses of its hips, knees and elbows, neck and tail base for the body on its right side, and three
+for it on its back (`assets/rat/righting.json`, its model's entry in `RIGHTING`; a mind's
+`tuning.righting` overrides it), found offline (`scripts/quadruped/righting.mjs`). It takes the
+body when the rat is down, or when its trunk's up stays under .85 for .5 s; holds the reference
+pose 1 s; reads how it lies (on its back where the trunk's up is under -.5, else on a side, the
+poses mirrored on its left); servos through the poses, each until held for its time or the trunk
+is up to its mark; and hands back once the last pose has held the trunk's up at .95 or more and
+the centre of mass under .1 m/s for .25 s. After 6 s of poses it settles and tries again. The
+reptile has no recipe and keeps its routes (`recover`, below).
+
+The search (CMA-ES over each pose's 20 angles, its hold and its mark) plays each candidate
+through the game's mind and scores its worst start and its mean: the side's poses from the body
+built on either side and rolled 69 degrees, at several headings; the back's from its back at nine.
+
+Built lying, on 21 starts the search did not play (Node stand, Rapier, 120 Hz, the game's delay,
+12 s; on its right at 60, 100, 180, 225 and 315 degrees, its left at 30, 200, 250 and 300, rolled
+at 0, 100 and 180, its back at 10, 70, 110, 160, 230, 250, 290, 340 and 350), the rat stands in
+all 21: back on its gaits 3.8 to 4.4 s from a side, 2.2 to 2.8 s from its back (one, at 350, on
+its second try at 10.4 s), its trunk at .16 to .2 m.
+
+Fighting, bare against the Warrior with a sword (Node Arena Duel, Rapier, 120 Hz, the game's
+delay; gaps 1.1, 1.4, 1.6, 2.2, 2.8, 3.2, 3.8 and 4.5 m, none the search played; 40 s cap):
+
+| Righting | Down or righting | Fight time | HP by the teeth | Bouts fatal to the rat |
+| --- | --- | --- | --- | --- |
+| Routes (`recover`) | 173 s | 261 s | 1.36 | 3 |
+| Recipe | 74 s | 263 s | 1.50 | 3 |
+
+Under the routes, the rat once kicked over stays in its righting to the end of the bout; with the
+recipe and the hand-back ([travel after a hand-back](#qualification)) it spends up to 15 s of a bout down or
+righting, and trots on. It launches no bite in these fights either way. What still holds it:
+knocked over in a fight, it can be left crouched, its trunk tilted 30 to 45 degrees and its head on
+its own front legs (at times a front paw in its open mouth), which the side's poses do not lift
+until a retry.
+
+Tried with the recipe and not kept:
+
+| Change | Result |
+| --- | --- |
+| Handing back as soon as the last pose holds the trunk upright and still | Hands back mid-rise, the speed dipping under .1 m/s while the trunk still lifts: from its back, 3 of 5 tip over again |
+| Handing back only once nothing but the paws touches the ground | Never hands back: its tail drags, and the last pose rests on its thighs, which the gaits then lift |
+| A retry that rolls it the other way | Rolls a crouched rat onto its side |
+| Fights forked where the righting took the body (`scripts/quadruped/righting-forks.mjs`) as search starts; the side's poses searched again over them, and a third set for a crouch (the trunk's up over .5) | 9 of 14 such forks stand (5 before), 4 of 5 forks of other fights (5); over the 8 fights above, 5 s less down or righting: within the fights' spread |
+| The crouch's legs spread wide to lay it on its belly, then the reference pose | 2 of 14 forks stand |
+| A fight's pose (the trunk's turn and height, the joints' angles) placed on the stand as a start | Stands where the fight stalls: the motion and the foe are lost |
+
+The reptile's routes drive the hip's third axis and the knee's first to angles from a sprawled
+reference pose, and do not right the rat. Built lying (on its back, either side, and rolled 69
+degrees; two headings; Node stand, Rapier, 120 Hz, a delay of one step, at `656a3dbf`), the rat
+never leaves the roll in 60 s, and the reptile hands back to its gaits in 3 of 8 (10 to 39 s; with
+its legs at 6 rad/s, 5 of 8 in 100 s, 15 to 80 s, most falling again on the walk after).
 
 On its side the rat rests on its ground-side thighs, which prop it 17 degrees short of its side:
-its hips are low on a round trunk, and abducted at most .8 rad they cannot lever it over. Tried
-and not kept:
+its hips are low on a round trunk, and abducted at most .8 rad (their range then) they cannot
+lever it over. Tried
+with the routes and not kept:
 
 | Change | Result |
 | --- | --- |
@@ -196,14 +245,14 @@ and not kept:
 | Then the rise with the legs held where they are, its trunk's turn and height eased in over .5 to 2 s from the pose it has | Tips it onto its back within .25 s, as at once |
 | The support motor bearing wherever the ground presses a leg: at the middle of its contacts, carried by the freedoms down to the segment pressed nearest the body | Holds the rat at an up of .89 with no shortfall, and does not level it: two of the front ground-side hip's axes sit at their limits. The rat's walk tips at 4 s in 8 of 8 headings, its lower legs grazing the ground |
 
-Every hand-over tips it for one reason: the support motor (`supportedMotor`) bears on the paws
-alone, and on its side the rat's weight is on its ground-side thighs and its tail. Asked to hold
-still at an up of .88, the motor finds the paws 3.3 N·m short of the moment, plans the roll that
-follows (76 rad/s²), and drives the legs into it. Read on the Node stand at `40358702`.
+Every hand-over from the routes tips it for one reason: the support motor (`supportedMotor`) bears
+on the paws alone, and on its side the rat's weight is on its ground-side thighs and its tail.
+Asked to hold still at an up of .88, the motor finds the paws 3.3 N·m short of the moment, plans
+the roll that follows (76 rad/s²), and drives the legs into it. Read on the Node stand at
+`40358702`. The recipe holds a pose until the trunk is upright and still, and hands over then.
 
 Built level on its belly over stretched legs, the rat is not down, and the crawl stands it up and
-walks 3.1 to 3.9 m in 10 s: what is missing is a placement that brings its centre of mass over
-four planted paws from the belly's edge.
+walks 3.1 to 3.9 m in 10 s.
 
 ## Controller settings
 
@@ -228,7 +277,7 @@ point.
 | Trot timing | swing .22, settle .025, plant .2 s; plantSpeed .2 m/s | Alternating diagonal pairs, with root motion subtracted from landing velocity |
 | Trot heading | turnRate .25 rad/s, turnMoveAngle .2 rad, turnError .05 rad | Wait for the actual trunk heading before accelerating; bound the requested turn |
 | Trot acquisition | liftConfirm .001 m, landingWait .1 s, placementLimit 3 s | Count a step only for a paw that lifted; end a swing once its pair bears, lifted or not; brake on delayed landing and return an unlanded pair to its anchors |
-| Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s, resumeAngle .05 rad | Align and place paws through the crawl, then require quiet four-sole support before trotting |
+| Resumed travel | resumeSpeed .1 m/s, resumeHold .3 s | Place each paw again through the crawl, then require quiet four-sole support before trotting; the trot turns to the heading |
 | Crawl geometry | crawlHeight .85, stride .035 m, lift .025 m | Lowered three-paw support and one-paw swing |
 | Crawl timing | swing 1.2, shift .45, settle .3, plant .2 s; plantSpeed .05 m/s | Slow placement and continued downward acquisition |
 | Placement bounds | placementLimit 3 s, liftConfirm .001 m | Return an unlanded paw; count a step only for a paw that lifted |
@@ -245,6 +294,7 @@ point.
 | Closing path | closeRate 4 rad/s | Retain closing velocity at the requested path endpoint; actual motion remains muscle limited |
 | Bite cycle | release .2 s, biteSlow .2 m/s, biteHold .03 s, biteTimeout 2 s, biteReturnLimit 8 s | Verified quiet release; the bound allows actual backward paw placements before reporting failure |
 | Bite approach | approach .3 m, braking .5 m/s2, creepNear .3 m | Reduce travel intent with remaining mouth clearance and stopping distance; retain close crawling until the foe clears this distance |
+| Righting by recipe (the rat's, `assets/rat/righting.json`) | settle 1 s, servo .15 s, upright .95, calm .1 m/s, still .25 s, limit 6 s, tilt .85, wait .5 s | Hold the reference pose, play the poses for how it lies, hand back on a trunk upright and still; take the body from a lasting tilt |
 | Grounded righting | rightingGain 8 N m/rad, rightingDamping 4 N m s/rad, rightingEpsilon .000001 | Upright-error moment projected onto loaded hips, bounded by their muscles |
 | Clear leg route | foldHip 1.2, foldKnee 2.6, plantedKnee 1.4, sweepYaw 1.2, wrappedHip .5, unwindHip 2 rad | Move a wrapped paw around a trunk end before unfolding; interpolation spans the declared unwind interval |
 | Leg tracking | recoveryServo .06, placementServo .008 s, placementError .15 rad, foldWait .5 s | Separate holding and moving legs; require actual joint arrival and paw clearance |
@@ -279,7 +329,7 @@ What the settings serve:
   neck muscles, and crawls backward if contact persists past the .2 s release. Success needs an
   open jaw, a neutral neck, quiet jaw motion and no loaded head or jaw contact; a timeout is a
   failure and frees the bite for another target.
-- **Righting** reads every fixed-ground contact but pushes only through loaded leg chains, routing a
+- **Righting by routes** (a body with no recipe) reads every fixed-ground contact but pushes only through loaded leg chains, routing a
   wrapped leg round the trunk end its own hip and knee allow. It completes on four-paw sole contact,
   enough height, an upright body and a quiet centre of mass for half a second, and does not need
   that support to start.
@@ -329,14 +379,24 @@ completed cycle needs the verified release. The eight recovery poses are develop
 not a claim about arbitrary falls, obstacles or opponents; some take repeated retries and about
 80 s.
 
-**Travel after recovery.** Started on its left side with a quarter-turn heading and ordered forward
-for 60 s after handover (at 20.283 s), no blow, the reptile must align its actual heading before it
-accelerates: the commanded heading can arrive before the body turns.
+**Travel after a hand-back.** The crawl places each paw again (a landing counts, the paw cleared or
+dragged) and waits for quiet four-sole support; the trot then turns the body to its heading before
+it accelerates (`turnMoveAngle`). With the legs at 6 rad/s the reptile, trotting off at once,
+fell for 364 steps after a hand-over, and the crawl aligned its heading within .05 rad first. At
+20 rad/s that crawl turns .18 rad a four-paw cycle, about 9 s a cycle, and holds the rat for good:
+its paws drag, so no step counts. Built standing, handed back at 2 s and ordered 90 degrees off at
+6 s (Node stand, Rapier, 120 Hz, the game's delay; distance over 8 to 16 s):
 
-| Admission before accelerating | Steps down after handover | Forward distance in 60 s, m |
-| --- | ---: | ---: |
-| Commanded heading within .2 rad | 364 | 12.618 |
-| Crawl aligns the actual heading within .05 rad before trotting | 0 | 13.715 |
+| Body, headings | Hand-back | Falls | Distance, m |
+| --- | --- | ---: | --- |
+| reptile, 6 | the crawl aligns first | 0 | .03 to 1.91 (median .14) |
+| reptile, 6 | the trot turns | 0 | .27 to 1.91 (median .5) |
+| rat, 2 | the crawl aligns first | 0 | .02, .03 |
+| rat, 2 | the trot turns | 0 | .87, .24 |
+
+Righted from its side, back or a roll at 4 headings, the rat then travels .18 to 1.24 m in the same
+8 s. Fighting at the 8 gaps of [its righting](#righting), the reptile plays to the bit as before in 6
+bouts; in the other two it is down 6 s longer, and killed at 37.5 s where it lasted the 40.
 
 **Travel speed** (`node research/reptile-motion.mjs@60c3ecc3 --sweep`; two seconds standing, then ten seconds
 of forward travel on a 100 m ground, driven and unstruck; overrides passed into `quadrupedMind`, `src/core/reptile/mind.ts@ae88d42c`):

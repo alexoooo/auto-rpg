@@ -1,0 +1,90 @@
+// One righting trial for `scripts/quadruped/righting.mjs`: a quadruped's Option Reptile playing a
+// candidate recipe (`tuning.righting`), on a body built lying under stand orders (Node stand), or
+// in a fight forked where its righting took the body (Node Arena Duel). Rapier, 120 Hz, the game's
+// delay. As a child process it takes { id, ...trial } and answers { id, result }.
+import "../../tests/harness/preload-data.mjs";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { coreStand } from "../../tests/harness/core-stand.mjs";
+import { createMind } from "../../src/core/mind/minds.ts";
+import { GAME, defaultMind } from "../../src/entrants/game.ts";
+import { reptileSpec } from "../../src/core/reptile/spec.ts";
+import { STAND_ORDERS } from "../../src/core/intent/orders.ts";
+import { buildBout } from "../../src/evaluation/bout.ts";
+import { loadState } from "../../src/core/state.ts";
+import { deserialize } from "node:v8";
+import { readFileSync } from "node:fs";
+
+/** The model's game mind, its righting `recipe`. */
+const withRecipe = (model, recipe) => {
+  const base = defaultMind(model);
+  return { ...base, frame: { ...base.frame, tuning: { ...base.frame.tuning, righting: { [model]: recipe } } } };
+};
+
+/** **The fight a fork is of**: `model`, bare, against the sword Warrior `gap` m away; its mind's righting `recipe` where one is given. */
+export const forkBout = (model, gap, recipe) => ({ left: model, right: "workshop-fighter", gap,
+  loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "sword" } },
+  ...recipe ? { minds: { left: withRecipe(model, recipe), right: defaultMind("workshop-fighter") } } : {} });
+
+const forksRead = new Map();
+/**
+ * A fork's fight played on with `recipe`: the save loaded as `Duel.load` does, into the same bout
+ * built with the candidate's mind, which holds the same state; its record a stand trial's.
+ */
+async function fightTrial(model, recipe, file, fork, seconds) {
+  if (!forksRead.has(file)) forksRead.set(file, deserialize(readFileSync(file)));
+  const { gap, save } = forksRead.get(file)[fork];
+  const { duel, world, dispose } = await buildBout(forkBout(model, gap, recipe));
+  world.physics.load(save.physics); loadState(duel.state, save.state); duel.senses.show(); world.loaded();
+  const body = duel.duelists.left.body, host = body.state.mind.host, trunk = body.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const from = duel.clock, retries = host.righting.retries, last = 2;
+  let played = false, handed = null, down = 0, lie = null;
+  while (duel.clock < from + seconds && !duel.verdict) {
+    world.step();
+    if (host.righting.phase === "play" && !played) { played = true; lie = host.righting.lie; }
+    if (played && handed === null && host.righting.phase === "idle" && !body.down) handed = duel.clock - from;
+    if (duel.clock > from + seconds - last && body.down) down += 1 / 120;
+  }
+  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.node.rotationQuaternion.multiply(rest), up);
+  const result = { up: up.y, height: trunk.node.position.y, down, handed, retries: host.righting.retries - retries, lie, verdict: duel.verdict ? duel.verdict.winner : null };
+  dispose();
+  return result;
+}
+
+/** How a trial's body is built lying, before its heading: the trunk turned about the body's z. */
+export const LYING = { back: [0, 0, 1, 0], left: [0, 0, Math.SQRT1_2, Math.SQRT1_2], right: [0, 0, -Math.SQRT1_2, Math.SQRT1_2], tilted: [0, 0, Math.sin(-1.2), Math.cos(-1.2)] };
+
+/**
+ * A trial: `data` (a body file) built `lying` at `heading` rad, `seconds` played; or the `fork`th of
+ * `forks` (`righting-forks.mjs`), its fight from where the righting took the body. Its record: the
+ * trunk's up and height at the end, the seconds down in the last two, when the righting handed the
+ * body back, how often it started again and how it first read the body lying; a fight's, its
+ * verdict.
+ */
+export async function trial({ data, model, recipe, lying, heading = 0, forks, fork, seconds }) {
+  if (fork !== undefined) return fightTrial(model, recipe, forks, fork, seconds);
+  const turn = new Quaternion(0, Math.sin(heading / 2), 0, Math.cos(heading / 2));
+  const stand = await coreStand(reptileSpec(data, model, `${model}-anatomy`), { groundSize: 100, position: [0, .3, 0], rotation: turn.multiply(new Quaternion(...LYING[lying])).asArray() });
+  const config = withRecipe(model, recipe);
+  const mind = createMind(GAME, stand.built, stand.world, config, { name: model, orders: () => STAND_ORDERS });
+  const host = mind.body.state.mind.host, trunk = stand.built.segments.get("trunk"), rest = Quaternion.Inverse(trunk.rest), up = new Vector3();
+  const steps = Math.round(seconds * 120), last = 240;
+  let played = false, handed = null, down = 0, lie = null;
+  for (let i = 1; i <= steps; i++) {
+    stand.step();
+    if (host.righting.phase === "play" && !played) { played = true; lie = host.righting.lie; }
+    if (played && handed === null && host.righting.phase === "idle" && !mind.body.down) handed = i / 120;
+    if (i > steps - last && mind.body.down) down += 1 / 120;
+  }
+  up.set(0, 1, 0).applyRotationQuaternionToRef(trunk.node.rotationQuaternion.multiply(rest), up);
+  const result = { up: up.y, height: trunk.node.position.y, down, handed, retries: host.righting.retries, lie };
+  stand.dispose();
+  return result;
+}
+
+if (process.send) {
+  process.on("message", async (job) => {
+    try { process.send({ id: job.id, result: await trial(job) }); }
+    catch (e) { process.send({ id: job.id, error: String(e?.stack ?? e) }); }
+  });
+  process.send({ ready: true });
+}

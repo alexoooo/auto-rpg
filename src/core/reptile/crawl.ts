@@ -60,7 +60,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
   }, [0, 0, 0] as Vec3);
   const over = overPaws(own, names), q = root.node.rotationQuaternion!;
   const state = {
-    phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
+    phase: "settle" as "settle" | "shift" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, align: 0, standing: false, lifted: false,
     centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
     anchors: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
     from: [0, 0, 0] as [number, number, number], to: [0, 0, 0] as [number, number, number],
@@ -141,10 +141,11 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
           if (state.time >= T.swing) { state.phase = "land"; state.time = 0; }
         } else if (state.phase === "land" && view.feet[state.paw]!.contact) {
           // A paw that bears has landed, whether it cleared the floor or never left it (dragged, or
-          // already at its target); only one that cleared the floor counts a step.
+          // already at its target): it is placed; only one that cleared the floor counts a step.
           state.anchors[state.paw]![0] = view.feet[state.paw]!.at.x;
           state.anchors[state.paw]![1] = view.feet[state.paw]!.ground;
           state.anchors[state.paw]![2] = view.feet[state.paw]!.at.z;
+          state.placed++;
           if (state.lifted) state.steps++;
           state.paw = (state.paw + 1) % names.length; state.phase = "settle"; state.time = 0;
         } else if ((state.phase === "land" || state.phase === "return") && state.time >= T.placementLimit) {

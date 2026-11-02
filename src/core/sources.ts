@@ -41,7 +41,7 @@ export const SOURCES = Object.freeze({
   },
   "rat-anatomy": {
     kind: "asset", file: "assets/rat/body.json",
-    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs); mass, torques, joint speeds and ranges, teeth and paw footprint the reptile's, the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
+    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs); mass, torques, joint speeds and ranges, teeth and paw footprint the reptile's, but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side, and the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",

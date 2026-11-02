@@ -35,7 +35,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
     groups.splice(0, groups.length, [0, opposite], names.map((_name, i) => i).filter(i => i !== 0 && i !== opposite));
   }
   const state = {
-    phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, sequence: 0, yaw: 0, standing: false,
+    phase: "settle" as "settle" | "swing" | "land" | "return", time: 0, paw: 0, steps: 0, placed: 0, sequence: 0, yaw: 0, standing: false,
     centre: [motor.state.centre.x, reference[1], motor.state.centre.z] as [number, number, number],
     anchors: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
     targets: motor.state.endpoints.map(e => [e.at.x, e.ground, e.at.z] as [number, number, number]),
@@ -117,6 +117,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
           // already at its target) where it stands: waiting on its lift would hold the step while
           // the body travels over its other pair. Only a paw that cleared the floor counts a step.
           for (const i of free) { state.anchors[i]![0] = view.feet[i]!.at.x; state.anchors[i]![1] = view.feet[i]!.ground; state.anchors[i]![2] = view.feet[i]!.at.z; }
+          state.placed += free.length;
           for (const i of free) if (state.liftedPaws[i]) state.steps++;
           state.paw = (state.paw + 1) % groups.length; state.phase = "settle"; state.time = 0;
         } else if ((state.phase === "land" || state.phase === "return") && state.time >= T.placementLimit) {

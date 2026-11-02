@@ -18,6 +18,7 @@ import type { QuadrupedAsk, QuadrupedGiven, QuadrupedOption, QuadrupedOptionPart
 import { fitsQuadruped } from "./parts.ts";
 import { biteWindow, quadrupedReader, type QuadrupedSituation } from "./situation.ts";
 import { REPTILE_BITE } from "./tuning.ts";
+import { rightingFaults } from "./righting.ts";
 
 /** The frame's kind: what its choosers and options name as the frame they are made for (`ForFrame`). */
 const FRAME = "quadruped";
@@ -103,11 +104,14 @@ export const QUADRUPED_VALUED: ChooserPart<ValuedConfig, QuadrupedOption, (fight
   },
 });
 
-/** What is wrong with `config`'s bite tuning, each a sentence: a setting the bite has none of, or out of its range. */
-const tuningFaults = (config: QuadrupedConfig): readonly string[] => Object.entries(config.tuning?.bite ?? {}).flatMap(([key, value]) =>
+/**
+ * What is wrong with `config`'s tuning, each a sentence: a bite setting the bite has none of, or
+ * out of its range; a righting recipe that cannot be played.
+ */
+const tuningFaults = (config: QuadrupedConfig): readonly string[] => [...Object.values(config.tuning?.righting ?? {}).flatMap(rightingFaults), ...Object.entries(config.tuning?.bite ?? {}).flatMap(([key, value]) =>
   !(key in REPTILE_BITE) || !Number.isFinite(value) || (key === "closeRate" || key === "biteInset" || key === "contactAt" || key === "biteLead" || key === "neckRetract" ? value < 0 : value <= 0)
   || key === "open" && value > REPTILE_BITE.open || key === "contactAt" && value > 1 || key === "biteSamples" && !Number.isInteger(value)
-    ? [`invalid bite setting ${key}`] : []);
+    ? [`invalid bite setting ${key}`] : [])];
 
 /**
  * **The quadruped's frame**: Option Mind over the quadruped's layers (`quadrupedLayers`: its motor,
@@ -187,7 +191,7 @@ function quadrupedOptionMind(host: BodyHost, deciding: OptionDeciding, config: Q
  * control step.
  */
 export const QUADRUPED_FRAME: FramePart<QuadrupedConfig> = deepFreeze({
-  role: "frame", label: "Quadruped", stage: "game", fields: [], defaults: QUADRUPED, tuning: ["bite"],
+  role: "frame", label: "Quadruped", stage: "game", fields: [], defaults: QUADRUPED, tuning: ["bite", "righting"],
   slots: [slotOne("motor", "Motor", "support-motor", true, QUADRUPED_PARTS.motor), slotOne("travel", "Travel", "gait", true, QUADRUPED_PARTS.travel),
     slotOne("crawl", "Crawl", "gait", true, QUADRUPED_PARTS.crawl), slotOne("bite", "Bite", "bite", true, QUADRUPED_PARTS.bite),
     slotOne("tactics", "Stalk", "quadruped-tactics", true, QUADRUPED_PARTS.tactics), slotOne("navigation", "Navigation", "navigation", true, GAME_NAVIGATION)],

@@ -4,6 +4,7 @@ import type { BITES } from "./bites.ts";
 import type { GAITS } from "./gaits.ts";
 import type { QUADRUPED_PLANNERS } from "./planners.ts";
 import type { SUPPORT_MOTORS } from "./support-motors.ts";
+import type { RightingRecipe } from "./righting.ts";
 import type { REPTILE_BITE } from "./tuning.ts";
 
 /** **A stock config of the quadruped's motor**, by kind (`SUPPORT_MOTORS`). */
@@ -38,7 +39,7 @@ export interface QuadrupedConfig {
   /** Its navigation, any part of the role (`navigatorOf`): the game's where it names none. */
   readonly navigation?: PartConfig;
   /** Immutable bite cells for physical qualification; retained by recipes and replay. */
-  readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE> };
+  readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE>; readonly righting?: Readonly<Record<string, RightingRecipe>> };
 }
 
 /** The quadruped's frame with every part the stock one. */
