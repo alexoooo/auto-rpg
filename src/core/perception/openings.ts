@@ -15,7 +15,7 @@ import { convexHull } from "../spec/hull.ts";
 import { hullEntry } from "./hull-entry.ts";
 
 /** Visible lane ranking search cells: `docs/reference/combat-strikes.md#opening-selection`. */
-const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, handMargin: .5,
+const OPENINGS = Object.freeze({ prediction: .12, blocked: 2, reachPenalty: 2, handMargin: 1,
   head: 0, upperTrunk: .2, middleTrunk: .4, overhand: 0, repeated: 1, elevation: .5,
   // Optional side-surface rays: `docs/reference/combat-strikes.md#lateral-head-surfaces`.
   headLateral: 0, hookReserve: .15, hookCost: .1, pathSamples: 4,
