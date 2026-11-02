@@ -41,6 +41,10 @@ The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is fitted to Poly H
 (`scripts/rat/fit.mjs`, [its art](../art/rat.md#the-body-fitted-to-the-art)): its trunk, head,
 jaw, legs and tail where the art's are. Its mass weights, torque ceilings, unloaded speeds, joint
 ranges, teeth and paw footprint are the reptile's, and its controller settings are the reptile's.
+The neck's torque ceiling keeps the reptile's margin over the head and jaw's weight: it scales by
+their weighted lever about the neck at the reference pose, the rat's head reaching 1.69 times as
+far ahead, so 2.53 N m in place of 1.5. At the reptile's 1.5 the rat's neck sags .15 to .27 rad
+below level and returns from a bite at about .02 rad/s, so a return waits out its 8 s limit.
 
 | What | Reptile | Rat |
 | --- | --- | --- |
@@ -124,6 +128,48 @@ The rat now reaches a still Warrior from 2.5 m, and most of its teeth's HP is it
 into the Warrior's legs as it closes: one bout at 1.25 m is fatal to the Warrior at 11.9 s.
 Fighting, it is kicked over and does not right itself.
 
+### The lunge
+
+The bite aims the selected tooth's mid-stroke point (`contactAt`) at the target, launches on an
+open jaw with the mouth within `biteAlign` of its aim, and lunges: through the stroke the head
+tracker and the lean still drive the mouth onto the aim while the jaw closes. The close-range
+drill (Node Arena Duel, Rapier, 120 Hz, the game's delay; the Warrior with a sword standing at the
+origin, stand orders, firm; the quadruped .6, .75 and .9 m off at 8 bearings, facing it; 10 s
+each, 24 trials; at `a29637fc`, before, and after with the rat's neck above):
+
+| Body | Bites launched | Trials with a launch | Trials with HP in a bite | HP in bites | Warrior killed |
+| --- | --- | --- | --- | --- | --- |
+| rat, before | 3 | 2 | 4 | 9.71 | 14 |
+| rat, after | 23 | 13 | 11 | 18.14 | 22 |
+| reptile, before | 26 | 10 | 10 | 1.64 | 13 |
+| reptile, after | 20 | 14 | 10 | 1.68 | 14 |
+
+Most of the Warrior's HP is a tooth pressed into its leg outside a stroke: an aligned tooth under
+load wounds whether or not the jaw is closing ([pointed contact](reptile-bites.md)). Fighting (the
+four gaps above, 40 s), the rat launches no bite before or after, and the reptile 1, then 3.
+
+What held the launch before:
+
+- **The aim took the target where it lay on the tooth's arc**, at any angle from shut to open, so
+  every head pose on that arc was already aimed. A target at the open tooth's tip left the jaw
+  pressed on the leg short of open; aimed mid-stroke, the head stands off.
+- **The chamber asked the target within 8 mm of the stroke** (`biteEntry`), while the mouth needs
+  only come within 4 cm of its aim; the rat's narrow footing leans it short of the 4 cm
+  `biteShift` the stalk counts on, leaving the target 2 to 3 cm beyond the stroke.
+
+Where a fight's time goes, after (the four fights; the option running, and in the bite, the
+stalk's state):
+
+| Body | Fight time | Down, righting | Bite, no target in reach | Crawling to the foe | Chamber |
+| --- | --- | --- | --- | --- | --- |
+| rat | 96 s | 52 s | 19 s | 17 s | 4 s |
+| reptile | 129 s | 28 s | 63 s | 26 s | 5 s |
+
+"No target" is a foe 13 to 100 cm off: inside `creepNear` (.3 m) the stalk keeps the crawl, one
+paw at a time and its stride shortened by the stalk's braking. Trotting there instead (`creepNear` .001) cuts it to 11 s (rat) and 30 s
+(reptile), but the bodies spend the time down instead (80 and 46 s), so it is not kept. The rat
+launches no bite in a fight while it cannot right itself.
+
 ### Righting
 
 The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
@@ -181,8 +227,8 @@ point.
 | Heading | yawStep .18 rad per four paws, turnError .05 rad | Bounded heading advance |
 | Contact | supportNormal .5, contactMargin .01 m | Positive fixed-ground impulses, and sole versus edge contact |
 | Jaw path | prepare .25 s, snap .12 s, open .65 rad, jawError .03 rad, jawClosed .001 rad | Measured opening and closing, with finite angular motion |
-| Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection and physical chamber readiness |
-| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Project the retained surface onto the selected tooth arc; bound COM displacement from where the chamber began, within loaded paw support |
+| Bite reach | biteEntry .008 m beyond the tip-to-mouth span, bitePrepareNear .12 m, biteElevation .15 m, biteNear .04 m | Sensed surface selection, the open jaw's floor clearance and physical chamber readiness |
+| Bite placement | contactAt .5 of the opening angle, biteAlign .04 m, biteShift .04 m, biteInset .02 m | Aim the selected tooth's point at contactAt of the opening on the retained surface; launch with the mouth within biteAlign of that aim; bound COM displacement from where the chamber began, within loaded paw support |
 | Bite selection | biteSamples 4, biteLead .03 s | First exposed entry over the tooth arc, including natural colliders; predict the retained material point from sensed linear and angular motion |
 | Material contact | contactSeconds .25 s | Bound an admitted stroke by time and the physical 8 mm tooth depth |
 | Withdrawal | neckRetract .3 rad | Ceiling on upward neck retraction during a loaded return |
@@ -214,8 +260,9 @@ What the settings serve:
   Close fighting and crowded withdrawal crawl; a resumed host crawls into place, aligns its heading
   and verifies quiet four-sole support before trotting.
 - **The bite** takes the first exposed surface on a tooth's closing arc, keeps the material point in
-  the foe segment's frame while it prepares, freezes the chambered point, mouth aim and neck pose at
-  the snap, and launches only on four loaded paws (a stroke keeps at least three). A stroke ends on
+  the foe segment's frame while it prepares, and launches on an open jaw, a mouth near its aim and
+  four loaded paws (a stroke keeps at least three). It freezes the chambered point and mouth aim at
+  the snap and lunges, the head and the lean driving the mouth onto the aim. A stroke ends on
   its snap and follow-through clocks if it misses, on its .25 s / 8 mm budget once in contact, and
   on cancellation, lost support, a fall, misalignment or a loaded contact with anything unintended.
   Contact identities come from the arena's or crypt's trusted adapter.

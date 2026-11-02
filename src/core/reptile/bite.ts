@@ -17,7 +17,6 @@ import { fitsJaw, type BiteTuning, type BitePart } from "./parts.ts";
 import { scalarPathToRef } from "../control/point-path.ts";
 import { unintendedContact, type EffectorFeedback } from "../control/effector-feedback.ts";
 import { lowsOf } from "../control/ground.ts";
-import { atan2 } from "../math/real.ts";
 import type { BodyRef, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 
 /** The jaw's physical clearance witnesses in the head's reference frame at a measured gape. */
@@ -46,7 +45,11 @@ export function mouthOf(built: ReadBody) {
   return { lower, hinge, head, neck, teeth };
 }
 
-/** A finite physical jaw stroke uses the shared measured chamber, contact and withdrawal cycle. */
+/**
+ * A finite physical jaw stroke uses the shared measured chamber, contact and withdrawal cycle. The
+ * chamber opens the jaw and brings the mouth near its aim; the stroke lunges, the head and the lean
+ * still driving the mouth onto the aim while the jaw closes.
+ */
 export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, T = REPTILE_BITE, feedback?: EffectorFeedback, headFeedback?: EffectorFeedback) {
   const { lower, hinge, head, neck, teeth: tips } = mouthOf(own.built);
   const jawName = channelName(hinge, 0), jaw = own.muscles.channel(jawName), tip = lower.spec.points!.bite!.value;
@@ -55,7 +58,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const bodies = new Set<BodyRef>([...own.built.segments.values()].map(p => p.body));
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const state = { cycle, target: [0, 0, 0] as [number, number, number], aim: [0, 0, 0] as [number, number, number], reach: 0, launched: 0, returned: 0, failed: 0, aborted: 0,
-    selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0, strikeNeck: neck.dofs.map(() => 0),
+    selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0,
     shift: [0, 0] as [number, number], anchor: [0, 0] as [number, number],
     jaw: { sequence: -1, opening: false, time: 0, start: 0, rate: 0, sample: [0, 0, 0] as [number, number, number] } };
   const frame = { position: new Vector3(), rotation: new Quaternion() }, root = { position: new Vector3(), rotation: new Quaternion() };
@@ -65,8 +68,6 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const chamber: [number, number, number] = [chamberPoint.x, chamberPoint.y, chamberPoint.z];
   const strikePoint = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());
   const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!;
-  const teeth = lower.spec.contacts!.flatMap(c => c.shape.kind === "hull" && c.surface.directed?.mechanism === "point" ? c.shape.points.map(p => p.value) : []);
-  const halfWidth = Math.max(...teeth.map(p => Math.abs(p[0] - tip[0])));
   const aim = new Vector3(), offset = new Vector3(), mouth = head.spec.points!.mouth!.value;
   const support = pawsOf(own.spec).map(() => ({ corners: [new Vector3()] }));
   const loadedSupport: typeof support = [];
@@ -102,11 +103,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         }
         return floor;
       };
-      intoFrameToRef(frame, state.target, point);
-      const pivot = hinge.spec.centre.value;
-      const contactAngle = Math.max(0, Math.min(T.open, atan2(strokeTip[1] - pivot[1], strokeTip[2] - pivot[2])
-        - atan2(point.y - pivot[1], point.z - pivot[2])));
-      pointAtToRef([hinge], [[contactAngle]], strokeTip, strikePoint);
+      pointAtToRef([hinge], [[T.open * T.contactAt]], strokeTip, strikePoint);
       offset.set(strikePoint.x - mouth[0], strikePoint.y - mouth[1], strikePoint.z - mouth[2]).applyRotationQuaternionToRef(frame.rotation, offset);
       aim.set(...state.target).subtractInPlace(offset);
       if (cycle.phase === "chamber") state.aim.splice(0, 3, aim.x, aim.y, aim.z);
@@ -115,7 +112,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
       const openingFloor = floorAt();
       pointOfToRef(head, head.spec.points!.mouth!.value, point);
       const dx = point.x - aim.x, dy = point.y - aim.y, dz = point.z - aim.z;
-      if (cycle.phase === "chamber" && ready) {
+      if ((cycle.phase === "chamber" || cycle.phase === "swing") && ready) {
         state.shift[0] -= dx * dt / T.prepare; state.shift[1] -= dz * dt / T.prepare;
         const distance = Math.sqrt(state.shift[0] * state.shift[0] + state.shift[1] * state.shift[1]);
         if (distance > T.biteShift) { state.shift[0] *= T.biteShift / distance; state.shift[1] *= T.biteShift / distance; }
@@ -129,13 +126,8 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
           centre[0] = placed[0]; centre[2] = placed[1];
         }
       }
-      intoFrameToRef(frame, state.target, point);
-      const captured = Math.abs(point.x - strokeTip[0]) <= (state.selected?.tooth ? T.biteEntry : halfWidth + T.biteEntry)
-        && point.y >= Math.min(measured[1], tip[1]) - T.biteEntry && point.y <= Math.max(measured[1], tip[1]) + T.biteEntry
-        && point.z >= Math.min(measured[2], tip[2]) - T.biteEntry && point.z <= Math.max(measured[2], tip[2]) + T.biteEntry;
-      const captureError = T.biteAlign;
-      const prepared = captured && openingFloor > ground + T.biteEntry && angle >= T.open - T.jawError
-        && dx * dx + dy * dy + dz * dz <= captureError * captureError;
+      const prepared = openingFloor > ground + T.biteEntry && angle >= T.open - T.jawError
+        && dx * dx + dy * dy + dz * dz <= T.biteAlign * T.biteAlign;
       const complete = cycle.phase === "swing" && cycle.time >= T.snap && angle < T.jawClosed;
       const contact = feedback?.contact, identity = contact?.target, obstruction = feedback?.obstruction?.target;
       const blocked = unintendedContact(feedback, state.selected?.foe) || unintendedContact(headFeedback, state.selected?.foe)
@@ -153,8 +145,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         { near: T.biteNear, slow: T.biteSlow, hold: T.biteHold, prepareLimit: T.biteTimeout, returnLimit: T.biteReturnLimit, followSeconds: T.snap,
           impact: { impactSeconds: T.contactSeconds } }, dt);
       if (event & STRIKE_EVENT.launch) {
-        state.launched++; cycle.touching = false;
-        neck.dofs.forEach((_, k) => { state.strikeNeck[k] = own.muscles.angle(own.muscles.channel(channelName(neck, k))); });
+        state.launched++; cycle.touching = false; state.reach = cycle.sequence;
       }
       if (event & STRIKE_EVENT.returned) state.returned++;
       if (event & STRIKE_EVENT.failed) state.failed++;
@@ -170,10 +161,9 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
       posture[jawName] = path.sample[0];
       posture[neckName] = cycle.phase === "return" && !clear
         ? cycle.time >= T.prepare || openingFloor <= ground + T.biteEntry ? retract : state.returnPitch : 0;
-      if (cycle.phase === "swing") neck.dofs.forEach((_, k) => { posture[channelName(neck, k)] = state.strikeNeck[k]!; });
-      if (cycle.phase === "chamber") {
+      if (cycle.phase === "chamber" || cycle.phase === "swing") {
         rootFrameToRef(own.muscles.dynamics.root.segment, root); intoFrameToRef(root, [aim.x, aim.y, aim.z], point);
-        tracker.reach(head.spec.name, { places: [{ point: "mouth", position: [point.x, point.y, point.z] }], seconds: T.prepare, follows: true, sequence: state.reach });
+        tracker.reach(head.spec.name, { places: [{ point: "mouth", position: [point.x, point.y, point.z] }], seconds: cycle.phase === "swing" ? T.snap : T.prepare, follows: true, sequence: state.reach });
       } else tracker.release(head.spec.name);
     } };
   return skill;

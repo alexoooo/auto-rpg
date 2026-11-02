@@ -46,6 +46,16 @@ for (const part of [head, jaw]) {
 }
 for (const contact of jaw.contacts) { contact.points = contact.points.map(up); contact.direction = upward(contact.direction); }
 joint("jaw").centre = jaw.proximal;
+// The neck holds the head and jaw against gravity with the reptile's margin: its peak scales with
+// their weight's lever about the neck at the reference pose, the rat's head reaching further ahead.
+const lever = (b) => {
+  const pivot = b.joints.find((j) => j.name === "neck").centre;
+  return ["head", "jaw"].reduce((sum, name) => {
+    const s = b.segments.find((x) => x.name === name);
+    return sum + s.weight * Math.abs((s.proximal[2] + s.distal[2]) / 2 - pivot[2]);
+  }, 0);
+};
+joint("neck").peak = round(reptile.joints.find((j) => j.name === "neck").peak * lever(body) / lever(reptile));
 
 // The tail, in two.
 const base = segment("tail.base"), end = segment("tail.tip");
