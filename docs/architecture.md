@@ -70,6 +70,7 @@ Option Mind's preset for its model (`defaultMind`, `src/entrants/game.ts`).
 | `workshop-fighter` (the Warrior), `workshop-rogue` (the Rogue) | `figureSpec(workshopFigure(...))`, `src/core/human/spec.ts` |
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`) for its joints, its bones (`assets/skeleton/bones.json`, [record](art/skeleton.md#the-body-fitted-to-the-bones)) for its masses and colliders, 15 kg |
 | `reptile` | an independently authored quadruped (`assets/reptile/body.json`, [record](reference/reptile.md)) |
+| `rat` | the reptile's body with its legs under the trunk (`assets/rat/body.json`, [record](reference/reptile.md#the-rat)) |
 
 `figureSpec` takes a `HumanFigure` and lays out 16 segments and 15 joints from published tables
 (de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness

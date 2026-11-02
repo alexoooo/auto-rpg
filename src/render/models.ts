@@ -10,4 +10,5 @@ export const MODEL_DISPLAY: Readonly<Record<BodyModel, { readonly label: string;
   "workshop-rogue": { label: "Rogue", clothing: true, tint: "#809e8c" },
   "crypt-skeleton": { label: "Skeleton", clothing: false, tint: "#b8ad94" },
   "reptile": { label: "Reptile", clothing: false, tint: "#78834d" },
+  "rat": { label: "Rat", clothing: false, tint: "#6e6258" },
 });

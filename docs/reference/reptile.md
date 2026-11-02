@@ -32,6 +32,30 @@ transcribed as torque ceilings.
   The lower middle tip is the jaw's `bite` point. Teeth add no mass, inertia or strength. These are
   game estimates, not enamel stiffness or bite forces.
 
+## The rat
+
+The rat (`assets/rat/body.json`, `rat-anatomy` in `SOURCES`) is the reptile's body with its legs
+under the trunk; every other segment, mass weight, torque ceiling and unloaded speed is the
+reptile's, and its controller settings are the reptile's.
+
+| What | Reptile | Rat |
+| --- | --- | --- |
+| Hip and shoulder centres | x ±.085, y .24 m | x ±.07, y .2 m |
+| Paw soles, across the body | ±.26 m | ±.08 m |
+| Elbow (fore) and knee (hind) | out to the side, bending about the body's z axis, -.2 to 2.8 rad | behind (fore) and ahead (hind) of the paw, bending about the body's x axis, ±1.2 rad |
+| Bend at the reference pose, upper to lower leg | | 1.51 rad fore, 1.64 rad hind |
+| Girdle's third axis (z) | ±2.8 rad | ±.8 rad |
+
+The crouch is what the trot needs of legs under the body. On the Node stand (Rapier, 120 Hz, one
+run a case, 2 s standing then 18 s ordered one way, the trot at .15 m/s): built with elbows and
+knees at about 1.0 rad, a fore leg nearly straightens at the end of its stance, its paw drags
+without lifting and the body tips in 4 of 8 headings; built at about 1.5 rad, it trots upright at
+all 8, its swinging paws clearing about 25 mm (the reptile's about 17 mm); at about 1.8 rad, it
+tips in 4. At the trot's .3 m/s it sinks to its belly at every heading; at .2 m/s at 3 of 8.
+
+The reptile's righting (`recover`) drives the hip's third axis and the knee's first to angles
+from a sprawled reference pose, and does not right the rat.
+
 ## Controller settings
 
 Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,

@@ -39,6 +39,10 @@ export const SOURCES = Object.freeze({
       + "fighter was up to 0.6 m under its standing height.",
     record: "docs/reference/down-timing.md#what-touches-the-ground",
   },
+  "rat-anatomy": {
+    kind: "asset", file: "assets/rat/body.json",
+    what: "The reptile's anatomy with its legs under the trunk: hips beneath it, elbows behind and knees ahead of the paws, bending about the body's x axis, built crouched; mass, torques and joint speeds the reptile's. docs/reference/reptile.md#the-rat says what is the rat's own.",
+  },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
     what: "Authored estimates for the 8 kg sprawling reptile: geometry, tooth contact surfaces, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",

@@ -10,6 +10,7 @@ import { appearanceFor, type Appearance } from "./appearance.ts";
 import { dressRobot } from "./robot-skin.ts";
 import type { SkinOptions, SkinView } from "./skin-view.ts";
 import { dressReptile } from "./reptile-skin.ts";
+import { MODEL_DISPLAY } from "./models.ts";
 
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
 const SHAPES_TINT = Color3.FromHexString("#b9a58a");
@@ -28,7 +29,8 @@ const humanSkin: Art = (model, scene) => loadSkin(model as WorkshopModel, scene)
 const ART: Readonly<Record<BodyModel, Art>> = Object.freeze({
   "workshop-fighter": humanSkin, "workshop-rogue": humanSkin,
   "crypt-skeleton": (_model, scene, options) => (options.skeletonArt ?? loadSkeletonArt)().then(art => (built: DrawnBody) => dressSkeleton(built, art, scene)),
-  reptile: (_model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene)),
+  reptile: (model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene, MODEL_DISPLAY[model].tint)),
+  rat: (model, scene) => Promise.resolve((built: DrawnBody) => dressReptile(built, scene, MODEL_DISPLAY[model].tint)),
 });
 
 /**

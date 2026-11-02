@@ -6,8 +6,8 @@ A browser game of physically simulated, AI-driven melee, after *Die by the Sword
 There is no attack button and no animation. A fighter is a body of jointed segments driven by
 muscles with the strength and speed of their anatomy, and a mind decides what the body does. A
 blow is whatever one body carries into another, and it wounds by the energy it brings. The bodies
-are the Warrior and the Rogue (two humans), the crypt's skeleton, and a four-legged reptile with a
-driven jaw.
+are the Warrior and the Rogue (two humans), the crypt's skeleton, a four-legged reptile with a driven
+jaw, and a rat on the reptile's body plan with its legs under it.
 
 **[Play it in your browser](https://alexoooo.github.io/auto-rpg/).** The main menu opens the
 **Dungeon** (the Crypt), **Arena**, **Lab**, **Ratings** and **Tools** (development viewers).
@@ -32,7 +32,7 @@ The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and 
 
 ## The Arena
 
-Pick a character for each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**. You
+Pick a character for each side (Warrior, Rogue, Skeleton, Reptile or Rat) and press **Fight**. You
 watch, or take a side under **Play as**: your side then does what you order and nothing else.
 A side is out when its wounds end it or its health runs out. From the first minute each side
 loses a sixtieth of its full health a second, so every bout ends by two minutes; a fall ends
@@ -41,7 +41,7 @@ nothing, and a fallen fighter tries to rise.
 | Panel | Chooses |
 | --- | --- |
 | Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
-| Controller | the mind: Option Mind (the default on every humanoid), the Option Reptile (Option Mind over the quadruped's frame) on the Reptile, and the Riser on the Rogue and the Skeleton |
+| Controller | the mind: Option Mind (the default on every humanoid), the Option Reptile (Option Mind over the quadruped's frame) on the Reptile and the Rat, and the Riser on the Rogue and the Skeleton |
 | Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
 | Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
 | Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
@@ -67,7 +67,7 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 
 | Parameter | Example |
 | --- | --- |
-| `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`) |
+| `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`, `rat`) |
 | `control` | `&control=option,option` |
 | `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
 | `you` | `&you=left` |

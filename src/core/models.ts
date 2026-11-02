@@ -2,6 +2,8 @@ import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.
 import type { Physique } from "./human/physique.ts";
 import type { BodySpec } from "./spec/body.ts";
 import { reptileSpec } from "./reptile/spec.ts";
+import reptileBody from "../../assets/reptile/body.json" with { type: "json" };
+import ratBody from "../../assets/rat/body.json" with { type: "json" };
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
 import { LOADOUTS, loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
@@ -11,8 +13,8 @@ import { bodyIntersections } from "./spec/clearance.ts";
 import { reptilePhysique } from "./reptile/physique.ts";
 
 /** Models available to game builders, independent of a family's anatomical constructor. */
-export type BodyModel = HumanoidModel | "reptile";
-export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...HUMANOID_MODELS, "reptile"]);
+export type BodyModel = HumanoidModel | "reptile" | "rat";
+export const BODY_MODELS: readonly BodyModel[] = Object.freeze([...HUMANOID_MODELS, "reptile", "rat"]);
 export { HUMANOID_MODELS, type HumanoidModel };
 
 /** A model with explicit attribute overrides; omitted fields inherit that model's defaults. */
@@ -43,12 +45,15 @@ interface Family {
 const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
   physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpec(model as HumanoidModel, physique, haste),
   info: { held: "sword" }, hastes: true });
-const REPTILE: Family = deepFreeze({ spec: () => reptileSpec(),
+/** A quadruped's family over its body file: the reptile's sprawl, or the rat's legs under its trunk. */
+const quadruped = (data: Parameters<typeof reptileSpec>[0], source: Parameters<typeof reptileSpec>[2]): Family => deepFreeze({
+  spec: (model: BodyModel) => reptileSpec(data, model, source),
   physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
   info: { held: "empty" }, hastes: true });
+const REPTILE = quadruped(reptileBody, "reptile-anatomy"), RAT = quadruped(ratBody, "rat-anatomy");
 
 /** **Every model's family**: the one list a body family is added to in the core. */
-const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE });
+const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE, rat: RAT });
 
 /** `model`'s family; a thrown error for a model there is none of, read from a save or a link. */
 function familyOf(model: BodyModel): Family {

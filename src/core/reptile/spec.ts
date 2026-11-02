@@ -1,16 +1,23 @@
-import data from "../../../assets/reptile/body.json" with { type: "json" };
+import reptileData from "../../../assets/reptile/body.json" with { type: "json" };
 import type { BodySpec, JointSpec, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { cuboidMoments, cylinderMoments, massShare } from "../spec/geometry.ts";
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import type { SourceKey } from "../sources.ts";
 import { deepFreeze } from "../state.ts";
 
-/** Authored anatomical estimates and their derivations: `docs/reference/reptile.md`. */
 const vector = (v: readonly number[]): Vec3 => [v[0]!, v[1]!, v[2]!];
-const q = <V extends number | Vec3>(value: V, unit: Parameters<typeof sourced>[1], where: string): Quantity<V> =>
-  sourced(value, unit, "reptile-anatomy", where);
 
-/** The reptile's own segment tree; no other family's anatomical table participates. */
-export function reptileSpec(): BodySpec {
+/** **A quadruped's body file**: the reptile's layout, which every body of the family shares. */
+export type QuadrupedData = typeof reptileData;
+
+/**
+ * **A quadruped's segment tree** from its body file `data`, every number read from `source`
+ * (authored estimates and their derivations: `docs/reference/reptile.md`); no other family's
+ * anatomical table participates.
+ */
+export function reptileSpec(data: QuadrupedData, model: string, source: SourceKey): BodySpec {
+  const q = <V extends number | Vec3>(value: V, unit: Parameters<typeof sourced>[1], where: string): Quantity<V> =>
+    sourced(value, unit, source, where);
   const mass = q(data.mass, "kg", "/mass");
   const weights = data.segments.map((s, i) => q(s.weight, "1", `/segments/${i}/weight`));
   const segments: SegmentSpec[] = data.segments.map((s, i) => {
@@ -62,16 +69,16 @@ export function reptileSpec(): BodySpec {
         bind: derive("rad", "reference joint angle", [], () => 0),
         muscle: { peakPositive: q(j.peak, "N m", `${at}/peak`), peakNegative: q(j.peak, "N m", `${at}/peak`), speedPositive: speed, speedNegative: speed } })) };
   });
-  return deepFreeze({ model: "reptile", mass, stature: q(data.stature, "m", "/stature"), segments, joints,
+  return deepFreeze({ model, mass, stature: q(data.stature, "m", "/stature"), segments, joints,
     effectors: data.effectors.map(e => ({ segment: e.segment, base: e.base, point: e.point })),
     // Its paws are the effectors its asset says it stands on, each on its sole.
     ends: data.effectors.flatMap(e => e.support ? [{ kind: "paw" as const, name: e.segment, segment: e.segment, point: e.point, sole: e.support === "sole" }] : []),
-    wounds: { hp: sourced(1, "HP", "owner-hp-pool", "reptile 1"), vital: data.wounds.vital, whole: data.wounds.whole },
-    attributes: { balance: q(data.balance, "%", "/balance"), haste: sourced(0, "%", "owner-haste", "reptile 0") }, substance: "flesh",
+    wounds: { hp: sourced(1, "HP", "owner-hp-pool", `${model} 1`), vital: data.wounds.vital, whole: data.wounds.whole },
+    attributes: { balance: q(data.balance, "%", "/balance"), haste: sourced(0, "%", "owner-haste", `${model} 0`) }, substance: "flesh",
     down: { kind: "low", root: data.down.root, height: q(data.down.height, "1", "/down/height"), up: q(data.down.up, "1", "/down/up") },
     marks: data.marks });
 }
 
 function unknownShape(kind: never): never {
-  throw new Error(`no reptile segment of kind ${JSON.stringify(kind)}`);
+  throw new Error(`no quadruped segment of kind ${JSON.stringify(kind)}`);
 }

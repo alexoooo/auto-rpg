@@ -18,10 +18,9 @@ interface CryptModel {
 /** Every humanoid's footprint, spacing and recovery: `docs/reference/reptile.md#encounters`. */
 const HUMANOID: CryptModel = deepFreeze({ radius: .35, attackMetres: 1.8, fallEndsFight: false });
 
-let reptileModel: CryptModel | undefined;
-/** The reptile's collider footprint, bite spacing and continued recovery: `docs/reference/reptile.md#encounters`. */
-function readReptile(): CryptModel {
-  const anatomy = modelSpec("reptile");
+/** A quadruped's collider footprint, bite spacing and continued recovery: `docs/reference/reptile.md#encounters`. */
+function readQuadruped(model: BodyModel): CryptModel {
+  const anatomy = modelSpec(model);
   const radius = Math.max(...anatomy.segments.flatMap(s => lowsOf(s.shape, frameOf(s)).map(p => Math.sqrt(p.at[0] * p.at[0] + p.at[2] * p.at[2]) + p.radius)));
   return deepFreeze({ radius, attackMetres: .52, fallEndsFight: false });
 }
@@ -44,5 +43,8 @@ export function cryptModel(model: BodyModel, spec?: BodySpec): CryptModel {
 /** **What the crypt needs of each model**, read when first asked: the one list a body family is added to here. */
 const CRYPT_MODELS: Readonly<Record<BodyModel, () => CryptModel>> = Object.freeze({
   "workshop-fighter": () => HUMANOID, "workshop-rogue": () => HUMANOID, "crypt-skeleton": () => HUMANOID,
-  reptile: () => reptileModel ??= readReptile(),
+  reptile: () => quadrupeds.reptile ??= readQuadruped("reptile"), rat: () => quadrupeds.rat ??= readQuadruped("rat"),
 });
+
+/** Each quadruped's `CryptModel`, read when first asked. */
+const quadrupeds: { reptile?: CryptModel; rat?: CryptModel } = {};
