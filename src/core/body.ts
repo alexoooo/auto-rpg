@@ -138,8 +138,10 @@ export interface BodyView {
   /** Seconds of the world's clock. */
   readonly time: number;
   /**
-   * Seconds of the world's clock at the body's first view, as it was built: where its own time
-   * starts, so a body behaves the same in a world that has run before it.
+   * Seconds of the world's clock at the body's first view, as it was built, that a command is made
+   * on: at a delay, the first step its driver's decision is carried out. Where its own time starts,
+   * so a body behaves the same in a world that has run before it, and what it takes at birth (the
+   * legs' heading, `locomotion`) it takes from the body as it was built.
    */
   readonly born: number;
   /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */

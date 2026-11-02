@@ -1428,7 +1428,8 @@ segment, when it came read as `Duel.shoved`), as plain data. What a page hears (
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page plays each
 bout in a fresh world in its worker ([the world in a worker](#the-world-in-a-worker)) and a body's
-time starts at its first view (`BodyView.born`).
+time starts at its first view its command is made on (`BodyView.born`): at a delay, the first step
+its decision is carried out.
 
 - **Verdict** (`Duel.judge`): a side is out by the first of the recipe's end rules that puts it out
   (`EndRule`, `src/arena/end-rule.ts`; each a part of the list `END_RULES`, `ends.ts`), which
