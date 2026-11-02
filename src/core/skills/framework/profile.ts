@@ -36,8 +36,9 @@ declare module "../../data/store.ts" {
 /**
  * What a profile was measured on: its body (`bodyKey`) and the digest of that body's spec
  * (`specDigest`), its skill's digest (`skillDigest`, `techniqueDigest`), the world's rate, Hz,
- * how late its senses showed the other body, s (null for a skill that reads none), and the rate its
- * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`).
+ * how late its senses showed the other body, s (null for a skill that reads none), the rate its
+ * mind's driver ran at, Hz, where that is not the world's (`rateOf`, `LayerOptions.every`), and the
+ * steps its body's command waited (`World.delay`), where there were any (`delayOf`).
  */
 export interface Measured {
   readonly body: string;
@@ -46,7 +47,11 @@ export interface Measured {
   readonly hz: number;
   readonly reaction: number | null;
   readonly rate?: number;
+  readonly delay?: number;
 }
+
+/** **The steps a body's command waited** where `measured` was measured: its `delay`, else none. */
+export const delayOf = (measured: Measured): number => measured.delay ?? 0;
 
 /** **The rate the mind's driver ran at** where `measured` was measured, Hz: its `rate`, else the world's. */
 export const rateOf = (measured: Measured): number => measured.rate ?? measured.hz;
@@ -324,9 +329,9 @@ export const techniqueDigest = (technique: PartConfig): string => digestOf(techn
 /** A gait's digest: its legs' config (`GAITS`) and the digest of the strike its drill stops to throw (`skillDigest`), whose readiness ends the time it leaves the body unbraced. */
 export const gaitDigest = (legs: PartConfig, strike: string): string => digestOf({ legs, strike });
 
-/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz (the world's unless given), must have been measured on. */
-export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate = hz): Measured =>
-  ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}) });
+/** What a profile of a skill of digest `skill`, read by a body of `spec` at `hz`, its senses `reaction` s late (null for none), its mind's driver at `rate` Hz, its command `delay` steps late, must have been measured on. */
+export const measuredOn = (spec: BodySpec, skill: string, hz: number, reaction: number | null, rate: number, delay: number): Measured =>
+  ({ body: bodyKey(spec), spec: specDigest(spec), skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
 
 /** **Whether a reaction time `now` s reads as `was` s** at `hz`: within half a step, or either unknown. */
 export const sameReaction = (was: number | null, now: number | null, hz: number): boolean => was === null || now === null || Math.abs(was - now) <= .5 / hz;
@@ -339,6 +344,7 @@ export function staleness(profile: Profile, now: Measured): string | null {
   if (was.skill !== now.skill) return "measured on another version of the skill";
   if (was.hz !== now.hz) return `measured at ${was.hz} Hz, read at ${now.hz} Hz`;
   if (rateOf(was) !== rateOf(now)) return `measured with its mind at ${rateOf(was)} Hz, read at ${rateOf(now)} Hz`;
+  if (delayOf(was) !== delayOf(now)) return `measured with its command ${delayOf(was)} steps late, read ${delayOf(now)} steps late`;
   if (!sameReaction(was.reaction, now.reaction, now.hz))
     return `measured with senses ${was.reaction} s late, read ${now.reaction} s late`;
   return null;
@@ -369,15 +375,15 @@ export function profileFor(profiles: readonly Profile[], now: Measured): Found |
 
 /**
  * **The profiles among `profiles` measured on a body of `spec`** at `hz` with senses `reaction` s
- * late and a mind's driver at `rate` Hz (the world's unless given), of any skill (`fresh`): what a
+ * late, a mind's driver at `rate` Hz and its command `delay` steps late, of any skill (`fresh`): what a
  * foe of that body is measured to deal; and, for none, why (`stale`): the first measured on its
  * body that is stale (`staleness`), or none measured on it.
  */
-export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate = hz): { readonly fresh: readonly Profile[]; readonly stale: string } {
+export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: number, reaction: number | null, rate: number, delay: number): { readonly fresh: readonly Profile[]; readonly stale: string } {
   const body = bodyKey(spec), digest = specDigest(spec), fresh: Profile[] = [];
   let stale: string | null = null;
   for (const profile of profiles) {
-    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}) });
+    const why = staleness(profile, { body, spec: digest, skill: profile.measured.skill, hz, reaction, ...(rate !== hz ? { rate } : {}), ...(delay !== 0 ? { delay } : {}) });
     if (why === null) fresh.push(profile);
     else if (profile.measured.body === body) stale ??= why;
   }
@@ -385,13 +391,14 @@ export function profilesOn(profiles: readonly Profile[], spec: BodySpec, hz: num
 }
 
 /**
- * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`**: its profile
+ * **What the rise's edge `technique` is expected to bring a body of `spec` at `hz`, its command
+ * `delay` steps late**: its profile
  * among `profiles` (`dataOf("edge-profiles")` unless given) read through `readProfile`, from where it begins (`expected`); and how it is
  * priced, a sentence (`priced`): measured, or not, and why (no drill measured it, or its profile is
  * stale, `staleness`).
  */
-export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, profiles: readonly Profile[] = dataOf("edge-profiles")): { readonly expected: Expected | null; readonly priced: string } {
-  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(technique), hz, null));
+export function edgeExpected(spec: BodySpec, technique: PartConfig, hz: number, delay: number, profiles: readonly Profile[] = dataOf("edge-profiles")): { readonly expected: Expected | null; readonly priced: string } {
+  const found = profileFor(profiles, measuredOn(spec, techniqueDigest(technique), hz, null, hz, delay));
   if (!found) return { expected: null, priced: "no drill measured it" };
   if (found.stale !== null) return { expected: null, priced: found.stale };
   const expected = readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null);

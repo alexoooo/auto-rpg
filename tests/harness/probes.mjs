@@ -38,13 +38,14 @@ export async function rig({ legs: legsConfig = { kind: "stance-walk" }, motor = 
   const hosted = commandedBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, motor: motorOf(lookup, motor) });
   const legs = wrapLegs(legsOf(lookup, hosted.driver, legsConfig));
   let ask = () => ({});
-  hosted.drive((view, dt) => {
-    const claim = ask(view), drive = legs.goal(view, { walk: null, face: legs.heading, ...claim.legs }, dt);
+  // The claim is decided on the view as sensed; the legs carry it out on the body as it is (`SplitDriver`).
+  hosted.drive({ decide: (view) => ask(view), carry: (view, claim, dt) => {
+    const drive = legs.goal(view, { walk: null, face: legs.heading, ...claim.legs }, dt);
     const stance = drive.kind === "stance";
     return filter({ posture: { ...guard, ...(stance ? {} : drive.posture), ...claim.posture }, pushes: [...(stance ? [] : drive.pushes), ...claim.pushes ?? []],
-      stance: stance ? drive.goal : null, ...(!stance && drive.held !== undefined ? { held: drive.held } : {}), ...(!stance && drive.program ? { programs: [drive.program] } : {}), ...(claim.effectors ? { effectors: claim.effectors } : {}), ...(claim.points ? { points: claim.points } : {}),
+      stance: stance ? drive.goal : null, ...(!stance && drive.held !== undefined ? { held: drive.held } : {}), ...(claim.effectors ? { effectors: claim.effectors } : {}), ...(claim.points ? { points: claim.points } : {}),
       ...(claim.handPoses ? { handPoses: claim.handPoses } : {}) });
-  });
+  } });
   // The first step builds the stance's reference; what the probes read from is the body standing after it.
   stand.step(1);
   const view = hosted.view, s = view.stance;

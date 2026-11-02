@@ -7,7 +7,7 @@ import type { BodyHost } from "./host.ts";
 import type { Experiment, Mind, OwnBody } from "./mind.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import { mirrorBody, type Mirror, type MirrorChannel, type MirrorStatics } from "./mirror.ts";
-import { motorPart, think } from "./mind.ts";
+import { answerOn, decideOn, motorPart } from "./mind.ts";
 import { deriveSensed } from "../perception/openings.ts";
 import { specDigest } from "../skills/framework/profile.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -107,6 +107,11 @@ export interface MindPlace {
 export interface Seat {
   /** Ask it `ask`, after every ask before it. */
   ask(ask: SeatAsk): void;
+  /**
+   * Wait until its last step ask is answered (`answerOn`): with a delay, its motor part and its
+   * command, while its mind may still decide; with none, its whole step.
+   */
+  answer(): void;
   /** What it says once every ask so far is carried out: the world waits for them. */
   says(): SeatSays;
 }
@@ -123,12 +128,20 @@ interface Seated {
   readonly moves: ReturnType<typeof motorPart>;
   readonly made: MindMade;
   menu?: readonly MenuEntry[] | null;
+  /** Whether its last step's decision is still to come (`decideOn`). */
+  deciding: boolean;
 }
 
 /** **The host of seats where minds run**: what carries out the world's asks on each mind (`SeatAsk`) and reads what it says (`SeatSays`). */
 export interface SeatHost {
-  /** Carry out `ask` for seat `seat`, whose numbers are `channel`'s. */
+  /**
+   * Carry out `ask` for seat `seat`, whose numbers are `channel`'s: a step at a delay as far as its
+   * answer (`answerOn`), its decision left to come before anything else asked of the seat
+   * (`decide`).
+   */
   handle(seat: number, ask: SeatAsk, channel: MirrorChannel): void;
+  /** Carry out seat `seat`'s last step's decision, where it is still to come. */
+  decide(seat: number): void;
   /** What seat `seat`'s mind says now. */
   says(seat: number): SeatSays;
 }
@@ -182,10 +195,17 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
       ...(mirror.contactIdentity ? { contactIdentity: mirror.contactIdentity } : {}), ...(recipe.experiment ? { experiment: recipe.experiment } : {}) };
     const made = catalog.controllerOf(config).create(host, config, wiring);
     if (!mind) throw new Error("the mind took no body");
-    return { recipe, mirror, clock, orders, listeners, observes, mind, moves, made };
+    return { recipe, mirror, clock, orders, listeners, observes, mind, moves, made, deciding: false };
+  };
+  const decide = (seated: Seated | undefined): void => {
+    if (!seated?.deciding) return;
+    seated.deciding = false;
+    decideOn(seated.mind, seated.mirror, seated.recipe.dt);
   };
   return {
+    decide: (seat) => decide(seats.get(seat)),
     handle(seat, ask, channel) {
+      decide(seats.get(seat));
       switch (ask.kind) {
         case "make":
           if (seats.has(seat)) throw new Error(`a mind is already seated at ${seat}`);
@@ -196,7 +216,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
           tick(seated, ask.at);
           if (ask.orders !== undefined) seated.orders.now = ask.orders;
           seated.mirror.refresh({ dynamics: true });
-          think(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
+          seated.deciding = answerOn(seated.mind, seated.moves, seated.mirror, seated.recipe.statics.delay, seated.recipe.dt);
           return;
         }
         case "observe": {
@@ -228,6 +248,7 @@ export function seatHost(catalogs: Readonly<Record<string, Catalog>>): SeatHost 
     },
     says(seat) {
       const seated = seatOf(seat), { mind, made } = seated, report = made.report;
+      decide(seated);
       const menu = seated.menu;
       delete seated.menu;
       return {

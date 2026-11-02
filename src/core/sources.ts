@@ -327,7 +327,7 @@ export const SOURCES = Object.freeze({
   },
   "owner-command-delay": {
     kind: "decision", date: "2026-11-01",
-    decided: "A body's command takes effect a number of steps after the step it is made on, the same in every world, so each body's mind can run beside the world: one step once motor control holds balance and the rise a step late, none until then.",
+    decided: "A body's command takes effect a number of steps after the step it is made on, the same in every world, so each body's mind can run beside the world: one step, once motor control holds balance and the rise a step late.",
     record: "docs/reference/command-delay.md",
   },
   "owner-physics-rate": {

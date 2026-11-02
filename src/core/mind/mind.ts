@@ -105,7 +105,7 @@ interface Embodied<M extends Mind = Mind> {
   /** The body as its fight holds it: its muscles, its assist and its senses, the world's own whatever its mind reads. */
   readonly held: Pick<OwnBody, "muscles" | "assist" | "senses">;
   readonly mind: M;
-  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own or null, and on a mirror what its mind has asked and not yet answered (`Mirror.command`). */
+  /** The body's memory under this mind (`src/core/state.ts`): its muscles', its assist's, the mind's own or null, and on a mirror what its mind has asked and not yet answered (`Mirror.command`) and what its senses last showed it (`Mirror.seen`). */
   readonly state: object;
   /** Stop driving: the mind lets go (`Mind.dispose`), its observers stop, and the motors are released. */
   dispose(): void;
@@ -174,7 +174,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   }
   const listeners = new Set<(step: number, time: number) => void>();
   let observed = null as Hook | null, shown: Hook | null = null;
-  const show = () => { if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); } };
+  const show = () => { if (mirrored) { mirrored.writer.write(); mirrored.mirror.refresh({ dynamics: false }); mirrored.mirror.recall(); } };
   const observe = () => {
     show();
     for (const one of listeners) one(world.steps, world.time);
@@ -200,7 +200,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   mind = made;
   return { own, held: { muscles, assist: way.help.assist, senses: sense }, mind: made,
     state: { muscles: muscles.state, assist: way.help.state, handPoses: built.handPoses.state, posed: way.posed, toes: built.toes, mind: made.state ?? null,
-      ...(mirrored ? { asked: mirrored.mirror.command } : {}) },
+      ...(mirrored ? { asked: mirrored.mirror.command, seen: mirrored.mirror.seen } : {}) },
     dispose: () => { made.dispose?.(); observed?.dispose(); shown?.dispose(); thinking?.dispose(); listeners.clear(); muscles.dispose(); } };
 }
 
@@ -300,15 +300,33 @@ export function motorPart(mind: () => Mind) {
 }
 
 /**
- * **A mind's step on its mirror** (`Mirror`), refreshed: with no delay, its step, its motor part
- * and its answer; with one, its motor part and its answer, then its step on the same body, so that
- * what the step sends goes with the next answer (`embody`).
+ * **A mind's step on its mirror** (`Mirror`), refreshed: with no delay, what it senses, its step,
+ * its motor part and its answer; with one, its motor part and its answer on the senses it last
+ * decided on, then what it senses and its step on the same body, so that what the step sends goes
+ * with the next answer (`embody`).
  */
 export function think(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): void {
-  if (delay > 0) { moves.move(dt); mirror.answer(); mind.step(mirror.senses, dt); return; }
+  if (answerOn(mind, moves, mirror, delay, dt)) decideOn(mind, mirror, dt);
+}
+
+/**
+ * **What of a mind's step on its mirror its body waits for** (`think`): with no delay, the whole
+ * step; with one, its motor part and its answer, true where its step is still to come
+ * (`decideOn`), before the mirror is next refreshed.
+ */
+export function answerOn(mind: Mind, moves: ReturnType<typeof motorPart>, mirror: Mirror, delay: number, dt: number): boolean {
+  if (delay > 0) { moves.move(dt); mirror.answer(); return true; }
+  mirror.sense();
   mind.step(mirror.senses, dt);
   moves.move(dt);
   mirror.answer();
+  return false;
+}
+
+/** **A mind's step after its answer** (`answerOn`): what it senses, and its step on it. */
+export function decideOn(mind: Mind, mirror: Mirror, dt: number): void {
+  mirror.sense();
+  mind.step(mirror.senses, dt);
 }
 
 /** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */

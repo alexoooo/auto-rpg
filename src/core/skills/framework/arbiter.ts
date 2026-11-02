@@ -143,7 +143,6 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       if (state.unstanced && !unstanced) { legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume(); }
       state.unstanced = unstanced;
       let stance: StanceGoal | null = null, held: number | undefined;
-      const programs: string[] = [];
       if (asked) {
         // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
         let goal = legsGoal(asked, intent, view, legs.heading, { waiting: !!support && !support.walks() });
@@ -162,7 +161,6 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
             // The legs push their own channels, and any other no action holds: legs that hold the body whole.
             for (const push of drive.pushes) if (legsControls.includes(`channel:${push.channel}`) || available(`channel:${push.channel}`)) pushes.push(push);
             held = drive.held;
-            if (drive.program) programs.push(drive.program);
             break;
           }
           default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
@@ -178,12 +176,11 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const { claim } of claims) {
         Object.assign(posture, claim.posture);
         pushes.push(...claim.pushes ?? []);
-        if (claim.program) programs.push(claim.program);
         points.push(...claim.points ?? []);
         Object.assign(effectors, claim.effectors);
         Object.assign(handPoses, claim.handPoses);
       }
-      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(held === undefined ? {} : { held }), ...(programs.length > 0 ? { programs } : {}) };
+      const command: BodyCommand = { posture, pushes, points, effectors, handPoses, stance, ...(held === undefined ? {} : { held }) };
       if (command.stance) for (const side of command.stance.feet) if (command.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
       for (const control of allControls) if (available(control)) state.owners[control] = "default";
       state.command = immutableCommand(command);

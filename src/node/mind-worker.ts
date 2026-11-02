@@ -1,7 +1,7 @@
 import { receiveMessageOnPort, workerData, type MessagePort } from "node:worker_threads";
 import { mindThread } from "../apart/thread.ts";
 import { DATA_KEYS, loadData } from "../core/data/store.ts";
-import { DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Reply } from "../apart/wire.ts";
+import { ANSWERED, DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Reply } from "../apart/wire.ts";
 
 /**
  * **A minds' thread in Node** (`mindWorkers`, `src/node/minds.ts`): it waits for each batch the
@@ -10,7 +10,13 @@ import { DONE, POSTED, SHARED_NUMBERS, waitPast, type Batch, type Reply } from "
  */
 const { port, control } = workerData as { readonly port: MessagePort; readonly control: Int32Array };
 await loadData(DATA_KEYS);
-const thread = mindThread(SHARED_NUMBERS);
+const thread = mindThread(SHARED_NUMBERS, count);
+
+/** Count `steps` step asks answered (`ANSWERED`). */
+function count(steps: number): void {
+  Atomics.store(control, ANSWERED, steps);
+  Atomics.notify(control, ANSWERED);
+}
 
 /** How a minds' thread waits for the world, ms: spinning longer than a step, so it is awake for the next step's asks, then sleeping for as long as the world pauses. */
 const WAITING = Object.freeze({ spin: 12, timeout: Infinity });
@@ -30,6 +36,7 @@ for (let seq = 1; ; seq++) {
   const reply = thread.handle(batch);
   // What each seat says crosses by copy: a value that cannot be copied fails the batch, said as its error.
   try { port.postMessage(reply); } catch (error) { port.postMessage({ seq, said: [], error: String((error as Error)?.stack ?? error) } satisfies Reply); }
+  count(thread.steps);
   Atomics.store(control, DONE, seq);
   Atomics.notify(control, DONE);
 }

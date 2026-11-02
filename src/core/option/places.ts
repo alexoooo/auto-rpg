@@ -40,16 +40,16 @@ export interface Stopping {
 }
 
 /**
- * **Each of `gaits`** as a body of `spec` goes by it at `hz`, its mind deciding at `rate` Hz (the world's unless given), stopping to throw each of `strikes`:
+ * **Each of `gaits`** as a body of `spec` goes by it at `hz`, its mind deciding at `rate` Hz and its command `delay` steps late, stopping to throw each of `strikes`:
  * what its profile measured it to leave the body (`Going`, the cell of `profiles`, the gaits',
  * measured as the body reads it, `gaitDigest`), its prior (`UNMEASURED`) for a strike none measures.
  */
-export function goings(spec: BodySpec, hz: number, gaits: readonly GaitOf[], strikes: readonly Stopping[], profiles: readonly Profile[], rate = hz): readonly Going[] {
+export function goings(spec: BodySpec, hz: number, gaits: readonly GaitOf[], strikes: readonly Stopping[], profiles: readonly Profile[], rate: number, delay: number): readonly Going[] {
   return gaits.map((gait): Going => {
     const ready: Record<string, number> = {};
     let braced = 0, down = 0;
     for (const strike of strikes) {
-      const found = profileFor(profiles, measuredOn(spec, gaitDigest(gait.legs, strike.skill), hz, null, rate));
+      const found = profileFor(profiles, measuredOn(spec, gaitDigest(gait.legs, strike.skill), hz, null, rate, delay));
       const expected = (found && found.stale === null ? readProfile(found.profile, spec).expect({ range: 0, phase: "clear" }, null) : null) ?? UNMEASURED;
       ready[strike.name] = expected.seconds; braced = Math.max(braced, expected.seconds); down = Math.max(down, expected.down);
     }

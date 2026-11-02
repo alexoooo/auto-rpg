@@ -9,12 +9,11 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
 /**
  * **The command's delay**, steps: a mind's command, made on a step, is applied that many steps
  * later, so the world can step while its minds think (`embody`). The same in every world, on one
- * thread or many, so a bout is the same whatever runs its minds. The game's is none until motor
- * control holds balance and the rise a step late
- * (`docs/reference/command-delay.md`).
+ * thread or many, so a bout is the same whatever runs its minds. The game's is one step, at which
+ * motor control holds balance and the rise (`docs/reference/command-delay.md`).
  */
-export const COMMAND_DELAY: Quantity<number> = sourced(0, "1", "owner-command-delay",
-  "none until motor control holds balance and the rise a step late");
+export const COMMAND_DELAY: Quantity<number> = sourced(1, "1", "owner-command-delay",
+  "one step: motor control holds balance and the rise a step late");
 
 /**
  * **Where a world's minds run apart from it**, as the world steps it: the place itself is the minds'
@@ -31,7 +30,7 @@ export interface MindsApart {
  * into whole steps), and nothing else moves its bodies or its clock.
  *
  * A step is: the sensing hooks; the preparing hooks (each body made ready to be read, and a mind on
- * a mirror or apart handed what it reads); the step hooks, in the order they were added (minds,
+ * a mirror or apart handed what it reads), then what they asked of minds apart is sent; the step hooks, in the order they were added (minds,
  * motor control, the muscle driver); then one solver step of `dt`, which writes every body's node;
  * then the clock advances, the post-physics hooks observe the completed interval, and what they
  * asked of minds apart is sent (`MindsApart.dispatch`); then the after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
@@ -168,6 +167,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(sensing);
         runAll(preparing);
+        minds?.dispatch();
         runAll(before);
         physics.step(dt);
         state.steps += 1;

@@ -2,7 +2,7 @@
   "source": {
     "script": "research/gait-profiles.mjs",
     "records": [
-      "assets/evaluations/gait/2026-11-02-5b9ebaf8-542ba19a.jsonl"
+      "assets/evaluations/gait/2026-11-02-51aaf4d2-37e72c0c.jsonl"
     ]
   },
   "profiles": [
@@ -13,7 +13,8 @@
         "skill": "846010859387f21b",
         "hz": 120,
         "reaction": null,
-        "rate": 60
+        "rate": 60,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -24,7 +25,7 @@
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 1.916,
+          "seconds": 3.769,
           "down": 0,
           "ends": []
         }
@@ -37,7 +38,8 @@
         "skill": "787c26bc8da9b73e",
         "hz": 120,
         "reaction": null,
-        "rate": 60
+        "rate": 60,
+        "delay": 1
       },
       "target": null,
       "cells": [
@@ -48,7 +50,7 @@
           "done": 1,
           "dealt": 0,
           "taken": 0,
-          "seconds": 1.916,
+          "seconds": 3.769,
           "down": 0,
           "ends": []
         }

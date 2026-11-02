@@ -187,7 +187,9 @@ Readings back from the built body:
 - a force and moment through one step, and an instantaneous impulse;
 - contacts as the last step left them (`contactsOf`), with the solver's impulse and the shape pairs
   it pushed on (`Contact.pairs`); a reader may skip a body or the fixed world before reading
-  ([play](reference/play.md#hearing-in-the-step));
+  ([play](reference/play.md#hearing-in-the-step)); the same, and the manifolds, told number by
+  number to a sink that makes no object (`tellContacts`, `tellManifolds`, `ContactSink`), as a
+  mirror's writer reads them;
 - a point's distance from a body's shapes (`SegmentBody.gapTo`);
 - a whole-world save and in-place load (`PhysicsWorld.save`, `load`). Every object survives a load
   as itself; a save is identified by a digest of how each body, joint and collider was made, and a
@@ -866,8 +868,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   the percepts its trials ended in, by name (`exit`: a strike's range head to head, which the
   strike's exit takes), and how the two bodies stood as its trials began (`Postures`, both standing
   unless named) (`ProfileCell`). Each names what it
-  was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate and the
-  reaction time), and one read on another is stale (`staleness`) and not read; a strike's names the limbs it was thrown with (`limbs`); and the body it was
+  was measured on (`Measured`: the body's key and spec digest, the skill's digest, the rate, the
+  mind's rate, the reaction time and the command delay, which a record's harness names,
+  `harnessOf`), and one read on another is stale (`staleness`) and not read; a strike's names the limbs it was thrown with (`limbs`); and the body it was
   measured against (`Target`, none for a skill with no foe). A profile is read one way,
   `readProfile` (`ProfileReading`), at a pair of postures, its cells measured there alone: its reach in a phase, what it expects from a place (`ProfilePlace`:
   the range, the foe's phase and the motion's progress) against the body struck now (`Expected`, in
@@ -1291,8 +1294,7 @@ one and applies the one sent `delay` steps before. A body's first `delay` steps 
 start or back from another level, apply none. The mind's command arrays stay its own: it reads
 back what it last sent, and the ceilings and torques it reads are those of the command applied.
 The rings are state, so a bout saves, forks and replays with commands in flight. A recording names
-the delay its world had, and loads only into one with the same. The game's delay is none until
-motor control holds balance and the rise a step late
+the delay its world had, and loads only into one with the same. The game's delay is one step
 ([the command delay](reference/command-delay.md)).
 
 A world with a delay puts its minds on mirrors ([the mirror](#minds)), and splits each mind in
@@ -1300,11 +1302,13 @@ two. **Its step decides** on the body as the mirror shows it; **its motor part c
 decision out** a delay later on the body as it is (`Mind.move`, `motorPart`): with a delay, each
 step the motor part moves and its command is taken, then the mind steps on the same body, and what
 the step sends goes with the next step's command, the rings holding it the rest of the delay
-(`heldSteps`). The motor part reads its own body, not its senses (`motorPart` refuses them). For
-the command layers it is the stance's and the ground's reads, the decided command obeyed
-(`CommandLayers`' `pending`, in its state) and motor control; a command may name motor programs
-the body runs fresh beside it (`Body.program`, `BodyCommand.programs`: the ground techniques and
-the lowering). For the quadruped it is the gait's last command, or the righting (`quadrupedLayers`'
+(`heldSteps`). The motor part reads its own body, and its senses only as its mind last decided on
+them: the mirror reads the senses apart from the body (`Mirror.sense`) after the motor part moves,
+and keeps what they showed in its state (`Mirror.seen`); `motorPart` refuses a fresh read. For the
+command layers it is the body read (`feel`), then the driver carrying out what it decided a delay
+before (`SplitDriver.carry`, the decision in `CommandLayers`' `pending`, in its state) and motor
+control: a mind driven by its decider decides its intent on its step, and its skills make the
+command from it on the body as it is (`driveBy`). For the quadruped it is the gait's last command, or the righting (`quadrupedLayers`'
 `move`), a step late at most. The order sheets are what the body took, so a replay gives them as a
 motor part does. With no delay the step decides and the motor part moves in the same step, as one
 mind.

@@ -77,6 +77,19 @@ export interface RecordHeader {
 /** A case as a record keeps it: enough to open it again without its definition. */
 export type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
 
+/**
+ * **A record's harness** (`RecordHeader.harness`): Node's core world on `engine` at 120 Hz, and the
+ * steps each body's command waited (`World.delay`) where it waited any.
+ */
+export const harnessOf = (engine: string, delay: number): string =>
+  `Node, core world (src/core/world.ts), ${engine}, 120 Hz${delay === 0 ? "" : `, each command ${delay} step${delay === 1 ? "" : "s"} late`}`;
+
+/** **The world's rate, Hz, and command delay, steps, that a record's `harness` names** (`harnessOf`): no delay where it names none; null where it names no rate. */
+export function harnessRule(harness: string): { readonly hz: number; readonly delay: number } | null {
+  const hz = Number(/(\d+) Hz/.exec(harness)?.[1]);
+  return Number.isFinite(hz) ? { hz, delay: Number(/each command (\d+) steps? late/.exec(harness)?.[1] ?? 0) } : null;
+}
+
 /** The identity a record of `play` on `engine` under `harness` carries, at `build`. */
 export const recordIdentity = (build: string, engine: string, harness: string, play: Json): RecordingIdentity =>
   recordingIdentity(build, FORMAT, { engine, harness, play });

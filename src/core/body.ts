@@ -45,22 +45,13 @@ export interface Body {
   /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
   readonly delay: number;
   /**
-   * Know `run` as the motor program `name` (`MotorProgram`), which a command runs by naming it
-   * (`BodyCommand.programs`). Made with the body, once a name.
+   * Drive each control step; null keeps the command. Replaced, a driver's decisions not yet carried
+   * out are dropped. `released` discards pending driver work on sub-mind takeover or idle.
    */
-  program(name: string, run: MotorProgram): void;
-  /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
   drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
   /** Observe completed physics intervals after effector feedback is sampled, including while idle or under a sub-mind (`OwnBody.afterPhysics`). */
   afterPhysics(listener: (step: number, time: number) => void): () => void;
 }
-
-/**
- * **A motor program**: muscle pushes worked out each step on the body as it is, where a driver's
- * command cannot know them a step ahead (a ground technique's, which reads the ground as it moves):
- * this step's, or null for none. It reads its own body alone, as motor control does (`Mind.move`).
- */
-export type MotorProgram = (dt: number) => readonly MusclePush[] | null;
 
 /**
  * **A body under the command layers as the one who built it holds it** (`commandedBody`): the
@@ -85,7 +76,20 @@ export function commandsBody(body: Pick<PhysicalBody, "has" | "level">): boolean
  * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
  * (`Skills.state`).
  */
-export type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
+export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
+
+/**
+ * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
+ * carries the decision out with on the body as it is (`carry`, null to keep the command). With no
+ * delay it carries out each decision the step it is made; at a delay (`Body.delay`) it decides on
+ * the mind's step and carries the decision out in its motor part (`Mind.move`) the delay's steps
+ * later, on a view whose body is that step's and whose senses are still those it decided on. A
+ * driver that is one function decides its command whole.
+ */
+export interface SplitDriver<T> {
+  decide(view: BodyView, dt: number): T;
+  carry(view: BodyView, decision: T, dt: number): BodyCommand | null;
+}
 
 /**
  * **A command is goals**: a posture for the freedoms nothing else owns, places for the effectors,
@@ -106,11 +110,6 @@ export interface BodyCommand {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
-  /**
-   * The motor programs, by the names the body knows them by (`Body.program`), whose pushes motor
-   * control adds each step, on the body as it is, until a command names them no more.
-   */
-  readonly programs?: readonly string[];
   /**
    * Effectors' points driven at an acceleration, or turned, while the body stands (`PointTask`): an effector
    * driven so has no goal and its chain no push.

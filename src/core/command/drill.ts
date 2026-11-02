@@ -236,7 +236,9 @@ function drillCommander(config: DrillCommanderConfig): Commander {
       if (!foe) { state.phase = "lost"; return decided(member, STAND); }
       if (config.going !== undefined && !state.arrived) {
         const readiness = ordered(member, foe.id)?.readiness;
-        const short = readiness?.kind === "waiting" || readiness?.kind === "position" && !windowHolds(readiness.window, at.x, at.z, member.heading ?? 0);
+        // A member whose menu names the foe nowhere has not sensed it yet, and so is short of it.
+        const sensed = (member.menu ?? []).some((entry) => entry.foe === foe.id);
+        const short = !sensed || readiness?.kind === "waiting" || readiness?.kind === "position" && !windowHolds(readiness.window, at.x, at.z, member.heading ?? 0);
         if (short) {
           state.phase = "going";
           return decided(member, { move: directMovement(foe.at.x - at.x, foe.at.z - at.z), pace: config.going, face: heading(atan2(foe.at.x - at.x, foe.at.z - at.z)) });

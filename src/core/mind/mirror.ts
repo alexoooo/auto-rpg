@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { clipToRef, type Assist } from "../control/assist.ts";
 import type { ContactIdentity, ContactTarget } from "../control/effector-feedback.ts";
-import type { ContactPair, MassProperties } from "../engine/engine.ts";
+import type { ContactPair, ContactSink, MassProperties } from "../engine/engine.ts";
 import { NOTHING_SENSED, type BodySense, type Senses } from "./senses.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
 import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
@@ -204,22 +204,28 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
     for (const [id, ref] of touched) { put(id); put(labelCode(label(ref))); }
     touched.clear();
   };
+  // Each segment's contacts and manifolds, told by the engine number by number (`ContactSink`), each list after its count.
+  let counted = 0;
+  const sink: ContactSink = {
+    contact(other, fixed, impulse, px, py, pz, nx, ny, nz, pairs) {
+      room(CONTACT + PAIR * pairs);
+      channel.inbound[counted]! += 1;
+      put(identity(other)); put(fixed ?? NaN); put(impulse); put(px); put(py); put(pz); put(nx); put(ny); put(nz); put(pairs);
+    },
+    pair(mine, theirs, impulse, px, py, pz, nx, ny, nz) { put(mine); put(theirs); put(impulse); put(px); put(py); put(pz); put(nx); put(ny); put(nz); },
+    manifold(other, fixed, mine, theirs, nx, ny, nz, impulse, points) {
+      room(MANIFOLD + 4 * points);
+      channel.inbound[counted]! += 1;
+      put(identity(other)); put(fixed ?? NaN); put(mine); put(theirs); put(nx); put(ny); put(nz); put(impulse); put(points);
+    },
+    point(x, y, z, distance) { put(x); put(y); put(z); put(distance); },
+  };
   const writeContacts = () => {
     for (const segment of segments) {
-      const contacts = built.physics.contactsOf(segment.body);
-      room(1); put(contacts.length);
-      for (const contact of contacts) {
-        room(CONTACT + PAIR * contact.pairs.length);
-        put(identity(contact.other)); put(contact.fixed ?? NaN); put(contact.impulse); triple(contact.point); triple(contact.normal); put(contact.pairs.length);
-        for (const pair of contact.pairs) { put(pair.mine); put(pair.theirs); put(pair.impulse); triple(pair.point); triple(pair.normal); }
-      }
-      const manifolds = built.physics.contactManifoldsOf(segment.body);
-      room(1); put(manifolds.length);
-      for (const manifold of manifolds) {
-        room(MANIFOLD + 4 * manifold.points.length);
-        put(identity(manifold.other)); put(manifold.fixed ?? NaN); put(manifold.mine); put(manifold.theirs); triple(manifold.normal); put(manifold.impulse); put(manifold.points.length);
-        for (const point of manifold.points) { triple(point.point); put(point.distance); }
-      }
+      room(1); counted = k; put(0);
+      built.physics.tellContacts(segment.body, sink);
+      room(1); counted = k; put(0);
+      built.physics.tellManifolds(segment.body, sink);
     }
   };
   const writeSenses = (senses: Senses) => {
@@ -319,8 +325,20 @@ export interface Mirror {
   readonly steps: number;
   readonly time: number;
   requestHandPoses(requests: readonly HandPoseRequest[]): void;
-  /** Read the channel's inbound numbers; with `dynamics`, read the body's dynamics from them as its muscles do before their mind steps. */
+  /**
+   * Read the body from the channel's inbound numbers; with `dynamics`, read the body's dynamics
+   * from them as its muscles do before their mind steps. What it senses is read apart (`sense`).
+   */
   refresh(options: { readonly dynamics: boolean }): void;
+  /** Read what its body senses from the numbers the last refresh read into what its senses show (`seen`), and show it (`senses`) until the next. */
+  sense(): void;
+  /**
+   * **What its senses show**, plain data its bout saves (`MirrorSeen`): what its mind last decided
+   * on, which its motor part still reads at a delay (`SplitDriver`).
+   */
+  readonly seen: MirrorSeen;
+  /** Show what its senses show (`seen`) as its senses, as after a load: each body it shows that its numbers have told it of. */
+  recall(): void;
   /** Write what its mind asked into the channel's outbound numbers, and forget the hands' requests sent. */
   answer(): void;
   /**
@@ -338,6 +356,15 @@ export interface MirrorCommand {
   readonly velocity: Float64Array;
   readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
   readonly hands: (readonly HandPoseRequest[])[];
+}
+
+/** What a mirror's senses show, as it last read them: the time, whether its body is out, its life, each other body by its id and its numbers, and the objects. */
+export interface MirrorSeen {
+  time: number;
+  out: boolean;
+  life: number;
+  readonly others: { readonly id: string; readonly numbers: Float64Array }[];
+  objects: readonly ObjectSense[] | undefined;
 }
 
 const EMPTY: readonly never[] = Object.freeze([]);
@@ -476,17 +503,19 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     withdraw() { throw new Error("a mirror's assist is withdrawn by its fight"); },
   };
 
-  const clock = { steps: 0, time: 0, out: false, life: 1, solids: undefined as readonly SolidSense[] | undefined };
-  const others: Shown[] = [], shown = new Map<number, Shown>(), statics_ = new Map<number, ObjectStatics>();
-  let objects: readonly ObjectSense[] | undefined;
+  const clock = { steps: 0, time: 0, solids: undefined as readonly SolidSense[] | undefined };
+  const seen: MirrorSeen = { time: 0, out: false, life: 1, others: [], objects: undefined };
+  const shown = new Map<number, Shown>(), shownBy = new Map<string, Shown>(), statics_ = new Map<number, ObjectStatics>(), others: Shown[] = [];
   const senses: { -readonly [K in keyof Senses]: Senses[K] } = {
-    get time() { return clock.time; },
+    get time() { return seen.time; },
     side: "",
-    get out() { return clock.out; },
-    get life() { return clock.life; },
+    get out() { return seen.out; },
+    get life() { return seen.life; },
     others,
   };
-  Object.defineProperty(senses, "objects", { enumerable: true, get: () => objects });
+  Object.defineProperty(senses, "objects", { enumerable: true, get: () => seen.objects });
+  // Where the last refresh found the senses' own life, and the bodies and objects they show.
+  let lifeAt = 0, sensesAt = 0;
 
   /** Each call's hand requests since the last answer, in order. */
   const hands: (readonly HandPoseRequest[])[] = [];
@@ -507,7 +536,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         case "body": names.set(told.id, told.name); break;
         case "other": shown.set(told.key, { id: told.id, side: told.side, spec: told.spec, out: false, down: false, life: 1, time: 0,
           centre: new Vector3(), velocity: new Vector3(),
-          segments: new Map(told.segments.map((name) => [name, { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])) }); break;
+          segments: new Map(told.segments.map((name) => [name, { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])) }); shownBy.set(told.id, shown.get(told.key)!); break;
         case "object": statics_.set(told.key, { id: told.id, owner: told.owner, points: told.points }); break;
         case "label": targets[told.code] = deepFreeze(told.target); break;
         default: { const never: never = told; throw new Error(`nothing told as ${JSON.stringify(never)}`); }
@@ -557,7 +586,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       help.most.force = a[k++]!; help.most.moment = a[k++]!;
       help.given.force.set(a[k]!, a[k + 1]!, a[k + 2]!); help.given.moment.set(a[k + 3]!, a[k + 4]!, a[k + 5]!); k += 6;
       help.meter.steps = a[k++]!; help.meter.force = a[k++]!; help.meter.moment = a[k++]!; help.withdrawn = a[k++] === 1;
-      clock.out = a[k++] === 1; clock.life = a[k++]!;
+      lifeAt = k; k += 2;
       whole.contacts.fill(null); whole.manifolds.fill(null);
       for (let s = 0; s < records.length; s++) {
         contactsAt[s] = k;
@@ -567,10 +596,51 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         const manifolds = a[k++]!;
         for (let i = 0; i < manifolds; i++) k += MANIFOLD + 4 * a[k + 8]!;
       }
+      sensesAt = k;
       const count = a[k++]!;
-      others.length = count;
+      for (let i = 0; i < count; i++) k += 1 + shown.get(a[k]!)!.segments.size * SENSED_SEGMENT + SENSED_BODY;
+      const sensed = a[k++]!;
+      if (sensed > 0) k += sensed * SENSED_OBJECT;
+      if (statics.labelled) {
+        labelled.world = a[k++]!;
+        labelled.bodies.clear();
+        const count = a[k++]!;
+        for (let i = 0; i < count; i++, k += 2) labelled.bodies.set(a[k]!, a[k + 1]!);
+      }
+      if (reading) dynamics!.update(jointAngles, motion_);
+    },
+    sense() {
+      const a = channel.inbound;
+      seen.time = clock.time; seen.out = a[lifeAt] === 1; seen.life = a[lifeAt + 1]!;
+      let k = sensesAt;
+      const count = a[k++]!, bodies = seen.others;
+      bodies.length = count;
       for (let i = 0; i < count; i++) {
-        const other = shown.get(a[k++]!)!;
+        const other = shown.get(a[k++]!)!, length = other.segments.size * SENSED_SEGMENT + SENSED_BODY;
+        let body = bodies[i];
+        if (body?.id !== other.id || body.numbers.length !== length) bodies[i] = body = { id: other.id, numbers: new Float64Array(length) };
+        body.numbers.set(a.subarray(k, k + length));
+        k += length;
+      }
+      const sensed = a[k++]!;
+      if (sensed < 0) seen.objects = undefined;
+      else {
+        const made: ObjectSense[] = [];
+        for (let i = 0; i < sensed; i++, k += SENSED_OBJECT) {
+          const fixed = statics_.get(a[k]!)!;
+          made.push({ id: fixed.id, owner: fixed.owner, points: fixed.points, time: a[k + 1]!, mass: a[k + 2]!, position: at3(a, k + 3),
+            rotation: [a[k + 6]!, a[k + 7]!, a[k + 8]!, a[k + 9]!], centre: at3(a, k + 10), velocity: at3(a, k + 13), spin: at3(a, k + 16) });
+        }
+        seen.objects = deepFreeze(made);
+      }
+      mirror.recall();
+    },
+    recall() {
+      others.length = 0;
+      for (const { id, numbers: a } of seen.others) {
+        const other = shownBy.get(id);
+        if (!other) continue;
+        let k = 0;
         for (const s of other.segments.values()) {
           const pose = a[k]!;
           if (pose >= 0) (s as { handPose?: HandPose }).handPose = POSES[pose]!;
@@ -585,27 +655,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         other.velocity.set(a[k + 3]!, a[k + 4]!, a[k + 5]!);
         other.out = a[k + 6] === 1; other.down = a[k + 7] === 1; other.life = a[k + 8]!;
         if (Number.isNaN(a[k + 9])) delete other.time; else other.time = a[k + 9]!;
-        k += SENSED_BODY;
-        others[i] = other;
+        others.push(other);
       }
-      const sensed = a[k++]!;
-      if (sensed < 0) objects = undefined;
-      else {
-        const made: ObjectSense[] = [];
-        for (let i = 0; i < sensed; i++, k += SENSED_OBJECT) {
-          const fixed = statics_.get(a[k]!)!;
-          made.push({ id: fixed.id, owner: fixed.owner, points: fixed.points, time: a[k + 1]!, mass: a[k + 2]!, position: at3(a, k + 3),
-            rotation: [a[k + 6]!, a[k + 7]!, a[k + 8]!, a[k + 9]!], centre: at3(a, k + 10), velocity: at3(a, k + 13), spin: at3(a, k + 16) });
-        }
-        objects = deepFreeze(made);
-      }
-      if (statics.labelled) {
-        labelled.world = a[k++]!;
-        labelled.bodies.clear();
-        const count = a[k++]!;
-        for (let i = 0; i < count; i++, k += 2) labelled.bodies.set(a[k]!, a[k + 1]!);
-      }
-      if (reading) dynamics!.update(jointAngles, motion_);
     },
     answer() {
       let calls = 0, size = 0;
@@ -623,7 +674,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       }
       hands.length = 0;
     },
-    command,
+    command, seen,
     idle() {
       state.activation.fill(0); state.velocity.fill(0);
       asked.force.setAll(0); asked.moment.setAll(0);
@@ -632,6 +683,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   };
   // Its dynamics are made as its muscles make theirs, from the body as it first stands.
   mirror.refresh({ dynamics: false });
+  mirror.sense();
   dynamics = bodyDynamics(read, statics.gravity);
   return mirror;
 }

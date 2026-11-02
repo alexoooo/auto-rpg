@@ -90,7 +90,8 @@ export const everyOf = (rate: number | undefined, hz: number): number => rate ==
  * Hand `body` to `decider`: on its `pace`'s steps (every step unless given), and every step the
  * body is down or back from another mind, or its orders change or an action ends, it decides on the body's view and the skills' report,
  * `dt` the time since it last decided; each control step the skills `make` makes (legs and guard
- * with no action, `standingSkills`, unless given) make the command from what it last decided: an
+ * with no action, `standingSkills`, unless given) make the command from what it last decided, on
+ * the body as it is when the body carries the decision out (`SplitDriver`): an
  * action asked again by its id goes on (`Intent.actions`), and an interrupt asked again of an
  * action ended is passed over; what its `aims` hold (`Aim.state`) is the mind's too. Returns the mind so driven (`Driven`). On the step the body is back from another mind
  * (`BodyView.resumed`) the skills are resumed before the decider decides, so the report it reads
@@ -103,9 +104,9 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
   const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, envelopeOf: skills.envelopeOf, instance: skills.instance, readiness: skills.readiness, needs: skills.needs, clearance: skills.clearance };
   /** What it last decided, the step it decided it on, the orders it decided on and the last action ended then (`Ended.sequence`). */
   const state = { held: null as Intent | null, decided: 0, orders: null as Orders | null, ended: 0 };
-  body.drive((view, dt) => {
+  const decide = (view: BodyView, dt: number): Intent => {
     if (view.resumed) skills.resume(view);
-    if (every === 1) return skills.command(view, decider.decide(sight, dt), dt);
+    if (every === 1) return decider.decide(sight, dt);
     const step = Math.round(view.time / dt), ordered = orders?.(sight) ?? null, ledger = skills.report.ledger, ended = ledger.length ? ledger[ledger.length - 1]!.sequence : 0;
     if (state.held === null || view.resumed || view.down || ((step - offset) % every + every) % every === 0 || ended !== state.ended || !sameOrders(ordered, state.orders)) {
       state.held = decider.decide(sight, state.held === null ? dt : (step - state.decided) * dt);
@@ -113,8 +114,10 @@ export function driveBy(body: Body, decider: Decider, make: (body: Body) => Skil
       state.orders = ordered;
       state.ended = ended;
     }
-    return skills.command(view, state.held, dt);
-  }, skills.release);
+    return state.held;
+  };
+  const carry = (view: BodyView, intent: Intent, dt: number) => skills.command(view, intent, dt);
+  body.drive({ decide, carry }, skills.release);
   const whole = { skills: skills.state, decider: decider.state ?? null, pace: state, ...(aims ? { aims } : {}) };
   return { skills, state: whole, report: skillsReport(skills, decider, whole) };
 }

@@ -31,6 +31,8 @@ export interface Seen {
   readonly hz: number;
   /** The rate its mind decides at, Hz (`OptionMindConfig.rate`), at which a profile is read. */
   readonly rate: number;
+  /** The steps its body's command waits (`Body.delay`), at which a profile is read. */
+  readonly delay: number;
   /** The rules the fight is played by (`BodyHost.rules`), which price a blow built by hand (`blowLife`). */
   readonly rules: Rulebook;
   /** The body's own strikes, each with its profile where one is measured as the body reads it (`ModelledStrike`). */
@@ -201,7 +203,7 @@ function modelOf(seen: Seen, strikes: readonly ModelledStrike[], striker: BodySp
  * no measured strike throws is priced by hand while the others are measured.
  */
 function foeModel(seen: Seen, foe: BodySpec, postures: Postures = STANDING): Model {
-  const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate);
+  const reaction = reactionOf(seen), on = profilesOn(seen.measured, foe, seen.hz, reaction, seen.rate, seen.delay);
   const strikes: readonly ModelledStrike[] = on.fresh.length ? on.fresh.map((profile) => ({ name: profile.measured.skill, limbs: profile.limbs ?? [], profile }))
     : seen.strikes.filter((strike) => byHand(strike, reaction, seen.hz) === null);
   const thrown = new Set(strikes.flatMap((strike) => strike.limbs)), limbs = strikersOf(foe).filter((limb) => !thrown.has(limb));

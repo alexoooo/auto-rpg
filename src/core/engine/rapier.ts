@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { CONTACT_FRICTION, STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type ContactPair, type ContactSink, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
@@ -306,12 +306,12 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   };
   /**
    * The contacts `contactsOf` summed of `sides` sides, `pushes` of them pushed on in `shapePairs`
-   * pairs of shapes: first what was pushed on, in the order first pushed, each its point the
-   * impulse's mean and its normal made unit, and its pairs of shapes in this body's shapes' order,
-   * then the other's; then what was not, its point the pairs' mean.
+   * pairs of shapes, told to `sink`: first what was pushed on, in the order first pushed, each its
+   * point the impulse's mean and its normal made unit, and its pairs of shapes in this body's
+   * shapes' order, then the other's; then what was not, its point the pairs' mean.
    */
-  const contactsFrom = (sides: number, pushes: number, shapePairs: number): Contact[] => {
-    const out: Contact[] = [], met = sums.met, s = sums.shapePairs, order = sums.order;
+  const tellContacts = (sides: number, pushes: number, shapePairs: number, sink: ContactSink): void => {
+    const met = sums.met, s = sums.shapePairs, order = sums.order;
     for (let q = 0; q < pushes; q++) {
       const side = sums.pushOrder[q]!, other = sums.others[side] ?? null, o = OTHER * side;
       // Its pairs of shapes, by key: each key is one pair's.
@@ -322,19 +322,16 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         for (; k > 0 && s[SHAPE_PAIR * order[k - 1]! + PAIR.key]! > s[SHAPE_PAIR * p + PAIR.key]!; k--) order[k] = order[k - 1]!;
         order[k] = p;
       }
-      const pairs: ContactPair[] = [];
+      const impulse = met[o + MET.impulse]!, at = o + MET.pushedPoint, along = o + MET.pushedNormal;
+      const length = hypot(met[along]!, met[along + 1]!, met[along + 2]!);
+      sink.contact(other, other === null ? met[o + MET.fixed]! : null, impulse, met[at]! / impulse, met[at + 1]! / impulse, met[at + 2]! / impulse,
+        met[along]! / length, met[along + 1]! / length, met[along + 2]! / length, count);
       for (let k = 0; k < count; k++) {
         const p = SHAPE_PAIR * order[k]!, impulse = s[p + PAIR.impulse]!;
         const length = hypot(s[p + PAIR.normal]!, s[p + PAIR.normal + 1]!, s[p + PAIR.normal + 2]!);
-        pairs.push({ mine: s[p + PAIR.mine]!, theirs: s[p + PAIR.theirs]!, impulse,
-          point: [s[p + PAIR.point]! / impulse, s[p + PAIR.point + 1]! / impulse, s[p + PAIR.point + 2]! / impulse],
-          normal: [s[p + PAIR.normal]! / length, s[p + PAIR.normal + 1]! / length, s[p + PAIR.normal + 2]! / length] });
+        sink.pair(s[p + PAIR.mine]!, s[p + PAIR.theirs]!, impulse, s[p + PAIR.point]! / impulse, s[p + PAIR.point + 1]! / impulse, s[p + PAIR.point + 2]! / impulse,
+          s[p + PAIR.normal]! / length, s[p + PAIR.normal + 1]! / length, s[p + PAIR.normal + 2]! / length);
       }
-      const impulse = met[o + MET.impulse]!, at = o + MET.pushedPoint, along = o + MET.pushedNormal;
-      const length = hypot(met[along]!, met[along + 1]!, met[along + 2]!);
-      out.push({ other, fixed: other === null ? met[o + MET.fixed]! : null, impulse,
-        point: [met[at]! / impulse, met[at + 1]! / impulse, met[at + 2]! / impulse],
-        normal: [met[along]! / length, met[along + 1]! / length, met[along + 2]! / length], pairs });
     }
     for (let side = 0; side < sides; side++) {
       const o = OTHER * side;
@@ -343,11 +340,105 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // Pairs whose normals cancel have no mean direction: the first pair's stands.
       const length = hypot(met[o + MET.normal]!, met[o + MET.normal + 1]!, met[o + MET.normal + 2]!);
       const n = length > 0 ? o + MET.normal : o + MET.first, by = length > 0 ? length : 1;
-      out.push({ other, fixed: other === null ? met[o + MET.fixed]! : null, impulse: 0,
-        point: [met[o + MET.point]! / pairs, met[o + MET.point + 1]! / pairs, met[o + MET.point + 2]! / pairs],
-        normal: [met[n]! / by, met[n + 1]! / by, met[n + 2]! / by], pairs: [] });
+      sink.contact(other, other === null ? met[o + MET.fixed]! : null, 0, met[o + MET.point]! / pairs, met[o + MET.point + 1]! / pairs, met[o + MET.point + 2]! / pairs,
+        met[n]! / by, met[n + 1]! / by, met[n + 2]! / by, 0);
     }
-    return out;
+  };
+  /** The contacts and manifolds told as objects (`Contact`, `ContactManifold`), into `made`, which the reader that asks takes. */
+  const making = {
+    contacts: [] as Contact[], manifolds: [] as ContactManifold[],
+    contact(other: SegmentBody | null, fixed: number | null, impulse: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number) {
+      making.contacts.push({ other, fixed, impulse, point: [px, py, pz], normal: [nx, ny, nz], pairs: [] });
+    },
+    pair(mine: number, theirs: number, impulse: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number) {
+      (making.contacts[making.contacts.length - 1]!.pairs as ContactPair[]).push({ mine, theirs, impulse, point: [px, py, pz], normal: [nx, ny, nz] });
+    },
+    manifold(other: SegmentBody | null, fixed: number | null, mine: number, theirs: number, nx: number, ny: number, nz: number, impulse: number) {
+      making.manifolds.push({ other, fixed, mine, theirs, normal: [nx, ny, nz], points: [], impulse });
+    },
+    point(x: number, y: number, z: number, distance: number) {
+      (making.manifolds[making.manifolds.length - 1]!.points as { point: Vec3; distance: number }[]).push({ point: [x, y, z], distance });
+    },
+  };
+
+  /** `body`'s manifolds as `contactManifoldsOf` reads them, told to `sink`. */
+  const tellManifolds = (body: RapierBody, wanted: ((other: SegmentBody | null) => boolean) | undefined, sink: ContactSink): void => {
+    if (reading) throw new Error("a body's contacts are read while another's are");
+    reading = true;
+    try {
+        // Each collider's record in `contacts` (`contact_readings`): its pairs, each the other
+        // collider, whether it is the pair's first, where the pair ends and its manifolds.
+        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
+        for (let mine = 0; mine < count; mine++) {
+          let at = contacts[slot + mine]!;
+          const pairs = contacts[at++]!;
+          for (let p = 0; p < pairs; p++) {
+            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
+            const other = bodyOf(theirs) ?? null;
+            if (wanted && !wanted(other)) { at = end; continue; }
+            at += 4;
+            for (let m = 0; m < manifolds; m++) {
+              const solver = contacts[at]!, sign = flipped ? -1 : 1;
+              const nx = contacts[at + 1]!, ny = contacts[at + 2]!, nz = contacts[at + 3]!, impulse = contacts[at + 4]!;
+              at += 5;
+              if (solver === 0) continue;
+              sink.manifold(other, other === null ? theirs : null, mine, other === null ? 0 : shapeOf(theirs), sign * nx, sign * ny, sign * nz, impulse, solver);
+              for (let k = 0; k < solver; k++, at += 4) sink.point(contacts[at]!, contacts[at + 1]!, contacts[at + 2]!, contacts[at + 3]!);
+            }
+          }
+        }
+    } finally { reading = false; }
+  };
+  /** `body`'s contacts as `contactsOf` reads them, told to `sink`. */
+  const tellContactsOf = (body: RapierBody, wanted: ((other: SegmentBody | null) => boolean) | undefined, sink: ContactSink): void => {
+    if (reading) throw new Error("a body's contacts are read while another's are");
+    reading = true;
+    let sides = 0, pushes = 0, shapePairs = 0;
+    try {
+        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
+        for (let mine = 0; mine < count; mine++) {
+          let at = contacts[slot + mine]!;
+          const pairs = contacts[at++]!;
+          for (let p = 0; p < pairs; p++) {
+            // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
+            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
+            const of = bodyOf(theirs);
+            if (wanted && !wanted(of ?? null)) { at = end; continue; }
+            at += 4;
+            // A fixed collider is one shape.
+            const theirShape = of ? shapeOf(theirs) : 0;
+            // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
+            const sign = flipped ? -1 : 1;
+            for (let m = 0; m < manifolds; m++) {
+              // In contact is a solver contact point: the two touch, or are within the distance Rapier
+              // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
+              const points = contacts[at]!, impulse = contacts[at + 4]!;
+              const nx = sign * contacts[at + 1]!, ny = sign * contacts[at + 2]!, nz = sign * contacts[at + 3]!;
+              at += 5;
+              if (points === 0) continue;
+              let ax = 0, ay = 0, az = 0;
+              for (let i = 0; i < points; i++, at += 4) { ax += contacts[at]! / points; ay += contacts[at + 1]! / points; az += contacts[at + 2]! / points; }
+              const side = sideOf(of ?? null, theirs, sides, nx, ny, nz);
+              if (side === sides) sides++;
+              const met = sums.met, o = OTHER * side;
+              met[o + MET.pairs]! += 1;
+              met[o + MET.point]! += ax; met[o + MET.point + 1]! += ay; met[o + MET.point + 2]! += az;
+              met[o + MET.normal]! += nx; met[o + MET.normal + 1]! += ny; met[o + MET.normal + 2]! += nz;
+              if (!(impulse > 0)) continue;
+              if (met[o + MET.pushed] === 0) { met[o + MET.pushed] = 1; sums.pushOrder[pushes++] = side; }
+              // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
+              const pair = shapePairOf(side, mine * SHAPES_MOST + theirShape, mine, theirShape, shapePairs);
+              if (pair === shapePairs) shapePairs++;
+              push(met, o + MET.impulse, impulse, ax, ay, az, nx, ny, nz);
+              push(sums.shapePairs, SHAPE_PAIR * pair + PAIR.impulse, impulse, ax, ay, az, nx, ny, nz);
+            }
+          }
+        }
+      if (sides > 0) tellContacts(sides, pushes, shapePairs, sink);
+    } finally {
+      reading = false;
+      for (let i = 0; i < sides; i++) sums.others[i] = null;
+    }
   };
 
   /** Every listed body's pose and velocities, read out of Rapier in one call (`rbPosesAndVelocities`) after a step. */
@@ -785,95 +876,35 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     addFixedShape(shape) { return fixed(colliderOf(shape), shape); },
     contactManifoldsOf(segment, wanted) {
       const body = own(segment);
-      if (reading) throw new Error("a body's contacts are read while another's are");
       readContacts();
       const kept = wanted ? undefined : whole.manifolds.get(body);
       if (kept) return kept;
-      reading = true;
-      let out: ContactManifold[] | null = null;
-      try {
-        // Each collider's record in `contacts` (`contact_readings`): its pairs, each the other
-        // collider, whether it is the pair's first, where the pair ends and its manifolds.
-        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
-        for (let mine = 0; mine < count; mine++) {
-          let at = contacts[slot + mine]!;
-          const pairs = contacts[at++]!;
-          for (let p = 0; p < pairs; p++) {
-            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
-            const other = bodyOf(theirs) ?? null;
-            if (wanted && !wanted(other)) { at = end; continue; }
-            at += 4;
-            for (let m = 0; m < manifolds; m++) {
-              const solver = contacts[at]!, sign = flipped ? -1 : 1;
-              const nx = contacts[at + 1]!, ny = contacts[at + 2]!, nz = contacts[at + 3]!, impulse = contacts[at + 4]!;
-              at += 5;
-              if (solver === 0) continue;
-              const points: { point: Vec3; distance: number }[] = [];
-              for (let k = 0; k < solver; k++, at += 4) points.push({ point: [contacts[at]!, contacts[at + 1]!, contacts[at + 2]!], distance: contacts[at + 3]! });
-              (out ??= []).push({ other, fixed: other === null ? theirs : null, mine,
-                theirs: other === null ? 0 : shapeOf(theirs), normal: [sign * nx, sign * ny, sign * nz], points, impulse });
-            }
-          }
-        }
-      } finally { reading = false; }
-      if (!wanted) whole.manifolds.set(body, out ?? NONE);
-      return out ?? NONE;
+      making.manifolds = [];
+      tellManifolds(body, wanted, making);
+      const made = making.manifolds.length === 0 ? NONE : making.manifolds;
+      making.manifolds = [];
+      if (!wanted) whole.manifolds.set(body, made);
+      return made;
     },
     contactsOf(segment, wanted) {
       const body = own(segment);
-      if (reading) throw new Error("a body's contacts are read while another's are");
       readContacts();
       const kept = wanted ? undefined : whole.contacts.get(body);
       if (kept) return kept;
-      reading = true;
-      let sides = 0, pushes = 0, shapePairs = 0;
-      try {
-        const slot = slotOf.get(body)!, count = colliderHandles.get(body)!.length;
-        for (let mine = 0; mine < count; mine++) {
-          let at = contacts[slot + mine]!;
-          const pairs = contacts[at++]!;
-          for (let p = 0; p < pairs; p++) {
-            // Rapier pairs no two colliders of one body; a collider with no body is a fixed one.
-            const theirs = contacts[at]!, flipped = contacts[at + 1] === 1, end = contacts[at + 2]!, manifolds = contacts[at + 3]!;
-            const of = bodyOf(theirs);
-            if (wanted && !wanted(of ?? null)) { at = end; continue; }
-            at += 4;
-            // A fixed collider is one shape.
-            const theirShape = of ? shapeOf(theirs) : 0;
-            // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
-            const sign = flipped ? -1 : 1;
-            for (let m = 0; m < manifolds; m++) {
-              // In contact is a solver contact point: the two touch, or are within the distance Rapier
-              // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
-              const points = contacts[at]!, impulse = contacts[at + 4]!;
-              const nx = sign * contacts[at + 1]!, ny = sign * contacts[at + 2]!, nz = sign * contacts[at + 3]!;
-              at += 5;
-              if (points === 0) continue;
-              let ax = 0, ay = 0, az = 0;
-              for (let i = 0; i < points; i++, at += 4) { ax += contacts[at]! / points; ay += contacts[at + 1]! / points; az += contacts[at + 2]! / points; }
-              const side = sideOf(of ?? null, theirs, sides, nx, ny, nz);
-              if (side === sides) sides++;
-              const met = sums.met, o = OTHER * side;
-              met[o + MET.pairs]! += 1;
-              met[o + MET.point]! += ax; met[o + MET.point + 1]! += ay; met[o + MET.point + 2]! += az;
-              met[o + MET.normal]! += nx; met[o + MET.normal + 1]! += ny; met[o + MET.normal + 2]! += nz;
-              if (!(impulse > 0)) continue;
-              if (met[o + MET.pushed] === 0) { met[o + MET.pushed] = 1; sums.pushOrder[pushes++] = side; }
-              // A pair's key: this body's shape, then the other's, which a body has fewer of than this.
-              const pair = shapePairOf(side, mine * SHAPES_MOST + theirShape, mine, theirShape, shapePairs);
-              if (pair === shapePairs) shapePairs++;
-              push(met, o + MET.impulse, impulse, ax, ay, az, nx, ny, nz);
-              push(sums.shapePairs, SHAPE_PAIR * pair + PAIR.impulse, impulse, ax, ay, az, nx, ny, nz);
-            }
-          }
-        }
-        const made = sides === 0 ? NONE : contactsFrom(sides, pushes, shapePairs);
-        if (!wanted) whole.contacts.set(body, made);
-        return made;
-      } finally {
-        reading = false;
-        for (let i = 0; i < sides; i++) sums.others[i] = null;
-      }
+      making.contacts = [];
+      tellContactsOf(body, wanted, making);
+      const made = making.contacts.length === 0 ? NONE : making.contacts;
+      making.contacts = [];
+      if (!wanted) whole.contacts.set(body, made);
+      return made;
+    },
+    tellContacts(segment, sink) {
+      readContacts();
+      tellContactsOf(own(segment), undefined, sink);
+    },
+    tellManifolds(segment, sink) {
+      readContacts();
+      tellManifolds(own(segment), undefined, sink);
     },
     step(dt) {
       raw.timestep = dt;

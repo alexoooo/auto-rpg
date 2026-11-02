@@ -126,8 +126,6 @@ export interface ActionClaim {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Hand poses by the hand's segment (`BodyCommand.handPoses`). */
   readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
-  /** A motor program the body knows (`BodyCommand.programs`), whose pushes motor control adds on the body as it is. */
-  readonly program?: string;
   /**
    * With the legs held, the legs goal (`LegsGoal`), which the legs complete; null, no stance at
    * all: the legs' muscles are the claim's own (pushed), and the legs, the guard, low support and
