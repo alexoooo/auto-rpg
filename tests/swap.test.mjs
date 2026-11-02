@@ -37,6 +37,7 @@ const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
 const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTION_DEFAULTS, SWAP_QUADRUPED_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
+const { OTHER_OPTION } = await import("./fixtures/swap/other.mjs");
 const { STRAIGHT_NAVIGATION } = await import("./fixtures/swap/straight-navigation.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
 const { saveState } = await import("../src/core/state.ts");
@@ -235,10 +236,10 @@ test("nested slot faults reach links with their path, another entrant's part how
     assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults }, "the screen's link parser returns the faulty configuration and its diagnostic");
   }
   // Another entrant's part, in a list or a slot below a slot, makes the tree two entrants': refused at its root, through a link too.
-  const riser = MINDS["riser-rogue"].config, two = (first, second) => `it names the kinds of ${first} and ${second}: a tree is one entrant's`;
+  const other = { ...base, options: [...base.options, OTHER_OPTION.defaults] }, two = (first, second) => `it names the kinds of ${first} and ${second}: a tree is one entrant's`;
   for (const [config, faults] of [
-    [{ ...riser, options: [...riser.options, option.defaults] }, [two("riser", "swap")]],
-    [{ ...riser, chooser: { kind: "valued", depth: 2, objective: objective.defaults } }, [two("swap", "riser")]],
+    [{ ...other, options: [...other.options, option.defaults] }, [two("other", "swap")]],
+    [{ ...other, chooser: { kind: "valued", depth: 2, objective: objective.defaults } }, [two("swap", "other")]],
   ]) {
     assert.deepEqual(treeFaults(config), faults);
     assert.deepEqual(parseMind(JSON.stringify(config), warrior, FIGHT_ENTRY), { config, faults });

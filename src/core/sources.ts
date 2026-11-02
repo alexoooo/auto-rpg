@@ -278,6 +278,13 @@ export const SOURCES = Object.freeze({
       + "is fastest and surest at.",
     record: "docs/reference/run-body.md",
   },
+  "owner-rogue-arms": {
+    kind: "decision", date: "2026-11-01",
+    decided: "The Rogue's arms may be set to what stands her up from the owner's target falls in every loadout "
+      + "(the owner: stand-up fast and robust on the Warrior and the Rogue). Each factor so set is the least that "
+      + "the target's falls read best at, with its before and after.",
+    record: "docs/reference/rising.md#the-rogues-arms",
+  },
   "owner-punch-body": {
     kind: "decision", date: "2026-10-24",
     decided: "A body's numbers may be set to what gives a punch like a person's (the owner: 'the speed curve "

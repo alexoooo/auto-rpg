@@ -712,7 +712,7 @@ toolkit controller alone is no pick.
 
 **An entrant** (`Entrant`, `src/core/parts/entrant.ts`) is one AI: its name (its folder's), its own
 kinds of mind (`minds`), its own parts of any role (`parts`) and its presets. Every kind it registers
-is scoped by its name (`riser:recovery`, `scopeOf`); the toolkit's kinds are not. A tree names the
+is scoped by its name (`bare:mind`, `scopeOf`); the toolkit's kinds are not. A tree names the
 toolkit's kinds and one entrant's at most (`treeScope`), so an entrant builds on the toolkit and
 never on another entrant; a part two entrants want belongs in the toolkit. The catalog refuses, as a
 value in `Catalog.faults` with the entry left out, an unscoped or misscoped kind, a kind twice, a
@@ -1113,7 +1113,7 @@ own folder and its own data, and nothing else (`tests/core-boundary.test.mjs`), 
 its own (`node scripts/entrant-check.mjs`).
 
 1. **Most entrants are presets**: configs of the toolkit's kind of mind (`option`) holding the
-   toolkit's parts and their own (`option`, `walker`, `option-reptile`, `riser`).
+   toolkit's parts and their own (`option`, `walker`, `option-reptile`).
 2. **A part of its own**, of any role (any slot's, an action's aim, an option, a chooser's
    objective, a frame, the quadruped's motor, gaits, bite and stalk), is a module in its folder and a
    line of its manifest's `parts`, its kind `<name>:<kind>` (the swap fixture's stubs,

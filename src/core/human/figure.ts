@@ -3,6 +3,7 @@ import type { Quantity, Vec3 } from "../spec/quantity.ts";
 import type { Extents, TrunkSegment } from "./envelope.ts";
 import type { LimbLandmarks, TrunkLandmarks } from "./landmarks.ts";
 import type { DeLevaSegment, Sex } from "./tables/de-leva-1996.ts";
+import type { Exertion } from "./tables/joint-torques.ts";
 
 /**
  * **A human figure**: everything the human body-plan code (`segments.ts`, `joints.ts`,
@@ -54,6 +55,8 @@ export interface HumanFigure {
   readonly breadth?: Quantity<number>;
   /** A factor on every peak torque (`peakTorque`); absent, 1. */
   readonly strength?: Quantity<number>;
+  /** A factor on the named exertions' peak torques (`peakTorque`), each beside `strength`; an exertion left out, 1. */
+  readonly exertions?: Readonly<Partial<Record<Exertion, Quantity<number>>>>;
   /** A factor on every unloaded speed of shortening (`jointSpeed`); absent, 1. */
   readonly speed?: Quantity<number>;
   /** The body's hit points, in the rulebook's unit. */

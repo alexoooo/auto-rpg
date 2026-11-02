@@ -3,6 +3,7 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { WorkshopModel } from "./rig.ts";
 import { attributeError } from "../character-attributes.ts";
+import type { Exertion } from "./tables/joint-torques.ts";
 
 /** A human figure's attributes: the figure's. */
 export function humanAttributes(figure: HumanFigure): AttributeSpec {
@@ -43,3 +44,13 @@ export function workshopBalance(model: WorkshopModel): Quantity<number> {
     default: { const never: never = model; throw new Error(`no balance for ${String(never)}`); }
   }
 }
+
+/**
+ * **Each workshop model's factors on named exertions** (`HumanFigure.exertions`), the owner's, set for
+ * the result the owner asked of the body (`owner-rogue-arms`, `docs/reference/rising.md#the-rogues-arms`): the
+ * Rogue's elbows straighten under her on hands and knees.
+ */
+export const WORKSHOP_EXERTIONS: Readonly<Record<WorkshopModel, Readonly<Partial<Record<Exertion, Quantity<number>>>> | undefined>> = Object.freeze({
+  "workshop-fighter": undefined,
+  "workshop-rogue": Object.freeze({ elbowExtension: sourced(2, "1", "owner-rogue-arms", "the Rogue's elbow extension over its measured peak") }),
+});

@@ -39,7 +39,9 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
     torque * (mass * muscle / muscleMass) / (menMass * menMuscle / menMuscleMass));
   const inUse = IN_USE[exertion];
   const used = inUse ? derive("N m", "the torque times what the exertion gives in use over its measured peak", [torque, inUse], (t, f) => t * f) : torque;
-  return figure.strength ? derive("N m", "the torque times the figure's strength", [used, figure.strength], (t, s) => t * s) : used;
+  const own = figure.exertions?.[exertion];
+  const set = own ? derive("N m", "the torque times the figure's factor on the exertion", [used, own], (t, f) => t * f) : used;
+  return figure.strength ? derive("N m", "the torque times the figure's strength", [set, figure.strength], (t, s) => t * s) : set;
 }
 
 /**

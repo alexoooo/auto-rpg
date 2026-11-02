@@ -241,7 +241,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   stands the Rogue from 25 of the target's 32 falls, a median of 17.2 s, short of the Warrior: its
   arms do not straighten under it on hands and knees, so its sit-back cannot take its weight back
   ([Option Mind's rise](reference/rising.md#option-minds-rise-on-the-target)); a rise that does not
-  push up on the arms is open. The
+  push up on the arms is open. The Skeleton rolls and sits back by its own poses and times and
+  stands 13 of 15 of its falls empty-handed, none holding the club
+  ([the roll](reference/rising.md#the-roll), [the table](reference/the-table.md)). The legs bearing on
+  any set of ends, a ground technique holding only the limbs it moves, is the plan's cleanup step,
+  after the stand-up. The
   owner watched the rise in the Lab's Stand-up (Option Mind, toes) on 2026-10-29: it looks good,
   and good enough for now; its end changed on 2026-10-31 (the climb kept by the technique, one
   settling step), and waits on the owner's look. The Rise drill's reel waits on a page that plays a technique case
