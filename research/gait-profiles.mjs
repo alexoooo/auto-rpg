@@ -5,7 +5,7 @@
  * less `TOP`): the share whose strike was admitted, the mean seconds from the stop until it was
  * (`GaitReading.braced`), and the share that fell. Each names what it was measured on: the body as
  * the drill's recipe resolves it, the gait's legs (its mind's Move's, `gaitsOfMove`) and the strike it stopped to throw
- * (`gaitDigest`), the harness's rate, the rate its mind decides at, and no reaction time. Option Mind prices where a gait leaves the
+ * (`gaitDigest`), the harness's rate and command delay (`harnessRule`), the rate its mind decides at, and no reaction time. Option Mind prices where a gait leaves the
  * body by them (`src/core/option/tactics.ts`).
  *
  *   node research/gait-profiles.mjs [<record.jsonl> ...] [--write]
@@ -21,6 +21,7 @@ import { gaitDigest, measuredOn, skillDigest } from "../src/core/skills/framewor
 import { everyOf } from "../src/core/mind/decider.ts";
 import { gaitNamed, STOCK_GAITS } from "../src/core/skills/locomotion/gaits.ts";
 import { gaitsOfMove } from "../src/core/skills/locomotion/move-part.ts";
+import { harnessRule } from "../src/evaluation/record.ts";
 
 const OUT = "assets/core/gait-profiles.json", SCRIPT = "research/gait-profiles.mjs";
 /** How far under the fastest a gait came to at the stop a trial may have gone and still be read as at its top, m/s. */
@@ -39,8 +40,9 @@ const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
   if (header.evaluation !== "gait") throw new Error(`${path} is no record of the Gait drill`);
-  const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
-  if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const rule = harnessRule(header.harness);
+  if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const { hz, delay } = rule;
   for (const row of rows) {
     const recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
     // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
@@ -50,7 +52,7 @@ for (const path of paths) {
     if (!action) throw new Error(`${path}: ${drill.action} is not an action its body throws`);
     const gait = gaitNamed(mind.locomotion?.kind === "move" ? gaitsOfMove(mind.locomotion) : STOCK_GAITS, drill.gait);
     if (!gait) throw new Error(`${path}: no gait ${drill.gait} in its mind's legs`);
-    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, spec, mind.executors, action)), hz, null, hz / everyOf(mind.rate, hz)), key = JSON.stringify(measured);
+    const measured = measuredOn(spec, gaitDigest(gait.legs, skillDigest(partLookup, spec, mind.executors, action)), hz, null, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify(measured);
     const profile = profiles.get(key) ?? { measured, label: `${spec.model} ${drill.gait}`, rows: [] };
     profiles.set(key, profile);
     profile.rows.push(row.reading);
@@ -66,6 +68,6 @@ const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles
 }) };
 for (const [i, profile] of [...profiles.values()].entries()) {
   const c = out.profiles[i].cells[0];
-  console.log(`${profile.label} (${profile.measured.body}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}): at its top, ${round(profile.top)} m/s, ${c.trials} trials, admitted ${c.done}, ${c.seconds} s unbraced, down ${c.down}`);
+  console.log(`${profile.label} (${profile.measured.body}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}${profile.measured.delay ? `, its command ${profile.measured.delay} steps late` : ""}): at its top, ${round(profile.top)} m/s, ${c.trials} trials, admitted ${c.done}, ${c.seconds} s unbraced, down ${c.down}`);
 }
 if (write) writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);

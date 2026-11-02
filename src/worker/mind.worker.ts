@@ -1,7 +1,7 @@
 import { replyBox } from "../apart/box.ts";
 import { encodeExact } from "../apart/codec.ts";
 import { mindThread } from "../apart/thread.ts";
-import { DONE, type Batch } from "../apart/wire.ts";
+import { ANSWERED, DONE, type Batch } from "../apart/wire.ts";
 import { DATA_KEYS, loadData } from "../core/data/store.ts";
 import type { MindWorkerStart } from "./minds.ts";
 
@@ -13,7 +13,7 @@ import type { MindWorkerStart } from "./minds.ts";
  */
 const scope = self as unknown as { onmessage: ((event: MessageEvent<MindWorkerStart | Batch>) => void) | null; close(): void };
 const ready = loadData(DATA_KEYS);
-let started: { readonly control: Int32Array; readonly put: (text: string) => void; readonly arena: SharedArrayBuffer; readonly thread: ReturnType<typeof mindThread> } | null = null;
+let started: { readonly control: Int32Array; readonly put: (text: string) => void; readonly arena: SharedArrayBuffer; readonly count: (steps: number) => void; readonly thread: ReturnType<typeof mindThread> } | null = null;
 let made = 0, chain: Promise<void> = ready;
 
 scope.onmessage = ({ data }) => {
@@ -25,12 +25,14 @@ scope.onmessage = ({ data }) => {
       made += length;
       return numbers;
     };
-    started = { control: data.control, put: (text) => box.put(text), arena, thread: mindThread(allocate) };
+    const control = data.control;
+    const count = (steps: number): void => { Atomics.store(control, ANSWERED, steps); Atomics.notify(control, ANSWERED); };
+    started = { control, put: (text) => box.put(text), arena, count, thread: mindThread(allocate, count) };
     return;
   }
   const batch = data;
   chain = chain.then(() => {
-    const { control, put, arena, thread } = started!;
+    const { control, put, arena, count, thread } = started!;
     if (batch.stop) { scope.close(); return; }
     const reply = thread.handle(batch);
     let text: string;
@@ -41,6 +43,7 @@ scope.onmessage = ({ data }) => {
       });
     } catch (error) { text = encodeExact({ seq: batch.seq, said: [], error: String((error as Error)?.stack ?? error) }, () => { throw new Error("no numbers"); }); }
     put(text);
+    count(thread.steps);
     Atomics.store(control, DONE, batch.seq);
     Atomics.notify(control, DONE);
   });

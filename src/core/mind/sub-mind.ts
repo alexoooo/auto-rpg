@@ -53,7 +53,8 @@ const HOST = -1, NOBODY = -2;
 
 /**
  * `host` with `subs`, in rank order: each step the host looks, then the first sub-mind that wants
- * the body steps in the host's place, or the host acts. Its memory is who has the body (the
+ * the body steps in the host's place, or the host acts. Its motor part (`Mind.move`) is the one of
+ * whoever has the body. Its memory is who has the body (the
  * sub-mind's place in `subs`, `HOST`, or `NOBODY`), the host's, and each sub-mind's.
  *
  * Idled (`Mind.idle`), the body is handed to nobody as it is handed to a sub-mind: the one that had
@@ -85,6 +86,10 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
       }
       if (want < 0) host.act(dt);
       else subs[want]!.step(senses, dt);
+    },
+    move(dt) {
+      if (state.has === HOST) host.move?.(dt);
+      else if (state.has >= 0) subs[state.has]!.move?.(dt);
     },
     idle() {
       giveUp("idle");

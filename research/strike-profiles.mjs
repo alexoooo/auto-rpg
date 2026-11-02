@@ -4,7 +4,7 @@
  * names theirs), each strike's trials thrown from rest at a gap, on a mark its action aims at, with
  * a limb that throws it with what it holds (`armedActions`). A profile a skill on a body against a
  * target: its measured-on read from each row's world (the left
- * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate,
+ * body's spec as the bout builds it, the skill's digest as the mind holds it, the harness's rate and command delay (`harnessRule`),
  * the recipe's sense delay, the rate its mind decides at), its target the right body's; a cell a range, the target's phase as
  * the striker sensed it where its trial began (the reading's `foePhase`; a trial with none never
  * reached the drill) and its posture then (`foeAt.posture`, `ProfileCell.postures`; standing in a
@@ -35,6 +35,7 @@ import { armedActions } from "../src/core/skills/action-config.ts";
 import { measuredOn, skillDigest, specDigest } from "../src/core/skills/framework/profile.ts";
 import { everyOf } from "../src/core/mind/decider.ts";
 import { bodyKey } from "../src/core/spec/body.ts";
+import { harnessRule } from "../src/evaluation/record.ts";
 
 const OUT = "assets/core/strike-profiles.json", SCRIPT = "research/strike-profiles.mjs";
 const write = process.argv.includes("--write");
@@ -61,8 +62,9 @@ const profiles = new Map();
 for (const path of paths) {
   const [header, ...rows] = read(path);
   if (header.evaluation !== "strike" && header.evaluation !== "baseline") throw new Error(`${path} is no record of the Strike drill or the baseline`);
-  const hz = Number(/(\d+) Hz/.exec(header.harness)?.[1]);
-  if (!Number.isFinite(hz)) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const rule = harnessRule(header.harness);
+  if (!rule) throw new Error(`${path}: no rate in its harness, ${header.harness}`);
+  const { hz, delay } = rule;
   for (const row of rows) {
     const rung = row.condition.rung ?? header.protocol, recipe = row.world?.recipe, mind = recipe?.minds?.left, led = recipe?.commanders?.left;
     // The drill Commander's config, or, in a record from before it, the drill's tactics in the mind.
@@ -77,7 +79,7 @@ for (const path of paths) {
     if (marks && !marks.includes(row.condition.mark)) continue;
     const reaction = Math.round((recipe.senseDelay ?? 0) * hz) / hz;
     const struck = specOf(recipe, "right"), target = { body: bodyKey(struck), spec: specDigest(struck) };
-    const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction, hz / everyOf(mind.rate, hz)), key = JSON.stringify([measured, target]);
+    const measured = measuredOn(spec, skillDigest(partLookup, spec, mind.executors, action), hz, reaction, hz / everyOf(mind.rate, hz), delay), key = JSON.stringify([measured, target]);
     const profile = profiles.get(key) ?? { measured, target, label: `${spec.model} ${drill.action} on ${struck.model}`, effectors: action.effectors, limbs: new Set(), records: new Set(), cells: new Map() };
     profiles.set(key, profile);
     profile.records.add(path);
@@ -117,7 +119,7 @@ const out = { source: { script: SCRIPT, records: paths }, profiles: [...profiles
     ...(c.posture === "standing" ? {} : { postures: { own: "standing", target: c.posture } }),
     ...(c.lets.size ? { letGo: [...c.lets].sort(([a], [b]) => a - b).map(([progress, at]) => ({ progress: round(progress), seconds: round(at.seconds / at.n), taken: round(at.taken / at.n) })) } : {}) })) })) };
 for (const [i, profile] of [...profiles.values()].entries()) {
-  console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}, senses ${profile.measured.reaction} s late)`);
+  console.log(`${profile.label} (${profile.measured.body}, spec ${profile.measured.spec}, skill ${profile.measured.skill}, ${profile.measured.hz} Hz${profile.measured.rate ? `, its mind at ${profile.measured.rate} Hz` : ""}${profile.measured.delay ? `, its command ${profile.measured.delay} steps late` : ""}, senses ${profile.measured.reaction} s late)`);
   for (const c of out.profiles[i].cells) console.log(`  ${c.postures ? `${c.postures.target} ` : ""}${c.phase} ${c.range} m: ${c.trials} trials, landed ${c.done}, dealt ${c.dealt} HP, taken ${c.taken} HP, ${c.seconds} s, down ${c.down}${c.letGo ? `; let go: ${c.letGo.map((at) => `at ${at.progress} s, ${at.seconds} s, taken ${at.taken} HP`).join("; ")}` : ""}`);
   for (const c of profile.cells.values()) if (c.trials === 0) console.log(`  ${c.phase} ${c.range} m: let go ${[...c.lets.values()].reduce((n, at) => n + at.n, 0)} times, no trial thrown: left out`);
 }

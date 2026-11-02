@@ -166,7 +166,8 @@ export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist
   if (refused) throw new Error(`${built.spec.model}: the stance ${refused}`);
   const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);
   const segments = [...built.segments.values()], total = massOf(segments);
-  const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total
+  // The rigid bodies' masses and centres, what a held item adds included, as the goal's height reads them (`standingHeight`).
+  const rise = segments.reduce((sum, part) => sum + part.rigid.mass * part.rigid.centre[1], 0) / total
     - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
   const pace: [number, number] = [0, 0], resolved = resolveStance(tuning);
   const state: StanceState = {

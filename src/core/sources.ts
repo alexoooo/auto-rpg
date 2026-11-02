@@ -278,6 +278,13 @@ export const SOURCES = Object.freeze({
       + "is fastest and surest at.",
     record: "docs/reference/run-body.md",
   },
+  "owner-skeleton-arms": {
+    kind: "decision", date: "2026-11-02",
+    decided: "The skeleton's body may be set for its strikes to reach their scaled bars (the owner's plan: where the body "
+      + "is the limit, its numbers are set for the result). Its arms' motors run at the least factor over the peak-power line "
+      + "read to let its straight punch reach its bar, with its before and after.",
+    record: "docs/art/skeleton.md#the-arms-speed",
+  },
   "owner-rogue-arms": {
     kind: "decision", date: "2026-11-01",
     decided: "The Rogue's arms may be set to what stands her up from the owner's target falls in every loadout "
@@ -324,7 +331,7 @@ export const SOURCES = Object.freeze({
   },
   "owner-command-delay": {
     kind: "decision", date: "2026-11-01",
-    decided: "A body's command takes effect a number of steps after the step it is made on, the same in every world, so each body's mind can run beside the world: one step once motor control holds balance and the rise a step late, none until then.",
+    decided: "A body's command takes effect a number of steps after the step it is made on, the same in every world, so each body's mind can run beside the world: one step, once motor control holds balance and the rise a step late.",
     record: "docs/reference/command-delay.md",
   },
   "owner-physics-rate": {

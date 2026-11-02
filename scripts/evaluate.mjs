@@ -41,7 +41,8 @@ import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/entrants/game.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
-import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
+import { harnessOf, readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
+import { COMMAND_DELAY } from "../src/core/world.ts";
 import { boutSeedsOf, casesOf, figuresOf, runEvaluation, runOrder, senseDelaysOf, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
@@ -235,7 +236,7 @@ async function runProtocol(evaluation, id, protocol, named, values) {
   if (cases.engine && values.engine && values.engine !== cases.engine) throw new Error(`${id} ${protocol} is played on ${cases.engine}`);
   const engine = cases.engine ?? values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
   if (!isEngineName(engine)) throw new Error(`no engine ${engine}`);
-  const harness = `Node, core world (src/core/world.ts), ${engine}, 120 Hz`;
+  const harness = harnessOf(engine, COMMAND_DELAY.value);
   const [shardAt, shards] = values.shard ? values.shard.split("/").map(Number) : [1, 1];
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 

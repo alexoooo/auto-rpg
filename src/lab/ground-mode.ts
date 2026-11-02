@@ -17,7 +17,7 @@ import type { LabAddress } from "./scenarios.ts";
 import { groundMeter } from "./ground-meter.ts";
 import { shoveBody } from "./stance-mode.ts";
 import { dummySpec, hangDummy } from "./targets.ts";
-import { CALM, LAB_GUSTS, startWind } from "./wind.ts";
+import { CALM, labGusts, startWind } from "./wind.ts";
 import { groundEnvironment } from "./ground-environment.ts";
 import { addArenaSolids } from "../arena/room.ts";
 import { solidSenses } from "../core/mind/object-senses.ts";
@@ -27,9 +27,10 @@ import { hypot } from "../core/math/real.ts";
  * **How a stand is verified**: from its recovery's takeover, upright and loaded on both feet,
  * quiet for `quiet` s (`recoveryMeasurement`); then holding `standing` s and walking forward at
  * `pace` m/s for `walking` s, its host in command at the end and never down meanwhile. A recovery
- * not quiet `cap` s after its takeover has failed.
+ * not quiet `cap` s after its takeover has failed; one quiet within `within` s meets the owner's
+ * target's time (`docs/reference/rising.md#the-owners-target`).
  */
-export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30 });
+export const STAND_CHECK = deepFreeze({ quiet: .5, standing: 2, walking: 1, pace: .3, cap: 30, within: 10 });
 /** The owner's target's shove: N s for each kg of the body, once, at the chest. */
 const TARGET_SHOVE = 1.5;
 /** A round's falls: sixteen ways round, 22.5 degrees apart, the target's directions. */
@@ -150,7 +151,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
       ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
-  const wind = startWind(body.built, world, address.ground.gusts ? LAB_GUSTS : CALM, address.seed);
+  const wind = startWind(body.built, world, address.ground.gusts ? labGusts(address.model) : CALM, address.seed);
   const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
   const round = address.ground.start === "round";
   const state = { status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
@@ -193,7 +194,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
     const stood = state.falls.flatMap((f) => f.verified === null ? [] : [f.verified]), sorted = [...stood].sort((a, b) => a - b);
     // Failures count at the cap, as the target's median counts them.
     const all = state.falls.map((f) => f.verified ?? STAND_CHECK.cap).sort((a, b) => a - b), middle = all.length >> 1;
-    return { falls: state.falls.length, of: ROUND_FALLS, stood: stood.length, within6: sorted.filter((t) => t <= 6).length,
+    return { falls: state.falls.length, of: ROUND_FALLS, stood: stood.length, within: sorted.filter((t) => t <= STAND_CHECK.within).length,
       median: all.length ? (all.length % 2 ? all[middle]! : (all[middle - 1]! + all[middle]!) / 2) : null };
   };
   return {

@@ -1,5 +1,5 @@
 /**
- * **A timed punch searched on the Strike drill**: the Puncher's straight punch with its drive on a
+ * **A timed punch searched on the Strike drill**: Option Mind's straight punch with its drive on a
  * schedule (`StraightPunch.timed`): each of the pushed channels (`ceilingChannels`: the trunk, both
  * legs and the striking arm) a level, a start and a length into the drive, the stance and the arm's
  * aim beneath. With `--blow <kind>`, a held blow (`HELD_BLOWS`: `club-blow`, `sword-cut`,
@@ -93,7 +93,7 @@ export function decode(x, hand, gap, without = new Set(), { driven = true, fire 
 }
 
 /**
- * The Puncher with its punch driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
+ * Option Mind throwing its straight punch alone, driven on `pushes` by `hand` (its research `tuning`, whole), aimed from
  * `lead` s, `through` m past its target; with `aim`, its strike so aimed at the middle mark. With
  * `blow`, Option Mind's held blow of that kind so driven instead, `hand` holding its item and the
  * other the buckler, its action's own aim kept, at `mark` (its own where null).
@@ -106,10 +106,9 @@ export function timedPuncher({ pushes, lead, through, beneath, driven, fire, bra
     return { mind: { ...preset, actions, executors: preset.executors.map((one) => one.kind === blow ? { ...one, tuning } : one) }, action: blow,
       held: { [hand]: HELD_BLOWS[blow].item, [other]: "buckler" } };
   }
-  const preset = MINDS.puncher.config, punch = preset.executors[0];
-  const actions = aim ? preset.actions.map((action) => action.name === "strike" ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action) : preset.actions;
-  const executor = { ...punch, tuning };
-  return { mind: { ...preset, actions, executors: [executor] }, action: "strike" };
+  const preset = MINDS.option.config, punch = preset.executors.find((one) => one.kind === "straight-punch");
+  const action = preset.actions.find((one) => one.executor === punch.name), strike = aim ? { ...action, aim, regions: [{ kind: "mark", mark: "middle" }] } : action;
+  return { mind: { ...preset, actions: [strike], executors: [{ ...punch, tuning }] }, action: strike.name };
 }
 
 /**

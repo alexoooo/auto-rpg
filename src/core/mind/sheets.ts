@@ -49,15 +49,16 @@ function sheetAt(sheets: readonly Sheet[], step: number): number {
 }
 
 /**
- * **`built` played from `log` with no mind**: each step its mind stepped, the sheet it wrote is
- * written again, before the solver's step as the mind wrote it, under the same grants; its down is
+ * **`built` played from `log` with no mind**: each step its mind stepped, the sheet its body took
+ * is given again, before the solver's step as it was taken, under the same grants; its down is
  * the fight's reading, as every body's is. With the bout's recipe, the same bout again to the bit. A step with no sheet is refused.
  */
 export function replayedBody(built: BuiltBody, world: World, log: SheetLog, grants: { readonly identity: RecordingIdentity; readonly senses?: () => Senses; readonly assist?: AssistCeiling }): PhysicalBody {
   requireRecordingIdentity(log.identity, grants.identity);
   const senses = grants.senses ?? clockSenses(world), force = new Vector3(), moment = new Vector3();
   const state = { steps: 0 };
-  const embodied = embody(built, world, (own) => ({ name: "replay", state, step() {
+  // The sheets are what its body took each step, so they are written as a motor part writes, taken at once (`Mind.move`).
+  const embodied = embody(built, world, (own) => ({ name: "replay", state, step() {}, move() {
     const index = sheetAt(log.sheets, world.steps);
     if (index < 0) throw new Error(`no order sheet for step ${world.steps}`);
     const sheet = log.sheets[index]!;

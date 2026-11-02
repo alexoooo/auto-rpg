@@ -129,7 +129,7 @@ function restOf(way: Way, from: Position, priced: (posture: Position) => boolean
  * Its memory is the rise's: whether it runs, how long the body has stood ready, the steady's time,
  * how long it has braced tumbling, the attempt under way and the record of attempts.
  */
-export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecutor, techniques: readonly TechniqueConfig[],
+export function groundOptions(spec: BodySpec, hz: number, delay: number, executor: GroundExecutor, techniques: readonly TechniqueConfig[],
   registry: Readonly<Record<string, TechniquePart>>, edges: readonly Profile[]): Ground {
   const order: readonly string[] = techniques.map((technique) => technique.kind), runs = executor.runs, dt = 1 / hz;
   const named = [...order, ...Object.keys(registry).filter((name) => !order.includes(name))].filter((name) => runs[name] !== undefined);
@@ -137,7 +137,7 @@ export function groundOptions(spec: BodySpec, hz: number, executor: GroundExecut
   /** The postures a technique of `techniques` is begun from: a reposition is not offered there. */
   const routedFrom = new Set(named.filter((name) => order.includes(name)).flatMap((name) => registry[name]!.edges.map((edge) => edge.from)));
   const all: Technique[] = named.map((name) => {
-    const { expected, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz, edges);
+    const { expected, priced: why } = edgeExpected(spec, techniques.find((technique) => technique.kind === name) ?? { kind: name }, hz, delay, edges);
     if (!expected && order.includes(name)) unpriced.push(`${name}: ${why}`);
     const part = registry[name]!;
     return { name, part, edges: order.includes(name) ? part.edges : part.edges.filter((edge) => !routedFrom.has(edge.from)), run: runs[name]!, profile: expected };

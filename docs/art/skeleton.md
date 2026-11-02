@@ -141,6 +141,34 @@ the right, its stance centre moves 0.40 m before both feet plant, and its hand s
 its guard at the 1.2 s deadline (0.03 m/s, planted); thrown first, it falls at 3.14 s. On muscles
 its feet slide 0.3 m on the same miss and its hand passes within 0.05 m of the guard it left.
 
+### The arms' speed
+
+The owner's decision (`owner-skeleton-arms`, 2026-11-02): the arms' motors, the shoulders' and
+the elbows', run at twice the peak-power line's unloaded speed (`ARM_MOTOR_SPEED`): the shoulder
+39.6 rad/s and the elbow 48.8, against the Warrior's muscles' 51.8 and 63.8. At the line's
+speed no straight punch reaches the Skeleton's bar (`barOf`: 7.53 m/s and 0.40 kg on the right
+hand), since its bar's speed scales with its strength over its mass and its motors are slower than
+the muscles they stand for.
+
+The best schedules searched for the right hand (`research/punch-drill.mjs`, CMA-ES from the
+Warrior's, the arm's channels free; Node, Rapier, the middle mark), read at the gaps searched:
+
+| Arms' motors | Fastest blow with the elbow within 30° of straight | Most mass so met | Landed |
+| --- | --- | --- | --- |
+| x1 (gaps 0.76 to 0.84 m) | 6.3 m/s (120 Hz), 5.9 (480 Hz) | 0.58 kg, 0.90 kg at 5.4 and 5.9 m/s | none |
+| x1.5 (0.8 to 0.88 m) | 8.1 (120 Hz), 8.4 (480 Hz) | 1.31 kg at 8.1 m/s (120 Hz, 0.88 m), 0.25 at 8.4 | none: the heavy blow 31° off its line |
+| x2 (0.8 to 0.88 m) | 8.6 (120 Hz), 8.5 (480 Hz) | 0.41 kg at 8.6 m/s, 0.40 at 8.5 | 480 Hz at 0.88 m; 120 Hz there 1° outside the cone |
+
+Its other cells at x1 and x2 (Node, Rapier, 120 Hz; the stand-up by `research/rise-trace.mjs`
+on the owner's target's 16 falls, the walk by the Locomotion drill's `every` protocol, 47 trials a
+loadout); the kicks are not read again:
+
+| Cell | x1 | x2 |
+| --- | --- | --- |
+| stand-up, empty-handed | 14 of 16 stood, median 13.1 s | 13 of 16, median 11.7 s |
+| stand-up, club | 0 of 16 stood | 1 of 16 |
+| walk, fallen of 47: empty, club, buckler and club, sword, buckler and sword | 2, 7, 0, 1, 0 | 1, 3, 1, 0, 0 |
+
 ### Tried and not kept
 
 On the same miss fixture (Node stand, Rapier, 120 Hz, `vanguard-skeleton`):

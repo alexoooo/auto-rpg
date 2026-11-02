@@ -8,13 +8,20 @@ import type { MenuEntry } from "../core/skills/framework/menu.ts";
  * both share (`SHARED_NUMBERS`), and in order a batch of asks one way and what each seat's mind
  * says the other (by message in Node, `src/node/minds.ts`; in a reply box in the browser,
  * `src/worker/minds.ts`). Two counters both threads share pace them (`POSTED`, `DONE`):
- * the world counts each batch it posts, the minds' thread each it has answered.
+ * the world counts each batch it posts, the minds' thread each it has answered; a third
+ * (`ANSWERED`) counts the step asks whose motor part it has carried out, so the world goes on with
+ * a body's command while its mind still decides.
  */
 
 /** Where in a minds' thread's counters the batches the world has posted are counted. */
 export const POSTED = 0;
 /** Where the batches the minds' thread has answered are counted. */
 export const DONE = 1;
+/** Where the step asks are counted whose motor part and answer the minds' thread has carried out (`Seat.answer`). */
+export const ANSWERED = 2;
+
+/** The counters a minds' thread and the world share. */
+export const COUNTERS = 3;
 
 /** Numbers both threads share. */
 export const SHARED_NUMBERS = (length: number): Float64Array => new Float64Array(new SharedArrayBuffer(8 * length));

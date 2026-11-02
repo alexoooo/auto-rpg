@@ -42,7 +42,12 @@ export interface Body {
   readonly envelope: StanceEnvelope | null;
   /** Its assist (`Assist`), for its meter; a fight withdraws it. */
   readonly assist: Assist;
-  /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
+  /** The steps between a driver's command and motor control carrying it out (`OwnBody.delay`). */
+  readonly delay: number;
+  /**
+   * Drive each control step; null keeps the command. Replaced, a driver's decisions not yet carried
+   * out are dropped. `released` discards pending driver work on sub-mind takeover or idle.
+   */
   drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
   /** Observe completed physics intervals after effector feedback is sampled, including while idle or under a sub-mind (`OwnBody.afterPhysics`). */
   afterPhysics(listener: (step: number, time: number) => void): () => void;
@@ -71,7 +76,20 @@ export function commandsBody(body: Pick<PhysicalBody, "has" | "level">): boolean
  * (`deepFreeze`), or part of a state saved and loaded with the body's, as the skills' is
  * (`Skills.state`).
  */
-export type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
+export type BodyDriver = ((view: BodyView, dt: number) => BodyCommand | null) | SplitDriver<unknown>;
+
+/**
+ * **A driver in two parts**: what it decides on the view as sensed (`decide`), and the command it
+ * carries the decision out with on the body as it is (`carry`, null to keep the command). With no
+ * delay it carries out each decision the step it is made; at a delay (`Body.delay`) it decides on
+ * the mind's step and carries the decision out in its motor part (`Mind.move`) the delay's steps
+ * later, on a view whose body is that step's and whose senses are still those it decided on. A
+ * driver that is one function decides its command whole.
+ */
+export interface SplitDriver<T> {
+  decide(view: BodyView, dt: number): T;
+  carry(view: BodyView, decision: T, dt: number): BodyCommand | null;
+}
 
 /**
  * **A command is goals**: a posture for the freedoms nothing else owns, places for the effectors,

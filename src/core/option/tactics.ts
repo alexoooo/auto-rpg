@@ -122,17 +122,17 @@ function prospect(prospects: Kept[], strikes: readonly StrikeOption[], now: Situ
  * were priced (`profileDetail`). Each time its chooser decides afresh it keeps what it expects of
 each foe it priced (`prospects`, `prospect`): the focus, and each other foe the chooser read.
  */
-export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate = hz): Decider {
+export function optionTactics(making: TacticsMaking, hz: number, deciding: Deciding, seed: number, rising: Rising, phase: number, rate: number, delay: number): Decider {
   const { spec, rules, parts } = making, given = deciding.predictions ?? MEASURED_PREDICTIONS.defaults, tables = parts.of("predictions", given).make(given) as ProfileTables;
-  const ground = groundOptions(spec, hz, rising.executor, deciding.ground, rising.registry, tables.edges);
+  const ground = groundOptions(spec, hz, delay, rising.executor, deciding.ground, rising.registry, tables.edges);
   const actions = deciding.actions;
-  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes, rate));
-  const walk = walker(spec), reader = situationReader({ spec, hz, rate, rules,
+  const measures = actions.map((action) => strikeMeasure(parts, spec, deciding.executors, action, hz, tables.strikes, rate, delay));
+  const walk = walker(spec), reader = situationReader({ spec, hz, rate, delay, rules,
     strikes: actions.map((action, i) => ({ name: action.name, limbs: action.effectors, profile: measuredProfile(measures[i]!) })), measured: tables.strikes,
     ordersOf: making.orders, riseFrom: ground.riseFrom, unbraced: ground.unbraced, parts });
   const strikes = actions.map((action, i) => strike(action, walk, blowsOf(parts, deciding.executors, action), measures[i]!));
   const options = optionsOf((config) => parts.of("option", config) as OptionKindPart, deciding.options ?? OPTIONS,
-    { spec, hz, rate, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
+    { spec, hz, rate, delay, parts, walk, locomotion: deciding.locomotion, executors: deciding.executors, actions, tables, measures, strikes, ground });
   const chosen = chooserOf(parts, deciding.chooser, options, seed, phase);
   const state = { chooser: chosen.state, situation: reader.state, options: options.map((option) => option.state), ground: ground.state, prospects: [] as Kept[] };
   let last: Sight | null = null, lastNow: Situation | null = null;

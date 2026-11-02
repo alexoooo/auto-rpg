@@ -238,7 +238,7 @@ interface RisingOptions {
   readonly balance?: number;
   readonly gusts?: boolean;
   readonly target?: boolean;
-  /** The target's shoves turned this far, degrees: its fresh falls (`FRESH_OFFSET`). */
+  /** The shoves turned this far, degrees: the target's fresh falls (`FRESH_OFFSET`), or a loadout's. */
   readonly offset?: number;
   readonly obstacles?: boolean;
   readonly loadouts?: readonly Loadout[] | null;
@@ -250,6 +250,9 @@ interface RisingOptions {
  * tuned on them; they show whether a gain on the target is fitted to its falls.
  */
 export const FRESH_OFFSET = 11.25;
+
+/** The owner's target's time for each fall, s: a fall stands within it (`docs/reference/rising.md#the-owners-target`). */
+export const STAND_WITHIN = 10;
 
 /**
  * The bed's jobs. The owner's target: the Warrior and the Rogue, empty-handed and with the club,
@@ -265,7 +268,7 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
   const jobs: RisingJob[] = [], techniques = options.techniques ? { techniques: options.techniques } : {};
   if (options.loadouts) {
     for (const model of options.models!) for (const loadout of options.loadouts) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
+      jobs.push({ model, loadout, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: false, equipped: true, ...techniques });
   } else if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"] as const) for (const held of ["empty", "club"] as const) for (let direction = 0; direction < 16; direction++)
       jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5 + (options.offset ?? 0), balance: 0, grit: 0, gusts: false, target: true, ...techniques });
@@ -282,10 +285,10 @@ export function risingJobs(options: RisingOptions): (RisingJob & { id: number })
 /** The middle value, the mean of the two middle ones for an even count; null for none. */
 /**
  * The bed's report: by start, body and loadout, the falls stood (verified on a fixed suite, else
- * handed back), within 6 and 12 s, the failure-inclusive median (a fall not stood counts at its
+ * handed back), within `STAND_WITHIN` and 12 s, the failure-inclusive median (a fall not stood counts at its
  * cap), and each technique's attempts. On the owner's target, its gates: every direction once in
- * each group, 15 of 16 within 6 s in each, 61 of 64 overall, every cardinal direction within 6 s,
- * a median of at most 10 s.
+ * each group, 15 of 16 within `STAND_WITHIN` in each, 61 of 64 overall, every cardinal direction
+ * within it, a median of at most 10 s.
  */
 export function risingReport(rows: readonly RisingRow[], target = false) {
   if (target && rows.some(row => row.obstacle || row.level && row.level !== "open")) throw new Error("obstacle falls cannot satisfy the open-floor target");
@@ -300,7 +303,7 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
   const successful = (row: RisingRow, within = Infinity) => time(row) !== null && time(row)! <= within;
   const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
     reached: cases.filter(row => row.reached).length,
-    within6: cases.filter(row => successful(row, 6)).length, within12: cases.filter(row => successful(row, 12)).length,
+    within: cases.filter(row => successful(row, STAND_WITHIN)).length, within12: cases.filter(row => successful(row, 12)).length,
     median: medianOf(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === ("rejected start" as string)).length,
     noTakeover: cases.filter(row => row.start === "shoved" && row.takeover === null).length,
     landedStanding: cases.filter(row => row.status === "landed standing").length,
@@ -321,9 +324,9 @@ export function risingReport(rows: readonly RisingRow[], target = false) {
     const actual = rows.map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const complete = JSON.stringify(actual) === JSON.stringify(expected);
     gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),
-      eachGroup15of16: complete && groups.every(group => group.within6 >= 15),
-      total61of64: complete && rows.filter(row => successful(row, 6)).length >= 61,
-      allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, 6)),
+      eachGroup15of16: complete && groups.every(group => group.within >= 15),
+      total61of64: complete && rows.filter(row => successful(row, STAND_WITHIN)).length >= 61,
+      allCardinals: complete && rows.filter(row => (row.degrees! - offset) % 90 === 0).every(row => successful(row, STAND_WITHIN)),
       median10: complete && medianOf(rows.map(row => time(row) ?? 30))! <= 10 };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
