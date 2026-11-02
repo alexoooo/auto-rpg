@@ -1,10 +1,10 @@
 /**
- * **How the Cover drill reads a trial**: every touch of the drill opponent's on the subject, by
- * where it met the subject (its head, its guard, the rest of it), the hit points each took, and
- * whether the subject went down.
+ * **How the Cover drill reads a trial**: every touch of what the drill opponent strikes with on the
+ * subject, by where it met the subject (its head, its guard, the rest of it), the hit points each
+ * took, and whether the subject went down.
  */
 import { regionSegments } from "../../core/intent/action-aim.ts";
-import type { BodySpec } from "../../core/spec/body.ts";
+import { strikersOf, type BodySpec } from "../../core/spec/body.ts";
 import type { Duel } from "../../arena/duel.ts";
 import type { World } from "../../core/world.ts";
 import type { Reader } from "../evaluation.ts";
@@ -50,9 +50,24 @@ function armOf(spec: BodySpec, hand: string): readonly string[] {
   return arm;
 }
 
+/**
+ * What a body of `spec` strikes with, by segment: each limb it strikes with (`strikersOf`) and the
+ * segment that limb hangs from (a hand's forearm, a foot's shank). What a hand holds strikes too.
+ * Nothing else of it touches in a blow: a fallen opponent's head on a foot is none.
+ */
+function strikesWith(spec: BodySpec): ReadonlySet<string> {
+  const segments = new Set<string>();
+  for (const limb of strikersOf(spec)) {
+    segments.add(limb);
+    const parent = spec.joints.find((joint) => joint.child === limb)?.parent;
+    if (parent !== undefined) segments.add(parent);
+  }
+  return segments;
+}
+
 /** The reader of a trial in which the subject, the bout's left side, stands and covers against the right side for `seconds` s. */
 export function readCover({ world, duel }: { readonly world: World; readonly duel: Duel }, { seconds }: { readonly seconds: number }): Reader<CoverReading> {
-  const left = duel.duelists.left, skills = left.minded.skills;
+  const left = duel.duelists.left, skills = left.minded.skills, striking = strikesWith(duel.duelists.right.built.spec);
   if (!skills) throw new Error("the subject runs no skills");
   const spec = left.built.spec, head = new Set(regionSegments(spec, { kind: "mark", mark: "high" }));
   const guard = new Set(["left", "right"].flatMap((side) => armOf(spec, `hand.${side}`)));
@@ -69,7 +84,7 @@ export function readCover({ world, duel }: { readonly world: World; readonly due
       const touches: CoverTouch[] = duel.blows.flatMap((blow) => {
         if (blow.kind !== "impact") return [];
         const on = blow.sides.find((side) => side.fighter === "left"), by = blow.sides.find((side) => side.fighter === "right");
-        if (!on || !by) return [];
+        if (!on || !by || by.item === null && !striking.has(by.segment)) return [];
         const met: Met = on.item !== null || guard.has(on.segment) ? "guard" : head.has(on.segment) ? "head" : "body";
         return [{ time: blow.time, by: by.item ?? by.segment, on: on.item ?? on.segment, met, damage: on.damage }];
       });
