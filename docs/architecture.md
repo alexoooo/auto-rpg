@@ -1017,9 +1017,11 @@ its edges have fresh profiles (`edgeExpected`, `profile.ts`) and rolling to repo
 (`TechniquePart.moving`) is begun on a body still moving. A technique is handed the mind's kit
 (`MindKit`, `mind/kit.ts`: its motor, its guard and the guard's posture, and the lookup), so a
 motor or guard swapped into the mind is the one it rises with (`kitOf`). The game's (`STAND_UP`)
-is the staged roll and down, the sit-back and the front sit-back, on toes; `step-up`
-(`ground/step-up.ts`) and its route in five parts, each an edge (`ground/staged-edges.ts`,
-`STAGED_ROUTE`), are flat-footed and kept for the Rise drill's comparison.
+is the staged roll and down, the sit-back and the front sit-back, on toes; the flat-footed route
+in five parts, each an edge (`ground/staged-edges.ts`, `STAGED_ROUTE`, its recipe and settings
+step up's, `ground/step-up.ts`), is kept for the Rise drill's comparison. An edge to standing
+holds the body through its climb (`stanceSteady`, `ground/steady.ts`): the sit-back and its
+climb are one stand-up; the steady option climbs only a body quiet on its feet (`steadying`).
 
 **Mind data loads per use** (`src/core/data/store.ts`). Each skill's records
 (`assets/core/straight-punch.json`, `stomp.json`, `path-strike.json`) and each kind of profile are a module of its own in

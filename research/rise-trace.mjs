@@ -36,9 +36,10 @@ async function traceFall(job) {
   const stageOf = (mind, name, fallback) => {
     const run = mind?.skills?.actions?.executors?.find((one) => one?.runs)?.runs?.[name];
     if (!run) return fallback;
-    const rise = run.rises?.[run.entry];
-    if (run.phase === "rise" && rise && names[name] && rise.phase === "rise") return names[name][rise.stage] ?? `stage ${rise.stage}`;
-    if (run.phase === "rise" && rise) return rise.phase;
+    // A staged part's state: the roll's has no phase of its own, a part of the rise's is "rise" or "steady".
+    const rise = run.rises?.[run.entry], rising = (run.phase ?? "rise") === "rise";
+    if (rising && rise && names[name] && rise.phase === "rise") return names[name][rise.stage] ?? `stage ${rise.stage}`;
+    if (rising && rise) return rise.phase;
     return run.phase ?? fallback;
   };
   const built = await buildFall(job.fall, "rapier");
