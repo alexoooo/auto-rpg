@@ -674,6 +674,26 @@ Twenty of the fingerprint's 44 lines moved, every bout in which a body aims by t
 The predictions (`foeModel`, `prior`, `src/core/option/percepts.ts`) take no share the profiler
 lists in the same 20 s: they are not held.
 
+### A blow priced in arrays made once
+
+**A blow's price between two fighters (`contactMass`, `src/core/build/contact-mass.ts`) costs
+about half what it did, with the same answers to the bit.** The crowd fight's opening, where the
+ten close, spends 11 % of the world thread's step pricing touches against 4.5 % later. The mass
+matrix, its factor, the Jacobian's rows and the segments' inertias are now written in arrays made
+once a body. Each column of M^-1 that a yield asks for is solved once a pose (`inverseColumn`).
+The yield path factors its held block in one triangle grown as needed (`heldSolve`). The
+operations and their order are unchanged: no fingerprint case moved against d694e79d.
+
+Timed by pricing a blow on the Warrior, standing as built: `update`, the free mass and two yields
+against every freedom held at 40 N m, 400 times after 50, three runs each interleaved. Node 24.19,
+with a PPO run on the machine:
+
+| Run | Before (d694e79d), ms a pricing | After, ms a pricing |
+| --- | --- | --- |
+| 1 | 1.970 | 1.074 |
+| 2 | 3.082 | 1.102 |
+| 3 | 2.219 | 1.034 |
+
 ### Phases spread
 
 **Deciding on each body's phase of the period takes the crowd fight's steps where all ten bodies
