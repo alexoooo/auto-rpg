@@ -64,20 +64,33 @@ named, Option Mind's rise; [rising](rising.md#the-owners-target)), the Warrior, 
 The Rogue on 0 and 11.25: 6 of 64 at none, 11 with motor programs, 4 split; it stands 51 times
 split, 50 at none. The falls stood within 10 s move by about six a draw of 64.
 
-**The strikes' still rungs** (the Strike drill's `still`, 128 trials; the stomp's `stomping`, 12):
+**The strikes' still rungs** (the Strike drill's `still`, 128 trials; the stomp's `stomping`, 12),
+at f0c6807c with the Warrior's punch network fine-tuned at none, with its delay at none and at
+one step; the motor programs at 8411a492 with the network before:
 
-| Rung | Figure | None | One step, motor programs | One step, split |
+| Rung | Figure | None | One step, split | One step, motor programs |
 | --- | --- | --- | --- | --- |
-| `option/straight-punch` | landed | 0.203 | 0.000 | 0.047 |
-| | energy, J, median | 34.8 | 4.6 | 12.5 |
-| `option/club-blow@empty,club` | landed | 0.047 | 0.023 | 0.008 |
-| | energy, J, median | 60.5 | 25.0 | 20.4 |
+| `option/straight-punch` | landed | 0.242 | 0.047 | 0.000 |
+| | admitted | 0.484 | 0.359 | |
+| | energy, J, median | 56.4 | 13.2 | 4.6 |
+| `option/club-blow@empty,club` | landed | 0.047 | 0.008 | 0.023 |
+| | energy, J, median | 60.5 | 20.4 | 25.0 |
 | `option/stomp` | landed | 0.25 | 0.167 | 0.167 |
 | | fell | 0 | 0.083 | 0.083 |
 
-The punch is refused more often at one step (81 of 128 against 66) and lands on 6 against 26: its
-policy was trained at none. The punch, the club and the stomp are fine-tuned at one step in the
-table's pass ([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)).
+The punch is admitted less often at one step (46 of 128 against 62) and lands on 6 against 31:
+its policy was trained at none. The punch, the club and the stomp are fine-tuned at one step in
+the table's pass ([Option Mind on every body](../plans/2026-11-01-option-mind-everywhere.md)).
+
+**The Gait drill** (`stopped`, 20 trials on the Warrior, at f0c6807c): 18 ready at one step, a step
+unbraced (0.008 s) where none leaves none, at 0.75 m/s at the stop against 0.72; two fall, at
+0.5 m/s with the right hand in both gaits, where none falls at none. The strike and gait profiles
+(`assets/core/strike-profiles.json`, `gait-profiles.json`) are measured at one step.
+
+**The standard match** (`npm run match -- option bare`, protocol 908550df542eb469; ten minutes'
+budget): Option Mind wins every unit played against the bare mind at one step as at none, by a
+margin of 0.251 (0.214 to 0.290) over 34 units at ca5d8e8a, against 0.241 over 30 units at
+8411a492 with no delay.
 
 **The fingerprint** at one step against none moves 18 cases: the ten arena cases (the
 `straight-punch` data case among them), the four stands, the Crypt's seeds 1 and 2 and the Lab's
