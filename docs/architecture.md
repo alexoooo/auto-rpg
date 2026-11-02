@@ -1295,19 +1295,19 @@ the delay its world had, and loads only into one with the same. The game's delay
 motor control holds balance and the rise a step late
 ([the command delay](reference/command-delay.md)).
 
-A world with a delay puts its minds on mirrors ([the mirror](#minds)), and a mind on its legs
-reads its body as the commands in flight will leave it. Where the whole-body solve weighed the
-ground, motor control records the speed each channel's command was solved to reach
-(`MuscleDriver.expect`); `embody` keeps it a slot a step of the delay and carries the mirror's
-joints toward those speeds before the mind steps (`Mirror.forecast`, each segment's motion and
-pose from `BodyDynamics.accelerationToRef`, the root as the joints carry it). The body meets the
-plan halfway: a torque a late command gives is a velocity motor toward the speed it expects, held
-within `PLAN_REFLEX` of the channel's strength around that torque (`driveMuscles`), and the
-forecast moves each channel only as far toward it as the reflex can. While anything but the legs'
-ends touches (`BodySpec.ends`: its feet, paws and propped shins), the mind reads the body as it
-was and expects nothing. The forecast carries no command made while the body touched otherwise
-than now, and no channel past its range; a swinging leg whose foot still touches expects nothing
-(`StanceControl.unexpect`). With no delay none of this runs.
+A world with a delay puts its minds on mirrors ([the mirror](#minds)), and splits each mind in
+two. **Its step decides** on the body as the mirror shows it; **its motor part carries the
+decision out** a delay later on the body as it is (`Mind.move`, `motorPart`): with a delay, each
+step the motor part moves and its command is taken, then the mind steps on the same body, and what
+the step sends goes with the next step's command, the rings holding it the rest of the delay
+(`heldSteps`). The motor part reads its own body, not its senses (`motorPart` refuses them). For
+the command layers it is the stance's and the ground's reads, the decided command obeyed
+(`CommandLayers`' `pending`, in its state) and motor control; a command may name motor programs
+the body runs fresh beside it (`Body.program`, `BodyCommand.programs`: the ground techniques and
+the lowering). For the quadruped it is the gait's last command, or the righting (`quadrupedLayers`'
+`move`), a step late at most. The order sheets are what the body took, so a replay gives them as a
+motor part does. With no delay the step decides and the motor part moves in the same step, as one
+mind.
 
 A page advances by real time with `World.advance`, which caps the steps a frame may take, or has
 the world stepped in a worker ([the world in a worker](#the-world-in-a-worker));
