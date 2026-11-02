@@ -1358,6 +1358,26 @@ comes to `fours` and is given up there in most rises. Read on the target's falls
 A fall set's stood count moves by about three between sets, so only the buckler and the club's
 moves past it; the shoulder adds nothing. The factor moves every Rogue bout and its strikes.
 
+### A hand bears through what it holds
+
+A bearing stage is done only once every limb it bears on is down. A hand holding the buckler or
+the club lies on the item, its own hull a few centimetres up, so it never read down: the Rogue's
+`fours` with both (at its arms above) waited out its 5 s in 13 of its 14 failures, its centre of
+mass, speed and pelvis within the stage's tolerances. A hand that holds something and is not down
+by its own shape now bears where its rigid body presses the ground (`pressedOn`,
+`src/core/recovery/rise/limbs.ts`). On the target's falls (`rise-trace.mjs --loadout`, at
+`de9d8496`; stood of 16, before and after):
+
+| Body | buckler, club | club | sword | buckler, sword |
+|---|---|---|---|---|
+| Rogue | 8, 9 (`fours` failures 13, 4) | 11, 11 | 14, 14 | 12, 11 |
+| Skeleton | 0, 1 | 0, 0 | 5, 6 | 2, 3 |
+| Warrior | 16, 16 | | 14, 14 | |
+
+The fingerprint moves no pose. What is left of the Rogue's held rises is `up` and the steady after
+it; holding the club alone, `fours` fails lopsided, the pelvis more than 1 rad from its aim and the
+empty hand and a shin 4 to 8 cm up.
+
 ## Option Mind's rise on the target
 
 Option Mind (`groundOptions`, `src/core/option/ground.ts`) stands the Warrior from 254 of 256
