@@ -189,9 +189,15 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **The braced walk.** Shoved at 20 N s at a third of its orders with the club, the Rogue falls in
   5 and 2 of 200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)), and
   empty-handed the Rogue in 8 of 200 ([heel-off](reference/stance-tuning.md#heel-off)); it walks
-  1.5 to 1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
-  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
+  1.5 to 2 m/s forward and 0.7 every other way, and turns, along a way or onto one, none at 1 m/s
+  or faster but the club Warrior's 0.25 rad/s ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: the crowd's reversal
   wakes the enemy at 7 of seeds 1 to 60.
+- **Yaw at speed.** Walking straight at 1.2 m/s the Warrior's pelvis faces 0.5 to 0.7 rad either
+  side of its heading with every loadout, bare included: the turn's aim asks more yaw moment than a
+  bearing sole twists (50 to 200 N m missed at a step), and the ground share's miss spills into the
+  centre's force. The club Warrior turning onto a way at 1 m/s and over ran to 2 to 2.8 m/s and
+  fell ([the stance's walk](reference/locomotion.md#the-stances-walk)); the envelope's turns onto a
+  way hold its walk under that, but a turning walk past 0.7 m/s, and the run's turns, need yaw held at speed.
 - **The stance on a lying body.** Asked a stand while the body lies with no ground action holding
   it, the stance's plan takes what the ground missed (`plan.missed`, `advancePlan`) unbounded and
   runs to NaN in seconds, which the action command refuses as a throw; no mind asks it now

@@ -263,22 +263,31 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * it fell, and how far the walk's direction was off the new heading over the last second of walking,
  * rad. At an `after` of 0 the heading turns as the walk sets off. As a fight plays the body with
  * `held` (`body`), walking by the stance's own walk or by the locomotion skill `legs` names (`skillOf`).
+ *
+ * Given `onto` (`{ side }`), the turn is a walk onto a way, as a fight asks one: from the turn's
+ * start the walk is asked along the heading it ends on, a quarter round, and the heading turns a
+ * quarter round onto it; the walk off the heading goes no faster than the ellipse through `speed`
+ * along it and `side` m/s across it (`paceToward`'s, the side way's fastest walk).
  */
-export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null }) {
+export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null, balance = null, onto = null }) {
   if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique, { balance });
   const skill = skillOf(legs, b);
+  const round = onto ? Math.PI / 2 : Math.PI;
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
   b.drive((view, dt) => {
-    if (turning && turned < Math.PI) {
-      const d = Math.min(rate * dt, Math.PI - turned);
+    if (turning && turned < round) {
+      const d = Math.min(rate * dt, round - turned);
       turned += d;
       heading += sense * d;
     }
     const posture = held === null ? {} : guard;
-    if (skill) return skillCommand(skill, view, walking ? [speed, 0] : null, heading, dt, posture, (next) => { goal = next ?? goal; return goal; });
+    // The way walked, and how fast: along the heading at `speed`; onto a way, that way from the turn's start, within the ellipse.
+    const way = onto && turning ? sense * round : heading, f = Math.cos(way - heading), r = Math.sin(way - heading);
+    const across = onto ? (onto.side > 0 ? r / onto.side : r === 0 ? 0 : Infinity) : 0, pace = Math.min(speed, 1 / Math.sqrt((f / speed) ** 2 + across ** 2));
+    if (skill) return skillCommand(skill, view, walking ? [pace * f, pace * r] : null, heading, dt, posture, (next) => { goal = next ?? goal; return goal; });
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
-    const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
+    const walk = walking ? [pace * Math.sin(way), pace * Math.cos(way)] : null;
     return { posture, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
@@ -297,7 +306,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
     walking = true;
     run(after);
     turning = true;
-    run(Math.PI / rate);
+    run(round / rate);
     // How far the body's facing lags the heading asked as the turn asked ends, rad.
     const facing = b.view.stance.facing, lag = Math.abs(Math.atan2(Math.sin(facing - heading), Math.cos(facing - heading)));
     run(2);
