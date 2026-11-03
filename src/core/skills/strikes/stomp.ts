@@ -195,6 +195,10 @@ export function stompExecutor(body: Body, actions: readonly string[], tuning: St
             const hip = worldPoint(view, hips[foot]), chamber = live.initial.chamber;
             live.back = [chamber[0] - hip[0], chamber[1] - hip[1], chamber[2] - hip[2]];
           }
+          // A return that has let the centre off the bearing foot ends the stomp, its legs given back so the
+          // stance can step to catch the body: on one leg, held to its return and its placing, it goes over.
+          if (strike.state.phase === "return" && (inside[0] !== centre.x || inside[1] !== centre.z))
+            return [finish({ kind: "interrupted", reason: "support lost in the return" })];
           if (event & STRIKE_EVENT.finished) { live.phase = "release"; stage("place"); }
           else live.phase = strike.state.phase === "chamber" ? "prepare" : strike.state.phase === "swing" ? "commit" : "release";
           break;
