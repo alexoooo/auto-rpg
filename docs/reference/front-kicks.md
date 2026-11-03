@@ -130,6 +130,16 @@ one side of it to the other.
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
 
+**The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
+harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
+in the unload the foot to lift keeps the leg's weight on the ground (27 of its leg's 29 N), the
+pelvis rolls over the bearing foot and the body goes over. The foot's path was solved from
+angles that were not the leg's (the reference pose's, for a foot's first path) and the servo drove
+the free hip into extension; begun from the leg's own angles (`motorControl`,
+`src/core/control/motor.ts`) the foot lifts at 0 to 1 N, and the Skeleton lands 3, 2 weak, 4 fell,
+1 missed, 1 outside, 1 refused. The Rogue lands 2 at both, 5 weak and 2 fell against 4 weak and 3
+fell. The Warrior's rung is as before, trial for trial in outcome.
+
 **The toed Rogue has no front kick.** The Warrior's settings, its lengths scaled by the Rogue's
 stature (`research/skill-search.mjs front-kick workshop-rogue --try`), put nothing on the mark
 (-0.99). Searched from there on the kicking rung's 12 trials (27 generations of 16), the best
