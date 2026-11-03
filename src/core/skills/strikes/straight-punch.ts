@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
-import { bodyEffectors } from "../../control/effectors.ts";
+import { bodyEffectors, copyFreedoms, type Freedom } from "../../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../../control/kinematics.ts";
 import type { MusclePush } from "../../control/motor.ts";
 import type { Pose } from "../../spec/pose.ts";
@@ -139,7 +139,7 @@ const FACE_LEVER = 0.3;
 interface Limb {
   readonly chain: ReturnType<typeof bodyEffectors>[number]["chain"];
   /** The arm's freedoms (`solveReach`), each drawn toward the contact pose's preferred angle. */
-  readonly free: { joint: number; k: number; min: number; max: number; preferred: number; name: string }[];
+  readonly free: Freedom[];
   readonly work: ReturnType<typeof reachWork>;
   /** The striking point, body frame, reference pose, and its name. */
   readonly point: Vec3;
@@ -226,7 +226,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
     pointAtToRef(chain, angles, effector.points.get(aim)!, at);
     for (const f of effector.free) angles[f.joint]![f.k] = 0;
     const arm = hypot(at.x - shoulder[0], at.y - shoulder[1], at.z - shoulder[2]);
-    return { chain, free: effector.free.map((f) => ({ ...f })), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim, behind,
+    return { chain, free: copyFreedoms(effector.free), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim, behind,
       trunk, shoulder, arm, goals, angles, trunkChain: chain.slice(0, trunk),
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
