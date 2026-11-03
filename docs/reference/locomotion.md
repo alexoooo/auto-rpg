@@ -252,6 +252,19 @@ faster than `swerve` (1.6 m/s²) over the speed, 0.8 rad/s at 2 m/s, and the run
 asked (2.8 m/s asked 2) and banks into the turn until it falls inward. Its `brake` slows the pace
 at 0.47 m/s², where a stop within 1.5 s asks about 2.
 
+**Where it falls.** Empty-handed in calm air, each of the bar's trials on the Warrior and the
+Rogue falls at the run's first steps, 1.3 to 2.5 s after it is asked, before its turn or its stop
+begins. Traced there (Node stand, Rapier, 120 Hz, at `9e887beb`):
+
+- The run took over as the swinging sole first touched, before it bore, and swung the leg that
+  still carried the body. It now waits for that sole to bear alone (`RUN_SWITCH`): its first stance
+  bears, and the trials fall a step later (the Warrior 2.27 to 2.39 s after it is asked, the Rogue
+  2.29 to 2.43).
+- The run begins at the walk's pace, 0.86 m/s, playing a cycle no slower than about 2.2 m/s (the
+  slowest clip's less `blend`). In its second stance the body pitches forward over a toed ankle
+  that yields to 0.74 rad, goes from 0.75 to 1.9 m/s in 0.2 s, and falls. The walk reaches no pace
+  the cycle runs at: asked 1.4 m/s the Rogue's walk makes 1.1 and never hands over.
+
 ## The walk and run
 
 The game's Run (`walk-run.ts`): the stance's walk, and past its threshold the run cycle,
@@ -409,6 +422,21 @@ five loadouts, calm and gusts of seed 1, 7 generations of 12): asked 1.2 m/s, th
 holds 2.2 to 2.4 m/s and the Rogue 1.2 to 1.8. A run asked just past its handover goes faster than
 asked or falls, which no envelope speed over 0.7 m/s survives; stopped there, not measured on the
 envelope.
+
+### The flat foot's stop, held by muscle
+
+The run's stance ankle pushed at full strength while it is dorsiflexed past the flat foot's stop,
+0.36 rad, and its sole is down (the bar's three trials, the Warrior and the Rogue empty-handed in
+calm air, at `9e887beb` with the bearing handover): the ankle yields to 0.65 rad, not 0.74, and
+every trial falls as before. As a servo toward the stop at the run's `settle`, the push gives
+100 to 235 N·m of a 390 to 518 N·m ceiling and the ankle reaches 0.56. Not kept.
+
+### A later handover, a stiffer ankle
+
+On the same trials: the run begun past 1.2 or 1.4 m/s (`WalkRunSettings.run`), with and without
+the stop above, falls at 3.1 to 3.2 s on the Warrior; at 1.4 the Rogue's walk never reaches the
+run. The stance-ankle servo at `ankle` 1 and `settle` 0.06 falls at 2.3 to 2.4 s on both. Not
+kept.
 
 ### A wider swerve for the run's turn
 
