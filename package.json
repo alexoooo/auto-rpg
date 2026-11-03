@@ -14,6 +14,7 @@
     "build": "node scripts/art/assets.mjs build && tsc --noEmit && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
+    "pull:merge": "node scripts/pull-merge.mjs",
     "test": "node scripts/test.mjs",
     "match": "node scripts/evaluate.mjs match",
     "evaluate": "node scripts/evaluate.mjs",

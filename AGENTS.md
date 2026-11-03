@@ -11,6 +11,7 @@ going.
 npm ci                    # the exact lockfile, never `install`
 npm run dev               # http://localhost:5180, strictPort
 npm run check             # tsc --noEmit
+npm run pull:merge        # fetch, merge, validate once, commit; -- --continue after resolving conflicts
 npm test                  # the gate: step cost, the core's boundary, the Mind and Commander contracts, the probes, script links, no strays
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
@@ -67,6 +68,12 @@ is left to try; ask only a choice whose effect in play the owner can judge.
 - **A new test answers a specific need** ([Tests](#tests)), and is fast (under about 10 s).
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
 - **Work on main.** A new branch only when the owner asks for one.
+- **Pull and merge**: use `npm run pull:merge` in one tool call. It reports stage timings,
+  skips validation when already current, and runs build/typecheck and tests once for code changes.
+  Resolve conflicts semantically, check cited files and anchors for Markdown resolutions, stage
+  only those files and run `npm run pull:merge -- --continue`. Do not repeat successful checks
+  without a subsequent change. If local work prevents the command, preserve it and handle that
+  exception explicitly; never stash or commit unrelated work automatically. Never push unless asked.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID. Killing `npx` leaves `vite` running: find
   the PID with `netstat -ano | findstr :<port>`.
