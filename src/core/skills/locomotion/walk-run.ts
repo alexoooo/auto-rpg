@@ -3,7 +3,7 @@ import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
 import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../../control/stance-envelope.ts";
 import { hasteOver } from "../../human/attributes.ts";
-import type { Side } from "../../spec/body.ts";
+import { otherSide, type Side } from "../../spec/body.ts";
 import { atan2, cos, sin } from "../../math/real.ts";
 import { wrap } from "../../math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
@@ -80,7 +80,10 @@ const RUN_STOPPING = 0.2;
  * still turning onto it falls), and goes that way no slower than `short` under the run's pace, or
  * under the walk's own pace where the walk's envelope holds it slower, or the walk asked has stood
  * there `top` s with the body facing that way (a walk whose legs cap it under its envelope's pace;
- * a body still turning round has not been capped, and a run begun from it standing falls); and, once it
+ * a body still turning round has not been capped, and a run begun from it standing falls). It takes
+ * over from that foot once its sole bears alone, the other's off the ground: a sole that has only
+ * touched down still leaves the body on the other, and a run that swings that other leg drops it.
+ * Once it
  * has landed `landings` times, gives way to the walk once the pace asked has come down `below`
  * under it, or it is told it may not run, and the body's ground speed, across its heading as well
  * as along it, has slowed to the run's pace, its landings braking it until then: a walk handed a
@@ -117,6 +120,8 @@ interface WalkRunMemory {
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
   swinging: Side | null;
+  /** The sole the run takes over from, landed, until it bears alone (`RUN_SWITCH`); null when none waits. */
+  bearing: Side | null;
   /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s; and how long of it the body has faced that way (`RUN_SWITCH.settled`, `RUN_SWITCH.top`). */
   capped: number;
   faced: number;
@@ -170,7 +175,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const legs = locomotion(stanceFeetOf(body.built.spec), body.envelope, { idleFooting: standingFooting(body.built) });
   // A run whose envelope holds it no faster forward than the walk's holds the walk is not run: the walk and run walks.
   const pays = runEnvelope === null || body.envelope === null || runEnvelope.ways.forward.value > body.envelope.ways.forward.value;
-  const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
+  const memory: WalkRunMemory = { may: may && pays, running: false, swinging: null, bearing: null, capped: 0, faced: 0, facing: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false }, unmet: { ...ALL_MET } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -179,12 +184,13 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     steady.rest(memory.assisted);
     memory.running = false;
     memory.swinging = null;
+    memory.bearing = null;
     memory.capped = 0;
     memory.faced = 0;
     memory.pace = 0;
     legs.resume(view);
   };
-  /** The run begins from the body as it is, as the sole `landed` lands, the heading the walk's, asked the way `toward`. */
+  /** The run begins from the body as it is, the sole `landed` bearing alone, the heading the walk's, asked the way `toward`. */
   const runFrom = (view: BodyView, landed: Side, toward: number): void => {
     memory.running = true;
     memory.ran = 0;
@@ -256,7 +262,11 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         memory.facing = memory.capped > 0 ? memory.facing + wrap(s.facing - memory.facing) * Math.min(1, dt / RUN_SWITCH.sway) : s.facing;
         const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - memory.facing)) <= RUN_SWITCH.facing;
         memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
-        if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
+        if (landed && memory.capped > 0 && memory.faced >= RUN_SWITCH.settled && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.swayed && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) memory.bearing = landed;
+        // A sole that leaves the ground again before it bears alone has not landed; one asked no longer to run waits no more.
+        if (memory.bearing !== null && !s.touching[memory.bearing]) { memory.swinging = memory.bearing; memory.bearing = null; }
+        if (memory.capped === 0) memory.bearing = null;
+        if (memory.bearing !== null && !s.touching[otherSide(memory.bearing)]) { runFrom(view, memory.bearing, way); memory.bearing = null; }
         else return legs.goal(view, { ...goal, walk: walkable(memory.capped > 0 ? [speed, 0] : asked), face: way }, dt, context);
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
