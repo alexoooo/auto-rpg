@@ -67,7 +67,8 @@ function swingPart<K extends SwingKind>(kind: K): ExecutorPart<Config<K>> {
     make({ body, guard, aim }, config, actions) {
       const spec = body.built.spec, faces: Partial<Record<Side, StrikingFace>> = {};
       for (const hand of ["left", "right"] as const) { const face = swingFace(spec, `hand.${hand}`, kind); if (face) faces[hand] = face; }
-      return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim), faces);
+      return swingExecutor(body, guard, actions.map((action) => action.name), tunedSettings(dataOf(kind), spec, config), aimedPoint(aim), faces,
+        { align: swing.mechanism === "edge" });
     },
   };
 }

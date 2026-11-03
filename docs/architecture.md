@@ -485,7 +485,8 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
     `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
     (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
     its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
-    guard. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
+    guard. An edge's swing hands the wrist to a servo through the stroke (`edgeAligner`): each step
+    it asks the wrist the turn that brings the edge's facing onto the way the edge moves. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
     drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
