@@ -114,16 +114,17 @@ striking point nearest the body (`READINGS.ward`, `nearest`), and the guard skil
 centre as far from the guarded place toward it as the arm reaches (`faceReach`: the shoulder's
 distance across from the middle and the arm to the face's centre at full stretch, 0.84 m on the
 Warrior, 0.72 on the Rogue, 0.87 on the Skeleton), or at it where that is nearer, turned to it
-(`wardOf`, `src/core/skills/guard/guard.ts`). The guard is the ward's one
-owner: the cover option leaves a hand holding a face alone (`coveringHand`).
+(`wardOf`, `src/core/skills/guard/guard.ts`). A place further from the shoulder, where it
+stands now, than the arm reaches (`armReach`) is drawn toward the shoulder to that reach
+(`withinReach`), so the arm points where it would reach for it and is never asked a place it
+cannot reach. The guard is the ward's one owner: the cover option leaves a hand holding a face
+alone (`coveringHand`).
 
 **The ward's place moves no faster than `wardSpeed`**: the speed at which the arm and what it holds
 carry as much momentum as the whole body can take at its centre of mass and still stop over its
 soles without a step, `(M / m) · (l / 2) · √(g / h)` (M the body's mass, m the arm's with what it
 holds, l the shorter sole, h the standing height): 7.5 m/s on the Warrior, 7.7 on the Rogue, 4.0
 on the Skeleton. Its path to the place takes the time the place takes to go out at that speed.
-Without the bound the place followed the threat at up to 20 m/s about the body, and the arm
-whipped after it.
 
 Read on the Cover drill's weapon rungs (`club`, `sword`), Option Mind, Node, core world, Rapier,
 120 Hz, the game's command delay; the share of blows that touched the body its buckler met first, a
@@ -131,35 +132,40 @@ blow a touch of the opponent's weapon or striking limb (`strikesWith`, `src/eval
 A rung's 12 trials do not settle a setting (the same setting at 0.05 s and 0.04998 s read 90 % and
 62 % on the Warrior's club rung, the trials parting at the first blow), so a change is read on 50
 trials a rung, each loadout at 5 offsets across (-0.2 to 0.2 m) by 5 gaps (1.2 to 2 m), paired by
-trial against the change before, at `25d720b9` and the changes after it:
+trial against the change before.
 
-| Change (50 trials a rung, paired) | Warrior club | Warrior sword | Skeleton club | Skeleton sword | Skeleton fell |
-|---|---|---|---|---|---|
-| `out` 0.9 m, placed in 0.05 s at the Warrior's item share | 62 % | 81 % | 68 % | 73 % | 13, 18 |
-| `out` as far as the arm reaches (`faceReach`) | 68 % | 79 % | 70 % | 67 % | 15, 10 |
-| and the place paced (`wardSpeed`) | 66 % | 82 % | 72 % | 72 % | 13, 11 |
-| no ward (`cover-guard`) | | | 62 % | 72 % | 13, 11 |
+| Change (50 trials a rung, paired) | At | Warrior club | Warrior sword | Skeleton club | Skeleton sword | Skeleton fell |
+|---|---|---|---|---|---|---|
+| `out` 0.9 m, placed in 0.05 s at the Warrior's item share | `25d720b9` | 62 % | 81 % | 68 % | 73 % | 13, 18 |
+| `out` as far as the arm reaches (`faceReach`) | `cfb0a715` | 68 % | 79 % | 70 % | 67 % | 15, 10 |
+| and the place paced (`wardSpeed`) | `88add2e8` | 66 % | 82 % | 72 % | 72 % | 13, 11 |
+| no ward (`cover-guard`) | `cfb0a715` | | | 62 % | 72 % | 13, 11 |
+| the paced ward, the opponents' swings keeping clear | `510b96d0` | 90 % | 75 % | 70 % | 68 % | 13, 10 |
+| and a place out of reach drawn to it (`withinReach`) | this change | 90 % | 82 % | 74 % | 62 % | 12, 14 |
 
+- **Unpaced, the place followed the threat at up to 20 m/s about the body**, and the arm whipped
+  after it; where the place lay past the arm's reach from the shoulder (`faceReach` adds the
+  shoulder's offset, but is measured from the guarded place) the arm flailed straight at 19 m/s
+  and threw the Skeleton. Drawn within reach, the same trial's face moves at most 12 m/s, and the
+  Skeleton stands.
+- **Brought back along the threat line instead**, to the furthest point of it within reach, the
+  face met fewer blows (Skeleton 67 % and 61 %, 16 trials better and 25 worse on the sword rung);
+  **held at the arm's own length** from the guarded place everywhere, fewer still (Warrior 63 %
+  and 76 %). **The weapon hand held behind the buckler** on the ward's line met fewer on the club
+  rung (Warrior 64 %, 14 trials better and 21 worse).
 - **The cover at 0.3 m (`GUARD_COVER`) stood inside the guard's own reach**: the face's place was
   0.5 m behind where the guard held it, and the arm did not move to it (the Warrior's club rung, 12
   trials, 11 of 38 met first).
 - **The fastest-closing point was the opponent's empty hand in 43 % of the steps** (1668 of 3840,
   four trials), and the face followed it; the nearest is the weapon, which reaches further.
-- **The Skeleton's falls are its attacker's, not its ward's**: it falls as often with no ward. The
-  club blow's window (`standOff`, the arm's ground reach at the target's height) asks for a place
-  0.52 to 0.82 m from the Skeleton's middle trunk, which is low and behind its centre, against 0.72
-  to 1.02 m from the Warrior's; the attacker walks to it, its hands and head meet the Skeleton
-  before any blow, and the Skeleton is thrown. In 1 to 4 trials of 100 the Skeleton falls with no
-  touch at all in every row, the ward's or none's.
-- **Held at the arm's own length from the guarded place** (no shoulder offset), the face is never
-  past the arm's reach and does not flail at full stretch, but meets fewer blows (Warrior 63 %
-  and 76 %, Skeleton 61 % and 74 %), and as many fall. **The weapon hand held behind the buckler**
-  on the ward's line met fewer on the club rung (Warrior 64 %, 14 trials better and 21 worse).
-- **What meets a blow before the buckler** on the Warrior is mostly the buckler arm's forearm (the
-  club past the buckler's edge), the weapon hand on the sword rung, and the legs.
+- **The Skeleton falls in a quarter of its trials**, ward or none: before the opponents' windows
+  kept clear, the club blow asked for a place 0.52 to 0.82 m from the Skeleton's middle trunk (low,
+  and behind its centre), and the opponent's hands and head met it before any blow. In 1 to 8
+  trials of 100 it falls with no blow counted, in every row.
 
-The bar (4 of 5, none fallen) is not met. The Rogue, the face out as far as its arm reaches and not
-paced, met 61 % on the club rung and 80 % on the sword rung, 2 of 50 fallen on the club rung.
+The bar (4 of 5, none fallen) is met on the Warrior's weapon rungs read wide, and not on the
+Skeleton's, which falls. The Rogue, the face out as far as its arm reaches and not paced, met 61 %
+on the club rung and 80 % on the sword rung, 2 of 50 fallen on the club rung, before the swings.
 
 ## Threat
 

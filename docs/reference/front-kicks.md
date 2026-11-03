@@ -125,10 +125,26 @@ one side of it to the other.
   swingSeconds 0.257 s, contactSpeed 6.418 m/s). Read at `25d720b9` it lands 11 of the fresh 12, 1
   fell (at 480 Hz 9, none fell), and 5 of the rung's 12, 1 fell, 2 outside, 2 refused: over the 24,
   16 landed and 2 fell against the row's 14 and 2, within a trial's spread, so the row is kept.
+- **Searched on the laid rung** (the same search at `a33cae1b`, 10 generations, 3.2 h; best 8.30:
+  lift 0.706 m, over 0.973, alongNear / alongFar 0.569 / 0.830 m, chamberSeconds 0.608 s,
+  swingSeconds 0.293 s, contactSpeed 6.870 m/s). Read with each path solved from the limb's own
+  angles (`63485b78`), on `--confirm`'s fresh 12 it lands 9, none fell, against the row's 8 and 1
+  fell at 120 Hz, and 4, 5 refused, 1 fell against 6 and none at 480 Hz: over the 24, 13 landed and
+  1 fell against 14 and 1, so the row is kept.
 - **Tried and not kept**: the place beside a body lying chosen most nearly square across it, the
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
+
+**The toed Skeleton's and Rogue's stomp on a target laid down** (`stomping-bodies`, the same
+harness; each body's own row). At `c260464d` the Skeleton falls in 10 of 12, all before contact:
+in the unload the foot to lift keeps the leg's weight on the ground (27 of its leg's 29 N), the
+pelvis rolls over the bearing foot and the body goes over. The foot's path was solved from
+angles that were not the leg's (the reference pose's, for a foot's first path) and the servo drove
+the free hip into extension; begun from the leg's own angles (`motorControl`,
+`src/core/control/motor.ts`) the foot lifts at 0 to 1 N, and the Skeleton lands 3, 2 weak, 4 fell,
+1 missed, 1 outside, 1 refused. The Rogue lands 2 at both, 5 weak and 2 fell against 4 weak and 3
+fell. The Warrior's rung is as before, trial for trial in outcome.
 
 **The toed Rogue has no front kick.** The Warrior's settings, its lengths scaled by the Rogue's
 stature (`research/skill-search.mjs front-kick workshop-rogue --try`), put nothing on the mark

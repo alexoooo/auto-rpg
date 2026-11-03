@@ -14,7 +14,7 @@
  * past its arm's (a wide `band`), so where it stands is the cell's.
  *
  *   node research/punch-drill.mjs --out <file.json> [--model workshop-fighter] [--hand right] [--mark middle] [--across 0] [--gap <m>]
- *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--fire] [--brake] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
+ *     [--tune] [--spread "workshop-fighter:0.9,1;workshop-rogue:0.85" [--offsets 0,0.1]] [--rates 120,480] [--without <channel,...>] [--fire] [--brake] [--chest] [--near] [--heavier <times>] [--blow <kind>] [--free] [--chamber [--chamber-range <m,m>]] [--targets <body,...> (with --spread)] [--reach <arm share>] [--band <m>] [--workers 12] [--lambda <4 workers>] [--generations 60] [--seed 1] [--from <file.json> [--sigma 0.15]]
  *   node research/punch-drill.mjs --verify <file.json> [--rates 120,480] [--gaps 0.9,1,1.1] [--across 0,0.2] [--marks middle,high] [--models ...]
  *
  * Harness: Node, the bout world (`buildBout`) on Rapier (`DEFAULT_ENGINE`), the drill's layout.
@@ -91,8 +91,8 @@ export function decode(x, hand, gap, without = new Set(), { fire = false, brake 
  * `blow`, Option Mind's held blow of that kind so driven instead, `hand` holding its item and the
  * other the buckler, its action's own aim kept, at `mark` (its own where null).
  */
-export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null) {
-  const tuning = { ...AROUND, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
+export function timedPuncher({ pushes, lead, through, beneath, fire, brake }, hand, aim = null, blow = null, mark = null, window = {}) {
+  const tuning = { ...AROUND, ...window, lead, through, ...beneath, ...(fire === undefined ? {} : { fire }), ...(brake === undefined ? {} : { brake }), timed: { left: hand === "left" ? pushes : [], right: hand === "right" ? pushes : [] } };
   if (blow) {
     const preset = MINDS.option.config, other = hand === "left" ? "right" : "left";
     const actions = mark ? preset.actions.map((action) => action.name === blow ? { ...action, regions: [{ kind: "mark", mark }] } : action) : preset.actions;
@@ -134,12 +134,12 @@ function tuned(base, knobs, cell) {
 }
 
 /** The places `--spread` names ("body:gap,gap;body:gap"), each at every offset across of `--offsets`; null without one. */
-function spreadOf(text, offsets) {
+function spreadOf(text, offsets, targets) {
   if (!text) return null;
-  const across = (offsets ?? "0").split(",").map(Number);
+  const across = (offsets ?? "0").split(",").map(Number), bodies = targets ? targets.split(",") : [null];
   return text.split(";").flatMap((part) => {
     const [model, gaps] = part.split(":");
-    return gaps.split(",").map(Number).flatMap((gap) => across.map((offset) => ({ model, gap, across: offset })));
+    return gaps.split(",").map(Number).flatMap((gap) => across.flatMap((offset) => bodies.map((target) => ({ model, gap, across: offset, ...(target ? { target } : {}) }))));
   });
 }
 
@@ -190,10 +190,10 @@ async function trial(x, cell) {
       outcomes: each.map((r) => r.outcome), worst: each.reduce((a, b) => (b.score < a.score ? b : a)) };
   }
   const decoded = decode(x, cell.hand, cell.gap ?? undefined, new Set(cell.without ?? []), { fire: !!cell.fire, brake: !!cell.brake, wrist: !!cell.blow, free: !!cell.free, chamber: !!cell.chamber });
-  const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap };
+  const condition = { model: cell.model, mark: cell.mark, hand: cell.hand, across: cell.across, gap: decoded.gap, ...(cell.target ? { target: cell.target } : {}) };
   let worst = null;
   for (const hz of cell.rates) {
-    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null), condition, hz);
+    const reading = await drillTrial(timedPuncher(decoded, cell.hand, cell.chest ? CHEST : null, cell.blow ?? null, cell.blow ? cell.mark : null, cell.window ?? {}), condition, hz);
     const score = scoreOf(reading, cell.hand, cell.heavier) + (cell.near && !reading.hit && !reading.down ? NEARING * Math.max(0, 1 - reading.nearest / NEAR) : 0);
     if (worst === null || score < worst.score) worst = { score, hz, gap: decoded.gap, outcome: reading.outcome, hit: reading.hit && { speed: reading.hit.speed, kg: reading.hit.kg, energy: reading.hit.energy, mechanism: reading.hit.mechanism, straight: reading.hit.straight, along: reading.hit.along, bend: reading.hit.bend, lean: reading.hit.lean, on: reading.hit.on, time: reading.began === null ? null : reading.hit.time - reading.began } };
   }
@@ -208,14 +208,14 @@ if (!isMainThread && workerData?.drill) {
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { out: { type: "string" }, model: { type: "string" }, hand: { type: "string" }, mark: { type: "string" }, across: { type: "string" },
     gap: { type: "string" }, hz: { type: "string" }, workers: { type: "string" }, generations: { type: "string" }, seed: { type: "string" }, from: { type: "string" },
-    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" } } });
+    sigma: { type: "string" }, tune: { type: "boolean" }, spread: { type: "string" }, offsets: { type: "string" }, lambda: { type: "string" }, without: { type: "string" }, fire: { type: "boolean" }, brake: { type: "boolean" }, chest: { type: "boolean" }, near: { type: "boolean" }, heavier: { type: "string" }, verify: { type: "string" }, rates: { type: "string" }, gaps: { type: "string" }, marks: { type: "string" }, models: { type: "string" }, blow: { type: "string" }, free: { type: "boolean" }, chamber: { type: "boolean" }, "chamber-range": { type: "string" }, targets: { type: "string" }, reach: { type: "string" }, band: { type: "string" } } });
   if (values.verify) {
     const found = JSON.parse(readFileSync(values.verify, "utf8"));
     const decoded = decode(found.cell.base ? tuned(found.cell.base, found.best.x, found.cell) : found.best.x, found.cell.hand, found.cell.gap ?? undefined, new Set(found.cell.without ?? []), { fire: !!found.cell.fire, brake: !!found.cell.brake, wrist: !!found.cell.blow, free: !!found.cell.free, chamber: !!found.cell.chamber });
     const list = (text, fallback, parse = String) => text === undefined ? fallback : text.split(",").map(parse);
     for (const hz of list(values.rates, [120, 480], Number)) for (const model of list(values.models, [found.cell.model])) for (const mark of list(values.marks, [found.cell.mark]))
       for (const across of list(values.across, [found.cell.across], Number)) for (const gap of list(values.gaps, [decoded.gap], Number)) {
-        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, found.cell.blow ? mark : null), { model, mark, hand: found.cell.hand, across, gap }, hz);
+        const reading = await drillTrial(timedPuncher(decoded, found.cell.hand, (values.chest ?? found.cell.chest) ? CHEST : null, found.cell.blow ?? null, found.cell.blow ? mark : null, found.cell.window ?? {}), { model, mark, hand: found.cell.hand, across, gap }, hz);
         const h = reading.hit;
         console.log(JSON.stringify({ hz, model, mark, across, gap: +gap.toFixed(3), outcome: reading.outcome, score: +scoreOf(reading, found.cell.hand).toFixed(3),
           hit: h && { on: h.on, speed: h.speed && +h.speed.toFixed(2), kg: +h.kg.toFixed(2), energy: +h.energy.toFixed(1), mechanism: h.mechanism, straight: h.straight && +h.straight.toFixed(3), along: h.along && +h.along.toFixed(3), bend: +h.bend.toFixed(2), lean: +h.lean.toFixed(2), after: reading.began === null ? null : +(h.time - reading.began).toFixed(3) } }));
@@ -223,7 +223,8 @@ if (!isMainThread && workerData?.drill) {
     process.exit(0);
   }
   const cell = { model: values.model ?? "workshop-fighter", hand: values.hand ?? "right", mark: values.mark ?? "middle", across: Number(values.across ?? 0),
-    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets), without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number), blow: values.blow ?? null, free: !!values.free, chamber: !!values.chamber };
+    gap: values.gap === undefined ? (values.spread ? 0 : null) : Number(values.gap), spread: spreadOf(values.spread, values.offsets, values.targets), without: (values.without ?? "").split(",").filter(Boolean), fire: !!values.fire, brake: !!values.brake, chest: !!values.chest, near: !!values.near, heavier: Number(values.heavier ?? 1), rates: (values.rates ?? values.hz ?? "120").split(",").map(Number), blow: values.blow ?? null, free: !!values.free, chamber: !!values.chamber,
+    ...(values.reach || values.band ? { window: { ...(values.reach ? { reach: Number(values.reach) } : {}), ...(values.band ? { band: Number(values.band) } : {}) } } : {}) };
   if (cell.blow && !Object.hasOwn(HELD_BLOWS, cell.blow)) throw new Error(`no held blow ${cell.blow}: one of ${Object.keys(HELD_BLOWS).join(", ")}`);
   const wrist = !!cell.blow, channels = ceilingChannels(cell.hand, wrist);
   const nw = Number(values.workers ?? Math.max(1, availableParallelism() - 4)), generations = Number(values.generations ?? 60);
