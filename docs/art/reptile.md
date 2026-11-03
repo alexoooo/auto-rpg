@@ -69,7 +69,7 @@ weights read the body's segment names.
 As the rat's ([how it rides the body](rat.md#how-it-rides-the-body)): `dressSkinnedArt`
 (`src/render/skinned-art.ts`) sets each bone to its segment's reference frame inverted times the
 segment's achieved transform. The material is non-metallic at roughness .55, its colour and normal
-maps the baked ones, double-sided.
+maps the baked ones, double-sided. A part cut off is drawn apart as the rat's is.
 
 ## The body fitted to the art
 

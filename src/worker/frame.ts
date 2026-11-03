@@ -11,12 +11,13 @@ import type { HandPose } from "../core/spec/body.ts";
  *   else 0; its centre of mass, world, m.
  * - A segment's row (`SEGMENT_ROW`): its pose's position, world, m, and rotation, x, y, z, w, as the
  *   step left them; its hand's applied pose as an index of `HAND_POSES`, or -1 for a segment that
- *   is no posable hand; its toes' bend, rad, 0 for a segment with none.
+ *   is no posable hand; its toes' bend, rad, 0 for a segment with none; 1 while it is on its body
+ *   (`attachment`), 0 once it is cut off.
  */
 
 export const FRAME_HEAD = 4;
 export const BODY_HEAD = 6;
-export const SEGMENT_ROW = 9;
+export const SEGMENT_ROW = 10;
 
 /** A hand's poses, by their index in a segment's row. */
 export const HAND_POSES: readonly HandPose[] = Object.freeze(["open", "fist", "grip"]);
@@ -44,6 +45,8 @@ export interface FramedBody {
     readonly handPose?: { readonly applied: HandPose };
     readonly toes?: { readonly bend: number };
   }>;
+  /** Whether its segment `name` is on it (`attachment`). */
+  attached(name: string): boolean;
   life(): number;
   down(): boolean;
   out(): boolean;
@@ -61,12 +64,13 @@ export function packFrame(bodies: readonly FramedBody[], length: number, time: n
     frame[at] = body.life(); frame[at + 1] = body.down() ? 1 : 0; frame[at + 2] = body.out() ? 1 : 0;
     frame[at + 3] = centre.x; frame[at + 4] = centre.y; frame[at + 5] = centre.z;
     at += BODY_HEAD;
-    for (const segment of body.segments.values()) {
+    for (const [name, segment] of body.segments) {
       const p = segment.pose.position, q = segment.pose.rotation;
       frame[at] = p.x; frame[at + 1] = p.y; frame[at + 2] = p.z;
       frame[at + 3] = q.x; frame[at + 4] = q.y; frame[at + 5] = q.z; frame[at + 6] = q.w;
       frame[at + 7] = segment.handPose ? HAND_POSES.indexOf(segment.handPose.applied) : -1;
       frame[at + 8] = segment.toes ? segment.toes.bend : 0;
+      frame[at + 9] = body.attached(name) ? 1 : 0;
       at += SEGMENT_ROW;
     }
   }

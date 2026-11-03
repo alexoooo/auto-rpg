@@ -3,7 +3,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { segmentShapes } from "../core/build/segment-shapes.ts";
 import type { ToesState } from "../core/build/toes.ts";
-import type { ReadBody } from "../core/read-body.ts";
+import { attachment, type ReadBody } from "../core/read-body.ts";
 import type { Hook, World } from "../core/world.ts";
 import type { BodySpec, HandPose } from "../core/spec/body.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
@@ -12,6 +12,7 @@ import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 interface PuppetSegment extends DrawnSegment {
   readonly handPose?: { applied: HandPose; requested: HandPose };
   readonly toes?: ToesState;
+  attached: boolean;
 }
 
 /** A body drawn on a page from its spec alone, its nodes posed by the page from what a worker sends. */
@@ -37,7 +38,7 @@ export function puppetBody(spec: BodySpec, scene: Scene): Puppet {
     node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z));
     const handPose = poses ? { applied: initial, requested: initial } : undefined;
     const toes = bent ? { bend: 0 } : undefined;
-    segments.set(segmentSpec.name, { spec: segmentSpec, frame, node, ...(handPose ? { handPose } : {}), ...(toes ? { toes } : {}),
+    segments.set(segmentSpec.name, { spec: segmentSpec, frame, node, attached: true, ...(handPose ? { handPose } : {}), ...(toes ? { toes } : {}),
       get rigid() { return rigidAt(handPose?.applied, toes); } });
     // The hands as the built body's poses name them (`createHandPoses`).
     for (const hand of ["left", "right"] as const) if (handPose && segmentSpec.name === `hand.${hand}`) state[hand] = handPose;
@@ -50,12 +51,13 @@ export function puppetBody(spec: BodySpec, scene: Scene): Puppet {
 }
 
 /**
- * **`puppet` following `body`**, a body `world` steps on the page: each segment's pose, each hand's
- * pose and each foot's toes, now and after every step until the hook is disposed. The page draws the
+ * **`puppet` following `body`**, a body `world` steps on the page: each segment's pose and whether
+ * it is on the body (`attachment`), each hand's pose and each foot's toes, now and after every step until the hook is disposed. The page draws the
  * puppet and never hangs anything on the simulated body; what it writes on the puppet (a past frame,
  * `recordHistory`, `src/lab/history.ts`) the simulation never reads.
  */
-export function followBody(puppet: Puppet, body: Pick<ReadBody, "segments">, world: Pick<World, "afterStep">): Hook {
+export function followBody(puppet: Puppet, body: Pick<ReadBody, "segments" | "joints">, world: Pick<World, "afterStep">): Hook {
+  const on = attachment(body);
   const pairs = [...puppet.segments].map(([name, segment]) => {
     const followed = body.segments.get(name);
     if (!followed) throw new Error(`the puppet's segment ${name} is not the body's`);
@@ -66,6 +68,7 @@ export function followBody(puppet: Puppet, body: Pick<ReadBody, "segments">, wor
       const p = followed.pose.position, q = followed.pose.rotation;
       segment.node.position.set(p.x, p.y, p.z);
       segment.node.rotationQuaternion!.set(q.x, q.y, q.z, q.w);
+      segment.attached = on(followed);
       if (segment.handPose && followed.handPose) {
         segment.handPose.applied = followed.handPose.applied; segment.handPose.requested = followed.handPose.requested;
       }

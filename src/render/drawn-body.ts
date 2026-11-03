@@ -16,4 +16,6 @@ export interface DrawnBody {
 /** A segment as drawn: its node, which the page poses, and its shapes as a hand's pose and a foot's toes stand. */
 export interface DrawnSegment extends Pick<ReadSegment, "spec" | "frame" | "rigid" | "handPose" | "toes"> {
   readonly node: TransformNode;
+  /** Whether it is on its body (`attachment`), as the page last posed it: a part cut off is drawn apart. */
+  readonly attached: boolean;
 }

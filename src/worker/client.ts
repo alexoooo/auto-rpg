@@ -153,7 +153,7 @@ function between(frames: Float64Array[], clock: { shown: number; last: number },
 
 const work = { from: new Quaternion(), to: new Quaternion() };
 
-/** Pose `puppet`, the body at `offset` in a frame, between `at`'s two frames; its hands and toes as the later frame has them. */
+/** Pose `puppet`, the body at `offset` in a frame, between `at`'s two frames; its hands, toes and attachment as the later frame has them. */
 export function posePuppet(puppet: Puppet, offset: number, at: Between): void {
   const { from, to, share } = at, keep = 1 - share;
   let k = offset + BODY_HEAD;
@@ -166,6 +166,7 @@ export function posePuppet(puppet: Puppet, offset: number, at: Between): void {
     const pose = to[k + 7]!;
     if (segment.handPose && pose >= 0) segment.handPose.applied = HAND_POSES[pose]!;
     if (segment.toes) segment.toes.bend = to[k + 8]!;
+    segment.attached = to[k + 9] === 1;
     k += SEGMENT_ROW;
   }
 }

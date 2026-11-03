@@ -1390,7 +1390,7 @@ minds' data in its own realm, so its bouts and runs are the same to the bit
   a stage holds itself where its news says so (`StageNews.held`).
 - **A frame** (`frame.ts`) is one `Float64Array` a step, transferred: the world's time, steps,
   speed and the step's cost; each body's life, down, out and centre of mass; each segment's
-  position, rotation, hand pose and toes' bend, in the roster's order (`RosterBody`, sent once).
+  position, rotation, hand pose, toes' bend and whether it is on its body, in the roster's order (`RosterBody`, sent once).
   What a stage has to tell beside its frames (`StageNews`: the verdict, a duel's or a Crypt run's
   news) comes with the frame it happened on, or at once after a page's input.
 - **The page** (`openWorld`, `client.ts`) makes a puppet of each body from its spec (`puppetBody`,
@@ -1858,7 +1858,9 @@ An older pool is listed with what differs from the newest.
   containers. The core reads exact versioned metadata independently of web compression.
 - `dress.ts` and `dresserFor` draw a body as its skin, or its collision shapes if the skin does not
   load; skins (`skin.ts`, `skeleton-skin.ts`, `skinned-art.ts` for the rat and the reptile, the robot shells via
-  `robot-skin.ts`) read only segment transforms and own no collision. `glb.ts` reads a GLB's own
+  `robot-skin.ts`) read only segment transforms and whether each is on the body, and own no
+  collision; a skinned mesh is split where a part is cut off (`skinApart`), a rigid piece needs
+  nothing. `glb.ts` reads a GLB's own
   vertex data without a glTF loader, for the skeleton's, the rat's and the reptile's art. `skinSlot` swaps a view
   without touching physics. Appearance is a link setting outside recipes and tapes.
 - `strike-hands.ts` gives skins finger closure from the body's applied hand poses (`fighterHands`).

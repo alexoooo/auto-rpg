@@ -5,6 +5,7 @@ import type { Heading } from "../core/intent/orders.ts";
 import type { StrikeChoice } from "../core/command/commands.ts";
 import type { MenuEntry } from "../core/skills/framework/menu.ts";
 import { physicalReading } from "../core/observation.ts";
+import { attachment } from "../core/read-body.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { defaultMind, treeData } from "../entrants/game.ts";
@@ -129,8 +130,8 @@ async function played(start: BesideStart, hooks: ConstructorParameters<typeof Du
 
 /** `duel`'s bodies as a frame packs them. */
 const framed = (duel: Duel): FramedBody[] => SIDES.map((side) => {
-  const duelist = duel.duelists[side], read = physicalReading(duelist.built);
-  return { segments: duelist.built.segments, life: () => duel.life(side), out: () => duel.eliminated(side),
+  const duelist = duel.duelists[side], read = physicalReading(duelist.built), on = attachment(duelist.built);
+  return { segments: duelist.built.segments, attached: (name) => on(duelist.built.segments.get(name)!), life: () => duel.life(side), out: () => duel.eliminated(side),
     down: () => duelist.body.down, centre: () => read().centre };
 });
 
