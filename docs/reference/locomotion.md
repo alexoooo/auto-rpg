@@ -155,6 +155,32 @@ way's deepest point out of the box (21); 10 cm between the thighs (`STRIDE_ROOM`
 (13 of 300 against 6); a catch that would land no nearer the capture point than the bearing foot
 stands put down at once, and the bearing foot stepping out (27).
 
+### Stopping
+
+A stop is not taken at the end of a stride cycle: the step under way lands where it was planned, and
+each next step is planned at the pace the walk has come down to (`GaitTuning.accel`, 1 m/s²), no
+slower than its leg reaches (`reachablePace`). Asked to stand from 0.5 or 0.7 m/s forward (a lone
+body under the Option mind, Node stand, Rapier, 120 Hz, at `71706c71`), the Rogue and the Warrior,
+bare and with the club, keep their speed some 0.4 s, take 3 steps and a settling one, are under
+0.1 m/s 1.1 to 1.4 s after the order and go on 0.4 to 0.7 m; from 1.2 to 1.6 m/s, 1.7 to 2.2 s and
+1 to 2 m. The steps brake it some 0.5 to 0.75 m/s², what their reach allows, not the pace's ramp.
+The approach allows for it (`goesOn`, `src/core/intent/action-window.ts`): its braking pace is that
+of the distance left less what the body goes on once asked to stop, a step's swing and double
+support at its speed and then the walk's stopping rate (`STANCE_STOPPING`): 0.44 m from 0.5 m/s and
+0.76 from 0.7, against the 0.39 to 0.43 and 0.63 to 0.71 measured, and more than measured faster.
+Over 24 bouts (the Rogue and the Warrior, bare and with the club, both sides the Option mind, gaps
+3 to 6 m, 40 s, at `71706c71`) it holds the two bodies' centres apart a little more (their nearest
+twentieth 0.72 m against 0.69) and falls no more (in 17 bouts against 17).
+
+A stop within one step is the stance's `halt`: one catch step, under 0.1 m/s 0.2 to 0.6 s after
+the order from 0.7 m/s or slower; but it leaves the feet some 0.75 m apart, the body rocks back
+at up to 0.35 m/s and is not still 4 s on in 6 of 12 stops, it goes on as far, and the Warrior
+with the club falls halting from 1.4 m/s. A faster pace ramp (`accel` 3 or 10) stops no sooner from
+0.5 or 0.7 m/s (1.1 to 1.3 s), and at 10 the Warrior falls stopping from 1.4 bare and with the club.
+Turning a quarter at 1.4 m/s (the Locomotion drill's turn 90, the Warrior bare, at `b78c45df`) the
+asked pace swings 1.56 m/s at 1 m/s², the legs keep their speed 1.6 s and the body falls; at an
+`accel` of 2, 3 or 5 it turns and stands, which the envelope would need measuring again to keep.
+
 ## The run cycle
 
 Past its walk, the walk and run tracks a person's run cycle (`runCycle`, `cycle-run.ts`): three CMU clips'
