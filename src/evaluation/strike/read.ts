@@ -75,7 +75,7 @@ export type Bar = {
  * `lean` degrees of upright then.
  *
  * A blow from a hand holding an item is judged by `held` alone: its `energy`, J, the rules' energy
- * of the blow, at least the untrained adult's blow with a crutch less one SD (Frantz, Sprenger &
+ * of the blow on the Warrior (on another body, its pair's share, `pairShare`), at least the untrained adult's blow with a crutch less one SD (Frantz, Sprenger &
  * Jackowski 2026, 75.5 ± 10.7 J, the household implement nearest a club swung one-handed;
  * [human strike reference](../../../docs/reference/human-strike-reference.md#2-one-handed-stickclubbaton-and-bats-as-a-two-handed-ceiling));
  * a point's blow by its `point` instead, its closing speed into the contact, m/s: the fencers'
@@ -99,6 +99,23 @@ export const BAR: Bar = Object.freeze({
   held: Object.freeze({ energy: 64.8, point: 4.6, edge: 18.5 }),
   foot: 3,
 });
+
+/** m M / (m + M), and m where M is `Infinity`: the mass a contact's energy goes with (`impactEnergy`). */
+const reduced = (m: number, big: number): number => Number.isFinite(big) ? m * big / (m + big) : m;
+
+/**
+ * **A held blow's energy bar on a target of `target`**, a share of `Bar.held.energy`, which is set
+ * for the Warrior struck: a blow gives up its energy with the reduced mass of the pair it meets
+ * (`impactEnergy`), so the same blow on a lighter body gives up less. The share is the pair's
+ * reduced mass, the striker's `kg` against the `struck` mass the contact met, over the pair's on
+ * the Warrior, whose mass met there is the struck mass scaled by the two bodies' masses, as
+ * `barOf` scales a fist's mass by its striker's. A Warrior struck reads the bar itself.
+ * Set: `docs/reference/blows.md#a-held-blows-bar-on-another-body`.
+ */
+function pairShare(kg: number, struck: number, target: BodySpec): number {
+  const onWarrior = struck * BAR_BODY.mass.value / target.mass.value;
+  return reduced(kg, struck) / reduced(kg, onWarrior);
+}
 
 /** A body's strength: its muscles' peak isometric torques, both ways about every joint's every axis, summed, N m. */
 function strengthOf(spec: BodySpec): number {
@@ -142,6 +159,8 @@ export type StrikeContact = {
   readonly mechanism: Mechanism;
   /** The effective mass the striking segment met on its own side, kg. */
   readonly kg: number;
+  /** The effective mass the contact met on the target's side, kg. */
+  readonly struck: number;
 };
 
 /**
@@ -456,7 +475,7 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         const k = blow.sides.findIndex((side) => side.fighter === "left"), by = blow.sides[k], on = blow.sides[1 - k];
         if (!by || !on || on.fighter !== "right" || on.item !== null) return [];
         const sign = k === 0 ? 1 : -1, normal = [blow.normal[0] * sign, blow.normal[1] * sign, blow.normal[2] * sign] as const;
-        return [{ contact: { time: blow.time, by: by.segment, on: on.segment, closing: blow.closing, energy: blow.energy, damage: on.damage, kg: by.kg,
+        return [{ contact: { time: blow.time, by: by.segment, on: on.segment, closing: blow.closing, energy: blow.energy, damage: on.damage, kg: by.kg, struck: on.kg,
           mechanism: on.mechanism ?? "blunt" }, normal }];
       });
       const live = (time: number) => times.began !== null && time >= times.began && time <= (times.ended ?? world.time);
@@ -474,7 +493,8 @@ export function readStrike({ world, duel }: { readonly world: World; readonly du
         const bent = at < 0 ? Math.PI : path[at + 7]!, leaning = at < 0 ? Math.PI : path[at + 8]!;
         if (armed) {
           const judged = meets === "point" ? { value: contact.closing, bar: bar.held.point }
-            : meets === "edge" ? { value: approach(contact.time, 9)?.speed ?? 0, bar: bar.held.edge } : { value: contact.energy, bar: bar.held.energy };
+            : meets === "edge" ? { value: approach(contact.time, 9)?.speed ?? 0, bar: bar.held.edge }
+            : { value: contact.energy, bar: bar.held.energy * pairShare(contact.kg, contact.struck, target) };
           return { ...contact, speed: travel?.speed ?? null, straight, along, bend: bent, lean: leaning, foot: null, held: judged,
             fast: null, heavy: null, square: null, soon: null, lined: null, extended: null, upright: null, hard: judged.value >= judged.bar,
             faced: contact.mechanism === meets };
