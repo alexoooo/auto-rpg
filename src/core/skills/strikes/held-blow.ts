@@ -1,8 +1,4 @@
-import clubMeta from "../../../../assets/core/club-blow.meta.json" with { type: "json" };
-import cutMeta from "../../../../assets/core/sword-cut.meta.json" with { type: "json" };
 import thrustMeta from "../../../../assets/core/sword-thrust.meta.json" with { type: "json" };
-import clubLayout from "../../../../assets/core/club-blow.layout.json" with { type: "json" };
-import cutLayout from "../../../../assets/core/sword-cut.layout.json" with { type: "json" };
 import thrustLayout from "../../../../assets/core/sword-thrust.layout.json" with { type: "json" };
 import { recoveryNetwork, type Network } from "../../learning/recovery-network.ts";
 import { bodyKey } from "../../spec/body.ts";
@@ -21,14 +17,12 @@ import { faceFault, STRAIGHT_PUNCH_KEYS, straightPunchExecutor, straightPunchFit
   type StraightPunch, type StrikingFace } from "./straight-punch.ts";
 
 /**
- * **The held blows**, by kind: what each is thrown with (`item`, by `HELD`'s name), what it meets
- * the target with as the rules read the contact (`mechanism`: the club its swell, blunt; the
- * sword's cut its edge; its thrust its point), the bodies with a record of it, and how its steer
- * reads and pushes (`layout`, `assets/core/<kind>.layout.json`).
+ * **The held blows driven straight**, by kind: what each is thrown with (`item`, by `HELD`'s name),
+ * what it meets the target with as the rules read the contact (`mechanism`: the sword's thrust its
+ * point), the bodies with a record of it, and how its steer reads and pushes (`layout`,
+ * `assets/core/<kind>.layout.json`). A blow an item gives on an arc is a swing (`swing-part.ts`).
  */
 export const HELD_BLOWS = deepFreeze({
-  "club-blow": { label: "Club blow", item: "club" as Held, mechanism: "blunt" as Mechanism, bodies: clubMeta.bodies, layout: checkedLayout(clubLayout as PunchLayout) },
-  "sword-cut": { label: "Sword cut", item: "sword" as Held, mechanism: "edge" as Mechanism, bodies: cutMeta.bodies, layout: checkedLayout(cutLayout as PunchLayout) },
   "sword-thrust": { label: "Sword thrust", item: "sword" as Held, mechanism: "point" as Mechanism, bodies: thrustMeta.bodies, layout: checkedLayout(thrustLayout as PunchLayout) },
 });
 export type HeldBlowKind = keyof typeof HELD_BLOWS;
@@ -45,10 +39,6 @@ type HeldBlowRecords = Readonly<Record<string, HeldBlowRecord>>;
 
 declare module "../../data/store.ts" {
   interface DataOf {
-    /** Every body's club blow record. */
-    "club-blow": HeldBlowRecords;
-    /** Every body's sword cut record. */
-    "sword-cut": HeldBlowRecords;
     /** Every body's sword thrust record. */
     "sword-thrust": HeldBlowRecords;
   }
@@ -125,6 +115,4 @@ function heldBlowPart<K extends HeldBlowKind>(kind: K): ExecutorPart<Config<K>> 
   };
 }
 
-export const CLUB_BLOW_PART = heldBlowPart("club-blow");
-export const SWORD_CUT_PART = heldBlowPart("sword-cut");
 export const SWORD_THRUST_PART = heldBlowPart("sword-thrust");

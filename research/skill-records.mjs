@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { STOMP_PATH, validStompTuning } from "../src/core/skills/strikes/stomp.ts";
 import { faceFault, validStraightPunch } from "../src/core/skills/strikes/straight-punch.ts";
+import { validSwing } from "../src/core/skills/strikes/swing.ts";
 
 /** Whether `settings` holds exactly `keys`. */
 const whole = (settings, keys) => settings !== null && typeof settings === "object" && Object.keys(settings).sort().join() === [...keys].sort().join();
@@ -23,7 +24,8 @@ const whole = (settings, keys) => settings !== null && typeof settings === "obje
 /** Each skill tuned per body: whether settings are its whole and valid. */
 export const SKILLS = Object.freeze({
   stomp: (s) => whole(s, Object.keys(STOMP_PATH)) && validStompTuning(s),
-  ...Object.fromEntries(["club-blow", "sword-cut", "sword-thrust"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null])),
+  "sword-thrust": (s) => s !== null && typeof s === "object" && validStraightPunch(s) && faceFault(s) === null,
+  ...Object.fromEntries(["club-blow", "cut"].map((kind) => [kind, (s) => s !== null && typeof s === "object" && validSwing(s)])),
 });
 
 const pathOf = (skill) => `assets/core/${skill}`;

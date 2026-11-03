@@ -694,6 +694,17 @@ with a PPO run on the machine:
 | 2 | 3.082 | 1.102 |
 | 3 | 2.219 | 1.034 |
 
+### A crowd walk tried only where it can win
+
+**A crowd walk (`crowdWalk`, `src/core/navigation/crowd.ts`) reads a candidate's conflict only
+where its cost without one is under the best's**, since a conflict only adds to a walk's cost; it
+chooses the same walk to the bit. No fingerprint case moved against 25d720b9. Over the crowd
+fight's opening (`crowdFight(0)`, steps 396 to 800, minds in-process at one step; Node, core world,
+Rapier, 120 Hz) the conflicts read fall from 50,392 to 21,259 of the 50,392 walks asked. In the
+world thread's profile over steps 396 to 560, navigation's step falls from 6.5 % to 5.5 % and the
+crowd walk from 2.3 % to under 1.4 %. The step's CPU time, read under the other forks' runs, moves
+within its noise (53.6 to 62.9 ms a step either way).
+
 ### Phases spread
 
 **Deciding on each body's phase of the period takes the crowd fight's steps where all ten bodies
