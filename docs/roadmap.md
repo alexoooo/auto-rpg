@@ -351,8 +351,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     an order without its walk (`Orders.walk`).
 - **The stomp lands 11 of the Warrior's rung's 12**, none fell, 1 outside; on `stomping-bodies`
   the Skeleton lands 8 of 12, none fell, and the Rogue 1, 8 weak, none fell on its row seeded from
-  the Warrior's; the Warrior's blows at a lying Warrior carry 9.7 to 26.6 J, half what a stroke
-  braced throughout gave ([stroke, return and stay](reference/front-kicks.md#stomp-settings)).
+  the Warrior's; braced the stroke's last 76 ms, the Warrior's blows at a lying Warrior carry 15 to
+  52 J at 3.7 to 4.2 m/s ([braced and searched](reference/front-kicks.md#stomp-settings)).
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.
