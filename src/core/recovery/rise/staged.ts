@@ -46,9 +46,9 @@ const TURNED = 0.15;
  */
 const LEFT = 0.01;
 /**
- * How far over the ground, m, every segment of the trunk (`Recipe.trunk`) is for the rise to have
- * raised it: from then, one of them down again (within `DOWN`) ends the attempt
- * (`docs/reference/rising.md#the-abort`).
+ * How far over the ground, m, every segment of the trunk (`Recipe.trunk`) is, in or after the
+ * rise's first bearing stage, for the rise to have raised it: from then, one of them down again
+ * (within `DOWN`) ends the attempt (`docs/reference/rising.md#the-abort`).
  */
 const RAISED = 0.1;
 /** A contact whose normal is within this cosine of straight down is with the ground under the body, not a wall. */
@@ -180,6 +180,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const fallen = (): boolean => view.down && !onFeet();
   /** Every segment but the trunk's: the trunk's clearance is the ground's gap under the rest of the body's complement. */
   const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
+  /** The rise's first bearing stage: before it the pose stages carry the body up from lying, and the trunk is not yet raised. */
+  const borne = recipe.rise.findIndex((stage) => stage.kind === "bear");
   const { goalsOf, bearsOf, balls, pastOf, pressOf, levelOf } = riseTables(recipe, own.spec, muscles.channels, feet);
 
   const state = {
@@ -476,7 +478,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
           const stage = playing(state.phase)[state.stage]!;
           if (state.phase === "rise") {
             const gap = upright.clearance(notTrunk);
-            if (gap > RAISED) state.raised = true;
+            if (gap > RAISED && state.stage >= borne) state.raised = true;
             else if (state.raised && gap <= DOWN) {
               settle();
               slack();
