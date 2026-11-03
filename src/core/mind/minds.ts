@@ -130,8 +130,8 @@ export function embodyApart(built: BuiltBody, world: World, place: MindPlace, ca
   seat = place.seat(catalog, { ...recipe, statics, dt: world.dt }, writer.channel, at());
   const thinking = world.prepare(() => {
     if (muscles.level !== "full") return;
-    // Nothing it was asked still reads the numbers.
-    seat!.says();
+    // Its last step answered, what its mind may still decide on is the array of numbers it was asked with, not the one written now (`MirrorWriter.write`).
+    seat!.answer();
     writer.write();
     const now = orders(sense()), key = JSON.stringify(now);
     seat!.ask({ kind: "step", at: at(), ...(key === sent ? {} : { orders: now }), ...(shown ? { shown } : {}) });

@@ -42,7 +42,7 @@ export interface Seen {
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
-  /** A foe's weapon to ward off (`READINGS.ward`), read where a hand holds a covering face; null else. */
+  /** A foe's weapon to ward off, at the hand that holds it (`READINGS.ward`), read where a hand holds a covering face; null else. */
   readonly ward: Cover | null;
   readonly threats: Threats;
   readonly riseFrom: (posture: Position) => DownModel | null;
@@ -291,8 +291,8 @@ function pressingOf(seen: Seen): Pressure {
 export function pressureAt(pressure: Pressure, range: number, seconds: number): number {
   let rate = 0;
   for (const reading of pressure.model) {
-    const expected = reading.expect({ range, phase: pressure.phase }, pressure.struck);
-    if (expected) rate = Math.max(rate, expected.dealt / expected.seconds);
+    const expected = reading.rate(range, pressure.phase, pressure.struck);
+    if (expected !== null) rate = Math.max(rate, expected);
   }
   return rate * seconds;
 }

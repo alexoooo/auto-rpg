@@ -111,8 +111,6 @@ export interface Seat {
    * command, while its mind may still decide; with none, its whole step.
    */
   answer(): void;
-  /** What it says once every ask so far is carried out: the world waits for them. */
-  says(): SeatSays;
   /** What it said with its last answer, or as it was made, waiting for nothing more once it has been heard as made. */
   said(): SeatSays;
   /** Ask it for its menu at `at`, and wait for it. */

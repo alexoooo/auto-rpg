@@ -497,11 +497,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
   (`hand-poses.ts`) names it by side. The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
-  also wards with a buckler's face: held out toward the foe's weapon as far as the arm reaches,
-  moved no faster than the body's balance takes (`wardSpeed`), never asked past the arm's
-  reach from the shoulder (`withinReach`), turned to it; `cover-guard` is the
-  line-cover alternative. There is no block or
-  parry: a cover is a placement, and what it costs is the blow rule's.
+  also wards with a buckler's face: held out toward the hand that holds the foe's weapon
+  (`READINGS.ward`) as far as the arm reaches, moved no faster than the body's balance takes
+  (`wardSpeed`), never asked past the arm's reach from the shoulder (`withinReach`), turned to it
+  no faster than its centre moves; `cover-guard` is the line-cover alternative. There is no block
+  or parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a stomp or fold waits for a
   gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/locomotion/support-part.ts`,
   a line in `SUPPORTS`, `skills/locomotion/supports.ts`) that says whether the legs may walk under it (`walks`).
@@ -568,8 +568,10 @@ and with each answer (`SeatSays`), and its menu when asked. The mind's side is a
 (`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
 orders those last sent, its observers run as a step is asked, before its answer. At any delay the
 world waits for a mind's answer before its driver applies it, and reads what it said with it
-(`Seat.said`); it waits for the decision only to ask the next step or a menu (`Seat.says`), so a
-bout apart is the bout on bodies, step for step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+(`Seat.said`). It writes each step's numbers into the other of two arrays (`MirrorWriter.write`),
+waiting only for the seat's last answer, so a mind still deciding reads the numbers it was asked
+with; it waits for a decision only to ask a menu. A bout apart is the bout on bodies, step for
+step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
 The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
@@ -917,7 +919,9 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   (`Predictions.turns`, its measured turn, `turnAt`). A gait (`goings`, a `Going`) goes at its pace,
   asking it (`Intent.gait`), and leaves the body unbraced for the seconds the Gait drill measured it
   stopping from its top speed to throw each strike (`ready`, by the action), none longer than the
-  walk lasts (`settling`), at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once). Another strike adds a place; another
+  walk lasts (`settling`), at its share fallen (`dataOf("gait-profiles")`; unmeasured, braced at once);
+  a walk into a strike's window ends once that strike is ready, so it leaves that one ready
+  (`Destination.readies`). Another strike adds a place; another
   gait, an option of each kind; another source of places, a kind. With no focus a walk is priced
   by its way and its gait alone. What a walk's place is worth
   beyond the position is the chooser's to look past (below).

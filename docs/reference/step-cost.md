@@ -941,9 +941,9 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   motor part on the body the world wrote and sends that answer with what the mind says then
   (`Thread.steps`, the count of answered steps in `ANSWERED`, `src/apart/wire.ts`), then makes the
   decision its next answer carries out, while the world takes the answer, steps, and its
-  Commanders read what each member said with its answer (`Seat.said`). The world waits for the
-  decision only as it writes the next step's numbers (`Seat.says`) or asks a menu: one write and
-  one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
+  Commanders read what each member said with its answer (`Seat.said`). The world writes the next
+  step's numbers into the other of two arrays (`MirrorWriter.write`), so it waits for a decision
+  only as it asks a menu: one write and one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
   the bit on one thread and on one to four mind threads (`research/minds-apart.mjs`, the whole
   physics world's bytes each second, at 81c323b6): the crowd fight to its verdict (13668 steps,
   2577 blows, the left side's by draining at 113.9 s), the bare-hands and sword bouts and the
@@ -964,10 +964,31 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
 
   What is left is the dear steps, each about 3 ms of solver and 11 to 13 of the rest: the world
   still waits for every mind's motor part and answer before its muscles take them, three or so
-  minds on each of four threads in turn, and for each decision before it writes the next step's
-  numbers. What would split it further: the numbers written in two buffers by the step's parity,
-  so that the world writes a step's while the minds still decide on the last's; more mind threads
-  where the machine has them; and a cheaper motor part (its hands' solves, `ReachMeter`).
+  minds on each of four threads in turn. What would split it further: more mind threads where the
+  machine has them, and a cheaper motor part (its hands' solves, `ReachMeter`).
+- **The world writes a step's numbers while the minds still decide on the last's**: each writing
+  takes the other of two arrays (`MirrorWriter.write`, `src/core/mind/mirror.ts`), and before it
+  the world waits only for the seat's last answer (`Seat.answer`), no longer for its thread's whole
+  batch. A decision is still carried out by the seat's next answer, so a slow one still delays its
+  own seat's next move; what no longer waits behind it is every other seat's writing and every
+  other thread's batch. Before it, at 510b96d0 (crowd fight, its least step over two playings
+  pinned, Node 24.19, `rapier-coordinate`, 120 Hz, quiet): a decision of 10.7 ms at step 1806 held
+  every thread's next batch 7.0 ms into step 1807, against 0.8 in an ordinary step. The poses are
+  the same to the bit on one and four threads: the crowd fight's first 2400 steps and the Crypt's
+  at seeds 10 and 25, and the fingerprint.
+- **A decision prices the other foes before its focus** (`selectSet`, `src/core/mind/choice.ts`):
+  its options are left aimed and priced at the focus unless another foe is worth more, so the focus
+  is no longer priced a second time after the others. The decisions over 2 ms are three quarters
+  appraisal (`appraiseAt`), two fifths of it at the other foes (the crowd fight's steps 380 to
+  1900, minds in one process, a CPU profile of its 662 decisions over 2 ms, Node 24.19,
+  `rapier-coordinate`, 120 Hz, at bb20424a). Over the crowd fight's first 2400 steps the minds
+  appraise 3499 times, against 4192 before.
+- **A profile reads each phase's cells once** (`profileReading`,
+  `src/core/skills/framework/profile.ts`): the cells a phase reads at and their reach are found at
+  its first reading, and the pressure's rate (`pressureAt`, `ProfileReading.rate`) reads its cell
+  without making an expectation; a region's segments are found once a spec (`regionSegments`,
+  `src/core/intent/action-aim.ts`). In the same profile of those decisions, `expect` was 7.9% of
+  their samples and `regionSegments` 4.2%, each in itself.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening
