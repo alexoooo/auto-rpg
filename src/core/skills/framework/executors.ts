@@ -1,4 +1,3 @@
-import { PATH_PART } from "../strikes/path-part.ts";
 import { STOMP_PART } from "../strikes/stomp-part.ts";
 import { PUNCH_PART } from "../strikes/punch-part.ts";
 import { CLUB_BLOW_PART, SWORD_CUT_PART, SWORD_THRUST_PART } from "../strikes/held-blow.ts";
@@ -9,6 +8,6 @@ import { CLUB_BLOW_PART, SWORD_CUT_PART, SWORD_THRUST_PART } from "../strikes/he
  * imports and this list and nothing else: a case's code reads it as where each kind's own code
  * begins (`caseCoder`, `scripts/build-identity.mjs`).
  */
-export const EXECUTORS = { "path-strike": PATH_PART, "stomp": STOMP_PART,
+export const EXECUTORS = { "stomp": STOMP_PART,
   "straight-punch": PUNCH_PART,
   "club-blow": CLUB_BLOW_PART, "sword-cut": SWORD_CUT_PART, "sword-thrust": SWORD_THRUST_PART };

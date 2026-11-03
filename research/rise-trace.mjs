@@ -30,14 +30,13 @@ async function traceFall(job) {
   const { SIT_BACK } = await import("../src/core/recovery/rise/stages.ts");
   const tuning = stepUpTuning(job.fall.model), stepUp = stepUpRecipe(tuning).rise.map((one) => one.name), sitBack = stepUpRecipe(tuning, SIT_BACK).rise.map((one) => one.name);
   /** Each staged part's rise stage names from where it begins (`PARTS`, `staged-edges.ts`). */
-  const names = { "staged-down": stepUp, "staged-kneel-up": stepUp.slice(stepUp.indexOf("kneel 0")), "staged-step-through": stepUp.slice(stepUp.indexOf("shift")),
-    "staged-lunge": stepUp.slice(stepUp.indexOf("lunge 0")), "front-sit-back": sitBack, "sit-back": sitBack.slice(sitBack.indexOf("plant")) };
+  const names = { "staged-down": stepUp, "front-sit-back": sitBack, "sit-back": sitBack.slice(sitBack.indexOf("plant")) };
   /** What ground action `name` is doing, as its run's state reads: its phase, and in a staged rise the stage. */
   const stageOf = (mind, name, fallback) => {
     const run = mind?.skills?.actions?.executors?.find((one) => one?.runs)?.runs?.[name];
     if (!run) return fallback;
-    // A staged part's state: the roll's has no phase of its own, a part of the rise's is "rise" or "steady".
-    const rise = run.rises?.[run.entry], rising = (run.phase ?? "rise") === "rise";
+    // A staged part's state: the roll's has no phase of its own and a rise each way over, a part of the rise's is "rise" or "steady".
+    const rise = run.rise ?? run.rises?.[run.entry], rising = (run.phase ?? "rise") === "rise";
     if (rising && rise && names[name] && rise.phase === "rise") return names[name][rise.stage] ?? `stage ${rise.stage}`;
     if (rising && rise) return rise.phase;
     return run.phase ?? fallback;

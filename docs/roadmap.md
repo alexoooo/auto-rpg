@@ -228,10 +228,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
 - **Recovery** ([stand-up](plans/2026-11-01-option-mind-everywhere.md#4-stand-up)). The owner's 64-fall target
   (`npm run evaluate -- rising-target`, [the owner's target](reference/rising.md#the-owners-target)):
   at least 15 of 16 verified recoveries within 10 s in every group, 61 of 64 overall, every
-  cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. Step-up,
-  the game's, stands 56 and 53 of 64 at `cbdf389a`, none within 6 s; the staged route, priced by its
-  edges' profiles ([routes priced](reference/rising.md#routes-priced)), 52 and 53, short on the
-  Rogue with the club (9 and 10 of 16 against 11 and 12). The fast edge from hands and knees on
+  cardinal direction in every group, a failure-inclusive median at most 10 s, unassisted. The fast edge from hands and knees on
   toes, `sit-back` ([the sit-back](reference/rising.md#the-sit-back)), stands the Warrior 32 of 32
   from rest in a median of 3.87 s, 32 of 32 with the club. On it Option Mind's rise
   (`--mind` Option Mind's preset) stands the toed Warrior from 31 of the target's 32 falls, 5

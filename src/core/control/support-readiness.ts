@@ -3,7 +3,7 @@ import { footStatesOf, groundContact, readSupport, withinSupport } from "./suppo
 import type { ReadBody } from "../read-body.ts";
 
 /** Physical readiness limits, independent of anatomy: `docs/reference/punch-stability.md#readiness-settings`. */
-export const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
+const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
 
 /** Trusted physical adapter; its detached readings are shared by strike preparation and transfer. */
 export function supportReadiness(built: ReadBody) {
@@ -34,7 +34,7 @@ export function plantedSupport(reading: ReturnType<typeof supportReadiness>["sta
 }
 
 /** The committed stroke retains ground support while its centre of mass is allowed to accelerate. */
-export function bearingSupport(reading: ReturnType<typeof supportReadiness>["state"]): boolean {
+function bearingSupport(reading: ReturnType<typeof supportReadiness>["state"]): boolean {
   return reading.loads.left > 0 && reading.loads.right > 0 && reading.flat.left && reading.flat.right
     && reading.centred && !reading.otherSupport;
 }

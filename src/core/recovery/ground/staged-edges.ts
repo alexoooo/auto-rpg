@@ -9,7 +9,7 @@ import { SIT_BACK, derivedRecipe, type Recipe } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "../../control/ground-reading.ts";
 import { LIMIT, LOW, stepUpRecipe, stepUpTuning, type StepUpRise } from "./step-up.ts";
 import { stanceSteady } from "./steady.ts";
-import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueName, type TechniqueRun } from "./technique.ts";
+import { REACHED_SECONDS, technique, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
 import { otherSide } from "../../spec/body.ts";
 
 /**
@@ -30,24 +30,14 @@ const handsOver = (g: GroundReading): boolean =>
   g.velocity.lengthSquared() < HAND_OVER.speed * HAND_OVER.speed && g.spin < HAND_OVER.spin;
 
 /**
- * **How upright a trunk sat back on its heels is** (`GroundReading.upright`): above it a body on its
- * hands and knees is sat back as the route's down leaves it, below it the kneel-up sits it back
- * first (`docs/reference/rising.md#the-staged-route`).
- */
-const SAT_BACK = .22;
-
-/**
  * **A part of a staged route**: the recipe it plays (absent, step up's, `stepUpRecipe`), where in its rise
- * it begins (none: the roll alone), the
- * stage before that it begins at instead on a body not yet sat back (`SAT_BACK`), the positions it
- * is begun from, the one it takes the body to, and how slow a body it is begun on is: `moving`,
- * under `HAND_OVER`; `still`, under the speed its body's step up lies still at before it reads its
- * lie (`STEP_UP`'s `settle`).
+ * it begins (none: the roll alone), the positions it is begun from, the one it takes the body to,
+ * and how slow a body it is begun on is: `moving`, under `HAND_OVER`; `still`, under the speed its
+ * body's step up lies still at before it reads its lie (`STEP_UP`'s `settle`).
  */
 interface Part {
   readonly recipe?: Recipe;
   readonly first: string | null;
-  readonly unsat?: string;
   readonly from: readonly Position[];
   readonly to: Position;
   readonly entry: "moving" | "still";
@@ -57,9 +47,6 @@ interface Part {
 const PARTS = Object.freeze({
   "staged-roll": { first: null, from: ["back", "left", "right"], to: "front", entry: "still" },
   "staged-down": { first: "fold", from: ["front"], to: "fours", entry: "still" },
-  "staged-kneel-up": { first: "kneel 0", unsat: "sit", from: ["fours"], to: "kneeling", entry: "moving" },
-  "staged-step-through": { first: "shift", from: ["kneeling"], to: "half-kneel", entry: "moving" },
-  "staged-lunge": { first: "lunge 0", from: ["half-kneel"], to: "standing", entry: "moving" },
   "sit-back": { recipe: SIT_BACK, first: "plant", from: ["fours"], to: "standing", entry: "moving" },
   "front-sit-back": { recipe: SIT_BACK, first: "fold", from: ["front"], to: "standing", entry: "still" },
 } as const satisfies Record<string, Part>);
@@ -155,9 +142,8 @@ function rollPart(own: OwnBody, view: BodyView, kind: StagedKind): TechniqueRun 
 }
 
 /**
- * **A part of the rise**: step up's route played on from the part's first stage, or from its
- * `unsat` stage on a body not yet sat back (`SAT_BACK`); done at the end of the first cut's stage
- * (`CUTS`) where the body has been read in that cut's posture, slow enough to hand over, for
+ * **A part of the rise**: step up's route played on from the part's first stage; done at the end
+ * of the first cut's stage (`CUTS`) where the body has been read in that cut's posture, slow enough to hand over, for
  * `REACHED_SECONDS`, from that stage on until the next cut's begins; read at none, it plays the
  * route to its end, step up's climb and steadying (`stanceSteady`). It yields only while it lies
  * slack: its climb is its own until the body stands ready or falls.
@@ -173,34 +159,30 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind):
   const first = at(part.first!);
   /** The cuts this part may end at, by the index of the stage each is read after: step up's, on its own recipe. */
   const cuts = part.recipe ? [] : CUTS.map(cut => ({ index: at(cut.after), at: cut.at })).filter(cut => cut.index >= first);
-  const from = (index: number): Recipe => derivedRecipe(whole, `unrolled from ${index}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(index) }));
-  // `other`: its rise from its `unsat` stage, where it has one.
-  const begins = { whole: first, other: part.unsat === undefined ? first : at(part.unsat) };
-  const rises: Record<"whole" | "other", StepUpRise> = { whole: stagedRise(own, view, from(first)), other: stagedRise(own, view, from(begins.other)) };
+  const unrolled: Recipe = derivedRecipe(whole, `unrolled from ${first}`, () => ({ ...whole, roll: { back: [], left: [], right: [] }, rise: whole.rise.slice(first) }));
+  const rise: StepUpRise = stagedRise(own, view, unrolled);
   const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "a part of step up's route");
   const steady = stanceSteady(own, view, motor, tuning.climb);
   // `cut`: the latest of `cuts` begun, -1 for none.
-  const state = { phase: "rise" as "rise" | "steady", entry: "whole" as "whole" | "other", rose: false,
+  const state = { phase: "rise" as "rise" | "steady", rose: false,
     ended: null as TechniqueEnd | null, elapsed: 0, cut: -1, reached: 0,
-    rises: { whole: rises.whole.state, other: rises.other.state }, steady: steady.state, motor: motor.state };
+    rise: rise.state, steady: steady.state, motor: motor.state };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
   return {
-    state, get phase() { return state.phase === "steady" ? "steady" : rises[state.entry].state.phase; },
-    get yields() { return state.ended !== null || rises[state.entry].state.phase === "settle"; },
+    state, get phase() { return state.phase === "steady" ? "steady" : rise.state.phase; },
+    get yields() { return state.ended !== null || rise.state.phase === "settle"; },
     admits: (g, side) => stagedEntry(kind, model, g, side),
     reached: (g, to) => to === "standing" ? standReady({ down: view.down, ground: g }) : readsAt(model, g, to),
     begin() {
-      const unsat = part.unsat !== undefined && (view.ground?.upright ?? 0) < SAT_BACK;
-      state.phase = "rise"; state.entry = unsat ? "other" : "whole"; state.rose = false; state.ended = null;
+      state.phase = "rise"; state.rose = false; state.ended = null;
       state.elapsed = 0; state.cut = -1; state.reached = 0;
-      rises[state.entry].beginRising();
+      rise.beginRising();
       motor.reset();
     },
-    end() { if (state.ended === null) { rises[state.entry].end(); finish("interrupted"); } },
+    end() { if (state.ended === null) { rise.end(); finish("interrupted"); } },
     step(g, senses, dt) {
       if (state.ended !== null) return state.ended;
       state.elapsed += dt;
-      const rise = rises[state.entry];
       if (state.phase === "rise") {
         if (state.elapsed > LIMIT) { rise.end(); return finish("timed-out"); }
         // The rise lies slack again once an attempt has failed.
@@ -212,7 +194,7 @@ function risePart(own: OwnBody, view: BodyView, kit: MindKit, kind: StagedKind):
           // A rise fallen back to lying slack has failed, read at the next step.
           const after: string = rise.state.phase;
           if (after === "settle") return null;
-          const now = after === "idle" ? whole.rise.length : begins[state.entry] + rise.state.stage;
+          const now = after === "idle" ? whole.rise.length : first + rise.state.stage;
           let cut = -1;
           for (let k = 0; k < cuts.length; k++) if (cuts[k]!.index <= now) cut = k;
           if (cut !== state.cut) { state.cut = cut; state.reached = 0; }
@@ -240,16 +222,7 @@ const routeTechnique = <K extends StagedKind>(kind: K, label: string) => techniq
 export const STAGED_ROLL = routeTechnique("staged-roll", "Staged roll");
 /** **Staged down**: from the front onto hands and knees, step up's fold, tuck, prop and bearing stage on them, sitting back toward the heels. */
 export const STAGED_DOWN = routeTechnique("staged-down", "Staged down");
-/** **Staged kneel-up**: from hands and knees up tall on the knees. */
-export const STAGED_KNEEL_UP = routeTechnique("staged-kneel-up", "Staged kneel-up");
-/** **Staged step-through**: from kneeling, the left foot brought through and set down ahead, half kneeling, the weight onto the right toes. */
-export const STAGED_STEP_THROUGH = routeTechnique("staged-step-through", "Staged step-through");
-/** **Staged lunge**: from half kneeling up the lunge to standing, climbed and steadied. */
-export const STAGED_LUNGE = routeTechnique("staged-lunge", "Staged lunge");
 /** **Sit back**: from hands and knees on toes, sat back onto the heels and up over the feet (`SIT_BACK`), climbed and steadied. */
 export const SIT_BACK_EDGE = routeTechnique("sit-back", "Sit back");
 /** **Sit back from the front**: onto hands and knees as step up comes, and on through the sit-back without a stop (`SIT_BACK`). */
 export const FRONT_SIT_BACK = routeTechnique("front-sit-back", "Sit back from the front");
-
-/** **The staged route**: step up's parts in route order. */
-export const STAGED_ROUTE: readonly TechniqueName[] = Object.freeze(["staged-roll", "staged-down", "staged-kneel-up", "staged-step-through", "staged-lunge"]);

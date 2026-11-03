@@ -2,7 +2,7 @@ import type { Pose } from "../../spec/pose.ts";
 import { fitsWhen, type KeysOf, type Part, type PartConfig } from "../../parts/parts.ts";
 import type { ReadBody } from "../../read-body.ts";
 import type { BodySpec } from "../../spec/body.ts";
-import { guardPosture, guardSkill, handsOf, type Covering, type GuardSkill } from "./guard.ts";
+import { guardPosture, guardSkill, handsOf, SHIELD_WARD, type Covering, type GuardSkill, type Ward } from "./guard.ts";
 import { holdUp } from "../framework/hold.ts";
 
 /**
@@ -30,26 +30,32 @@ interface CoverGuardConfig {
   };
 }
 
-/** A cover guard that also turns an item's declared face toward the threat. */
-interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
+/** A cover guard that also wards with an item's declared face: held out at the threat (`SHIELD_WARD`), turned toward it. */
+interface ShieldGuardConfig {
+  readonly kind: "shield-guard";
+  readonly tuning?: CoverGuardConfig["tuning"] & {
+    /** The ward in place of `SHIELD_WARD`. */
+    readonly ward?: Ward;
+  };
+}
 
 /** A cover guard's `fits`: a body with a hand that covers (`handsOf`). */
 const coversWithHands = fitsWhen((spec: BodySpec) => handsOf(spec).length > 0, "needs a hand that covers: one with knuckles, or holding an item that says how it covers");
 
-/** The guard skill of a cover guard's `config`, an item's face turned to the threat where it `faces`. */
-const coverMaker = (faces: boolean) => (built: ReadBody, config: CoverGuardConfig | ShieldGuardConfig): GuardSkill =>
-  guardSkill(built.spec, config.tuning?.covering, faces, config.tuning?.hold === true ? holdUp(built) : null);
+/** The guard skill of a cover guard's `config`, warding with an item's face where it is a shield guard. */
+const coverMaker = (built: ReadBody, config: CoverGuardConfig | ShieldGuardConfig): GuardSkill =>
+  guardSkill(built.spec, config.tuning?.covering, config.kind === "shield-guard" ? config.tuning?.ward ?? SHIELD_WARD : null, config.tuning?.hold === true ? holdUp(built) : null);
 
 export const COVER_GUARD: GuardPart<CoverGuardConfig> = {
   role: "guard", label: "Guard and cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-guard" }, keys: { kind: true, tuning: true },
   tuning: ["covering", "hold"], fits: coversWithHands, faults: () => [],
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined && item.coverNormal === undefined).map(({ segment }) => segment),
-  posture: (spec) => guardPosture(spec), make: coverMaker(false),
+  posture: (spec) => guardPosture(spec), make: coverMaker,
 };
 
 export const SHIELD_GUARD: GuardPart<ShieldGuardConfig> = {
   role: "guard", label: "Guard faces and lines", stage: "game", fields: [], slots: [], defaults: { kind: "shield-guard" }, keys: { kind: true, tuning: true },
-  tuning: ["covering", "hold"], fits: coversWithHands, faults: () => [],
+  tuning: ["covering", "hold", "ward"], fits: coversWithHands, faults: () => [],
   supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment),
-  posture: (spec) => guardPosture(spec), make: coverMaker(true),
+  posture: (spec) => guardPosture(spec), make: coverMaker,
 };

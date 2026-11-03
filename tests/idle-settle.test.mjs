@@ -42,15 +42,18 @@ test("idle legs correct a physically established stagger and stop stepping", asy
   const made = await rig({ engine: DEFAULT_ENGINE, legs: { kind: "move", rules: [], otherwise: "braced" },
     wrapLegs: legs => Object.create(legs, { goal: { value: (view, goal, dt) => legs.goal(view, goal, dt, { idleSettle: available }) } }) });
   try {
-    const s = made.view.stance, footing = { "foot.left": [s.soles.left.x, s.soles.left.z + .15], "foot.right": [s.soles.right.x, s.soles.right.z - .15] };
+    // The stagger along the way the body was built facing.
+    const s = made.view.stance, fx = Math.sin(made.start.heading), fz = Math.cos(made.start.heading);
+    const stagger = () => (s.soles.left.x - s.soles.right.x) * fx + (s.soles.left.z - s.soles.right.z) * fz;
+    const footing = { "foot.left": [s.soles.left.x + .15 * fx, s.soles.left.z + .15 * fz], "foot.right": [s.soles.right.x - .15 * fx, s.soles.right.z - .15 * fz] };
     made.run(3, () => ({ legs: { footing } }));
-    assert.ok(!made.view.down && Math.abs(s.soles.left.z - s.soles.right.z) > .2, "fixture must establish an upright stagger");
+    assert.ok(!made.view.down && Math.abs(stagger()) > .2, "fixture must establish an upright stagger");
     made.run(.5, () => ({}));
-    assert.ok(Math.abs(s.soles.left.z - s.soles.right.z) > .2, "stance authority must survive Move, walk-run and lowering delegation");
+    assert.ok(Math.abs(stagger()) > .2, "stance authority must survive Move, walk-run and lowering delegation");
     available = true;
     made.run(5, () => ({}));
     assert.ok(!made.view.down, "settling must keep the body up");
-    assert.ok(Math.abs(s.soles.left.z - s.soles.right.z) < .06, `remaining stagger ${s.soles.left.z - s.soles.right.z} m, limit .06`);
+    assert.ok(Math.abs(stagger()) < .06, `remaining stagger ${stagger()} m, limit .06`);
     made.run(1, () => ({}));
     assert.equal(s.phase, "stand");
     assert.ok(s.touching.left && s.touching.right);
@@ -82,10 +85,11 @@ test("idle placement untwists a physically turned footing", async () => {
   };
   const off = side => Math.abs(Math.atan2(Math.sin(yaw(side) - facing()), Math.cos(yaw(side) - facing())));
   try {
-    const s = made.view.stance, footing = { "foot.left": [s.soles.left.x, s.soles.left.z + .1], "foot.right": [s.soles.right.x, s.soles.right.z + .1] };
-    made.run(3, () => ({ legs: { footing, heading: .4 } }));
+    const s = made.view.stance, h = made.start.heading;
+    const footing = { "foot.left": [s.soles.left.x + .1 * Math.sin(h), s.soles.left.z + .1 * Math.cos(h)], "foot.right": [s.soles.right.x + .1 * Math.sin(h), s.soles.right.z + .1 * Math.cos(h)] };
+    made.run(3, () => ({ legs: { footing, heading: h + .4 } }));
     // The pelvis turned back over the planted feet: the soles are twisted from it.
-    made.run(1, () => ({ legs: { footing, heading: 0 } }));
+    made.run(1, () => ({ legs: { footing, heading: h } }));
     assert.ok(Math.max(off("left"), off("right")) > .25 && !made.view.down, `fixture must establish soles twisted from the pelvis while upright: ${off("left")}, ${off("right")} rad`);
     made.run(5, () => ({}));
     assert.ok(!made.view.down);
