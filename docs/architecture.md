@@ -568,8 +568,10 @@ and with each answer (`SeatSays`), and its menu when asked. The mind's side is a
 (`seatHost`), the same code wherever it runs: each mind on a mirror, its clock set by each ask, its
 orders those last sent, its observers run as a step is asked, before its answer. At any delay the
 world waits for a mind's answer before its driver applies it, and reads what it said with it
-(`Seat.said`); it waits for the decision only to ask the next step or a menu (`Seat.says`), so a
-bout apart is the bout on bodies, step for step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
+(`Seat.said`). It writes each step's numbers into the other of two arrays (`MirrorWriter.write`),
+waiting only for the seat's last answer, so a mind still deciding reads the numbers it was asked
+with; it waits for a decision only to ask a menu. A bout apart is the bout on bodies, step for
+step, and the same with any number of threads. A mind's memory is where it runs: a bout with minds apart is
 neither saved nor forked (`MIND_APART`).
 
 The place is threads (`mindThreads`, `src/apart/host.ts`), the seats dealt to them in turn, each
