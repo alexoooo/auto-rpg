@@ -128,12 +128,12 @@ values**: a spec never spreads another family's spec. How a model is shown is th
 Every number in a spec is a `Quantity` (`src/core/spec/quantity.ts`): a value, a unit and its
 origin.
 
-- A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`): literature, the owner's
-  decision, an asset (with a JSON pointer) or a measurement (with its record).
+- A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`): literature, an asset
+  (with a JSON pointer) or a tuned value (one line saying what it is set for).
 - Anything else is `derive`d by a named rule whose code does only its formula's arithmetic; a
   factor is an input with a source. Unit conversions live in one table in `quantity.ts`.
 - So a spec has no bare number, every derivation re-runs to its value, every source key is known,
-  every asset pointer matches and every decision's record is present (a deleted file's record is `path@commit`).
+  and every asset pointer matches.
 
 Tuning is immutable: an experiment passes an override in (`RulebookOverride`, a stance tuning) and
 nothing mutates a global.

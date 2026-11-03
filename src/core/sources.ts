@@ -3,49 +3,40 @@
  * (`src/core/spec/quantity.ts`).
  *
  * - `literature`: a published measurement, cited so it can be found.
- * - `decision`: the owner's choice, with the date and the record that holds it. A design target is
- *   a decision, not a measurement, and is said to be one. A record since deleted is named with the
- *   commit that still has it, `path@commit`.
  * - `asset`: a file in this repository; `where` is a JSON pointer into it.
- * - `measurement`: a number measured from an asset or a run, with how and where the table is.
+ * - `tuned`: a value set for a result in play; `for` says in one line what it is set for.
  */
 type Source =
   | { readonly kind: "literature"; readonly cite: string; readonly link: string }
-  | { readonly kind: "decision"; readonly date: string; readonly decided: string; readonly record: string }
   | { readonly kind: "asset"; readonly file: string; readonly what: string }
-  | { readonly kind: "measurement"; readonly how: string; readonly record: string };
+  | { readonly kind: "tuned"; readonly for: string };
 
 export const SOURCES = Object.freeze({
   "owner-arena-items": {
-    kind: "decision", date: "2026-10-20",
-    decided: "Authored mass properties, geometry and contact cones for the Arena's first equipment. These are game design values, not historical or biomechanical measurements.",
-    record: "docs/reference/arena-items.md",
+    kind: "tuned",
+    for: "The Arena's first equipment: mass, geometry and contact cones authored for play.",
   },
   "owner-point-load": {
-    kind: "decision", date: "2026-10-19",
-    decided: "General piercing injury grows with aligned normal impulse above a shared 1 N load threshold. The game calibration targets unassisted reptile injury endings within 30 s and repeated material damage against humanoids; it is not measured tissue behaviour.",
-    record: "docs/reference/reptile-bites.md",
+    kind: "tuned",
+    for: "A point's or a bite's injury grows with its aligned normal impulse above 1 N, set so a reptile's "
+      + "bites end a fight within 30 s and wear a humanoid down.",
   },
   "fall-bar": {
-    kind: "measurement",
-    how: "The depth under its asked height at which the stance's batteries count a fall (research/core-stance-trials.mjs); "
-      + "set, not swept, and the bar a standing body is down by.",
-    record: "docs/reference/stance-tuning.md#fallen",
+    kind: "tuned",
+    for: "The depth under its asked height at which a standing body counts as fallen.",
   },
   "touch-bar": {
-    kind: "decision", date: "2026-10-19",
-    decided: "A body that stands is down, as a fight reads it, when a part but its feet and hands is at the ground, "
-      + "whatever its mind asks: 3 cm, about half the least clearance those parts kept in the preset mirrors while a "
-      + "fighter was up to 0.6 m under its standing height.",
-    record: "docs/reference/down-timing.md#what-touches-the-ground",
+    kind: "tuned",
+    for: "How near the ground a part but a foot or a hand counts as touching it, so a standing body reads "
+      + "as down: about half the least clearance those parts keep while a fighter is up.",
   },
   "rat-anatomy": {
     kind: "asset", file: "assets/rat/body.json",
-    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs), and the body standing .08 m above the art on stretched legs (LEG_RAISE); mass, joint ranges, teeth and paw footprint the authored quadruped's (assets/quadruped/authored-body.json), but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side; the legs' muscles twice the authored torques at 40 rad/s and the weight carried forward to the head (LEG_STRENGTH, LEG_SPEED, WEIGHTS, scripts/rat/fit.mjs), the owner's decisions for a trot at 1 m/s; the neck's torque scaled by the head and jaw's weighted lever about it. docs/reference/reptile.md#the-rat says what is the rat's own.",
+    what: "The rat's anatomy fitted to Poly Haven's Street Rat (scripts/rat/fit.mjs): trunk, head, jaw, legs under the trunk and tail where the art's are, the head and jaw carried .5 rad above the art's so the open jaw clears the floor (HEAD_RAISE, scripts/rat/landmarks.mjs), and the body standing .08 m above the art on stretched legs (LEG_RAISE); mass, joint ranges, teeth and paw footprint the authored quadruped's (assets/quadruped/authored-body.json), but the hips' second and third axes at ±1.6 rad, the range its righting needs to lever it off its side; the legs' muscles twice the authored torques at 40 rad/s and the weight carried forward to the head (LEG_STRENGTH, LEG_SPEED, WEIGHTS, scripts/rat/fit.mjs), set for a trot at 1 m/s; the neck's torque scaled by the head and jaw's weighted lever about it.",
   },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
-    what: "The 8 kg sprawling reptile fitted to the grass lizard scan (scripts/reptile/fit.mjs): trunk, head, jaw, legs and tail where the posed art's are, its tail shortened to .28 of the scan's so its footprint fits a Crypt room three times, and light (weights .15 and .08, peaks 1.5 and .6 N m) so the trot is not dragged to a stop, the owner's decisions. Mass weights, joint limits, muscle ceilings, teeth and paw footprint are the authored quadruped's estimates (assets/quadruped/authored-body.json), the leg joints' unloaded speed (20 rad/s) the owner's decision for travel at 1.0 m/s or more, the neck's torque scaled by the head and jaw's weighted lever about it; docs/reference/reptile.md states their uncertainty and derivations.",
+    what: "The 8 kg sprawling reptile fitted to the grass lizard scan (scripts/reptile/fit.mjs): trunk, head, jaw, legs and tail where the posed art's are, its tail shortened to .28 of the scan's so its footprint fits a Crypt room three times, and light (weights .15 and .08, peaks 1.5 and .6 N m) so the trot is not dragged to a stop. Mass weights, joint limits, muscle ceilings, teeth and paw footprint are the authored quadruped's estimates (assets/quadruped/authored-body.json), the leg joints' unloaded speed (20 rad/s) set for travel at 1.0 m/s or more, the neck's torque scaled by the head and jaw's weighted lever about it.",
   },
   "contact-projection-fixture": {
     kind: "asset", file: "assets/research/contact-projection.json",
@@ -92,11 +83,9 @@ export const SOURCES = Object.freeze({
     link: "https://courses.grainger.illinois.edu/me481/sp2021/Anthro-Winter.pdf",
   },
   "workshop-envelope": {
-    kind: "measurement",
-    how: "scripts/core/workshop-envelope.mjs on the lossless character exports: the extents of the "
-      + "clothed envelope's vertices that a foot's bones weigh most on, body frame, authored size, "
-      + "rounded to 0.1 mm.",
-    record: "scripts/core/workshop-envelope.mjs",
+    kind: "tuned",
+    for: "Each foot's extents from the workshop models' clothed envelope, as "
+      + "scripts/core/workshop-envelope.mjs prints them.",
   },
   "workshop-fighter-rig": {
     kind: "asset", file: "assets/humanoid/workshop-fighter.json",
@@ -129,8 +118,7 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",
     what: "The Warrior's hands from its bare skin: each open hand's convex hull with its palm patch and "
       + "the patch's centre, and each fist's convex hull, middle knuckle and strike point; body frame, "
-      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write, "
-      + "its rules in docs/reference/man-anatomy.md.",
+      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write.",
   },
   "workshop-rogue-hands": {
     kind: "asset", file: "assets/humanoid/workshop-rogue-hands.json",
@@ -141,8 +129,7 @@ export const SOURCES = Object.freeze({
     what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
       + "its palm patch, and each bare foot cut at the ball into a foot and a toe piece with their "
       + "hinge, sole and toe pad; body frame, authored size, rounded to 0.1 mm; written by "
-      + "scripts/core/man-envelope.mjs --write, its "
-      + "rules and approximations in docs/reference/man-anatomy.md.",
+      + "scripts/core/man-envelope.mjs --write.",
   },
   "falisse-2022-toes": {
     kind: "literature",
@@ -159,10 +146,9 @@ export const SOURCES = Object.freeze({
     link: "https://github.com/opensim-org/opensim-models/blob/master/Models/Gait2392_Simbody/gait2392_thelen2003muscle.osim",
   },
   "owner-typical-adult": {
-    kind: "decision", date: "2026-09-27",
-    decided: "A human at x1 is a typical adult, about 1.76-1.78 m and 78-80 kg for a man; the Rogue "
-      + "keeps its own proportions and its size against the Warrior's.",
-    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
+    kind: "tuned",
+    for: "A human at x1 is a typical adult, about 1.76-1.78 m and 78-80 kg for a man; the Rogue keeps her "
+      + "own proportions and her size against the Warrior's.",
   },
   "cgpm-1901": {
     kind: "literature",
@@ -177,56 +163,39 @@ export const SOURCES = Object.freeze({
       + "hand's hull, palm and strike; each foot's extents. Written by scripts/skeleton/bone-fit.mjs --write.",
   },
   "owner-skeleton-body": {
-    kind: "decision", date: "2026-10-29",
-    decided: "The skeleton is human-shaped, weighs 15 kg, and its body is fitted to its bones, approximate "
-      + "and low-polygon.",
-    record: "docs/art/skeleton.md#the-body-fitted-to-the-bones",
+    kind: "tuned",
+    for: "The skeleton is human-shaped, weighs 15 kg, and its body is fitted to its bones, approximate and "
+      + "low-polygon.",
   },
   "owner-skeleton-motor": {
-    kind: "decision", date: "2026-10-29",
-    decided: "The skeleton's joints are motors, not muscles: torque falling in a straight line with speed, "
-      + "no more held turned back than at rest, the same strength and speed both ways, each at the muscle's peak power, no tendons.",
-    record: "docs/art/skeleton.md#motors-not-muscles",
+    kind: "tuned",
+    for: "The skeleton's joints are motors: torque falling in a straight line with speed, the same "
+      + "strength and speed both ways, each at the muscle's peak power, no tendons.",
   },
   "skeleton-bind": {
     kind: "asset", file: "assets/skeleton/bind.json",
     what: "The skeleton's parts as its art was fitted to them: for each build, each part's position and turn "
       + "(x, y, z, w) in the body frame at x1, facing +z with the soles on 0, and its box's min and max in its "
-      + "own frame. Fixed, as the art is; exported by scripts/skeleton/export-bind.mjs@77a0cd77.",
+      + "own frame. Fixed, as the art is.",
   },
   "skeleton-placeholders": {
-    kind: "decision", date: "2026-09-30",
-    decided: "Proposed under the owner's ask of 2026-09-30 (the skeleton 'doesn't need to work properly, it "
-      + "just needs to fit the new core'), and accepted by the owner on 2026-10-24: until the crypt skeleton has numbers of "
-      + "its own, it is a typical man in the skeleton's shape (men's tables, the typical man's 79 kg, the "
-      + "Warrior's 6 HP), its fists held thumb up as its art's guard shows them.",
-    record: "docs/plans/2026-09-30-old-path-removal.md@2e99105f",
+    kind: "tuned",
+    for: "Until the skeleton has numbers of its own it is a typical man in its shape (men's tables, 79 kg, "
+      + "6 HP), its fists held thumb up as its art's guard shows them.",
   },
   "skeleton-limbs-clear": {
-    kind: "decision", date: "2026-10-03",
-    decided: "The skeleton's thighs and upper arms, the placeholder typical man's at his densities, overlap "
-      + "each other and its trunk as built, which holds its pelvis from turning. The owner chose 'just clear' "
-      + "over the art's thin bones for now: they are no wider than leaves 4 mm between them and what they "
-      + "share no joint with, the room its forearms have from its trunk as built.",
-    record: "docs/reference/blows.md#steered",
+    kind: "tuned",
+    for: "The skeleton's thighs and upper arms are no wider than leaves 4 mm between them and what they "
+      + "share no joint with, so its pelvis turns.",
   },
   "owner-hp-pool": {
-    kind: "decision", date: "2026-09-27",
-    decided: "Hit points: reptile 1, Rogue 4, Warrior 6.",
-    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
+    kind: "tuned",
+    for: "Hit points: reptile 1, Rogue 4, Warrior 6.",
   },
   "owner-life": {
-    kind: "decision", date: "2026-11-01",
-    decided: "Health easy to understand and familiar to players, with severing like Die by the Sword: one life "
-      + "bar, which is the truth, and a bar on each limb on the body diagram (option B). A blow takes from life "
-      + "its damage times its part's group's factor, vital 2, trunk 1, limb 0.5; on a limb it also takes its "
-      + "damage from the limb's bar, a share of full life (a human's arm 0.25, leg 0.35), which crippled at "
-      + "empty keeps half its muscles' peak torques. An edge or axe blow worth half the limb's full bar that "
-      + "empties it takes the limb off and costs 0.15 of full life; a lethal cut on a vital part takes it off. "
-      + "A point through a part takes a quarter of full life before its group's factor. Losing a leg ends the "
-      + "fight; losing an arm does not. The Skeleton's ribcage is vital and never comes off, its head a limb "
-      + "(0.2), its arms 0.15 and legs 0.25; the Reptile's head and jaw are vital, each leg 0.2 and its tail 0.15.",
-    record: "docs/reference/wounds.md#life",
+    kind: "tuned",
+    for: "Life and limb bars set for health a player reads at a glance: each part group's factor on life, "
+      + "each limb's share of full life, crippling at empty and severing.",
   },
   "fdlibm": {
     kind: "literature",
@@ -236,92 +205,58 @@ export const SOURCES = Object.freeze({
     link: "https://github.com/freebsd/freebsd-src/tree/main/lib/msun/src",
   },
   "owner-reaction-time": {
-    kind: "decision", date: "2026-10-27",
-    decided: "A mind sees every other body 0.15 s late, the quick end of a person's response to a seen cue (about "
-      + "0.15 to 0.2 s); its own body at once. One rule for both sides, in seconds, converted to steps at the world's rate.",
-    record: "docs/reference/play.md#reaction-time",
+    kind: "tuned",
+    for: "A mind sees every other body 0.15 s late, the quick end of a person's response to a seen cue, "
+      + "and its own body at once.",
   },
   "owner-balance": {
-    kind: "decision", date: "2026-09-30",
-    decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "
-      + "'i want that to be an attribute'), and its name is balance (the owner: '\"Balance\" is fine'). "
-      + "It is a per cent of the body's own weight, the most force its assist gives (the owner: 'why can we "
-      + "not have it as a percentage?'). Proposed, for the owner to confirm: with each per cent go 0.0026 "
-      + "weight-metres of moment, the force at a lever of 0.26 m, so that 25 % is the ceiling measured at a "
-      + "quarter of a weight and 50 N m for the Warrior. Every character has 0 (the owner, 2026-10-24: "
-      + "'default balance 0').",
-    record: "docs/reference/assist.md#balance",
+    kind: "tuned",
+    for: "Balance, a character's attribute: the most force its assist gives, a per cent of its weight, "
+      + "with 0.0026 weight-metres of moment a per cent; every character's is 0.",
   },
   "owner-haste": {
-    kind: "decision", date: "2026-10-16",
-    decided: "How fast a body's legs are beyond a person's is an attribute of its character, haste, as balance is: "
-      + "the unloaded speed of the legs' muscles alone (the hip's, the knee's and the ankle's exertions), a per cent "
-      + "over the human baseline as balance is over none, 0 by default and every character's 0, so that +50 is legs "
-      + "half again as fast. A gait times itself to it; a forward force "
-      + "on the root is not haste (it is an assist, and reads as sliding). Its range and each character's value are "
-      + "the owner's; a bout or an experiment may give a body another. The shared character configuration "
-      + "applies the percentage to each model's own baseline, including all four reptile leg chains.",
-    record: "docs/reference/assist.md#haste",
+    kind: "tuned",
+    for: "Haste, a character's attribute: the legs' muscles' unloaded speed, a per cent over the human "
+      + "baseline; every character's is 0.",
   },
   "owner-toes": {
-    kind: "decision", date: "2026-10-27",
-    decided: "A human figure's feet may have toes, a setting of its character: the last 0.06 m of the foot at x1, to "
-      + "the boot's toe, a slab 0.025 m thick, the foot's box running from the heel to them; and the ankle of a toed "
-      + "foot dorsiflexes to 0.8 rad past the reference pose, beside the 43 degrees of a weight-bearing lunge (Konor "
-      + "et al. 2012, Int J Sports Phys Ther 7(3):279-287, Table 2). Toes and the stop are what let the Warrior stand "
-      + "up from hands and knees; Option Mind's fighter takes them now, the game's characters with the new stand-up.",
-    record: "docs/reference/toes.md",
+    kind: "tuned",
+    for: "A human figure's toes: the last 0.06 m of the foot at x1, a slab 0.025 m thick, and a toed ankle "
+      + "dorsiflexing to 0.8 rad, set so the Warrior stands up from hands and knees.",
   },
   "owner-physique": {
-    kind: "decision", date: "2026-10-08",
-    decided: "A body may differ from its model by a physique of four attributes, each a factor that "
-      + "changes one thing: size (every length, and the mass at the same density), weight (the mass "
-      + "alone, a load the same muscles carry), strength (every peak torque) and speed (every muscle's "
-      + "unloaded speed of shortening). An attribute left out is 1. The factors are the character's or "
-      + "the run's; the grid's ranges are the owner's and live in research/physiques.mjs.",
-    record: "docs/reference/competencies.md#physiques",
+    kind: "tuned",
+    for: "A body's physique: size, weight, strength and speed, each a factor that changes one thing, 1 "
+      + "where left out.",
   },
   "owner-run-body": {
-    kind: "decision", date: "2026-10-15",
-    decided: "A body's numbers may be set to what gives a run like a person's, 3-4 m/s (the owner: 'we can "
-      + "set it to the value that helps us achieve the result that we want -- which is better jog/run, "
-      + "ideally comparable to real humans'). Each number set so is the one the run searched on the body "
-      + "is fastest and surest at.",
-    record: "docs/reference/run-body.md",
+    kind: "tuned",
+    for: "A body's numbers set for a run like a person's, 3-4 m/s: each the value the run is fastest and "
+      + "surest at.",
   },
   "owner-skeleton-arms": {
-    kind: "decision", date: "2026-11-02",
-    decided: "The skeleton's body may be set for its strikes to reach their scaled bars (the owner's plan: where the body "
-      + "is the limit, its numbers are set for the result). Its arms' motors run at the least factor over the peak-power line "
-      + "read to let its straight punch reach its bar, with its before and after.",
-    record: "docs/art/skeleton.md#the-arms-speed",
+    kind: "tuned",
+    for: "The skeleton's arm motors' speed: the least factor over the peak-power line at which its "
+      + "straight punch reaches its bar.",
   },
   "owner-rogue-arms": {
-    kind: "decision", date: "2026-11-01",
-    decided: "The Rogue's arms may be set to what stands her up from the owner's target falls in every loadout "
-      + "(the owner: stand-up fast and robust on the Warrior and the Rogue). Each factor so set is the least that "
-      + "the target's falls read best at, with its before and after.",
-    record: "docs/reference/rising.md#the-rogues-arms",
+    kind: "tuned",
+    for: "The Rogue's arm factors: the least at which she stands up best from the target falls in every "
+      + "loadout.",
   },
   "owner-punch-body": {
-    kind: "decision", date: "2026-10-24",
-    decided: "A body's numbers may be set to what gives a punch like a person's (the owner: 'the speed curve "
-      + "is arbitrary to me ... the goal is a human level punch'). Each number set so is the one a punch "
-      + "searched on the Strike drill lands at the bar with.",
-    record: "docs/reference/punch-body.md",
+    kind: "tuned",
+    for: "A body's numbers set for a punch like a person's: each the value at which the Strike drill's "
+      + "punch lands at its bar.",
   },
   "owner-stride-room": {
-    kind: "decision", date: "2026-10-18",
-    decided: "A thigh's capsule leaves 30 mm between it and the other thigh with the legs hanging straight, "
-      + "set to what gives a walk that does not meet itself (the owner, 2026-10-15: a body's number is set "
-      + "to the value that achieves the result wanted). With less, the rigid thighs meet as one swings past "
-      + "the other, at up to a blow's force; the Warrior's, at their mass and density, leave 31 mm.",
-    record: "docs/reference/run-body.md",
+    kind: "tuned",
+    for: "A thigh's capsule leaves 30 mm to the other thigh with the legs hanging straight, so a stride's "
+      + "thighs do not meet.",
   },
   "owner-physics-engine": {
-    kind: "decision", date: "2026-09-29",
-    decided: "The core runs on Rapier (the SIMD build), chosen on the physics bake-off's report.",
-    record: "research/physics-bakeoff/REPORT.md",
+    kind: "tuned",
+    for: "The core runs on Rapier, the engine the physics bake-off (research/physics-bakeoff/) chose.",
   },
   "rapier-default-friction": {
     kind: "literature",
@@ -329,26 +264,23 @@ export const SOURCES = Object.freeze({
     link: "https://rapier.rs/docs/user_guides/javascript/colliders#friction",
   },
   "physics-bakeoff": {
-    kind: "measurement",
-    how: "research/physics-bakeoff/: Havok, MuJoCo and Rapier driven by one torque servo at 120 Hz against a 1920 Hz "
-      + "reference (Node), each engine's cheapest setting that holds a standing human, a whole human and a pile.",
-    record: "research/physics-bakeoff/REPORT.md",
+    kind: "tuned",
+    for: "Rapier's solver iterations: the cheapest setting that holds a standing human, a whole human and "
+      + "a pile at 120 Hz (research/physics-bakeoff/).",
   },
   "owner-command-delay": {
-    kind: "decision", date: "2026-11-01",
-    decided: "A body's command takes effect a number of steps after the step it is made on, the same in every world, so each body's mind can run beside the world: one step, once motor control holds balance and the rise a step late.",
-    record: "docs/reference/command-delay.md",
+    kind: "tuned",
+    for: "A body's command takes effect one step after the step it is made on, the same in every world, so "
+      + "each body's mind runs beside the world.",
   },
   "owner-physics-rate": {
-    kind: "decision", date: "2026-09-25",
-    decided: "Physics and control run at 120 Hz.",
-    record: "docs/history.md@2e99105f#h66",
+    kind: "tuned",
+    for: "Physics and control run at 120 Hz.",
   },
   "workshop-volumes": {
-    kind: "measurement",
-    how: "Each model's skin, feet, jacket, trousers, collar and belt, closed by voxel flood fill in the "
-      + "bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm, at the authored size.",
-    record: "docs/reference/human-strike-reference.md#8-the-workshop-models",
+    kind: "tuned",
+    for: "Each workshop model's skin, feet and clothes closed by voxel flood fill in the bind pose and "
+      + "extrapolated to a zero voxel, at the authored size.",
   },
   "moromizato-2016": {
     kind: "literature",
@@ -483,30 +415,18 @@ export const SOURCES = Object.freeze({
     link: "https://research.fs.usda.gov/download/treesearch/37440.pdf",
   },
   "owner-club": {
-    kind: "decision", date: "2026-09-27",
-    decided: "The damage unit is the strongest hit with a club, one-handed: \"a club would be made of wood\". The club "
-      + "is the game's wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash. "
-      + "Its dimensions are a real club's, not a tuning.",
-    record: "src/golem/config.ts@77a0cd77",
+    kind: "tuned",
+    for: "The wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash, a "
+      + "real club's dimensions.",
   },
   "owner-weapon-ratios": {
-    kind: "decision", date: "2026-09-27",
-    decided: "Rescale scoring so that the strongest club hit is worth 1: one unit constant, applied where scoring "
-      + "prices energy, and every weapon keeps its ratio to the club. The prices this rescales, joules per point "
-      + "of wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
-      + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
-      + "src/scoring.ts@77a0cd77).",
-    record: "src/config.ts@77a0cd77",
+    kind: "tuned",
+    for: "Joules per point of wound by kind of blow; every weapon keeps its ratio to blunt.",
   },
   "owner-point-depth": {
-    kind: "decision", date: "2026-11-01",
-    decided: "A point wounds by its depth, not by its whole energy at 33 times blunt: past the layers over a part "
-      + "(the skin today), each breached by its own energy, it goes in as deep as the energy left drives it "
-      + "against the tissue's resistance, no deeper than the point's own length, and takes the struck part's hit "
-      + "points in proportion to the depth over the part's least width, all of them for a point through. A point "
-      + "that does not breach a layer meets as blunt from there. A point never takes a part off and its wound "
-      + "does not walk. The bite keeps its press (owner-point-load).",
-    record: "docs/reference/wounds.md#mechanisms",
+    kind: "tuned",
+    for: "A point wounds by its depth: past each layer it breaches, as deep as its energy left drives it "
+      + "and no deeper than its length, taking hit points by depth over the part's least width.",
   },
   "gilchrist-2008": {
     kind: "literature",
@@ -517,27 +437,13 @@ export const SOURCES = Object.freeze({
     link: "https://doi.org/10.1016/j.forsciint.2007.10.010",
   },
   "owner-damage-unit": {
-    kind: "decision", date: "2026-10-01",
-    decided: "\"should we just make it 100J what's so special about 138?\", and then that all of what was "
-      + "planned with it be built. One hit point is 100 J of blunt blow; every weapon keeps its ratio to blunt "
-      + "(owner-weapon-ratios). It replaces the unit of owner-club, the strongest club hit, which stays a "
-      + "measurement (core-club-unit). The bodies' hit points are as they were "
-      + "(owner-hp-pool), so each holds fewer joules: of the record's three options the first, which the owner "
-      + "accepted on 2026-10-24.",
-    record: "docs/reference/wounds.md#unit",
+    kind: "tuned",
+    for: "One hit point is 100 J of blunt blow.",
   },
   "core-club-unit": {
-    kind: "measurement",
-    how: "research/core-strike-search.mjs@bca8fc87 --model workshop-fighter --held 'wooden club' --band high --hz 960: the Warrior's "
-      + "strongest one-handed blow with the wooden club at a head hung at its place (research/core-blow.mjs@bca8fc87), thrown "
-      + "standing on its own feet, built in the guard it holds (guardPosture), by cross-entropy search (Node core stand, "
-      + "Rapier, ground on, no assist), its energy 1/2 mu v^2 from the masses the contact meets. 30 generations of 96 at "
-      + "960 Hz, the coarsest rate a standing blow converges at, going on from the blow of "
-      + "research/core-club-unit.json@7601bd36; read again by research/core-club-unit.mjs@bca8fc87, eight throws a rate, at "
-      + "1920 Hz, where it agrees with 480, 960 and 3840 Hz to 2 %. Recorded, not asked: the blow's energy is the "
-      + "rate-converged reading, not the game's 120 Hz one (87.85 J there, two throws of the eight landing 7 J or less). The blow "
-      + "and its readings are research/core-club-unit.json; the search is in docs/reference/blows.md#the-clubs-best-blow.",
-    record: "research/core-club-unit.json",
+    kind: "tuned",
+    for: "The Warrior's strongest one-handed blow with the wooden club, searched standing and read at a "
+      + "rate where it has converged.",
   },
   "core-stance-envelope": {
     kind: "asset", file: "assets/core/stance-envelope.json",
@@ -557,20 +463,14 @@ export const SOURCES = Object.freeze({
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names. It measured no turns.",
   },
   "core-grip": {
-    kind: "decision", date: "2026-09-29",
-    decided: "Recorded, not asked: a hand holds a haft across its knuckles, from the little finger's "
-      + "to the index finger's, with the butt at the little finger's knuckle and the axis on the palm side of the "
-      + "middle finger's knuckle, the haft's surface at the palm: the hand's capsule radius from the knuckle. A "
-      + "real grip crosses the palm at a slant; this one does not.",
-    record: "docs/plans/2026-09-28-core-foundation.md@2e99105f",
+    kind: "tuned",
+    for: "A hand holds a haft across its knuckles, little finger to index, the haft's surface at the palm; "
+      + "a real grip's slant across the palm is left out.",
   },
   "reference-pose-assumptions": {
-    kind: "decision", date: "2026-09-28",
-    decided: "Proposed, for the owner to confirm: where no source or measurement gives an "
-      + "angle, the workshop models' reference pose is taken as neutral in neck and spine, hip rotation "
-      + "and foot roll; and the shoulder has no adduction beyond the anatomical position, since the "
-      + "trunk is in the way.",
-    record: "docs/reference/human-strike-reference.md#9-joint-ranges-and-strengths-for-the-core-human",
+    kind: "tuned",
+    for: "Where no source gives an angle, the reference pose is neutral in neck, spine, hip rotation and "
+      + "foot roll, and the shoulder has no adduction past the anatomical position.",
   },
   "cormier-2009": {
     kind: "literature",
@@ -602,20 +502,15 @@ export const SOURCES = Object.freeze({
     link: "https://doi.org/10.1016/j.jmbbm.2019.05.031",
   },
   "owner-fist-threshold": {
-    kind: "decision", date: "2026-10-09",
-    decided: "\"it makes sense to have a damage threshold with a fist ... for now damage threshold is a simple "
-      + "shortcut\", against distinguishing hard and soft surfaces later. The rule, its amount for the owner to "
-      + "confirm: a bare hand meeting a body's own surface takes no wound from the first joules of its share, as many as load its "
-      + "knuckles to an even chance of injury (carpanen-2019) on the hand's stiffness; past them it is wounded by "
-      + "the rest. Against an item it takes its whole share.",
-    record: "docs/reference/wounds.md#the-fist",
+    kind: "tuned",
+    for: "A bare hand on a body's own surface takes no wound from the first joules of its share, as many "
+      + "as load its knuckles to an even chance of injury (carpanen-2019); against an item, its whole "
+      + "share.",
   },
   "owner-foot-threshold": {
-    kind: "decision", date: "2026-10-29",
-    decided: "\"yes, give the foot the fist's threshold\": a bare foot meeting a body's own surface takes no wound from "
-      + "the first joules of its share, the fist's (owner-fist-threshold), so that a stomp's share no longer empties "
-      + "the foot and passes on up the leg. A foot is a segment its body names as a foot end (BearingEndSpec).",
-    record: "docs/reference/wounds.md#the-fist",
+    kind: "tuned",
+    for: "A bare foot has the fist's threshold, so a stomp's share does not empty the foot and pass up the "
+      + "leg.",
   },
   "ochman-2011": {
     kind: "literature",
@@ -625,12 +520,10 @@ export const SOURCES = Object.freeze({
     link: "https://doi.org/10.1100/2011/465371",
   },
   "contact-stiffness-gaps": {
-    kind: "decision", date: "2026-10-02",
-    decided: "Accepted by the owner on 2026-10-24: where no study read gives a part's stiffness under a blunt load, it "
-      + "takes a neighbour's: the middle trunk the upper trunk's and the lower trunk the middle's, the upper arm, "
-      + "forearm and shank the femur's, the foot the hand's; and the hand's is a porcine metacarpal's in bending, no "
-      + "human fist's having been found. The head's is its face's until the head is two surfaces.",
-    record: "docs/reference/wounds.md#gaps",
+    kind: "tuned",
+    for: "A part no study gives a blunt stiffness for takes a neighbour's: the middle trunk the upper's, "
+      + "the lower the middle's, upper arm, forearm and shank the femur's, the foot the hand's, the hand "
+      + "a porcine metacarpal's, the head its face's.",
   },
 } as const satisfies Readonly<Record<string, Source>>);
 

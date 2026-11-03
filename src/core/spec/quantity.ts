@@ -4,8 +4,8 @@ import type { SourceKey } from "../sources.ts";
  * **A number in a spec, and where it came from.**
  *
  * Every number a body is built from is a `Quantity`. It is either taken from a source -- a paper,
- * an asset, a measurement, the owner's decision; `SOURCES` in `src/core/sources.ts` lists them --
- * or derived from other quantities by a named rule. A derivation keeps its inputs and its rule, so
+ * an asset, or a value tuned for a result; `SOURCES` in `src/core/sources.ts` lists them -- or
+ * derived from other quantities by a named rule. A derivation keeps its inputs and its rule, so
  * the chain from any built number back to what it rests on can be walked.
  *
  * **A derivation's constants are inputs.** A rule's code may use the arithmetic of its own
