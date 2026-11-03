@@ -10,11 +10,11 @@ import type { Vec3 } from "../spec/quantity.ts";
  *
  * The contract, which an engine meets or converts to:
  * - **The step is fixed.** `PhysicsWorld.step` takes the world's step and nothing else, and after it
- *   every body's node holds its body's pose in `position` and `rotationQuaternion`, and everything
- *   that reads a pose reads those, never a world matrix, which Babylon caches per render id.
+ *   every body's pose (`Pose`) holds where the body is, in `position` and `rotation`, and everything
+ *   that reads a pose reads those.
  * - **Bodies never sleep**: a sleeping body reads a perfect zero.
  * - **Mass is the spec's.** A body's colliders carry none; its mass properties are set whole.
- * - **Velocities are the centre of mass's**, not the node's.
+ * - **Velocities are the centre of mass's**, not the pose's origin's.
  * - **A contact's friction is `CONTACT_FRICTION`**, unless a collider's material names its own
  *   (`ContactMaterial.friction`), when the contact takes the greater of the two; no contact bounces.
  *   The stance takes the ground to give the floor's own (`GROUND_FRICTION`,
@@ -242,11 +242,11 @@ export interface PhysicsWorld {
   readonly revision: string;
   readonly gravity: Vec3;
   /**
-   * A dynamic body at `node`, its colliders massless: its mass is `mass`; `node` follows it after each step.
+   * A dynamic body at `pose`, its colliders massless: its mass is `mass`; `pose` follows it after each step.
    * `ccd` requests continuous collision detection including moving colliders; false retains
    * the engine's default behavior against fixed colliders (`docs/reference/collision-ccd.md`).
    */
-  addBody(node: Pose, shapes: readonly ColliderShape[], mass: MassProperties,
+  addBody(pose: Pose, shapes: readonly ColliderShape[], mass: MassProperties,
     options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): EngineJoint;
   /** Register a detached grip slot. Slots persist across release and snapshot restoration. */
@@ -271,11 +271,11 @@ export interface PhysicsWorld {
   tellContacts(body: SegmentBody, sink: ContactSink): void;
   /** `body`'s manifolds, as `contactManifoldsOf` reads them unfiltered, told to `sink` number by number. */
   tellManifolds(body: SegmentBody, sink: ContactSink): void;
-  /** One solver step of `dt`, then every body's node written from its body. */
+  /** One solver step of `dt`, then every body's pose written from its body. */
   step(dt: number): void;
   /**
    * The world's whole physical state as it stands: every body's pose and velocity, every joint's
-   * motor, the last step's contacts, a force asked for the next, and every body's node, which
+   * motor, the last step's contacts, a force asked for the next, and every body's pose, which
    * before its first step is as it was built and not as the solver holds it. Opaque, the engine's own, and
    * good only for `load` on a world of this engine with the same bodies, anatomical joints,
    * registered grip slots and fixed colliders, made in the same order. Each grip's attached or
@@ -284,7 +284,7 @@ export interface PhysicsWorld {
   save(): Uint8Array;
   /**
    * Put the world where `bytes` (a `save`) left one, in place: every body, joint and fixed
-   * collider it has stays the object it was, each node is as it was at the save, and the next
+   * collider it has stays the object it was, each pose is as it was at the save, and the next
    * step is the step that followed the save. It throws, and changes nothing, if `bytes` is not a
    * save of a world with this one's bodies, joints and colliders, each made as this one's were
    * (shapes, materials, masses and joint frames as asked when made). What the core set outside the

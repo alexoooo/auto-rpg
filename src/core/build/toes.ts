@@ -62,12 +62,12 @@ export function toesOf(segment: SegmentSpec, frame: SegmentFrame, base: Rigid): 
 const work = { up: new Vector3(), turn: new Quaternion() };
 
 /**
- * How far toes bend on a foot whose node is turned `rotation`, rad, in `TOE_STEP`s: as far as the
+ * How far toes bend on a foot whose pose is turned `rotation`, rad, in `TOE_STEP`s: as far as the
  * foot is tipped heel up over them, to a right angle, so they lie along the ground; less as the
  * foot rolls onto its side, where its tip has no ground to lie along, and flat on it.
  */
 function bendOf(rotation: Quaternion): number {
-  // The world's up in the foot's frame: its node's axes are the frame's.
+  // The world's up in the foot's frame: its pose's axes are the frame's.
   const up = Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.InverseToRef(rotation, work.turn), work.up);
   const upright = Math.sqrt(up.y * up.y + up.z * up.z), tip = Math.min(Math.max(atan2(-up.y, -up.z), 0), Math.PI / 2);
   return Math.round(tip * upright / TOE_STEP) * TOE_STEP;

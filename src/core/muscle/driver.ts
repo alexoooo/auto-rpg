@@ -16,7 +16,7 @@ import { delayLine } from "../command-delay.ts";
  *
  * A controller commands, for each freedom, an activation (0-1) and a speed it would like the joint
  * to turn at. Every world step the driver reads each joint (`jointTracker`: angles from the
- * nodes, speeds from the bodies' angular velocities, each read once), and sets each motor's target
+ * poses, speeds from the bodies' angular velocities, each read once), and sets each motor's target
  * to the commanded speed, held to the curve's reach (below), and its ceiling to
  *
  *     activation x peak isometric torque (the side that pulls) x force-velocity(speed)

@@ -20,10 +20,10 @@ import { turnAboutToRef } from "../math/turn.ts";
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
  *
- * **A save** is each node's pose and Rapier's snapshot. The snapshot restores as a new world, so
- * the module holds handles and finds its objects again on a load (`rebinds`, `joints`). The nodes
- * are in it because Rapier holds a pose in single precision: a node the solver has written is its
- * body's, and a node before its first step is as it was built, in double. A save names the world it
+ * **A save** is each body's pose and Rapier's snapshot. The snapshot restores as a new world, so
+ * the module holds handles and finds its objects again on a load (`rebinds`, `joints`). The poses
+ * are in it because Rapier holds a pose in single precision: a pose the solver has written is its
+ * body's, and a pose before its first step is as it was built, in double. A save names the world it
  * was made in by a digest of what the world holds as it was asked for (`worldDigest`): the snapshot
  * carries its own shapes, frictions and joints, so a save loaded into a world built otherwise would
  * bring back the other world's, and is refused.
@@ -79,8 +79,8 @@ const SHAPES_MOST = 65536;
  * shape in. A numeric setting.
  */
 const SHAPE_TEST_MARGIN = 0.01;
-/** The numbers of a node's pose in a save: its position and its turn. A numeric setting. */
-const NODE_POSE = 7;
+/** The numbers of a body's pose in a save: its position and its turn. A numeric setting. */
+const SAVED_POSE = 7;
 
 /** A save's header, in doubles: its version (`SAVE_VERSION`), the body count, the grip count and the world's digest. */
 const HEADER = 4;
@@ -133,7 +133,7 @@ interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   /** Rapier's world as it is now: a load replaces it, so read it afresh. */
   readonly raw: RAPIER.World;
-  addBody(node: Pose, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): RapierBody;
+  addBody(pose: Pose, shapes: readonly ColliderShape[], mass: MassProperties, options?: { readonly ccd?: boolean; readonly materials?: readonly ContactMaterial[] }): RapierBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
 }
 
@@ -550,15 +550,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     let gone = false;
     return { id: handle, dispose() { if (gone || freed) return; gone = true; made.fixed.delete(handle); named = null; raw.removeCollider(raw.getCollider(handle), false); } };
   };
-  /** Every body's node from its body, and its velocities as read at this moment, out of Rapier in one call. */
-  const writeNodes = () => {
+  /** Every body's pose from its body, and its velocities as read at this moment, out of Rapier in one call. */
+  const writePoses = () => {
     const { bodies: list, handles } = listFor();
     if (poses.length !== POSE * list.length) poses = new Float64Array(POSE * list.length);
     raw.bodies.raw.rbPosesAndVelocities(handles, poses);
     for (let i = 0; i < list.length; i++) {
-      const body = list[i]!, node = body.pose, read = velocities.get(body)!, at = POSE * i;
-      node.position.set(poses[at]!, poses[at + 1]!, poses[at + 2]!);
-      node.rotation.set(poses[at + 3]!, poses[at + 4]!, poses[at + 5]!, poses[at + 6]!);
+      const body = list[i]!, pose = body.pose, read = velocities.get(body)!, at = POSE * i;
+      pose.position.set(poses[at]!, poses[at + 1]!, poses[at + 2]!);
+      pose.rotation.set(poses[at + 3]!, poses[at + 4]!, poses[at + 5]!, poses[at + 6]!);
       read.linear.set(poses[at + 7]!, poses[at + 8]!, poses[at + 9]!); read.linearAt = moment;
       read.angular.set(poses[at + 10]!, poses[at + 11]!, poses[at + 12]!); read.angularAt = moment;
     }
@@ -568,13 +568,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { setMotors(); return raw; }, gravity: g,
     save() {
       setMotors();
-      // Rapier's snapshot follows a version, body/grip counts, node poses, grip handles and release exclusions: the solver
-      // holds a pose in single precision, and a node before its first step is as it was built.
-      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + NODE_POSE * bodies.size + 2 * grips.length);
+      // Rapier's snapshot follows a version, body/grip counts, body poses, grip handles and release exclusions: the solver
+      // holds a pose in single precision, and a pose before its first step is as it was built.
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + SAVED_POSE * bodies.size + 2 * grips.length);
       poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = worldDigest();
       let k = HEADER;
-      for (const { pose: node } of bodies) {
-        const p = node.position, q = node.rotation;
+      for (const { pose } of bodies) {
+        const p = pose.position, q = pose.rotation;
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
         poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
       }
@@ -592,11 +592,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const count = header[1] ?? NaN, gripCount = header[2] ?? NaN;
       if (header[0] === -3) throw new Error("that save is in a format before a save named its world: make it again");
       if (header[0] === SAVE_VERSION && header[3] !== worldDigest()) throw new Error("that save has other bodies, joints or colliders, or a different physics configuration: it was made in a world built otherwise");
-      const head = 8 * (HEADER + NODE_POSE * count + 2 * gripCount);
+      const head = 8 * (HEADER + SAVED_POSE * count + 2 * gripCount);
       const next = header[0] === SAVE_VERSION && Number.isInteger(count) && count >= 0
         && Number.isInteger(gripCount) && gripCount >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
-      const gripData = new Float64Array(bytes.slice(8 * (HEADER + NODE_POSE * count), head).buffer);
+      const gripData = new Float64Array(bytes.slice(8 * (HEADER + SAVED_POSE * count), head).buffer);
       const gripHandles = gripData.subarray(0, gripCount), suppressed = gripData.subarray(gripCount);
       const present = new Set(grips.flatMap((g) => g.handle === null ? [] : [g.handle]));
       const restored = new Set([...gripHandles].filter((h) => h !== -1));
@@ -638,22 +638,22 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       }
       // A save may hold a force asked for its next step; every body's is reset after that step.
       for (const body of bodies) forced.add(body);
-      const poses = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + NODE_POSE * count)).buffer);
+      const poses = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + SAVED_POSE * count)).buffer);
       let k = 0;
-      for (const { pose: node } of bodies) {
-        node.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
-        node.rotation.set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
+      for (const { pose } of bodies) {
+        pose.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
+        pose.rotation.set(poses[k++]!, poses[k++]!, poses[k++]!, poses[k++]!);
       }
     },
-    addBody(node, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
+    addBody(pose, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
       if (typeof ccd !== "boolean") throw new Error("CCD must be a boolean");
       const preparedMaterials = givenMaterials.map(given => {
         if (given?.friction !== undefined && !(given.friction >= 0 && Number.isFinite(given.friction))) throw new Error("a friction coefficient must be finite and nonnegative");
         return given && (given.friction === undefined ? {} : { friction: given.friction });
       });
-      const q = node.rotation;
+      const q = pose.rotation;
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
-        .setTranslation(node.position.x, node.position.y, node.position.z)
+        .setTranslation(pose.position.x, pose.position.y, pose.position.z)
         .setRotation(xyzw(q))
         .setCcdEnabled(ccd)
         .setCanSleep(false));
@@ -670,7 +670,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       let properties = mass;
       // The body's velocities as last read from Rapier, each with the moment it was read at: a read
       // crosses into the wasm and makes an object, and control reads each a few times a step. A
-      // step reads them with the poses (`writeNodes`); a call that may change a velocity outside a
+      // step reads them with the poses (`writePoses`); a call that may change a velocity outside a
       // step forgets them (`unread`).
       const read: Velocities = { linear: new Vector3(), angular: new Vector3(), linearAt: -1, angularAt: -1 };
       const unread = () => { read.linearAt = read.angularAt = -1; };
@@ -686,7 +686,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       setMass(mass);
       const handle = rigid.handle;
       const body: RapierBody = {
-        pose: node, id: handle, get rigid() { return rigid; },
+        pose, id: handle, get rigid() { return rigid; },
         linearVelocityToRef(out) {
           if (read.linearAt !== moment) { const v = rigid.linvel(); read.linear.set(v.x, v.y, v.z); read.linearAt = moment; }
           return out.copyFrom(read.linear);
@@ -920,7 +920,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       contactsFresh = false;
       for (const { rigid } of forced) { rigid.resetForces(false); rigid.resetTorques(false); }
       forced.clear();
-      writeNodes();
+      writePoses();
     },
     removeBody(segment) {
       // After the world is freed its bodies went with it.

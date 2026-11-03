@@ -16,7 +16,7 @@ import { createToes, flatToes, type ToesState } from "./toes.ts";
 /**
  * **`buildBody`: bodies and joints from a spec and an initial placement.**
  *
- * Each segment is a dynamic body whose node sits at the segment frame's origin, turned to its
+ * Each segment is a dynamic body whose pose sits at the segment frame's origin, turned to its
  * frame (`frameOf`). Its mass, centre of mass and inertia are set from the spec explicitly, so its
  * colliders carry no mass. A segment that holds an item (`BodySpec.held`) is one body with it: its
  * mass properties are the two together (`rigidOf`), turned to their principal axes, and it has a
@@ -79,17 +79,17 @@ const v3 = (v: Vec3): Vector3 => new Vector3(v[0], v[1], v[2]);
 const localDirection = (frame: SegmentFrame, direction: Vec3): Vec3 =>
   [dot(direction, frame.x), dot(direction, frame.y), dot(direction, frame.z)];
 
-function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, pose?: InitialPose): BuiltSegment {
+function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, world: World, start?: InitialPose): BuiltSegment {
   const { frame, rigid, initial, poses, bent, rigidAt } = segmentShapes(body, spec);
-  const node: Pose = { name: `${body.model}.${spec.name}`, position: v3(frame.origin).addInPlace(v3(placement.position)),
+  const pose: Pose = { name: `${body.model}.${spec.name}`, position: v3(frame.origin).addInPlace(v3(placement.position)),
     rotation: Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z)) };
-  const rest = node.rotation.clone();
-  if (pose) { node.position.copyFrom(pose.position); node.rotation.copyFrom(pose.rotation); }
+  const rest = pose.rotation.clone();
+  if (start) { pose.position.copyFrom(start.position); pose.rotation.copyFrom(start.rotation); }
   // A posed hand's collider is its initial pose's from the first step, as `handPose.applied` says.
   const shapes = poses ? poses[initial].rigid.shapes : rigid.shapes;
   const [xx, yy, zz] = rigid.tensor;
   const principal = hasProducts(rigid.tensor) ? principalOf(rigid.tensor) : null;
-  const physics = world.physics.addBody(node, shapes.map((shape) => colliderOf(frame, shape)), {
+  const physics = world.physics.addBody(pose, shapes.map((shape) => colliderOf(frame, shape)), {
     mass: rigid.mass,
     centre: local(frame, rigid.centre),
     moments: principal ? principal.moments : [xx, yy, zz],
@@ -111,7 +111,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
   }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
   const toes = spec.toes ? flatToes() : undefined;
-  return { spec, frame, pose: node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
+  return { spec, frame, pose, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}), ...(toes && bent ? { toes, bent } : {}),
     get rigid() { return rigidAt(handPose?.applied, toes); } };
 }
 

@@ -519,7 +519,7 @@ const abc: [number, number, number] = [0, 0, 0];
  */
 function ankleTurnToRef(foot: FootState, turn: Quaternion, spare: number, relative: Quaternion, inverse: Quaternion): Quaternion {
   const ankle = foot.chain[2]!, shank = ankle.parent;
-  // relative = shank.rest * shank^-1 * turn * foot.rest^-1 (Babylon's `a.multiply(b)` applies b, then a).
+  // relative = shank.rest * shank^-1 * turn * foot.rest^-1 (`a.multiply(b)` applies b, then a).
   Quaternion.InverseToRef(shank.pose.rotation, inverse);
   shank.rest.multiplyToRef(inverse, relative);
   relative.multiplyInPlace(turn);

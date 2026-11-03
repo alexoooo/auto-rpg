@@ -80,8 +80,8 @@ async function buildLone(lone: LoneCase, engine: CaseWorld["engine"]): Promise<B
         if (cue.orders !== undefined) orders = cue.orders;
         if (cue.shove) {
           if (!trunk) throw new Error("a shove needs a middle trunk");
-          const way = cue.shove.degrees * Math.PI / 180, node = trunk.body.pose, centre = trunk.body.massProperties.centre;
-          point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(node.rotation, point).addInPlace(node.position);
+          const way = cue.shove.degrees * Math.PI / 180, pose = trunk.body.pose, centre = trunk.body.massProperties.centre;
+          point.set(centre[0], centre[1], centre[2]).applyRotationQuaternionToRef(pose.rotation, point).addInPlace(pose.position);
           trunk.body.applyImpulse(impulse.set(cue.shove.impulse * sin(way), 0, cue.shove.impulse * cos(way)), point);
         }
       }

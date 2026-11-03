@@ -4,7 +4,7 @@ import type { Vec3 } from "./spec/quantity.ts";
 
 const scratch = { a: new Quaternion(), b: new Quaternion() };
 
-/** `segment`'s turn since its reference pose, node times rest^-1. */
+/** `segment`'s turn since its reference pose, rotation times rest^-1. */
 export function turnOfToRef(segment: ReadSegment, out: Quaternion): Quaternion {
   Quaternion.InverseToRef(segment.rest, scratch.a);
   return segment.pose.rotation.multiplyToRef(scratch.a, out);

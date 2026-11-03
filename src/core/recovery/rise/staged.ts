@@ -240,8 +240,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const readBalls = (): void => {
     const ground = groundLevel();
     feet.forEach((foot, k) => {
-      const node = foot.segment.pose;
-      work.heights[k] = balls[k]!.applyRotationQuaternionToRef(node.rotation, work.ball).y + node.position.y - ground;
+      const pose = foot.segment.pose;
+      work.heights[k] = balls[k]!.applyRotationQuaternionToRef(pose.rotation, work.ball).y + pose.position.y - ground;
     });
   };
 

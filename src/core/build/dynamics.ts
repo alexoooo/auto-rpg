@@ -53,9 +53,8 @@ import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
  * f at a point x of a segment, and a moment n on it, f and (x - c_root) x f + n on the root's rows,
  * and m . n + (m x (x - p)) . f on a freedom that moves the segment (motion axis m, centre p).
  *
- * Poses are read from the nodes' `position` and `rotationQuaternion`, not a world matrix, which
- * Babylon caches per render id: each segment's spec inertia lies along its segment frame
- * (`build-body.ts`), which its node carries.
+ * Poses are read from the segments' `position` and `rotation`: each segment's spec inertia lies
+ * along its segment frame (`build-body.ts`), which its pose carries.
  */
 export interface BodyDynamics {
   /** By freedom, n x n, kg m2. */

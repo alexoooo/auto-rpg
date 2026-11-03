@@ -85,7 +85,7 @@ export function createObjectSenses(world: World, definitions: readonly SensedObj
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const read = (entry: typeof objects[number], frame: Float64Array) => {
-    const body = entry.body, node = body.pose, q = node.rotation, p = node.position;
+    const body = entry.body, { position: p, rotation: q } = body.pose;
     point.set(...body.massProperties.centre).applyRotationQuaternionToRef(q, point).addInPlace(p);
     body.linearVelocityToRef(velocity); body.angularVelocityToRef(spin);
     frame.set([p.x, p.y, p.z, q.x, q.y, q.z, q.w, point.x, point.y, point.z,

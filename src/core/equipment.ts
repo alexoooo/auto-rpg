@@ -53,7 +53,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * Grip attachments live in the engine snapshot, including releases and reattachments.
  */
 export function createEquipment(world: World, definition: EquipmentDefinition) {
-  const { id, item } = definition, pose = frame(definition.pose);
+  const { id, item } = definition, start = frame(definition.pose);
   const distance = definition.capture.distance, rotationError = definition.capture.rotationError;
   if (!id || !(distance >= 0) || !Number.isFinite(distance) || !(rotationError >= 0 && rotationError <= 1)) {
     throw new Error("invalid equipment identity or capture tolerances");
@@ -64,10 +64,10 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     names.add(g.name);
     return { name: g.name, body: g.body, hand: frame(g.bodyFrame), item: frame(g.itemFrame) };
   });
-  const node: Pose = { name: `item.${id}`, position: new Vector3().copyFrom(pose.at), rotation: pose.turn };
+  const pose: Pose = { name: `item.${id}`, position: new Vector3().copyFrom(start.at), rotation: start.turn };
   const shapes = [...item.shapes, ...(item.contacts ?? []).map(region => region.shape)];
   const surfaces = [...item.shapes.map(() => item.surface), ...(item.contacts ?? []).map(region => region.surface)];
-  const body = world.physics.addBody(node, shapes.map(collider), {
+  const body = world.physics.addBody(pose, shapes.map(collider), {
     mass: item.mass.value, centre: item.centreOfMass.value, moments: item.inertia.value, orientation: Quaternion.Identity(),
   }, { ccd: definition.ccd, materials: surfaces.map(surface => ({
     ...(surface?.friction ? { friction: surface.friction.value } : {}),
@@ -101,24 +101,24 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
     };
     const error = (g: typeof grips[number]) => {
       g.hand.at.applyRotationQuaternionToRef(g.body.pose.rotation, position).addInPlace(g.body.pose.position);
-      g.item.at.applyRotationQuaternionToRef(node.rotation, other).addInPlace(node.position);
+      g.item.at.applyRotationQuaternionToRef(pose.rotation, other).addInPlace(pose.position);
       g.body.pose.rotation.multiplyToRef(g.hand.turn, qa);
-      node.rotation.multiplyToRef(g.item.turn, qb);
+      pose.rotation.multiplyToRef(g.item.turn, qb);
       qa.normalize(); qb.normalize();
       const x = position.x - other.x, y = position.y - other.y, z = position.z - other.z;
       return { distance: Math.sqrt(x * x + y * y + z * z),
         rotationError: Math.max(0, 1 - Math.abs(qa.x * qb.x + qa.y * qb.y + qa.z * qb.z + qa.w * qb.w)) };
     };
     return {
-      id, spec: item, model, body, node,
+      id, spec: item, model, body,
       tryGrip(name: string): boolean {
         const g = grip(name);
         if (g.joint.attached) return true;
         const e = error(g);
         if (e.distance > distance || e.rotationError > rotationError) return false;
         const inverse = new Quaternion();
-        Quaternion.InverseToRef(node.rotation, inverse);
-        position.subtractToRef(node.position, other);
+        Quaternion.InverseToRef(pose.rotation, inverse);
+        position.subtractToRef(pose.position, other);
         other.applyRotationQuaternionToRef(inverse, other);
         inverse.multiplyToRef(qa, qb);
         g.joint.attach({ anchorParent: tuple(g.hand.at), anchorChild: tuple(other),
@@ -128,9 +128,9 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
       release(name: string): void { grip(name).joint.release(); },
       observe() {
         live();
-        const q = node.rotation;
+        const q = pose.rotation;
         return deepFreeze({ id, name: item.name, substance: item.substance, mass: item.mass.value,
-          position: tuple(node.position), rotation: [q.x, q.y, q.z, q.w] as const,
+          position: tuple(pose.position), rotation: [q.x, q.y, q.z, q.w] as const,
           velocity: tuple(body.linearVelocityToRef(velocity)), spin: tuple(body.angularVelocityToRef(spin)),
           grips: grips.map((g) => {
             const frames = g.joint.frames();
@@ -154,7 +154,7 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
           const frames = g.joint.frames();
           if (!frames) return [];
           position.set(...frames.anchorParent).applyRotationQuaternionToRef(g.body.pose.rotation, position).addInPlace(g.body.pose.position);
-          other.set(...frames.anchorChild).applyRotationQuaternionToRef(node.rotation, other).addInPlace(node.position);
+          other.set(...frames.anchorChild).applyRotationQuaternionToRef(pose.rotation, other).addInPlace(pose.position);
           return attachmentRows(g.body, body, tuple(position), tuple(other), true);
         });
       },

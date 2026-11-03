@@ -27,29 +27,29 @@ function named<C extends Contact | ContactManifold>(contacts: C[]): readonly (Om
 
 function segmentView(segment: BuiltSegment): ReadSegment {
   const real = segment.pose, body = segment.body;
-  const node = Object.freeze({
+  const pose = Object.freeze({
     name: real.name,
     get position(): Vector3 { return real.position; },
     get rotation() { return real.rotation; },
   });
   const readBody: ReadSegmentBody = Object.freeze({
-    id: body.id, pose: node,
+    id: body.id, pose,
     linearVelocityToRef: (out: Vector3) => body.linearVelocityToRef(out),
     angularVelocityToRef: (out: Vector3) => body.angularVelocityToRef(out),
     get massProperties() { return body.massProperties; },
   });
   engineOf.set(readBody, body);
   refs.set(body, readBody);
-  const pose = segment.handPose;
-  const handPose = pose ? Object.freeze({ get applied(): HandPose { return pose.applied; }, get requested(): HandPose { return pose.requested; } }) : undefined;
+  const hand = segment.handPose;
+  const handPose = hand ? Object.freeze({ get applied(): HandPose { return hand.applied; }, get requested(): HandPose { return hand.requested; } }) : undefined;
   return Object.freeze({
-    spec: segment.spec, frame: segment.frame, pose: node, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
+    spec: segment.spec, frame: segment.frame, pose, body: readBody, rest: segment.rest, get rigid() { return segment.rigid; },
     ...(handPose ? { handPose } : {}), ...(segment.poses ? { poses: segment.poses } : {}), ...(segment.toes ? { toes: segment.toes } : {}),
   });
 }
 
 /**
- * **`built` as its mind reads it** (`ReadBody`): the same body by views that read its nodes and
+ * **`built` as its mind reads it** (`ReadBody`): the same body by views that read its poses and
  * engine bodies live and hold neither, so that nothing a mind is given moves the body, sets a
  * motor or reaches the engine. One view a body: a segment, a joint and a contact's other side are
  * the same objects wherever a mind meets them.

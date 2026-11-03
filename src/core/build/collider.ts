@@ -9,7 +9,7 @@ export function local(frame: SegmentFrame, point: Vec3): Vec3 {
   return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)];
 }
 
-/** The collider of `spec` (body frame, reference pose) on a body whose node is `frame`. */
+/** The collider of `spec` (body frame, reference pose) on a body whose pose is `frame`. */
 export function colliderOf(frame: SegmentFrame, spec: ShapeSpec): ColliderShape {
   switch (spec.kind) {
     case "capsule":

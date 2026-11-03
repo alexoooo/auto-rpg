@@ -263,7 +263,7 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
  * hand body's: its centre's (the engine's linear velocity is the centre of mass's), plus its spin
  * across the arm from the centre to the knuckles. Not the segment's far end: the hand segment runs
  * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
- * nodes: the engine moves a body by more than its velocity when it corrects a constraint's error.
+ * poses: the engine moves a body by more than its velocity when it corrects a constraint's error.
  */
 function fistOf(built: ReadBody, segment: string): { fist: Fist; update(): void } {
   const hand: ReadSegment | undefined = built.segments.get(segment);

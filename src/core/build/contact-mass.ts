@@ -25,9 +25,8 @@ import { hypot } from "../math/real.ts";
  *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a
  * freedom's speed turns what its joint carries, about its motion axis through the joint's centre).
- * Each segment's rigid body (`rigid.ts`) is read as it stands, from its node's `position` and
- * `rotationQuaternion` (Babylon's world matrix is cached per render id): its centre from its node,
- * its inertia turned with it.
+ * Each segment's rigid body (`rigid.ts`) is read as it stands, from its pose's `position` and
+ * `rotation`: its centre from its pose, its inertia turned with it.
  *
  * `update` takes the pose; every answer after it is for that pose, until the next `update`, so one
  * pose can be asked about while the body moves on.

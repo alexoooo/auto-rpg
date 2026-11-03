@@ -59,7 +59,7 @@ export interface BodySense {
 
 interface SegmentSense {
   readonly handPose?: import("../spec/body.ts").HandPose;
-  /** The segment frame's origin and turn, world: its node's. */
+  /** The segment frame's origin and turn, world: its pose's. */
   readonly position: Vector3;
   readonly rotation: Quaternion;
   /** Its rigid body's centre of mass, with what it holds, world; that centre's velocity; its spin. */

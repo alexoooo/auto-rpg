@@ -111,7 +111,7 @@ function unknownShape(shape: never): never {
 }
 
 /**
- * A segment as the reading takes it: its mass, and its centre and its shape's points from its node,
+ * A segment as the reading takes it: its mass, and its centre and its shape's points from its pose,
  * in the reference pose's axes, each point four numbers: where, and how far its shape reaches around it.
  */
 interface Part {
@@ -127,12 +127,12 @@ function turnedY(qx: number, qy: number, qz: number, qw: number, vx: number, vy:
   return vy + qw * ty + qz * tx - qx * tz;
 }
 
-/** Numbers a part's pose is kept in (`readUprightness`): its node's position and turn. */
+/** Numbers a part's pose is kept in (`readUprightness`): its position and turn. */
 const POSE = 7;
 
 /**
  * Each body's uprightness, by its first segment's position: a body and its mind's read view of it
- * read the same nodes, rest turns and rigid bodies, and share that vector, so the two have one. It
+ * read the same poses, rest turns and rigid bodies, and share that vector, so the two have one. It
  * reads the body as it is when asked, keeping only the pose its last reading answers.
  */
 const uprights = new WeakMap<object, Uprightness>();
@@ -173,7 +173,7 @@ function readUprightness(built: ReadBody): Uprightness {
   /** The centre of mass's height, world, and the lowest point's, read now. */
   const levels = { centre: 0, low: 0 };
   /**
-   * The pose `levels` were read in: each part's node's position and turn, seven numbers a part,
+   * The pose `levels` were read in: each part's position and turn, seven numbers a part,
    * and the points it read (`Part.lows`, by its hand's pose). A read in that pose answers them again.
    */
   const pose = new Float64Array(parts.length * POSE), lows: (Float64Array | null)[] = parts.map(() => null);
@@ -191,7 +191,7 @@ function readUprightness(built: ReadBody): Uprightness {
     if (samePose()) return levels;
     let high = 0, low = Infinity;
     for (let k = 0, i = 0; k < parts.length; k++, i += POSE) {
-      const part = parts[k]!, node = part.segment.pose, p = node.position, q = node.rotation, points = part.lows;
+      const part = parts[k]!, { position: p, rotation: q } = part.segment.pose, points = part.lows;
       pose[i] = p.x; pose[i + 1] = p.y; pose[i + 2] = p.z; pose[i + 3] = q.x; pose[i + 4] = q.y; pose[i + 5] = q.z; pose[i + 6] = q.w;
       lows[k] = points;
       turnOfToRef(part.segment, turn);

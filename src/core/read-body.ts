@@ -20,7 +20,7 @@ export interface ReadBody {
   readonly handPoses: ReadHandPoses;
 }
 
-/** Which body another is, in a contact: an identity to compare and its node's name, and nothing to act on. */
+/** Which body another is, in a contact: an identity to compare and its pose's name, and nothing to act on. */
 export interface BodyRef {
   /** Stable within its world and its snapshots (`SegmentBody.id`). */
   readonly id: number;
@@ -33,7 +33,7 @@ export interface BodyRef {
  */
 export const isBody = (other: BodyRef | null, body: { readonly id: number }): boolean => other !== null && other.id === body.id;
 
-/** A segment's node as read: its name, and its pose, world, as the last step left it. */
+/** A segment's pose as read: its name, and where it is, world, as the last step left it. */
 interface ReadPose {
   readonly name: string;
   readonly position: Vector3;
@@ -61,7 +61,7 @@ export interface ReadSegment {
   readonly frame: SegmentFrame;
   readonly pose: ReadPose;
   readonly body: ReadSegmentBody;
-  /** The node's rotation in the reference pose, from which a joint reads its angles. */
+  /** The segment's rotation in the reference pose, from which a joint reads its angles. */
   readonly rest: Quaternion;
   /**
    * Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has;

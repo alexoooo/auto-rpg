@@ -162,15 +162,15 @@ function walkedColumn(walk: ChainWalk, c: number, joint: number, at: Vector3, ou
 
 /**
  * Where `point` (body frame, reference pose, on `segment`) stands now, in `root`'s frame, from the
- * nodes' `position` and `rotationQuaternion` (never the world matrix, which caches per frame): a
- * segment's node carries its reference pose by its turn since then, node times rest^-1.
+ * poses' `position` and `rotation`: a segment's pose carries its reference pose by its turn since
+ * then, rotation times rest^-1.
  */
 export function pointNowToRef(segment: ReadSegment, root: ReadSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;
   Quaternion.InverseToRef(segment.rest, scratch.a);
   segment.pose.rotation.multiplyToRef(scratch.a, scratch.d);
   out.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(scratch.d, out).addInPlace(segment.pose.position);
-  // Into the root's frame: its turn undone about its node.
+  // Into the root's frame: its turn undone about its position.
   out.subtractInPlace(root.pose.position);
   root.rest.multiplyToRef(Quaternion.InverseToRef(root.pose.rotation, scratch.a), scratch.d);
   out.applyRotationQuaternionToRef(scratch.d, out);
@@ -185,8 +185,8 @@ export interface Frame {
 }
 
 /**
- * The root's frame in the world, from `root`'s node, into `out`: what `pointNowToRef` undoes, the
- * root's turn since its reference pose about its node.
+ * The root's frame in the world, from `root`'s pose, into `out`: what `pointNowToRef` undoes, the
+ * root's turn since its reference pose about its position.
  */
 export function rootFrameToRef(root: ReadSegment, out: Frame): Frame {
   root.pose.rotation.multiplyToRef(Quaternion.InverseToRef(root.rest, scratch.a), out.rotation);

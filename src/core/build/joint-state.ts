@@ -19,8 +19,8 @@ import type { JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
  * is a joint's speed here: the speed a muscle's force-velocity relation reads, and the one its
  * torque does work against.
  *
- * Angles are read from the nodes' `rotationQuaternion`, which the engine's step writes from the
- * bodies (`PhysicsWorld.step`), not from a world matrix, which Babylon caches per render id. Speeds
+ * Angles are read from the segments' `rotation`, which the engine's step writes from the bodies
+ * (`PhysicsWorld.step`). Speeds
  * are read from the bodies' angular velocities, which the caller reads once per step and hands in:
  * each read crosses into the engine.
  */
@@ -33,7 +33,7 @@ const scratch = {
 /**
  * The child's rotation since the reference pose, relative to its parent, in the body frame: the
  * rotation that, applied to the child in the reference pose with the parent held there, gives the
- * joint as it stands. Babylon's `a.multiply(b)` applies b, then a.
+ * joint as it stands. `a.multiply(b)` applies b, then a.
  */
 export function relativeRotationToRef(joint: ReadJoint, out: Quaternion): Quaternion {
   const { parent, child } = joint;

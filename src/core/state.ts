@@ -9,7 +9,7 @@ import { Quaternion, Vector3 } from "./math/vector.ts";
  * object at the save hold one object after the load.
  *
  * State is numbers, strings, booleans, null, plain objects, arrays, typed arrays, a `Map` or `Set`
- * keyed by strings or numbers, `Vector3` and `Quaternion`. A function, a node, a body, or an object
+ * keyed by strings or numbers, `Vector3` and `Quaternion`. A function, a body, or an object
  * with a getter is not state, and `saveState` refuses it by its path.
  *
  * A constant a state points at is frozen (`deepFreeze`): a load never writes into a frozen object,
@@ -28,7 +28,7 @@ const isKey = (key: unknown): boolean => typeof key === "string" || typeof key =
 
 /**
  * A copy of the state under `root`: what `loadState` puts back. It throws, naming the path, at
- * anything that is not state: a function, a getter, a node or any object of a class other than
+ * anything that is not state: a function, a getter or any object of a class other than
  * the ones a state may hold.
  */
 export function saveState(root: object): Saved {

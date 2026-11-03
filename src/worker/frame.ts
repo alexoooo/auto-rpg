@@ -9,7 +9,7 @@ import type { HandPose } from "../core/spec/body.ts";
  *   in the worker, ms.
  * - A body's head (`BODY_HEAD`): its life, a fraction; 1 when it is down, else 0; 1 when it is out,
  *   else 0; its centre of mass, world, m.
- * - A segment's row (`SEGMENT_ROW`): its node's position, world, m, and rotation, x, y, z, w, as the
+ * - A segment's row (`SEGMENT_ROW`): its pose's position, world, m, and rotation, x, y, z, w, as the
  *   step left them; its hand's applied pose as an index of `HAND_POSES`, or -1 for a segment that
  *   is no posable hand; its toes' bend, rad, 0 for a segment with none.
  */
