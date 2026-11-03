@@ -138,6 +138,21 @@ one side of it to the other.
   walk's route only between its two sides, and held until that body or the target moves or the
   feet stop clearing it: 5 landed, 4 outside, 1 fell, against 6, none and none; the drill's spot
   held until the body moves, with the target not yet laid: 1 landed of 12 against 4.
+- **Tried and not kept: the menu's place beside a body lying held** (the menu's spot,
+  `MenuEntry.spot`, which a read of the menu chose afresh, its holds put back with the mind's
+  state). Held on the mind's own decisions, with the rest of its state put back (at `9e887beb`,
+  the Warrior's `stomping` and the Rogue's and the Skeleton's `stomping-bodies`, 36 trials, same
+  seeds), landed against the menu's place chosen afresh, 28 with 1 fell:
+  - the place held as a point, until it left the window widened by `LYING.shift` or the body or
+    the target moved: 20, 1 fell, 9 ended out of position; the window's middle moves about 0.15 m
+    as the stance squares up, and the point held goes stale;
+  - the way round the body held (the bearing and the ring), the place found again each step at
+    the window's middle on it: 24, 1 fell; the side stays, but the drill's spot, held once its
+    member is in the window, is the menu's from mid-stride, and its stay walks the body out;
+  - that, and the drill's spot read from the menu each step (no `HELD_SPOT`): 22, 1 fell.
+
+  The menu's place is chosen afresh at each read, the cheapest from where the walker is; the
+  drill holds the spot it reads (`HELD_SPOT`).
 
 **The stomp's stroke, return and stay** (the same harness, at this change). Of the Warrior's rung's
 non-landed trials at `e026ed21`, the one refused stood ready from 6.4 s and never settled: held in

@@ -359,6 +359,13 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   the Skeleton lands 8 of 12, 1 fell, its blows carrying under 3 J, and the Rogue 9, 3 refused at a
   lying Skeleton, none fell; braced the stroke's last 76 ms, the Warrior's blows at a lying Warrior carry 15 to
   52 J at 3.7 to 4.2 m/s ([braced and searched](reference/front-kicks.md#stomp-settings)).
+  - Open: a walk to a place beside a lying body overruns it. The Skeleton, asked 0.14 m/s 0.2 m
+    from its place, walks on at 0.4 to 0.8 m/s, 0.3 m past it, plants a foot on the lying
+    Warrior's limb and falls 1.5 s later (`stomping-bodies`, left foot, 0.8 m); the legs' stop,
+    not the stomp.
+  - Open: the Rogue's walk to a lying Skeleton turns between its sides and ends about once a
+    second (the menu's place chosen afresh from where it is, the drill's spot re-read each
+    second), and 3 of 6 trials run out before it settles.
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)); each comes as a skill in the shape
   with its Cover drill.
