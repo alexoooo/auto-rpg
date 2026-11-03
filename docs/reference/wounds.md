@@ -203,6 +203,11 @@ Decisions the owner may reverse: the numbers; that a limb's blows count half to 
 leg ends the fight (Die by the Sword lets a body hop); that a cut costs a fixed loss and does not
 bleed.
 
+Read in play (`npm run match -- option option`, 120 bouts of the Warrior, the five loadouts, Node,
+Rapier, 120 Hz, at `4d86d9f6`): the drain still ends 88 bouts, the rest slain, none cut. The worse
+side's life taken by wounds before the drain, median: unarmed 0.57, club 0.40, sword 1.00, buckler
+against club 0 (no blow lands), buckler against sword 1.00.
+
 ## Tolerances
 
 **What each blow does under the defaults** ([Life](#life)), from the rules (`blowDamage`,

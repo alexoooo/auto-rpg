@@ -55,7 +55,6 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Options trained body by body](plans/2026-11-03-options-training.md) | Option Mind's skills on the toed Warrior, Rogue and Skeleton with every loadout, as good as a reasonable time makes them, with two hard requirements: every body stands up within 10 s on the owner's target, and the Warrior and the Rogue run 3 m/s. Lower-level bugs fixed by their own contracts and what they break above fixed after; bodies told apart in data (records, and parts chosen by them), never in control code; the table read against each cell's baseline; stand-up, the run, then the strikes on every body, the stomp on the Warrior and the Rogue alone. It takes over from Option Mind on every body (`docs/plans/2026-11-01-option-mind-everywhere.md@47ad569f`), whose one family of minds, minds in parallel ([the command delay](reference/command-delay.md), [step cost](reference/step-cost.md#minds-on-worker-threads)) and table are built |
 | [Commander](plans/2026-10-29-commander.md) | A general Commander in Option Mind's shape, the Option Commander: team options claiming members, priced by the Crypt's score, its chooser configured over set selection shared with Option Mind; the score the hero's life at the exit less a price on time, read by the evaluation with the game unchanged, the price from the level's route; the player's side one unit (built: the score, `crypt-clear`'s `alone` protocol; set selection shared, `selectSet`; what the team reads, the exit, routes, foes' life and members' prospects) |
-| [Health: a life bar and limbs](plans/2026-11-01-health.md) | One life bar that is the truth, a bar on each limb: a limb emptied is crippled (its muscles weaker), a heavy cut takes it off, it falls free and is drawn apart; the strike profiles measured again under the new rules (built: step 1, life and limb bars in the pool, the diagram shading each; step 2, the strike profiles priced in life; step 3, a crippled limb weaker; step 4, a cut limb comes off in the simulation). Its place in the order is the owner's |
 | [The rat](plans/2026-11-01-rat.md) | Poly Haven's Street Rat (CC0) as a second quadruped body, legs under it, and both quadrupeds at 1.0 m/s or more: the rat in the Arena, drawn as the Street Rat on a body fitted to it, then fast legs, a trot that keeps its balance at speed, recovery for legs under the body, and the Crypt (built: the trot lands a pair once its paws bear; steps 1 to 5, the rat in the Arena drawn as the Street Rat, biting the Warrior, both bodies' legs at 20 rad/s and trotting .5 m/s, the bite lunging, the rat righting itself by a recipe of poses from its side and back, the rat trotting 1.08 m/s through turns. Left: the grass lizard at 1 m/s; a rat knocked over in a fight can be left crouched until its righting's retry) |
 
 1. **Now: [Options trained body by body](plans/2026-11-03-options-training.md)** in order
@@ -87,6 +86,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 **To watch:**
 
+- Health under the defaults ([wounds](reference/wounds.md#life)): a crippled leg's limp in the Lab
+  (Character, Crippled), limbs coming off in sword fights in the Arena and the Lab's Cut off, and
+  fights under the defaults, accepted or the numbers to change named. In the matches read on the
+  life bar the drain still ends most bouts, and no cut landed.
 - Random Crypt's guard hall against the owner's torchlit wet-stone reference: fractured masonry,
   chipped paving, detailed stone and timber materials, damp highlights and the hero-centred camera
   (`?play=dungeon&scene=random-crypt&seed=42`, [art](art/crypt.md#random-crypt)).
@@ -339,7 +342,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   takes nobody out unless a context has its own rule for it, applied in the Arena by the owner's
   verdict ([play](reference/play.md#the-bout)); a body that is down may be struck, to
   apply once a rise meets its bar.
-- Known and kept for now: a part with no hit points left moves as it did; the Crypt forgets
+- Known and kept for now: the Crypt forgets
   touches when it makes its watch again; two parts meeting at once are two blows; a blow lasts
   while the solver pushes on it, and lasting until the two part would move every bout.
 
