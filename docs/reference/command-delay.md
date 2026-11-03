@@ -92,10 +92,11 @@ the Rogue's punch. The stomp needs none: at 252a17eb it lands 4 of 12 at one ste
 leaves the list: a club is swung, not punched with, and the punch's drive thrown with the club's
 head gives way to a swing, which is trained at the game's delay.
 
-**The profiles** are measured at one step at 252a17eb, with a blow's line clear of a guard by the
-fist's radius and the Rise drill's techniques in the motor part: the strikes', the gaits' and the
-rise's edges (`assets/core/strike-profiles.json`, `gait-profiles.json`,
-`edge-profiles.json`). A profile names the delay it was measured at (`Measured.delay`,
+**The profiles** are measured at one step at 25d720b9, each body born on its first decision
+carried out, a blow's line clear of a guard by the fist's radius and the Rise drill's techniques in
+the motor part: the punch's and the club blow's, the gaits' and the Rise drill's edges
+(`assets/core/strike-profiles.json`, `gait-profiles.json`, `edge-profiles.json`); the stomp's
+are its record at 252a17eb. A profile names the delay it was measured at (`Measured.delay`,
 `staleness`), so one measured at another delay is stale and not read. Measured at none, the
 Warrior's punch profile kept Option Mind from striking a still foe 0.9 m off (no strike in 8 s);
 measured at one step, it strikes from 2.7 s.
