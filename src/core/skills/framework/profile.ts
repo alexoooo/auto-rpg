@@ -166,6 +166,8 @@ export interface ProfileReading {
   reach(phase: string): number;
   /** What it expects from `at` against `struck` (none for a skill with no foe): its nearest cell by range within its reach, the first of equals; null beyond. */
   expect(at: ProfilePlace, struck: BodySpec | null): Expected | null;
+  /** What it expects from `range` m in `phase` to take of `struck`'s life a second: `expect`'s dealt over its seconds, null where it expects nothing. */
+  rate(range: number, phase: string, struck: BodySpec | null): number | null;
   /** The most of `struck`'s life a second any of its cells for a body in `phase` takes; 0 with none. */
   peak(phase: string, struck: BodySpec): number;
   /** Why its cells are read scaled for `struck`, a sentence; null where `struck` is its target, or it has none. */
@@ -196,32 +198,44 @@ export function profileReading(profile: Profile, striker: BodySpec, postures: Po
   const own = striker.wounds.hp.value;
   const cells = profile.cells.filter((cell) => cellAt(cell, postures));
   const phaseOf = (phase: string): string => cells.some((cell) => cell.phase === phase) ? phase : "clear";
-  const reach = (phase: string): number => {
-    const at = phaseOf(phase);
+  // Each phase a body is read in: the cells it reads at (`phaseOf`), in order, and their reach; found once a phase.
+  const phases = new Map<string, { readonly cells: readonly ProfileCell[]; readonly reach: number }>();
+  const read = (phase: string) => {
+    const known = phases.get(phase);
+    if (known) return known;
+    const at = phaseOf(phase), of = cells.filter((cell) => cell.phase === at);
     let far = -Infinity, next = -Infinity;
-    for (const cell of cells) {
-      if (cell.phase !== at) continue;
-      if (cell.range > far) { next = far; far = cell.range; } else if (cell.range > next && cell.range < far) next = cell.range;
+    for (const cell of of) if (cell.range > far) { next = far; far = cell.range; } else if (cell.range > next && cell.range < far) next = cell.range;
+    const made = { cells: of, reach: far + (next > -Infinity ? (far - next) / 2 : 0) };
+    phases.set(phase, made);
+    return made;
+  };
+  const reach = (phase: string): number => read(phase).reach;
+  /** The cell nearest `range` by range of those a body in `phase` reads, the first of equals, within its reach; null beyond or with none. */
+  const nearest = (range: number, phase: string): ProfileCell | null => {
+    const { cells: of, reach: far } = read(phase);
+    if (range > far) return null;
+    let best: ProfileCell | null = null, distance = Infinity;
+    for (const cell of of) {
+      const d = Math.abs(cell.range - range);
+      if (d < distance) { best = cell; distance = d; }
     }
-    return far + (next > -Infinity ? (far - next) / 2 : 0);
+    return best;
   };
   const reading: ProfileReading = {
     profile, reach,
     expect(at, struck) {
-      const phase = phaseOf(at.phase);
-      if (at.range > reach(phase)) return null;
-      let best: ProfileCell | null = null, distance = Infinity;
-      for (const cell of cells) {
-        if (cell.phase !== phase) continue;
-        const d = Math.abs(cell.range - at.range);
-        if (d < distance) { best = cell; distance = d; }
-      }
+      const best = nearest(at.range, at.phase);
       if (!best) return null;
       const progress = at.progress ?? 0;
       let letGo: NonNullable<ProfileCell["letGo"]>[number] | null = null;
       for (const one of best.letGo ?? []) if (!letGo || Math.abs(one.progress - progress) < Math.abs(letGo.progress - progress)) letGo = one;
       return { done: best.done, dealt: struck ? best.dealt / struck.wounds.hp.value : 0, taken: best.taken / own, seconds: best.seconds, down: best.down, ends: best.ends,
         ...(letGo ? { letGo: { seconds: letGo.seconds, taken: letGo.taken / own } } : {}), ...(best.exit ? { exit: best.exit } : {}) };
+    },
+    rate(range, phase, struck) {
+      const best = nearest(range, phase);
+      return best ? (struck ? best.dealt / struck.wounds.hp.value : 0) / best.seconds : null;
     },
     peak(phase, struck) {
       const at = phaseOf(phase), hp = struck.wounds.hp.value;

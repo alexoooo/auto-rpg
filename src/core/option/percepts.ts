@@ -291,8 +291,8 @@ function pressingOf(seen: Seen): Pressure {
 export function pressureAt(pressure: Pressure, range: number, seconds: number): number {
   let rate = 0;
   for (const reading of pressure.model) {
-    const expected = reading.expect({ range, phase: pressure.phase }, pressure.struck);
-    if (expected) rate = Math.max(rate, expected.dealt / expected.seconds);
+    const expected = reading.rate(range, pressure.phase, pressure.struck);
+    if (expected !== null) rate = Math.max(rate, expected);
   }
   return rate * seconds;
 }

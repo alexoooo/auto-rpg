@@ -983,6 +983,12 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   1900, minds in one process, a CPU profile of its 662 decisions over 2 ms, Node 24.19,
   `rapier-coordinate`, 120 Hz, at bb20424a). Over the crowd fight's first 2400 steps the minds
   appraise 3499 times, against 4192 before.
+- **A profile reads each phase's cells once** (`profileReading`,
+  `src/core/skills/framework/profile.ts`): the cells a phase reads at and their reach are found at
+  its first reading, and the pressure's rate (`pressureAt`, `ProfileReading.rate`) reads its cell
+  without making an expectation; a region's segments are found once a spec (`regionSegments`,
+  `src/core/intent/action-aim.ts`). In the same profile of those decisions, `expect` was 7.9% of
+  their samples and `regionSegments` 4.2%, each in itself.
 - **What a mind shows a person crosses only when a page reads it** (`SeatAsk`'s `shown`): its
   engagement, 3.2 KB of the 3.9 each crowd mind said a step, read by no rule or Commander, had its
   details made and was copied with every answer, on the world's wait. Crowd fight, its opening
