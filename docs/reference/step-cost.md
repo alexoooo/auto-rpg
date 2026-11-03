@@ -943,7 +943,7 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   decision its next answer carries out, while the world takes the answer, steps, and its
   Commanders read what each member said with its answer (`Seat.said`). The world writes the next
   step's numbers into the other of two arrays (`MirrorWriter.write`), so it waits for a decision
-  only as it asks a menu: one write and one batch a step (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
+  only as it asks a menu: one write a step, each ask sent as it is made and the word to decide as the world dispatches (`MindsApart.dispatch` after the step's preparation, `World.step`). The same to
   the bit on one thread and on one to four mind threads (`research/minds-apart.mjs`, the whole
   physics world's bytes each second, at 81c323b6): the crowd fight to its verdict (13668 steps,
   2577 blows, the left side's by draining at 113.9 s), the bare-hands and sword bouts and the
@@ -976,6 +976,12 @@ is one logical processor a core (`start /affinity 55555555`), the mind threads i
   every thread's next batch 7.0 ms into step 1807, against 0.8 in an ordinary step. The poses are
   the same to the bit on one and four threads: the crowd fight's first 2400 steps and the Crypt's
   at seeds 10 and 25, and the fingerprint.
+- **A thread moves each body as the world writes it** (`mindThreads`, `src/apart/host.ts`;
+  `mindThread`, `src/apart/thread.ts`): each step ask is posted as its seat is written, and the
+  minds decide once the world says the step's asks are all in (`Batch.decide`). Ten seats on four
+  threads are three, three, two and two; a thread of three waited for all ten writings before
+  its first move (0.8 ms at 510b96d0's quiet reading, its moves 1.5 to 1.6), and now begins after
+  its first.
 - **A decision prices the other foes before its focus** (`selectSet`, `src/core/mind/choice.ts`):
   its options are left aimed and priced at the focus unless another foe is worth more, so the focus
   is no longer priced a second time after the others. The decisions over 2 ms are three quarters

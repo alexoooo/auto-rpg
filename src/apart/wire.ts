@@ -49,8 +49,11 @@ export interface Carried {
   readonly outbound?: Float64Array;
 }
 
-/** **A batch** of asks to one minds' thread, its count, and the specs it is sent, by their numbers, before its asks; or the word to stop. */
-export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly stop?: true }
+/**
+ * **A batch** of asks to one minds' thread, its count, and the specs it is sent, by their numbers,
+ * before its asks; the word that the step's asks are all in, so its minds decide (`decide`); or the word to stop.
+ */
+export interface Batch { readonly seq: number; readonly asks: readonly Carried[]; readonly specs?: readonly (readonly [SpecNumber, BodySpec])[]; readonly decide?: true; readonly stop?: true }
 
 /**
  * What a seat's mind says as it crosses: as it is made or answers, who has its body and its report
