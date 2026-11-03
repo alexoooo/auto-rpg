@@ -230,6 +230,12 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
   const limbs = { left: limbOf("left"), right: limbOf("right") };
+  const forward = new Vector3();
+  /** The way `frame`'s forward (+z, the reference pose's) faces about up, rad, as a heading is counted. */
+  const facingOf = (frame: BodyView["root"]): number => {
+    forward.set(0, 0, 1).applyRotationQuaternionToRef(frame.rotation, forward);
+    return atan2(forward.x, forward.z);
+  };
   /** The channels each hand's schedule names, which are pushed only on it. */
   const leg = legOf(body.built.spec), steeredChannels = { left: punchChannels("left", leg, layout), right: punchChannels("right", leg, layout) };
   const scheduled = { left: new Set((settings.timed?.left ?? []).map((p) => p.channel)), right: new Set((settings.timed?.right ?? []).map((p) => p.channel)) };
@@ -251,8 +257,11 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
     learner: learnerOf(0, false), decided: -Infinity, steeredAt: -Infinity,
     still: 0, thrown: { left: 0, right: 0 },
     /**
-     * Each shoulder at contact from the head as the last step left it, in the body frame: the
-     * trunk at its contact goals and the hips turned, across, up and forward, m.
+     * Each shoulder at contact from the head as the last step left it, across, up and forward, m:
+     * the shoulder from the pelvis with the trunk at its contact goals and the hips turned, the
+     * pelvis upright over the centre of mass and facing the legs' heading (its own where the read
+     * is given none), as it stands at contact; so neither where the pelvis points nor how far it
+     * trails the centre of mass as the body walks moves it.
      */
     shoulders: { left: [0, 0, 0] as [number, number, number], right: [0, 0, 0] as [number, number, number] },
   };
@@ -268,7 +277,7 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; state.learner.running = false; };
   /** The motion enters `phase`: its learner runs through a steered swing alone. */
   const enter = (phase: Phase): void => { state.phase = phase; state.learner.running = settings.steered === true && phase === "swing"; };
-  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), apart = new Vector3(), face = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
+  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), apart = new Vector3(), face = new Vector3();
   /**
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
    * target, into the limb's `angles`: the trunk as it stands, or at its contact goals with
@@ -350,9 +359,11 @@ function straightTechnique(body: Body, guard: Pose, settings: StraightPunch, fac
   /** Where a held face's striking point is, world, as `view` has it. */
   const struck = (view: BodyView, hand: Side, limb: Limb): Vector3 =>
     view.effectors[`hand.${hand}`]!.points[limb.aim]!.applyRotationQuaternionToRef(view.root.rotation, face).addInPlace(view.root.position);
-  const read = (view: BodyView) => {
-      headAt[0] = view.head.x; headAt[1] = view.head.y; headAt[2] = view.head.z;
-      intoFrameToRef(view.root, headAt, head);
+  const read = (view: BodyView, heading?: number) => {
+      // The head from the centre of mass, across and forward of the way the legs head, and up from the pelvis.
+      const r = view.root, centre = view.stance.centre, h = heading ?? facingOf(r), c = cos(h), sn = sin(h);
+      const dx = view.head.x - centre.x, dz = view.head.z - centre.z;
+      head.set(dx * c - dz * sn, view.head.y - r.position.y, dx * sn + dz * c);
       state.headY = view.head.y;
       for (const side of HANDS) {
         const limb = limbs[side], { trunkChain, trunkNames, trunkAngles } = limb;
@@ -456,8 +467,8 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       motion.hand = hand; technique.enter("settle"); technique.aimAt(at); motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
       motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
     },
-    update(view, continued, _around, dt) {
-      technique.read(view); motion.now = view.time; motion.step = dt;
+    update(view, continued, around, dt) {
+      technique.read(view, around.heading); motion.now = view.time; motion.step = dt;
       const live = state.live;
       if (!live) return [];
       if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
