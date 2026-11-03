@@ -316,7 +316,7 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     pointOfToRef(hip.parent, hip.spec.centre.value, hipAt);
     swingBowToRef(from, swing!.to, bearer!.middle, bearer!.ends.front.middle, bearer!.ends.heel.middle, clearAlong(bearer!, foot, gait.clearance), clearAcross(foot, gait.clearance), sideOf(foot, goal.heading), bow);
     swingShiftToRef(foot.leg, foot.ankle, foot.back, goal.heading, hipAt, reading.centre, swing!, bow, from, step.lifted ? step.time : 0,
-      reading.place, r, u, w, s.total * gravityOf(s), progress, path, along, accel, shiftWork, step.shift);
+      reading.place, r, u, w, s.parts().mass * gravityOf(s), progress, path, along, accel, shiftWork, step.shift);
     const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
     const { capture: [cx, cz], now: [nx, nz] } = step.shift;
     if (left >= gait.horizon || !step.pivoted) {
@@ -713,7 +713,7 @@ function advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], 
   for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);
   const high = Math.max(limits.high, low), k = 1 / seconds.height;
   const ay = k * k * (high - r.y) - 2 * k * u.y;
-  const m = plan.missed, over = 1 / s.total;
+  const m = plan.missed, over = 1 / s.parts().mass;
   u.addInPlaceFromFloats((ax - m.x * over) * dt, (ay - m.y * over) * dt, (az - m.z * over) * dt);
   r.addInPlace(u.scale(dt));
   reading.plan.copyFrom(r);
@@ -911,8 +911,8 @@ export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist
       if (s.state.aim.on && !s.state.pose) pushOff(s, muscles);
     },
     read(which) {
-      const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, turn, target, whole } = s.scratch;
-      massCentreToRef(segments, total, reading.centre, p, reading.velocity);
+      const { feet, pelvis } = s, { segments, mass } = s.parts(), { reading } = s.state, { p, v, turn, target, whole } = s.scratch;
+      massCentreToRef(segments, mass, reading.centre, p, reading.velocity);
       angularMomentumToRef(segments, reading.centre, reading.velocity, reading.momentum, p, v, turn, target);
       for (const foot of feet) {
         const hip = foot.chain[0]!;

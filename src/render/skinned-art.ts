@@ -9,6 +9,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { loadArtAssets, type ArtAssets } from "./art-assets.ts";
 import { modelBytes } from "./asset-cache.ts";
 import { skinReference } from "./body-deformation.ts";
+import { skinApart } from "./skin-apart.ts";
 import type { DrawnBody } from "./drawn-body.ts";
 import { readGlb, type DecodeMeshopt } from "./glb.ts";
 import type { SkinView } from "./skin-view.ts";
@@ -85,7 +86,7 @@ export function loadSkinnedArt(look: SkinnedLook): Promise<SkinnedArt> {
  * **A skinned creature as the world sees it**: one mesh skinned to the body's segments. Each bone
  * follows its segment: at the reference pose the mesh is the art as authored, and every bone is its
  * segment's achieved transform after its reference frame, so the surface bends at the joints instead
- * of parting. It reads the segments' transforms and nothing else, owns no collision and decides nothing.
+ * of parting, and opens where a part is cut off (`skinApart`). It reads the segments' transforms and nothing else, owns no collision and decides nothing.
  */
 export function dressSkinnedArt(built: DrawnBody, art: SkinnedArt, scene: Scene): SkinView {
   const prefix = `${built.spec.model}.skin.`, { look } = art;
@@ -137,10 +138,12 @@ export function dressSkinnedArt(built: DrawnBody, art: SkinnedArt, scene: Scene)
   });
   mesh.skeleton = skeleton;
   mesh.numBoneInfluencers = 4;
+  const part = skinApart(mesh, built, art.bones);
 
   const carried = new Matrix();
   const update = () => {
     if (!mesh.isEnabled() || !mesh.isVisible) return;
+    part();
     for (const { bone, segment, held } of rows) {
       const node = segment.node;
       Matrix.ComposeToRef(Vector3.OneReadOnly, node.rotationQuaternion!, node.position, carried);

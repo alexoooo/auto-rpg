@@ -37,6 +37,7 @@ export function coupledDynamics(built: ReadBody, gravity: Vec3, items: readonly 
   const accelerationOfGravity: Vec3 = [...gravity], fixedBodies = [...fixed];
   const members = segments.map((s) => s.body).concat(registered.map((i) => i.body));
   if (new Set(members).size !== members.length || fixed.some((b) => !members.includes(b))) throw new Error("invalid coupled dynamics membership");
+  if (joints.some((joint) => !joint.attached())) throw new Error(`${built.spec.model} has a part cut off: the coupled model is a whole tree's`);
   const tree = bodyDynamics(built, accelerationOfGravity), count = joints.reduce((s, j) => s + j.dofs.length, 0), size = 6 + count + 6 * registered.length;
   const byBody = new Map(segments.map((s) => [s.body, s]));
   const byChild = new Map(joints.map((j) => [j.child, j]));

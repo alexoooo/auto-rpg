@@ -7,6 +7,7 @@ import { choice, entries, fold, following, group, menu, switches, when, type Con
 import { mindEditor } from "../../ui/mind-editor.ts";
 import { writeMind } from "../../ui/mind-link.ts";
 import type { LabPage } from "./sections.ts";
+import type { BodySpec } from "../../core/spec/body.ts";
 
 const HANDS: Readonly<Record<(typeof LAB_HANDS)[number], string>> = { right: "Right hand", left: "Left hand" };
 const HELD = Object.fromEntries(HOLDS.map((held) => [held, { name: heldItem(held)?.name ?? "Empty" }])) as Named<Held>;
@@ -18,9 +19,12 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
 /** A limb's name as a person reads it: `leg.front.left`, "Left front leg". */
 const limbName = (name: string): string => { const words = name.split(".").reverse().join(" "); return words[0]!.toUpperCase() + words.slice(1); };
 
+/** None, or one of `spec`'s limbs. */
+const limbChoices = (spec: BodySpec) => [{ value: null, name: "None" }, ...spec.wounds.limbs.map((limb) => ({ value: limb.name, name: limbName(limb.name) }))];
+
 /**
- * The character, in the order each part depends on the last: its body (a limb of it crippled or
- * none), what the body holds and wears, and the mind that drives them, its tree folded away until opened.
+ * The character, in the order each part depends on the last: its body (a limb of it crippled, one
+ * cut off, or none), what the body holds and wears, and the mind that drives them, its tree folded away until opened.
  */
 export function characterSection(page: LabPage): readonly Control[] {
   const attributes = attributeEditor({ model: page.shown.model, attributes: loadoutAttributes(page.shown) }, {
@@ -38,8 +42,8 @@ export function characterSection(page: LabPage): readonly Control[] {
         following(() => page.shown.model, model => menu("Appearance", appearancesFor(model).map(row => ({ value: row.id, name: row.name })),
           () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
       attributeControl,
-      following(() => page.spec, spec => menu("Crippled", [{ value: null, name: "None" }, ...spec.wounds.limbs.map((limb) => ({ value: limb.name, name: limbName(limb.name) }))],
-        () => page.shown.crippled, crippled => page.load({ ...page.shown, crippled }))),
+      following(() => page.spec, spec => menu("Crippled", limbChoices(spec), () => page.shown.crippled, crippled => page.load({ ...page.shown, crippled }))),
+      following(() => page.spec, spec => menu("Cut off", limbChoices(spec), () => page.shown.cut, cut => page.load({ ...page.shown, cut }))),
     ]),
     group("Items", [
       ...LAB_HANDS.map((hand) =>

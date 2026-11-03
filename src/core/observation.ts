@@ -1,7 +1,7 @@
 import { Vector3 } from "./math/vector.ts";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
-import { centreOfToRef, massCentreToRef, massOf } from "./read-motion.ts";
+import { centreOfToRef, massCentreToRef, partsOn, pointOfToRef } from "./read-motion.ts";
 import type { MuscleDriver } from "./muscle/driver.ts";
 import type { Senses } from "./mind/senses.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
@@ -10,7 +10,7 @@ import type { EquipmentObservation } from "./mind/equipment-port.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
 import type { Clock } from "./clock.ts";
-import type { ReadBody } from "./read-body.ts";
+import { attachment, type ReadBody } from "./read-body.ts";
 
 interface SegmentObservation {
   readonly handPose?: import("./spec/body.ts").HandPose;
@@ -62,9 +62,10 @@ export function physicalReading(built: ReadBody, down?: () => boolean) {
   const upright = uprightness(built), point = new Vector3();
   const head = built.segments.has("head") ? centreReading(built, "head") : null;
   const reading = { centre: new Vector3(), head: new Vector3(), height: 0, down: false };
-  const parts = [...built.segments.values()], mass = massOf(parts);
+  const parts = partsOn(built);
   return () => {
-    massCentreToRef(parts, mass, reading.centre, point);
+    const { segments, mass } = parts();
+    massCentreToRef(segments, mass, reading.centre, point);
     if (head) { head.update(); reading.head.copyFrom(head.centre); }
     else reading.head.copyFrom(reading.centre);
     reading.height = upright.height();
@@ -73,15 +74,28 @@ export function physicalReading(built: ReadBody, down?: () => boolean) {
   };
 }
 
-/** A segment's centre read through its local frame, with the work made once. */
+/**
+ * A segment's centre read through its local frame, with the work made once. A segment cut off
+ * (`attachment`) is no longer the body's: its centre is read where the body would carry it, on its
+ * nearest part still on as at the reference pose (`pointOfToRef`).
+ */
 export function centreReading(built: ReadBody, name: string): { centre: Vector3; update(): void } {
   const segment = built.segments.get(name);
   if (!segment) throw new Error(`${built.spec.model} has no ${name}`);
+  const on = attachment(built), parentOf = new Map([...built.joints.values()].map((joint) => [joint.child, joint.parent]));
   const { origin, x, y, z } = segment.frame, c = segment.rigid.centre;
   const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
   const local = new Vector3(...[x, y, z].map((a) => d[0]! * a[0]! + d[1]! * a[1]! + d[2]! * a[2]!) as [number, number, number]);
   const centre = new Vector3();
-  return { centre, update() { local.applyRotationQuaternionToRef(segment.pose.rotation, centre).addInPlace(segment.pose.position); } };
+  return {
+    centre,
+    update() {
+      if (on(segment)) { local.applyRotationQuaternionToRef(segment.pose.rotation, centre).addInPlace(segment.pose.position); return; }
+      let carrier = parentOf.get(segment)!;
+      while (!on(carrier)) carrier = parentOf.get(carrier)!;
+      pointOfToRef(carrier, segment.rigid.centre, centre);
+    },
+  };
 }
 
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];

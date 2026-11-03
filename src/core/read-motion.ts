@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "./math/vector.ts";
-import type { ReadSegment } from "./read-body.ts";
+import { attachment, type ReadBody, type ReadSegment } from "./read-body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 
 const scratch = { a: new Quaternion(), b: new Quaternion() };
@@ -21,6 +21,29 @@ export const centreOfToRef = (segment: ReadSegment, out: Vector3): Vector3 => po
 
 /** The mass of `parts`, kg: their rigid bodies' masses summed in order. */
 export const massOf = (parts: readonly ReadSegment[]): number => parts.reduce((sum, part) => sum + part.rigid.mass, 0);
+
+/** A body's parts on it (`attachment`), in its segments' order, and their mass, kg (`massOf`). */
+export interface Parts { readonly segments: readonly ReadSegment[]; readonly mass: number }
+
+/**
+ * **The parts on `body` now** (`Parts`), as a reading made once a reader: each call reads its
+ * joints, and finds the parts again only where one has been released or restored since the last;
+ * a whole body's parts are all its segments, its mass theirs.
+ */
+export function partsOn(body: Pick<ReadBody, "segments" | "joints">): () => Parts {
+  const on = attachment(body), all = [...body.segments.values()], joints = [...body.joints.values()];
+  const attached = new Uint8Array(joints.length).fill(1);
+  let parts: Parts = { segments: all, mass: massOf(all) };
+  return () => {
+    let moved = false;
+    for (let j = 0; j < joints.length; j++) {
+      const now = joints[j]!.attached() ? 1 : 0;
+      if (now !== attached[j]) { attached[j] = now; moved = true; }
+    }
+    if (moved) { const segments = all.filter(on); parts = { segments, mass: massOf(segments) }; }
+    return parts;
+  };
+}
 
 /**
  * The centre of mass of `parts`, whose masses sum to `mass` (`massOf`), into `centre`, and its

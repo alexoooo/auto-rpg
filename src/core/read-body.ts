@@ -103,6 +103,27 @@ export interface ReadJoint extends JointKinematics {
   readonly child: ReadSegment;
   /** The share of their peak torques the muscles of its freedom `dof` give now, 1 whole (`BuiltBody.strength`). */
   strength(dof: number): number;
+  /** Whether it joins its child to its parent now: a cut releases it (`EngineJoint.release`). */
+  attached(): boolean;
+}
+
+/**
+ * **Whether each of `body`'s segments is on it now**: joined to its root by attached joints
+ * (`ReadJoint.attached`). Made once a body; each call reads the joints as they are.
+ */
+export function attachment(body: Pick<ReadBody, "segments" | "joints">): (segment: ReadSegment) => boolean {
+  const byChild = new Map([...body.joints.values()].map((joint) => [joint.child, joint]));
+  const chains = new Map([...body.segments.values()].map((segment) => {
+    const chain: ReadJoint[] = [];
+    for (let joint = byChild.get(segment); joint; joint = byChild.get(joint.parent)) chain.push(joint);
+    return [segment, chain] as const;
+  }));
+  return (segment) => {
+    const chain = chains.get(segment);
+    if (!chain) throw new Error("that segment is not this body's");
+    for (const joint of chain) if (!joint.attached()) return false;
+    return true;
+  };
 }
 
 /** The segment no joint carries: the root, whose frame is the body frame a goal is set in. */

@@ -19,6 +19,7 @@ import { ALL_MET, type LegsAsked, type LegsGoal } from "./skill.ts";
 import type { StanceEnvelope } from "../../control/stance-envelope.ts";
 import { directMovement } from "../../intent/movement.ts";
 import { cos, hypot, sin } from "../../math/real.ts";
+import { attachment } from "../../read-body.ts";
 
 /** Continuous services surround the independently owned action instances. */
 export interface SkillParts {
@@ -45,7 +46,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints)), legsControls = resources.controls(["legs"]);
-  const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
+  const on = attachment(body.built);
+  const instances = actionInstances(executors, actions, resources, { attached: (effector) => on(body.built.segments.get(effector)!) }), guarding = guard.posture;
   const chains: Readonly<Record<string, readonly string[]>> = Object.fromEntries(models.map((model) => [model.segment, model.channels]));
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,

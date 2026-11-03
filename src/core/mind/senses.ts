@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import { centreOfToRef } from "../read-motion.ts";
+import { attachment } from "../read-body.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { ObjectSense } from "./object-senses.ts";
@@ -53,7 +54,7 @@ export interface BodySense {
   /** Its centre of mass and that centre's velocity, world. */
   readonly centre: Vector3;
   readonly velocity: Vector3;
-  /** Each segment, by name, in the order built. */
+  /** Each segment on it (`attachment`), by name, in the order built: a part cut off is no longer the body's. */
   readonly segments: ReadonlyMap<string, SegmentSense>;
 }
 
@@ -66,6 +67,31 @@ interface SegmentSense {
   readonly centre: Vector3;
   readonly velocity: Vector3;
   readonly spin: Vector3;
+}
+
+/** A sensed segment's code, where a hand's pose's goes, for a segment off its body (`attachment`). */
+export const OFF_BODY = -2;
+
+/** A segment's sense as its shower writes it. */
+type ShownSegment = { -readonly [K in keyof SegmentSense]: SegmentSense[K] };
+
+/**
+ * **The segments a body is shown by**: a sense for each of `names`, made once (`all`), and the map
+ * of those still on the body in the same order; `mark` says whether the i-th is on, and `settle`
+ * gives the map, made again only where a mark has changed it.
+ */
+export function shownSegments(names: readonly string[]) {
+  const all = names.map((name): [string, ShownSegment] => [name, { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }]);
+  const on = new Uint8Array(all.length).fill(1);
+  let map: ReadonlyMap<string, SegmentSense> = new Map(all), moved = false;
+  return {
+    all: all.map(([, sense]) => sense),
+    mark(i: number, now: boolean): void { const next = now ? 1 : 0; if (on[i] !== next) { on[i] = next; moved = true; } },
+    settle(): ReadonlyMap<string, SegmentSense> {
+      if (moved) { map = new Map(all.filter((_, i) => on[i] === 1)); moved = false; }
+      return map;
+    },
+  };
 }
 
 /** A body the senses carry: who it is, whether it is out of the fight, whether it is down and its life, each asked once a step, and the fixed geometry it is granted. */
@@ -111,8 +137,9 @@ export function clockSenses(world: World): () => Senses {
 
 /**
  * How many numbers one reading of a body of `segments` holds, in the order `read` writes them and
- * `show` takes them: each segment's position, turn, centre, velocity and spin, then the whole
- * body's centre, its velocity, whether it is out, whether it is down, its life and its observation time.
+ * `show` takes them: each segment's position, turn, centre, velocity, spin and hand pose or
+ * `OFF_BODY`, then the centre of the parts on the body, its velocity, whether it is out, whether
+ * it is down, its life and its observation time.
  */
 function frameLength(segments: number): number { return (3 + 4 + 3 + 3 + 3 + 1) * segments + 3 + 3 + 1 + 1 + 1 + 1; }
 
@@ -132,9 +159,9 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
   const state: Record<string, Remembered> = {};
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
 
-  /** `entry`'s body as it stands, into `frame`: each segment, then the whole body's centre, its velocity, whether it is out, whether it is down, its life and its observation time. */
+  /** `entry`'s body as it stands, into `frame`: each segment, then the centre of the parts on it, its velocity, whether it is out, whether it is down, its life and its observation time. */
   const read = (entry: Carried, frame: Float64Array, out: boolean, down: boolean, life: number): void => {
-    let k = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
+    let k = 0, mass = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
     for (const segment of entry.segments) {
       const at = segment.pose.position, q = segment.pose.rotation, m = segment.rigid.mass;
       centreOfToRef(segment, p);
@@ -145,6 +172,7 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
       frame[k++] = p.x; frame[k++] = p.y; frame[k++] = p.z;
       frame[k++] = v.x; frame[k++] = v.y; frame[k++] = v.z;
       frame[k++] = w.x; frame[k++] = w.y; frame[k++] = w.z;
+      if (!entry.attached(segment)) { frame[k++] = OFF_BODY; continue; }
       const pose = segment.handPose?.applied;
       switch (pose) {
         case undefined: frame[k++] = -1; break;
@@ -153,9 +181,8 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
         case "grip": frame[k++] = 2; break;
         default: { const never: never = pose; throw new Error(`unknown hand pose ${never}`); }
       }
-      cx += m * p.x; cy += m * p.y; cz += m * p.z; vx += m * v.x; vy += m * v.y; vz += m * v.z;
+      mass += m; cx += m * p.x; cy += m * p.y; cz += m * p.z; vx += m * v.x; vy += m * v.y; vz += m * v.z;
     }
-    const mass = entry.mass;
     frame[k++] = cx / mass; frame[k++] = cy / mass; frame[k++] = cz / mass;
     frame[k++] = vx / mass; frame[k++] = vy / mass; frame[k++] = vz / mass;
     frame[k++] = out ? 1 : 0;
@@ -165,16 +192,20 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
   };
   /** `frame` into what the others are shown of `entry`. */
   const show = (entry: Carried, frame: Float64Array): void => {
+    const { view } = entry;
     let k = 0;
-    for (const s of entry.shown.segments.values()) {
+    for (let i = 0; i < view.all.length; i++) {
+      const s = view.all[i]!;
       s.position.set(frame[k++]!, frame[k++]!, frame[k++]!);
       s.rotation.set(frame[k++]!, frame[k++]!, frame[k++]!, frame[k++]!);
       s.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
       s.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
       s.spin.set(frame[k++]!, frame[k++]!, frame[k++]!);
       const pose = frame[k++]!;
-      if (pose >= 0) (s as { handPose?: import("../spec/body.ts").HandPose }).handPose = pose === 1 ? "fist" : pose === 2 ? "grip" : "open";
+      view.mark(i, pose !== OFF_BODY);
+      if (pose >= 0) s.handPose = pose === 1 ? "fist" : pose === 2 ? "grip" : "open";
     }
+    entry.shown.segments = view.settle();
     entry.shown.centre.set(frame[k++]!, frame[k++]!, frame[k++]!);
     entry.shown.velocity.set(frame[k++]!, frame[k++]!, frame[k++]!);
     entry.shown.out = frame[k++] === 1;
@@ -213,17 +244,12 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
     },
     add(sensed) {
       if (sensed.id in state) throw new Error(`the senses carry a body called ${sensed.id} already`);
-      const segments = [...sensed.built.segments.values()];
+      const segments = [...sensed.built.segments.values()], view = shownSegments([...sensed.built.segments.keys()]);
       const shown = {
         id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false, down: false, life: 1, time: world.time,
-        centre: new Vector3(), velocity: new Vector3(),
-        segments: new Map([...sensed.built.segments.keys()].map((name) => [name,
-          { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])),
+        centre: new Vector3(), velocity: new Vector3(), segments: view.settle(),
       };
-      const entry: Carried = {
-        sensed, segments, shown, others: [],
-        mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0),
-      };
+      const entry: Carried = { sensed, segments, attached: attachment(sensed.built), view, shown, others: [] };
       // Every frame starts as the body stands, in the fight, up and with the life it has: `out` and `down` are first asked at the next step.
       const standing = new Float64Array(frameLength(segments.length)), memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false, false, sensed.life?.() ?? 1);
@@ -250,7 +276,10 @@ export function createSenses(world: World, delay = 0, ends?: number): SensesHub 
 interface Carried {
   readonly sensed: Sensed;
   readonly segments: readonly BuiltSegment[];
-  readonly mass: number;
+  /** Whether a segment is on the body (`attachment`). */
+  readonly attached: (segment: BuiltSegment) => boolean;
+  /** The senses the others are shown of its segments. */
+  readonly view: ReturnType<typeof shownSegments>;
   /** What the others are shown of it. */
   readonly shown: { -readonly [K in keyof BodySense]: BodySense[K] };
   /** What it is shown: the others' `shown`. */

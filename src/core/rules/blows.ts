@@ -11,7 +11,7 @@ import { watchTouches, type Part, type Touch, type TouchWatch } from "../touches
 import type { World } from "../world.ts";
 import type { Hold } from "../build/contact-mass.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
-import { crippleLimb, partThickness, type Pool, type Wound } from "./pool.ts";
+import { partThickness, woundBody, type Pool, type Wound } from "./pool.ts";
 import { pointLoadDamage, pointWound, sideDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
 import { energyShares } from "./share.ts";
 
@@ -190,10 +190,10 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
   };
   const parts = new Map(fighters.flatMap(body => [...body.built.segments.values()].map(segment => [segment.body.id, { body, segment }] as const)));
   const publish = (blow: LandedBlow) => { deepFreeze(blow); blows.push(blow); onBlow?.(blow); };
-  /** `blow` dealt to `fighter`'s pool, a limb it cripples made weaker (`crippleLimb`). */
+  /** `blow` dealt to `fighter`'s pool, and what it does to the body (`woundBody`). */
   const wound = (fighter: Fighter, blow: Parameters<Pool["wound"]>[0]): Wound => {
     const done = fighter.pool.wound(blow);
-    if (done.crippled) crippleLimb(fighter.built, done.limb!.name, rules);
+    woundBody(fighter.built, done, rules);
     return done;
   };
   /** Each fighter's bare limbs, which a blow on a body's own surface spares up to `Rulebook.fist`: its hands and its feet (`owner-foot-threshold`). */

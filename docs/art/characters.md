@@ -98,6 +98,14 @@ authored finger poses.
   (`src/character-lab/catalog.ts`); a hand that holds the club closes on it (`CLUB_GRIP`,
   `src/render/club-grip.ts`), and a free hand's fingers take a pose between relaxed and a fist
   (`src/render/fist.ts`). Shared strike presentation drives that closure in Arena, Crypt and Lab.
+- **A part cut off** is drawn apart (`skinApart`, `src/render/skin-apart.ts`). The skin is one
+  mesh a garment, each vertex weighted on several bones, so a part flying free would stretch it.
+  Once the page's puppet says a segment is off (`DrawnSegment.attached`, from the world worker's
+  frame or `followBody`), each worn mesh is split at the cut: every triangle goes with the piece,
+  the body or a part cut off, whose bones carry most of its weight, and a vertex two pieces share is
+  drawn twice, each copy weighted on its own piece's bones alone. The cut opens where the weights
+  cross; nothing caps it. A load from before the cut draws the mesh as authored again. A mesh never
+  worn (a workshop weapon, the bow's morph targets) is never split.
 
 ## The character workshop page
 

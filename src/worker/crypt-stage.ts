@@ -9,6 +9,7 @@ import { armedWith } from "../core/items/held.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { modelInfo, type BodyModel } from "../core/models.ts";
 import { physicalReading } from "../core/observation.ts";
+import { attachment } from "../core/read-body.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { defaultMind, treeData } from "../entrants/game.ts";
@@ -209,7 +210,7 @@ export async function cryptStage(start: CryptStart): Promise<Stage<CryptCard, Cr
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = run.actors.map((actor, k) => {
     const unbuilt = new Map(roster[k]!.segments.map((name) => [name, UNBUILT]));
-    let reading: ReturnType<typeof physicalReading> | null = null;
+    let reading: ReturnType<typeof physicalReading> | null = null, on: ReturnType<typeof attachment> | null = null;
     const read = () => {
       if (reading) return reading();
       const built = actor.fighter!.built;
@@ -218,6 +219,7 @@ export async function cryptStage(start: CryptStart): Promise<Stage<CryptCard, Cr
     };
     return {
       get segments() { return actor.fighter?.built.segments ?? unbuilt; },
+      attached: (name) => { const built = actor.fighter?.built; return !built || (on ??= attachment(built))(built.segments.get(name)!); },
       life: () => actor.vitality, down: () => actor.fighter?.body.down ?? false, out: () => !actor.alive,
       centre: () => actor.fighter ? read().centre : { x: actor.home.x, y: 0, z: actor.home.z },
     };

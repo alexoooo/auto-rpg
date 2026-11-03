@@ -1,9 +1,9 @@
 import { Quaternion, Vector3 } from "../math/vector.ts";
 import { uprightness } from "./ground.ts";
 import { footStatesOf, soleMiddleToRef, soleRefusal, withinSupport } from "./support.ts";
-import { centreOfToRef, massCentreToRef, massOf, turnOfToRef } from "../read-motion.ts";
+import { centreOfToRef, massCentreToRef, partsOn, turnOfToRef } from "../read-motion.ts";
 import { segmentOf, type BodySpec, type Side } from "../spec/body.ts";
-import type { ReadBody, ReadSegment } from "../read-body.ts";
+import { attachment, type ReadBody, type ReadSegment } from "../read-body.ts";
 
 /** How a body lies: on its front, its back, or a side (the side that is down). */
 export type Lie = "front" | "back" | "left" | "right";
@@ -101,7 +101,7 @@ export function groundReading(built: ReadBody, dt: number) {
   if (refused) throw new Error(`${built.spec.model}: the ground reading ${refused}`);
   const parts = built.spec.segments.map(s => built.segments.get(s.name)!);
   const feet = footStatesOf(built), indices = feet.map(f => parts.indexOf(f.segment));
-  const mass = massOf(parts), weight = mass * -built.physics.gravity[1];
+  const on = partsOn(built), attached = attachment(built);
   const shapeIsBody = parts.map(p => p.rigid.owners.map(o => o.kind === "segment" || o.kind === "region"));
   const low = uprightness(built), root = built.segments.get("lowerTrunk")!, upper = built.segments.get("upperTrunk")!;
   const feetUp = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
@@ -166,7 +166,10 @@ export function groundReading(built: ReadBody, dt: number) {
     reset() { state.steps = 0; state.candidate = "between"; reading.position = "between"; reading.settled = false; },
     read(): GroundReading {
       reading.load.fill(0); heldLoad.fill(0);
+      // What is on the body bears it, and weighs; a part cut off is the ground's.
+      const { segments: kept, mass } = on(), weight = mass * -built.physics.gravity[1];
       for (let i = 0; i < parts.length; i++) {
+        if (!attached(parts[i]!)) continue;
         for (const contact of built.physics.contactsOf(parts[i]!.body, fixed)) {
           if (contact.fixed === null) continue;
           for (const pair of contact.pairs) if (-pair.normal[1] >= GROUND_UP && pair.impulse > 0 && weight > 0)
@@ -197,7 +200,7 @@ export function groundReading(built: ReadBody, dt: number) {
         reading.flat[i] = front && back ? 1 : 0;
       }
       reading.onFeet = (bears(indices[0]!) || bears(indices[1]!)) && only(allowed.crouch);
-      massCentreToRef(parts, mass, reading.centre, work.vector, reading.velocity);
+      massCentreToRef(kept, mass, reading.centre, work.vector, reading.velocity);
       reading.height = low.height() / low.standing;
       centreOfToRef(upper, work.upper); centreOfToRef(root, work.lower);
       work.upper.subtractToRef(work.lower, work.vector);

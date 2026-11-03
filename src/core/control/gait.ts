@@ -184,7 +184,7 @@ function clearOfBearer(bearer: FootState, foot: FootState, x: number, z: number,
 function carriedVelocity(s: Stance): Vector3 {
   const { reading } = s.state, { carried } = s.scratch, { feet } = s, L = reading.momentum, c = reading.centre, v = reading.velocity;
   // The height's floor, 1 mm, is a numeric setting.
-  const over = s.total * Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);
+  const over = s.parts().mass * Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);
   return carried.set(v.x - L.z / over, v.y, v.z + L.x / over);
 }
 
@@ -208,7 +208,7 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
  * moved against the fall. None with no assist, or none on: the step is the soles' own.
  */
 function assistReach(s: Stance): number {
-  const { assist, total, feet } = s, { recovery } = s.tuning, c = s.state.reading.centre;
+  const { assist, feet } = s, total = s.parts().mass, { recovery } = s.tuning, c = s.state.reading.centre;
   if (!assist || !assist.on || !recovery || recovery.assisted <= 0) return 0;
   // The height's floor, 1 mm, is a numeric setting.
   const height = Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);

@@ -19,6 +19,7 @@ import { FIST, fistTurns, type RestBone } from "./fist.ts";
 import type { Side } from "../core/spec/body.ts";
 import { skinReference } from "./body-deformation.ts";
 import { modelSpec } from "../core/models.ts";
+import { skinApart } from "./skin-apart.ts";
 
 /**
  * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
@@ -32,7 +33,7 @@ import { modelSpec } from "../core/models.ts";
  * Finger bones hold a grip against their parents, between the relaxed hand and a fist as the
  * caller's closure says; a hand that holds something is closed on it (`CLUB_GRIP`). The arm's
  * twist helpers follow their own segment, with no share of the next one's twist; a wrist turned far
- * shows a pinch.
+ * shows a pinch. A part cut off is drawn apart from the body (`skinApart`).
  */
 interface RigBone { readonly host: string; readonly head: readonly number[] }
 type Grip = Readonly<Record<string, readonly number[]>>;
@@ -162,6 +163,11 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
   });
 
   const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);
+  // Each bone's segment, by the bone's node: a finger's is its hand's; a bone no row carries stays with the body.
+  const carriers = new Map(rows.map((row) => [row.node, row.finger ? `hand.${row.finger.hand}` : row.segment!.spec.name]));
+  // Each worn mesh is drawn apart while it is shown; one never worn, a workshop weapon, never is.
+  const parting = meshes.filter((mesh) => mesh.skeleton).map((mesh) => ({ mesh, part: skinApart(mesh, built,
+    mesh.skeleton!.bones.reduce<(string | null)[]>((by, bone) => { by[bone.getIndex()] = carriers.get(bone.getTransformNode() as TransformNode) ?? null; return by; }, [])) }));
   let worn: Mesh[] = [], enabled = true;
   const wear = (to: Clothing) => {
     worn = meshes.filter((mesh) => visiblePart(nameOf(mesh), { ...to, weapon: "empty" }));
@@ -178,6 +184,7 @@ export function dressBody(built: DrawnBody, container: AssetContainer, scene: Sc
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
     if (!meshes.some(mesh => mesh.isEnabled() && mesh.isVisible)) return;
+    for (const { mesh, part } of parting) if (mesh.isEnabled()) part();
     achieved.clear();
     const physicalClosure = (hand: Side): number => {
       const pose = built.handPoses.state[hand]?.applied;

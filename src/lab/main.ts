@@ -17,7 +17,7 @@ import { poseAngles } from "../core/control/kinematics.ts";
 import { guardPosture } from "../core/skills/guard/guard.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
-import { crippleLimb } from "../core/rules/pool.ts";
+import { crippleLimb, cutOff } from "../core/rules/pool.ts";
 import { HUMAN_HASTE } from "../core/human/attributes.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
@@ -295,9 +295,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     try { placement = scenario.placement?.(spec, to) ?? { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }; }
     catch (error) { console.error(error); show(to); return; }
     const built = buildBody(spec, world, placement);
-    // A limb crippled from the start, where the body has it (`LabAddress.crippled`).
-    const crippled = spec.wounds.limbs.find((limb) => limb.name === to.crippled);
+    // A limb crippled, and one cut off, from the start, where the body has it (`LabAddress.crippled`, `LabAddress.cut`).
+    const crippled = spec.wounds.limbs.find((limb) => limb.name === to.crippled), cut = spec.wounds.limbs.find((limb) => limb.name === to.cut);
     if (crippled) crippleLimb(built, crippled.name, RULES);
+    if (cut) cutOff(built, cut.segments);
     const balance = built.spec.attributes.balance.value;
     const log = createMindLog();
     const mind = mindAt(to, spec);

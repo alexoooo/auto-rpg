@@ -54,7 +54,8 @@ render sets each bone to its segment's reference frame inverted (`skinReference`
 segment's achieved transform. At the reference pose every bone is the identity and the mesh is the
 art as authored. The material is the published one: the colour map, the OpenGL normal map,
 occlusion, roughness and metalness packed red, green and blue, double-sided for the whiskers and
-ears.
+ears. A part cut off is drawn apart as the humans' skin is ([a part cut off](characters.md#how-the-core-uses-them),
+`skinApart`): the mesh is split at the cut, its seam vertices drawn once on each side.
 
 ## The body fitted to the art
 

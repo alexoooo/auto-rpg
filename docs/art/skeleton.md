@@ -49,6 +49,9 @@ to it. `skeletonFigure` takes the rows of the fist build:
 - what the bones do not give (strength tables, hit points, balance, the fists' turn) is a named
   placeholder, `skeleton-placeholders` in `SOURCES`.
 
+Each piece of the art rides one segment rigidly (`dressSkeleton`), so a part cut off, the head
+with its neck or an arm, is drawn apart as it falls with nothing to split.
+
 The skeleton's reference pose is the bind itself: standing, elbows at a right angle, forearms
 forward, fists thumb up. Postures are joint angles measured from each body's reference pose, so a
 posture written for the humans (`GUARD`) bends the skeleton's elbows into their stops.

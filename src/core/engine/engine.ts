@@ -148,6 +148,15 @@ export interface EngineJoint {
   setSpring(k: number, target: number, stiffness: number, negative: number, positive: number): void;
   /** Signed impulse delivered to the child over the entire last physics step, N m s; zero before stepping. */
   motorStepImpulse(k: number): number;
+  /** Whether it joins its bodies: until it is released, and as a load restores it. */
+  readonly attached: boolean;
+  /**
+   * Take the joint out of the world, as a cut does: both bodies keep their velocities, and the
+   * pair is excluded from colliding until their shapes clear one another, then collides. A
+   * released joint has no motor: a command to it does nothing, and its impulse reads zero. A load
+   * restores it as its save had it. Again is nothing.
+   */
+  release(): void;
 }
 
 /** A registered rigid attachment; releasing it preserves both bodies and their velocities. */
@@ -278,8 +287,9 @@ export interface PhysicsWorld {
    * motor, the last step's contacts, a force asked for the next, and every body's pose, which
    * before its first step is as it was built and not as the solver holds it. Opaque, the engine's own, and
    * good only for `load` on a world of this engine with the same bodies, anatomical joints,
-   * registered grip slots and fixed colliders, made in the same order. Each grip's attached or
-   * released state restores with the snapshot; registering or disposing a slot changes topology.
+   * registered grip slots and fixed colliders, made in the same order. Each grip's and each
+   * joint's attached or released state restores with the snapshot; registering or disposing a
+   * slot changes topology.
    */
   save(): Uint8Array;
   /**

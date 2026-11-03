@@ -1,4 +1,5 @@
 import { physicalReading } from "../core/observation.ts";
+import { attachment } from "../core/read-body.ts";
 import { loadData } from "../core/data/store.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import { defaultMind, treeData } from "../entrants/game.ts";
@@ -61,8 +62,8 @@ export async function teamStage(recipe: TeamRecipe, aftermath: number, engine?: 
   const roster = bout.members.map((member) => ({ id: member.id, segments: [...member.built.segments.keys()], card: { side: member.side } }));
   const { length } = frameLayout(roster);
   const bodies: FramedBody[] = bout.members.map((member) => {
-    const read = physicalReading(member.built);
-    return { segments: member.built.segments, life: () => bout.life(member.id), out: () => bout.eliminated(member.id),
+    const read = physicalReading(member.built), on = attachment(member.built);
+    return { segments: member.built.segments, attached: (name) => on(member.built.segments.get(name)!), life: () => bout.life(member.id), out: () => bout.eliminated(member.id),
       down: () => read().down, centre: () => read().centre };
   });
   let told = false;

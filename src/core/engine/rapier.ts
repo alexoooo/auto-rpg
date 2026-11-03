@@ -20,8 +20,9 @@ import { turnAboutToRef } from "../math/turn.ts";
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
  * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
  *
- * **A save** is each body's pose and Rapier's snapshot. The snapshot restores as a new world, so
- * the module holds handles and finds its objects again on a load (`rebinds`, `joints`). The poses
+ * **A save** is each body's pose, each link's handle and release (`Link`) and Rapier's snapshot.
+ * The snapshot restores as a new world, so the module holds handles and finds its objects again on
+ * a load (`rebinds`, `joints`), each link's joint checked to be of its type between its bodies. The poses
  * are in it because Rapier holds a pose in single precision: a pose the solver has written is its
  * body's, and a pose before its first step is as it was built, in double. A save names the world it
  * was made in by a digest of what the world holds as it was asked for (`worldDigest`): the snapshot
@@ -82,9 +83,9 @@ const SHAPE_TEST_MARGIN = 0.01;
 /** The numbers of a body's pose in a save: its position and its turn. A numeric setting. */
 const SAVED_POSE = 7;
 
-/** A save's header, in doubles: its version (`SAVE_VERSION`), the body count, the grip count and the world's digest. */
-const HEADER = 4;
-const SAVE_VERSION = -4;
+/** A save's header, in doubles: its version (`SAVE_VERSION`), the body count, the grip count, the anatomical joint count and the world's digest. */
+const HEADER = 5;
+const SAVE_VERSION = -5;
 
 /** A 53-bit digest of `text` (cyrb53): exact in a double, and the same in every engine. */
 function digest(text: string): number {
@@ -128,6 +129,16 @@ interface Velocities { readonly linear: Vector3; readonly angular: Vector3; line
 interface RapierJoint extends EngineJoint {
   readonly raw: RAPIER.ImpulseJoint;
 }
+
+/**
+ * **A joint the world can release and a load restore**, a grip slot or an anatomical joint: its
+ * bodies, its impulse joint's type and handle while attached, and whether its pair is still kept
+ * from colliding after a release, until their shapes clear one another.
+ */
+interface Link { readonly parent: RapierBody; readonly child: RapierBody; readonly type: RAPIER.JointType; handle: number | null; suppressed: boolean }
+
+/** Whether `link`'s pair is kept from colliding: while attached, and after a release until its shapes clear. */
+const excluded = (link: Link): boolean => link.handle !== null || link.suppressed;
 /** A Rapier world: the contract's, and Rapier's own. The core sees only `PhysicsWorld`. */
 interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
@@ -150,8 +161,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   /** The world's joints, which every joint's limits and motor are set through. */
   let joints = raw.impulseJoints.raw;
   const bodies = new Set<RapierBody>();
-  const grips: { parent: RapierBody; child: RapierBody; handle: number | null; suppressed: boolean }[] = [];
-  const jointPartners = new Map<RapierBody, Set<RapierBody>>();
+  /** The grip slots, and the anatomical joints, each a link (`Link`), in the order made. */
+  const grips: Link[] = [], jointSlots: Link[] = [];
+  /** Each body's anatomical joints, by the body at the joint's other end. */
+  const jointPartners = new Map<RapierBody, Map<RapierBody, Link>>();
   // The pinned binding invokes physics hooks only through its event-queue step path.
   const events = new R.EventQueue(true);
   /** What each body does to find its rigid body again in a world just loaded. */
@@ -190,8 +203,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     filterContactPair(a, b) {
       const first = bodyOf(a), second = bodyOf(b);
       if (first && second) {
-        if (jointPartners.get(first)?.has(second)) return null;
-        for (const grip of grips) if ((grip.handle !== null || grip.suppressed)
+        const joint = jointPartners.get(first)?.get(second);
+        if (joint && excluded(joint)) return null;
+        for (const grip of grips) if (excluded(grip)
           && (grip.parent === first && grip.child === second || grip.parent === second && grip.child === first)) return null;
       }
       return R.SolverFlags.COMPUTE_IMPULSE;
@@ -568,18 +582,19 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     engine: profileName(coordinateAngularLimits, pointContactFriction), revision, rapier: R, get raw() { setMotors(); return raw; }, gravity: g,
     save() {
       setMotors();
-      // Rapier's snapshot follows a version, body/grip counts, body poses, grip handles and release exclusions: the solver
-      // holds a pose in single precision, and a pose before its first step is as it was built.
-      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + SAVED_POSE * bodies.size + 2 * grips.length);
-      poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = worldDigest();
+      // Rapier's snapshot follows the header, body poses, and each link's handle and release exclusion, grips then
+      // joints: the solver holds a pose in single precision, and a pose before its first step is as it was built.
+      const links = [...grips, ...jointSlots];
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + SAVED_POSE * bodies.size + 2 * links.length);
+      poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = jointSlots.length; poses[4] = worldDigest();
       let k = HEADER;
       for (const { pose } of bodies) {
         const p = pose.position, q = pose.rotation;
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
         poses[k++] = q.x; poses[k++] = q.y; poses[k++] = q.z; poses[k++] = q.w;
       }
-      for (const grip of grips) poses[k++] = grip.handle ?? -1;
-      for (const grip of grips) poses[k++] = grip.suppressed ? 1 : 0;
+      for (const link of links) poses[k++] = link.handle ?? -1;
+      for (const link of links) poses[k++] = link.suppressed ? 1 : 0;
       const bytes = new Uint8Array(poses.byteLength + snapshot.length);
       bytes.set(new Uint8Array(poses.buffer));
       bytes.set(snapshot, poses.byteLength);
@@ -589,37 +604,34 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // A refused load leaves the world as it was, its motors set.
       setMotors();
       const header = bytes.length >= 8 * HEADER ? new Float64Array(bytes.slice(0, 8 * HEADER).buffer) : [];
-      const count = header[1] ?? NaN, gripCount = header[2] ?? NaN;
-      if (header[0] === -3) throw new Error("that save is in a format before a save named its world: make it again");
-      if (header[0] === SAVE_VERSION && header[3] !== worldDigest()) throw new Error("that save has other bodies, joints or colliders, or a different physics configuration: it was made in a world built otherwise");
-      const head = 8 * (HEADER + SAVED_POSE * count + 2 * gripCount);
-      const next = header[0] === SAVE_VERSION && Number.isInteger(count) && count >= 0
-        && Number.isInteger(gripCount) && gripCount >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
+      const count = header[1] ?? NaN, gripCount = header[2] ?? NaN, jointCount = header[3] ?? NaN;
+      if (header[0]! < 0 && header[0]! > SAVE_VERSION) throw new Error("that save is in an older format: make it again");
+      if (header[0] === SAVE_VERSION && header[4] !== worldDigest()) throw new Error("that save has other bodies, joints or colliders, or a different physics configuration: it was made in a world built otherwise");
+      const isCount = (n: number): boolean => Number.isInteger(n) && n >= 0;
+      const links = [...grips, ...jointSlots], linkCount = gripCount + jointCount, head = 8 * (HEADER + SAVED_POSE * count + 2 * linkCount);
+      const next = header[0] === SAVE_VERSION && isCount(count) && isCount(gripCount) && isCount(jointCount)
+        && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
-      const gripData = new Float64Array(bytes.slice(8 * (HEADER + SAVED_POSE * count), head).buffer);
-      const gripHandles = gripData.subarray(0, gripCount), suppressed = gripData.subarray(gripCount);
-      const present = new Set(grips.flatMap((g) => g.handle === null ? [] : [g.handle]));
-      const restored = new Set([...gripHandles].filter((h) => h !== -1));
+      const linkData = new Float64Array(bytes.slice(8 * (HEADER + SAVED_POSE * count), head).buffer);
+      const handles = linkData.subarray(0, linkCount), suppressed = linkData.subarray(linkCount);
+      const restored = [...handles].filter((h) => h !== -1);
+      // Every impulse joint the save holds is one of its links, of the type the link was made with, between its two bodies.
       let same = next.bodies.len() === raw.bodies.len() && next.colliders.len() === raw.colliders.len()
         && next.integrationParameters.coordinateAngularLimits === coordinateAngularLimits
         && next.integrationParameters.pointContactFriction === pointContactFriction
-        && count === bodies.size && gripCount === grips.length
-        && restored.size === [...gripHandles].filter((h) => h !== -1).length
-        && next.impulseJoints.len() - restored.size === raw.impulseJoints.len() - present.size;
+        && count === bodies.size && gripCount === grips.length && jointCount === jointSlots.length
+        && new Set(restored).size === restored.length && next.impulseJoints.len() === restored.length;
       // Rapier's own set reads a handle whole; its JavaScript set reads the index alone, and takes a body made in a removed one's place for it.
       for (const body of bodies) same &&= next.bodies.raw.contains(body.rigid.handle);
-      raw.impulseJoints.forEach((joint) => {
-        if (!present.has(joint.handle)) same &&= !restored.has(joint.handle) && next.impulseJoints.raw.contains(joint.handle);
-      });
-      for (let i = 0; same && i < grips.length; i++) {
-        const handle = gripHandles[i]!, grip = grips[i]!;
+      for (let i = 0; same && i < links.length; i++) {
+        const handle = handles[i]!, link = links[i]!;
         same &&= (suppressed[i] === 0 || suppressed[i] === 1) && (handle === -1 || suppressed[i] === 0);
         if (handle === -1) continue;
         same &&= next.impulseJoints.raw.contains(handle);
         if (same) {
           const joint = next.getImpulseJoint(handle);
-          same &&= joint.type() === R.JointType.Fixed && joint.body1().handle === grip.parent.rigid.handle
-            && joint.body2().handle === grip.child.rigid.handle;
+          same &&= joint.type() === link.type
+            && joint.body1().handle === link.parent.rigid.handle && joint.body2().handle === link.child.rigid.handle;
         }
       }
       if (!same) {
@@ -632,9 +644,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       contactsFresh = false;
       joints = raw.impulseJoints.raw;
       for (const rebind of rebinds.values()) rebind();
-      for (let i = 0; i < grips.length; i++) {
-        grips[i]!.handle = gripHandles[i] === -1 ? null : gripHandles[i]!;
-        grips[i]!.suppressed = suppressed[i] === 1;
+      for (let i = 0; i < links.length; i++) {
+        links[i]!.handle = handles[i] === -1 ? null : handles[i]!;
+        links[i]!.suppressed = suppressed[i] === 1;
       }
       // A save may hold a force asked for its next step; every body's is reset after that step.
       for (const body of bodies) forced.add(body);
@@ -788,36 +800,51 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       joint.setLocalFrame2(xyz(frames.anchorChild), xyzw(frames.frameChild));
       joint.setContactsEnabled(false);
       enableFilter(parent); enableFilter(child);
-      if (!jointPartners.has(parent)) jointPartners.set(parent, new Set());
-      if (!jointPartners.has(child)) jointPartners.set(child, new Set());
-      jointPartners.get(parent)!.add(child); jointPartners.get(child)!.add(parent);
-      const handle = joint.handle;
+      const slot: Link = { parent, child, type: joint.type(), handle: joint.handle, suppressed: false };
+      jointSlots.push(slot);
+      if (!jointPartners.has(parent)) jointPartners.set(parent, new Map());
+      if (!jointPartners.has(child)) jointPartners.set(child, new Map());
+      jointPartners.get(parent)!.set(child, slot); jointPartners.get(child)!.set(parent, slot);
       const axes = [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ] as const;
       frames.limits.forEach(([min, max], k) => {
-        joints.jointSetLimits(handle, axes[k]! as never, min, max);
-        joints.jointConfigureMotorVelocity(handle, axes[k]! as never, 0, Infinity);
-        joints.jointSetMotorMaxForce(handle, axes[k]! as never, 0);
+        joints.jointSetLimits(joint.handle, axes[k]! as never, min, max);
+        joints.jointConfigureMotorVelocity(joint.handle, axes[k]! as never, 0, Infinity);
+        joints.jointSetMotorMaxForce(joint.handle, axes[k]! as never, 0);
       });
       return {
-        get raw() { setMotors(); return raw.getImpulseJoint(handle); },
+        get raw() {
+          if (slot.handle === null) throw new Error("a released joint has no impulse joint");
+          setMotors(); return raw.getImpulseJoint(slot.handle);
+        },
         // Each motor command is set with the others before the step (`setMotors`). A velocity motor
         // is acceleration-based, Rapier's default model, with infinite damping and no stiffness.
-        setMotor(k, speed, ceiling) { command(handle, axes[k]!, MOTOR_KIND.velocity, speed, ceiling, 0, 0); },
+        setMotor(k, speed, ceiling) { if (slot.handle !== null) command(slot.handle, axes[k]!, MOTOR_KIND.velocity, speed, ceiling, 0, 0); },
         setMotorBounds(k, speed, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
             || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
-          command(handle, axes[k]!, MOTOR_KIND.bounded, speed, -positive, negative, 0);
+          if (slot.handle !== null) command(slot.handle, axes[k]!, MOTOR_KIND.bounded, speed, -positive, negative, 0);
         },
         setSpring(k, target, stiffness, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(target) || !(stiffness > 0) || !Number.isFinite(stiffness)
             || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid spring motor command");
           // Force-based, with no damping: the stiffness is N m/rad, not scaled by the bodies' inertia.
-          command(handle, axes[k]!, MOTOR_KIND.spring, target, stiffness, -positive, negative);
+          if (slot.handle !== null) command(slot.handle, axes[k]!, MOTOR_KIND.spring, target, stiffness, -positive, negative);
         },
         motorStepImpulse(k) {
           if (!Number.isInteger(k) || k < 0 || k >= n) throw new Error("invalid motor freedom");
-          return -joints.jointMotorStepImpulse(handle, axes[k]! as never);
+          return slot.handle === null ? 0 : -joints.jointMotorStepImpulse(slot.handle, axes[k]! as never);
+        },
+        get attached() { return slot.handle !== null; },
+        release() {
+          if (slot.handle === null || freed) return;
+          setMotors();
+          // The pair's contacts are filtered from now on: kept apart until its shapes clear.
+          enableFilter(parent, true); enableFilter(child, true);
+          raw.removeImpulseJoint(raw.getImpulseJoint(slot.handle), true);
+          slot.handle = null;
+          slot.suppressed = overlaps(parent, child);
+          contactsFresh = false;
         },
       };
     },
@@ -829,7 +856,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       if (![...Object.values(a), ...Object.values(b), ...Object.values(qa), ...Object.values(qb)].every(Number.isFinite)) {
         throw new Error("invalid grip frame");
       }
-      const slot = { parent, child, handle: null as number | null, suppressed: false };
+      const slot: Link = { parent, child, type: R.JointType.Fixed, handle: null, suppressed: false };
       made.grips.set(slot, { parent, child }); named = null;
       enableFilter(parent); enableFilter(child, true);
       grips.push(slot);
@@ -913,7 +940,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     },
     step(dt) {
       raw.timestep = dt;
-      for (const grip of grips) if (grip.suppressed && !overlaps(grip.parent, grip.child)) grip.suppressed = false;
+      for (const link of grips) if (link.suppressed && !overlaps(link.parent, link.child)) link.suppressed = false;
+      for (const link of jointSlots) if (link.suppressed && !overlaps(link.parent, link.child)) link.suppressed = false;
       setMotors();
       raw.step(events, hooks);
       moment += 1;
@@ -940,9 +968,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       rebinds.delete(body);
       jointPartners.delete(body);
       for (const partners of jointPartners.values()) partners.delete(body);
-      for (let i = grips.length - 1; i >= 0; i--) {
-        const grip = grips[i]!;
-        if (grip.parent === body || grip.child === body) { grip.handle = null; grip.suppressed = false; grips.splice(i, 1); }
+      for (const links of [grips, jointSlots]) for (let i = links.length - 1; i >= 0; i--) {
+        const link = links[i]!;
+        if (link.parent === body || link.child === body) { link.handle = null; link.suppressed = false; links.splice(i, 1); }
       }
       raw.removeRigidBody(body.rigid);
     },
@@ -956,8 +984,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       motorCount = 0;
       forced.clear();
       rebinds.clear();
-      for (const grip of grips) { grip.handle = null; grip.suppressed = false; }
-      grips.length = 0; jointPartners.clear();
+      for (const link of [...grips, ...jointSlots]) { link.handle = null; link.suppressed = false; }
+      grips.length = 0; jointSlots.length = 0; jointPartners.clear();
       events.free();
       raw.free();
     },

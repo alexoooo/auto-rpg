@@ -1,4 +1,5 @@
 import type { BodySpec, LimbSpec, ShapeSpec } from "../spec/body.ts";
+import type { BuiltBody } from "../build/build-body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import type { Mechanism, Rulebook } from "./rulebook.ts";
 
@@ -73,15 +74,37 @@ export function lifeFactor(rules: Rulebook, spec: BodySpec, segment: string): nu
 
 /**
  * **A crippled limb is weaker**: the muscles of every joint of `body` whose child is in the limb
- * named `limb` keep `Rulebook.crippled` of their peak torques (`BuiltBody.strength`, its spec's
- * joints' freedoms in order).
+ * named `limb` keep `Rulebook.crippled` of their peak torques.
  */
-export function crippleLimb(body: { readonly spec: BodySpec; readonly strength: Float64Array }, limb: string, rules: Rulebook): void {
+export function crippleLimb(body: Pick<BuiltBody, "spec" | "strength">, limb: string, rules: Rulebook): void {
   const segments = body.spec.wounds.limbs.find((one) => one.name === limb)?.segments;
   if (!segments) throw new Error(`${body.spec.model} has no limb ${limb}`);
+  weaken(body, segments, rules.crippled.value);
+}
+
+/** **What `wound` does to `body`**: the limb it crippled weaker (`crippleLimb`), the parts it cut off off (`cutOff`). */
+export function woundBody(body: Pick<BuiltBody, "spec" | "strength" | "joints">, wound: Wound, rules: Rulebook): void {
+  if (wound.crippled) crippleLimb(body, wound.limb!.name, rules);
+  if (wound.cut.length > 0) cutOff(body, wound.cut);
+}
+
+/**
+ * **A cut part comes off**: the muscles of every joint of `body` whose child is among `segments`
+ * (a wound's `cut`) give nothing, and each joint that holds one of them to a part left on is
+ * released (`EngineJoint.release`): the part falls free, with what its hand holds.
+ */
+export function cutOff(body: Pick<BuiltBody, "spec" | "strength" | "joints">, segments: readonly string[]): void {
+  weaken(body, segments, 0);
+  for (const joint of body.joints.values()) {
+    if (segments.includes(joint.child.spec.name) && !segments.includes(joint.parent.spec.name)) joint.joint.release();
+  }
+}
+
+/** The muscles of every joint of `body` whose child is among `segments` at `share` of their peak torques (`BuiltBody.strength`, its spec's joints' freedoms in order). */
+function weaken(body: Pick<BuiltBody, "spec" | "strength">, segments: readonly string[], share: number): void {
   let channel = 0;
   for (const joint of body.spec.joints) {
-    if (segments.includes(joint.child)) body.strength.fill(rules.crippled.value, channel, channel + joint.dofs.length);
+    if (segments.includes(joint.child)) body.strength.fill(share, channel, channel + joint.dofs.length);
     channel += joint.dofs.length;
   }
 }

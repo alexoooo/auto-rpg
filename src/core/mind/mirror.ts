@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "../math/vector.ts";
 import { clipToRef, type Assist } from "../control/assist.ts";
 import type { ContactIdentity, ContactTarget } from "../control/effector-feedback.ts";
 import type { ContactPair, ContactSink, MassProperties } from "../engine/engine.ts";
-import { NOTHING_SENSED, type BodySense, type Senses } from "./senses.ts";
+import { NOTHING_SENSED, OFF_BODY, shownSegments, type BodySense, type Senses } from "./senses.ts";
 import type { ObjectSense, SolidSense } from "./object-senses.ts";
 import { muscleChannels, strengthAt, type BodyLevel, type MuscleDriver } from "../muscle/driver.ts";
 import type { BodyRef, ReadBody, ReadContact, ReadJoint, ReadManifold, ReadPhysics, ReadSegment, ReadSegmentBody } from "../read-body.ts";
@@ -52,7 +52,7 @@ export interface MirrorStatics {
 type Told =
   | { readonly kind: "senses"; readonly side: string; readonly ends: number | undefined; readonly solids: readonly SolidSense[] | undefined }
   | { readonly kind: "body"; readonly id: number; readonly name: string }
-  | { readonly kind: "other"; readonly key: number; readonly id: string; readonly side: string; readonly spec: BodySpec; readonly segments: readonly string[] }
+  | { readonly kind: "other"; readonly key: number; readonly id: string; readonly side: string; readonly spec: BodySpec }
   | { readonly kind: "object"; readonly key: number; readonly id: string; readonly owner: string | null; readonly points: Readonly<Record<string, Vec3>> }
   | { readonly kind: "label"; readonly code: number; readonly target: ContactTarget };
 
@@ -90,7 +90,7 @@ const CONTACT = 10;
 const PAIR = 9;
 /** A manifold's numbers before its points: the other, the fixed, mine, theirs, normal 3, impulse, its points' count. */
 const MANIFOLD = 9;
-/** A sensed segment's numbers: its hand's pose (`POSES`, -1 none), position 3, turn 4, centre 3, velocity 3, spin 3. */
+/** A sensed segment's numbers, each of its body's spec's: its hand's pose (`POSES`, -1 none, `OFF_BODY` off its body), position 3, turn 4, centre 3, velocity 3, spin 3. */
 const SENSED_SEGMENT = 17;
 /** A sensed body's numbers after its segments: centre 3, velocity 3, out, down, life, time (NaN unread). */
 const SENSED_BODY = 10;
@@ -104,7 +104,7 @@ const poseCode = (pose: HandPose | undefined): number => pose === undefined ? -1
 /** Where each section of a body's numbers starts, made once from its statics. */
 interface Layout {
   readonly segments: number;
-  /** Each joint's freedoms, where its numbers start, and its first freedom's muscle channel. */
+  /** Each joint's freedoms, where its numbers start (its angles, speeds, rates, turning, and whether it is attached), and its first freedom's muscle channel. */
   readonly joints: readonly { readonly dofs: number; readonly at: number; readonly channel: number }[];
   readonly channels: number;
   readonly muscles: number;
@@ -121,7 +121,7 @@ function layoutOf(statics: Pick<MirrorStatics, "spec" | "segments" | "joints">):
   let at = HEAD + SEGMENT * statics.segments.length, channels = 0;
   const joints = statics.joints.map((name) => {
     const dofs = specs.get(name)!.dofs.length, made = { dofs, at, channel: channels };
-    at += 3 * dofs + dofs * dofs; channels += dofs;
+    at += 3 * dofs + dofs * dofs + 1; channels += dofs;
     return made;
   });
   const muscles = at, assist = muscles + 5 * channels, senses = assist + ASSIST;
@@ -169,7 +169,7 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
   assist: { readonly assist: Assist; readonly asked: { readonly force: Vector3; readonly moment: Vector3 } }, sense: () => Senses,
   { allocate = OWN_NUMBERS, labels }: { readonly allocate?: (length: number) => Float64Array; readonly labels?: ContactIdentity } = {}): MirrorWriter {
   if (statics.labelled !== (labels !== undefined)) throw new Error("a mirror is labelled where its fight labels what its body touches");
-  const layout = layoutOf(statics), channel = channelFor(layout, allocate), segments = [...built.segments.values()];
+  const layout = layoutOf(statics), channel = channelFor(layout, allocate), segments = [...built.segments.values()], joints = [...built.joints.values()];
   const own = new Set(statics.segments.map((segment) => segment.id)), named = new Set<number>(own);
   const others = new Map<string, number>(), objects = new Map<string, number>();
   // What the senses last told of what seldom changes: the side, the fight's end, the solids granted.
@@ -241,11 +241,15 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
       let key = others.get(other.id);
       if (key === undefined) {
         others.set(other.id, key = others.size);
-        channel.told.push({ kind: "other", key, id: other.id, side: other.side, spec: other.spec, segments: [...other.segments.keys()] });
+        channel.told.push({ kind: "other", key, id: other.id, side: other.side, spec: other.spec });
       }
-      room(1 + SENSED_SEGMENT * other.segments.size + SENSED_BODY);
+      room(1 + SENSED_SEGMENT * other.spec.segments.length + SENSED_BODY);
       put(key);
-      for (const s of other.segments.values()) { put(poseCode(s.handPose)); vec(s.position); quat(s.rotation); vec(s.centre); vec(s.velocity); vec(s.spin); }
+      for (const { name } of other.spec.segments) {
+        const s = other.segments.get(name);
+        if (s) { put(poseCode(s.handPose)); vec(s.position); quat(s.rotation); vec(s.centre); vec(s.velocity); vec(s.spin); }
+        else { put(OFF_BODY); for (let i = 1; i < SENSED_SEGMENT; i++) put(0); }
+      }
       vec(other.centre); vec(other.velocity); put(other.out ? 1 : 0); put(other.down ? 1 : 0); put(other.life); put(other.time ?? NaN);
     }
     const sensed = senses.objects;
@@ -279,11 +283,13 @@ export function mirrorWriter(built: BuiltBody, statics: MirrorStatics, clock: { 
         put(mass.mass); triple(mass.centre); triple(mass.moments); quat(mass.orientation);
       }
       let c = 0;
-      for (const joint of layout.joints) {
+      for (let j = 0; j < layout.joints.length; j++) {
+        const joint = layout.joints[j]!;
         for (let i = 0; i < joint.dofs; i++) put(driver.angle(c + i));
         for (let i = 0; i < joint.dofs; i++) put(driver.speed(c + i));
         for (let i = 0; i < joint.dofs; i++) put(driver.rate(c + i));
         for (let i = 0; i < joint.dofs; i++) for (let j = 0; j < joint.dofs; j++) put(driver.turning(c + i, j));
+        put(joints[j]!.attached() ? 1 : 0);
         c += joint.dofs;
       }
       const n = layout.channels;
@@ -409,11 +415,11 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
   });
   const segments = new Map(records.map((record, i) => [statics.segments[i]!.name, record.segment]));
   const jointSpecs = new Map(spec.joints.map((joint) => [joint.name, joint]));
-  const strength = new Float64Array(layout.channels).fill(1);
+  const strength = new Float64Array(layout.channels).fill(1), attached = new Uint8Array(layout.joints.length).fill(1);
   const joints = new Map<string, ReadJoint>(statics.joints.map((name, j) => {
     const jointSpec = jointSpecs.get(name)!, { dofs, axes } = jointKinematics(jointSpec), at = layout.joints[j]!.channel;
     return [name, Object.freeze({ spec: jointSpec, dofs, axes, parent: segments.get(jointSpec.parent)!, child: segments.get(jointSpec.child)!,
-      strength: (dof: number) => strength[at + dof]! })];
+      strength: (dof: number) => strength[at + dof]!, attached: () => attached[j] === 1 })];
   }));
   const index = new Map<ReadSegmentBody, number>(records.map((record, i) => [record.segment.body, i]));
   /** Where each segment's contacts and manifolds start in the inbound numbers, as last read. */
@@ -514,7 +520,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
 
   const clock = { steps: 0, time: 0, solids: undefined as readonly SolidSense[] | undefined };
   const seen: MirrorSeen = { time: 0, out: false, life: 1, others: [], objects: undefined };
-  const shown = new Map<number, Shown>(), shownBy = new Map<string, Shown>(), statics_ = new Map<number, ObjectStatics>(), others: Shown[] = [];
+  const shown = new Map<number, Shown>(), shownBy = new Map<string, { readonly other: Shown; readonly view: ReturnType<typeof shownSegments> }>(), statics_ = new Map<number, ObjectStatics>(), others: Shown[] = [];
   const senses: { -readonly [K in keyof Senses]: Senses[K] } = {
     get time() { return seen.time; },
     side: "",
@@ -543,9 +549,13 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
           clock.solids = told.solids;
           break;
         case "body": names.set(told.id, told.name); break;
-        case "other": shown.set(told.key, { id: told.id, side: told.side, spec: told.spec, out: false, down: false, life: 1, time: 0,
-          centre: new Vector3(), velocity: new Vector3(),
-          segments: new Map(told.segments.map((name) => [name, { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])) }); shownBy.set(told.id, shown.get(told.key)!); break;
+        case "other": {
+          const view = shownSegments(told.spec.segments.map((segment) => segment.name));
+          const other: Shown = { id: told.id, side: told.side, spec: told.spec, out: false, down: false, life: 1, time: 0,
+            centre: new Vector3(), velocity: new Vector3(), segments: view.settle() };
+          shown.set(told.key, other); shownBy.set(told.id, { other, view });
+          break;
+        }
         case "object": statics_.set(told.key, { id: told.id, owner: told.owner, points: told.points }); break;
         case "label": targets[told.code] = deepFreeze(told.target); break;
         default: { const never: never = told; throw new Error(`nothing told as ${JSON.stringify(never)}`); }
@@ -586,7 +596,8 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
         const d = joint.dofs, mine = jointAngles[j]!;
         for (let i = 0; i < d; i++) { angles[c + i] = a[k + i]!; mine[i] = a[k + i]!; speeds[c + i] = a[k + d + i]!; rates[c + i] = a[k + 2 * d + i]!; }
         for (let i = 0; i < d; i++) for (let m = 0; m < d; m++) turning[3 * (c + i) + m] = a[k + 3 * d + i * d + m]!;
-        k += 3 * d + d * d; c += d;
+        attached[j] = a[k + 3 * d + d * d]!;
+        k += 3 * d + d * d + 1; c += d;
       });
       state.ceiling.set(a.subarray(k, k + n)); k += n;
       state.pulled.set(a.subarray(k, k + n)); k += n;
@@ -608,7 +619,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       }
       sensesAt = k;
       const count = a[k++]!;
-      for (let i = 0; i < count; i++) k += 1 + shown.get(a[k]!)!.segments.size * SENSED_SEGMENT + SENSED_BODY;
+      for (let i = 0; i < count; i++) k += 1 + shown.get(a[k]!)!.spec.segments.length * SENSED_SEGMENT + SENSED_BODY;
       const sensed = a[k++]!;
       if (sensed > 0) k += sensed * SENSED_OBJECT;
       if (statics.labelled) {
@@ -626,7 +637,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
       const count = a[k++]!, bodies = seen.others;
       bodies.length = count;
       for (let i = 0; i < count; i++) {
-        const other = shown.get(a[k++]!)!, length = other.segments.size * SENSED_SEGMENT + SENSED_BODY;
+        const other = shown.get(a[k++]!)!, length = other.spec.segments.length * SENSED_SEGMENT + SENSED_BODY;
         let body = bodies[i];
         if (body?.id !== other.id || body.numbers.length !== length) bodies[i] = body = { id: other.id, numbers: new Float64Array(length) };
         body.numbers.set(a.subarray(k, k + length));
@@ -648,12 +659,14 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
     recall() {
       others.length = 0;
       for (const { id, numbers: a } of seen.others) {
-        const other = shownBy.get(id);
-        if (!other) continue;
+        const known = shownBy.get(id);
+        if (!known) continue;
+        const { other, view } = known;
         let k = 0;
-        for (const s of other.segments.values()) {
-          const pose = a[k]!;
-          if (pose >= 0) (s as { handPose?: HandPose }).handPose = POSES[pose]!;
+        for (let i = 0; i < view.all.length; i++) {
+          const s = view.all[i]!, pose = a[k]!;
+          view.mark(i, pose !== OFF_BODY);
+          if (pose >= 0) s.handPose = POSES[pose]!;
           s.position.set(a[k + 1]!, a[k + 2]!, a[k + 3]!);
           s.rotation.set(a[k + 4]!, a[k + 5]!, a[k + 6]!, a[k + 7]!);
           s.centre.set(a[k + 8]!, a[k + 9]!, a[k + 10]!);
@@ -661,6 +674,7 @@ export function mirrorBody(statics: MirrorStatics, channel: MirrorChannel): Mirr
           s.spin.set(a[k + 14]!, a[k + 15]!, a[k + 16]!);
           k += SENSED_SEGMENT;
         }
+        other.segments = view.settle();
         other.centre.set(a[k]!, a[k + 1]!, a[k + 2]!);
         other.velocity.set(a[k + 3]!, a[k + 4]!, a[k + 5]!);
         other.out = a[k + 6] === 1; other.down = a[k + 7] === 1; other.life = a[k + 8]!;
