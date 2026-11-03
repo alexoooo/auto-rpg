@@ -205,8 +205,8 @@ export function swingExecutor(body: Body, guard: Pose, actions: readonly string[
       const posture = live.phase === "release" ? guarded(live.hand) : wound(live.hand);
       if (aligner && live.phase === "commit") {
         const [x, y, z] = live.path;
-        if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture);
         for (let k = pushes.length - 1; k >= 0; k--) if (aligner.channels.includes(pushes[k]!.channel)) pushes.splice(k, 1);
+        if (x * x + y * y + z * z >= ALIGN_SPEED * ALIGN_SPEED) aligner.ask(view, live.path, posture, pushes);
       }
       return { posture, pushes, handPoses: { [`hand.${live.hand}`]: "grip" },
         legs: { walk: null, face: live.face, ...(settings.halts ? { halt: true } : {}), height: view.standing - live.lower } };

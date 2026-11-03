@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import { heldFrame, rigidPoints } from "../../build/rigid.ts";
 import { pointAtToRef, specChainTo } from "../../control/kinematics.ts";
+import type { MusclePush } from "../../control/motor.ts";
 import { solve3To } from "../../math/flat.ts";
 import { channelName } from "../../muscle/driver.ts";
 import type { JointKinematics } from "../../read-body.ts";
@@ -21,11 +22,16 @@ const ALIGN_DAMPING = 0.01;
 /** The most a step asks a wrist freedom ahead of where it stands, rad. */
 const ALIGN_MOST = 0.5;
 
+/** The turn a wrist freedom is pushed flat out toward, rad: a smaller one is pushed its share of that. */
+const ALIGN_FULL = 0.2;
+
 /**
  * **The wrist that turns `hand`'s face onto a way it is asked** (`ask`): the wrist's freedoms asked
  * the turn that brings the face's facing (`StrikingFace.facing`, as `hand` holds its item) onto
  * that way, by a damped least-squares step on their difference (`ALIGN_DAMPING`), each freedom's
- * effect read by turning it `ALIGN_PROBE` on the arm's chain as the body's angles stand. With
+ * effect read by turning it `ALIGN_PROBE` on the arm's chain as the body's angles stand, and each
+ * pushed toward its turn, flat out from `ALIGN_FULL`, so the wrist holds the face against the
+ * swinging arm's pull on the item. With
  * `either`, the facing against the way counts as met (a two-edged blade leads with either edge);
  * else only the facing along it (a point leads point first). Null where `hand` holds no item or
  * has no wrist.
@@ -55,9 +61,10 @@ export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace, { ei
     channels: Object.freeze(channels[wrist]!.slice(0, freedoms)),
     /**
      * Each wrist channel's angle that turns the face onto `way` (root frame, any length), onto
-     * `posture`; false where `way` has no length, and nothing is asked.
+     * `posture`, and its push toward it onto `pushes`; false where `way` has no length, and nothing
+     * is asked.
      */
-    ask(view: BodyView, way: ArrayLike<number>, posture: Record<string, number>): boolean {
+    ask(view: BodyView, way: ArrayLike<number>, posture: Record<string, number>, pushes: MusclePush[]): boolean {
       const n = Math.sqrt(way[0]! * way[0]! + way[1]! * way[1]! + way[2]! * way[2]!);
       if (!(n > 0)) return false;
       for (let j = 0; j < chain.length; j++) for (let k = 0; k < angles[j]!.length; k++) angles[j]![k] = view.angles[channels[j]![k]!] ?? 0;
@@ -76,7 +83,11 @@ export function faceAligner(spec: BodySpec, hand: Side, face: StrikingFace, { ei
         b[i] = -(J[i]! * base[0]! + J[3 + i]! * base[1]! + J[6 + i]! * base[2]!);
       }
       solve3To(A, b, x);
-      for (let k = 0; k < freedoms; k++) posture[channels[wrist]![k]!] = angles[wrist]![k]! + Math.max(-ALIGN_MOST, Math.min(ALIGN_MOST, x[k]!));
+      for (let k = 0; k < freedoms; k++) {
+        const turn = Math.max(-ALIGN_MOST, Math.min(ALIGN_MOST, x[k]!)), channel = channels[wrist]![k]!;
+        posture[channel] = angles[wrist]![k]! + turn;
+        if (turn !== 0) pushes.push({ channel, sense: turn > 0 ? 1 : -1, level: Math.min(1, Math.abs(turn) / ALIGN_FULL) });
+      }
       return true;
     },
   };
