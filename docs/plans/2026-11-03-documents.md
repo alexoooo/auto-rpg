@@ -121,3 +121,56 @@ or a batch.
   `docs/analysis/`.
 - `docs/reference/` holds only records code cites for something a comment cannot say, and the
   records a plan in flight reads.
+
+## The triage
+
+Every record, its verdict and where what survives goes. The detail of each fold (the gist of each
+comment) is in the step-4 notes under `.tmp/documents/`; a record a plan in flight reads is
+trimmed, never deleted. A deleted record's `.json` and `.json.gz` companions go with it.
+
+**Kept or trimmed** (what stays):
+
+| Record | Stays |
+| --- | --- |
+| `reference/rising.md` | `#the-owners-target` only, about 15 lines: the falls, the conditions, the timing and the bar as `risingReport`'s gates |
+| `reference/the-table.md` | the command and `#each-cell` with its bodies (the Options-training plan's starting record) |
+| `reference/front-kicks.md` | `#execution-settings` and `#stomp-settings`, one line a setting |
+| `reference/human-strike-reference.md` | §1, 2, 3, 3a, 3b, 5, 6, 8, 9: the literature of the bars, torques, de Leva, stature |
+| `reference/reptile.md` | each body and setting the rat plan and code read, cut to what it is and what it is for |
+| `reference/wounds.md` | `#stiffness`, `#gaps`, `#shares`, `#the-fist`, `#mechanisms` (literature derivations) |
+| `reference/step-cost.md` | the harness, the scripts that exist, `#allocation-ceilings` |
+| `art/assets.md`, `characters.md`, `crypt.md`, `menu.md`, `rat.md`, `reptile.md`, `skeleton.md` | source and licence, rebuild steps, what the file holds |
+| `vendor/rapier/README.md`, `vendor/quadprog/README.md`, `assets/forge/README.md` | provenance and rebuild; Rapier's takes the archive hash and toolchain from `rapier-vendor.md` |
+| `research/README.md`, `research/physics-bakeoff/REPORT.md` | what each study is for and its answer |
+
+**Folded into the architecture**: `command-delay` (One world step); `assist`, `striking-effectors`
+(Motor control); `contact-friction`, `equipment-grips`, `solver-contract`, `toes`,
+`body-and-engine` (Build and engine); `competencies` (Spec and provenance: physiques);
+`real-functions` (Arithmetic); `down-timing`, `reptile-bites` (Rules and wounds); `held-blows`,
+`learned-punch`, `locomotion` (Skills); `play` (The screens, and its constants' comments); and
+from `rising.md`, the staged riser, Stand up's edges and routes, and the Rise drill; from
+`look.md`, the sound rules and the arena's colliders.
+
+**Folded into comments** (the code the record explains): `active-quadratic`, `arena-items`,
+`blows`, `collision-ccd`, `combat-defense`, `combat-locomotion`, `combat-strikes`,
+`combat-turn-startup`, `combat-uppercut`, `constraint-mass`, `contact-motion`,
+`contact-projection`, `contact-step`, `coupled-dynamics`, `hand-poses`, `man-anatomy` (into
+`scripts/core/hand-envelope.mjs`), `punch-body`, `punch-mass-audit`, `punch-stability`,
+`recovery-transfer`, `run-body`, `servo-and-muscle`, `stance-tuning`, `supported-root-pose`;
+`effort-precision`, `grip-clearance`, `joint-limits`, `rapier-vendor` (into
+`vendor/rapier/README.md`); `art/robots` (into `src/render/robot-skin.ts`); and the rest of
+`rising.md`, section by section, into `src/core/recovery/rise/`.
+
+**Deleted**: `look.md` and, in `reference/`, `arena-combat-evaluation`, `art-delivery`,
+`bar-posture`, `baseline`, `bouts`, `centre-control`, `combat-arm-style`, `combat-overlap`,
+`combat-range-learning`, `contact-curvature`, `contact-liftoff`, `control-foundation`,
+`crypt-foe`, `ground-combat`, `human-and-strikes`, `joint-acceleration`, `joint-stop-tracking`,
+`lab`, `man-passive-toes`, `man-postures`, `man-punch`, `motion-tracking`, `moving-strike`,
+`native-posture-control`, `option-skeleton-combat`, `oracle`, `planar-support`, `point-defense`,
+`point-strike`, `posture-hold`, `posture-limit-models`, `postures`, `punch-calibration`,
+`punch-foundation`, `recovery-cycle`, `shared-strike`, `shared-withdrawal`, `skill-records`,
+`standing-bar`, `support-entry`, `support-transition`, `sword-and-buckler`,
+`trained-attack-force`, `whole-body-spike`; `art/arena.md`; the READMEs of
+`public/assets/character-lab/`, `humanoid/` and `skeleton/`; the creature-art analysis
+(decided: the rat is built); both `docs/diagrams/` pages (they show the skill-deck design the
+Options replaced). A study's one-line answer goes to `research/README.md` where a script remains.
