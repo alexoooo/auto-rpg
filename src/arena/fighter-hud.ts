@@ -10,6 +10,11 @@ function damageColour(remaining: number): string {
   return `rgb(${from.map((value, i) => Math.round(value + (to[i]! - value) * amount)).join(" ")})`;
 }
 
+/** What a part's line says: off, its limb crippled, or what is left of its limb's bar or of the body's life. */
+function partText(label: string, part: FighterReading["parts"][number]): string {
+  return `${label}: ${!part.attached ? "severed" : part.crippled ? "crippled" : `${Math.round(part.remaining * 100)}% ${part.limb === null ? "life" : "limb"}`}`;
+}
+
 /** One fighter's diagram and feed own DOM only: what they show is read where the bout steps (`fighterReading`). */
 export function fighterHud(side: string) {
   const element = document.createElement("section"), damage = document.createElement("div"), feed = document.createElement("ol");
@@ -39,7 +44,7 @@ export function fighterHud(side: string) {
   const labelOf = (name: string) => parts?.find(part => part.name === name)?.label ?? name;
   const describe = () => {
     const part = reading?.parts.find(part => part.name === (selected ?? pinned));
-    const text = part ? `${labelOf(part.name)}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}` : description;
+    const text = part ? partText(labelOf(part.name), part) : description;
     if (caption.textContent !== text) caption.textContent = text;
   };
   return { element, reset,
@@ -70,19 +75,25 @@ export function fighterHud(side: string) {
       if (!parts) return;
       reading = next;
       unavailable.hidden = next.reports;
-      let damaged = 0, missing = 0;
+      const crippled = new Set<string>(), severed = new Set<string>();
+      let wounded = false;
       for (const part of reading.parts) {
-        if (!part.attached) missing++; else if (part.remaining < 1) damaged++;
-        const node = nodes.get(part.name)!, flash = part.flashUntil > time, signature = `${part.remaining}/${part.attached}/${flash}`;
+        if (part.limb !== null && !part.attached) severed.add(part.limb); else if (part.limb !== null && part.crippled) crippled.add(part.limb);
+        wounded ||= part.remaining < 1;
+        const node = nodes.get(part.name)!, flash = part.flashUntil > time, signature = `${part.remaining}/${part.attached}/${part.crippled}/${flash}`;
         if (signature === node.previous) continue;
         node.previous = signature;
-        const text = `${labelOf(part.name)}: ${part.attached ? `${Math.round(part.remaining * 100)}% health` : "Severed"}`;
+        const text = partText(labelOf(part.name), part);
         node.path.setAttribute("fill", damageColour(part.remaining)); node.path.setAttribute("aria-label", text);
         node.path.dataset.remaining = part.remaining.toFixed(4); node.path.dataset.attached = String(part.attached);
-        node.path.classList.toggle("is-missing", !part.attached); node.path.classList.toggle("is-flashing", flash);
+        node.path.classList.toggle("is-missing", !part.attached); node.path.classList.toggle("is-crippled", part.attached && part.crippled);
+        node.path.classList.toggle("is-flashing", flash);
         node.text.textContent = text;
       }
-      description = damaged || missing ? [damaged ? `${damaged} damaged` : "", missing ? `${missing} missing` : ""].filter(Boolean).join(" · ") : "No damage";
+      for (const limb of severed) crippled.delete(limb);
+      description = crippled.size || severed.size
+        ? [crippled.size ? `${crippled.size} crippled` : "", severed.size ? `${severed.size} severed` : ""].filter(Boolean).join(" · ")
+        : wounded ? "Wounded" : "No damage";
       describe();
       const visible = next.feed, keys = new Set(visible.map(entry => entry.key));
       for (const [key, node] of entries) if (!keys.has(key)) { node.remove(); entries.delete(key); }

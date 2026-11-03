@@ -62,7 +62,7 @@ interface BlowSide {
   readonly kg: number;
   /** The compliance share of the two surfaces, 0 to 1; load injury uses impulse directly. */
   readonly share: number;
-  /** Hit points requested from this physical cause of injury. */
+  /** Hit points requested from this physical cause of injury, before the struck part's cost in life (`lifeTaken`). */
   readonly damage: number;
   /** What it did to this side's pool; null where no wound is requested. */
   readonly wound: Wound | null;
@@ -86,6 +86,9 @@ export type LandedBlow = ContactInjury & (
 
 /** Whether `blow` wounded nobody: neither side took a share. */
 export const isClash = (blow: LandedBlow): boolean => blow.sides.every((side) => side.share === 0);
+
+/** The life `side` of a blow lost to it, HP (`Wound.life`): none where it took no wound. */
+export const lifeTaken = (side: Pick<BlowSide, "wound">): number => side.wound?.life ?? 0;
 
 /** The sides `blow` wounded. */
 export const woundedIn = (blow: LandedBlow): readonly (BlowSide & { readonly wound: Wound })[] =>
@@ -202,10 +205,10 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
       const spared = surfaces[k].item === null && opposing.item === null && limbs.get(part.body)!.has(name) ? rules.fist.value : 0;
       // A point wounds a body's own surface by its depth (held) or its press (anatomical, `readLoads`); it meets an item blunt.
       const met = mechanisms[k === 0 ? 1 : 0], held = met === "point" && opposing.item !== null && surfaces[k].item === null;
-      const pierce = held && share > 0 ? pointWound(rules, share * energy, opposing.directed!.depth!, thickness.get(part.body)!.get(name)!, part.body.pool.max(name)) : null;
+      const pierce = held && share > 0 ? pointWound(rules, share * energy, opposing.directed!.depth!, thickness.get(part.body)!.get(name)!, part.body.pool.total) : null;
       const mechanism: Mechanism = met === "point" ? (opposing.item === null || pierce?.kind === "pierced" ? "point" : "blunt") : met;
       const damage = mechanism === "point" ? pierce?.damage ?? 0 : pierce?.damage ?? sideDamage(rules, mechanism, energy, share, spared);
-      const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false, ...(mechanism === "point" ? { contained: true as const } : {}) }) : null;
+      const wound = share > 0 ? part.body.pool.wound({ part: name, damage, mechanism }) : null;
       return { fighter: part.body.id, segment: name, item: surfaces[k].item, ...(surfaces[k].region ? { region: surfaces[k].region } : {}),
         ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage, wound };
     };
@@ -247,7 +250,7 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
         const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => ({ fighter: part.body.id, segment: part.segment.spec.name,
           item: surfaces[k]!.item, ...(surfaces[k]!.region ? { region: surfaces[k]!.region } : {}),
           ...(impulses[k] > 0 ? { mechanism: "point" as const } : {}), kg: part.segment.rigid.mass, share: shares[k]!, damage: damage[k]!,
-          wound: damage[k]! > 0 ? part.body.pool.wound({ part: part.segment.spec.name, damage: damage[k]!, clean: false }) : null });
+          wound: damage[k]! > 0 ? part.body.pool.wound({ part: part.segment.spec.name, damage: damage[k]!, mechanism: "point" }) : null });
         publish({ kind: "load", time: world.time, point: pair.point, normal: pair.normal, impulse: impulses, seconds: world.dt,
           sides: [side(first, 0), side(second, 1)] });
       }

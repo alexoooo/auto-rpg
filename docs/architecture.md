@@ -981,7 +981,8 @@ the body reads the ground while no stance is asked (`BodyView.ground`).
   less its own the blows it takes take beyond the blow coming, measured where a profile prices the
   blow (the rules' damage of each contact the drill recorded) and its prior from the fight's
   rules where none does (`blowLife`: the blow's energy, the struck face's share of it and the
-  rules' `sideDamage`, over the struck body's hit points; the rules reach the mind as
+  rules' `sideDamage` at the struck segment's cost in life, `lifeFactor`, over the struck body's
+  hit points; the rules reach the mind as
   `BodyHost.rules`); the orders at the person's `OBEDIENCE`, the one weight: a metre walked as
   ordered, and a named foe's life worth more; the position where it leaves the body less the
   position now (`placeWorth`), a fall's chance there at what lying there costs (`downCostAt` of the posture the place names, else `downCost`, a fall onto the back: the blows of
@@ -1691,7 +1692,7 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
   by its strongest loaded shape pair and paid once.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs in
   series, the softer takes more. An item with no stated surface is rigid and takes none; two rigid
-  items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare hand or
+  items meeting are a clash (`isClash`). What it costs is the pool's rule, but a bare hand or
   foot on flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
 - **Damage** (`rulebook.ts`): a blunt blow, an edge or an axe's is its side's share of the energy
   times the mechanism's worth, 100 J of blunt blow per HP. A surface's `directed` edge, met square,
@@ -1699,14 +1700,20 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 - **A point wounds by its depth** (`pointWound`): a held point met square on a body's own surface
   breaches the layers over every part (`Rulebook.layers`, the skin today) and goes in against the
   tissue's `resistance` as deep as the energy left drives it, no deeper than its own `depth`; it
-  takes the part's hit points in proportion to that depth over the part's thickness (its collider's
-  least width, `partThickness`, `pool.ts`). One that breaches no layer meets as blunt, as does a
+  does `Rulebook.through` of the body's full life in proportion to that depth over the part's
+  thickness (its collider's least width, `partThickness`, `pool.ts`), then wounds as any blow. One that breaches no layer meets as blunt, as does a
   point meeting an item. Anatomical points wound by sustained load instead (`pointLoad`,
   `pointsInto`). Worn armour would be more layers.
-- **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section.
-  Excess spreads to neighbours; an emptied part may come off (never the trunk). A point's wound is
-  contained: it stays in its part and never takes it off. A body is out when its pool is empty or
-  a vital part is emptied or off (`BodySpec.wounds`).
+- **Wounds** (`pool.ts`): one life bar per body, its hit points, and a bar on each limb. Every
+  segment is in one group (`woundGroups`, `WoundSpec`): vital (a head), a limb (`LimbSpec`: an
+  arm, a leg) or the trunk. A blow takes its damage from life times its group's factor
+  (`Rulebook.life`: vital 2, trunk 1, limb 0.5, `lifeFactor`), and on a limb its whole damage
+  from the limb's bar, a share of full life; an empty bar cripples the limb. An edge or axe blow
+  worth `Rulebook.severBlow` of the bar that empties it takes the limb off from the struck segment
+  out, and a lethal one on a vital part takes that off; a cut costs `Rulebook.severLoss` of full
+  life. A body is out when its life is spent (`slain`), a vital part comes off (`beheaded`) or a
+  limb whose loss is `out` (a leg) comes off (`maimed`). A blow's record keeps its damage
+  (`BlowSide.damage`) and what the pool did (`Wound`, `lifeTaken`).
 - **Balance** (`AttributeSpec.balance`): a per cent of the body's weight, the most force its assist
   gives, with the moment `Rulebook.balance` gives each per cent (`balanceCeiling`). A fight sets each
   ceiling from the character and withdraws it when the body is out. The stance steps for a push only

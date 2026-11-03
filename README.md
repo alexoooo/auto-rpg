@@ -35,9 +35,11 @@ The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and 
 
 Pick a character for each side (Warrior, Rogue, Skeleton, Reptile or Rat) and press **Fight**. You
 watch, or take a side under **Play as**: your side then does what you order and nothing else.
-A side is out when its wounds end it or its health runs out. From the first minute each side
-loses a sixtieth of its full health a second, so every bout ends by two minutes; a fall ends
-nothing, and a fallen fighter tries to rise.
+Each side has one life bar, and the body diagram shows a bar on each limb: a blow on the head
+costs twice its damage, on the trunk its damage, on a limb half, and an emptied limb is crippled.
+A heavy cut takes a crippled limb off. A side is out when its life is spent, its head comes off or
+it loses a leg. From the first minute each side loses a sixtieth of its full life a second, so
+every bout ends by two minutes; a fall ends nothing, and a fallen fighter tries to rise.
 
 | Panel | Chooses |
 | --- | --- |

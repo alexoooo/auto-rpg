@@ -12,17 +12,18 @@
  * bout is not a rate; the totals are read over all of them.
  *
  * - `--held` is what both sides' right hands hold (`HELD`): the club unless given.
- * - `--never-off` plays under a sever margin no blow reaches: a blunt blow empties a part and
- *   never takes it off.
+ * - `--never-off` plays under a sever blow no cut reaches: a cut cripples a limb and never takes
+ *   it off.
  * - `--hand` plays with both hands' surfaces that many times as stiff, on both sides.
  * - `--unit` plays with that many joules of blunt blow a hit point, in place of the rulebook's.
  * - `--floors` adds, for each floor in joules, what the blows under it were: how many, and the
- *   hit points they took. It is read from the blows that landed, not played again: a bout that a
+ *   life they took. It is read from the blows that landed, not played again: a bout that a
  *   fall or the clock decided is the same bout under a floor, less those blows; one a pool's
  *   ending decided would have gone on, and is counted apart.
  */
 import { parseArgs } from "node:util";
 import { HELD } from "../src/core/items/held.ts";
+import { lifeTaken } from "../src/core/rules/blows.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { BOUT_HARNESS } from "./bout.mjs";
@@ -38,7 +39,7 @@ if (!HELD.includes(values.held)) throw new Error(`--held is one of ${HELD.join("
 const experiment = {
   ...(values.held !== "club" ? { loadouts: { left: { left: "empty", right: values.held }, right: { left: "empty", right: values.held } } } : {}),
   ...(values["never-off"] || values.unit ? { rules: {
-    ...(values["never-off"] ? { severMargin: sourced(1e9, "1", "owner-hp-pool", "an experiment's: no blow goes this far past empty") } : {}),
+    ...(values["never-off"] ? { severBlow: sourced(1e9, "1", "owner-life", "an experiment's: no cut is worth this many bars") } : {}),
     ...(values.unit ? { unit: sourced(Number(values.unit), "J/HP", "owner-damage-unit", "an experiment's") } : {}),
   } } : {}),
   ...(values.hand ? { surfaces: { "hand.left": Number(values.hand), "hand.right": Number(values.hand) } } : {}),
@@ -51,7 +52,7 @@ const started = Date.now();
 const rows = await playBouts(jobs, Number(values.workers ?? defaultLanes()));
 console.log(`${BOUT_HARNESS}; each side's balance its character's; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 console.log(`Each right hand holds: ${values.held}.`);
-if (values["never-off"]) console.log("No blow takes a part off (the sever margin out of reach).");
+if (values["never-off"]) console.log("No cut takes a limb off (the sever blow out of reach).");
 if (values.hand) console.log(`Both hands' surfaces ${values.hand} times as stiff.`);
 if (values.unit) console.log(`A hit point is ${values.unit} J of blunt blow.`);
 console.log("\n| Left | Right | Gap, m | Winner | Ending | Seconds | Blows | Wounding | Clashes | Left bar | Right bar |");
@@ -86,7 +87,7 @@ console.log(`Bout time ${(60 * minutes).toFixed(0)} s; falls a minute ${(falls /
 console.log(`Ended before any wounding blow: ${rows.filter((row) => row.wounding === 0).length} of ${rows.length}.`);
 
 if (floors.length > 0) {
-  const hp = (blow) => blow.sides.reduce((sum, side) => sum + (side.wound?.taken.reduce((s, taken) => s + taken.hp, 0) ?? 0), 0);
+  const hp = (blow) => blow.sides.reduce((sum, side) => sum + lifeTaken(side), 0);
   const plain = (side) => side.item === null && !side.segment.startsWith("hand.");
   const all = rows.flatMap((row) => row.landed.map((blow) => ({ blow, row })));
   const total = all.reduce((sum, { blow }) => sum + hp(blow), 0);

@@ -83,7 +83,7 @@ export function swishStrength(speed: number): number {
 }
 
 /**
- * The cues for what `blow` took off (`Wound.severed`), one for each side it took something off:
+ * The cues for what `blow` took off (`Wound.cut`), one for each side it took something off:
  * debris, as loud as that side's share of the blow's energy makes it. The blow itself is a touch,
  * and is heard as one (`hearTouches`); each of these is of a pair of its own, so it plays beside
  * it.
@@ -91,7 +91,7 @@ export function swishStrength(speed: number): number {
 export function debrisCues(blow: LandedBlow): SoundCue[] {
   if (blow.kind === "load") return [];
   return woundedIn(blow).flatMap((side) => {
-    const cue = side.wound.severed.length ? impactCue(`${side.fighter}:debris`, "debris", side.share * blow.energy, { x: blow.point[0], z: blow.point[2] }) : null;
+    const cue = side.wound.cut.length ? impactCue(`${side.fighter}:debris`, "debris", side.share * blow.energy, { x: blow.point[0], z: blow.point[2] }) : null;
     return cue ? [cue] : [];
   });
 }

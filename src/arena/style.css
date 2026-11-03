@@ -105,6 +105,7 @@
 :where(#screen-root[data-screen="arena"]) .damage-diagram path { stroke: #a5b4be; stroke-width: .8; cursor: pointer; }
 :where(#screen-root[data-screen="arena"]) .damage-diagram text { fill: var(--dim); font: 9px var(--font); text-anchor: middle; }
 :where(#screen-root[data-screen="arena"]) .damage-diagram path.is-missing { fill: transparent; stroke: #ee7979; stroke-dasharray: 3 2; stroke-width: 1.4; }
+:where(#screen-root[data-screen="arena"]) .damage-diagram path.is-crippled { stroke: #e1a13f; stroke-dasharray: 1.5 1.5; stroke-width: 1.4; }
 :where(#screen-root[data-screen="arena"]) .damage-diagram path.is-flashing { stroke: #ffe1a3; stroke-width: 2.5; filter: brightness(1.6); }
 :where(#screen-root[data-screen="arena"]) .damage-diagram path:hover,
 :where(#screen-root[data-screen="arena"]) .damage-diagram path:focus-visible { outline: none; stroke: #fff; stroke-width: 2.5; }

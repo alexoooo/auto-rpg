@@ -1,97 +1,133 @@
-import type { BodySpec, ShapeSpec } from "../spec/body.ts";
-import { cbrt, square } from "../math/real.ts";
+import type { BodySpec, LimbSpec, ShapeSpec } from "../spec/body.ts";
 import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
-import type { Rulebook } from "./rulebook.ts";
+import type { Mechanism, Rulebook } from "./rulebook.ts";
 
 /**
- * **One pool of hit points per body** (the owner's decision, `owner-hp-pool` in
- * `src/core/sources.ts`), spread over its segments, which are its parts.
+ * **A body's life and its limbs** (the owner's decision, `owner-life` in `src/core/sources.ts`).
  *
- * - **A part's share** is its cross-section's (`owner-part-hp-split`): its mass to the
- *   two-thirds, over the sum of the same over the body, times the body's hit points
- *   (`partHitPoints`). The two-thirds power is the square of the cube root, which every
- *   JavaScript engine computes alike, where a power is each engine's own. For the Warrior's 6: head 0.45, upper trunk 0.78, thigh 0.72, forearm 0.17,
- *   hand 0.09.
- * - **A blow** lands on one part, which absorbs at most what it has left.
- * - **It takes the part off** if it empties it and was clean (the weapon's bar, which the scoring
- *   decides), or went on past empty by the rulebook's `severMargin` of the part's full hit
- *   points, whatever it was. A part the spec names `whole` never comes off. What comes off takes
- *   every part beyond it, and the hit points they hold leave the pool with them.
- * - **A contained wound** (a point's) stays in the struck part: what the part has not left is
- *   dropped, and the part stays on.
- * - **The excess walks the attached parts** from the struck part, nearest first and, at each
- *   part, inward before outward: its parent, then its children in the spec's order. Each absorbs
- *   what it has left, and an empty part passes the rest on. Only the struck part can come off.
- * - **The body dies** when a vital part (its head) comes off -- ending `severed` -- or when the
- *   attached parts hold nothing -- `exhausted` -- or when a vital part is emptied with hit points
- *   left elsewhere -- `fatal`. A blow that spends the whole pool empties the head with it, and
- *   reads `exhausted`, not `fatal`. The first ending stands.
+ * - **Life** is the body's hit points (`WoundSpec.hp`). A blow takes from it its damage times the
+ *   factor of the struck part's group (`Rulebook.life`): vital, trunk or limb (`woundGroups`).
+ * - **A limb's bar** is its share of full life (`LimbSpec.share`). A blow on the limb takes its
+ *   whole damage from the bar too; at 0 the limb is crippled, and further blows take only life.
+ * - **A cut takes a limb off**: an edge or axe blow worth at least `Rulebook.severBlow` of the
+ *   limb's full bar that leaves the bar at 0 takes off the struck segment and every one beyond it.
+ *   **A lethal cut beheads**: an edge or axe blow on a vital part not `whole` that spends life
+ *   takes it off the same way. Either costs `Rulebook.severLoss` of full life beside the blow. A
+ *   point never cuts, nor does a blunt blow; the trunk never comes off.
+ * - **The body is out** when a vital part comes off (`beheaded`), a limb whose loss is `out` loses
+ *   any of it (`maimed`), or its life is spent (`slain`). The first ending stands.
  *
- * The bar a page shows is the attached hit points over the parts' full ones, summed as the attached
- * are: a whole body's is 1 exactly, so two whole bodies are even.
+ * A segment cut off takes no more blows. The bar a page shows is life over full life.
  */
 
+/** How a body's fight ended by its wounds: life spent (`slain`), a vital part off (`beheaded`), a limb that ends the fight off (`maimed`). */
+export type Ending = "slain" | "beheaded" | "maimed";
+
+/** A segment's group: vital (and whether it never comes off), a limb, or the trunk. */
+export type WoundGroup =
+  | { readonly kind: "vital"; readonly whole: boolean }
+  | { readonly kind: "trunk" }
+  | { readonly kind: "limb"; readonly limb: LimbSpec };
+
+/** Each spec's groups, found once a spec (`woundGroups`). */
+const GROUPS = new WeakMap<BodySpec, ReadonlyMap<string, WoundGroup>>();
+
 /**
- * How a fight ends: a vital part emptied (`fatal`) or taken off (`severed`), the pool emptied
- * (`exhausted`), or the clock (`time`, the bout's to say).
+ * **Each segment of `spec` in its group** (`WoundSpec`). A spec is refused where a group names a
+ * segment it has not, a segment is in two groups, a `whole` part is not vital, a limb's share is
+ * not a share of life over 0, or a segment beyond one of a limb's is not in it.
  */
-export type Ending = "fatal" | "severed" | "exhausted" | "time";
+export function woundGroups(spec: BodySpec): ReadonlyMap<string, WoundGroup> {
+  const known = GROUPS.get(spec);
+  if (known) return known;
+  const { vital, whole, limbs } = spec.wounds, groups = new Map<string, WoundGroup>();
+  const refuse = (why: string): never => { throw new Error(`${spec.model}'s wounds: ${why}`); };
+  const place = (segment: string, group: WoundGroup) => {
+    if (!spec.segments.some((one) => one.name === segment)) refuse(`it has no segment ${segment}`);
+    if (groups.has(segment)) refuse(`${segment} is in two groups`);
+    groups.set(segment, group);
+  };
+  for (const name of whole) if (!vital.includes(name)) refuse(`${name} is whole and not vital`);
+  for (const name of vital) place(name, Object.freeze({ kind: "vital", whole: whole.includes(name) }));
+  for (const limb of limbs) {
+    if (limb.share.unit !== "1" || !(limb.share.value > 0 && Number.isFinite(limb.share.value))) refuse(`${limb.name}'s share is no share of life over 0`);
+    const group = Object.freeze({ kind: "limb" as const, limb });
+    for (const segment of limb.segments) place(segment, group);
+  }
+  for (const segment of spec.segments) if (!groups.has(segment.name)) groups.set(segment.name, Object.freeze({ kind: "trunk" }));
+  for (const joint of spec.joints) {
+    const parent = groups.get(joint.parent)!;
+    if (parent.kind === "limb" && groups.get(joint.child) !== parent) refuse(`${joint.child} is beyond ${parent.limb.name} and not in it`);
+  }
+  GROUPS.set(spec, groups);
+  return groups;
+}
+
+/** **What a blow on `segment` of `spec` costs life** for each hit point of its damage (`Rulebook.life`). */
+export function lifeFactor(rules: Rulebook, spec: BodySpec, segment: string): number {
+  const group = woundGroups(spec).get(segment);
+  if (!group) throw new Error(`${spec.model} has no segment ${segment}`);
+  return rules.life[group.kind].value;
+}
 
 interface Blow {
   /** The segment struck. */
   readonly part: string;
   /** Hit points the blow does, in the rulebook's unit. */
   readonly damage: number;
-  /** Whether it clears its weapon's bar, so that it takes off a part it empties. */
-  readonly clean: boolean;
-  /** A wound that stays in the struck part (a point's, `pointWound`): it takes no more than the part has, never takes it off, and does not walk. */
-  readonly contained?: true;
+  /** How it wounds: only an edge or an axe cuts. */
+  readonly mechanism: Mechanism;
 }
 
 /** What one blow did. */
 export interface Wound {
-  /** Hit points each part lost to it, in the order the blow reached them. */
-  readonly taken: readonly { readonly part: string; readonly hp: number }[];
-  /** The part it took off, then every part that went with it; empty if none came off. */
-  readonly severed: readonly string[];
-  /** Hit points that left the pool with the parts it took off. */
-  readonly lost: number;
-  /** Damage left over with every attached part empty. */
-  readonly spent: number;
+  /** The life it took, HP: its damage at its part's factor, and a cut's loss, no more than the body had. */
+  readonly life: number;
+  /** The limb it struck and what it took from the limb's bar, HP; null for a part in no limb. */
+  readonly limb: { readonly name: string; readonly bar: number } | null;
+  /** Whether it emptied its limb's bar. */
+  readonly crippled: boolean;
+  /** The segments it took off, the struck one first; empty if none. */
+  readonly cut: readonly string[];
   /** How the fight ended, if it has; the first ending stands. */
   readonly ending: Ending | null;
 }
 
+/** A limb as its pool holds it: its bar and full bar, HP, whether the bar is empty, and whether any of it is off. */
+export interface LimbReading {
+  readonly bar: number;
+  readonly full: number;
+  readonly crippled: boolean;
+  readonly cut: boolean;
+}
+
 export interface Pool {
-  /** The body's hit points. */
+  /** The body's full life, HP. */
   readonly total: number;
-  max(part: string): number;
-  hp(part: string): number;
-  attached(part: string): boolean;
-  /** Hit points in the parts still attached. */
-  attachedHp(): number;
-  /** The attached hit points over every part's full ones: 1 whole, 0 spent. */
+  /** Its life, HP. */
+  life(): number;
+  /** Its life over its full life: 1 whole, 0 spent. */
   bar(): number;
+  /** The limb named `name` (`LimbSpec.name`). */
+  limb(name: string): LimbReading;
+  /** The name of the limb `segment` is in; null for a part in none. */
+  limbOf(segment: string): string | null;
+  /** Whether `segment` is on the body. */
+  attached(segment: string): boolean;
   ending(): Ending | null;
   wound(blow: Blow): Wound;
+  /** End the body's fight with its life spent, as a scripted death does. */
+  slay(): void;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
 }
 
-/** **What a pool remembers**: each part's hit points, the parts still attached, and how the fight ended, once it has. */
+/** **What a pool remembers**: the body's life, each limb's bar, the segments cut off, and how the fight ended, once it has. */
 interface PoolState {
-  readonly hp: Map<string, number>;
-  readonly attached: Set<string>;
+  life: number;
+  readonly bars: Map<string, number>;
+  readonly cut: Set<string>;
   ending: Ending | null;
-}
-
-/** Each segment's full hit points: its cross-section's share of the body's. */
-export function partHitPoints(spec: BodySpec): ReadonlyMap<string, Quantity<number>> {
-  const masses = spec.segments.map((segment) => segment.mass);
-  return new Map(spec.segments.map((segment) => [segment.name,
-    derive("HP", "a part's hit points: the body's, times its mass to the two-thirds over the sum of the same over the body",
-      [spec.wounds.hp, segment.mass, ...masses],
-      (hp, own, ...all) => hp * square(cbrt(own)) / all.reduce((sum, m) => sum + square(cbrt(m)), 0))]));
 }
 
 /** Power iterations that settle a 3 by 3 covariance's leading axis (`leastWidth`). */
@@ -152,89 +188,74 @@ export function partThickness(spec: BodySpec): ReadonlyMap<string, Quantity<numb
 
 /** A fresh pool for a body built from `spec`, under `rules`. */
 export function createPool(spec: BodySpec, rules: Rulebook): Pool {
-  const shares = partHitPoints(spec);
-  const names = spec.segments.map((segment) => segment.name);
-  const max = new Map([...shares].map(([name, q]) => [name, q.value]));
-  const state: PoolState = { hp: new Map(max), attached: new Set(names), ending: null };
-  const parent = new Map<string, string>(), children = new Map<string, string[]>(names.map((name) => [name, []]));
-  for (const joint of spec.joints) {
-    parent.set(joint.child, joint.parent);
-    children.get(joint.parent)!.push(joint.child);
-  }
-  const vital = spec.wounds.vital, whole = new Set(spec.wounds.whole);
-  for (const name of [...vital, ...whole]) if (!max.has(name)) throw new Error(`${spec.model} has no segment ${name} to wound`);
-  const total = spec.wounds.hp.value;
-  // Sums of the parts' shares differ from the total in the last bit; below this the pool is empty.
-  const empty = total * Number.EPSILON * names.length;
-  /** Every part's full hit points, summed as `attachedHp` sums: the total, but for its last bit. */
-  const full = names.reduce((sum, name) => sum + max.get(name)!, 0);
+  const groups = woundGroups(spec), total = spec.wounds.hp.value;
+  const children = new Map<string, string[]>(spec.segments.map((segment) => [segment.name, []]));
+  for (const joint of spec.joints) children.get(joint.parent)!.push(joint.child);
+  const limbs = new Map(spec.wounds.limbs.map((limb) => [limb.name, limb]));
+  const full = (limb: LimbSpec): number => limb.share.value * total;
+  const state: PoolState = { life: total, bars: new Map(spec.wounds.limbs.map((limb) => [limb.name, full(limb)])), cut: new Set(), ending: null };
 
-  const part = (name: string): string => {
-    if (!max.has(name)) throw new Error(`${spec.model} has no part ${name}`);
-    return name;
+  const groupOf = (segment: string): WoundGroup => {
+    const group = groups.get(segment);
+    if (!group) throw new Error(`${spec.model} has no part ${segment}`);
+    return group;
   };
-  const attachedHp = (): number => names.reduce((sum, name) => sum + (state.attached.has(name) ? state.hp.get(name)! : 0), 0);
-  /** `name` and every attached part beyond it, outward. */
-  const beyond = (name: string): string[] => [name, ...children.get(name)!.filter((c) => state.attached.has(c)).flatMap(beyond)];
-  /** The attached parts from `from` outward, nearest first; at each, its parent before its children. */
-  const walk = (from: string): string[] => {
-    const order: string[] = [], seen = new Set([from]), queue = [from];
-    while (queue.length) {
-      const at = queue.shift()!, up = parent.get(at);
-      for (const next of [...(up === undefined ? [] : [up]), ...children.get(at)!]) {
-        if (seen.has(next) || !state.attached.has(next)) continue;
-        seen.add(next);
-        order.push(next);
-        queue.push(next);
-      }
-    }
-    return order;
-  };
+  /** `segment` and every segment on the body beyond it, outward. */
+  const beyond = (segment: string): string[] => [segment, ...children.get(segment)!.filter((c) => !state.cut.has(c)).flatMap(beyond)];
   const judge = (): Ending | null => {
-    if (vital.some((name) => !state.attached.has(name))) return "severed";
-    if (attachedHp() <= empty) return "exhausted";
-    return vital.some((name) => state.hp.get(name)! <= empty) ? "fatal" : null;
+    if (spec.wounds.vital.some((name) => state.cut.has(name))) return "beheaded";
+    if (spec.wounds.limbs.some((limb) => limb.lost === "out" && limb.segments.some((name) => state.cut.has(name)))) return "maimed";
+    return state.life === 0 ? "slain" : null;
   };
 
   return {
     total, state,
-    max: (name) => max.get(part(name))!,
-    hp: (name) => state.hp.get(part(name))!,
-    attached: (name) => state.attached.has(part(name)),
-    attachedHp,
-    bar: () => attachedHp() / full,
+    life: () => state.life,
+    bar: () => state.life / total,
+    limb(name) {
+      const limb = limbs.get(name);
+      if (!limb) throw new Error(`${spec.model} has no limb ${name}`);
+      const bar = state.bars.get(name)!;
+      return { bar, full: full(limb), crippled: bar === 0, cut: limb.segments.some((segment) => state.cut.has(segment)) };
+    },
+    limbOf(segment) {
+      const group = groupOf(segment);
+      return group.kind === "limb" ? group.limb.name : null;
+    },
+    attached(segment) {
+      groupOf(segment);
+      return !state.cut.has(segment);
+    },
     ending: () => state.ending,
-    wound({ part: struck, damage, clean, contained }) {
-      part(struck);
-      if (!state.attached.has(struck) || !(damage > 0)) return { taken: [], severed: [], lost: 0, spent: 0, ending: state.ending };
-      const taken: { part: string; hp: number }[] = [];
-      const absorb = (name: string, arriving: number): number => {
-        // A part left holding no more than the pool's rounding is empty.
-        const has = state.hp.get(name)!, take = has - arriving <= empty ? has : arriving;
-        if (take > 0) {
-          state.hp.set(name, has - take);
-          taken.push({ part: name, hp: take });
+    wound({ part, damage, mechanism }) {
+      const group = groupOf(part);
+      if (state.cut.has(part) || !(damage > 0)) return { life: 0, limb: null, crippled: false, cut: [], ending: state.ending };
+      const had = state.life, cuts = mechanism === "edge" || mechanism === "axe", taken = damage * rules.life[group.kind].value;
+      let limb: Wound["limb"] = null, crippled = false, cut: string[] = [];
+      switch (group.kind) {
+        case "limb": {
+          const name = group.limb.name, before = state.bars.get(name)!, after = Math.max(0, before - damage);
+          state.bars.set(name, after);
+          limb = { name, bar: before - after };
+          crippled = before > 0 && after === 0;
+          if (cuts && after === 0 && damage >= rules.severBlow.value * full(group.limb)) cut = beyond(part);
+          break;
         }
-        return arriving - take;
-      };
-      const had = state.hp.get(struck)!;
-      let excess = absorb(struck, damage);
-      let severed: string[] = [], lost = 0;
-      const emptied = state.hp.get(struck)! <= empty;
-      if (contained) excess = 0;
-      else if (emptied && !whole.has(struck) && (clean || damage - had >= rules.severMargin.value * max.get(struck)!)) {
-        severed = beyond(struck);
-        for (const name of severed) {
-          lost += state.hp.get(name)!;
-          state.attached.delete(name);
-        }
+        case "vital":
+          if (cuts && !group.whole && taken >= had) cut = beyond(part);
+          break;
+        case "trunk":
+          break;
+        default: { const never: never = group; throw new Error(`no group ${JSON.stringify(never)}`); }
       }
-      for (const name of walk(struck)) {
-        if (!(excess > 0)) break;
-        excess = absorb(name, excess);
-      }
+      for (const segment of cut) state.cut.add(segment);
+      state.life = Math.max(0, had - taken - (cut.length ? rules.severLoss.value * total : 0));
       state.ending ??= judge();
-      return { taken, severed, lost, spent: Math.max(0, excess), ending: state.ending };
+      return { life: had - state.life, limb, crippled, cut, ending: state.ending };
+    },
+    slay() {
+      state.life = 0;
+      state.ending ??= "slain";
     },
   };
 }

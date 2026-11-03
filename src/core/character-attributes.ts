@@ -22,7 +22,7 @@ export const CHARACTER_ATTRIBUTES = deepFreeze({
   weight: { label: "Weight", unit: "×", step: .05, help: "Mass and breadth, with the same muscle strength and limb lengths." },
   strength: { label: "Strength", unit: "×", step: .05, help: "Peak torque of every muscle." },
   speed: { label: "Speed", unit: "×", step: .05, help: "Unloaded contraction speed of every muscle." },
-  hp: { label: "Hit points", unit: "HP", step: 1, help: "Total hit points distributed among body parts." },
+  hp: { label: "Hit points", unit: "HP", step: 1, help: "The life bar: a blow takes its damage from it, twice on the head, half on a limb." },
   balance: { label: "Balance", unit: "%", step: 5, help: "External stabilizing assistance as a percentage of body weight; 0 is unassisted." },
   haste: { label: "Haste", unit: "%", step: 10, help: "Increase in leg muscle speed; +50 makes them 1.5 times as fast." },
 } satisfies { readonly [K in AttributeName]: AttributeInfo });

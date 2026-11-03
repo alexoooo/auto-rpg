@@ -25,13 +25,19 @@ export type Mechanism = "blunt" | "edge" | "axe" | "point";
 export type Priced = Exclude<Mechanism, "point">;
 const PRICED: readonly Priced[] = Object.freeze(["blunt", "edge", "axe"]);
 
+/** The groups a body's segments are in (`WoundSpec`): vital, a limb, or the trunk. */
+export type PartGroup = "vital" | "trunk" | "limb";
+
 export interface Rulebook {
   readonly mode: Mode;
-  /**
-   * A part is taken off by a blow that empties it and goes on past empty by this share of its
-   * full hit points, whatever the blow; a clean blow takes it off at empty (`src/core/rules/pool.ts`).
-   */
-  readonly severMargin: Quantity<number>;
+  /** **What a blow costs the body's life**, by the struck part's group: the life it takes over its damage (`src/core/rules/pool.ts`). */
+  readonly life: Readonly<Record<PartGroup, Quantity<number>>>;
+  /** **A cut that takes off a limb**: an edge's or an axe's damage at least this share of the limb's full bar, with the bar left empty. */
+  readonly severBlow: Quantity<number>;
+  /** **What a cut costs**, a share of the body's full life, beside what the blow took. */
+  readonly severLoss: Quantity<number>;
+  /** **What a point through a part takes**, a share of the body's full life (`pointWound`), before the part's group's factor. */
+  readonly through: Quantity<number>;
   /**
    * **The damage unit**: the energy of a blunt blow worth one hit point, joules. It is a round
    * number, the owner's (`owner-damage-unit`); the Warrior's strongest one-handed blow with the
@@ -100,7 +106,14 @@ export const CLUB_BEST = sourced(138.23, "J", "core-club-unit", "the best blow a
 const KNUCKLE_INJURY = sourced(3.0, "kN", "carpanen-2019", "abstract, the metacarpophalangeal joints' axial force at 50 % risk");
 
 const RULES: Omit<Rulebook, "mode"> = Object.freeze({
-  severMargin: sourced(0.5, "1", "owner-hp-pool", "a part severs half its hit points past empty"),
+  life: Object.freeze({
+    vital: sourced(2, "1", "owner-life", "a blow on a vital part takes twice its damage from life"),
+    trunk: sourced(1, "1", "owner-life", "a blow on the trunk takes its damage from life"),
+    limb: sourced(0.5, "1", "owner-life", "a blow on a limb takes half its damage from life"),
+  }),
+  severBlow: sourced(0.5, "1", "owner-life", "a cut worth half a limb's bar that empties it takes the limb off"),
+  severLoss: sourced(0.15, "1", "owner-life", "a cut costs 0.15 of full life"),
+  through: sourced(0.25, "1", "owner-life", "a point through a part takes a quarter of full life"),
   unit: sourced(100, "J/HP", "owner-damage-unit", "one hit point is 100 J of blunt blow"),
   fist: derive("J", "the energy a hand stores loaded to a knuckle's injury, F^2 / 2k on the hand's stiffness, all of it the threshold",
     [si(KNUCKLE_INJURY), si(CONTACT_STIFFNESS.hand), sourced(1, "1", "owner-fist-threshold", "the whole of it")],
@@ -153,14 +166,15 @@ export function sideDamage(rules: Rulebook, mechanism: Priced, energy: number, s
  * **How deep a point goes and what it wounds** (`owner-point-depth`): its side's share of the
  * blow, `energy` J, breaches the layers (`Rulebook.layers`) in turn; past them it goes in against
  * the tissue's resistance (`Rulebook.resistance`) as deep as the energy left drives it, no deeper
- * than the point's own `length`, m, and takes the struck part's full hit points `hp` in proportion
- * to that depth over the part's `thickness`, m, all of them for a point through. Stopped by a
- * layer, it meets as blunt with the energy that reached it (`blowDamage`).
+ * than the point's own `length`, m, and does the rules' share (`Rulebook.through`) of the body's
+ * full life `life`, HP, in proportion to that depth over the part's `thickness`, m, all of it for
+ * a point through. Stopped by a layer, it meets as blunt with the energy that reached it
+ * (`blowDamage`).
  */
-export function pointWound(rules: Rulebook, energy: number, length: number, thickness: number, hp: number):
+export function pointWound(rules: Rulebook, energy: number, length: number, thickness: number, life: number):
   { readonly kind: "pierced"; readonly depth: number; readonly damage: number } | { readonly kind: "stopped"; readonly layer: string; readonly damage: number } {
   if (!(energy >= 0) || !Number.isFinite(energy)) throw new Error(`a point's energy is a finite joules >= 0, not ${energy}`);
-  if (!(length > 0 && Number.isFinite(length) && thickness > 0 && Number.isFinite(thickness) && hp >= 0 && Number.isFinite(hp))) throw new Error("a point wound needs a positive length and thickness and finite hit points");
+  if (!(length > 0 && Number.isFinite(length) && thickness > 0 && Number.isFinite(thickness) && life >= 0 && Number.isFinite(life))) throw new Error("a point wound needs a positive length and thickness and a finite life");
   let left = energy;
   for (const layer of rules.layers) {
     const breach = layer.breach.point?.value ?? 0;
@@ -168,7 +182,7 @@ export function pointWound(rules: Rulebook, energy: number, length: number, thic
     left -= breach;
   }
   const depth = Math.min(length, left / rules.resistance.value);
-  return { kind: "pierced", depth, damage: hp * Math.min(1, depth / thickness) };
+  return { kind: "pierced", depth, damage: rules.through.value * life * Math.min(1, depth / thickness) };
 }
 
 /** Piercing injury, HP, from the interval's summed aligned normal impulse, N s. */

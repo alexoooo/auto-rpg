@@ -1,4 +1,5 @@
 import { impactEnergy } from "../rules/impact.ts";
+import { lifeFactor } from "../rules/pool.ts";
 import { sideDamage, type Rulebook } from "../rules/rulebook.ts";
 import { energyShares } from "../rules/share.ts";
 import { landed } from "../skills/framework/action-instances.ts";
@@ -139,13 +140,13 @@ function strikingStiffness(spec: BodySpec, limb: string): number | null {
  * effector's segment, `hand.left` or `foot.right`; `at` its head, its `marks.high`, unless named),
  * by `rules`: its energy closing at `closing` m/s into that segment (`blowEnergy`), the segment's
  * share of it by the two faces' stiffness (`energyShares`), priced blunt as the rules price a
- * side's damage (`sideDamage`), over the struck body's hit points. An edge or a point is priced as
- * its blunt impact, the limb's own model.
+ * side's damage (`sideDamage`) at the segment's cost in life (`lifeFactor`), over the struck body's
+ * full life. An edge or a point is priced as its blunt impact, the limb's own model.
  */
 export function blowLife(rules: Rulebook, striker: BodySpec, limb: string, struck: BodySpec, closing = BLOW_SPEED, at = struck.marks.high): number {
   const face = segmentOf(struck, at)?.surface?.stiffness.value ?? null;
   const share = energyShares([strikingStiffness(striker, limb), face])[1]!;
-  return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) / struck.wounds.hp.value;
+  return sideDamage(rules, "blunt", blowEnergy(striker, limb, struck, at, closing), share, 0) * lifeFactor(rules, struck, at) / struck.wounds.hp.value;
 }
 
 /** What an action is taken to do before its body has a record of it, the owner's decision: land this share of its blows, each running this long, s; worth `weight` records. */

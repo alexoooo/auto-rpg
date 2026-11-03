@@ -2,7 +2,7 @@ import { commandsBody } from "../core/body.ts";
 import type { Combatant } from "../core/combatant.ts";
 import { phaseLabels } from "../entrants/game.ts";
 import type { PhysicalBody } from "../core/physical-body.ts";
-import type { Pool } from "../core/rules/pool.ts";
+import { woundedIn, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { ActionStatus, Ended } from "../core/skills/framework/action.ts";
 import { blocked, cleanMiss, landed } from "../core/skills/framework/action-instances.ts";
@@ -64,15 +64,28 @@ export function damageDiagram(spec: BodySpec): readonly { readonly name: string;
   });
 }
 
-/** Current damage, keyed by the pool's actual segments. */
-function damageReadout(spec: BodySpec, pool: Pool) {
-  const parts = damageDiagram(spec).map(({ name }) => ({ name, remaining: 1, attached: true, flashUntil: -Infinity, hp: pool.hp(name) }));
+/**
+ * **Each part of `fighter` as its diagram shades it**: a limb's parts by the limb's bar, every
+ * other part by the body's life (`Pool`); a part flashes when a blow of `blows` wounds it or
+ * takes it off.
+ */
+function damageReadout(fighter: Fighter, blows: () => readonly LandedBlow[]) {
+  const { pool } = fighter;
+  const parts = damageDiagram(fighter.built.spec).map(({ name }) => ({ name, limb: pool.limbOf(name), remaining: 1, attached: true, crippled: false, flashUntil: -Infinity }));
+  const byName = new Map(parts.map((part) => [part.name, part]));
+  let read = 0;
   return { parts, sample(time: number): void {
+    const landed = blows();
+    read = Math.min(read, landed.length);
+    for (; read < landed.length; read++) for (const side of woundedIn(landed[read]!)) {
+      if (side.fighter === fighter.id && side.wound.life > 0) for (const name of [side.segment, ...side.wound.cut]) byName.get(name)!.flashUntil = time + .6;
+    }
+    const life = pool.bar();
     for (const part of parts) {
-      const hp = pool.hp(part.name), attached = pool.attached(part.name);
-      if (hp < part.hp || part.attached && !attached) part.flashUntil = time + .6;
-      part.hp = hp; part.attached = attached;
-      part.remaining = Math.max(0, Math.min(1, hp / pool.max(part.name)));
+      const limb = part.limb === null ? null : pool.limb(part.limb);
+      part.remaining = limb ? limb.bar / limb.full : life;
+      part.attached = pool.attached(part.name);
+      part.crippled = limb?.crippled ?? false;
     }
   } };
 }
@@ -180,14 +193,15 @@ type FeedLine = ReturnType<ReturnType<typeof actionFeed>["read"]>[number];
  * actions; and whether its mind reports them at all.
  */
 export interface FighterReading {
-  readonly parts: readonly { readonly name: string; readonly remaining: number; readonly attached: boolean; readonly flashUntil: number }[];
+  /** Each part: the limb it is in (null for none), what is left of that limb's bar or of the body's life, whether it is on, whether its limb is crippled, and until when it flashes. */
+  readonly parts: readonly { readonly name: string; readonly limb: string | null; readonly remaining: number; readonly attached: boolean; readonly crippled: boolean; readonly flashUntil: number }[];
   readonly feed: readonly FeedLine[];
   readonly reports: boolean;
 }
 
-/** `fighter`'s damage and recent actions, sampled after each step (`sample`) and read as its HUD shows them (`read`). */
-export function fighterReading(fighter: Combatant) {
-  const damage = damageReadout(fighter.built.spec, fighter.pool), history = actionFeed();
+/** `fighter`'s damage, by its pool and the blows of `blows`, and its recent actions, sampled after each step (`sample`) and read as its HUD shows them (`read`). */
+export function fighterReading(fighter: Combatant, blows: () => readonly LandedBlow[]) {
+  const damage = damageReadout(fighter, blows), history = actionFeed();
   history.label(phaseLabels(fighter.mind));
   return {
     /** Sample at `time`, the bout's s; the actions too unless `actions` is false. */
@@ -196,7 +210,7 @@ export function fighterReading(fighter: Combatant) {
       if (actions) history.sample(fighter.minded.report, fighter.body, time);
     },
     read(time: number): FighterReading {
-      return { parts: damage.parts.map(({ name, remaining, attached, flashUntil }) => ({ name, remaining, attached, flashUntil })),
+      return { parts: damage.parts.map((part) => ({ ...part })),
         feed: history.read(time), reports: !!fighter.minded.report };
     },
   };

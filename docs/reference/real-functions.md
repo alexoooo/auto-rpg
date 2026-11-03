@@ -34,10 +34,9 @@ fdlibm (`fdlibm` in `src/core/sources.ts`) is kept operation for operation in do
 two words read through a typed array; its notice heads the module. Every operation is one IEEE 754
 fixes, so each function returns the same double in every engine.
 
-- **No power.** A part's share of its body's hit points (`partHitPoints`, `src/core/rules/pool.ts`:
-  mass to the two-thirds) is the square of the mass's cube root. Node's `**` is its platform's
-  `pow`, from which a port of fdlibm's `e_pow.c` differed in 5.8 % of 2.4 million arguments; the
-  cube root can be had. 34 of the three models' 48 parts moved, by at most 4 units in the last place.
+- **No power.** A power is written from the exact functions: a ball's radius from its volume is
+  the cube root (`ballRadius`, `src/core/spec/geometry.ts`). Node's `**` is its platform's
+  `pow`, from which a port of fdlibm's `e_pow.c` differed in 5.8 % of 2.4 million arguments.
 - **Turns.** Babylon's `Quaternion.RotationAxis` and `Slerp` take the engine's sine and cosine; the
   core's `turnAboutToRef` and `turnBetweenToRef` are the same arithmetic on its own functions.
 - `tests/core-boundary.test.mjs` holds the line: under `src/core/` and in what the bout's and the

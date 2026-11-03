@@ -58,10 +58,16 @@
   ],
   "wounds": {
     "vital": [
-      "head"
+      "head",
+      "jaw"
     ],
-    "whole": [
-      "trunk"
+    "whole": [],
+    "limbs": [
+      { "name": "leg.front.left", "segments": ["upper.front.left", "lower.front.left", "paw.front.left"], "share": 0.2, "lost": "out" },
+      { "name": "leg.front.right", "segments": ["upper.front.right", "lower.front.right", "paw.front.right"], "share": 0.2, "lost": "out" },
+      { "name": "leg.hind.left", "segments": ["upper.hind.left", "lower.hind.left", "paw.hind.left"], "share": 0.2, "lost": "out" },
+      { "name": "leg.hind.right", "segments": ["upper.hind.right", "lower.hind.right", "paw.hind.right"], "share": 0.2, "lost": "out" },
+      { "name": "tail", "segments": ["tail.base", "tail.tip"], "share": 0.15, "lost": "fights on" }
     ]
   },
   "segments": [
