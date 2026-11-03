@@ -42,7 +42,7 @@ export interface Seen {
   readonly orders: Orders | null;
   readonly focus: BodySense | null;
   readonly blow: ReturnType<Threats["blowOf"]>;
-  /** A foe's weapon to ward off (`READINGS.ward`), read where a hand holds a covering face; null else. */
+  /** A foe's weapon to ward off, at the hand that holds it (`READINGS.ward`), read where a hand holds a covering face; null else. */
   readonly ward: Cover | null;
   readonly threats: Threats;
   readonly riseFrom: (posture: Position) => DownModel | null;
