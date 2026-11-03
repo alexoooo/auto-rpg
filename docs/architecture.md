@@ -478,16 +478,18 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
     `assets/core/<kind>.json`, written by `research/punch-export.mjs`), its steer laid out by
     `assets/core/<kind>.layout.json` (the punch's with the wrist), read at its face's striking
     point. A held face's arm is solved from its guard each step, and its chamber may lie behind the
-    shoulder (a negative `chamber`, the blow drawn back). A held face is not `fire`d
-    (`faceFault`): it reads the fist.
+    shoulder (a negative `chamber`, the blow drawn back). From its chamber through its drive the
+    wrist is a servo's (`faceAligner`, `face-aligner.ts`), turning the face onto the line from it
+    to the target, facing first. A held face is not `fire`d (`faceFault`): it reads the fist.
   - **Swung** (`swing.ts`, `swing-part.ts`, `SWINGS`): the sword's cut (`cut`, edge first) and the
     club's blow (`club-blow`, its head, blunt). Admitted where its window says (`strikeWindow`,
     `strike-window.ts`), it winds the trunk and the striking arm to its record's angles
     (`Swing.wound`), stands quiet there, then pushes each channel its schedule names flat out over
     its window (`TimedPush`, `timed-push.ts`, which the drive's schedule shares), and returns to the
-    guard. An edge's swing hands the wrist to a servo through the stroke (`edgeAligner`): each step
-    it asks the wrist the turn that brings the edge's facing onto the way the edge moves. Its settings are its body's record (`assets/core/<kind>.json`), searched on the Strike
-    drill (`research/swing-drill.mjs`).
+    guard. An edge's swing hands the wrist to the same servo through the stroke (`faceAligner`):
+    each step it asks the wrist the turn that brings the edge's facing onto the way the edge moves,
+    either edge leading. Its settings are its body's record (`assets/core/<kind>.json`), searched
+    on the Strike drill (`research/swing-drill.mjs`).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard/guard-part.ts`, a line in `GUARDS`, `skills/guard/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
