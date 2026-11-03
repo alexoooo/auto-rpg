@@ -93,11 +93,15 @@ defect.
   failing from a situation in the bout, and its price where no profile measures it, are the same
   for every Option.
 - **Where to walk.** An Option may name its sites: the spots it would begin from, if not where the
-  body stands (a strike's window; each side of a body lying, held as its own site; for holding,
-  the nearest spot out of the foe's reach). A walk is one Option a gait, meaning go to a place by
-  that gait; its places are the sites its mind's other Options name, and it knows nothing of them.
-  The chooser prices a walk to a site as the walk and the best Option on offer where it ends
-  (`lookingPast`), so the sequence is the chooser's.
+  body stands. An Option whose skill cannot begin from here and says where it could (its readiness
+  a window, `Readiness`'s `position`) names that window, and one shared rule makes a spot of a
+  window for every Option (`windowSpot`: in the window, facing the target, clear of a body lying,
+  each side of one held as its own site); an Option with no window names none. Holding, which
+  begins anywhere and costs less out of the foe's reach, names the nearest spot out of it. A walk
+  is one Option a gait, meaning go to a place by that gait; its places are the sites its mind's
+  other Options name, and it knows nothing of them. The chooser prices a walk to a site as the
+  walk and the best Option on offer where it ends (`lookingPast`), so the sequence is the
+  chooser's.
 
 ### One body contract for every family
 
@@ -184,9 +188,10 @@ Each piece lands on its own, in this order:
    reports; the bout's record of a way that failed (`recorded`) and the hand-set price of an
    unmeasured one (`BY_HAND`) become every Option's record and prior. `ground.ts` holds the ways
    up alone.
-5. **Where to walk.** Options name their sites; the walk kinds that build places from rules about
-   other Options (`WINDOWS_WALK`, `PRESSURE_WALK`, `windowPlace`, `outOfPressure`) go, their
-   geometry moved into the sites of the Options it serves; a walk is one Option a gait to the sites
+5. **Where to walk.** Options name their sites: the window their skill's readiness gives, made a
+   spot by the one shared rule (`windowSpot`), and holding the nearest spot out of the foe's reach.
+   The walk kinds that build places from rules about other Options (`WINDOWS_WALK`,
+   `PRESSURE_WALK`, `windowPlace`, `outOfPressure`) go; a walk is one Option a gait to the sites
    named. What a gait leaves unready is measured per gait and Option in its profile, and the walk's
    `readies` goes.
 6. **The rise as Options.** Each way up, and each of the ground's modes (brace, land, steady,
