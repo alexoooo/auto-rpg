@@ -14,8 +14,13 @@ import { hold, letGo, stillHeld, unheld, type Drift, type Held } from "../mind/h
 /** Braking begins one second before the centre would enter its window. */
 const RESPONSE = 1;
 
-/** **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance` left, m, in `RESPONSE`. */
-export const approachPace = (ceiling: number, distance: number): number => Math.min(Math.max(0, ceiling), distance / RESPONSE);
+/**
+ * **The pace of a walk into a window**, m/s: `ceiling`, braking to arrive as it closes the `distance`
+ * left, m, in `RESPONSE`, where the place it walks to moves along the way there at `drift` m/s (a
+ * foe coming on, less than 0), so that the two closing on each other close it in that time; none
+ * where the place comes on that fast itself.
+ */
+export const approachPace = (ceiling: number, distance: number, drift = 0): number => Math.max(0, Math.min(ceiling, distance / RESPONSE + drift));
 
 /**
  * A walk into a window on a body lying (`Window.on`): how far each foot's middle keeps from that
@@ -264,7 +269,8 @@ export function approachSpot(view: BodyView, spot: Spot, ceiling: number, face: 
 
 /**
  * Bring a pending target into its declared entry window without taking an action's controls: a
- * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`;
+ * place goal at the window's middle, under `ceiling` and no faster than it closes in `RESPONSE`,
+ * the body its target is on (`Window.on`) coming on as the senses show it (`approachPace`);
  * while that place is more than `travel` m off, the body faces its way there (`travelFacing`), and
  * turns to the target within it. On a body lying, the place is beside it and the walk goes round it
  * (`besideLying`), held in `kept` where given (`HeldBeside`). The walk counts as arrived `near` m
@@ -280,9 +286,12 @@ export function approachActionWindow(view: BodyView, window: Window, heading: nu
   if (!place) return { move: null, face: heading };
   const { offset: { x, z, face }, beside } = place, distance = hypot(x, z);
   if (withinActionWindow(view, window, heading) || distance === 0) return { move: null, face };
+  // The place moves with the body its target is on, as the senses show that body moving along the way there.
+  const on = window.on === undefined ? undefined : view.senses.others.find((other) => other.id === window.on);
+  const drift = on ? (on.velocity.x * x + on.velocity.z * z) / distance : 0;
   // Beside a body lying, its way round that body, which is not kept off as a fallen one (`MovementRequest`'s `by`).
   const movement: MovementRequest = beside ? { kind: "place", points: beside.route.map((point) => ({ x: point[0], z: point[2] })), near, by: beside.by }
     : placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, near);
   return { move: null, face, movement,
-    pace: approachPace(ceiling, distance), ...(distance > travel ? { travelFacing: true as const } : {}) };
+    pace: approachPace(ceiling, distance, drift), ...(distance > travel ? { travelFacing: true as const } : {}) };
 }
