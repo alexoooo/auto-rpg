@@ -50,6 +50,7 @@ import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { groundScenario } from "./ground-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { followBody, puppetBody, type Puppet } from "../render/puppet.ts";
 import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 
@@ -164,6 +165,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   interface Loaded {
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
+    /** The body as drawn, following the simulated one (`followBody`): everything on the page hangs on it. */
+    readonly puppet: Puppet; readonly follows: Hook;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
     /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
@@ -249,6 +252,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       current.skin?.dispose();
       current.view.dispose();
       current.held.dispose();
+      current.follows.dispose();
+      current.puppet.dispose();
       current.built.dispose();
     }
     current = null;
@@ -295,12 +300,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const actor = labActor(built, world, { mind, assist: balanceCeiling(balance, PERCENT) });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.mind?.skills ?? null, report: actor.mind?.report ?? null }), labStaging(to.scenario)));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
-    const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
+    const puppet = puppetBody(built.spec, scene), follows = followBody(puppet, built, world);
+    const view = drawBody(puppet, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(puppet, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);
     // A new body starts live: nothing of the last one's recording is shown.
-    const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
+    const run = scenario.start({ scene, actor, puppet, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
     const loaded: Loaded = {
-      built, view, held: heldView, skin: skinSlot(built, showView), appearance: null, run, rest, helped: actor.body.assist.on ? balance : null,
+      built, view, held: heldView, skin: skinSlot(puppet, showView), appearance: null, run, rest, puppet, follows, helped: actor.body.assist.on ? balance : null,
       hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: watchHas(world, actor.body, log),
       doing: watchSkills(world, actor.body, actor.mind.skills, log),
       sounds, logging, heardTo: -Infinity,
@@ -389,7 +395,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readout();
     scene.render();
     if (current) {
-      const pelvis = current.built.segments.get("lowerTrunk")!.node;
+      const pelvis = current.puppet.segments.get("lowerTrunk")!.node;
       rig.follow(pelvis.position, pelvis.rotationQuaternion!, current.rest, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     }
     audio.setView(camera.position, camera.target.subtract(camera.position));

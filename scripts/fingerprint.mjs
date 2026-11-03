@@ -72,13 +72,20 @@ import { losslessModelPath } from "./art/paths.mjs";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 const digestOf = (hash) => hash.digest("hex").slice(0, 16);
-/** `value` as JSON, a typed array written as a plain one and a vector as its three numbers. */
+/**
+ * A vector's or a quaternion's numbers, by its class's name, whichever library made it; anything
+ * else, undefined.
+ */
+const vectorNumbers = (v) => v?.constructor?.name === "Vector3" ? [v.x, v.y, v.z]
+  : v?.constructor?.name === "Quaternion" ? [v.x, v.y, v.z, v.w] : undefined;
+/** `value` as JSON, a typed array written as a plain one and a vector as its numbers. */
 const written = (value) => JSON.stringify(value,
-  (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : v instanceof Vector3 ? v.asArray() : v);
+  (_, v) => ArrayBuffer.isView(v) ? Array.from(v) : vectorNumbers(v) ?? v);
 
 /**
  * A digest of `value`, a saved state (`saveState`): every number to the bit, maps and records in
- * their own order, and an object met again written as the place it was first met.
+ * their own order, a vector or quaternion as its numbers (`vectorNumbers`), and an object met again
+ * written as the place it was first met.
  */
 function stateDigest(value) {
   const hash = createHash("sha256"), met = new Map();
@@ -89,7 +96,9 @@ function stateDigest(value) {
     }
     if (met.has(v)) { hash.update(`@${met.get(v)};`); return; }
     met.set(v, met.size);
-    if (ArrayBuffer.isView(v)) { hash.update(`${v.constructor.name}[`); hash.update(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)); hash.update("]"); }
+    const numbers = vectorNumbers(v);
+    if (numbers) { hash.update(`${v.constructor.name}[`); for (const n of numbers) put(n); hash.update("]"); }
+    else if (ArrayBuffer.isView(v)) { hash.update(`${v.constructor.name}[`); hash.update(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)); hash.update("]"); }
     else if (Array.isArray(v)) { hash.update("["); for (const item of v) put(item); hash.update("]"); }
     else if (v instanceof Map) { hash.update("M{"); for (const [key, item] of v) { put(key); put(item); } hash.update("}"); }
     else if (v instanceof Set) { hash.update("S{"); for (const item of v) put(item); hash.update("}"); }

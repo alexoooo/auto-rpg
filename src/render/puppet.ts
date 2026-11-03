@@ -3,6 +3,8 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { segmentShapes } from "../core/build/segment-shapes.ts";
 import type { ToesState } from "../core/build/toes.ts";
+import type { ReadBody } from "../core/read-body.ts";
+import type { Hook, World } from "../core/world.ts";
 import type { BodySpec, HandPose } from "../core/spec/body.ts";
 import type { DrawnBody, DrawnSegment } from "./drawn-body.ts";
 
@@ -45,4 +47,31 @@ export function puppetBody(spec: BodySpec, scene: Scene): Puppet {
     setEnabled(enabled) { for (const segment of segments.values()) segment.node.setEnabled(enabled); },
     dispose() { for (const segment of segments.values()) segment.node.dispose(false, false); },
   };
+}
+
+/**
+ * **`puppet` following `body`**, a body `world` steps on the page: each segment's pose, each hand's
+ * pose and each foot's toes, now and after every step until the hook is disposed. The page draws the
+ * puppet and never hangs anything on the simulated body; what it writes on the puppet (a past frame,
+ * `recordHistory`, `src/lab/history.ts`) the simulation never reads.
+ */
+export function followBody(puppet: Puppet, body: Pick<ReadBody, "segments">, world: Pick<World, "afterStep">): Hook {
+  const pairs = [...puppet.segments].map(([name, segment]) => {
+    const followed = body.segments.get(name);
+    if (!followed) throw new Error(`the puppet's segment ${name} is not the body's`);
+    return { segment, followed };
+  });
+  const pose = () => {
+    for (const { segment, followed } of pairs) {
+      const p = followed.node.position, q = followed.node.rotationQuaternion!;
+      segment.node.position.set(p.x, p.y, p.z);
+      segment.node.rotationQuaternion!.set(q.x, q.y, q.z, q.w);
+      if (segment.handPose && followed.handPose) {
+        segment.handPose.applied = followed.handPose.applied; segment.handPose.requested = followed.handPose.requested;
+      }
+      if (segment.toes && followed.toes) segment.toes.bend = followed.toes.bend;
+    }
+  };
+  pose();
+  return world.afterStep(pose);
 }

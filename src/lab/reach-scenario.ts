@@ -67,13 +67,13 @@ export function reachScenario(scene: Scene): LabScenario {
     panels: { readout: [shown, legend([MARKS.place, MARKS.centre])] },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses.`,
     mind(chosen) { played = chosen; return chosen; },
-    start({ actor, changed, clock }) {
+    start({ actor, puppet, changed, clock }) {
       const { world } = actor, body = actor.body, place = played ? placeOf(played) : null;
       const placeMark = place ? groundDisc(scene, "lab.reach.place", place.within, MARKS.place.colour, 0.5, 0.006) : null;
       if (placeMark && place) { placeMark.position.x = place.x; placeMark.position.z = place.z; placeMark.renderingGroupId = 1; }
       const mind = actor.drive();
       let reached: number | null = null;
-      const history = recordHistory(body.built, world, HISTORY_SECONDS, (): ReachMoment => {
+      const history = recordHistory(body.built, puppet, world, HISTORY_SECONDS, (): ReachMoment => {
         const stance = body.view.stance, centre = stance.centre;
         if (place && reached === null && hypot(place.x - centre.x, place.z - centre.z) <= place.within) reached = world.time;
         return { time: world.time, doing: mind.report.engagement?.phase ?? "—", down: body.down, centre: [centre.x, centre.z],

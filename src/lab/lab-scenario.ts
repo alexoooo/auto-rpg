@@ -3,6 +3,7 @@ import type { SoundCue } from "../audio/cues.ts";
 import type { buildBody, BuiltBody } from "../core/build/build-body.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Actor } from "./actor.ts";
+import type { Puppet } from "../render/puppet.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
@@ -50,6 +51,8 @@ interface ScenarioContext {
   readonly scene: Scene;
   /** A body built in the scenario's placement; the scenario supplies its orders or script (`Actor.drive`). */
   readonly actor: Actor;
+  /** The body as the page draws it, following it (`followBody`): where its history shows a past frame (`recordHistory`). */
+  readonly puppet: Puppet;
   /** The address the body was loaded from: what a scenario reads of its own in it. */
   readonly address: LabAddress;
   /** For the player: the transport shows its playhead. */

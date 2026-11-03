@@ -91,12 +91,12 @@ export function stanceScenario(scene: Scene): LabScenario {
       readout: [shown, legend([MARKS.centre, MARKS.capture, MARKS.place])],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, changed, clock, heard }) {
+    start({ actor, puppet, changed, clock, heard }) {
       const { world } = actor, { built } = actor.body;
       const shoved = shoveSound(built);
       const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at))), capture = new Vector3();
       const recovery = {start:null as number|null,seconds:0,active:false};
-      const history = recordHistory(built, world, HISTORY_SECONDS, (): StanceMoment => {
+      const history = recordHistory(built, puppet, world, HISTORY_SECONDS, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);
         const active=!commandsBody(actor.body);

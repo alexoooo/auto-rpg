@@ -44,13 +44,13 @@ export function attackScenario(scene: Scene): LabScenario {
       readout: [shown, { element: actionDetails.element, refresh() {} }, legend(Object.values(MARKS))],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds; dragging pauses. Click a target to attack it.`,
-    start({ actor, address, changed, clock, hears }) {
+    start({ actor, puppet, address, changed, clock, hears }) {
       const { world } = actor, { built } = actor.body;
       const attack = startAttack(actor, { seed: address.seed, count: address.targets, targetPart: address.targetPart, speed, wind, hears });
       current = attack;
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
       const hands = fighterHands({ minded: { body: actor.body } });
-      const history = recordHistory(built, world, HISTORY_SECONDS, () => ({ ...attack.frame(), closure: hands.snapshot() }));
+      const history = recordHistory(built, puppet, world, HISTORY_SECONDS, () => ({ ...attack.frame(), closure: hands.snapshot() }));
       const player = createPlayer({ world, recording: history }, changed, clock);
       const balls: { mesh: Mesh; material: StandardMaterial; id: string }[] = [];
       const pointer = scene.onPointerObservable.add((info) => {

@@ -1,15 +1,13 @@
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { World } from "../core/world.ts";
+import type { Puppet } from "../render/puppet.ts";
 
 /**
  * **The lab's history**: the last few seconds of a body, recorded a physics sub-step at a time, so
  * a paused page can show any moment of them again. It rolls, and records the segments'
  * transforms and whatever `read` returns after each step; showing a frame writes those transforms
- * onto the segments' nodes and nothing else.
- *
- * The solver's bodies are not rewound, so a shown frame is a picture. Before the world steps
- * again, the live frame goes back on the nodes (`show(live())`), because a joint reads its angles
- * from them.
+ * onto the body's puppet (`followBody`, `src/render/puppet.ts`), what the page draws, and nothing
+ * else. The simulated body is never written: a shown frame is a picture.
  */
 interface History<T> {
   /** Frames held now, 0 the oldest; it grows to the capacity and then rolls. */
@@ -25,10 +23,15 @@ interface History<T> {
   dispose(): void;
 }
 
-/** Record the last `seconds` of `built` in `world`, and what `read` says after each step. */
-export function recordHistory<T>(built: BuiltBody, world: World, seconds: number, read: () => T): History<T> {
+/** Record the last `seconds` of `built` in `world`, and what `read` says after each step; show a frame on `puppet`. */
+export function recordHistory<T>(built: BuiltBody, puppet: Puppet, world: World, seconds: number, read: () => T): History<T> {
   const capacity = Math.round(seconds / world.dt);
   const nodes = [...built.segments.values()].map((segment) => segment.node);
+  const shownNodes = [...built.segments.keys()].map((name) => {
+    const segment = puppet.segments.get(name);
+    if (!segment) throw new Error(`the puppet has no segment ${name}`);
+    return segment.node;
+  });
   const pose = new Float64Array(capacity * nodes.length * 7);
   const readings: T[] = new Array(capacity);
   let written = 0;
@@ -57,7 +60,7 @@ export function recordHistory<T>(built: BuiltBody, world: World, seconds: number
       if (held() === 0) return -1;
       const shown = Math.max(0, Math.min(held() - 1, Math.round(frame)));
       let k = slot(shown) * nodes.length * 7;
-      for (const node of nodes) {
+      for (const node of shownNodes) {
         node.position.set(pose[k]!, pose[k + 1]!, pose[k + 2]!);
         node.rotationQuaternion!.set(pose[k + 3]!, pose[k + 4]!, pose[k + 5]!, pose[k + 6]!);
         k += 7;

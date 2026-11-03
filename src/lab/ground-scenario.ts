@@ -15,6 +15,7 @@ import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { drawBody } from "../render/body-shapes.ts";
+import { followBody, puppetBody } from "../render/puppet.ts";
 import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
 import { GROUND_LEVELS } from "./ground-environment.ts";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -110,7 +111,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       readout: [meter, trail, attempts, phases],
     },
     timelineLabel: "The last 35 seconds, one physics step per notch.",
-    start({ actor, address: next, changed, clock, heard, hears }) {
+    start({ actor, puppet, address: next, changed, clock, heard, hears }) {
       address = next;
       const sound = shoveSound(actor.body.built);
       const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
@@ -134,9 +135,11 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         const mesh = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
         mesh.position.set(solid.centre[0], solid.centre[1], solid.centre[2]); mesh.rotation.y = solid.turn ?? 0; mesh.material = obstacleMaterial; obstacles.push(mesh); registrations.push(shell.profile.register("world", { setEnabled(on) { mesh.setEnabled(on); } }));
       }
-      const dummy = session.dummy ? drawBody(session.dummy.fighter.built, scene, new Color3(.75, .45, .25)) : null;
-      const history = recordHistory(actor.body.built, actor.world, 35, () => session.frame());
-      const foeHistory = session.dummy ? recordHistory(session.dummy.fighter.built, actor.world, 35, () => null) : null;
+      const foe = session.dummy ? session.dummy.fighter.built : null, foePuppet = foe ? puppetBody(foe.spec, scene) : null;
+      const foeFollows = foe && foePuppet ? followBody(foePuppet, foe, actor.world) : null;
+      const dummy = foePuppet ? drawBody(foePuppet, scene, new Color3(.75, .45, .25)) : null;
+      const history = recordHistory(actor.body.built, puppet, actor.world, 35, () => session.frame());
+      const foeHistory = foe && foePuppet ? recordHistory(foe, foePuppet, actor.world, 35, () => null) : null;
       const recording = { live: history.live, show(frame: number) { history.show(frame); foeHistory?.show(frame); } };
       const player = createPlayer({ world: actor.world, recording }, changed, clock);
       const run = {
@@ -161,7 +164,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           trail.refresh(); attempts.refresh(); phases.refresh();
           return shown.time;
         },
-        dispose() { closed = true; unregisterPhysical(); physical.dispose(); for (const unregister of registrations) unregister(); for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); session.dispose(); },
+        dispose() { closed = true; unregisterPhysical(); physical.dispose(); for (const unregister of registrations) unregister(); for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); foeFollows?.dispose(); foePuppet?.dispose(); session.dispose(); },
       };
       current = run;
       return run;

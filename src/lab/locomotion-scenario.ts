@@ -154,7 +154,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
     },
     mind: (mind) => legs === "mind" || !("locomotion" in mind) ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, changed, clock, address }) {
+    start({ actor, puppet, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;
       const size = sizes.get(chosen);
       if (painted?.id !== chosen || painted.size !== size) {
@@ -171,7 +171,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       const course = chosen === "random" ? commandsOf(size ?? COMMANDS_AREA, address.seed) : painted!.track!;
       const run = startLocomotion(actor, course, { top, facing: chosen === "random" ? undefined : TRACKS[chosen].facing, wind: { settings: wind, seed: address.seed } });
       current = run;
-      const history = recordHistory(built, world, HISTORY_SECONDS, (): RunMoment => {
+      const history = recordHistory(built, puppet, world, HISTORY_SECONDS, (): RunMoment => {
         const c = run.body.view.stance.centre;
         return { frame: run.frame(), centre: [c.x, c.z] };
       });
