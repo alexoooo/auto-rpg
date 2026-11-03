@@ -117,7 +117,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   (`?play=arena&matchup=crypt-skeleton,workshop-fighter&gap=4`,
   [body](art/skeleton.md#the-body-fitted-to-the-bones), [motors](art/skeleton.md#motors-not-muscles)):
   it goes down more often after contact, and folds onto its thighs crouched past 0.43 m.
-- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; no straight punch until one is tuned for its body, and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
+- The empty-handed Skeleton's Option Mind preset (`?play=arena&matchup=crypt-skeleton,crypt-skeleton&control=option,option`): its approach, cover and a stomp seeded from the Warrior's that lands on nothing yet; a straight punch that meets the foe but lands none at its bar ([the learned punch](reference/learned-punch.md)), and it rises by the game's Stand up on toes ([reading](reference/option-skeleton-combat.md)).
 - The Option Reptile against a Warrior and a Reptile
   (`?play=arena&matchup=reptile,workshop-fighter&control=option-reptile,option`,
   `?play=arena&matchup=reptile,reptile&control=option-reptile,option-reptile`), and the Walker reaching its
